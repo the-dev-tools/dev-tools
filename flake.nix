@@ -21,6 +21,9 @@
             # JS tools
             nodejs
             nodePackages.pnpm
+
+            # Other
+            go-task
           ];
         };
       };

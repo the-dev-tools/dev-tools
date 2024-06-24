@@ -2,11 +2,6 @@
   "name": "api-recorder",
   "version": "0.0.0",
   "author": "dev.tools",
-  "scripts": {
-    "dev": "plasmo dev",
-    "build": "plasmo build",
-    "package": "plasmo package"
-  },
   "dependencies": {
     "plasmo": "^0.88.0",
     "react": "^18.3.1",
