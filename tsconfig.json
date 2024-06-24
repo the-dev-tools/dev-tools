@@ -7,7 +7,7 @@
     "@tsconfig/strictest/tsconfig"
   ],
   "exclude": ["node_modules"],
-  "include": [".plasmo/index.d.ts", "./**/*.ts", "./**/*.tsx"],
+  "include": ["./**/*.js", "./**/*.mjs", "./**/*.ts", "./**/*.tsx", ".plasmo/index.d.ts"],
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"]

@@ -6,3 +6,6 @@ tasks:
   dev: pnpm plasmo dev
   build: pnpm plasmo build
   package: pnpm plasmo package
+  lint:
+    - pnpm prettier --check .
+    - pnpm eslint .
