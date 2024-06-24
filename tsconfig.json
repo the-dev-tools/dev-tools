@@ -1,5 +1,11 @@
+// https://www.typescriptlang.org/tsconfig
 {
-  "extends": "plasmo/templates/tsconfig.base",
+  "extends": [
+    // https://github.com/PlasmoHQ/plasmo/blob/main/cli/plasmo/templates/tsconfig.base.json
+    "plasmo/templates/tsconfig.base",
+    // https://github.com/tsconfig/bases/blob/main/bases/strictest.json
+    "@tsconfig/strictest/tsconfig"
+  ],
   "exclude": ["node_modules"],
   "include": [".plasmo/index.d.ts", "./**/*.ts", "./**/*.tsx"],
   "compilerOptions": {

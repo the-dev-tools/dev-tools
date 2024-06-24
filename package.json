@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
+    "@tsconfig/strictest": "^2.0.5",
     "@types/chrome": "^0.0.268",
     "@types/node": "^20.14.8",
     "@types/react": "^18.3.3",
