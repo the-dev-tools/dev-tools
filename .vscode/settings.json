@@ -1,3 +1,6 @@
 {
+  "nix.enableLanguageServer": true,
+  "nix.serverPath": "nixd",
+  "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
   "typescript.tsdk": "node_modules/typescript/lib"
 }

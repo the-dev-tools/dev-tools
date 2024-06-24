@@ -1,3 +1,4 @@
+.direnv
 .plasmo
 /node_modules
 build/
