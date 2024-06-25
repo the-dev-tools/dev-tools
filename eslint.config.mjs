@@ -63,6 +63,14 @@ const react = TS.config(
   JsxA11y.flatConfigs.recommended,
 );
 
+const rules = TS.config({
+  rules: {
+    '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
+    '@typescript-eslint/no-meaningless-void-operator': 'off',
+    'react/prop-types': 'off',
+  },
+});
+
 export default TS.config(
   gitignore,
   JS.configs.recommended,
@@ -72,4 +80,5 @@ export default TS.config(
   ...Tailwind.configs['flat/recommended'],
   ...commonjs,
   Prettier,
+  ...rules,
 );
