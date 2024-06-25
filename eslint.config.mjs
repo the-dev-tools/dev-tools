@@ -1,4 +1,5 @@
-import * as NodePath from 'node:path';
+import * as NodePath from 'path';
+import * as NodeUrl from 'url';
 import * as CompatUtils from '@eslint/compat';
 import { FlatCompat } from '@eslint/eslintrc';
 import JS from '@eslint/js';
@@ -11,12 +12,15 @@ import ReactRecommended from 'eslint-plugin-react/configs/recommended.js';
 import Tailwind from 'eslint-plugin-tailwindcss';
 import * as TS from 'typescript-eslint';
 
+const filename = NodeUrl.fileURLToPath(import.meta.url);
+const dirname = NodePath.dirname(filename);
+
 const compat = new FlatCompat({
-  baseDirectory: import.meta.dirname,
-  resolvePluginsRelativeTo: import.meta.dirname,
+  baseDirectory: dirname,
+  resolvePluginsRelativeTo: dirname,
 });
 
-const gitignore = CompatUtils.includeIgnoreFile(NodePath.resolve(import.meta.dirname, '.gitignore'));
+const gitignore = CompatUtils.includeIgnoreFile(NodePath.resolve(dirname, '.gitignore'));
 
 const commonjs = TS.config({
   files: ['postcss.config.js'],
@@ -28,7 +32,7 @@ const typescript = TS.config(
     languageOptions: {
       parserOptions: {
         project: true,
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: dirname,
       },
     },
   },
