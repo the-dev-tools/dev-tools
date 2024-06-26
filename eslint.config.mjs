@@ -67,6 +67,7 @@ const rules = TS.config({
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
     '@typescript-eslint/no-meaningless-void-operator': 'off',
+    '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     'react/prop-types': 'off',
   },
 });
