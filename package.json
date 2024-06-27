@@ -1,5 +1,6 @@
 {
   "name": "api-recorder",
+  "displayName": "API Recorder",
   "version": "0.0.0",
   "author": "dev.tools",
   "dependencies": {
