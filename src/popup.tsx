@@ -1,7 +1,10 @@
+import { Effect, Option } from 'effect';
 import * as React from 'react';
 
 import { useStorage } from '@plasmohq/storage/hook';
 
+import * as Recorder from '@/recorder';
+import { Runtime } from '@/runtime';
 import * as Storage from '@/storage';
 
 import './style.css';
@@ -10,27 +13,13 @@ const PopupPageNew = () => {
   const [selectedHostname, setSelectedHostname] = React.useState<null | string>(null);
   const [hostnameSearchTerm, setHostnameSearchTerm] = React.useState('');
 
-  const [recordingTabId, setRecordingTabId] = useStorage<number | null>(
-    { instance: Storage.Local, key: Storage.RECORDING_TAB_ID },
-    (_) => _ ?? null,
-  );
-
-  const [requests, setRequests] = useStorage<Storage.NetworkCall[]>(
+  const [requests] = useStorage<Storage.NetworkCall[]>(
     { instance: Storage.Local, key: Storage.RECORDED_CALLS },
     (_) => _ ?? [],
   );
 
-  const startRecording = async () => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const tabId = tabs[0]?.id;
-    if (!tabId) return;
-    await setRecordingTabId(tabId);
-  };
-
-  const stopRecording = async () => {
-    await setRecordingTabId(null);
-    await setRequests([]);
-  };
+  const hosts = Recorder.useHosts();
+  const tabId = Recorder.useTabId();
 
   const hostnames = Object.entries(
     requests.reduce<Record<string, number>>((result, value) => {
@@ -46,15 +35,18 @@ const PopupPageNew = () => {
     : hostnames;
 
   return (
-    <div className='h-[35rem] w-[50rem] divide-y divide-black'>
+    <div className='flex h-[35rem] w-[50rem] flex-col divide-y divide-black'>
       <div className='flex gap-2 p-2'>
         <h1 className='font-bold'>API Recorder</h1>
 
-        {recordingTabId === null ? (
-          <button onClick={() => void startRecording()}>Start</button>
-        ) : (
-          <button onClick={() => void stopRecording()}>Stop</button>
-        )}
+        {Option.match(tabId, {
+          onNone: () => (
+            <button onClick={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Start</button>
+          ),
+          onSome: () => (
+            <button onClick={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Stop</button>
+          ),
+        })}
 
         <input
           className='flex-1'
@@ -65,7 +57,13 @@ const PopupPageNew = () => {
         />
       </div>
 
-      <div className='flex h-full divide-x divide-black'>
+      <div className='p-2'>
+        {hosts.map((_, index) => (
+          <div key={(_.name ?? '') + index.toString()}>{_.name}</div>
+        ))}
+      </div>
+
+      <div className='flex min-h-0 flex-1 divide-x divide-black'>
         <div className='flex flex-1 flex-col items-start gap-2 overflow-y-auto p-2'>
           <h2 className='font-bold'>Hostnames</h2>
 

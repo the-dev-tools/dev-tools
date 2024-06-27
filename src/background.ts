@@ -1,5 +1,8 @@
 import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
+import { Effect, Option } from 'effect';
 
+import * as Recorder from '@/recorder';
+import { Runtime } from '@/runtime';
 import * as Storage from '@/storage';
 
 const sendDebuggerCommand = <Command extends keyof ProtocolMapping.Commands>(
@@ -17,22 +20,27 @@ const matchDebuggerEvent = <Method extends keyof ProtocolMapping.Events>(
   _params: unknown,
 ): _params is ProtocolMapping.Events[Method][0] => match === method;
 
-// Toggle debugger on/off depending on state
-Storage.Local.watch({
-  [Storage.RECORDING_TAB_ID]: async (_) => {
-    if (typeof _.oldValue === 'number') {
-      const target = { tabId: _.oldValue };
-      await sendDebuggerCommand(target, 'Network.disable').catch(() => undefined);
-      await chrome.debugger.detach(target).catch(() => undefined);
-    }
-
-    if (typeof _.newValue !== 'number') return;
-
-    const target = { tabId: _.newValue };
-    await chrome.debugger.attach(target, '1.0');
-    await sendDebuggerCommand(target, 'Network.enable');
-  },
+Recorder.watch({
+  onStart: (tabId) =>
+    Effect.gen(function* () {
+      yield* Effect.tryPromise(() => chrome.debugger.attach({ tabId }, '1.0'));
+      yield* Effect.tryPromise(() => sendDebuggerCommand({ tabId }, 'Network.enable'));
+    }).pipe(Effect.ignoreLogged),
+  onStop: (tabId) =>
+    Effect.gen(function* () {
+      yield* Effect.tryPromise(() => sendDebuggerCommand({ tabId }, 'Network.disable'));
+      yield* Effect.tryPromise(() => chrome.debugger.detach({ tabId }));
+    }).pipe(Effect.ignoreLogged),
 });
+
+chrome.tabs.onUpdated.addListener((_, { status }, tab) =>
+  Effect.gen(function* () {
+    if (status !== 'loading') return;
+    const tabId = yield* Recorder.getTabId;
+    if (!Option.contains(tabId, tab.id)) return;
+    yield* Recorder.addNavigation(tab);
+  }).pipe(Effect.ignoreLogged, Runtime.runPromise),
+);
 
 // Listen for debugger events on recording tab
 chrome.debugger.onEvent.addListener(async (source: chrome.debugger.Debuggee, method: string, params: unknown) => {

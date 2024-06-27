@@ -1,6 +1,9 @@
-import * as PS from '@plasmohq/storage';
+import { Schema } from '@effect/schema';
+import { pipe } from 'effect';
 
-export const Local = new PS.Storage({ area: 'local' });
+import * as PlasmoStorage from '@plasmohq/storage';
+
+export const Local = new PlasmoStorage.Storage({ area: 'local' });
 
 export const RECORDING_TAB_ID = 'RECORDING_TAB_ID';
 
@@ -11,3 +14,8 @@ export interface NetworkCall {
   url: string;
   time: number;
 }
+
+export const Change = <S extends Schema.Schema.All>(schema: S) => {
+  const value = pipe(schema, Schema.optional({ as: 'Option' }));
+  return Schema.Struct({ newValue: value, oldValue: value });
+};
