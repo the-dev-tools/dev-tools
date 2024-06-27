@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "author": "dev.tools",
   "dependencies": {
+    "@effect/schema": "^0.68.10",
     "@plasmohq/storage": "^1.11.0",
+    "effect": "^3.4.3",
     "plasmo": "^0.88.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
