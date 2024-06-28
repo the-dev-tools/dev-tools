@@ -1,5 +1,7 @@
-import { Array, Effect, Option, pipe, Struct } from 'effect';
+import { Schema } from '@effect/schema';
+import { Array, Effect, flow, Match, Option, pipe, Struct } from 'effect';
 
+import * as Postman from '@/postman';
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
 
@@ -21,45 +23,97 @@ const PopupPageNew = () => {
   );
 
   return (
-    <div className='flex h-[35rem] w-[50rem] flex-col divide-y divide-black'>
-      <div className='flex gap-2 p-2'>
-        <h1 className='font-bold'>API Recorder</h1>
+    <div className='grid h-[600px] w-[800px] grid-cols-2 grid-rows-[auto_1fr] gap-px border border-slate-300 bg-slate-300'>
+      <div className='col-span-full flex gap-2 bg-slate-50 px-4 py-5'>
+        <h1 className='text-xl font-medium leading-6'>API Recorder</h1>
+      </div>
 
+      <div className='flex flex-col items-start gap-4 overflow-auto bg-slate-50 p-4'>
+        <h2 className='text-2xl font-medium leading-7'>Visited pages</h2>
+
+        {hosts.map((_, index) => (
+          <div key={(_.id ?? '') + index.toString()} className='w-full'>
+            <div className='truncate rounded-t-lg border border-slate-200 bg-white px-4 py-3 text-xs font-medium'>
+              {_.name}
+            </div>
+            {_.item?.map((_, index) => (
+              <div
+                key={(_.name ?? '') + index.toString()}
+                className='truncate border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500 last:rounded-b-lg odd:bg-white'
+              >
+                {_.name}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className='flex flex-col items-start gap-4 overflow-auto bg-slate-50 p-4'>
+        <h2 className='text-2xl font-medium leading-7'>API Calls</h2>
+
+        <div className='w-full'>
+          {lastNavigationItems.map((_, index) => (
+            <div
+              key={(_.id ?? '') + index.toString()}
+              className='flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white'
+            >
+              {pipe(
+                _.request,
+                Option.liftPredicate(Schema.is(Postman.RequestClass)),
+                Option.flatMap(
+                  flow(
+                    Match.value,
+                    Match.when(
+                      { method: 'GET' },
+                      () => ['Get', 'border-orange-200 bg-orange-50 text-orange-900'] as const,
+                    ),
+                    Match.when(
+                      { method: 'POST' },
+                      () => ['Post', 'border-green-200 bg-green-50 text-green-900'] as const,
+                    ),
+                    Match.option,
+                  ),
+                ),
+                Option.map(([title, className]) => (
+                  <div key={null} className={`mr-1.5 rounded border px-2 py-1 text-xs leading-tight ${className}`}>
+                    {title}
+                  </div>
+                )),
+                Option.getOrElse(() => null),
+              )}
+
+              <span className='flex-1 truncate text-sm'>{_.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className='col-span-full flex gap-3 bg-slate-50 p-4'>
         {Option.match(tabId, {
           onNone: () => (
-            <button onClick={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Start</button>
+            <button
+              onClick={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+              className='rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold leading-5'
+            >
+              Start
+            </button>
           ),
           onSome: () => (
-            <button onClick={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Stop</button>
+            <button
+              onClick={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+              className='rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold leading-5'
+            >
+              Stop
+            </button>
           ),
         })}
 
-        <button onClick={() => void Recorder.reset.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Reset</button>
-      </div>
-
-      <div className='flex min-h-0 flex-1 divide-x divide-black'>
-        <div className='flex flex-1 flex-col items-start gap-2 overflow-y-auto p-2'>
-          <h2 className='font-bold'>Hostnames</h2>
-
-          {hosts.map((_, index) => (
-            <div key={(_.name ?? '') + index.toString()}>
-              <div className='font-bold'>{_.name}</div>
-              {_.item?.map((_, index) => <div key={(_.name ?? '') + index.toString()}>{_.name}</div>)}
-            </div>
-          ))}
-        </div>
-
-        <div className='flex flex-1 flex-col items-start gap-2 overflow-y-auto p-2'>
-          <h2 className='font-bold'>Requests</h2>
-
-          {/* <p>Select a hostname to see the associated requests</p> */}
-
-          {lastNavigationItems.map((_, index) => (
-            <div key={(_.id ?? '') + index.toString()}>
-              {_.id}: {_.response?.[0]?.code ?? _.response?.[0]?.status ?? 'none'}
-            </div>
-          ))}
-        </div>
+        <button
+          onClick={() => void Recorder.reset.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          className='rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold leading-5'
+        >
+          Reset
+        </button>
       </div>
     </div>
   );
