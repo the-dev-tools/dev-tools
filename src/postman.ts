@@ -4,6 +4,9 @@ import * as S from '@effect/schema/Schema';
 // Documentation: https://learning.postman.com/collection-format
 // JSON Schema: https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json
 
+const DEFAULT_NAME = 'API Recorder Collection';
+const DEFAULT_SCHEMA = 'https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json';
+
 export const AuthType = S.Literal(
   'apikey',
   'awsv4',
@@ -312,8 +315,11 @@ export class Auth extends S.Class<Auth>('Auth')({
 export class Collection extends S.Class<Collection>('Collection')({
   auth: S.optional(S.Union(Auth, S.Null)),
   event: S.optional(S.Union(S.Array(Event), S.Null)),
-  info: Information,
-  item: S.Array(Item),
+  info: Information.pipe(
+    S.propertySignature,
+    S.withConstructorDefault(() => new Information({ name: DEFAULT_NAME, schema: DEFAULT_SCHEMA })),
+  ),
+  item: S.optional(S.Array(Item)).pipe(S.withDefaults({ decoding: () => [], constructor: () => [] })),
   protocolProfileBehavior: S.optional(S.Union(S.Record(S.String, S.Any), S.Null)),
   variable: S.optional(S.Union(S.Array(Variable), S.Null)),
 }) {}

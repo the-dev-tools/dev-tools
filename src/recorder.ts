@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema';
-import { Array, Effect, flow, Function, Option, pipe, Struct } from 'effect';
+import { Array, Effect, flow, Option, pipe, Struct } from 'effect';
 import * as React from 'react';
 
 import * as PlasmoStorage from '@plasmohq/storage/hook';
@@ -13,21 +13,15 @@ const CollectionTag = 'Collection';
 
 const getCollection = pipe(
   Effect.tryPromise(() => Storage.Local.get<typeof Postman.Collection.Encoded>(CollectionTag)),
-  Effect.map(
+  Effect.flatMap(
     flow(
       Option.fromNullable,
-      Option.getOrElse(() =>
-        Function.satisfies<typeof Postman.Collection.Encoded>()({
-          info: {
-            name: 'API Recorder Collection',
-            schema: 'https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json',
-          },
-          item: [],
-        }),
-      ),
+      Option.match({
+        onNone: () => Effect.succeed(new Postman.Collection()),
+        onSome: Schema.decode(Postman.Collection),
+      }),
     ),
   ),
-  Effect.flatMap(Schema.decode(Postman.Collection)),
 );
 
 const setCollection = (collection: typeof Postman.Collection.Type) =>
@@ -117,6 +111,15 @@ export const stop = pipe(
   Schema.encode(TabId),
   Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(TabIdTag, _))),
 );
+
+export const reset = Effect.gen(function* () {
+  yield* stop.pipe(Effect.ignoreLogged);
+  yield* pipe(
+    new Postman.Collection(),
+    Schema.encode(Postman.Collection),
+    Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
+  );
+});
 
 interface WatchProps {
   onStart: (tabId: number) => Effect.Effect<void>;
