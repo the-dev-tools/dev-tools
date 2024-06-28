@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect';
+import { Array, Effect, Option, pipe, Struct } from 'effect';
 
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
@@ -8,6 +8,17 @@ import './style.css';
 const PopupPageNew = () => {
   const hosts = Recorder.useHosts();
   const tabId = Recorder.useTabId();
+
+  const lastNavigationItems = pipe(
+    hosts,
+    Array.last,
+    Option.map(Struct.get('item')),
+    Option.flatMap(Option.fromNullable),
+    Option.flatMap(Array.last),
+    Option.map(Struct.get('item')),
+    Option.flatMap(Option.fromNullable),
+    Option.getOrElse(() => []),
+  );
 
   return (
     <div className='flex h-[35rem] w-[50rem] flex-col divide-y divide-black'>
@@ -41,7 +52,13 @@ const PopupPageNew = () => {
         <div className='flex flex-1 flex-col items-start gap-2 overflow-y-auto p-2'>
           <h2 className='font-bold'>Requests</h2>
 
-          <p>Select a hostname to see the associated requests</p>
+          {/* <p>Select a hostname to see the associated requests</p> */}
+
+          {lastNavigationItems.map((_, index) => (
+            <div key={(_.id ?? '') + index.toString()}>
+              {_.id}: {_.response?.[0]?.code ?? _.response?.[0]?.status ?? 'none'}
+            </div>
+          ))}
         </div>
       </div>
     </div>

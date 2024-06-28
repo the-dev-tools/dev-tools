@@ -3,80 +3,72 @@ import { Effect, Option } from 'effect';
 
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
-import * as Storage from '@/storage';
 
 const sendDebuggerCommand = <Command extends keyof ProtocolMapping.Commands>(
   target: chrome.debugger.Debuggee,
   method: Command,
   ...commandParams: ProtocolMapping.Commands[Command]['paramsType']
 ) =>
-  chrome.debugger.sendCommand(target, method, ...commandParams) as Promise<
-    ProtocolMapping.Commands[Command]['returnType']
-  >;
+  Effect.tryPromise<ProtocolMapping.Commands[Command]['returnType']>(() =>
+    chrome.debugger.sendCommand(target, method, ...commandParams),
+  );
 
-const matchDebuggerEvent = <Method extends keyof ProtocolMapping.Events>(
+const isDebuggerEvent = <Method extends keyof ProtocolMapping.Events>(
   match: Method,
   method: string,
   _params: unknown,
 ): _params is ProtocolMapping.Events[Method][0] => match === method;
 
+// Debugger control
 Recorder.watch({
   onStart: (tabId) =>
     Effect.gen(function* () {
       yield* Effect.tryPromise(() => chrome.debugger.attach({ tabId }, '1.0'));
-      yield* Effect.tryPromise(() => sendDebuggerCommand({ tabId }, 'Network.enable'));
+      yield* sendDebuggerCommand({ tabId }, 'Network.enable');
     }).pipe(Effect.ignoreLogged),
   onStop: (tabId) =>
     Effect.gen(function* () {
-      yield* Effect.tryPromise(() => sendDebuggerCommand({ tabId }, 'Network.disable'));
+      yield* sendDebuggerCommand({ tabId }, 'Network.disable');
       yield* Effect.tryPromise(() => chrome.debugger.detach({ tabId }));
     }).pipe(Effect.ignoreLogged),
 });
 
-chrome.tabs.onUpdated.addListener((_, { status }, tab) =>
+// URL updates
+chrome.tabs.onUpdated.addListener((tabId, { url }, tab) =>
   Effect.gen(function* () {
-    if (status !== 'loading') return;
-    const tabId = yield* Recorder.getTabId;
-    if (!Option.contains(tabId, tab.id)) return;
+    if (url === undefined) return;
+    const recorderTabId = yield* Recorder.getTabId;
+    if (!Option.contains(recorderTabId, tabId)) return;
     yield* Recorder.addNavigation(tab);
   }).pipe(Effect.ignoreLogged, Runtime.runPromise),
 );
 
-// Listen for debugger events on recording tab
-chrome.debugger.onEvent.addListener(async (source: chrome.debugger.Debuggee, method: string, params: unknown) => {
-  const recordingTabId = await Storage.Local.get<number | null>(Storage.RECORDING_TAB_ID);
-  if (source.tabId !== recordingTabId) return;
+// Debugger events
+chrome.debugger.onEvent.addListener((source, method, params) =>
+  Effect.gen(function* () {
+    const recorderTabId = yield* Recorder.getTabId;
+    if (!Option.contains(recorderTabId, source.tabId)) return;
 
-  if (matchDebuggerEvent('Network.requestWillBeSent', method, params)) {
-    if (params.type !== 'XHR') return;
+    // Request
+    if (isDebuggerEvent('Network.requestWillBeSent', method, params)) {
+      if (params.type !== 'XHR') return;
 
-    const data = await sendDebuggerCommand(source, 'Network.getRequestPostData', { requestId: params.requestId }).catch(
-      () => undefined,
-    );
-    console.log('request', params, data);
+      const data = yield* sendDebuggerCommand(source, 'Network.getRequestPostData', {
+        requestId: params.requestId,
+      }).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
 
-    // TODO: save more response data
+      yield* Recorder.addRequest(params, data);
+    }
 
-    const recordedCalls = (await Storage.Local.get<Storage.NetworkCall[]>(Storage.RECORDED_CALLS)) ?? [];
+    // Response
+    if (isDebuggerEvent('Network.responseReceived', method, params)) {
+      if (params.type !== 'XHR') return;
 
-    await Storage.Local.set(Storage.RECORDED_CALLS, [
-      ...recordedCalls,
-      {
-        method: params.request.method,
-        url: params.request.url,
-        time: params.timestamp,
-      } satisfies Storage.NetworkCall,
-    ]);
-  }
+      const body = yield* sendDebuggerCommand(source, 'Network.getResponseBody', { requestId: params.requestId }).pipe(
+        Effect.catchAll(() => Effect.succeed(undefined)),
+      );
 
-  if (matchDebuggerEvent('Network.responseReceived', method, params)) {
-    if (params.type !== 'XHR') return;
-
-    const body = await sendDebuggerCommand(source, 'Network.getResponseBody', { requestId: params.requestId }).catch(
-      () => undefined,
-    );
-    console.log('response', params, body);
-
-    // TODO: save response data
-  }
-});
+      yield* Recorder.addResponse(params, body);
+    }
+  }).pipe(Effect.ignoreLogged, Runtime.runPromise),
+);

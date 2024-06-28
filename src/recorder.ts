@@ -1,5 +1,6 @@
 import { Schema } from '@effect/schema';
-import { Array, Effect, flow, Option, pipe, Struct } from 'effect';
+import type Protocol from 'devtools-protocol';
+import { Array, Effect, flow, MutableHashMap, Option, pipe, Struct } from 'effect';
 import * as React from 'react';
 
 import * as PlasmoStorage from '@plasmohq/storage/hook';
@@ -73,6 +74,68 @@ export const addNavigation = (tab: chrome.tabs.Tab) =>
     yield* pipe(collection, Struct.evolve({ item: (_) => Array.append(_, host) }), setCollection);
   });
 
+const requestIdIndexMap = MutableHashMap.make<[string, { host: number; navigation: number; request: number }][]>();
+
+export const addRequest = (
+  { requestId, request }: Protocol.Network.RequestWillBeSentEvent,
+  { postData }: Partial<Protocol.Network.GetRequestPostDataResponse> = {},
+) =>
+  Effect.gen(function* () {
+    let collection = yield* getCollection;
+    let host = yield* Array.last(collection.item);
+    let navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.last));
+
+    const requestItem = new Postman.Item({
+      id: requestId,
+      name: request.url,
+      request: new Postman.RequestClass({
+        url: request.url,
+        method: request.method,
+        body: new Postman.Body({ raw: postData }),
+      }),
+    });
+
+    navigation = Struct.evolve(navigation, { item: (_) => Array.append(_ ?? [], requestItem) });
+    host = Struct.evolve(host, { item: (_) => pipe(_ ?? [], Array.dropRight(1), Array.append(navigation)) });
+    collection = Struct.evolve(collection, { item: (_) => pipe(_, Array.dropRight(1), Array.append(host)) });
+
+    MutableHashMap.set(requestIdIndexMap, requestId, {
+      host: collection.item.length - 1,
+      navigation: (host.item?.length ?? 0) - 1,
+      request: (navigation.item?.length ?? 0) - 1,
+    });
+
+    yield* setCollection(collection);
+  });
+
+export const addResponse = (
+  { requestId, response }: Protocol.Network.ResponseReceivedEvent,
+  { body }: Partial<Protocol.Network.GetResponseBodyResponse> = {},
+) =>
+  Effect.gen(function* () {
+    const index = yield* MutableHashMap.get(requestIdIndexMap, requestId);
+
+    const collection = yield* getCollection;
+    const host = yield* Array.get(collection.item, index.host);
+    const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.get(index.navigation)));
+    const request = yield* pipe(navigation.item, Option.fromNullable, Option.flatMap(Array.get(index.request)));
+
+    const responseItem = new Postman.Response({
+      code: response.status,
+      status: response.statusText,
+      body,
+    });
+
+    const newRequest = new Postman.Item({ ...request, response: [responseItem] });
+    const newNavigation = Struct.evolve(navigation, { item: (_) => Array.replace(_ ?? [], index.request, newRequest) });
+    const newHost = Struct.evolve(host, { item: (_) => Array.replace(_ ?? [], index.navigation, newNavigation) });
+    const newCollection = Struct.evolve(collection, { item: (_) => Array.replace(_, index.host, newHost) });
+
+    MutableHashMap.remove(requestIdIndexMap, requestId);
+
+    yield* setCollection(newCollection);
+  });
+
 const TabIdTag = 'TabId';
 const TabId = Schema.Option(Schema.Number);
 
@@ -119,6 +182,7 @@ export const reset = Effect.gen(function* () {
     Schema.encode(Postman.Collection),
     Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
   );
+  MutableHashMap.clear(requestIdIndexMap);
 });
 
 interface WatchProps {
