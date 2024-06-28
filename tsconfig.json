@@ -6,7 +6,7 @@
     // https://github.com/tsconfig/bases/blob/main/bases/strictest.json
     "@tsconfig/strictest/tsconfig"
   ],
-  "exclude": ["node_modules"],
+  "exclude": [".direnv", ".plasmo", "build", "node_modules"],
   "include": ["./**/*.js", "./**/*.mjs", "./**/*.ts", "./**/*.tsx", ".plasmo/index.d.ts"],
   "compilerOptions": {
     "paths": {
