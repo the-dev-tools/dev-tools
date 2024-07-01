@@ -5,6 +5,7 @@
   "author": "dev.tools",
   "dependencies": {
     "@effect/schema": "^0.68.10",
+    "@fontsource-variable/lexend-deca": "^5.0.13",
     "@plasmohq/storage": "^1.11.0",
     "effect": "^3.4.3",
     "plasmo": "^0.88.0",

@@ -8,6 +8,7 @@ import { Runtime } from '@/runtime';
 import * as UI from '@/ui';
 
 import './style.css';
+import '@fontsource-variable/lexend-deca';
 
 const PopupPageNew = () => {
   const hosts = Recorder.useHosts();
@@ -25,7 +26,7 @@ const PopupPageNew = () => {
   );
 
   return (
-    <div className='relative flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300'>
+    <div className='relative flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 font-sans'>
       <div className='absolute inset-0 -z-10 bg-slate-50' />
       <img src={backgroundImage} alt='Background' className='absolute inset-x-0 top-0 -z-10' />
 
