@@ -1,6 +1,7 @@
 import { Schema } from '@effect/schema';
 import backgroundImage from 'data-base64:@/../assets/background.jpg';
 import { Array, Effect, flow, Match, Option, pipe, Struct } from 'effect';
+import * as React from 'react';
 import * as RAC from 'react-aria-components';
 
 import * as Postman from '@/postman';
@@ -8,23 +9,35 @@ import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
 import * as UI from '@/ui';
 
-import './style.css';
 import '@fontsource-variable/lexend-deca';
+import './style.css';
+
+class HostIndex extends Schema.Class<HostIndex>('HostIndex')({
+  id: Schema.String,
+  index: Schema.Number,
+  navigationIndex: Schema.Number,
+}) {}
 
 const PopupPageNew = () => {
   const navigations = Recorder.useNavigations();
   const tabId = Recorder.useTabId();
 
-  const lastNavigationItems = pipe(
-    navigations,
-    Array.last,
-    Option.map(Struct.get('item')),
-    Option.flatMap(Option.fromNullable),
-    Option.flatMap(Array.last),
-    Option.map(Struct.get('item')),
-    Option.flatMap(Option.fromNullable),
-    Option.getOrElse(() => []),
-  );
+  const [selectedHosts, setSelectedHosts] = React.useState<RAC.Selection>(new Set());
+
+  let selectedHostIndex = Option.none<Postman.Item>();
+  if (typeof selectedHosts !== 'string' && selectedHosts.size > 0) {
+    const { navigationIndex, index } = pipe(
+      selectedHosts.values().next().value as string,
+      JSON.parse,
+      Schema.decodeUnknownSync(HostIndex),
+    );
+    selectedHostIndex = pipe(
+      navigations,
+      Array.get(navigationIndex),
+      Option.flatMap(flow(Struct.get('item'), Option.fromNullable)),
+      Option.flatMap(Array.get(index)),
+    );
+  }
 
   return (
     <div className='relative flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 font-sans'>
@@ -48,20 +61,26 @@ const PopupPageNew = () => {
           <h2 className='text-2xl font-medium leading-7'>Visited pages</h2>
 
           <RAC.ListBox
-            items={navigations}
+            items={navigations.map((item, index) => [item, index] as const)}
             selectionMode='single'
+            onSelectionChange={setSelectedHosts}
+            selectedKeys={selectedHosts}
             aria-label='Visited pages'
             className='flex w-full flex-col gap-4'
           >
-            {(navigation) => (
-              <RAC.Section id={navigation.id ?? ''}>
+            {([navigation, navigationIndex]) => (
+              <RAC.Section id={navigation.id ?? '' + navigationIndex.toString()}>
                 <RAC.Header className='truncate rounded-t-lg border border-slate-200 bg-white px-4 py-3 text-xs font-medium'>
                   {navigation.name}
                 </RAC.Header>
-                <RAC.Collection items={navigation.item ?? []}>
-                  {(host) => (
+                <RAC.Collection items={(navigation.item ?? []).map((item, index) => [item, index] as const)}>
+                  {([host, hostIndex]) => (
                     <RAC.ListBoxItem
-                      id={host.id ?? ''}
+                      id={pipe(
+                        HostIndex.make({ id: host.id ?? '', index: hostIndex, navigationIndex }),
+                        Schema.encodeSync(HostIndex),
+                        JSON.stringify,
+                      )}
                       textValue={host.name ?? ''}
                       className='group relative flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100'
                     >
@@ -86,41 +105,49 @@ const PopupPageNew = () => {
         <div className='flex flex-1 flex-col items-start gap-4 overflow-auto p-4'>
           <h2 className='text-2xl font-medium leading-7'>API Calls</h2>
 
-          <div className='w-full'>
-            {lastNavigationItems.map((_, index) => (
-              <div
-                key={(_.id ?? '') + index.toString()}
-                className='flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white'
-              >
-                {pipe(
-                  _.request,
-                  Option.liftPredicate(Schema.is(Postman.RequestClass)),
-                  Option.flatMap(
-                    flow(
-                      Match.value,
-                      Match.when(
-                        { method: 'GET' },
-                        () => ['Get', 'border-orange-200 bg-orange-50 text-orange-900'] as const,
+          {Option.match(selectedHostIndex, {
+            onNone: () => <p>Select recorded page</p>,
+            onSome: (host) => (
+              <div className='w-full'>
+                {(host.item ?? []).map((_, index) => (
+                  <div
+                    key={(_.id ?? '') + index.toString()}
+                    className='flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white'
+                  >
+                    {pipe(
+                      _.request,
+                      Option.liftPredicate(Schema.is(Postman.RequestClass)),
+                      Option.flatMap(
+                        flow(
+                          Match.value,
+                          Match.when(
+                            { method: 'GET' },
+                            () => ['Get', 'border-orange-200 bg-orange-50 text-orange-900'] as const,
+                          ),
+                          Match.when(
+                            { method: 'POST' },
+                            () => ['Post', 'border-green-200 bg-green-50 text-green-900'] as const,
+                          ),
+                          Match.option,
+                        ),
                       ),
-                      Match.when(
-                        { method: 'POST' },
-                        () => ['Post', 'border-green-200 bg-green-50 text-green-900'] as const,
-                      ),
-                      Match.option,
-                    ),
-                  ),
-                  Option.map(([title, className]) => (
-                    <div key={null} className={`mr-1.5 rounded border px-2 py-1 text-xs leading-tight ${className}`}>
-                      {title}
-                    </div>
-                  )),
-                  Option.getOrElse(() => null),
-                )}
+                      Option.map(([title, className]) => (
+                        <div
+                          key={null}
+                          className={`mr-1.5 rounded border px-2 py-1 text-xs leading-tight ${className}`}
+                        >
+                          {title}
+                        </div>
+                      )),
+                      Option.getOrElse(() => null),
+                    )}
 
-                <span className='flex-1 truncate text-sm'>{_.name}</span>
+                    <span className='flex-1 truncate text-sm'>{_.name}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ),
+          })}
         </div>
       </div>
 
