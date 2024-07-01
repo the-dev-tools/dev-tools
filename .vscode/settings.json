@@ -2,5 +2,6 @@
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
+  "tailwindCSS.experimental.classRegex": [["([\"'`][^\"'`]*.*?[\"'`])", "[\"'`]([^\"'`]*).*?[\"'`]"]],
   "typescript.tsdk": "node_modules/typescript/lib"
 }

@@ -4,6 +4,7 @@ import { Array, Effect, flow, Match, Option, pipe, Struct } from 'effect';
 import * as Postman from '@/postman';
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
+import * as UI from '@/ui';
 
 import './style.css';
 
@@ -91,29 +92,23 @@ const PopupPageNew = () => {
       <div className='col-span-full flex gap-3 bg-slate-50 p-4'>
         {Option.match(tabId, {
           onNone: () => (
-            <button
-              onClick={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-              className='rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold leading-5'
-            >
+            <UI.Button.Main onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>
               Start
-            </button>
+            </UI.Button.Main>
           ),
           onSome: () => (
-            <button
-              onClick={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-              className='rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold leading-5'
-            >
+            <UI.Button.Main onPress={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}>
               Stop
-            </button>
+            </UI.Button.Main>
           ),
         })}
 
-        <button
-          onClick={() => void Recorder.reset.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-          className='rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold leading-5'
+        <UI.Button.Main
+          onPress={() => void Recorder.reset.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          variant='secondary'
         >
           Reset
-        </button>
+        </UI.Button.Main>
       </div>
     </div>
   );

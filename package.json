@@ -9,7 +9,9 @@
     "effect": "^3.4.3",
     "plasmo": "^0.88.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-aria-components": "^1.2.1",
+    "react-dom": "^18.3.1",
+    "tailwind-variants": "^0.2.1"
   },
   "devDependencies": {
     "@eslint/compat": "^1.1.0",
