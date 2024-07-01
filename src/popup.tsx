@@ -30,8 +30,16 @@ const PopupPageNew = () => {
       <div className='absolute inset-0 -z-10 bg-slate-50' />
       <img src={backgroundImage} alt='Background' className='absolute inset-x-0 top-0 -z-10' />
 
-      <div className='flex gap-2 px-4 py-5'>
-        <h1 className='text-xl font-medium leading-6'>API Recorder</h1>
+      <div className='flex items-center gap-2 px-4 py-5'>
+        {Option.match(tabId, {
+          onNone: () => <h1 className='text-xl font-medium leading-6'>API Recorder</h1>,
+          onSome: () => (
+            <>
+              <div className='size-3 rounded-full border-2 border-red-200 bg-red-500' />
+              <h1 className='text-xl font-medium leading-6'>Recording API Calls</h1>
+            </>
+          ),
+        })}
       </div>
 
       <div className='flex min-h-0 flex-1 divide-x divide-slate-300 '>
@@ -46,9 +54,12 @@ const PopupPageNew = () => {
               {_.item?.map((_, index) => (
                 <div
                   key={(_.name ?? '') + index.toString()}
-                  className='truncate border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500 last:rounded-b-lg odd:bg-white'
+                  className='flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm last:rounded-b-lg odd:bg-white'
                 >
-                  {_.name}
+                  <span className='flex-1 truncate text-slate-500'>{_.name}</span>
+                  <div className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700'>
+                    {_.item?.length ?? 0} calls
+                  </div>
                 </div>
               ))}
             </div>
