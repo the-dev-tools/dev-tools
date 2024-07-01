@@ -2,6 +2,7 @@ import { Schema } from '@effect/schema';
 import type Protocol from 'devtools-protocol';
 import { Array, Effect, flow, MutableHashMap, Option, pipe, Struct } from 'effect';
 import * as React from 'react';
+import * as Uuid from 'uuid';
 
 import * as PlasmoStorage from '@plasmohq/storage/hook';
 
@@ -32,8 +33,8 @@ const setCollection = (collection: typeof Postman.Collection.Type) =>
     Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
   );
 
-export const useHosts = () => {
-  const [hosts, setHosts] = React.useState<readonly Postman.Item[]>([]);
+export const useNavigations = () => {
+  const [navigations, setNavigations] = React.useState<readonly Postman.Item[]>([]);
 
   const [collection] = PlasmoStorage.useStorage<typeof Postman.Collection.Encoded>({
     instance: Storage.Local,
@@ -45,12 +46,12 @@ export const useHosts = () => {
       void Effect.gen(function* () {
         if (!collection) return;
         const { item } = yield* Schema.decode(Postman.Collection)(collection);
-        setHosts(item);
+        setNavigations(item);
       }).pipe(Effect.ignore, Runtime.runPromise),
     [collection],
   );
 
-  return hosts;
+  return navigations;
 };
 
 export const addNavigation = (tab: chrome.tabs.Tab) =>
@@ -62,13 +63,13 @@ export const addNavigation = (tab: chrome.tabs.Tab) =>
 
     let host = Array.last(collection.item).pipe(Option.getOrUndefined);
     if (host?.name !== url.host) {
-      host = Postman.Item.make({ name: url.host, item: [] });
+      host = Postman.Item.make({ id: Uuid.v4(), name: url.host, item: [] });
     } else {
       collection = Struct.evolve(collection, { item: (_) => Array.dropRight(_, 1) });
     }
 
     host = Struct.evolve(host, {
-      item: (_) => Array.append(_ ?? [], Postman.Item.make({ name: url.pathname, item: [] })),
+      item: (_) => Array.append(_ ?? [], Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] })),
     });
 
     yield* pipe(collection, Struct.evolve({ item: (_) => Array.append(_, host) }), setCollection);
