@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema';
-import backgroundImage from 'data-base64:@/../assets/background.jpg';
+import backgroundImage from 'data-base64:@/../assets/background.png';
 import { Array, Effect, flow, Match, Number, Option, pipe, Record, String, Struct } from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
@@ -112,9 +112,11 @@ const PopupPageNew = () => {
   });
 
   return (
-    <div className='relative flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 font-sans'>
-      <div className='absolute inset-0 -z-10 bg-slate-50' />
-      <img src={backgroundImage} alt='Background' className='absolute inset-x-0 top-0 -z-10' />
+    <div className='relative z-0 flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 bg-slate-50 font-sans'>
+      <div className='absolute inset-x-0 top-0 -z-10 bg-slate-50'>
+        <img src={backgroundImage} alt='Background' className='mix-blend-luminosity' />
+        <div className='absolute inset-0 shadow-[inset_0_0_2rem_2rem_var(--tw-shadow-color)] shadow-slate-50' />
+      </div>
 
       <div className='flex items-center gap-2 px-4 py-5'>
         {Option.match(tabId, {
