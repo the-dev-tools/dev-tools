@@ -1,8 +1,9 @@
 import { Schema } from '@effect/schema';
 import backgroundImage from 'data-base64:@/../assets/background.jpg';
-import { Array, Effect, flow, Match, Option, pipe, Struct } from 'effect';
+import { Array, Effect, flow, Match, Option, pipe, String, Struct } from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 
 import * as Postman from '@/postman';
 import * as Recorder from '@/recorder';
@@ -38,6 +39,8 @@ const PopupPageNew = () => {
       Option.flatMap(Array.get(index)),
     );
   }
+
+  const [selectedRequests, setSelectedRequests] = React.useState<RAC.Selection>(new Set());
 
   return (
     <div className='relative flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 font-sans'>
@@ -82,16 +85,16 @@ const PopupPageNew = () => {
                         JSON.stringify,
                       )}
                       textValue={host.name ?? ''}
-                      className='group relative flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100'
+                      className='group relative flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm transition-colors last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100'
                     >
-                      <div className='absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width] group-aria-selected:w-0.5' />
+                      <div className='absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width] group-rac-selected:w-0.5' />
                       <RAC.Text
                         slot='label'
-                        className='flex-1 truncate text-slate-500 group-aria-selected:text-indigo-700'
+                        className='flex-1 truncate text-slate-500 transition-colors group-rac-selected:text-indigo-700'
                       >
                         {host.name}
                       </RAC.Text>
-                      <div className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 group-aria-selected:border-indigo-200 group-aria-selected:bg-indigo-50 group-aria-selected:text-indigo-700'>
+                      <div className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 transition-colors group-rac-selected:border-indigo-200 group-rac-selected:bg-indigo-50 group-rac-selected:text-indigo-700'>
                         {host.item?.length ?? 0} calls
                       </div>
                     </RAC.ListBoxItem>
@@ -108,44 +111,64 @@ const PopupPageNew = () => {
           {Option.match(selectedHostIndex, {
             onNone: () => <p>Select recorded page</p>,
             onSome: (host) => (
-              <div className='w-full'>
-                {(host.item ?? []).map((_, index) => (
-                  <div
-                    key={(_.id ?? '') + index.toString()}
-                    className='flex items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white'
+              <RAC.ListBox
+                items={host.item ?? []}
+                selectionMode='multiple'
+                selectedKeys={selectedRequests}
+                onSelectionChange={setSelectedRequests}
+                aria-label='API Calls'
+                className='w-full'
+              >
+                {(request) => (
+                  <RAC.ListBoxItem
+                    id={request.id ?? ''}
+                    textValue={request.name ?? ''}
+                    className='flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100'
                   >
-                    {pipe(
-                      _.request,
-                      Option.liftPredicate(Schema.is(Postman.RequestClass)),
-                      Option.flatMap(
-                        flow(
-                          Match.value,
-                          Match.when(
-                            { method: 'GET' },
-                            () => ['Get', 'border-orange-200 bg-orange-50 text-orange-900'] as const,
-                          ),
-                          Match.when(
-                            { method: 'POST' },
-                            () => ['Post', 'border-green-200 bg-green-50 text-green-900'] as const,
-                          ),
-                          Match.option,
-                        ),
-                      ),
-                      Option.map(([title, className]) => (
-                        <div
-                          key={null}
-                          className={`mr-1.5 rounded border px-2 py-1 text-xs leading-tight ${className}`}
+                    {({ isSelected }) => (
+                      <>
+                        <RAC.Checkbox
+                          isReadOnly
+                          excludeFromTabOrder
+                          isSelected={isSelected}
+                          aria-label={request.name ?? ''}
+                          className='group relative'
                         >
-                          {title}
-                        </div>
-                      )),
-                      Option.getOrElse(() => null),
-                    )}
+                          <div className='mr-3 flex size-5 cursor-pointer items-center justify-center rounded border border-slate-300 text-white transition-colors group-rac-selected:border-transparent group-rac-selected:bg-indigo-600'>
+                            {isSelected ? 'V' : null}
+                          </div>
+                        </RAC.Checkbox>
 
-                    <span className='flex-1 truncate text-sm'>{_.name}</span>
-                  </div>
-                ))}
-              </div>
+                        {pipe(
+                          request.request,
+                          Option.liftPredicate(Schema.is(Postman.RequestClass)),
+                          Option.map(({ method }) =>
+                            pipe(
+                              method,
+                              Match.value,
+                              Match.when('GET', () => 'border-orange-200 bg-orange-50 text-orange-900'),
+                              Match.when('POST', () => 'border-green-200 bg-green-50 text-green-900'),
+                              Match.orElse(() => 'border-slate-200 bg-slate-50 text-slate-700'),
+                              (_) => [method ?? 'ETC', _] as const,
+                            ),
+                          ),
+                          Option.map(([method, className]) => (
+                            <div
+                              key={null}
+                              className={twMerge('mr-1.5 rounded border px-2 py-1 text-xs leading-tight', className)}
+                            >
+                              {pipe(method, String.toLowerCase, String.capitalize)}
+                            </div>
+                          )),
+                          Option.getOrElse(() => null),
+                        )}
+
+                        <span className='flex-1 truncate text-sm'>{request.name}</span>
+                      </>
+                    )}
+                  </RAC.ListBoxItem>
+                )}
+              </RAC.ListBox>
             ),
           })}
         </div>

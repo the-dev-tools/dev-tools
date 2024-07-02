@@ -4,7 +4,7 @@ import { tv, type VariantProps } from 'tailwind-variants';
 import * as Utils from '@/utils';
 
 const styles = tv({
-  base: 'rounded-lg px-4 py-3 text-base font-semibold leading-5',
+  base: 'cursor-pointer rounded-lg px-4 py-3 text-base font-semibold leading-5',
   variants: {
     variant: {
       primary: 'bg-indigo-600 text-white',
