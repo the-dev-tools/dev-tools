@@ -5,7 +5,7 @@ import * as S from '@effect/schema/Schema';
 // JSON Schema: https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json
 
 const DEFAULT_NAME = 'API Recorder Collection';
-const DEFAULT_SCHEMA = 'https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json';
+const DEFAULT_SCHEMA = 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json';
 
 export const AuthType = S.Literal(
   'apikey',

@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema';
 import backgroundImage from 'data-base64:@/../assets/background.jpg';
-import { Array, Effect, flow, Match, Option, pipe, String, Struct } from 'effect';
+import { Array, Effect, flow, Match, Number, Option, pipe, Record, String, Struct } from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';
@@ -13,34 +13,103 @@ import * as UI from '@/ui';
 import '@fontsource-variable/lexend-deca';
 import './style.css';
 
-class HostIndex extends Schema.Class<HostIndex>('HostIndex')({
+class HostSelectionKey extends Schema.Class<HostSelectionKey>('HostIndex')({
   id: Schema.String,
-  index: Schema.Number,
   navigationIndex: Schema.Number,
+  hostIndex: Schema.Number,
+}) {}
+
+class RequestSelectionKey extends HostSelectionKey.extend<RequestSelectionKey>('RequestSelectionKey')({
+  requestIndex: Schema.Number,
 }) {}
 
 const PopupPageNew = () => {
-  const navigations = Recorder.useNavigations();
+  const collection = Recorder.useCollection();
   const tabId = Recorder.useTabId();
 
-  const [selectedHosts, setSelectedHosts] = React.useState<RAC.Selection>(new Set());
+  const [hostsSelection, setHostsSelection] = React.useState<RAC.Selection>(new Set());
 
-  let selectedHostIndex = Option.none<Postman.Item>();
-  if (typeof selectedHosts !== 'string' && selectedHosts.size > 0) {
-    const { navigationIndex, index } = pipe(
-      selectedHosts.values().next().value as string,
+  let selectedHost = Option.none<[Postman.Item, HostSelectionKey]>();
+  if (hostsSelection !== 'all' && hostsSelection.size > 0) {
+    const selection = pipe(
+      hostsSelection.values().next().value as string,
       JSON.parse,
-      Schema.decodeUnknownSync(HostIndex),
+      Schema.decodeUnknownSync(HostSelectionKey),
     );
-    selectedHostIndex = pipe(
-      navigations,
-      Array.get(navigationIndex),
+    selectedHost = pipe(
+      collection.item,
+      Array.get(selection.navigationIndex),
       Option.flatMap(flow(Struct.get('item'), Option.fromNullable)),
-      Option.flatMap(Array.get(index)),
+      Option.flatMap(Array.get(selection.hostIndex)),
+      Option.map((_) => [_, selection]),
     );
   }
 
-  const [selectedRequests, setSelectedRequests] = React.useState<RAC.Selection>(new Set());
+  const [requestsSelection, setRequestsSelection] = React.useState<RAC.Selection>(new Set());
+
+  const selectedCollection = Effect.gen(function* () {
+    if (requestsSelection === 'all') return collection;
+
+    const selections = yield* pipe(
+      requestsSelection.values(),
+      Array.fromIterable,
+      Array.map((_) => pipe(_ as string, JSON.parse, Schema.decodeUnknown(RequestSelectionKey))),
+      Effect.all,
+    );
+
+    const navigationsIndexGroup = pipe(
+      Array.groupBy(selections, (_) => _.navigationIndex.toString()),
+      Record.map(
+        flow(
+          Array.groupBy((_) => _.hostIndex.toString()),
+          Record.map(Array.map(Struct.get('requestIndex'))),
+        ),
+      ),
+    );
+
+    const filterItemsByIndexGroup =
+      <Next,>(group: Record<string, Next>, filter: (next: Next) => (item: Postman.Item['item']) => Postman.Item[]) =>
+      (item: Postman.Item['item']) =>
+        pipe(
+          Record.toEntries(group),
+          Array.map(([index, next]) =>
+            pipe(
+              Number.parse(index),
+              Option.flatMap((_) => Array.get(item ?? [], _)),
+              Option.map(Struct.evolve({ item: filter(next) })),
+            ),
+          ),
+          Array.getSomes,
+        );
+
+    const filterRequestsByIndex = (indexes: number[]) => (hosts: Postman.Item['item']) =>
+      pipe(
+        Array.map(indexes, (_) => Array.get(hosts ?? [], _)),
+        Array.getSomes,
+      );
+
+    const selectedCollection = Struct.evolve(collection, {
+      item: filterItemsByIndexGroup(navigationsIndexGroup, (hostsGroup) =>
+        filterItemsByIndexGroup(hostsGroup, filterRequestsByIndex),
+      ),
+    });
+
+    return selectedCollection;
+  });
+
+  const exportCollection = Effect.gen(function* () {
+    const file = yield* pipe(
+      selectedCollection,
+      Effect.flatMap(Schema.encode(Postman.Collection)),
+      Effect.map(JSON.stringify),
+      Effect.map((_) => new Blob([_], { type: 'text/json' })),
+    );
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(file);
+    link.download = `postman-collection.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
 
   return (
     <div className='relative flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 font-sans'>
@@ -64,10 +133,10 @@ const PopupPageNew = () => {
           <h2 className='text-2xl font-medium leading-7'>Visited pages</h2>
 
           <RAC.ListBox
-            items={navigations.map((item, index) => [item, index] as const)}
+            items={collection.item.map((item, index) => [item, index] as const)}
             selectionMode='single'
-            onSelectionChange={setSelectedHosts}
-            selectedKeys={selectedHosts}
+            onSelectionChange={setHostsSelection}
+            selectedKeys={hostsSelection}
             aria-label='Visited pages'
             className='flex w-full flex-col gap-4'
           >
@@ -80,8 +149,8 @@ const PopupPageNew = () => {
                   {([host, hostIndex]) => (
                     <RAC.ListBoxItem
                       id={pipe(
-                        HostIndex.make({ id: host.id ?? '', index: hostIndex, navigationIndex }),
-                        Schema.encodeSync(HostIndex),
+                        HostSelectionKey.make({ id: host.id ?? '', navigationIndex, hostIndex }),
+                        Schema.encodeSync(HostSelectionKey),
                         JSON.stringify,
                       )}
                       textValue={host.name ?? ''}
@@ -108,20 +177,24 @@ const PopupPageNew = () => {
         <div className='flex flex-1 flex-col items-start gap-4 overflow-auto p-4'>
           <h2 className='text-2xl font-medium leading-7'>API Calls</h2>
 
-          {Option.match(selectedHostIndex, {
+          {Option.match(selectedHost, {
             onNone: () => <p>Select recorded page</p>,
-            onSome: (host) => (
+            onSome: ([host, { navigationIndex, hostIndex }]) => (
               <RAC.ListBox
-                items={host.item ?? []}
+                items={(host.item ?? []).map((item, index) => [item, index] as const)}
                 selectionMode='multiple'
-                selectedKeys={selectedRequests}
-                onSelectionChange={setSelectedRequests}
+                selectedKeys={requestsSelection}
+                onSelectionChange={setRequestsSelection}
                 aria-label='API Calls'
                 className='w-full'
               >
-                {(request) => (
+                {([request, requestIndex]) => (
                   <RAC.ListBoxItem
-                    id={request.id ?? ''}
+                    id={pipe(
+                      RequestSelectionKey.make({ id: request.id ?? '', hostIndex, navigationIndex, requestIndex }),
+                      Schema.encodeSync(RequestSelectionKey),
+                      JSON.stringify,
+                    )}
                     textValue={request.name ?? ''}
                     className='flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100'
                   >
@@ -193,6 +266,13 @@ const PopupPageNew = () => {
           variant='secondary'
         >
           Reset
+        </UI.Button.Main>
+
+        <UI.Button.Main
+          onPress={() => void exportCollection.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          variant='secondary'
+        >
+          Export
         </UI.Button.Main>
       </div>
     </div>

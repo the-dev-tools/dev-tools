@@ -33,10 +33,10 @@ const setCollection = (collection: typeof Postman.Collection.Type) =>
     Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
   );
 
-export const useNavigations = () => {
-  const [navigations, setNavigations] = React.useState<readonly Postman.Item[]>([]);
+export const useCollection = () => {
+  const [collection, setCollection] = React.useState(new Postman.Collection());
 
-  const [collection] = PlasmoStorage.useStorage<typeof Postman.Collection.Encoded>({
+  const [collectionEncoded] = PlasmoStorage.useStorage<typeof Postman.Collection.Encoded>({
     instance: Storage.Local,
     key: CollectionTag,
   });
@@ -44,14 +44,14 @@ export const useNavigations = () => {
   React.useEffect(
     () =>
       void Effect.gen(function* () {
-        if (!collection) return;
-        const { item } = yield* Schema.decode(Postman.Collection)(collection);
-        setNavigations(item);
+        if (!collectionEncoded) return;
+        const collection = yield* Schema.decode(Postman.Collection)(collectionEncoded);
+        setCollection(collection);
       }).pipe(Effect.ignore, Runtime.runPromise),
-    [collection],
+    [collectionEncoded],
   );
 
-  return navigations;
+  return collection;
 };
 
 export const addNavigation = (tab: chrome.tabs.Tab) =>
