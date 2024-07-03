@@ -2,6 +2,11 @@
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
-  "tailwindCSS.experimental.classRegex": [["([\"'`][^\"'`]*.*?[\"'`])", "[\"'`]([^\"'`]*).*?[\"'`]"]],
+  "tailwindCSS.experimental.classRegex": [
+    // https://github.com/paolotiu/tailwind-intellisense-regex-list#tailwind-merge
+    ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"],
+    // https://github.com/paolotiu/tailwind-intellisense-regex-list#tailwind-variants
+    ["tv\\(([^)]*)\\)", "{?\\s?[\\w].*:\\s*?[\"'`]([^\"'`]*).*?,?\\s?}?"]
+  ],
   "typescript.tsdk": "node_modules/typescript/lib"
 }
