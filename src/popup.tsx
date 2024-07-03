@@ -157,7 +157,12 @@ const PopupPageNew = () => {
                         JSON.stringify,
                       )}
                       textValue={host.name ?? ''}
-                      className='group relative flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm transition-colors last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100'
+                      className={(renderProps) =>
+                        UI.FocusRing.styles({
+                          ...renderProps,
+                          className: tw`group relative flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm transition-colors last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100`,
+                        })
+                      }
                     >
                       <div className='absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width] group-rac-selected:w-0.5' />
                       <RAC.Text
@@ -199,7 +204,12 @@ const PopupPageNew = () => {
                       JSON.stringify,
                     )}
                     textValue={request.name ?? ''}
-                    className='flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100'
+                    className={(renderProps) =>
+                      UI.FocusRing.styles({
+                        ...renderProps,
+                        className: tw`flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
+                      })
+                    }
                   >
                     {({ isSelected }) => (
                       <>

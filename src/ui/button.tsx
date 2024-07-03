@@ -4,7 +4,10 @@ import { tv, type VariantProps } from 'tailwind-variants';
 import * as Utils from '@/utils';
 import { tw } from '@/utils';
 
+import * as FocusRing from './focus-ring';
+
 const styles = tv({
+  extend: FocusRing.styles,
   base: tw`cursor-pointer rounded-lg px-4 py-3 text-base font-semibold leading-5`,
   variants: {
     variant: {
