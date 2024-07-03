@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema';
-import type Protocol from 'devtools-protocol';
+import * as Devtools from 'devtools-protocol';
 import { Array, Effect, flow, MutableHashMap, Option, pipe, Struct } from 'effect';
 import * as React from 'react';
 import * as Uuid from 'uuid';
@@ -78,8 +78,8 @@ export const addNavigation = (tab: chrome.tabs.Tab) =>
 const requestIdIndexMap = MutableHashMap.make<[string, { host: number; navigation: number; request: number }][]>();
 
 export const addRequest = (
-  { requestId, request }: Protocol.Network.RequestWillBeSentEvent,
-  { postData }: Partial<Protocol.Network.GetRequestPostDataResponse> = {},
+  { requestId, request }: Devtools.Protocol.Network.RequestWillBeSentEvent,
+  { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
     let collection = yield* getCollection;
@@ -110,8 +110,8 @@ export const addRequest = (
   });
 
 export const addResponse = (
-  { requestId, response }: Protocol.Network.ResponseReceivedEvent,
-  { body }: Partial<Protocol.Network.GetResponseBodyResponse> = {},
+  { requestId, response }: Devtools.Protocol.Network.ResponseReceivedEvent,
+  { body }: Partial<Devtools.Protocol.Network.GetResponseBodyResponse> = {},
 ) =>
   Effect.gen(function* () {
     const index = yield* MutableHashMap.get(requestIdIndexMap, requestId);
