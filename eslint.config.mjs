@@ -1,8 +1,10 @@
 import * as NodePath from 'path';
 import * as NodeUrl from 'url';
 import * as CompatUtils from '@eslint/compat';
+import { FlatCompat } from '@eslint/eslintrc';
 import JS from '@eslint/js';
 import Prettier from 'eslint-config-prettier';
+import ImportX from 'eslint-plugin-import-x';
 import JsxA11y from 'eslint-plugin-jsx-a11y';
 import ReactHooks from 'eslint-plugin-react-hooks';
 import ReactJsxRuntime from 'eslint-plugin-react/configs/jsx-runtime.js';
@@ -12,6 +14,11 @@ import * as TS from 'typescript-eslint';
 
 const filename = NodeUrl.fileURLToPath(import.meta.url);
 const dirname = NodePath.dirname(filename);
+
+const compat = new FlatCompat({
+  baseDirectory: dirname,
+  resolvePluginsRelativeTo: dirname,
+});
 
 const gitignore = CompatUtils.includeIgnoreFile(NodePath.resolve(dirname, '.gitignore'));
 
@@ -33,24 +40,16 @@ const typescript = TS.config(
   ...TS.configs.stylisticTypeChecked,
 );
 
-// TODO: re-enable when fixed upstream
-// https://github.com/un-ts/eslint-plugin-import-x/pull/85
-// import { FlatCompat } from '@eslint/eslintrc';
-// import ImportX from 'eslint-plugin-import-x';
-// const compat = new FlatCompat({
-//   baseDirectory: dirname,
-//   resolvePluginsRelativeTo: dirname,
-// });
-// const imports = TS.config(
-//   {
-//     settings: {
-//       'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
-//       'import-x/resolver': { typescript: true, node: true },
-//     },
-//   },
-//   ...compat.config(ImportX.configs.recommended),
-//   ImportX.configs.typescript,
-// );
+const imports = TS.config(
+  {
+    settings: {
+      'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
+      'import-x/resolver': { typescript: true, node: true },
+    },
+  },
+  ...compat.config(ImportX.configs.recommended),
+  ImportX.configs.typescript,
+);
 
 const react = TS.config(
   { settings: { react: { version: 'detect' } } },
@@ -68,6 +67,7 @@ const rules = TS.config({
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
     '@typescript-eslint/no-meaningless-void-operator': 'off',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
+    'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
     'react/prop-types': 'off',
   },
 });
@@ -76,7 +76,7 @@ export default TS.config(
   gitignore,
   JS.configs.recommended,
   ...typescript,
-  // ...imports,
+  ...imports,
   ...react,
   ...Tailwind.configs['flat/recommended'],
   ...commonjs,
