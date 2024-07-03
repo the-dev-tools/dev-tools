@@ -5,8 +5,8 @@
   "tailwindCSS.experimental.classRegex": [
     // https://github.com/paolotiu/tailwind-intellisense-regex-list#tailwind-merge
     ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"],
-    // https://github.com/paolotiu/tailwind-intellisense-regex-list#tailwind-variants
-    ["tv\\(([^)]*)\\)", "{?\\s?[\\w].*:\\s*?[\"'`]([^\"'`]*).*?,?\\s?}?"]
+    // https://github.com/tailwindlabs/tailwindcss/issues/7553#issuecomment-735915659
+    "tw`([^`]*)"
   ],
   "typescript.tsdk": "node_modules/typescript/lib"
 }

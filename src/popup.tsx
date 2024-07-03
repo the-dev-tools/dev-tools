@@ -9,6 +9,7 @@ import * as Postman from '@/postman';
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
 import * as UI from '@/ui';
+import { tw } from '@/utils';
 
 import '@fontsource-variable/lexend-deca';
 import './style.css';
@@ -221,9 +222,9 @@ const PopupPageNew = () => {
                             pipe(
                               method,
                               Match.value,
-                              Match.when('GET', () => 'border-orange-200 bg-orange-50 text-orange-900'),
-                              Match.when('POST', () => 'border-green-200 bg-green-50 text-green-900'),
-                              Match.orElse(() => 'border-slate-200 bg-slate-50 text-slate-700'),
+                              Match.when('GET', () => tw`border-orange-200 bg-orange-50 text-orange-900`),
+                              Match.when('POST', () => tw`border-green-200 bg-green-50 text-green-900`),
+                              Match.orElse(() => tw`border-slate-200 bg-slate-50 text-slate-700`),
                               (_) => [method ?? 'ETC', _] as const,
                             ),
                           ),
