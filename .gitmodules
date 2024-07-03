@@ -1,0 +1,3 @@
+[submodule "fly-go"]
+	path = fly-go
+	url = git@github.com:superfly/fly-go.git
