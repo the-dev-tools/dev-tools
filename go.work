@@ -5,4 +5,5 @@ use (
 	./devtools-master-node
 	./devtools-platform
 	./devtools-tasks
+	./fly-go
 )
