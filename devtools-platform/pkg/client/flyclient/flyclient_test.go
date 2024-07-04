@@ -53,7 +53,7 @@ func TestFlyClientCreate(t *testing.T) {
 
 	formatedText := time.Now().Format("2006-01-02 15:04:05")
 
-	flymachine := &flymachine.FlyMachineCreateRequest{
+	flymachine := &flymachine.FlyMachine{
 		Name:   fmt.Sprintf("test-%s", formatedText),
 		Region: flymachine.RegionAmsterdam,
 		Config: flymachine.FlyMachineCreateConfig{

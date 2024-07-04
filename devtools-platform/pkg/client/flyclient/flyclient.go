@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/DevToolsGit/devtools-platform/pkg/machine"
@@ -15,7 +16,7 @@ import (
 const default_timeout = 10 * time.Second
 
 type Fly struct {
-	BaseURL string
+	BaseURL url.URL
 	AppName string
 	token   string
 	client  *http.Client
@@ -26,17 +27,24 @@ func New(token, appName string, public bool) *Fly {
 	httpClient.Timeout = default_timeout
 	client := &Fly{token: token, client: http.DefaultClient, AppName: appName}
 	if public {
-		client.BaseURL = "https://api.machines.dev"
+		client.BaseURL = url.URL{
+			Scheme: "https",
+			Host:   "api.machines.dev:443",
+		}
 	} else {
-		client.BaseURL = "http://_api.internal:4280"
+		client.BaseURL = url.URL{
+			Scheme: "http",
+			Host:   "api.internal:4280",
+		}
 	}
 
 	return client
 }
 
 func (f *Fly) GetMachines() ([]flymachine.FlyMachine, error) {
-	url := fmt.Sprintf("%s/v1/apps/%s/machines", f.BaseURL, f.AppName)
-	req, err := http.NewRequest("GET", url, nil)
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines", f.AppName)
+	req, err := http.NewRequest("GET", reqURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +63,10 @@ func (f *Fly) GetMachines() ([]flymachine.FlyMachine, error) {
 }
 
 func (f *Fly) GetMachine(id string) (machine.Machine, error) {
-	url := fmt.Sprintf("%s/v1/apps/%s/machines/%s", f.BaseURL, f.AppName, id)
-	req, err := http.NewRequest("GET", url, nil)
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s", f.AppName, id)
+
+	req, err := http.NewRequest("GET", reqURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -77,21 +87,16 @@ func (f *Fly) GetMachine(id string) (machine.Machine, error) {
 	return &machine, nil
 }
 
-func (f *Fly) CreateMachine(data interface{}) (machine.Machine, error) {
-	createMachineReqData, ok := data.(*flymachine.FlyMachineCreateRequest)
-	if !ok {
-		return nil, fmt.Errorf("invalid machine type")
-	}
-
-	machineJSON, err := json.Marshal(createMachineReqData)
+func (f *Fly) CreateMachine(data machine.Machine) (machine.Machine, error) {
+	machineJSON, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Println("machineJSON: ", string(machineJSON))
-
-	url := fmt.Sprintf("%s/v1/apps/%s/machines", f.BaseURL, f.AppName)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(machineJSON))
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines", f.AppName)
+	req, err := http.NewRequest("POST", reqURL.String(), bytes.NewBuffer(machineJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +123,10 @@ func (f *Fly) CreateMachine(data interface{}) (machine.Machine, error) {
 }
 
 func (f *Fly) DeleteMachine(id string, force bool) error {
-	url := fmt.Sprintf("%s/v1/apps/%s/machines/%s?force=%t", f.BaseURL, f.AppName, id, force)
-	req, err := http.NewRequest("DELETE", url, nil)
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s", f.AppName, id)
+	reqURL.Query().Add("force", fmt.Sprintf("%t", force))
+	req, err := http.NewRequest("DELETE", reqURL.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -131,5 +138,47 @@ func (f *Fly) DeleteMachine(id string, force bool) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("machine not deleted")
 	}
+	return nil
+}
+
+func (f *Fly) UpdateMachine(data machine.Machine) (machine.Machine, error) {
+	machineJSON, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s", f.AppName, data.GetID())
+	req, err := http.NewRequest("PUT", reqURL.String(), bytes.NewBuffer(machineJSON))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("machine not updated")
+	}
+	machine := flymachine.FlyMachine{}
+	err = json.NewDecoder(resp.Body).Decode(&machine)
+	if err != nil {
+		return nil, err
+	}
+	return &machine, nil
+}
+
+func (f *Fly) WaitMachine(id string, timeout time.Duration, state string) error {
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s/wait", f.AppName, id)
+	reqURL.Query().Add("timeout", timeout.String())
+	reqURL.Query().Add("state", state)
+	req, err := http.NewRequest("GET", reqURL.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
 	return nil
 }
