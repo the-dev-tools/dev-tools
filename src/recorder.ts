@@ -13,7 +13,7 @@ import * as Utils from '@/utils';
 
 const CollectionTag = 'Collection';
 
-const getCollection = pipe(
+export const getCollection = pipe(
   Effect.tryPromise(() => Storage.Local.get<typeof Postman.Collection.Encoded>(CollectionTag)),
   Effect.flatMap(
     flow(
@@ -26,7 +26,7 @@ const getCollection = pipe(
   ),
 );
 
-const setCollection = (collection: typeof Postman.Collection.Type) =>
+export const setCollection = (collection: Postman.Collection) =>
   pipe(
     collection,
     Schema.encode(Postman.Collection),
@@ -54,37 +54,39 @@ export const useCollection = () => {
   return collection;
 };
 
-export const addNavigation = (tab: chrome.tabs.Tab) =>
+export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.Tab) =>
   Effect.gen(function* () {
-    if (!tab.url) return;
+    if (!tab.url) return collection;
     const url = yield* Utils.URL.make(tab.url);
 
-    let collection = yield* getCollection;
+    let newCollection = collection;
 
     let host = Array.last(collection.item).pipe(Option.getOrUndefined);
     if (host?.name !== url.host) {
       host = Postman.Item.make({ id: Uuid.v4(), name: url.host, item: [] });
     } else {
-      collection = Struct.evolve(collection, { item: (_) => Array.dropRight(_, 1) });
+      newCollection = Struct.evolve(newCollection, { item: (_) => Array.dropRight(_, 1) });
     }
 
     host = Struct.evolve(host, {
       item: (_) => Array.append(_ ?? [], Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] })),
     });
 
-    yield* pipe(collection, Struct.evolve({ item: (_) => Array.append(_, host) }), setCollection);
+    return pipe(newCollection, Struct.evolve({ item: (_) => Array.append(_, host) }));
   });
 
-const requestIdIndexMap = MutableHashMap.make<[string, { host: number; navigation: number; request: number }][]>();
+export const makeIndexMap = () =>
+  MutableHashMap.make<[string, { host: number; navigation: number; request: number }][]>();
 
 export const addRequest = (
+  collection: Postman.Collection,
+  indexMap: ReturnType<typeof makeIndexMap>,
   { requestId, request }: Devtools.Protocol.Network.RequestWillBeSentEvent,
   { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
-    let collection = yield* getCollection;
-    let host = yield* Array.last(collection.item);
-    let navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.last));
+    const host = yield* Array.last(collection.item);
+    const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.last));
 
     const requestItem = new Postman.Item({
       id: requestId,
@@ -96,27 +98,32 @@ export const addRequest = (
       }),
     });
 
-    navigation = Struct.evolve(navigation, { item: (_) => Array.append(_ ?? [], requestItem) });
-    host = Struct.evolve(host, { item: (_) => pipe(_ ?? [], Array.dropRight(1), Array.append(navigation)) });
-    collection = Struct.evolve(collection, { item: (_) => pipe(_, Array.dropRight(1), Array.append(host)) });
-
-    MutableHashMap.set(requestIdIndexMap, requestId, {
-      host: collection.item.length - 1,
-      navigation: (host.item?.length ?? 0) - 1,
-      request: (navigation.item?.length ?? 0) - 1,
+    const newNavigation = Struct.evolve(navigation, { item: (_) => Array.append(_ ?? [], requestItem) });
+    const newHost = Struct.evolve(host, {
+      item: (_) => pipe(_ ?? [], Array.dropRight(1), Array.append(newNavigation)),
+    });
+    const newCollection = Struct.evolve(collection, {
+      item: (_) => pipe(_, Array.dropRight(1), Array.append(newHost)),
     });
 
-    yield* setCollection(collection);
+    MutableHashMap.set(indexMap, requestId, {
+      host: newCollection.item.length - 1,
+      navigation: (newHost.item?.length ?? 0) - 1,
+      request: (newNavigation.item?.length ?? 0) - 1,
+    });
+
+    return newCollection;
   });
 
 export const addResponse = (
+  collection: Postman.Collection,
+  indexMap: ReturnType<typeof makeIndexMap>,
   { requestId, response }: Devtools.Protocol.Network.ResponseReceivedEvent,
   { body }: Partial<Devtools.Protocol.Network.GetResponseBodyResponse> = {},
 ) =>
   Effect.gen(function* () {
-    const index = yield* MutableHashMap.get(requestIdIndexMap, requestId);
+    const index = yield* MutableHashMap.get(indexMap, requestId);
 
-    const collection = yield* getCollection;
     const host = yield* Array.get(collection.item, index.host);
     const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.get(index.navigation)));
     const request = yield* pipe(navigation.item, Option.fromNullable, Option.flatMap(Array.get(index.request)));
@@ -132,9 +139,9 @@ export const addResponse = (
     const newHost = Struct.evolve(host, { item: (_) => Array.replace(_ ?? [], index.navigation, newNavigation) });
     const newCollection = Struct.evolve(collection, { item: (_) => Array.replace(_, index.host, newHost) });
 
-    MutableHashMap.remove(requestIdIndexMap, requestId);
+    MutableHashMap.remove(indexMap, requestId);
 
-    yield* setCollection(newCollection);
+    return newCollection;
   });
 
 const TabIdTag = 'TabId';
@@ -160,8 +167,6 @@ export const start = Effect.gen(function* () {
   const tab = tabs[0];
   if (!tab?.id) return;
 
-  yield* addNavigation(tab);
-
   yield* pipe(
     tab.id,
     Option.some,
@@ -176,22 +181,37 @@ export const stop = pipe(
   Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(TabIdTag, _))),
 );
 
-export const reset = Effect.gen(function* () {
-  yield* stop.pipe(Effect.ignoreLogged);
-  yield* pipe(
-    new Postman.Collection(),
-    Schema.encode(Postman.Collection),
-    Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
+const ResetRequestTag = 'ResetRequestTag';
+const ResetRequest = Schema.Option(Schema.Boolean);
+
+export const setReset = (reset: boolean) =>
+  pipe(
+    Option.some(reset),
+    Schema.encode(ResetRequest),
+    Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(ResetRequestTag, _))),
   );
-  MutableHashMap.clear(requestIdIndexMap);
-});
+
+export const reset = (indexMap: ReturnType<typeof makeIndexMap>) =>
+  Effect.gen(function* () {
+    const newCollection = new Postman.Collection();
+    yield* stop.pipe(Effect.ignoreLogged);
+    yield* pipe(
+      newCollection,
+      Schema.encode(Postman.Collection),
+      Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
+    );
+    yield* setReset(false);
+    MutableHashMap.clear(indexMap);
+    return newCollection;
+  });
 
 interface WatchProps {
   onStart: (tabId: number) => Effect.Effect<void>;
   onStop: (tabId: number) => Effect.Effect<void>;
+  onReset: Effect.Effect<void>;
 }
 
-export const watch = ({ onStart, onStop }: WatchProps) =>
+export const watch = ({ onStart, onStop, onReset }: WatchProps) =>
   Storage.Local.watch({
     [TabIdTag]: (_) =>
       void pipe(
@@ -200,6 +220,18 @@ export const watch = ({ onStart, onStop }: WatchProps) =>
           Option.match(Option.flatten(_.newValue), {
             onSome: onStart,
             onNone: () => Effect.flatMap(Option.flatten(_.oldValue), onStop),
+          }),
+        ),
+        Effect.ignoreLogged,
+        Runtime.runPromise,
+      ),
+    [ResetRequestTag]: (_) =>
+      void pipe(
+        Schema.decodeUnknown(Storage.Change(ResetRequest))(_),
+        Effect.flatMap((_) =>
+          Option.match(Option.flatten(_.newValue), {
+            onSome: () => onReset,
+            onNone: () => Effect.void,
           }),
         ),
         Effect.ignoreLogged,

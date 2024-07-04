@@ -340,7 +340,7 @@ const PopupPageNew = () => {
         })}
 
         <UI.Button.Main
-          onPress={() => void Recorder.reset.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          onPress={() => void Recorder.setReset(true).pipe(Effect.ignoreLogged, Runtime.runPromise)}
           variant='secondary'
         >
           Reset
