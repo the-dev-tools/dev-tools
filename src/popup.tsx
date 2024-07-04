@@ -188,7 +188,7 @@ const PopupPageNew = () => {
 
         <div className='flex-1' />
 
-        <RAC.SearchField value={searchTerm} onChange={setSearchTerm} className='group w-80'>
+        <RAC.SearchField value={searchTerm} onChange={setSearchTerm} className='group w-80' aria-label='Search'>
           <RAC.Group
             className={(renderProps) =>
               UI.FocusRing.styles({
