@@ -6,6 +6,7 @@ import * as RAC from 'react-aria-components';
 import * as FeatherIcons from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
+import * as Auth from '@/auth';
 import * as Postman from '@/postman';
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
@@ -16,7 +17,45 @@ import { tw } from '@/utils';
 import '@fontsource-variable/lexend-deca';
 import './style.css';
 
-const PopupPageNew = () => {
+interface LayoutProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+const Layout = ({ className, children }: LayoutProps) => (
+  <div className='relative z-0 h-[600px] w-[800px] border border-slate-300 bg-slate-50 font-sans'>
+    <div className='absolute inset-x-0 top-0 -z-10 bg-slate-50'>
+      <img src={backgroundImage} alt='Background' className='mix-blend-luminosity' />
+      <div className='absolute inset-0 shadow-[inset_0_0_2rem_2rem_var(--tw-shadow-color)] shadow-slate-50' />
+    </div>
+
+    <div className={twMerge('size-full', className)}>{children}</div>
+  </div>
+);
+
+const LoginPage = () => {
+  const [email, setEmail] = React.useState('');
+  return (
+    <Layout className='flex flex-col justify-center px-44'>
+      <RAC.TextField value={email} onChange={setEmail} type='email'>
+        <RAC.Label className='mb-2 block'>Email</RAC.Label>
+        <RAC.Input
+          className={(renderProps) =>
+            UI.FocusRing.styles({
+              ...renderProps,
+              className: tw`mb-6 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-tight text-slate-500`,
+            })
+          }
+        />
+      </RAC.TextField>
+      <UI.Button.Main onPress={() => void Auth.loginInit(email).pipe(Effect.ignoreLogged, Runtime.runPromise)}>
+        Get Started
+      </UI.Button.Main>
+    </Layout>
+  );
+};
+
+const RecorderPage = () => {
   const collection = Recorder.useCollection();
   const tabId = Recorder.useTabId();
 
@@ -169,12 +208,7 @@ const PopupPageNew = () => {
   });
 
   return (
-    <div className='relative z-0 flex h-[600px] w-[800px] flex-col divide-y divide-slate-300 border border-slate-300 bg-slate-50 font-sans'>
-      <div className='absolute inset-x-0 top-0 -z-10 bg-slate-50'>
-        <img src={backgroundImage} alt='Background' className='mix-blend-luminosity' />
-        <div className='absolute inset-0 shadow-[inset_0_0_2rem_2rem_var(--tw-shadow-color)] shadow-slate-50' />
-      </div>
-
+    <Layout className='flex flex-col divide-y divide-slate-300'>
       <div className='flex items-center gap-2 px-4 py-5'>
         {Option.match(tabId, {
           onNone: () => <h1 className='text-xl font-medium leading-6'>API Recorder</h1>,
@@ -347,14 +381,27 @@ const PopupPageNew = () => {
         </UI.Button.Main>
 
         <UI.Button.Main
+          onPress={() => void Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          variant='secondary'
+        >
+          Log out
+        </UI.Button.Main>
+
+        <UI.Button.Main
           onPress={() => void exportCollection.pipe(Effect.ignoreLogged, Runtime.runPromise)}
           variant='secondary'
         >
           Export
         </UI.Button.Main>
       </div>
-    </div>
+    </Layout>
   );
 };
 
-export default PopupPageNew;
+const PopupPage = () => {
+  const [loggedInMaybe] = Auth.useLoggedIn();
+  const loggedIn = Option.getOrElse(loggedInMaybe, () => false);
+  return loggedIn ? <RecorderPage /> : <LoginPage />;
+};
+
+export default PopupPage;

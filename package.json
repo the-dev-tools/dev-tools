@@ -8,6 +8,7 @@
     "@fontsource-variable/lexend-deca": "^5.0.13",
     "@plasmohq/storage": "^1.11.0",
     "effect": "^3.4.3",
+    "magic-sdk": "^28.0.7",
     "plasmo": "^0.88.0",
     "react": "^18.3.1",
     "react-aria-components": "^1.2.1",
@@ -64,6 +65,16 @@
     "permissions": [
       "debugger",
       "tabs"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "tabs/auth-callback.html"
+        ],
+        "matches": [
+          "*://*.magic.link/*"
+        ]
+      }
     ]
   }
 }
