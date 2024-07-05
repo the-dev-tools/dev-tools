@@ -8,7 +8,7 @@ const focusStyles = {
 };
 
 export const styles = tv({
-  base: tw`outline border-transparent outline-transparent transition-[border-color,outline-color,outline-width]`,
+  base: tw`border-transparent outline outline-transparent transition-[border-color,outline-color,outline-width]`,
   variants: {
     isFocused: focusStyles,
     isFocusWithin: focusStyles,

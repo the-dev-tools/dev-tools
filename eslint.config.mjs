@@ -62,6 +62,15 @@ const react = TS.config(
   JsxA11y.flatConfigs.recommended,
 );
 
+const tailwind = TS.config(...Tailwind.configs['flat/recommended'], {
+  settings: {
+    tailwindcss: {
+      callees: ['tv', 'twMerge', 'twJoin'],
+      tags: ['tw'],
+    },
+  },
+});
+
 const rules = TS.config({
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
@@ -78,7 +87,7 @@ export default TS.config(
   ...typescript,
   ...imports,
   ...react,
-  ...Tailwind.configs['flat/recommended'],
+  ...tailwind,
   ...commonjs,
   Prettier,
   ...rules,
