@@ -3,17 +3,21 @@ package mtask
 import (
 	"time"
 
+	"github.com/DevToolsGit/devtools-tasks/pkg/model/mrequest"
 	"github.com/DevToolsGit/devtools-tasks/pkg/model/mtaskresult"
 )
 
 type Task struct {
 	ID     string
+	Name   string
 	Amount int
 	Status string
 
 	Waits []int // task IDS
 
-	HttpMethod string
+	RequestData mrequest.Request
+
+	TestMethod string
 	Done       chan bool
 	Next       []int // task IDs
 
@@ -23,9 +27,18 @@ type Task struct {
 	Timeout time.Duration
 }
 
-type TaskSender struct {
-	ID         string
-	Amount     int
-	HttpMethod string
-	Timeout    time.Duration
+type TaskRequest struct {
+	ID              string
+	Amount          int
+	RequestData     mrequest.Request
+	PassSuccessRate float32
+	Timeout         time.Duration
+}
+
+type TaskResponse struct {
+	ID     string
+	Amount int
+
+	Resault     mtaskresult.TaskResult
+	ReqResaults []mrequest.RequestResult
 }

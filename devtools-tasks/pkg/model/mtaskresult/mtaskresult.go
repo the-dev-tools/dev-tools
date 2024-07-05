@@ -2,18 +2,25 @@ package mtaskresult
 
 import "time"
 
-type TaskResult struct {
-	ID       int
-	MethodID int
-	Name     string
+const (
+	TaskStatusSuccess = "Success"
+	TaskStatusFailed  = "Failed"
+)
 
-	PassedTest   bool
+type TaskResult struct {
+	ID         string
+	RequestIDs []string
+	Name       string
+
+	Status       string
 	SuccessCount int
 	FailedCount  int
 
-	requestMap map[string]string
+	StatusCodeMap  map[int]int
+	RequestBodyMap map[string][]byte
 
 	SentCount  int
 	StartedAt  time.Time
 	FinishedAt time.Time
+	TimeTaken  time.Duration
 }
