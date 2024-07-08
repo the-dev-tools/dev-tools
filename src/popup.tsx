@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema';
 import backgroundImage from 'data-base64:@/../assets/background.png';
-import { Array, Effect, flow, HashMap, Match, Option, pipe, String, Struct, Tuple } from 'effect';
+import { Array, Clock, Duration, Effect, flow, HashMap, Match, Option, pipe, String, Struct, Tuple } from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
 import * as FeatherIcons from 'react-icons/fi';
@@ -207,6 +207,8 @@ const RecorderPage = () => {
     URL.revokeObjectURL(link.href);
   });
 
+  const currentTimeMillis = Clock.currentTimeMillis.pipe(Runtime.runSync);
+
   return (
     <Layout className='flex flex-col divide-y divide-slate-300'>
       <div className='flex items-center gap-2 px-4 py-5'>
@@ -308,7 +310,7 @@ const RecorderPage = () => {
                 className={(renderProps) =>
                   UI.FocusRing.styles({
                     ...renderProps,
-                    className: tw`grid cursor-pointer grid-cols-[auto_auto_1fr] grid-rows-[1fr_auto_1fr] items-center gap-y-1.5 border-x border-b border-slate-200 bg-slate-50 px-4 py-2 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
+                    className: tw`grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[1fr_auto_1fr] items-center gap-y-1.5 border-x border-b border-slate-200 bg-slate-50 px-4 py-2 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
                   })
                 }
               >
@@ -364,6 +366,32 @@ const RecorderPage = () => {
                           <span className='col-start-3 row-start-2 truncate text-sm'>{url.pathname}</span>
                         </>
                       )),
+                      Runtime.runSync,
+                    )}
+
+                    {Effect.gen(function* () {
+                      const variable = yield* Array.findFirst(request.variable ?? [], (_) => _.key === 'timestamp');
+                      const timestamp = yield* pipe(variable, Struct.get('value'), Schema.decodeUnknown(Schema.Number));
+                      const duration = Duration.subtract(currentTimeMillis, Duration.seconds(timestamp));
+
+                      const sec = Math.floor(Duration.toSeconds(duration));
+                      if (sec < 60) return `${sec.toString()} sec`;
+
+                      const min = Math.floor(sec / 60);
+                      if (min < 60) return `${min.toString()} min`;
+
+                      const hr = Math.floor(min / 60);
+                      if (hr < 24) return `${hr.toString()} hr`;
+
+                      const days = Math.floor(hr / 24);
+                      return `${days.toString()} days`;
+                    }).pipe(
+                      Effect.match({
+                        onFailure: () => null,
+                        onSuccess: (_) => (
+                          <span className='col-start-4 row-start-2 text-xs font-light leading-5'>{_} ago</span>
+                        ),
+                      }),
                       Runtime.runSync,
                     )}
                   </>

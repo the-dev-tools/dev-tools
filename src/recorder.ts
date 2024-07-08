@@ -81,7 +81,7 @@ export const makeIndexMap = () =>
 export const addRequest = (
   collection: Postman.Collection,
   indexMap: ReturnType<typeof makeIndexMap>,
-  { requestId, request }: Devtools.Protocol.Network.RequestWillBeSentEvent,
+  { requestId, request, wallTime }: Devtools.Protocol.Network.RequestWillBeSentEvent,
   { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
@@ -96,6 +96,13 @@ export const addRequest = (
         method: request.method,
         body: new Postman.Body({ raw: postData }),
       }),
+      variable: [
+        new Postman.Variable({
+          key: 'timestamp',
+          type: 'number',
+          value: wallTime,
+        }),
+      ],
     });
 
     const newNavigation = Struct.evolve(navigation, { item: (_) => Array.append(_ ?? [], requestItem) });
