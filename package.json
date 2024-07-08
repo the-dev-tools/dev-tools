@@ -64,7 +64,8 @@
     ],
     "permissions": [
       "debugger",
-      "tabs"
+      "tabs",
+      "unlimitedStorage"
     ],
     "web_accessible_resources": [
       {
