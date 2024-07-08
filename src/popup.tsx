@@ -308,7 +308,7 @@ const RecorderPage = () => {
                 className={(renderProps) =>
                   UI.FocusRing.styles({
                     ...renderProps,
-                    className: tw`flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
+                    className: tw`grid cursor-pointer grid-cols-[auto_auto_1fr] grid-rows-[1fr_auto_1fr] items-center gap-y-1.5 border-x border-b border-slate-200 bg-slate-50 px-4 py-2 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
                   })
                 }
               >
@@ -319,7 +319,7 @@ const RecorderPage = () => {
                       excludeFromTabOrder
                       isSelected={isSelected}
                       aria-label={request.name ?? ''}
-                      className='group relative'
+                      className='group relative row-span-3'
                     >
                       <div className='mr-3 flex size-5 cursor-pointer items-center justify-center rounded border border-slate-300 text-white transition-colors group-rac-selected:border-transparent group-rac-selected:bg-indigo-600'>
                         {isSelected ? 'V' : null}
@@ -342,7 +342,10 @@ const RecorderPage = () => {
                       Option.map(([method, className]) => (
                         <div
                           key={null}
-                          className={twMerge('mr-1.5 rounded border px-2 py-1 text-xs leading-tight', className)}
+                          className={twMerge(
+                            'col-start-2 row-start-2 mr-1.5 rounded border px-2 py-1 text-xs leading-tight',
+                            className,
+                          )}
                         >
                           {pipe(method, String.toLowerCase, String.capitalize)}
                         </div>
@@ -350,7 +353,19 @@ const RecorderPage = () => {
                       Option.getOrElse(() => null),
                     )}
 
-                    <span className='flex-1 truncate text-sm'>{request.name}</span>
+                    {pipe(
+                      request.name ?? '',
+                      Utils.URL.make,
+                      Effect.map((url) => (
+                        <>
+                          <span className='col-span-2 col-start-2 truncate text-xs leading-none text-indigo-600'>
+                            {url.host}
+                          </span>
+                          <span className='col-start-3 row-start-2 truncate text-sm'>{url.pathname}</span>
+                        </>
+                      )),
+                      Runtime.runSync,
+                    )}
                   </>
                 )}
               </RAC.ListBoxItem>
