@@ -3,6 +3,7 @@ go 1.22.5
 use (
 	./devtools-backend
 	./devtools-master-node
+	./devtools-nodes
 	./devtools-platform
 	./devtools-slave-node
 	./devtools-tasks
