@@ -211,16 +211,10 @@ const RecorderPage = () => {
 
   return (
     <Layout className='flex flex-col divide-y divide-slate-300'>
-      <div className='flex items-center gap-2 px-4 py-5'>
-        {Option.match(tabId, {
-          onNone: () => <h1 className='text-xl font-medium leading-6'>API Recorder</h1>,
-          onSome: () => (
-            <>
-              <div className='size-3 rounded-full border-2 border-red-200 bg-red-500' />
-              <h1 className='text-xl font-medium leading-6'>Recording API Calls</h1>
-            </>
-          ),
-        })}
+      <div className='flex items-center gap-2 p-4'>
+        <UI.Logo className='h-6 w-auto' />
+
+        <h1 className='text-xl font-medium uppercase leading-tight'>Dev Tools</h1>
 
         <div className='flex-1' />
 
@@ -402,37 +396,62 @@ const RecorderPage = () => {
         </div>
       </div>
 
-      <div className='flex gap-3 bg-white p-4'>
+      <div className='flex items-center gap-3 bg-white p-4'>
         {Option.match(tabId, {
           onNone: () => (
-            <UI.Button.Main onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>
-              Start
-            </UI.Button.Main>
+            <>
+              <div className='size-3 rounded-full border-2 border-slate-200 bg-slate-600' />
+              <h1 className='text-base font-medium leading-tight'>Recording paused</h1>
+            </>
           ),
           onSome: () => (
-            <UI.Button.Main onPress={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}>
-              Stop
-            </UI.Button.Main>
+            <>
+              <div className='size-3 rounded-full border-2 border-red-200 bg-red-500' />
+              <h1 className='text-base font-medium leading-tight'>Recording API Calls</h1>
+            </>
           ),
         })}
 
-        <UI.Button.Main
-          onPress={() => void Recorder.setReset(true).pipe(Effect.ignoreLogged, Runtime.runPromise)}
-          variant='secondary'
-        >
-          Reset
-        </UI.Button.Main>
+        <div className='flex-1' />
 
         <UI.Button.Main
           onPress={() => void Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-          variant='secondary'
+          variant='secondary gray'
         >
           Log out
         </UI.Button.Main>
 
         <UI.Button.Main
+          onPress={() => void Recorder.setReset(true).pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          variant='secondary gray'
+        >
+          Reset
+        </UI.Button.Main>
+
+        {Option.match(tabId, {
+          onNone: () => (
+            <UI.Button.Main
+              onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+              variant='secondary color'
+            >
+              Resume
+              <FeatherIcons.FiPlayCircle />
+            </UI.Button.Main>
+          ),
+          onSome: () => (
+            <UI.Button.Main
+              onPress={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+              variant='secondary color'
+            >
+              Pause
+              <FeatherIcons.FiPauseCircle />
+            </UI.Button.Main>
+          ),
+        })}
+
+        <UI.Button.Main
           onPress={() => void exportCollection.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-          variant='secondary'
+          variant='primary'
         >
           Export
         </UI.Button.Main>

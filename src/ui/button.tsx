@@ -8,11 +8,12 @@ import * as FocusRing from './focus-ring';
 
 const styles = tv({
   extend: FocusRing.styles,
-  base: tw`cursor-pointer rounded-lg px-4 py-3 text-base font-semibold leading-5`,
+  base: tw`flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
   variants: {
     variant: {
       primary: tw`bg-indigo-600 text-white`,
-      secondary: tw`border border-slate-200 bg-white text-black`,
+      'secondary gray': tw`border border-slate-200 bg-white text-black`,
+      'secondary color': tw`border border-indigo-200 bg-indigo-50 text-indigo-700`,
     },
   },
   defaultVariants: {
