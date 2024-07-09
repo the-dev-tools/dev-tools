@@ -8,7 +8,7 @@ import (
 )
 
 type ConditionDataRestStatus struct {
-	statusCodeExits map[string]string
+	StatusCodeExits map[string]string
 }
 
 func ConditionRestStatus(mn *mnodemaster.NodeMaster) error {
@@ -25,7 +25,7 @@ func ConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 	}
 
 	restStatus := fmt.Sprint(response.StatusCode)
-	nodeID, ok := data.statusCodeExits[restStatus]
+	nodeID, ok := data.StatusCodeExits[restStatus]
 	if !ok {
 		return mnodemaster.ErrInvalidDataType
 	}

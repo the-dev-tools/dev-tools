@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 )
 
+const (
+	DefaultSuccessEdge = "success"
+)
+
 type Edges struct {
 	InNodes  map[string]string `json:"inNode"`
 	OutNodes map[string]string `json:"outNode"`

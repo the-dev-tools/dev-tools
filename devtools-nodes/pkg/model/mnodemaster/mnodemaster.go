@@ -3,6 +3,7 @@ package mnodemaster
 import (
 	"errors"
 
+	"github.com/DevToolsGit/devtools-nodes/pkg/httpclient"
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
 )
 
@@ -13,6 +14,8 @@ type NodeMaster struct {
 	Vars        map[string]interface{} `json:"vars"`
 	CurrentNode *mnode.Node            `json:"currentNode"`
 	NextNodeID  string                 `json:"nextNode"`
+	Resolver    func(nodeType string) (func(*NodeMaster) error, error)
+	HttpClient  httpclient.HttpClient
 }
 
 var (

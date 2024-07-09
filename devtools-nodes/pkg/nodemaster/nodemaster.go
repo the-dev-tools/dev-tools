@@ -5,7 +5,6 @@ import (
 
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/resolver"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
@@ -52,7 +51,7 @@ var ErrInvalidDataType = errors.New("invalid data type")
 func ExecuteNext(nm *mnodemaster.NodeMaster) error {
 	nodeType := nm.CurrentNode.Type
 
-	nodeFunc, err := resolver.ResolveNodeFunc(nodeType)
+	nodeFunc, err := nm.Resolver(nodeType)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,10 @@ type RestApiData struct {
 	Body        []byte            `json:"body"`
 }
 
+const (
+	VarResponseKey = "response"
+)
+
 func SendRestApiRequest(nodeMaster *mnodemaster.NodeMaster) error {
 	currentNode := nodeMaster.CurrentNode
 	apiData, ok := currentNode.Data.(RestApiData)
@@ -34,15 +38,18 @@ func SendRestApiRequest(nodeMaster *mnodemaster.NodeMaster) error {
 		req.Header.Add(key, value)
 	}
 
-	client := &http.Client{}
+	client := nodeMaster.HttpClient
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	nodeMaster.Vars["response"] = resp
+	nodeMaster.Vars[VarResponseKey] = resp
 
-	nextNode := currentNode.Edges.OutNodes[mnodemaster.EdgeSuccess]
+	nextNode, ok := currentNode.Edges.OutNodes[mnodemaster.EdgeSuccess]
+	if !ok {
+		return nil
+	}
 	nodeMaster.NextNodeID = nextNode
 
 	return nil
