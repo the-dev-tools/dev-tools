@@ -437,13 +437,13 @@ const RecorderPage = () => {
         {Option.match(tabId, {
           onNone: () => (
             <>
-              <div className='size-3 rounded-full border-2 border-slate-200 bg-slate-600' />
+              <div className='size-4 rounded-full border-2 border-slate-200 bg-slate-600' />
               <h1 className='text-base font-medium leading-tight'>Recording paused</h1>
             </>
           ),
           onSome: () => (
             <>
-              <div className='size-3 rounded-full border-2 border-red-200 bg-red-500' />
+              <div className='size-4 rounded-full border-2 border-red-200 bg-red-500' />
               <h1 className='text-base font-medium leading-tight'>Recording API Calls</h1>
             </>
           ),
