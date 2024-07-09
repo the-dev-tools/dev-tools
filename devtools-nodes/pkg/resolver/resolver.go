@@ -10,12 +10,22 @@ import (
 )
 
 const (
-	ApiCallRest        = "apiCallRest"
-	IFStatusCode       = "ifStatusCode"
+	// Api calls
+	ApiCallRest = "apiCallRest"
+
+	// Conditions
+	IFStatusCode = "ifStatusCode"
+
+	// Communication such as email sms etc
 	CommunicationEmail = "communicationEmail"
+
+	// Loops
+	LoopFor = "loopFor"
 )
 
 var ErrInvalidDataType = errors.New("invalid data type")
+
+type Resolver func(nodeType string) (func(*mnodemaster.NodeMaster) error, error)
 
 func ResolveNodeFunc(nodeType string) (func(*mnodemaster.NodeMaster) error, error) {
 	switch nodeType {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
+	"github.com/DevToolsGit/devtools-nodes/pkg/resolver"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
@@ -17,7 +18,7 @@ func Run(nm *mnodemaster.NodeMaster) error {
 	}
 
 	for {
-		err := ExecuteNext(nm)
+		err := ExecuteNode(nm, nm.Resolver)
 		if err != nil {
 			return err
 		}
@@ -48,7 +49,7 @@ func GetNodeByID(nm *mnodemaster.NodeMaster, nodeID string) (*mnode.Node, error)
 
 var ErrInvalidDataType = errors.New("invalid data type")
 
-func ExecuteNext(nm *mnodemaster.NodeMaster) error {
+func ExecuteNode(nm *mnodemaster.NodeMaster, resolver resolver.Resolver) error {
 	nodeType := nm.CurrentNode.Type
 
 	nodeFunc, err := nm.Resolver(nodeType)

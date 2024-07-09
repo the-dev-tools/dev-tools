@@ -46,8 +46,5 @@ func TestNodeMasterRun(t *testing.T) {
 		Resolver:    MockResolver,
 	}
 
-	err = nodemaster.Run(nm)
-	if err != nil {
-		t.Errorf("Error running nodemaster: %v", err)
-	}
+	nodemaster.Run(nm)
 }

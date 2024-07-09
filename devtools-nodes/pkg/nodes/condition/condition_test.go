@@ -10,7 +10,7 @@ import (
 	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/condition"
 )
 
-func TestConditionRestStatus(t *testing.T) {
+func TestConditionRestStatus200(t *testing.T) {
 	successNodeID := "node1"
 	failNodeID := "node2"
 
@@ -33,7 +33,63 @@ func TestConditionRestStatus(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if mn.NextNodeID != "node1" {
+	if mn.NextNodeID != successNodeID {
+		t.Errorf("unexpected next node id: %s", mn.NextNodeID)
+	}
+}
+
+func TestConditionRestStatus404(t *testing.T) {
+	successNodeID := "node1"
+	failNodeID := "node2"
+
+	mn := mnodemaster.NodeMaster{
+		Vars: map[string]interface{}{
+			api.VarResponseKey: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+		},
+		CurrentNode: &mnode.Node{
+			Data: &condition.ConditionDataRestStatus{
+				StatusCodeExits: map[string]string{
+					"200": successNodeID,
+					"404": failNodeID,
+				},
+			},
+		},
+	}
+	err := condition.ConditionRestStatus(&mn)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if mn.NextNodeID != failNodeID {
+		t.Errorf("unexpected next node id: %s", mn.NextNodeID)
+	}
+}
+
+func TestConditionRestStatusMatching(t *testing.T) {
+	successNodeID := "node1"
+	failNodeID := "node2"
+
+	mn := mnodemaster.NodeMaster{
+		Vars: map[string]interface{}{
+			api.VarResponseKey: &http.Response{
+				StatusCode: http.StatusNotFound,
+			},
+		},
+		CurrentNode: &mnode.Node{
+			Data: &condition.ConditionDataRestStatus{
+				StatusCodeExits: map[string]string{
+					"200": successNodeID,
+					"4**": failNodeID,
+				},
+			},
+		},
+	}
+	err := condition.ConditionRestStatus(&mn)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if mn.NextNodeID != failNodeID {
 		t.Errorf("unexpected next node id: %s", mn.NextNodeID)
 	}
 }
