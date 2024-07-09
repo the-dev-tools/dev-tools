@@ -8,7 +8,7 @@ import * as FocusRing from './focus-ring';
 
 const styles = tv({
   extend: FocusRing.styles,
-  base: tw`flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
+  base: tw`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
   variants: {
     variant: {
       primary: tw`bg-indigo-600 text-white`,

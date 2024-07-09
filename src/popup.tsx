@@ -33,24 +33,52 @@ const Layout = ({ className, children }: LayoutProps) => (
   </div>
 );
 
+class LoginFormData extends Schema.Class<LoginFormData>('LoginFormData')({
+  email: Schema.String,
+}) {}
+
 const LoginPage = () => {
-  const [email, setEmail] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
   return (
-    <Layout className='flex flex-col justify-center px-44'>
-      <RAC.TextField value={email} onChange={setEmail} type='email'>
-        <RAC.Label className='mb-2 block'>Email</RAC.Label>
-        <RAC.Input
-          className={(renderProps) =>
-            UI.FocusRing.styles({
-              ...renderProps,
-              className: tw`mb-6 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-tight text-slate-500`,
-            })
-          }
-        />
-      </RAC.TextField>
-      <UI.Button.Main onPress={() => void Auth.loginInit(email).pipe(Effect.ignoreLogged, Runtime.runPromise)}>
-        Get Started
-      </UI.Button.Main>
+    <Layout>
+      <RAC.Form
+        className='flex size-full flex-col items-center justify-center px-44'
+        onSubmit={(event) =>
+          Effect.gen(function* () {
+            event.preventDefault();
+            const { email } = yield* pipe(
+              new FormData(event.currentTarget),
+              Object.fromEntries,
+              Schema.decode(LoginFormData),
+            );
+            setLoading(true);
+            yield* Auth.loginInit(email);
+            setLoading(false);
+          }).pipe(Runtime.runPromise)
+        }
+      >
+        <UI.Illustrations.Logo className='mb-2 h-16 w-auto' />
+        <h1 className='mb-1 text-center text-4xl font-semibold uppercase leading-tight'>Dev Tools</h1>
+        <h2 className='mb-10 w-64 text-center text-sm leading-snug'>
+          Create your account and get your APIs call in seconds
+        </h2>
+        <RAC.TextField className='mb-6 w-full' name='email' type='email' isRequired>
+          <RAC.Label className='mb-2 block'>Email</RAC.Label>
+          <RAC.Input
+            className={(renderProps) =>
+              UI.FocusRing.styles({
+                ...renderProps,
+                className: tw`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-tight text-slate-500`,
+              })
+            }
+          />
+          <RAC.FieldError className='mt-2 block text-sm leading-none text-red-700' />
+        </RAC.TextField>
+        <UI.Button.Main className='w-full' type='submit'>
+          {loading && <FeatherIcons.FiLoader className='animate-spin' />}
+          Get Started
+        </UI.Button.Main>
+      </RAC.Form>
     </Layout>
   );
 };
