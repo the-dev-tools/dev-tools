@@ -323,7 +323,16 @@ const RecorderPage = () => {
             selectedKeys={requestsSelection}
             onSelectionChange={setRequestsSelection}
             aria-label='API Calls'
-            className='w-full'
+            className={(renderProps) =>
+              UI.FocusRing.styles({ ...renderProps, className: ['w-full', renderProps.isEmpty && 'min-h-0 flex-1'] })
+            }
+            renderEmptyState={() => (
+              <div className='flex h-full flex-col items-center justify-center'>
+                <UI.Illustrations.Collection className='mb-6' />
+                <h3 className='mb-2 text-xl font-semibold leading-tight'>No calls yet</h3>
+                <span className='text-sm leading-5'>{"Let's try another one"}</span>
+              </div>
+            )}
           >
             {(request) => (
               <RAC.ListBoxItem
