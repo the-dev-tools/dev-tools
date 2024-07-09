@@ -370,7 +370,7 @@ const RecorderPage = () => {
                 className={(renderProps) =>
                   UI.FocusRing.styles({
                     ...renderProps,
-                    className: tw`grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[1fr_auto_1fr] items-center gap-y-1.5 border-x border-b border-slate-200 bg-slate-50 px-4 py-2 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
+                    className: tw`grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center gap-y-1.5 border-x border-b border-slate-200 bg-slate-50 p-4 text-slate-500 transition-colors first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
                   })
                 }
               >
@@ -381,7 +381,7 @@ const RecorderPage = () => {
                       excludeFromTabOrder
                       isSelected={isSelected}
                       aria-label={request.name ?? ''}
-                      className='group relative row-span-3'
+                      className='group relative row-span-2'
                     >
                       <div className='mr-3 flex size-5 cursor-pointer items-center justify-center rounded border border-slate-300 text-white transition-colors group-rac-selected:border-transparent group-rac-selected:bg-indigo-600'>
                         {isSelected && <FeatherIcons.FiCheck />}
@@ -449,7 +449,7 @@ const RecorderPage = () => {
                       Effect.match({
                         onFailure: () => null,
                         onSuccess: (_) => (
-                          <span className='col-start-4 row-start-2 text-xs font-light leading-5'>{_} ago</span>
+                          <span className='col-start-4 row-span-2 text-xs font-light leading-5'>{_} ago</span>
                         ),
                       }),
                       Runtime.runSync,
