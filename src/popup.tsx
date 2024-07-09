@@ -63,7 +63,7 @@ interface RecorderLayoutProps {
 const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
   <Layout className='flex flex-col divide-y divide-slate-300'>
     <div className='flex items-center gap-2 p-4'>
-      <UI.Logo className='h-6 w-auto' />
+      <UI.Illustrations.Logo className='h-6 w-auto' />
       <h1 className='text-xl font-medium uppercase leading-tight'>Dev Tools</h1>
       <div className='h-9 flex-1' />
       {headerSlot}
@@ -72,101 +72,10 @@ const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
   </Layout>
 );
 
-const IntroIcon = () => (
-  <div className='relative flex items-center justify-center'>
-    <svg width='78' height='79' viewBox='0 0 78 79' fill='none' xmlns='http://www.w3.org/2000/svg'>
-      <g filter='url(#filter0_d_129_8606)'>
-        <rect
-          x='3.75'
-          y='2.75'
-          width='70.5'
-          height='70.5'
-          rx='35.25'
-          stroke='#EAECF0'
-          strokeWidth='1.5'
-          shapeRendering='crispEdges'
-        />
-        <circle cx='39' cy='38' r='12' fill='#FECACA' />
-        <circle cx='39.0005' cy='38.0001' r='8' fill='#EF4444' />
-      </g>
-      <defs>
-        <filter
-          id='filter0_d_129_8606'
-          x='0'
-          y='0.5'
-          width='78'
-          height='78'
-          filterUnits='userSpaceOnUse'
-          colorInterpolationFilters='sRGB'
-        >
-          <feFlood floodOpacity='0' result='BackgroundImageFix' />
-          <feColorMatrix
-            in='SourceAlpha'
-            type='matrix'
-            values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0'
-            result='hardAlpha'
-          />
-          <feOffset dy='1.5' />
-          <feGaussianBlur stdDeviation='1.5' />
-          <feComposite in2='hardAlpha' operator='out' />
-          <feColorMatrix type='matrix' values='0 0 0 0 0.0627451 0 0 0 0 0.0941176 0 0 0 0 0.156863 0 0 0 0.05 0' />
-          <feBlend mode='normal' in2='BackgroundImageFix' result='effect1_dropShadow_129_8606' />
-          <feBlend mode='normal' in='SourceGraphic' in2='effect1_dropShadow_129_8606' result='shape' />
-        </filter>
-      </defs>
-    </svg>
-    <div className='absolute inset-0 -z-10'>
-      <svg
-        className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
-        width='720'
-        height='720'
-        viewBox='0 0 720 720'
-        fill='none'
-        xmlns='http://www.w3.org/2000/svg'
-      >
-        <mask
-          id='mask0_173_747'
-          style={{ maskType: 'alpha' }}
-          maskUnits='userSpaceOnUse'
-          x='0'
-          y='0'
-          width='720'
-          height='720'
-        >
-          <rect width='720' height='720' fill='url(#paint0_radial_173_747)' />
-        </mask>
-        <g mask='url(#mask0_173_747)'>
-          <circle cx='360' cy='360' r='71.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='119.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='167.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='215.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='215.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='263.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='311.25' stroke='#EAECF0' strokeWidth='1.5' />
-          <circle cx='360' cy='360' r='359.25' stroke='#EAECF0' strokeWidth='1.5' />
-        </g>
-        <defs>
-          <radialGradient
-            id='paint0_radial_173_747'
-            cx='0'
-            cy='0'
-            r='1'
-            gradientUnits='userSpaceOnUse'
-            gradientTransform='translate(360 360) rotate(90) scale(219.259 219.259)'
-          >
-            <stop />
-            <stop offset='1' stopOpacity='0' />
-          </radialGradient>
-        </defs>
-      </svg>
-    </div>
-  </div>
-);
-
 const IntroPage = () => (
   <RecorderLayout>
     <div className='flex min-h-0 flex-1 flex-col items-center justify-center gap-6'>
-      <IntroIcon />
+      <UI.Illustrations.IntroIcon />
       <div className='text-center'>
         <h2 className='mb-2 text-2xl font-medium leading-tight'>Get your API quicker</h2>
         <h3 className='text-sm leading-5'>Click the record to start the record</h3>
