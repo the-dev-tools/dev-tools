@@ -320,7 +320,7 @@ const RecorderPage = () => {
                       className={(renderProps) =>
                         UI.FocusRing.styles({
                           ...renderProps,
-                          className: tw`group relative flex cursor-pointer items-center border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm transition-colors last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100`,
+                          className: tw`group relative flex cursor-pointer items-center gap-2.5 border-x border-b border-slate-200 bg-slate-50 px-4 py-6 text-sm transition-colors last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100`,
                         })
                       }
                     >
@@ -334,6 +334,7 @@ const RecorderPage = () => {
                       <div className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 transition-colors group-rac-selected:border-indigo-200 group-rac-selected:bg-indigo-50 group-rac-selected:text-indigo-700'>
                         {host.item?.length ?? 0} calls
                       </div>
+                      <FeatherIcons.FiChevronRight className='size-5 text-slate-500 transition-colors group-rac-selected:text-indigo-700' />
                     </RAC.ListBoxItem>
                   )}
                 </RAC.Collection>
@@ -383,7 +384,7 @@ const RecorderPage = () => {
                       className='group relative row-span-3'
                     >
                       <div className='mr-3 flex size-5 cursor-pointer items-center justify-center rounded border border-slate-300 text-white transition-colors group-rac-selected:border-transparent group-rac-selected:bg-indigo-600'>
-                        {isSelected ? 'V' : null}
+                        {isSelected && <FeatherIcons.FiCheck />}
                       </div>
                     </RAC.Checkbox>
 
