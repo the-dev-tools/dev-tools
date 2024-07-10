@@ -61,7 +61,7 @@ export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.T
 
     let newCollection = collection;
 
-    let host = Array.last(collection.item).pipe(Option.getOrUndefined);
+    let host = Array.head(collection.item).pipe(Option.getOrUndefined);
     if (host?.name !== url.host) {
       host = Postman.Item.make({ id: Uuid.v4(), name: url.host, item: [] });
     } else {
@@ -69,10 +69,10 @@ export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.T
     }
 
     host = Struct.evolve(host, {
-      item: (_) => Array.append(_ ?? [], Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] })),
+      item: (_) => Array.prepend(_ ?? [], Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] })),
     });
 
-    return pipe(newCollection, Struct.evolve({ item: (_) => Array.append(_, host) }));
+    return pipe(newCollection, Struct.evolve({ item: (_) => Array.prepend(_, host) }));
   });
 
 export const makeIndexMap = () =>
@@ -85,8 +85,8 @@ export const addRequest = (
   { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
-    const host = yield* Array.last(collection.item);
-    const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.last));
+    const host = yield* Array.head(collection.item);
+    const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.head));
 
     const requestItem = new Postman.Item({
       id: requestId,
@@ -105,18 +105,14 @@ export const addRequest = (
       ],
     });
 
-    const newNavigation = Struct.evolve(navigation, { item: (_) => Array.append(_ ?? [], requestItem) });
-    const newHost = Struct.evolve(host, {
-      item: (_) => pipe(_ ?? [], Array.dropRight(1), Array.append(newNavigation)),
-    });
-    const newCollection = Struct.evolve(collection, {
-      item: (_) => pipe(_, Array.dropRight(1), Array.append(newHost)),
-    });
+    const newNavigation = Struct.evolve(navigation, { item: (_) => Array.prepend(_ ?? [], requestItem) });
+    const newHost = Struct.evolve(host, { item: (_) => pipe(_ ?? [], Array.drop(1), Array.prepend(newNavigation)) });
+    const newCollection = Struct.evolve(collection, { item: (_) => pipe(_, Array.drop(1), Array.prepend(newHost)) });
 
     MutableHashMap.set(indexMap, requestId, {
-      host: newCollection.item.length - 1,
-      navigation: (newHost.item?.length ?? 0) - 1,
-      request: (newNavigation.item?.length ?? 0) - 1,
+      host: newCollection.item.length,
+      navigation: newHost.item?.length ?? 0,
+      request: newNavigation.item?.length ?? 0,
     });
 
     return newCollection;
@@ -131,9 +127,17 @@ export const addResponse = (
   Effect.gen(function* () {
     const index = yield* MutableHashMap.get(indexMap, requestId);
 
-    const host = yield* Array.get(collection.item, index.host);
-    const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.get(index.navigation)));
-    const request = yield* pipe(navigation.item, Option.fromNullable, Option.flatMap(Array.get(index.request)));
+    const host = yield* Array.get(collection.item, collection.item.length - index.host);
+    const navigation = yield* pipe(
+      host.item,
+      Option.fromNullable,
+      Option.flatMap(Array.get((host.item?.length ?? 0) - index.navigation)),
+    );
+    const request = yield* pipe(
+      navigation.item,
+      Option.fromNullable,
+      Option.flatMap(Array.get((navigation.item?.length ?? 0) - index.request)),
+    );
 
     const responseItem = new Postman.Response({
       code: response.status,
@@ -142,9 +146,15 @@ export const addResponse = (
     });
 
     const newRequest = new Postman.Item({ ...request, response: [responseItem] });
-    const newNavigation = Struct.evolve(navigation, { item: (_) => Array.replace(_ ?? [], index.request, newRequest) });
-    const newHost = Struct.evolve(host, { item: (_) => Array.replace(_ ?? [], index.navigation, newNavigation) });
-    const newCollection = Struct.evolve(collection, { item: (_) => Array.replace(_, index.host, newHost) });
+    const newNavigation = Struct.evolve(navigation, {
+      item: (_) => Array.replace(_ ?? [], (_?.length ?? 0) - index.request, newRequest),
+    });
+    const newHost = Struct.evolve(host, {
+      item: (_) => Array.replace(_ ?? [], (_?.length ?? 0) - index.navigation, newNavigation),
+    });
+    const newCollection = Struct.evolve(collection, {
+      item: (_) => Array.replace(_, _.length - index.host, newHost),
+    });
 
     MutableHashMap.remove(indexMap, requestId);
 
