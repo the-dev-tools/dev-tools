@@ -5,6 +5,7 @@ import (
 
 	"github.com/DevToolsGit/devtools-nodes/pkg/httpclient"
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
+	"github.com/DevToolsGit/devtools-nodes/pkg/model/mstatus"
 )
 
 type NodeMaster struct {
@@ -15,6 +16,7 @@ type NodeMaster struct {
 	CurrentNode *mnode.Node            `json:"currentNode"`
 	NextNodeID  string                 `json:"nextNode"`
 	Resolver    func(nodeType string) (func(*NodeMaster) error, error)
+	StateChan   chan mstatus.StatusUpdateData
 	HttpClient  httpclient.HttpClient
 }
 

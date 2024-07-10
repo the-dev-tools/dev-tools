@@ -25,8 +25,6 @@ const (
 
 var ErrInvalidDataType = errors.New("invalid data type")
 
-type Resolver func(nodeType string) (func(*mnodemaster.NodeMaster) error, error)
-
 func ResolveNodeFunc(nodeType string) (func(*mnodemaster.NodeMaster) error, error) {
 	switch nodeType {
 	case ApiCallRest:

@@ -48,3 +48,24 @@ func TestNodeMasterRun(t *testing.T) {
 
 	nodemaster.Run(nm)
 }
+
+func TestNodeMasterSetAndGetVar(t *testing.T) {
+	nm := &mnodemaster.NodeMaster{
+		ID:   "nodeMasterID",
+		Vars: map[string]interface{}{},
+	}
+
+	testKey := "key"
+	testValue := "value"
+
+	nodemaster.SetVar(nm, "key", "value", "triggerID")
+
+	returnVal, err := nodemaster.GetVar(nm, testKey)
+	if err != nil {
+		t.Errorf("Error getting var: %v", err)
+	}
+
+	if returnVal != testValue {
+		t.Errorf("Expected %v, got %v", testValue, returnVal)
+	}
+}

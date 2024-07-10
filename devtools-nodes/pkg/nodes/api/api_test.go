@@ -15,7 +15,7 @@ import (
 )
 
 func TestSendRestApiRequest(t *testing.T) {
-	apiCallData := api.RestApiData{
+	apiCallData := &api.RestApiData{
 		Url:    "http://localhost:8080",
 		Method: "GET",
 		Body:   []byte("SomeBody"),
@@ -72,7 +72,7 @@ func TestSendRestApiRequest(t *testing.T) {
 }
 
 func TestSendRestApiRequestNextNode(t *testing.T) {
-	apiCallData := api.RestApiData{
+	apiCallData := &api.RestApiData{
 		Url:    "http://localhost:8080",
 		Method: "GET",
 		Body:   []byte("SomeBody"),

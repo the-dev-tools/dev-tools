@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
+	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
+	"github.com/DevToolsGit/devtools-nodes/pkg/parser"
 )
 
 type ConditionDataRestStatus struct {
@@ -13,8 +15,11 @@ type ConditionDataRestStatus struct {
 
 func ConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 	data := mn.CurrentNode.Data.(*ConditionDataRestStatus)
+	if data == nil {
+		return fmt.Errorf("no data provided for condition")
+	}
 
-	rawResponse, ok := mn.Vars["response"]
+	rawResponse, ok := mn.Vars[api.VarResponseKey]
 	if !ok {
 		return mnodemaster.ErrInvalidDataType
 	}
@@ -49,6 +54,46 @@ func ConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 	}
 
 	mn.NextNodeID = nodeID
+
+	return nil
+}
+
+type ConditionDataJsonMatch struct {
+	Data       []byte
+	Path       string
+	MatchExits map[string]string
+}
+
+func ConditionJsonMatch(mn *mnodemaster.NodeMaster) error {
+	data, ok := mn.CurrentNode.Data.(*ConditionDataJsonMatch)
+
+	if !ok {
+		return fmt.Errorf("no data provided for condition")
+	}
+
+	res, err := parser.ParseBytes(data.Data, data.Path)
+	if err != nil {
+		return fmt.Errorf("error parsing nested value: %s", err)
+	}
+
+	if !res.Exists() {
+		return fmt.Errorf("result does not exist")
+	}
+
+	valStr := res.String()
+
+	found := false
+	for key, edge := range data.MatchExits {
+		if key == valStr {
+			mn.NextNodeID = edge
+			found = true
+			return nil
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("no node found for value %s", valStr)
+	}
 
 	return nil
 }

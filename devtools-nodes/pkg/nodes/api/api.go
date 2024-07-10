@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
+	"github.com/DevToolsGit/devtools-nodes/pkg/nodemaster"
 )
 
 type RestApiData struct {
@@ -20,9 +21,9 @@ const (
 	VarResponseKey = "response"
 )
 
-func SendRestApiRequest(nodeMaster *mnodemaster.NodeMaster) error {
-	currentNode := nodeMaster.CurrentNode
-	apiData, ok := currentNode.Data.(RestApiData)
+func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
+	currentNode := nm.CurrentNode
+	apiData, ok := currentNode.Data.(*RestApiData)
 	if !ok {
 		return errors.New("invalid data type")
 	}
@@ -38,19 +39,20 @@ func SendRestApiRequest(nodeMaster *mnodemaster.NodeMaster) error {
 		req.Header.Add(key, value)
 	}
 
-	client := nodeMaster.HttpClient
+	client := nm.HttpClient
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	nodeMaster.Vars[VarResponseKey] = resp
+	nodemaster.SetVar(nm, VarResponseKey, resp, currentNode.ID)
+	nm.Vars[VarResponseKey] = resp
 
 	nextNode, ok := currentNode.Edges.OutNodes[mnodemaster.EdgeSuccess]
 	if !ok {
 		return nil
 	}
-	nodeMaster.NextNodeID = nextNode
+	nm.NextNodeID = nextNode
 
 	return nil
 }
