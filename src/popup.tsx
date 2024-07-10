@@ -270,7 +270,7 @@ const RecorderPage = () => {
     URL.revokeObjectURL(link.href);
   });
 
-  const currentTimeMillis = Clock.currentTimeMillis.pipe(Runtime.runSync);
+  const currentTimeMillis = pipe(Clock.currentTimeMillis, Runtime.runSync);
 
   if (Option.isNone(tabId) && collection.item.length === 0) return <IntroPage />;
 
