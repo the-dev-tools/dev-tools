@@ -61,18 +61,24 @@ export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.T
 
     let newCollection = collection;
 
-    let host = Array.head(collection.item).pipe(Option.getOrUndefined);
+    let host = Array.head(newCollection.item).pipe(Option.getOrUndefined);
     if (host?.name !== url.host) {
       host = Postman.Item.make({ id: Uuid.v4(), name: url.host, item: [] });
     } else {
-      newCollection = Struct.evolve(newCollection, { item: (_) => Array.dropRight(_, 1) });
+      newCollection = Struct.evolve(newCollection, { item: (_) => Array.drop(_, 1) });
     }
 
-    host = Struct.evolve(host, {
-      item: (_) => Array.prepend(_ ?? [], Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] })),
-    });
+    let pathname = Array.head(host.item ?? []).pipe(Option.getOrUndefined);
+    if (pathname?.name !== url.pathname) {
+      pathname = Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] });
+    } else {
+      host = Struct.evolve(host, { item: (_) => Array.drop(_ ?? [], 1) });
+    }
 
-    return pipe(newCollection, Struct.evolve({ item: (_) => Array.prepend(_, host) }));
+    host = Struct.evolve(host, { item: (_) => Array.prepend(_ ?? [], pathname) });
+    newCollection = Struct.evolve(newCollection, { item: (_) => Array.prepend(_, host) });
+
+    return newCollection;
   });
 
 export const makeIndexMap = () =>
