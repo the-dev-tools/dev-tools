@@ -29,8 +29,8 @@ export const set =
       Effect.flatMap((_) => Effect.tryPromise(() => storage.set(key, _))),
     );
 
-export const useState = <T>(storage: PlasmoStorage.Storage, key: string, schema: Schema.Schema<T>) => {
-  const [state, setState] = React.useState(Option.none<T>());
+export const useState = <A, I>(storage: PlasmoStorage.Storage, key: string, schema: Schema.Schema<A, I>) => {
+  const [state, setState] = React.useState(Option.none<A>());
   const [stateEncoded, setStateEncoded] = PlasmoStorageHook.useStorage<typeof schema.Encoded>({
     instance: storage,
     key,
@@ -46,7 +46,7 @@ export const useState = <T>(storage: PlasmoStorage.Storage, key: string, schema:
     [schema, stateEncoded],
   );
 
-  const set = (value: T) =>
+  const set = (value: A) =>
     pipe(
       Schema.encode(schema)(value),
       Effect.flatMap((_) => Effect.tryPromise(() => setStateEncoded(_))),

@@ -10,6 +10,7 @@ import * as Auth from '@/auth';
 import * as Postman from '@/postman';
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
+import * as Storage from '@/storage';
 import * as UI from '@/ui';
 import * as Utils from '@/utils';
 import { tw } from '@/utils';
@@ -118,6 +119,8 @@ const IntroPage = () => (
   </RecorderLayout>
 );
 
+const SelectionSchema = Schema.Union(Schema.Literal('all'), Schema.Set(Schema.Union(Schema.String, Schema.Number)));
+
 const RecorderPage = () => {
   const collection = Recorder.useCollection();
   const tabId = Recorder.useTabId();
@@ -167,7 +170,8 @@ const RecorderPage = () => {
     };
   }, [collection.item]);
 
-  const [hostsSelection, setHostsSelection] = React.useState<RAC.Selection>(new Set());
+  const [hostsSelectionMaybe, setHostsSelection] = Storage.useState(Storage.Local, 'HostsSelection', SelectionSchema);
+  const hostsSelection = Option.getOrElse(hostsSelectionMaybe, () => new Set<string | number>());
 
   const selectedHost = pipe(
     hostsSelection,
@@ -191,7 +195,12 @@ const RecorderPage = () => {
     Option.getOrElse(() => []),
   );
 
-  const [requestsSelection, setRequestsSelection] = React.useState<RAC.Selection>(new Set());
+  const [requestsSelectionMaybe, setRequestsSelection] = Storage.useState(
+    Storage.Local,
+    'RequestsSelection',
+    SelectionSchema,
+  );
+  const requestsSelection = Option.getOrElse(requestsSelectionMaybe, () => new Set<string | number>());
 
   const selectedCollection = (): Postman.Collection => {
     if (requestsSelection === 'all') return collection;
@@ -308,7 +317,7 @@ const RecorderPage = () => {
           <RAC.ListBox
             items={filteredNavigations}
             selectionMode='single'
-            onSelectionChange={setHostsSelection}
+            onSelectionChange={flow(setHostsSelection, Runtime.runPromise)}
             selectedKeys={hostsSelection}
             aria-label='Visited pages'
             className='flex w-full flex-col gap-4'
@@ -359,7 +368,7 @@ const RecorderPage = () => {
             items={filteredRequests}
             selectionMode='multiple'
             selectedKeys={requestsSelection}
-            onSelectionChange={setRequestsSelection}
+            onSelectionChange={flow(setRequestsSelection, Runtime.runPromise)}
             aria-label='API Calls'
             className={(renderProps) =>
               UI.FocusRing.styles({
