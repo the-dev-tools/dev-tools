@@ -447,7 +447,9 @@ const RecorderPage = () => {
                           <span className='col-span-2 col-start-2 truncate text-xs leading-none text-indigo-600'>
                             {url.host}
                           </span>
-                          <span className='col-start-3 row-start-2 truncate text-sm'>{url.pathname}</span>
+                          <span className='col-start-3 row-start-2 truncate text-sm' title={url.href}>
+                            {url.pathname}
+                          </span>
                         </>
                       )),
                       Runtime.runSync,
