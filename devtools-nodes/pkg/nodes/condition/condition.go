@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/DevToolsGit/devtools-nodes/pkg/model/medge"
 	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
 	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
 	"github.com/DevToolsGit/devtools-nodes/pkg/parser"
+	"github.com/PaesslerAG/gval"
 )
 
 type ConditionDataRestStatus struct {
@@ -96,4 +98,42 @@ func ConditionJsonMatch(mn *mnodemaster.NodeMaster) error {
 	}
 
 	return nil
+}
+
+type ConditionDataExpression struct {
+	Expression string
+	MatchExits map[string]string
+}
+
+func ConditionExpression(mn *mnodemaster.NodeMaster) error {
+	data, ok := mn.CurrentNode.Data.(*ConditionDataExpression)
+	if !ok {
+		return fmt.Errorf("no data provided for condition")
+	}
+
+	value, err := gval.Evaluate(data.Expression, mn.Vars)
+	if err != nil {
+		return fmt.Errorf("error evaluating expression: %s", err)
+	}
+
+	boolVal, ok := value.(bool)
+	if ok {
+		if boolVal {
+			mn.NextNodeID = data.MatchExits[medge.DefaultSuccessEdge]
+		} else {
+			mn.NextNodeID = data.MatchExits[medge.DefaultFailureEdge]
+		}
+		return nil
+	}
+
+	strVal := fmt.Sprint(value)
+
+	for key, edge := range data.MatchExits {
+		if key == strVal {
+			mn.NextNodeID = edge
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no node found for value %s", strVal)
 }

@@ -193,3 +193,60 @@ func TestConditionJsonMatchNoRoute(t *testing.T) {
 		t.Errorf("unexpected next node id: %s", mn.NextNodeID)
 	}
 }
+
+func TestConditionExpression(t *testing.T) {
+	successNodeID := "node1"
+	failNodeID := "node2"
+
+	successNodeKey := mnodemaster.EdgeSuccess
+	failNodeKey := mnodemaster.EdgeFailure
+
+	mn := mnodemaster.NodeMaster{
+		Vars: map[string]interface{}{
+			"test": 1,
+		},
+		CurrentNode: &mnode.Node{
+			Data: &condition.ConditionDataExpression{
+				Expression: "test == 1",
+				MatchExits: map[string]string{
+					successNodeKey: successNodeID,
+					failNodeKey:    failNodeID,
+				},
+			},
+		},
+	}
+	err := condition.ConditionExpression(&mn)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if mn.NextNodeID != "node1" {
+		t.Errorf("unexpected next node id: %s", mn.NextNodeID)
+	}
+}
+
+func TestConditionExpressionExit(t *testing.T) {
+	successNodeID := "node1"
+	failNodeID := "node2"
+
+	mn := mnodemaster.NodeMaster{
+		Vars: map[string]interface{}{
+			"test": 1,
+		},
+		CurrentNode: &mnode.Node{
+			Data: &condition.ConditionDataExpression{
+				Expression: "10 * 10",
+				MatchExits: map[string]string{
+					"100": successNodeID,
+					"10":  failNodeID,
+				},
+			},
+		},
+	}
+	err := condition.ConditionExpression(&mn)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if mn.NextNodeID != "node1" {
+		t.Errorf("unexpected next node id: %s", mn.NextNodeID)
+	}
+}

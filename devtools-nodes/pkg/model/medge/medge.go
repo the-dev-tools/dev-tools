@@ -7,6 +7,7 @@ import (
 
 const (
 	DefaultSuccessEdge = "success"
+	DefaultFailureEdge = "failure"
 )
 
 type Edges struct {
