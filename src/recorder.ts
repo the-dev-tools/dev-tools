@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema';
 import * as Devtools from 'devtools-protocol';
-import { Array, Effect, flow, MutableHashMap, Option, pipe, Struct } from 'effect';
+import { Array, Effect, flow, MutableHashMap, Option, pipe, Record, Struct } from 'effect';
 import * as React from 'react';
 import * as Uuid from 'uuid';
 
@@ -94,21 +94,34 @@ export const addRequest = (
     const host = yield* Array.head(collection.item);
     const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.head));
 
+    const postBody = pipe(
+      postData,
+      Option.fromNullable,
+      Option.map((_) => new Postman.Body({ mode: 'raw', raw: _ })),
+    );
+
+    const header = pipe(
+      request.headers,
+      Record.toEntries,
+      Array.map(([key, value]) => new Postman.Header({ key, value })),
+    );
+
+    const timestampVariable = new Postman.Variable({
+      key: 'timestamp',
+      type: 'number',
+      value: wallTime,
+    });
+
     const requestItem = new Postman.Item({
       id: requestId,
       name: request.url,
+      variable: [timestampVariable],
       request: new Postman.RequestClass({
         url: request.url,
         method: request.method,
-        body: new Postman.Body({ raw: postData }),
+        body: Option.getOrNull(postBody),
+        header,
       }),
-      variable: [
-        new Postman.Variable({
-          key: 'timestamp',
-          type: 'number',
-          value: wallTime,
-        }),
-      ],
     });
 
     const newNavigation = Struct.evolve(navigation, { item: (_) => Array.prepend(_ ?? [], requestItem) });
@@ -145,10 +158,17 @@ export const addResponse = (
       Option.flatMap(Array.get((navigation.item?.length ?? 0) - index.request)),
     );
 
+    const header = pipe(
+      response.headers,
+      Record.toEntries,
+      Array.map(([key, value]) => new Postman.Header({ key, value })),
+    );
+
     const responseItem = new Postman.Response({
       code: response.status,
       status: response.statusText,
       body,
+      header,
     });
 
     const newRequest = new Postman.Item({ ...request, response: [responseItem] });
