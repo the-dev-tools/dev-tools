@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package nodeproto;
+option go_package = "./nodepb";
+
+service NodeService {
+  rpc Run (SingleNodeRequest) returns (SingleNodeRespond);
+  rpc RunMulti (MultiNodeRequest) returns (stream MultiNodeStatusStream);
+}
+
+message SingleNodeRequest {
+  string nodeID = 1;
+  bytes data = 2;
+}
+
+message SingleNodeRespond {
+  string nextNodeID = 1;
+  bytes data = 2;
+}
+
+message MultiNodeRequest {
+  string nodeID = 1;
+  string stopNodeID = 2;
+  bytes data = 3;
+}
+
+message MultiNodeStatusStream {
+  string nodeID = 1;
+  bytes data = 2;
+}
