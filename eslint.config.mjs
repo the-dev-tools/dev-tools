@@ -74,6 +74,7 @@ const tailwind = TS.config(...Tailwind.configs['flat/recommended'], {
 const rules = TS.config({
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
+    '@typescript-eslint/no-empty-interface': ['error', { allowSingleExtends: true }],
     '@typescript-eslint/no-meaningless-void-operator': 'off',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved

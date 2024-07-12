@@ -11,7 +11,7 @@ const config: Tailwind.Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Lexend Deca Variable"', ...defaultTheme.fontFamily.sans],
+        sans: ['"Lexend Deca Variable"', '"Lexend Deca"', ...defaultTheme.fontFamily.sans],
       },
     },
   },
