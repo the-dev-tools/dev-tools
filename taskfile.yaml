@@ -7,10 +7,22 @@ includes:
     aliases: [design]
 
 tasks:
-  default: task --list-all
-  dev: pnpm plasmo dev
-  build: pnpm plasmo build
-  package: pnpm plasmo package
+  default:
+    desc: List all available development commands
+    cmd: task --list-all --sort=none
+
+  dev:
+    desc: >-
+      Start the development server, see for more info:
+      https://docs.plasmo.com/framework/workflows/dev
+    cmd: pnpm plasmo dev
+
+  build:
+    desc: Create a production build
+    cmd: pnpm plasmo build --zip
+
   lint:
-    - pnpm prettier --check .
-    - pnpm eslint .
+    desc: Verify code conventions
+    cmds:
+      - pnpm prettier --check .
+      - pnpm eslint .
