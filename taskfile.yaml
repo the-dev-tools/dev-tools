@@ -24,5 +24,6 @@ tasks:
   lint:
     desc: Verify code conventions
     cmds:
+      - cog check
       - pnpm prettier --check .
       - pnpm eslint .

@@ -1,0 +1,17 @@
+branch_whitelist = ["main"]
+ignore_merge_commits = true
+
+pre_bump_hooks = [
+  "pnpm prettier --write CHANGELOG.md",
+  "task lint",
+  "pnpm version --no-git-tag-version {{version}}",
+]
+post_bump_hooks = ["git push", "git push origin {{version}}"]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+owner = "DevToolsGit"
+repository = "api-recorder"
+authors = [{ signature = "Tomas Zaluckij", username = "Tomaszal" }]

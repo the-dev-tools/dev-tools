@@ -24,6 +24,7 @@
             nodePackages.pnpm
 
             # Other
+            cocogitto
             go-task
           ];
         };

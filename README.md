@@ -25,3 +25,9 @@ The following software is needed for the development environment:
 
 > [!TIP]
 > To see all available development commands, run `task`
+
+## Conventional Commits
+
+This project follows the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) specification. Please make yourself familiar with it before pushing commits to the repository. It is important to adhere to this specification, as it is used to automatically generate [Semantic Versioning 2.0.0](https://semver.org/) compatible versions and changelogs.
+
+[Cocogitto](https://docs.cocogitto.io/) is present in the development environment to provide assistance with conventional commits. For example, [`cog commit`](https://docs.cocogitto.io/guide/#conventional-commits) can be used instead of `git commit` to ensure the correctness when committing to the repository.
