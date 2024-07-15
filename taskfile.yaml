@@ -1,6 +1,11 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: '3'
 
+includes:
+  design-tokens:
+    taskfile: ./src/design-tokens
+    aliases: [design]
+
 tasks:
   default: task --list-all
   dev: pnpm plasmo dev
