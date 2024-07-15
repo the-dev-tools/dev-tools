@@ -1,13 +1,13 @@
 package nodemaster
 
 import (
+	"devtools-nodes/pkg/httpclient"
+	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/model/mresolver"
+	"devtools-nodes/pkg/model/mstatus"
 	"errors"
 
-	"github.com/DevToolsGit/devtools-nodes/pkg/httpclient"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mresolver"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mstatus"
 	"github.com/google/uuid"
 )
 

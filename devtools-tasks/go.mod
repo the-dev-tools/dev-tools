@@ -1,3 +1,3 @@
-module github.com/DevToolsGit/devtools-tasks
+module devtools-tasks
 
 go 1.22.4

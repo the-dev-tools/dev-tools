@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package node.v1;
+option go_package = "devtools-services/gen/node/v1;nodev1";
+
+service NodeService {
+  rpc Run (NodeServiceRunRequest) returns (NodeServiceRunResponse);
+  rpc RunMulti (NodeServiceRunMultiRequest) returns (stream NodeServiceRunMultiResponse);
+}
+
+message NodeServiceRunRequest {
+  string node_id = 1;
+  bytes data = 2;
+}
+
+message NodeServiceRunResponse {
+  string next_node_id = 1;
+  bytes data = 2;
+}
+
+message NodeServiceRunMultiRequest {
+  string node_id = 1;
+  string stop_node_id = 2;
+  bytes data = 3;
+}
+
+message NodeServiceRunMultiResponse {
+  string node_id = 1;
+  bytes data = 2;
+}

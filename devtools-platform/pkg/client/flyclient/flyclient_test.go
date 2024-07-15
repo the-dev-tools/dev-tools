@@ -1,13 +1,12 @@
 package flyclient_test
 
 import (
+	"devtools-platform/pkg/client/flyclient"
+	"devtools-platform/pkg/machine/flymachine"
 	"fmt"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/DevToolsGit/devtools-platform/pkg/client/flyclient"
-	"github.com/DevToolsGit/devtools-platform/pkg/machine/flymachine"
 )
 
 func SetupCreateClient(t testing.TB) *flyclient.Fly {

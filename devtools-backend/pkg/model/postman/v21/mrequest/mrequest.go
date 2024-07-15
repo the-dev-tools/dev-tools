@@ -1,10 +1,10 @@
 package mrequest
 
 import (
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mauth"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mbody"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mheader"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/murl"
+	"devtools-backend/pkg/model/postman/v21/mauth"
+	"devtools-backend/pkg/model/postman/v21/mbody"
+	"devtools-backend/pkg/model/postman/v21/mheader"
+	"devtools-backend/pkg/model/postman/v21/murl"
 )
 
 type Request struct {

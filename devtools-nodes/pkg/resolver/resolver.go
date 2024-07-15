@@ -1,12 +1,11 @@
 package resolver
 
 import (
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/nodes/communication"
+	"devtools-nodes/pkg/nodes/condition"
 	"errors"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/communication"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/condition"
 )
 
 const (

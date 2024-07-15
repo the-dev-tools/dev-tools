@@ -1,6 +1,6 @@
 package mevent
 
-import "github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/murl"
+import "devtools-backend/pkg/model/postman/v21/murl"
 
 type Script struct {
 	ID   string   `json:"id,omitempty"`

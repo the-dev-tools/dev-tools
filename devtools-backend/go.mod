@@ -1,4 +1,4 @@
-module github.com/DevToolsGit/devtools-backend
+module devtools-backend
 
 go 1.22.4
 

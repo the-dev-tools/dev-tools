@@ -1,9 +1,8 @@
 package resolver_test
 
 import (
+	"devtools-nodes/pkg/resolver"
 	"testing"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/resolver"
 )
 
 func TestResolver_ResolveNodeFunc(t *testing.T) {

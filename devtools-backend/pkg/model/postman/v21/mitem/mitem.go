@@ -1,11 +1,11 @@
 package mitem
 
 import (
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mauth"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mevent"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mrequest"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mresponse"
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mvariable"
+	"devtools-backend/pkg/model/postman/v21/mauth"
+	"devtools-backend/pkg/model/postman/v21/mevent"
+	"devtools-backend/pkg/model/postman/v21/mrequest"
+	"devtools-backend/pkg/model/postman/v21/mresponse"
+	"devtools-backend/pkg/model/postman/v21/mvariable"
 )
 
 // Can be generic for single or group items

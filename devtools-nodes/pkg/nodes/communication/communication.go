@@ -1,6 +1,6 @@
 package communication
 
-import "github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
+import "devtools-nodes/pkg/model/mnodemaster"
 
 type EmailData struct {
 	To string `json:"to"`

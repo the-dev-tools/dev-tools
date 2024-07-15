@@ -2,16 +2,15 @@ package api_test
 
 import (
 	"bytes"
+	"devtools-nodes/pkg/httpclient/httpmockclient"
+	"devtools-nodes/pkg/model/medge"
+	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/resolver"
 	"io"
 	"net/http"
 	"testing"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/httpclient/httpmockclient"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/medge"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
-	"github.com/DevToolsGit/devtools-nodes/pkg/resolver"
 )
 
 func TestSendRestApiRequest(t *testing.T) {

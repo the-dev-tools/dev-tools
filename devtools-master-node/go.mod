@@ -1,3 +1,3 @@
-module github.com/DevToolsGit/devtools-master-node
+module devtools-master-node
 
 go 1.22.4

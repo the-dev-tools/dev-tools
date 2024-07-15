@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/DevToolsGit/devtools-platform/pkg/machine"
+	"devtools-platform/pkg/machine"
 )
 
 type Client interface {

@@ -1,13 +1,13 @@
 package stressplan
 
 import (
+	"devtools-slave-node/pkg/resolver"
+	"devtools-tasks/pkg/model/mrequest"
+	"devtools-tasks/pkg/model/mtask"
+	"devtools-tasks/pkg/model/mtaskresult"
 	"sync"
 	"time"
 
-	"github.com/DevToolsGit/devtools-slave-node/pkg/resolver"
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mrequest"
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mtask"
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mtaskresult"
 	"github.com/google/uuid"
 )
 

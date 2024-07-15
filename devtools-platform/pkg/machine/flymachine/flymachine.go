@@ -24,11 +24,12 @@ const (
 )
 
 type FlyMachine struct {
-	ID     string                 `json:"id"`
-	Name   string                 `json:"name"`
-	Config FlyMachineCreateConfig `json:"config"`
-	Region Region                 `json:"region"`
-	Guest  Guest                  `json:"guest"`
+	ID        string                 `json:"id"`
+	Name      string                 `json:"name"`
+	Config    FlyMachineCreateConfig `json:"config"`
+	Region    Region                 `json:"region"`
+	Guest     Guest                  `json:"guest"`
+	PrivateIP string                 `json:"private_ip,omitempty"`
 }
 
 type Guest struct {
@@ -71,4 +72,12 @@ func (m *FlyMachine) GetID() string {
 
 func (m *FlyMachine) GetRegion() string {
 	return string(m.Region)
+}
+
+func (m *FlyMachine) GetIP() string {
+	return m.PrivateIP
+}
+
+func (m *FlyMachine) GetInternalPort() int {
+	return m.Config.Services[0].InternalPort
 }

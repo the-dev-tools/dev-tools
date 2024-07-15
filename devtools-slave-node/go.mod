@@ -1,4 +1,4 @@
-module github.com/DevToolsGit/devtools-slave-node
+module devtools-slave-node
 
 go 1.22.5
 

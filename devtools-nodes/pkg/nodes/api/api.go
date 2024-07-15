@@ -2,11 +2,10 @@ package api
 
 import (
 	"bytes"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodemaster"
 	"errors"
 	"net/http"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodemaster"
 )
 
 type RestApiData struct {

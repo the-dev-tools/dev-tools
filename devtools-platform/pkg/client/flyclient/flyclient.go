@@ -2,15 +2,14 @@ package flyclient
 
 import (
 	"bytes"
+	"devtools-platform/pkg/machine"
+	"devtools-platform/pkg/machine/flymachine"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/DevToolsGit/devtools-platform/pkg/machine"
-	"github.com/DevToolsGit/devtools-platform/pkg/machine/flymachine"
 )
 
 const default_timeout = 10 * time.Second
@@ -120,6 +119,23 @@ func (f *Fly) CreateMachine(data machine.Machine) (machine.Machine, error) {
 		return nil, err
 	}
 	return &machine, nil
+}
+
+// INFO: need to this way cuz currently golang cannot understand interface slice
+func (f *Fly) CreateMachines(datas []*flymachine.FlyMachine) ([]machine.Machine, error) {
+	var machines []machine.Machine
+
+	for _, data := range datas {
+		machine, err := f.CreateMachine(data)
+		if err != nil {
+			for _, m := range machines {
+				_ = f.DeleteMachine(m.GetID(), true)
+			}
+			return nil, err
+		}
+		machines = append(machines, machine)
+	}
+	return machines, nil
 }
 
 func (f *Fly) DeleteMachine(id string, force bool) error {

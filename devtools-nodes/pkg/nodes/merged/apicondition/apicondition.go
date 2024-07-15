@@ -1,13 +1,12 @@
 package apicondition
 
 import (
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodemaster"
+	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/nodes/condition"
 	"errors"
 	"fmt"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/condition"
 )
 
 type ConditionDataRestStatus struct {

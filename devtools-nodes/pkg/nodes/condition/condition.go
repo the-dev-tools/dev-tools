@@ -1,13 +1,13 @@
 package condition
 
 import (
+	"devtools-nodes/pkg/model/medge"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/parser"
 	"fmt"
 	"net/http"
 
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/medge"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
-	"github.com/DevToolsGit/devtools-nodes/pkg/parser"
 	"github.com/PaesslerAG/gval"
 )
 

@@ -1,9 +1,8 @@
 package communication_test
 
 import (
+	"devtools-nodes/pkg/mailclient/mockemailclient"
 	"testing"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/mailclient/mockemailclient"
 )
 
 func TestSendEmail(t *testing.T) {

@@ -1,9 +1,9 @@
 package parser_test
 
 import (
+	"devtools-nodes/pkg/parser"
 	"testing"
 
-	"github.com/DevToolsGit/devtools-nodes/pkg/parser"
 	"github.com/tidwall/gjson"
 )
 

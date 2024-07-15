@@ -1,13 +1,12 @@
 package collection_test
 
 import (
+	"devtools-backend/pkg/model/postman/v21/mcollection"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/DevToolsGit/devtools-backend/pkg/model/postman/v21/mcollection"
 )
 
 func TestCollection(t *testing.T) {
@@ -42,4 +41,3 @@ func TestCollection(t *testing.T) {
 
 	}
 }
-

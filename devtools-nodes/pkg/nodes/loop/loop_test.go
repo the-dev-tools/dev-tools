@@ -1,12 +1,11 @@
 package loop_test
 
 import (
+	"devtools-nodes/pkg/model/medge"
+	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/loop"
 	"testing"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/medge"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/loop"
 )
 
 func TestLoopNode(t *testing.T) {

@@ -1,8 +1,8 @@
 package resolver
 
 import (
-	"github.com/DevToolsGit/devtools-slave-node/internal/stress"
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mrequest"
+	"devtools-slave-node/internal/stress"
+	"devtools-tasks/pkg/model/mrequest"
 )
 
 type StressMethodFunc func(req mrequest.Request) (*mrequest.RequestResult, error)

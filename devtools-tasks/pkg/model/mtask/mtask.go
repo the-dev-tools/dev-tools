@@ -1,10 +1,9 @@
 package mtask
 
 import (
+	"devtools-tasks/pkg/model/mrequest"
+	"devtools-tasks/pkg/model/mtaskresult"
 	"time"
-
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mrequest"
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mtaskresult"
 )
 
 type Task struct {

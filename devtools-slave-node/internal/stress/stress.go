@@ -2,12 +2,12 @@ package stress
 
 import (
 	"bytes"
+	"devtools-tasks/pkg/model/mrequest"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/DevToolsGit/devtools-tasks/pkg/model/mrequest"
 	"github.com/google/uuid"
 )
 

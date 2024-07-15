@@ -1,15 +1,14 @@
 package apicondition_test
 
 import (
+	"devtools-nodes/pkg/httpclient/httpmockclient"
+	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/nodes/condition"
+	"devtools-nodes/pkg/nodes/merged/apicondition"
 	"net/http"
 	"testing"
-
-	"github.com/DevToolsGit/devtools-nodes/pkg/httpclient/httpmockclient"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnode"
-	"github.com/DevToolsGit/devtools-nodes/pkg/model/mnodemaster"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/api"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/condition"
-	"github.com/DevToolsGit/devtools-nodes/pkg/nodes/merged/apicondition"
 )
 
 func TestConditionRestStatus200(t *testing.T) {

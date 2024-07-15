@@ -5,6 +5,7 @@ use (
 	./devtools-master-node
 	./devtools-nodes
 	./devtools-platform
+	./devtools-services
 	./devtools-slave-node
 	./devtools-tasks
 	./fly-go

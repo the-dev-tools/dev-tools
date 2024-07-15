@@ -1,3 +1,3 @@
-module github.com/DevToolsGit/devtools-platform
+module devtools-platform
 
 go 1.22.4

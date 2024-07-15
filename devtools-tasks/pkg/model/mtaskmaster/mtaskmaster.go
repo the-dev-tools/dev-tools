@@ -1,6 +1,6 @@
 package mtaskmaster
 
-import "github.com/DevToolsGit/devtools-tasks/pkg/model/mtask"
+import "devtools-tasks/pkg/model/mtask"
 
 type TaskMaster struct {
 	ID      int
@@ -12,5 +12,5 @@ type TaskMaster struct {
 
 type TaskMasterSender struct {
 	ID    int
-	Tasks map[string]mtask.TaskSender
+	Tasks map[string]mtask.TaskRequest
 }

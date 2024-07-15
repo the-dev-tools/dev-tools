@@ -1,6 +1,6 @@
 package mnode
 
-import "github.com/DevToolsGit/devtools-nodes/pkg/model/medge"
+import "devtools-nodes/pkg/model/medge"
 
 type Node struct {
 	ID      string      `json:"id"`
