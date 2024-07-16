@@ -24,6 +24,8 @@ tasks:
   lint:
     desc: Verify code conventions
     cmds:
-      - cog check
+      # Consider switching to Commitizen and using a Commit Message File to run the check inside of a Nix derivation
+      # https://commitizen-tools.github.io/commitizen/commands/check/#commit-message-file
+      - '{{if ne .COG "false"}} cog check {{end}}'
       - pnpm prettier --check .
       - pnpm eslint .
