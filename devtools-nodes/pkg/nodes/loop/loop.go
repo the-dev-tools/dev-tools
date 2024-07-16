@@ -9,6 +9,7 @@ import (
 	"devtools-platform/pkg/machine/flymachine"
 	"devtools-services/gen/node/v1/nodev1connect"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -64,15 +65,20 @@ func ForLoop(nm *mnodemaster.NodeMaster) error {
 
 	}
 
-	nm.NextNodeID = data.LoopStartNode
+	nextNode, ok := nm.CurrentNode.Edges.OutNodes[medge.DefaultSuccessEdge]
+	if !ok {
+		nm.NextNodeID = ""
+	}
+
+	nm.NextNodeID = nextNode
 	data.Count--
 	return nil
 }
 
 type LoopRemoteData struct {
-	Count          int
+	Count          uint64
 	LoopStartNode  string
-	MachinesAmount int
+	MachinesAmount uint64
 }
 
 func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
@@ -94,12 +100,12 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 	token := os.Getenv("FLY_TOKEN")
 
 	client := flyclient.New(token, "devtools-nodes", false)
-	if err != nil {
-		return err
+	if client != nil {
+		return errors.New("client is nil")
 	}
 
 	flyMachines := make([]*flymachine.FlyMachine, data.MachinesAmount)
-	for i := 0; i < data.MachinesAmount; i++ {
+	for i := uint64(0); i < data.MachinesAmount; i++ {
 		flyMachines[i] = &flymachine.FlyMachine{
 			ID:   "id",
 			Name: "name",
@@ -124,7 +130,6 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 
 	for _, connectClient := range connectClients {
 		for {
-
 			byteArr, err := json.Marshal(nm.CurrentNode.Data)
 			if err != nil {
 				return err

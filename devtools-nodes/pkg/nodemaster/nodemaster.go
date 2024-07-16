@@ -7,6 +7,7 @@ import (
 	"devtools-nodes/pkg/model/mresolver"
 	"devtools-nodes/pkg/model/mstatus"
 	"errors"
+	"log"
 
 	"github.com/google/uuid"
 )
@@ -25,6 +26,7 @@ func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mre
 		Nodes:       nodes,
 		Vars:        map[string]interface{}{},
 		Resolver:    resolver,
+		Logger:      log.Default(),
 		StateChan:   stateChan,
 		HttpClient:  httpClient,
 		CurrentNode: nil,
@@ -40,15 +42,20 @@ func Run(nm *mnodemaster.NodeMaster) error {
 	}
 
 	for {
+		nm.Logger.Printf("Executing node %s", nm.CurrentNode.ID)
 		err := ExecuteNode(nm, nm.Resolver)
 		if err != nil {
 			return err
 		}
 
+		nm.Logger.Printf("Node %s execution completed", nm.CurrentNode.ID)
 		if nm.NextNodeID == "" {
+			nm.Logger.Printf("Next node is empty")
 			// done with the execution
 			break
 		}
+
+		nm.Logger.Printf("Next node %s", nm.NextNodeID)
 
 		nextNode, err := GetNodeByID(nm, nm.NextNodeID)
 		if err != nil {
@@ -57,6 +64,8 @@ func Run(nm *mnodemaster.NodeMaster) error {
 
 		nm.CurrentNode = nextNode
 	}
+
+	nm.Logger.Printf("NodeMaster %s Execution completed", nm.ID)
 
 	return nil
 }
@@ -81,7 +90,7 @@ func ExecuteNode(nm *mnodemaster.NodeMaster, resolver mresolver.Resolver) error 
 
 	err = nodeFunc(nm)
 	if err != nil {
-		return errors.New("nodeFunc failed")
+		return errors.New("nodeFunc failed: " + err.Error())
 	}
 
 	return nil

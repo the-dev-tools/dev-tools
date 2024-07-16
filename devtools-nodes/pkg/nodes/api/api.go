@@ -49,8 +49,9 @@ func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 
 	nextNode, ok := currentNode.Edges.OutNodes[mnodemaster.EdgeSuccess]
 	if !ok {
-		return nil
+		nm.NextNodeID = ""
 	}
+
 	nm.NextNodeID = nextNode
 
 	return nil

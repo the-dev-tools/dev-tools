@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/resolver"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
@@ -17,7 +18,7 @@ import (
 func main() {
 	client := nodemasterv1connect.NewNodeMasterServiceClient(http.DefaultClient, "http://localhost:8080")
 
-	data := &nodedatav1.ApiCallData{
+	data := &nodedatav1.NodeApiCallData{
 		Url:         "http://google.com",
 		Method:      "GET",
 		QueryParams: map[string]string{"param1": "value1"},
@@ -36,12 +37,24 @@ func main() {
 		OwnerId: "someid",
 		Data:    anyData,
 		GroupId: "someid",
+		Edges: &nodemasterv1.Edges{
+			OutNodes: map[string]string{medge.DefaultSuccessEdge: "node2"},
+		},
+	}
+
+	node2 := nodemasterv1.Node{
+		Id:      "node2",
+		Type:    resolver.ApiCallRest,
+		OwnerId: "someid",
+		Data:    anyData,
+		GroupId: "someid",
+		Edges:   &nodemasterv1.Edges{},
 	}
 
 	nm := &nodemasterv1.NodeMasterServiceRunRequest{
 		Id:          "123",
-		StartNodeId: "Node1",
-		Nodes:       map[string]*nodemasterv1.Node{"Node1": &node},
+		StartNodeId: node.Id,
+		Nodes:       map[string]*nodemasterv1.Node{node.Id: &node, node2.Id: &node2},
 		Vars:        map[string]*anypb.Any{"var1": anyData},
 	}
 

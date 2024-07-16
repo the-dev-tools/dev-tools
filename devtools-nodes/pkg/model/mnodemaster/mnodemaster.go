@@ -5,6 +5,7 @@ import (
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mstatus"
 	"errors"
+	"log"
 )
 
 type NodeMaster struct {
@@ -16,6 +17,7 @@ type NodeMaster struct {
 	NextNodeID  string                 `json:"nextNode"`
 	StopNodeID  string
 	Resolver    func(nodeType string) (func(*NodeMaster) error, error)
+	Logger      *log.Logger
 	StateChan   chan mstatus.StatusUpdateData
 	HttpClient  httpclient.HttpClient
 }
