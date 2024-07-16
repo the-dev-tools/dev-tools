@@ -14,4 +14,4 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v2
 
       - run: nix run .#cocogitto -- check
-      - run: nix flake check
+      - run: nix flake check --print-build-logs
