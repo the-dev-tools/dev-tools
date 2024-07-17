@@ -1,0 +1,60 @@
+name: cd
+
+on:
+  push:
+    branches: [prod]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # get the full git history
+
+      - uses: DeterminateSystems/nix-installer-action@v12
+      - uses: DeterminateSystems/magic-nix-cache-action@v7
+
+      - name: Setup Git user
+        run: |
+          git config --global user.name GitHub Action
+          git config --global user.email actions@github.com
+
+      - run: nix develop .#runner --command cog bump
+
+      - name: Rebase main onto prod
+        run: |
+          git checkout main
+          git rebase prod
+          git push
+
+  build:
+    needs: bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v12
+      - uses: DeterminateSystems/magic-nix-cache-action@v7
+
+      - run: nix build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build/*.zip
+          if-no-files-found: error
+
+  publish-chrome-mv3:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          pattern: chrome-mv3-prod.zip
+
+      - uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.BPP_KEYS }}
+          chrome-file: chrome-mv3-prod.zip

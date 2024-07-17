@@ -2,4 +2,5 @@
 .plasmo
 /node_modules
 build/
+result
 src/design-tokens/tokens.json

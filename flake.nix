@@ -66,6 +66,16 @@
           nativeBuildInputs = taskInputs;
           shellHook = setupNodeModules;
         };
+
+        packages.default = pkgs.stdenv.mkDerivation {
+          inherit (package) version;
+          pname = package.name;
+          src = ./.;
+          nativeBuildInputs = taskInputs;
+          postConfigure = setupNodeModules;
+          buildPhase = "task build";
+          installPhase = "cp -r build $out";
+        };
       };
     };
 }
