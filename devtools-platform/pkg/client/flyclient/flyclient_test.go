@@ -43,7 +43,10 @@ func TestFlyClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("GetMachine() returned error: %v", err)
 		}
-		t.Logf("machine: %v", machine)
+		if machine == nil {
+			t.Errorf("GetMachine() returned nil")
+		}
+
 	}
 }
 
@@ -52,11 +55,11 @@ func TestFlyClientCreate(t *testing.T) {
 
 	formatedText := time.Now().Format("2006-01-02 15:04:05")
 
-	flymachine := &flymachine.FlyMachine{
+	machineData := &flymachine.FlyMachine{
 		Name:   fmt.Sprintf("test-%s", formatedText),
 		Region: flymachine.RegionAmsterdam,
 		Config: flymachine.FlyMachineCreateConfig{
-			Image: "alpine",
+			Image: "registry.fly.io/rest-backend-restless-moon-1673:deployment-01J17J2EMRHVTTSSGW1TDWK1HY",
 			Env: map[string]string{
 				"FOO": "bar",
 			},
@@ -73,14 +76,33 @@ func TestFlyClientCreate(t *testing.T) {
 		},
 	}
 
-	machine, err := client.CreateMachine(flymachine)
+	machine, err := client.CreateMachine(machineData)
 	if err != nil {
 		t.Errorf("CreateMachine() returned error: %v", err)
 	}
-	t.Logf("machine: %v", machine)
+
+	err = client.WaitMachine(machine.GetID(), machine.GetInstanceID(), time.Duration(time.Minute), flymachine.StateStarted)
+	if err != nil {
+		t.Errorf("WaitMachine() returned error: %v", err)
+	}
+
+	err = client.StopMachine(machine.GetID())
+	if err != nil {
+		t.Errorf("StopMachine() returned error: %v", err)
+	}
+
+	err = client.WaitMachine(machine.GetID(), machine.GetInstanceID(), time.Duration(time.Minute), flymachine.StateStopped)
+	if err != nil {
+		t.Errorf("WaitMachine() returned error: %v", err)
+	}
 
 	err = client.DeleteMachine(machine.GetID(), true)
 	if err != nil {
 		t.Errorf("DeleteMachine() returned error: %v", err)
+	}
+
+	err = client.WaitMachine(machine.GetID(), machine.GetInstanceID(), time.Duration(time.Minute), flymachine.StateDestroyed)
+	if err != nil {
+		t.Errorf("WaitMachine() returned error: %v", err)
 	}
 }

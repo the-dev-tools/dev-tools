@@ -92,7 +92,6 @@ func (f *Fly) CreateMachine(data machine.Machine) (machine.Machine, error) {
 		return nil, err
 	}
 
-	fmt.Println("machineJSON: ", string(machineJSON))
 	reqURL := f.BaseURL
 	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines", f.AppName)
 	req, err := http.NewRequest("POST", reqURL.String(), bytes.NewBuffer(machineJSON))
@@ -141,7 +140,9 @@ func (f *Fly) CreateMachines(datas []*flymachine.FlyMachine) ([]machine.Machine,
 func (f *Fly) DeleteMachine(id string, force bool) error {
 	reqURL := f.BaseURL
 	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s", f.AppName, id)
-	reqURL.Query().Add("force", fmt.Sprintf("%t", force))
+	q := reqURL.Query()
+	q.Add("force", fmt.Sprintf("%t", force))
+	reqURL.RawQuery = q.Encode()
 	req, err := http.NewRequest("DELETE", reqURL.String(), nil)
 	if err != nil {
 		return err
@@ -151,8 +152,15 @@ func (f *Fly) DeleteMachine(id string, force bool) error {
 	if err != nil {
 		return err
 	}
+
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("machine not deleted")
+		bodyRaw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		str := string(bodyRaw)
+		return fmt.Errorf("status code: %d body: %s", resp.StatusCode, str)
 	}
 	return nil
 }
@@ -186,28 +194,48 @@ func (f *Fly) UpdateMachine(data machine.Machine) (machine.Machine, error) {
 	return &machine, nil
 }
 
-func (f *Fly) WaitMachine(id string, timeout time.Duration, state string) error {
+func (f *Fly) WaitMachine(id, instanceID string, timeout time.Duration, state flymachine.State) error {
 	reqURL := f.BaseURL
 	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s/wait", f.AppName, id)
-	reqURL.Query().Add("timeout", timeout.String())
-	reqURL.Query().Add("state", state)
+	u := reqURL.Query()
+	u.Add("timeout", fmt.Sprint(timeout.Seconds()))
+	u.Add("state", state.String())
+	u.Add("instance_id", instanceID)
+	reqURL.RawQuery = u.Encode()
 	req, err := http.NewRequest("GET", reqURL.String(), nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
+
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("machine not in state %s", state.String())
+	}
 	return nil
 }
 
 func (f *Fly) LeaseMachine(id string, duration time.Duration) error {
 	reqURL := f.BaseURL
 	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s/lease", f.AppName, id)
-	reqURL.Query().Add("duration", duration.String())
+	u := reqURL.Query()
+	u.Add("duration", duration.String())
+	reqURL.RawQuery = u.Encode()
 	req, err := http.NewRequest("GET", reqURL.String(), nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("machine not leased")
+	}
 	return nil
 }
 
@@ -219,6 +247,13 @@ func (f *Fly) ReleaseMachine(id string) error {
 		return err
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("machine not released")
+	}
 	return nil
 }
 
@@ -282,6 +317,48 @@ func (f *Fly) DeleteMetaDataMachine(id string, key string) error {
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("metadata not deleted")
+	}
+	return nil
+}
+
+func (f *Fly) StopMachine(id string) error {
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s/stop", f.AppName, id)
+	req, err := http.NewRequest("POST", reqURL.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		bodyRaw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		str := string(bodyRaw)
+		return fmt.Errorf("status code: %d body: %s", resp.StatusCode, str)
+	}
+	return nil
+}
+
+func (f *Fly) StartMachine(id string) error {
+	reqURL := f.BaseURL
+	reqURL.Path = fmt.Sprintf("/v1/apps/%s/machines/%s/start", f.AppName, id)
+	req, err := http.NewRequest("POST", reqURL.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", f.token))
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("machine not started")
 	}
 	return nil
 }
