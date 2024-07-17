@@ -4,6 +4,9 @@ on:
   push:
     branches: [prod]
 
+permissions:
+  contents: write
+
 jobs:
   bump:
     runs-on: ubuntu-latest
