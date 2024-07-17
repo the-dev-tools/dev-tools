@@ -56,13 +56,13 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 	return resp, nil
 }
 
-func ListenMasterNodeService() {
+func ListenMasterNodeService(port string) {
 	server := &MasterNodeServer{}
 	mux := http.NewServeMux()
 	path, handler := nodemasterv1connect.NewNodeMasterServiceHandler(server)
 	mux.Handle(path, handler)
 	http.ListenAndServe(
-		"localhost:8080",
+		":"+port,
 		// INFO: Use h2c so we can serve HTTP/2 without TLS.
 		h2c.NewHandler(mux, &http2.Server{}),
 	)

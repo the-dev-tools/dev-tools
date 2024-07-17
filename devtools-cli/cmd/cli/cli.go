@@ -7,16 +7,28 @@ import (
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func main() {
-	client := nodemasterv1connect.NewNodeMasterServiceClient(http.DefaultClient, "http://localhost:8080")
+	addr := flag.String("addr", "http://localhost:8080", "address of the node master service")
+	times := flag.Int("times", 1, "number of times to run the node master")
+
+	flag.Parse()
+
+	if addr == nil {
+		log.Fatalf("failed to get address")
+	}
+
+	fmt.Println("Address: ", *addr)
 
 	data := &nodedatav1.NodeApiCallData{
 		Url:         "http://google.com",
@@ -58,11 +70,26 @@ func main() {
 		Vars:        map[string]*anypb.Any{"var1": anyData},
 	}
 
-	req := connect.NewRequest(nm)
-	resp, err := client.Run(context.Background(), req)
-	if err != nil {
-		log.Fatalf("failed to run node master: %v", err)
-	}
+	start := time.Now()
 
-	fmt.Println(resp)
+	wg := sync.WaitGroup{}
+	for i := 0; i < *times; i++ {
+		wg.Add(1)
+		go func() {
+			client := nodemasterv1connect.NewNodeMasterServiceClient(http.DefaultClient, *addr)
+			req := connect.NewRequest(nm)
+			defer wg.Done()
+			resp, err := client.Run(context.Background(), req)
+			if err != nil {
+				log.Fatalf("failed to run node master: %v", err)
+			}
+			fmt.Println(resp)
+		}()
+	}
+	wg.Wait()
+
+	take := time.Since(start)
+	fmt.Println("Time taken: ", take)
+
+	fmt.Println("Done")
 }
