@@ -20,6 +20,9 @@ jobs:
           git config --global user.name GitHub Action
           git config --global user.email actions@github.com
 
+      - name: Prepare runner dev shell
+        run: nix develop .#runner --command true
+
       - run: nix develop .#runner --command cog bump
 
       - name: Rebase main onto prod
