@@ -23,7 +23,7 @@ jobs:
       - name: Prepare runner dev shell
         run: nix develop .#runner --command true
 
-      - run: nix develop .#runner --command cog bump
+      - run: nix develop .#runner --command cog bump --auto
 
       - name: Rebase main onto prod
         run: |
