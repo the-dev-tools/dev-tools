@@ -28,7 +28,7 @@
             };
           pnpmDeps = pkgs.pnpm_9.fetchDeps {
             inherit pname version src;
-            hash = "sha256-zqa7lEbk/9QNFZIbYrAWfVFKpwGNq1umwobNgCf1alk=";
+            hash = "sha256-YwOBEK+XfP/zg7SQlGma4XB/zGUG1isJSnvjyoUGazY=";
           };
           result = pkgs.stdenv.mkDerivation {
             inherit pname version src pnpmDeps;

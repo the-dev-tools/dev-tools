@@ -54,9 +54,22 @@
   "pnpm": {
     "peerDependencyRules": {
       "allowedVersions": {
-        "svgo": "2.8.0",
-        "eslint": "9.6.0"
+        "svgo": "^2.8.0",
+        "eslint": "^9.6.0"
       }
+    },
+    "overrides": {
+      "sharp": "^0.33.4"
+    },
+    "supportedArchitectures": {
+      "os": [
+        "linux",
+        "darwin"
+      ],
+      "cpu": [
+        "x64",
+        "arm64"
+      ]
     }
   },
   "manifest": {
