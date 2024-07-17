@@ -2,7 +2,7 @@ branch_whitelist = ["prod"]
 ignore_merge_commits = true
 
 pre_bump_hooks = ["pnpm version --no-git-tag-version {{version}}"]
-post_bump_hooks = ["git push", "git push {{version}}"]
+post_bump_hooks = ["git push", "git push origin {{version}}"]
 
 [changelog]
 path = "CHANGELOG.md"
