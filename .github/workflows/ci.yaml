@@ -1,9 +1,9 @@
-name: ci
+name: Integration
 
 on: [push]
 
 jobs:
-  check:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
