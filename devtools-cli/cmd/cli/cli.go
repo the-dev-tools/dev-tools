@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"golang.org/x/net/http2"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -76,7 +77,9 @@ func main() {
 	for i := 0; i < *times; i++ {
 		wg.Add(1)
 		go func() {
-			client := nodemasterv1connect.NewNodeMasterServiceClient(http.DefaultClient, *addr)
+			client := nodemasterv1connect.NewNodeMasterServiceClient(&http.Client{
+				Transport: &http2.Transport{},
+			}, *addr)
 			req := connect.NewRequest(nm)
 			defer wg.Done()
 			resp, err := client.Run(context.Background(), req)

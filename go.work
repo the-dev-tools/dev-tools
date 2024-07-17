@@ -3,11 +3,10 @@ go 1.22.5
 use (
 	./devtools-backend
 	./devtools-cli
-	./devtools-master-node
+	./devtools-masternode
 	./devtools-nodes
 	./devtools-platform
 	./devtools-services
-	./devtools-slave-node
-	./devtools-tasks
+	./devtools-slave
 	./fly-go
 )

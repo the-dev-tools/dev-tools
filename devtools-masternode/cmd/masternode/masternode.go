@@ -1,7 +1,7 @@
 package main
 
 import (
-	"devtools-backend/internal/api"
+	"devtools-masternode/internal/api"
 	"log"
 	"os"
 	"os/signal"
@@ -18,10 +18,8 @@ func main() {
 	}
 
 	go func() {
-		err := api.ListenBackendServerProxy(port)
-		if err != nil {
-			log.Fatal(err)
-		}
+		err := api.ListenMasterNodeService(port)
+		log.Fatal(err)
 	}()
 
 	<-sc
