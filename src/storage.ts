@@ -22,8 +22,8 @@ export const get = <T>(storage: PlasmoStorage.Storage, key: string, schema: Sche
   });
 
 export const set =
-  <T>(storage: PlasmoStorage.Storage, key: string, schema: Schema.Schema<T>) =>
-  (value: T) =>
+  <A, I>(storage: PlasmoStorage.Storage, key: string, schema: Schema.Schema<A, I>) =>
+  (value: A) =>
     pipe(
       Schema.encode(schema)(value),
       Effect.flatMap((_) => Effect.tryPromise(() => storage.set(key, _))),

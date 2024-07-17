@@ -1,5 +1,4 @@
 import { Schema } from '@effect/schema';
-import backgroundImage from 'data-base64:@/../assets/background.png';
 import { Array, Clock, Duration, Effect, flow, HashMap, Match, Option, pipe, String, Struct, Tuple } from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
@@ -15,23 +14,10 @@ import * as UI from '@/ui';
 import * as Utils from '@/utils';
 import { tw } from '@/utils';
 
-import '@fontsource-variable/lexend-deca';
-import './style.css';
+import '@/style';
 
-interface LayoutProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-const Layout = ({ className, children }: LayoutProps) => (
-  <div className='relative z-0 h-[600px] w-[800px] overflow-hidden border border-slate-300 bg-slate-50 font-sans'>
-    <div className='absolute inset-x-0 top-0 -z-10 bg-slate-50'>
-      <img src={backgroundImage} alt='Background' className='mix-blend-luminosity' />
-      <div className='absolute inset-0 shadow-[inset_0_0_2rem_2rem_var(--tw-shadow-color)] shadow-slate-50' />
-    </div>
-
-    <div className={twMerge('size-full', className)}>{children}</div>
-  </div>
+const Layout = (props: Omit<UI.Layout.WithBackgroundProps, 'className'>) => (
+  <UI.Layout.WithBackground {...props} className='h-[600px] w-[800px] overflow-hidden border border-slate-300' />
 );
 
 class LoginFormData extends Schema.Class<LoginFormData>('LoginFormData')({
@@ -93,7 +79,7 @@ interface RecorderLayoutProps {
 }
 
 const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
-  <Layout className='flex flex-col divide-y divide-slate-300'>
+  <Layout innerClassName='flex flex-col divide-y divide-slate-300'>
     <div className='flex items-center gap-2 p-4'>
       <UI.Illustrations.Logo className='h-6 w-auto' />
       <h1 className='text-xl font-medium uppercase leading-tight'>Dev Tools</h1>
