@@ -17,9 +17,28 @@
         ...
       }: let
         package = lib.importJSON ./package.json;
-        inherit (package) version;
-        pname = package.name;
-        src = ./.;
+
+        setupNodeModules = let
+          inherit (package) version;
+          pname = "${package.name}-node_modules";
+          src = with lib.fileset;
+            toSource {
+              root = ./.;
+              fileset = unions [./package.json ./pnpm-lock.yaml];
+            };
+          pnpmDeps = pkgs.pnpm_9.fetchDeps {
+            inherit pname version src;
+            hash = "sha256-zqa7lEbk/9QNFZIbYrAWfVFKpwGNq1umwobNgCf1alk=";
+          };
+          result = pkgs.stdenv.mkDerivation {
+            inherit pname version src pnpmDeps;
+            nativeBuildInputs = [pkgs.pnpm_9.configHook];
+            installPhase = "cp --recursive . $out";
+          };
+        in ''
+          cp --recursive --update=none ${result}/node_modules .
+          chmod --recursive +w node_modules
+        '';
 
         taskInputs = with pkgs; [
           # JS tools
@@ -31,8 +50,6 @@
           go-task
         ];
       in {
-        legacyPackages = pkgs;
-
         devShells.default = pkgs.mkShell {
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
@@ -45,17 +62,9 @@
             ]);
         };
 
-        checks.lint = pkgs.stdenv.mkDerivation {
-          inherit version src;
-          pname = "${pname}-check-lint";
-          pnpmDeps = pkgs.pnpm_9.fetchDeps {
-            inherit pname version src;
-            hash = "sha256-zqa7lEbk/9QNFZIbYrAWfVFKpwGNq1umwobNgCf1alk=";
-          };
-          nativeBuildInputs = taskInputs ++ (with pkgs; [pnpm_9.configHook]);
-          doCheck = true;
-          checkPhase = "task lint COG=false";
-          installPhase = "touch $out";
+        devShells.runner = pkgs.mkShell {
+          nativeBuildInputs = taskInputs;
+          shellHook = setupNodeModules;
         };
       };
     };
