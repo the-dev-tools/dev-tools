@@ -1,5 +1,6 @@
+import type { Protocol } from 'devtools-protocol';
 import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
-import { Effect, Option } from 'effect';
+import { Array, Effect, Option } from 'effect';
 
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
@@ -23,6 +24,8 @@ const isDebuggerEvent = <Method extends keyof ProtocolMapping.Events>(
   method: string,
   _params: unknown,
 ): _params is ProtocolMapping.Events[Method][0] => match === method;
+
+const resourceTypes = ['XHR', 'Fetch'] as const satisfies Protocol.Network.ResourceType[];
 
 void Effect.gen(function* () {
   let collection = yield* Recorder.getCollection;
@@ -66,7 +69,7 @@ void Effect.gen(function* () {
 
       // Request
       if (isDebuggerEvent('Network.requestWillBeSent', method, params)) {
-        if (params.type !== 'XHR') return;
+        if (!Array.contains(resourceTypes, params.type)) return;
         const { requestId } = params;
 
         const data = yield* sendDebuggerCommand(source, 'Network.getRequestPostData', { requestId }).pipe(
@@ -78,7 +81,7 @@ void Effect.gen(function* () {
 
       // Response
       if (isDebuggerEvent('Network.responseReceived', method, params)) {
-        if (params.type !== 'XHR') return;
+        if (!Array.contains(resourceTypes, params.type)) return;
         const { requestId } = params;
 
         const body = yield* sendDebuggerCommand(source, 'Network.getResponseBody', { requestId }).pipe(
