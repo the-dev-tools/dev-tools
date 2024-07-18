@@ -31,7 +31,7 @@ func main() {
 	fmt.Println("Address: ", *addr)
 
 	data := &nodedatav1.NodeApiCallData{
-		Url:         "http://google.com",
+		Url:         "https://api.keepitdev.com",
 		Method:      "GET",
 		QueryParams: map[string]string{"param1": "value1"},
 		Headers:     map[string]string{"header1": "value1"},

@@ -50,7 +50,7 @@ func ConvertPrimitiveInterfaceToWrapper(value interface{}) (*anypb.Any, error) {
 	case bool:
 		wrappedMsg = wrapperspb.Bool(value.(bool))
 	default:
-		return nil, fmt.Errorf("unsupported type: %T", valueType)
+		return nil, fmt.Errorf("unsupported type %T", valueType)
 	}
 	return anypb.New(wrappedMsg)
 }
