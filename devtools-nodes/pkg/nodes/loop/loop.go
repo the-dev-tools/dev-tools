@@ -2,19 +2,20 @@ package loop
 
 import (
 	"context"
+	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodemaster"
 	"devtools-platform/pkg/client/flyclient"
 	"devtools-platform/pkg/machine/flymachine"
-	"devtools-services/gen/node/v1/nodev1connect"
-	"encoding/json"
+	nodemasterv1 "devtools-services/gen/nodemaster/v1"
+	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 
-	nodev1 "devtools-services/gen/node/v1"
+	nodev1 "devtools-services/gen/nodeslave/v1"
 
 	"connectrpc.com/connect"
 )
@@ -44,7 +45,7 @@ func ForLoop(nm *mnodemaster.NodeMaster) error {
 	currentLoopAmount := 0
 
 	for {
-		err := nodemaster.ExecuteNode(nm, nm.Resolver)
+		err := nodemaster.ExecuteNode(nm.Ctx, nm, nm.Resolver)
 		if err != nil {
 			return err
 		}
@@ -120,24 +121,33 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 		return err
 	}
 
-	var connectClients []nodev1connect.NodeServiceClient
+	var connectClients []nodeslavev1connect.NodeSlaveServiceClient
 	for _, machine := range machines {
 		baseURL := fmt.Sprintf("http://%s:%d", machine.GetIP(), machine.GetInternalPort())
 
-		connectClient := nodev1connect.NewNodeServiceClient(http.DefaultClient, baseURL)
+		connectClient := nodeslavev1connect.NewNodeSlaveServiceClient(http.DefaultClient, baseURL)
 		connectClients = append(connectClients, connectClient)
 	}
 
 	for _, connectClient := range connectClients {
 		for {
-			byteArr, err := json.Marshal(nm.CurrentNode.Data)
+			enyData, err := convert.ConvertStructToMsg(nm.CurrentNode.Data)
 			if err != nil {
 				return err
 			}
 
-			nodeRemote := &nodev1.NodeServiceRunRequest{
-				NodeId: nm.CurrentNode.ID,
-				Data:   byteArr,
+			nodeRemote := &nodev1.NodeSlaveServiceRunRequest{
+				Node: &nodemasterv1.Node{
+					Id:      nm.CurrentNode.ID,
+					Type:    nm.CurrentNode.Type,
+					Data:    enyData,
+					OwnerId: nm.CurrentNode.OwnerID,
+					GroupId: nm.CurrentNode.GroupID,
+					Edges: &nodemasterv1.Edges{
+						OutNodes: nm.CurrentNode.Edges.OutNodes,
+						InNodes:  nm.CurrentNode.Edges.InNodes,
+					},
+				},
 			}
 
 			res, err := connectClient.Run(context.TODO(), connect.NewRequest(nodeRemote))

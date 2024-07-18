@@ -1,6 +1,7 @@
 package nodemaster_test
 
 import (
+	"context"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodemaster"
@@ -46,7 +47,7 @@ func TestNodeMasterRun(t *testing.T) {
 		Resolver:    MockResolver,
 	}
 
-	nodemaster.Run(nm)
+	nodemaster.Run(nm, context.Background())
 }
 
 func TestNodeMasterSetAndGetVar(t *testing.T) {

@@ -2,13 +2,22 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
+	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodemaster"
 	"devtools-nodes/pkg/resolver"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
+	nodeslavev1 "devtools-services/gen/nodeslave/v1"
+	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
+	"errors"
+	"log"
+	"net"
 	"net/http"
+	"os"
 
 	"connectrpc.com/connect"
 	"golang.org/x/net/http2"
@@ -17,7 +26,57 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type MasterNodeServer struct{}
+type MasterNodeServer struct {
+	NodeMasterInstance *mnodemaster.NodeMaster
+	upstream           string
+}
+
+func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolverFunc mnodemaster.Resolver) error {
+	log.Printf("Executing node %s\n", nm.CurrentNode.ID)
+
+	castedData, err := convert.ConvertStructToMsg(nm.CurrentNode.Data)
+	if err != nil {
+		return err
+	}
+
+	httpClient := newInsecureClient()
+	client := nodeslavev1connect.NewNodeSlaveServiceClient(httpClient, m.upstream)
+	if client == nil {
+		return errors.New("failed to create client")
+	}
+
+	currentNode := &nodemasterv1.Node{
+		Id:      nm.CurrentNode.ID,
+		Type:    nm.CurrentNode.Type,
+		Data:    castedData,
+		OwnerId: nm.CurrentNode.OwnerID,
+		GroupId: nm.CurrentNode.GroupID,
+		Edges: &nodemasterv1.Edges{
+			OutNodes: nm.CurrentNode.Edges.OutNodes,
+			InNodes:  nm.CurrentNode.Edges.InNodes,
+		},
+	}
+
+	reqMsg := nodeslavev1.NodeSlaveServiceRunRequest{
+		Node: currentNode,
+	}
+
+	req := connect.NewRequest(&reqMsg)
+
+	// TODO: convert this to a loop
+	resp, err := client.Run(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	m.NodeMasterInstance.NextNodeID = resp.Msg.NextNodeId
+	// TODO: convert this into normal value not anypb type
+	for key, v := range resp.Msg.Vars {
+		m.NodeMasterInstance.Vars[key] = v
+	}
+
+	return nil
+}
 
 func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest]) (*connect.Response[nodemasterv1.NodeMasterServiceRunResponse], error) {
 	nodes := req.Msg.Nodes
@@ -40,12 +99,16 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 		convertedNodes[key] = tempNode
 	}
 
-	nodeMaster, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolver.ResolveNodeFunc, nil, http.DefaultClient)
+	resolverFunc := mnodemaster.Resolver(resolver.ResolveNodeFunc)
+	executeNodeFunc := mnodemaster.ExcuteNodeFunc(m.ExecuteNode)
+
+	nodeMaster, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, nil, http.DefaultClient)
+	m.NodeMasterInstance = nodeMaster
 	if err != nil {
 		return nil, err
 	}
 
-	err = nodemaster.Run(nodeMaster)
+	err = nodemaster.Run(nodeMaster, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +121,14 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 }
 
 func ListenMasterNodeService(port string) error {
-	server := &MasterNodeServer{}
+	upstream := os.Getenv("SLAVE_NODE_ENDPOINT")
+	if upstream == "" {
+		return errors.New("SLAVE_NODE_ENDPOINT env var is required")
+	}
+
+	server := &MasterNodeServer{
+		upstream: upstream,
+	}
 	mux := http.NewServeMux()
 
 	path, handler := nodemasterv1connect.NewNodeMasterServiceHandler(server)
@@ -69,4 +139,19 @@ func ListenMasterNodeService(port string) error {
 		h2c.NewHandler(mux, &http2.Server{}),
 	)
 	return err
+}
+
+func newInsecureClient() *http.Client {
+	return &http.Client{
+		Transport: &http2.Transport{
+			AllowHTTP: true,
+			DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
+				// If you're also using this client for non-h2c traffic, you may want
+				// to delegate to tls.Dial if the network isn't TCP or the addr isn't
+				// in an allowlist.
+				return net.Dial(network, addr)
+			},
+			// Don't forget timeouts!
+		},
+	}
 }

@@ -1,10 +1,10 @@
 package nodemaster
 
 import (
+	"context"
 	"devtools-nodes/pkg/httpclient"
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/model/mresolver"
 	"devtools-nodes/pkg/model/mstatus"
 	"errors"
 	"log"
@@ -14,27 +14,28 @@ import (
 
 var ErrNodeNotFound = errors.New("node not found")
 
-func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mresolver.Resolver, stateChan chan mstatus.StatusUpdateData, httpClient httpclient.HttpClient) (*mnodemaster.NodeMaster, error) {
+func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mnodemaster.Resolver, executeNodeFunc mnodemaster.ExcuteNodeFunc, stateChan chan mstatus.StatusUpdateData, httpClient httpclient.HttpClient) (*mnodemaster.NodeMaster, error) {
 	uuid, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
 
 	return &mnodemaster.NodeMaster{
-		ID:          uuid.String(),
-		StartNodeID: startNodeID,
-		Nodes:       nodes,
-		Vars:        map[string]interface{}{},
-		Resolver:    resolver,
-		Logger:      log.Default(),
-		StateChan:   stateChan,
-		HttpClient:  httpClient,
-		CurrentNode: nil,
-		NextNodeID:  "",
+		ID:              uuid.String(),
+		StartNodeID:     startNodeID,
+		Nodes:           nodes,
+		Vars:            map[string]interface{}{},
+		Resolver:        resolver,
+		ExecuteNodeFunc: executeNodeFunc,
+		Logger:          log.Default(),
+		StateChan:       stateChan,
+		HttpClient:      httpClient,
+		CurrentNode:     nil,
+		NextNodeID:      "",
 	}, nil
 }
 
-func Run(nm *mnodemaster.NodeMaster) error {
+func Run(nm *mnodemaster.NodeMaster, ctx context.Context) error {
 	startNode, ok := nm.Nodes[nm.StartNodeID]
 	nm.CurrentNode = &startNode
 	if !ok {
@@ -43,7 +44,7 @@ func Run(nm *mnodemaster.NodeMaster) error {
 
 	for {
 		nm.Logger.Printf("Executing node %s", nm.CurrentNode.ID)
-		err := ExecuteNode(nm, nm.Resolver)
+		err := nm.ExecuteNodeFunc(ctx, nm, nm.Resolver)
 		if err != nil {
 			return err
 		}
@@ -80,10 +81,10 @@ func GetNodeByID(nm *mnodemaster.NodeMaster, nodeID string) (*mnode.Node, error)
 
 var ErrInvalidDataType = errors.New("invalid data type")
 
-func ExecuteNode(nm *mnodemaster.NodeMaster, resolver mresolver.Resolver) error {
+func ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolver mnodemaster.Resolver) error {
 	nodeType := nm.CurrentNode.Type
 
-	nodeFunc, err := nm.Resolver(nodeType)
+	nodeFunc, err := resolver(nodeType)
 	if err != nil {
 		return err
 	}
