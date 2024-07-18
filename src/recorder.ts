@@ -84,6 +84,8 @@ export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.T
 export const makeIndexMap = () =>
   MutableHashMap.make<[string, { host: number; navigation: number; request: number }][]>();
 
+const hostnameBlacklist = ['api-iam.intercom.io'];
+
 export const addRequest = (
   collection: Postman.Collection,
   indexMap: ReturnType<typeof makeIndexMap>,
@@ -91,6 +93,9 @@ export const addRequest = (
   { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
+    const url = yield* Utils.URL.make(request.url);
+    if (Array.contains(hostnameBlacklist, url.hostname)) return collection;
+
     const host = yield* Array.head(collection.item);
     const navigation = yield* pipe(host.item, Option.fromNullable, Option.flatMap(Array.head));
 
@@ -144,6 +149,9 @@ export const addResponse = (
   { body }: Partial<Devtools.Protocol.Network.GetResponseBodyResponse> = {},
 ) =>
   Effect.gen(function* () {
+    const url = yield* Utils.URL.make(response.url);
+    if (Array.contains(hostnameBlacklist, url.hostname)) return collection;
+
     const index = yield* MutableHashMap.get(indexMap, requestId);
 
     const host = yield* Array.get(collection.item, collection.item.length - index.host);
