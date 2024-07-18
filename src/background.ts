@@ -1,5 +1,6 @@
+import type { Protocol } from 'devtools-protocol';
 import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
-import { Effect, Option } from 'effect';
+import { Array, Effect, flow, Option, Predicate, String, Struct } from 'effect';
 
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
@@ -24,6 +25,8 @@ const isDebuggerEvent = <Method extends keyof ProtocolMapping.Events>(
   _params: unknown,
 ): _params is ProtocolMapping.Events[Method][0] => match === method;
 
+const resourceTypes = ['XHR', 'Fetch'] as const satisfies Protocol.Network.ResourceType[];
+
 void Effect.gen(function* () {
   let collection = yield* Recorder.getCollection;
   const indexMap = Recorder.makeIndexMap();
@@ -32,17 +35,33 @@ void Effect.gen(function* () {
   Recorder.watch({
     onStart: (tabId) =>
       Effect.gen(function* () {
-        const tab = yield* Effect.tryPromise(() => chrome.tabs.get(tabId));
-        collection = yield* Recorder.addNavigation(collection, tab);
-
         yield* Effect.tryPromise(() => chrome.debugger.attach({ tabId }, '1.0'));
         yield* sendDebuggerCommand({ tabId }, 'Network.enable');
-      }).pipe(Effect.ignoreLogged),
+
+        const tab = yield* Effect.tryPromise(() => chrome.tabs.get(tabId));
+        collection = yield* Recorder.addNavigation(collection, tab);
+      }).pipe(
+        Effect.catchIf(flow(Struct.get('message'), String.startsWith('Cannot access')), () => Recorder.stop),
+        Effect.ignoreLogged,
+      ),
     onStop: (tabId) =>
       Effect.gen(function* () {
         yield* sendDebuggerCommand({ tabId }, 'Network.disable');
         yield* Effect.tryPromise(() => chrome.debugger.detach({ tabId }));
-      }).pipe(Effect.ignoreLogged),
+      }).pipe(
+        Effect.catchIf(
+          flow(
+            Struct.get('message'),
+            Predicate.some([
+              String.startsWith('Debugger is not attached'),
+              String.startsWith('No tab with given id'),
+              String.startsWith('Cannot access'),
+            ]),
+          ),
+          () => Effect.void,
+        ),
+        Effect.ignoreLogged,
+      ),
     onReset: Effect.gen(function* () {
       collection = yield* Recorder.reset(indexMap);
     }).pipe(Effect.ignoreLogged),
@@ -58,6 +77,15 @@ void Effect.gen(function* () {
     }).pipe(Effect.ignoreLogged, Runtime.runPromise),
   );
 
+  // Stop recording on debugger detach
+  chrome.debugger.onDetach.addListener((source) =>
+    Effect.gen(function* () {
+      const recorderTabId = yield* Recorder.getTabId;
+      if (!Option.contains(recorderTabId, source.tabId)) return;
+      yield* Recorder.stop;
+    }).pipe(Effect.ignoreLogged, Runtime.runPromise),
+  );
+
   // Debugger events
   chrome.debugger.onEvent.addListener((source, method, params) =>
     Effect.gen(function* () {
@@ -66,7 +94,7 @@ void Effect.gen(function* () {
 
       // Request
       if (isDebuggerEvent('Network.requestWillBeSent', method, params)) {
-        if (params.type !== 'XHR') return;
+        if (!Array.contains(resourceTypes, params.type)) return;
         const { requestId } = params;
 
         const data = yield* sendDebuggerCommand(source, 'Network.getRequestPostData', { requestId }).pipe(
@@ -78,7 +106,7 @@ void Effect.gen(function* () {
 
       // Response
       if (isDebuggerEvent('Network.responseReceived', method, params)) {
-        if (params.type !== 'XHR') return;
+        if (!Array.contains(resourceTypes, params.type)) return;
         const { requestId } = params;
 
         const body = yield* sendDebuggerCommand(source, 'Network.getResponseBody', { requestId }).pipe(
