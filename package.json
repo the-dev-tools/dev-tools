@@ -1,7 +1,7 @@
 {
   "name": "api-recorder",
   "displayName": "API Recorder",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "dev.tools",
   "dependencies": {
     "@effect/schema": "^0.68.10",

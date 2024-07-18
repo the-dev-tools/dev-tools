@@ -2,6 +2,21 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.4.0](https://github.com/DevToolsGit/api-recorder/compare/9b37c6ed545a31e8bb919b21996b51df92f50099..0.4.0) - 2024-07-18
+#### Bug Fixes
+- make postman request item keys unique - ([d7d13e6](https://github.com/DevToolsGit/api-recorder/commit/d7d13e6fe6c436d0446f252a3908e847296fa2ab)) - [@Tomaszal](https://github.com/Tomaszal)
+- stop recording on unaccessible pages - ([4853a00](https://github.com/DevToolsGit/api-recorder/commit/4853a00db6511f09bd5b4c2b2ad8ab2a53cf8558)) - [@Tomaszal](https://github.com/Tomaszal)
+- stop recording on debugger detach - ([80b24f5](https://github.com/DevToolsGit/api-recorder/commit/80b24f50e3e05c2f0b0a286ada91b6460cfc801e)) - [@Tomaszal](https://github.com/Tomaszal)
+- watch fetch resources in addition to xhr - ([a658620](https://github.com/DevToolsGit/api-recorder/commit/a6586207e3697d6d843b2537fb14643f01ec71d4)) - [@Tomaszal](https://github.com/Tomaszal)
+#### Continuous Integration
+- fix deployment artifact path - ([9b37c6e](https://github.com/DevToolsGit/api-recorder/commit/9b37c6ed545a31e8bb919b21996b51df92f50099)) - [@Tomaszal](https://github.com/Tomaszal)
+#### Documentation
+- add missing changelog entries - ([879f10b](https://github.com/DevToolsGit/api-recorder/commit/879f10be157136da9b9854ae2f57af5ca49f9995)) - [@Tomaszal](https://github.com/Tomaszal)
+#### Features
+- implement hostname blacklist - ([5ca631e](https://github.com/DevToolsGit/api-recorder/commit/5ca631e7103a7a07c218da67c01aec64105e6dad)) - [@Tomaszal](https://github.com/Tomaszal)
+
+- - -
+
 ## [0.3.0](https://github.com/DevToolsGit/api-recorder/compare/1e456e42c4619719f34ef5f5d6895c8f7a8fcfbe..0.3.0) - 2024-07-17
 #### Continuous Integration
 - fix deployment workflow permissions - ([896957a](https://github.com/DevToolsGit/api-recorder/commit/896957a3cb221625843d8b4d52d79a828d2a10f6)) - [@Tomaszal](https://github.com/Tomaszal)
