@@ -118,7 +118,7 @@ export const addRequest = (
     });
 
     const requestItem = new Postman.Item({
-      id: requestId,
+      id: Uuid.v4(),
       name: request.url,
       variable: [timestampVariable],
       request: new Postman.RequestClass({
