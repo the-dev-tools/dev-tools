@@ -1,6 +1,6 @@
 import type { Protocol } from 'devtools-protocol';
 import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
-import { Array, Effect, Option } from 'effect';
+import { Array, Effect, flow, Option, String, Struct } from 'effect';
 
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
@@ -45,7 +45,11 @@ void Effect.gen(function* () {
       Effect.gen(function* () {
         yield* sendDebuggerCommand({ tabId }, 'Network.disable');
         yield* Effect.tryPromise(() => chrome.debugger.detach({ tabId }));
-      }).pipe(Effect.ignoreLogged),
+      }).pipe(
+        Effect.catchIf(flow(Struct.get('message'), String.startsWith('Debugger is not attached')), () => Effect.void),
+        Effect.catchIf(flow(Struct.get('message'), String.startsWith('No tab with given id')), () => Effect.void),
+        Effect.ignoreLogged,
+      ),
     onReset: Effect.gen(function* () {
       collection = yield* Recorder.reset(indexMap);
     }).pipe(Effect.ignoreLogged),
@@ -58,6 +62,15 @@ void Effect.gen(function* () {
       const recorderTabId = yield* Recorder.getTabId;
       if (!Option.contains(recorderTabId, tabId)) return;
       collection = yield* Recorder.addNavigation(collection, tab);
+    }).pipe(Effect.ignoreLogged, Runtime.runPromise),
+  );
+
+  // Stop recording on debugger detach
+  chrome.debugger.onDetach.addListener((source) =>
+    Effect.gen(function* () {
+      const recorderTabId = yield* Recorder.getTabId;
+      if (!Option.contains(recorderTabId, source.tabId)) return;
+      yield* Recorder.stop;
     }).pipe(Effect.ignoreLogged, Runtime.runPromise),
   );
 
