@@ -10,7 +10,7 @@ import "nodemaster/v1/nodemaster.proto";
 
 service NodeSlaveService {
   rpc Run (NodeSlaveServiceRunRequest) returns (NodeSlaveServiceRunResponse);
-  rpc RunMulti (NodeSlaveServiceRunMultiRequest) returns (stream NodeSlaveServiceRunMultiResponse);
+  //rpc RunMulti (NodeSlaveServiceRunMultiRequest) returns (stream NodeSlaveServiceRunMultiResponse);
 }
 
 message NodeSlaveServiceRunRequest {

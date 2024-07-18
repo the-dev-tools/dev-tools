@@ -82,6 +82,9 @@ func GetNodeByID(nm *mnodemaster.NodeMaster, nodeID string) (*mnode.Node, error)
 var ErrInvalidDataType = errors.New("invalid data type")
 
 func ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolver mnodemaster.Resolver) error {
+	if nm.CurrentNode == nil {
+		return errors.New("current node is nil")
+	}
 	nodeType := nm.CurrentNode.Type
 
 	nodeFunc, err := resolver(nodeType)

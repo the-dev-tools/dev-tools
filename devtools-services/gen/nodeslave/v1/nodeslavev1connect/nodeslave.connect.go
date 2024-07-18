@@ -35,22 +35,17 @@ const (
 const (
 	// NodeSlaveServiceRunProcedure is the fully-qualified name of the NodeSlaveService's Run RPC.
 	NodeSlaveServiceRunProcedure = "/nodeslave.v1.NodeSlaveService/Run"
-	// NodeSlaveServiceRunMultiProcedure is the fully-qualified name of the NodeSlaveService's RunMulti
-	// RPC.
-	NodeSlaveServiceRunMultiProcedure = "/nodeslave.v1.NodeSlaveService/RunMulti"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	nodeSlaveServiceServiceDescriptor        = v1.File_nodeslave_v1_nodeslave_proto.Services().ByName("NodeSlaveService")
-	nodeSlaveServiceRunMethodDescriptor      = nodeSlaveServiceServiceDescriptor.Methods().ByName("Run")
-	nodeSlaveServiceRunMultiMethodDescriptor = nodeSlaveServiceServiceDescriptor.Methods().ByName("RunMulti")
+	nodeSlaveServiceServiceDescriptor   = v1.File_nodeslave_v1_nodeslave_proto.Services().ByName("NodeSlaveService")
+	nodeSlaveServiceRunMethodDescriptor = nodeSlaveServiceServiceDescriptor.Methods().ByName("Run")
 )
 
 // NodeSlaveServiceClient is a client for the nodeslave.v1.NodeSlaveService service.
 type NodeSlaveServiceClient interface {
 	Run(context.Context, *connect.Request[v1.NodeSlaveServiceRunRequest]) (*connect.Response[v1.NodeSlaveServiceRunResponse], error)
-	RunMulti(context.Context, *connect.Request[v1.NodeSlaveServiceRunMultiRequest]) (*connect.ServerStreamForClient[v1.NodeSlaveServiceRunMultiResponse], error)
 }
 
 // NewNodeSlaveServiceClient constructs a client for the nodeslave.v1.NodeSlaveService service. By
@@ -69,19 +64,12 @@ func NewNodeSlaveServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(nodeSlaveServiceRunMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		runMulti: connect.NewClient[v1.NodeSlaveServiceRunMultiRequest, v1.NodeSlaveServiceRunMultiResponse](
-			httpClient,
-			baseURL+NodeSlaveServiceRunMultiProcedure,
-			connect.WithSchema(nodeSlaveServiceRunMultiMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // nodeSlaveServiceClient implements NodeSlaveServiceClient.
 type nodeSlaveServiceClient struct {
-	run      *connect.Client[v1.NodeSlaveServiceRunRequest, v1.NodeSlaveServiceRunResponse]
-	runMulti *connect.Client[v1.NodeSlaveServiceRunMultiRequest, v1.NodeSlaveServiceRunMultiResponse]
+	run *connect.Client[v1.NodeSlaveServiceRunRequest, v1.NodeSlaveServiceRunResponse]
 }
 
 // Run calls nodeslave.v1.NodeSlaveService.Run.
@@ -89,15 +77,9 @@ func (c *nodeSlaveServiceClient) Run(ctx context.Context, req *connect.Request[v
 	return c.run.CallUnary(ctx, req)
 }
 
-// RunMulti calls nodeslave.v1.NodeSlaveService.RunMulti.
-func (c *nodeSlaveServiceClient) RunMulti(ctx context.Context, req *connect.Request[v1.NodeSlaveServiceRunMultiRequest]) (*connect.ServerStreamForClient[v1.NodeSlaveServiceRunMultiResponse], error) {
-	return c.runMulti.CallServerStream(ctx, req)
-}
-
 // NodeSlaveServiceHandler is an implementation of the nodeslave.v1.NodeSlaveService service.
 type NodeSlaveServiceHandler interface {
 	Run(context.Context, *connect.Request[v1.NodeSlaveServiceRunRequest]) (*connect.Response[v1.NodeSlaveServiceRunResponse], error)
-	RunMulti(context.Context, *connect.Request[v1.NodeSlaveServiceRunMultiRequest], *connect.ServerStream[v1.NodeSlaveServiceRunMultiResponse]) error
 }
 
 // NewNodeSlaveServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -112,18 +94,10 @@ func NewNodeSlaveServiceHandler(svc NodeSlaveServiceHandler, opts ...connect.Han
 		connect.WithSchema(nodeSlaveServiceRunMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	nodeSlaveServiceRunMultiHandler := connect.NewServerStreamHandler(
-		NodeSlaveServiceRunMultiProcedure,
-		svc.RunMulti,
-		connect.WithSchema(nodeSlaveServiceRunMultiMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/nodeslave.v1.NodeSlaveService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NodeSlaveServiceRunProcedure:
 			nodeSlaveServiceRunHandler.ServeHTTP(w, r)
-		case NodeSlaveServiceRunMultiProcedure:
-			nodeSlaveServiceRunMultiHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -135,8 +109,4 @@ type UnimplementedNodeSlaveServiceHandler struct{}
 
 func (UnimplementedNodeSlaveServiceHandler) Run(context.Context, *connect.Request[v1.NodeSlaveServiceRunRequest]) (*connect.Response[v1.NodeSlaveServiceRunResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nodeslave.v1.NodeSlaveService.Run is not implemented"))
-}
-
-func (UnimplementedNodeSlaveServiceHandler) RunMulti(context.Context, *connect.Request[v1.NodeSlaveServiceRunMultiRequest], *connect.ServerStream[v1.NodeSlaveServiceRunMultiResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("nodeslave.v1.NodeSlaveService.RunMulti is not implemented"))
 }

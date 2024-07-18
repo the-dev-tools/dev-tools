@@ -2,13 +2,13 @@ package api
 
 import (
 	"context"
-	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/nodemaster"
 	"devtools-nodes/pkg/resolver"
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -22,6 +22,7 @@ import (
 type SlaveNodeServer struct{}
 
 func (m SlaveNodeServer) Run(ctx context.Context, req *connect.Request[nodeslavev1.NodeSlaveServiceRunRequest]) (*connect.Response[nodeslavev1.NodeSlaveServiceRunResponse], error) {
+	fmt.Printf("got here")
 	node := req.Msg.Node
 
 	log.Printf("Node ID: %s", node.Id)
@@ -45,36 +46,38 @@ func (m SlaveNodeServer) Run(ctx context.Context, req *connect.Request[nodeslave
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("ExecuteNode")
-
-	err = nodemaster.ExecuteNode(ctx, nm, resolver.ResolveNodeFunc)
-	if err != nil {
+	if nm == nil {
 		return nil, err
 	}
-	anyPbArray := make(map[string]*anypb.Any, len(nm.Vars))
+	nm.CurrentNode = &tempNode
+
+	log.Printf("ExecuteNode")
+	err = nodemaster.ExecuteNode(ctx, nm, resolver.ResolveNodeFunc)
+	if err != nil {
+		fmt.Printf("Error: %v", err)
+		return nil, err
+	}
+	fmt.Printf("NextNodeID: %s", nm.NextNodeID)
+	// anyPbArray := make(map[string]*anypb.Any, len(nm.Vars))
 
 	log.Printf("NodeMaster Vars: %v", nm.Vars)
 
-	for key, v := range nm.Vars {
-		msgMapElement, err := convert.ConvertPrimitiveInterfaceToWrapper(v)
-		if err != nil {
-			return nil, err
+	/*
+		for key, v := range nm.Vars {
+			msgMapElement, err := convert.ConvertPrimitiveInterfaceToWrapper(v)
+			if err != nil {
+				return nil, err
+			}
+			anyPbArray[key] = msgMapElement
 		}
-		anyPbArray[key] = msgMapElement
-	}
+	*/
 
-	resp := connect.NewResponse(&nodeslavev1.NodeSlaveServiceRunResponse{NextNodeId: nm.NextNodeID, Vars: anyPbArray})
+	resp := connect.NewResponse(&nodeslavev1.NodeSlaveServiceRunResponse{NextNodeId: nm.NextNodeID})
 	if resp == nil {
 		return nil, err
 	}
 
 	return resp, nil
-}
-
-func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[nodeslavev1.NodeSlaveServiceRunMultiRequest], stream *connect.ServerStream[nodeslavev1.NodeSlaveServiceRunMultiResponse]) error {
-	// TODO: Implement
-	return nil
 }
 
 func ListenMasterNodeService(port string) error {

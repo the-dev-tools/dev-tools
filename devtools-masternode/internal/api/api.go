@@ -14,12 +14,14 @@ import (
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 
 	"connectrpc.com/connect"
+	"github.com/bufbuild/httplb"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/protobuf/proto"
@@ -27,23 +29,22 @@ import (
 )
 
 type MasterNodeServer struct {
-	NodeMasterInstance *mnodemaster.NodeMaster
-	upstream           string
+	upstream string
 }
 
 func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolverFunc mnodemaster.Resolver) error {
+	err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
+	if err != nil {
+		return err
+	}
+
 	log.Printf("Executing node %s\n", nm.CurrentNode.ID)
 
 	castedData, err := convert.ConvertStructToMsg(nm.CurrentNode.Data)
 	if err != nil {
 		return err
 	}
-
-	httpClient := newInsecureClient()
-	client := nodeslavev1connect.NewNodeSlaveServiceClient(httpClient, m.upstream)
-	if client == nil {
-		return errors.New("failed to create client")
-	}
+	log.Printf("Converted data: %v\n", castedData)
 
 	currentNode := &nodemasterv1.Node{
 		Id:      nm.CurrentNode.ID,
@@ -61,7 +62,21 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 		Node: currentNode,
 	}
 
+	httpClient := httplb.NewClient()
+	if httpClient == nil {
+		return errors.New("failed to create http client")
+	}
+	defer httpClient.Close()
+
 	req := connect.NewRequest(&reqMsg)
+	if req == nil {
+		return errors.New("failed to create request")
+	}
+
+	client := nodeslavev1connect.NewNodeSlaveServiceClient(httpClient, m.upstream)
+	if client == nil {
+		return errors.New("failed to create client")
+	}
 
 	// TODO: convert this to a loop
 	resp, err := client.Run(ctx, req)
@@ -69,10 +84,20 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 		return err
 	}
 
-	m.NodeMasterInstance.NextNodeID = resp.Msg.NextNodeId
+	if resp == nil {
+		return errors.New("response is nil")
+	}
+
+	if resp.Msg == nil {
+		return errors.New("response message is nil")
+	}
+
+	fmt.Printf("NextNodeID: %s \n", resp.Msg.NextNodeId)
+	nm.NextNodeID = resp.Msg.NextNodeId
+
 	// TODO: convert this into normal value not anypb type
 	for key, v := range resp.Msg.Vars {
-		m.NodeMasterInstance.Vars[key] = v
+		nm.Vars[key] = v
 	}
 
 	return nil
@@ -103,7 +128,6 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 	executeNodeFunc := mnodemaster.ExcuteNodeFunc(m.ExecuteNode)
 
 	nodeMaster, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, nil, http.DefaultClient)
-	m.NodeMasterInstance = nodeMaster
 	if err != nil {
 		return nil, err
 	}
@@ -146,9 +170,6 @@ func newInsecureClient() *http.Client {
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
-				// If you're also using this client for non-h2c traffic, you may want
-				// to delegate to tls.Dial if the network isn't TCP or the addr isn't
-				// in an allowlist.
 				return net.Dial(network, addr)
 			},
 			// Don't forget timeouts!
