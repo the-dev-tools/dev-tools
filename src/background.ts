@@ -1,6 +1,6 @@
 import type { Protocol } from 'devtools-protocol';
 import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
-import { Array, Effect, flow, Option, String, Struct } from 'effect';
+import { Array, Effect, flow, Option, Predicate, String, Struct } from 'effect';
 
 import * as Recorder from '@/recorder';
 import { Runtime } from '@/runtime';
@@ -35,19 +35,31 @@ void Effect.gen(function* () {
   Recorder.watch({
     onStart: (tabId) =>
       Effect.gen(function* () {
-        const tab = yield* Effect.tryPromise(() => chrome.tabs.get(tabId));
-        collection = yield* Recorder.addNavigation(collection, tab);
-
         yield* Effect.tryPromise(() => chrome.debugger.attach({ tabId }, '1.0'));
         yield* sendDebuggerCommand({ tabId }, 'Network.enable');
-      }).pipe(Effect.ignoreLogged),
+
+        const tab = yield* Effect.tryPromise(() => chrome.tabs.get(tabId));
+        collection = yield* Recorder.addNavigation(collection, tab);
+      }).pipe(
+        Effect.catchIf(flow(Struct.get('message'), String.startsWith('Cannot access')), () => Recorder.stop),
+        Effect.ignoreLogged,
+      ),
     onStop: (tabId) =>
       Effect.gen(function* () {
         yield* sendDebuggerCommand({ tabId }, 'Network.disable');
         yield* Effect.tryPromise(() => chrome.debugger.detach({ tabId }));
       }).pipe(
-        Effect.catchIf(flow(Struct.get('message'), String.startsWith('Debugger is not attached')), () => Effect.void),
-        Effect.catchIf(flow(Struct.get('message'), String.startsWith('No tab with given id')), () => Effect.void),
+        Effect.catchIf(
+          flow(
+            Struct.get('message'),
+            Predicate.some([
+              String.startsWith('Debugger is not attached'),
+              String.startsWith('No tab with given id'),
+              String.startsWith('Cannot access'),
+            ]),
+          ),
+          () => Effect.void,
+        ),
         Effect.ignoreLogged,
       ),
     onReset: Effect.gen(function* () {
