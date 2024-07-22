@@ -1,0 +1,9 @@
+{
+  "extends": "@the-dev-tools/config-typescript/tsconfig.react",
+  "exclude": ["node_modules"],
+  "include": [".", ".next/types/**/*.ts"],
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "jsx": "preserve"
+  }
+}

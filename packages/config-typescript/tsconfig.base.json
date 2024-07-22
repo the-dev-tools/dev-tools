@@ -3,11 +3,23 @@
   // https://github.com/tsconfig/bases/blob/main/bases/strictest.json
   "extends": "@tsconfig/strictest/tsconfig",
   "compilerOptions": {
-    // https://github.com/DefinitelyTyped/DefinitelyTyped/issues/19799
-    "lib": ["DOM", "DOM.Iterable", "ES2023"],
-    "noEmit": true,
+    // Modules
     "module": "ESNext",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+
+    // Emit
+    "noEmit": true,
+
+    // JavaScript Support
+    "allowJs": true,
+    "checkJs": false,
+
+    // Language and Environment
+    "lib": ["DOM", "DOM.Iterable", "ESNext"], // https://github.com/DefinitelyTyped/DefinitelyTyped/issues/19799
+
+    // Projects
+    "incremental": true
   },
   "exclude": ["node_modules"]
 }
