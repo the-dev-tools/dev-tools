@@ -1,0 +1,5 @@
+{
+  "extends": ["@the-dev-tools/config-typescript/tsconfig.base"],
+  "include": ["."],
+  "exclude": ["node_modules"]
+}

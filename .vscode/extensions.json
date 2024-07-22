@@ -5,7 +5,6 @@
     "editorconfig.editorconfig",
     "esbenp.prettier-vscode",
     "jnoortheen.nix-ide",
-    "mkhl.direnv",
-    "task.vscode-task"
+    "mkhl.direnv"
   ]
 }

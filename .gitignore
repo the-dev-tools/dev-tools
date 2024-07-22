@@ -1,6 +1,6 @@
 .direnv
 .plasmo
-/node_modules
-build/
-result
-src/design-tokens/tokens.json
+.turbo
+dist
+node_modules
+tsconfig.tsbuildinfo

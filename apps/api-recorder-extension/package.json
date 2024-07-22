@@ -1,0 +1,62 @@
+{
+  "name": "@the-dev-tools/api-recorder-extension",
+  "displayName": "API Recorder",
+  "version": "0.4.0",
+  "author": "dev.tools",
+  "scripts": {
+    "dev": "plasmo dev --build-path=dist",
+    "build": "plasmo build --build-path=dist --zip",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@effect/schema": "^0.68.10",
+    "@plasmohq/storage": "^1.11.0",
+    "effect": "^3.4.3",
+    "magic-sdk": "^28.0.7",
+    "plasmo": "^0.88.0",
+    "react": "^18.3.1",
+    "react-aria-components": "^1.2.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.2.1",
+    "tailwind-merge": "^2.3.0",
+    "tailwind-variants": "^0.2.1",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/config-tailwind": "workspace:^",
+    "@the-dev-tools/config-typescript": "workspace:^",
+    "@the-dev-tools/ui": "workspace:^",
+    "@the-dev-tools/utils": "workspace:^",
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^20.14.8",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.19",
+    "devtools-protocol": "^0.0.1319565",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.3"
+  },
+  "manifest": {
+    "host_permissions": [
+      "https://*/*"
+    ],
+    "permissions": [
+      "debugger",
+      "tabs",
+      "unlimitedStorage"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "tabs/auth-callback.html"
+        ],
+        "matches": [
+          "*://*.magic.link/*"
+        ]
+      }
+    ]
+  }
+}

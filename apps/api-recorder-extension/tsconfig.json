@@ -1,0 +1,9 @@
+{
+  "extends": ["plasmo/templates/tsconfig.base", "@the-dev-tools/config-typescript/tsconfig.react"],
+  "exclude": [".plasmo", "dist", "node_modules"],
+  "include": [".plasmo/index.d.ts", "."],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "~*": ["./src/*"] }
+  }
+}

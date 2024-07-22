@@ -1,0 +1,28 @@
+{
+  "name": "@the-dev-tools/ui",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "exports": {
+    ".": "./src/index.tsx",
+    "./fonts": "./src/fonts.tsx",
+    "./tailwind-content": "./src/tailwind-content.mts"
+  },
+  "dependencies": {
+    "@fontsource-variable/lexend-deca": "^5.0.13",
+    "effect": "^3.4.3",
+    "react": "^18.3.1",
+    "react-aria-components": "^1.2.1",
+    "tailwind-merge": "^2.3.0",
+    "tailwind-variants": "^0.2.1"
+  },
+  "devDependencies": {
+    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/config-tailwind": "workspace:^",
+    "@the-dev-tools/config-typescript": "workspace:^",
+    "@types/node": "^20.14.8",
+    "@types/react": "^18.3.3",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.3"
+  }
+}

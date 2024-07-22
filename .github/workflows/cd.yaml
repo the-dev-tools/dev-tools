@@ -11,6 +11,10 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     steps:
+      # TODO: rewrite this workflow for monorepo
+      - name: This workflow is temporarily disabled
+        run: 'false'
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # get the full git history
