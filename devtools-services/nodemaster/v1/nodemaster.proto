@@ -7,7 +7,7 @@ import "google/protobuf/wrappers.proto";
 import "nodedata/v1/nodedata.proto";
 
 service NodeMasterService {
-  rpc Run (NodeMasterServiceRunRequest) returns (NodeMasterServiceRunResponse);
+  rpc Run (NodeMasterServiceRunRequest) returns (stream NodeMasterServiceRunResponse);
 }
 
 message NodeMasterServiceRunRequest {

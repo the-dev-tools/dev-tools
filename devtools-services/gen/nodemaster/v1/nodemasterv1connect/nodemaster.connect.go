@@ -45,7 +45,7 @@ var (
 
 // NodeMasterServiceClient is a client for the nodemaster.v1.NodeMasterService service.
 type NodeMasterServiceClient interface {
-	Run(context.Context, *connect.Request[v1.NodeMasterServiceRunRequest]) (*connect.Response[v1.NodeMasterServiceRunResponse], error)
+	Run(context.Context, *connect.Request[v1.NodeMasterServiceRunRequest]) (*connect.ServerStreamForClient[v1.NodeMasterServiceRunResponse], error)
 }
 
 // NewNodeMasterServiceClient constructs a client for the nodemaster.v1.NodeMasterService service.
@@ -73,13 +73,13 @@ type nodeMasterServiceClient struct {
 }
 
 // Run calls nodemaster.v1.NodeMasterService.Run.
-func (c *nodeMasterServiceClient) Run(ctx context.Context, req *connect.Request[v1.NodeMasterServiceRunRequest]) (*connect.Response[v1.NodeMasterServiceRunResponse], error) {
-	return c.run.CallUnary(ctx, req)
+func (c *nodeMasterServiceClient) Run(ctx context.Context, req *connect.Request[v1.NodeMasterServiceRunRequest]) (*connect.ServerStreamForClient[v1.NodeMasterServiceRunResponse], error) {
+	return c.run.CallServerStream(ctx, req)
 }
 
 // NodeMasterServiceHandler is an implementation of the nodemaster.v1.NodeMasterService service.
 type NodeMasterServiceHandler interface {
-	Run(context.Context, *connect.Request[v1.NodeMasterServiceRunRequest]) (*connect.Response[v1.NodeMasterServiceRunResponse], error)
+	Run(context.Context, *connect.Request[v1.NodeMasterServiceRunRequest], *connect.ServerStream[v1.NodeMasterServiceRunResponse]) error
 }
 
 // NewNodeMasterServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -88,7 +88,7 @@ type NodeMasterServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewNodeMasterServiceHandler(svc NodeMasterServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	nodeMasterServiceRunHandler := connect.NewUnaryHandler(
+	nodeMasterServiceRunHandler := connect.NewServerStreamHandler(
 		NodeMasterServiceRunProcedure,
 		svc.Run,
 		connect.WithSchema(nodeMasterServiceRunMethodDescriptor),
@@ -107,6 +107,6 @@ func NewNodeMasterServiceHandler(svc NodeMasterServiceHandler, opts ...connect.H
 // UnimplementedNodeMasterServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedNodeMasterServiceHandler struct{}
 
-func (UnimplementedNodeMasterServiceHandler) Run(context.Context, *connect.Request[v1.NodeMasterServiceRunRequest]) (*connect.Response[v1.NodeMasterServiceRunResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("nodemaster.v1.NodeMasterService.Run is not implemented"))
+func (UnimplementedNodeMasterServiceHandler) Run(context.Context, *connect.Request[v1.NodeMasterServiceRunRequest], *connect.ServerStream[v1.NodeMasterServiceRunResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("nodemaster.v1.NodeMasterService.Run is not implemented"))
 }

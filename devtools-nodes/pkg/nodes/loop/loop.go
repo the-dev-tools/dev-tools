@@ -1,32 +1,23 @@
 package loop
 
 import (
-	"context"
 	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/medge"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodemaster"
-	"devtools-platform/pkg/client/flyclient"
-	"devtools-platform/pkg/machine/flymachine"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
+	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
 	"errors"
-	"fmt"
-	"net/http"
-	"os"
-
-	nodev1 "devtools-services/gen/nodeslave/v1"
+	"sync"
 
 	"connectrpc.com/connect"
+	"github.com/bufbuild/httplb"
 )
 
-type LoopData struct {
-	Count         int
-	LoopStartNode string
-}
-
 func ForLoop(nm *mnodemaster.NodeMaster) error {
-	data, ok := nm.CurrentNode.Data.(*LoopData)
+	data, ok := nm.CurrentNode.Data.(*mnodedata.LoopData)
 	if !ok {
 		return mnodemaster.ErrInvalidDataType
 	}
@@ -55,7 +46,7 @@ func ForLoop(nm *mnodemaster.NodeMaster) error {
 			if currentLoopAmount == data.Count {
 				break
 			}
-			nm.NextNodeID = data.LoopStartNode
+			nodemaster.SetNextNode(nm, data.LoopStartNode)
 		}
 
 		loopCurrentNode, err = nodemaster.GetNodeByID(nm, nm.NextNodeID)
@@ -71,19 +62,13 @@ func ForLoop(nm *mnodemaster.NodeMaster) error {
 		nm.NextNodeID = ""
 	}
 
-	nm.NextNodeID = nextNode
+	nodemaster.SetNextNode(nm, nextNode)
 	data.Count--
 	return nil
 }
 
-type LoopRemoteData struct {
-	Count          uint64
-	LoopStartNode  string
-	MachinesAmount uint64
-}
-
 func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
-	data, ok := nm.CurrentNode.Data.(*LoopRemoteData)
+	data, ok := nm.CurrentNode.Data.(*mnodedata.LoopRemoteData)
 	if !ok {
 		return mnodemaster.ErrInvalidDataType
 	}
@@ -93,80 +78,72 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 		return nil
 	}
 
-	loopCurrentNode, err := nodemaster.GetNodeByID(nm, data.LoopStartNode)
+	nodes := make(map[string]*nodemasterv1.Node)
+
+	VarAnyPb, err := convert.ConvertVarsToAny(nm.Vars)
 	if err != nil {
 		return err
 	}
-	nm.CurrentNode = loopCurrentNode
-	token := os.Getenv("FLY_TOKEN")
 
-	client := flyclient.New(token, "devtools-nodes", false)
-	if client != nil {
-		return errors.New("client is nil")
+	multiRunReq := nodeslavev1.NodeSlaveServiceRunMultiRequest{
+		StartNodeId: data.LoopStartNode,
+		StopNodeId:  "",
+		Nodes:       nodes,
+		Vars:        VarAnyPb,
 	}
 
-	flyMachines := make([]*flymachine.FlyMachine, data.MachinesAmount)
+	upstream := data.SlaveHttpEndpoint
+
+	wg := sync.WaitGroup{}
+	errChan := make(chan error, data.Count)
+
+	perRound := data.Count / data.MachinesAmount
 	for i := uint64(0); i < data.MachinesAmount; i++ {
-		flyMachines[i] = &flymachine.FlyMachine{
-			ID:   "id",
-			Name: "name",
-			Config: flymachine.FlyMachineCreateConfig{
-				Image: "image",
-			},
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			httpClient := httplb.NewClient()
+			if httpClient == nil {
+				errChan <- errors.New("failed to create http client")
+			}
+			defer httpClient.Close()
+
+			req := connect.NewRequest(&multiRunReq)
+			if req == nil {
+				errChan <- errors.New("failed to create request")
+			}
+
+			client := nodeslavev1connect.NewNodeSlaveServiceClient(httpClient, upstream)
+			if client == nil {
+				errChan <- errors.New("failed to create client")
+			}
+			for j := uint64(0); j < perRound; j++ {
+
+				stream, err := client.RunMulti(nm.Ctx, req)
+				if err != nil {
+					errChan <- err
+				}
+
+				defer stream.Close()
+
+				for stream.Receive() {
+
+					msg := stream.Msg()
+					if msg == nil {
+						errChan <- errors.New("stream.Msg() is nil")
+					}
+					// nodeIDPase := stream.Msg().NodeId
+				}
+			}
+		}()
 	}
 
-	machines, err := client.CreateMachines(flyMachines)
-	if err != nil {
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
 		return err
-	}
-
-	var connectClients []nodeslavev1connect.NodeSlaveServiceClient
-	for _, machine := range machines {
-		baseURL := fmt.Sprintf("http://%s:%d", machine.GetIP(), machine.GetInternalPort())
-
-		connectClient := nodeslavev1connect.NewNodeSlaveServiceClient(http.DefaultClient, baseURL)
-		connectClients = append(connectClients, connectClient)
-	}
-
-	for _, connectClient := range connectClients {
-		for {
-			enyData, err := convert.ConvertStructToMsg(nm.CurrentNode.Data)
-			if err != nil {
-				return err
-			}
-
-			nodeRemote := &nodev1.NodeSlaveServiceRunRequest{
-				Node: &nodemasterv1.Node{
-					Id:      nm.CurrentNode.ID,
-					Type:    nm.CurrentNode.Type,
-					Data:    enyData,
-					OwnerId: nm.CurrentNode.OwnerID,
-					GroupId: nm.CurrentNode.GroupID,
-					Edges: &nodemasterv1.Edges{
-						OutNodes: nm.CurrentNode.Edges.OutNodes,
-						InNodes:  nm.CurrentNode.Edges.InNodes,
-					},
-				},
-			}
-
-			res, err := connectClient.Run(context.TODO(), connect.NewRequest(nodeRemote))
-			if err != nil {
-				return err
-			}
-
-			nextNodeID := res.Msg.NextNodeId
-
-			if nm.NextNodeID == "" {
-				break
-			}
-
-			loopCurrentNode, err = nodemaster.GetNodeByID(nm, nextNodeID)
-			if err != nil {
-				return err
-			}
-			nm.CurrentNode = loopCurrentNode
-		}
+	default:
 	}
 
 	return nil

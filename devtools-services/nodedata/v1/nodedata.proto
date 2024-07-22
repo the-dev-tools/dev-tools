@@ -14,6 +14,7 @@ message NodeApiCallData {
 
 message NodeForRemote {
         uint64 count = 1;
-	string LoopStartNode = 2;
-	uint64 MachinesAmount = 3;
+	string loop_start_node = 2;
+	uint64 machine_emount = 3;
+        string slave_http_endpoint = 4;
 }

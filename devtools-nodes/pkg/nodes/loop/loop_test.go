@@ -3,6 +3,7 @@ package loop_test
 import (
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodes/loop"
 	"testing"
@@ -19,7 +20,7 @@ func TestLoopNode(t *testing.T) {
 	expectedResolve := loopCount * nodeLength
 
 	loopNode := &mnode.Node{
-		Data: &loop.LoopData{
+		Data: &mnodedata.LoopData{
 			Count:         loopCount,
 			LoopStartNode: "node1",
 		},

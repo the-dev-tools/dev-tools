@@ -5,11 +5,14 @@ import (
 	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodemaster"
 	"devtools-nodes/pkg/resolver"
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
 	"fmt"
+	"log"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -20,6 +23,10 @@ import (
 )
 
 type SlaveNodeServer struct{}
+
+type MultiNodeRunner struct {
+	EndNode string
+}
 
 func (m SlaveNodeServer) Run(ctx context.Context, req *connect.Request[nodeslavev1.NodeSlaveServiceRunRequest]) (*connect.Response[nodeslavev1.NodeSlaveServiceRunResponse], error) {
 	node := req.Msg.Node
@@ -51,19 +58,100 @@ func (m SlaveNodeServer) Run(ctx context.Context, req *connect.Request[nodeslave
 		fmt.Printf("Error: %v", err)
 		return nil, err
 	}
-	anyPbArray := make(map[string]*anypb.Any, len(nm.Vars))
 
-	for key, v := range nm.Vars {
-		msgMapElement, err := convert.ConvertPrimitiveInterfaceToWrapper(v)
-		if err != nil {
-			// TODO: if cannot find type send as bytes of something
-			continue
-		}
-		anyPbArray[key] = msgMapElement
+	updatedVars, err := convert.ConvertVarsToAny(nm.Vars)
+	if err != nil {
+		return nil, err
 	}
 
-	resp := connect.NewResponse(&nodeslavev1.NodeSlaveServiceRunResponse{NextNodeId: nm.NextNodeID})
+	resp := connect.NewResponse(&nodeslavev1.NodeSlaveServiceRunResponse{NextNodeId: nm.NextNodeID, Vars: updatedVars})
 	return resp, nil
+}
+
+func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[nodeslavev1.NodeSlaveServiceRunMultiRequest], stream *connect.ServerStream[nodeslavev1.NodeSlaveServiceRunMultiResponse]) error {
+	nodes := req.Msg.Nodes
+	convertedNodes, err := convert.ConvertMsgNodesToNodes(nodes, resolver.ConvertProtoMsg)
+	if err != nil {
+		return err
+	}
+
+	resolverFunc := mnodemaster.Resolver(resolver.ResolveNodeFunc)
+	multiRunner := MultiNodeRunner{EndNode: req.Msg.StopNodeId}
+	executeNodeFunc := mnodemaster.ExcuteNodeFunc(multiRunner.ExecuteNode)
+
+	stateChan := make(chan mstatus.StatusUpdateData)
+	defer close(stateChan)
+	nm, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, stateChan, http.DefaultClient)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for statusUpdate := range stateChan {
+			err := stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
+				// TODO: Convert to a normal value not anypb type
+				NodeId: statusUpdate.Data.(mstatus.StatusDataNextNode).NodeID,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	err = nodemaster.Run(nm, ctx)
+	if err != nil {
+		return err
+	}
+
+	convertedVars, err := convert.ConvertVarsToAny(nm.Vars)
+	if err != nil {
+		return err
+	}
+
+	resp := &nodeslavev1.NodeSlaveServiceRunMultiResponse{
+		NodeId: nm.ID,
+		Vars:   convertedVars,
+	}
+	err = stream.Send(resp)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m MultiNodeRunner) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolverFunc mnodemaster.Resolver) error {
+	err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
+	if err != nil {
+		return err
+	}
+
+	if nm.NextNodeID == m.EndNode || nm.NextNodeID == "" {
+		nm.NextNodeID = ""
+		return nil
+	}
+
+	statusUpdate := mstatus.StatusUpdateData{
+		Type: mstatus.StatusTypeNextNode,
+		Data: mstatus.StatusDataNextNode{
+			NodeID: nm.NextNodeID,
+		},
+	}
+
+	if nm.StateChan != nil {
+		nm.StateChan <- statusUpdate
+	}
+
+	node, err := nodemaster.GetNodeByID(nm, nm.NextNodeID)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("NextNodeID: %s \n", nm.NextNodeID)
+
+	nm.CurrentNode = node
+
+	return nil
 }
 
 func ListenMasterNodeService(port string) error {
@@ -74,6 +162,9 @@ func ListenMasterNodeService(port string) error {
 	return http.ListenAndServe(
 		":"+port,
 		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		h2c.NewHandler(mux, &http2.Server{}),
+		h2c.NewHandler(mux, &http2.Server{
+			MaxConcurrentStreams: 100000,
+			IdleTimeout:          0,
+		}),
 	)
 }

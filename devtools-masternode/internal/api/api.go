@@ -4,9 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"devtools-nodes/pkg/convert"
-	"devtools-nodes/pkg/model/medge"
-	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodemaster"
 	"devtools-nodes/pkg/resolver"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
@@ -19,13 +18,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/bufbuild/httplb"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type MasterNodeServer struct {
@@ -33,18 +31,10 @@ type MasterNodeServer struct {
 }
 
 func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolverFunc mnodemaster.Resolver) error {
-	err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Executing node %s\n", nm.CurrentNode.ID)
-
 	castedData, err := convert.ConvertStructToMsg(nm.CurrentNode.Data)
 	if err != nil {
 		return err
 	}
-	log.Printf("Converted data: %v\n", castedData)
 
 	currentNode := &nodemasterv1.Node{
 		Id:      nm.CurrentNode.ID,
@@ -58,11 +48,18 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 		},
 	}
 
+	/*
+		if currentNode.Type == resolver.NodeTypeLoopRemote {
+			err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
+			return err
+		}
+	*/
+
 	reqMsg := nodeslavev1.NodeSlaveServiceRunRequest{
 		Node: currentNode,
 	}
 
-	httpClient := httplb.NewClient()
+	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	if httpClient == nil {
 		return errors.New("failed to create http client")
 	}
@@ -92,8 +89,7 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 		return errors.New("response message is nil")
 	}
 
-	fmt.Printf("NextNodeID: %s \n", resp.Msg.NextNodeId)
-	nm.NextNodeID = resp.Msg.NextNodeId
+	nodemaster.SetNextNode(nm, resp.Msg.NextNodeId)
 
 	// TODO: convert this into normal value not anypb type
 	for key, v := range resp.Msg.Vars {
@@ -103,45 +99,66 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 	return nil
 }
 
-func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest]) (*connect.Response[nodemasterv1.NodeMasterServiceRunResponse], error) {
+func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest], stream *connect.ServerStream[nodemasterv1.NodeMasterServiceRunResponse]) error {
 	nodes := req.Msg.Nodes
 
 	// INFO: Experimental change
-	convertedNodes := make(map[string]mnode.Node, len(nodes))
 
-	for key, node := range nodes {
-		msg, err := anypb.UnmarshalNew(node.Data, proto.UnmarshalOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		castedData, err := resolver.ConvertProtoMsg(msg)
-		if err != nil {
-			return nil, err
-		}
-
-		tempNode := mnode.Node{ID: node.Id, Type: node.Type, Data: castedData, OwnerID: node.OwnerId, GroupID: node.GroupId, Edges: medge.Edges{OutNodes: node.Edges.OutNodes}}
-		convertedNodes[key] = tempNode
+	convertedNodes, err := convert.ConvertMsgNodesToNodes(nodes, resolver.ConvertProtoMsg)
+	if err != nil {
+		return err
 	}
 
 	resolverFunc := mnodemaster.Resolver(resolver.ResolveNodeFunc)
 	executeNodeFunc := mnodemaster.ExcuteNodeFunc(m.ExecuteNode)
 
-	nodeMaster, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, nil, http.DefaultClient)
+	stateChan := make(chan mstatus.StatusUpdateData)
+	defer close(stateChan)
+	nodeMaster, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, stateChan, http.DefaultClient)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
+		return err
 	}
+
+	finished := make(chan bool)
+	defer close(finished)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-finished:
+				return
+			case statusUpdate := <-stateChan:
+				if statusUpdate.Type == mstatus.StatusTypeNextNode {
+					data, ok := statusUpdate.Data.(mstatus.StatusDataNextNode)
+					if !ok {
+						log.Fatal("failed to convert status data to StatusDataNextNode")
+					}
+
+					err := stream.Send(&nodemasterv1.NodeMasterServiceRunResponse{
+						// TODO: Convert to a normal value not anypb type
+						Msg: fmt.Sprintf("NextNodeID: %s", data.NodeID),
+					})
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+			}
+		}
+	}()
 
 	err = nodemaster.Run(nodeMaster, ctx)
 	if err != nil {
-		return nil, err
+		if err != context.Canceled {
+			return nil
+		}
+		log.Fatal(err)
+		return err
 	}
+	finished <- true
 
-	respBase := nodemasterv1.NodeMasterServiceRunResponse{Msg: "Ok"}
-
-	resp := connect.NewResponse(&respBase)
-
-	return resp, nil
+	return nil
 }
 
 func ListenMasterNodeService(port string) error {
@@ -160,7 +177,10 @@ func ListenMasterNodeService(port string) error {
 	serverAddr := ":" + port
 	err := http.ListenAndServe(
 		serverAddr,
-		h2c.NewHandler(mux, &http2.Server{}),
+		h2c.NewHandler(mux, &http2.Server{
+			IdleTimeout:          0,
+			MaxConcurrentStreams: 100000,
+		}),
 	)
 	return err
 }

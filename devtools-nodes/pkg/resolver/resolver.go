@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodes/api"
 	"devtools-nodes/pkg/nodes/communication"
@@ -23,7 +24,8 @@ const (
 	CommunicationEmail = "communicationEmail"
 
 	// Loops
-	LoopFor = "loopFor"
+	LoopFor            = "loopFor"
+	NodeTypeLoopRemote = "loopRemote"
 )
 
 var ErrInvalidDataType = errors.New("invalid data type")
@@ -36,6 +38,8 @@ func ResolveNodeFunc(nodeType string) (func(*mnodemaster.NodeMaster) error, erro
 		return condition.ConditionRestStatus, nil
 	case CommunicationEmail:
 		return communication.SendEmail, nil
+	case NodeTypeLoopRemote:
+		return loop.ForRemoteLoop, nil
 	}
 	return nil, nil
 }
@@ -54,10 +58,11 @@ func ConvertProtoMsg(msg proto.Message) (interface{}, error) {
 		return data, nil
 	case *nodedatav1.NodeForRemote:
 		casted := msg.(*nodedatav1.NodeForRemote)
-		data := &loop.LoopRemoteData{
-			Count:          casted.Count,
-			LoopStartNode:  casted.LoopStartNode,
-			MachinesAmount: casted.MachinesAmount,
+		data := &mnodedata.LoopRemoteData{
+			Count:             casted.Count,
+			LoopStartNode:     casted.LoopStartNode,
+			MachinesAmount:    casted.MachineEmount,
+			SlaveHttpEndpoint: casted.SlaveHttpEndpoint,
 		}
 		return data, nil
 	default:

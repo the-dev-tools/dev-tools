@@ -41,7 +41,8 @@ func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 	client := nm.HttpClient
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		// TODO: Add error saving to masternode
+		nm.Vars["err"] = err
 	}
 
 	nodemaster.SetVar(nm, VarResponseKey, resp, currentNode.ID)
@@ -52,7 +53,7 @@ func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 		nm.NextNodeID = ""
 	}
 
-	nm.NextNodeID = nextNode
+	nodemaster.SetNextNode(nm, nextNode)
 
 	return nil
 }

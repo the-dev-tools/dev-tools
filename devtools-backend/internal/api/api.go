@@ -5,8 +5,10 @@ import (
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
 	"errors"
+	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/bufbuild/httplb"
@@ -19,15 +21,27 @@ type MasterNodeServer struct {
 	client   nodemasterv1connect.NodeMasterServiceClient
 }
 
-func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest]) (*connect.Response[nodemasterv1.NodeMasterServiceRunResponse], error) {
+func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest], stream *connect.ServerStream[nodemasterv1.NodeMasterServiceRunResponse]) error {
 	client := m.client
 	upstreamReq := connect.NewRequest(req.Msg)
-	resp, err := client.Run(ctx, upstreamReq)
+	upstream, err := client.Run(ctx, upstreamReq)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	respData := connect.NewResponse(resp.Msg)
-	return respData, nil
+	for upstream.Receive() {
+		msg := upstream.Msg()
+		err = stream.Send(msg)
+		if err != nil {
+			log.Fatalf("failed to send message: %v", err)
+			return err
+		}
+	}
+
+	if err := upstream.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func ListenBackendServerProxy(port string) error {
@@ -36,7 +50,7 @@ func ListenBackendServerProxy(port string) error {
 		return errors.New("MASTER_NODE_IP env var is required")
 	}
 
-	httpClient := httplb.NewClient()
+	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	defer httpClient.Close()
 
 	client := nodemasterv1connect.NewNodeMasterServiceClient(httpClient, upstream)
@@ -54,7 +68,11 @@ func ListenBackendServerProxy(port string) error {
 	http.ListenAndServe(
 		":"+port,
 		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		h2c.NewHandler(mux, &http2.Server{}),
+		h2c.NewHandler(mux, &http2.Server{
+			IdleTimeout:          0,
+			MaxConcurrentStreams: 100000,
+			MaxHandlers:          0,
+		}),
 	)
 	return nil
 }

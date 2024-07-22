@@ -22,6 +22,7 @@ func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mno
 
 	return &mnodemaster.NodeMaster{
 		ID:              uuid.String(),
+		Ctx:             context.Background(),
 		StartNodeID:     startNodeID,
 		Nodes:           nodes,
 		Vars:            map[string]interface{}{},
@@ -105,9 +106,8 @@ func SetNextNode(nm *mnodemaster.NodeMaster, nodeID string) {
 
 	if nm.StateChan != nil {
 		nm.StateChan <- mstatus.StatusUpdateData{
-			Type:      mstatus.StatusTypeNextNode,
-			Data:      mstatus.StatusDataNextNode{NodeID: nodeID},
-			TriggerBy: nm.CurrentNode.ID,
+			Type: mstatus.StatusTypeNextNode,
+			Data: mstatus.StatusDataNextNode{NodeID: nodeID},
 		}
 	}
 }
@@ -125,9 +125,8 @@ func SetVar(nm *mnodemaster.NodeMaster, key string, val interface{}, triggerBy s
 
 	if nm.StateChan != nil {
 		nm.StateChan <- mstatus.StatusUpdateData{
-			Type:      mstatus.StatusTypeSetVar,
-			Data:      mstatus.StatusDataSetVar{Key: key, Val: val},
-			TriggerBy: triggerBy,
+			Type: mstatus.StatusTypeSetVar,
+			Data: mstatus.StatusDataSetVar{Key: key, Val: val},
 		}
 	}
 }

@@ -10,7 +10,7 @@ import "nodemaster/v1/nodemaster.proto";
 
 service NodeSlaveService {
   rpc Run (NodeSlaveServiceRunRequest) returns (NodeSlaveServiceRunResponse);
-  //rpc RunMulti (NodeSlaveServiceRunMultiRequest) returns (stream NodeSlaveServiceRunMultiResponse);
+  rpc RunMulti (NodeSlaveServiceRunMultiRequest) returns (stream NodeSlaveServiceRunMultiResponse);
 }
 
 message NodeSlaveServiceRunRequest {
@@ -25,7 +25,6 @@ message NodeSlaveServiceRunResponse {
 message NodeSlaveServiceRunMultiRequest {
   string start_node_id = 1;
   string stop_node_id = 2;
-  google.protobuf.Any data = 3;
   map<string, nodemaster.v1.Node> nodes = 4;
   map<string, google.protobuf.Any> vars = 5;
 }

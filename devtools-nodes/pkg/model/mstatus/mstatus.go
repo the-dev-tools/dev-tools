@@ -6,9 +6,8 @@ const (
 )
 
 type StatusUpdateData struct {
-	Type      string      `json:"type"`
-	Data      interface{} `json:"data"`
-	TriggerBy string      `json:"triggerBy"`
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
 }
 
 type StatusDataSetVar struct {
