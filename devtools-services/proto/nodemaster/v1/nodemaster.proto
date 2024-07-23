@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package nodemaster.v1;
 option go_package = "devtools-services/gen/nodemaster/v1;nodemasterv1";
-import "google/protobuf/any.proto";
-import "google/protobuf/wrappers.proto";
-import "nodedata/v1/nodedata.proto";
+import "proto/google/protobuf/any.proto";
+import "proto/google/protobuf/wrappers.proto";
+import "proto/nodedata/v1/nodedata.proto";
 
 service NodeMasterService {
   rpc Run (NodeMasterServiceRunRequest) returns (stream NodeMasterServiceRunResponse);
