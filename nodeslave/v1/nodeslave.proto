@@ -4,9 +4,9 @@ package nodeslave.v1;
 option go_package = "devtools-services/gen/nodeslave/v1;nodeslavev1";
 
 
-import "proto/google/protobuf/any.proto";
-import "proto/nodedata/v1/nodedata.proto";
-import "proto/nodemaster/v1/nodemaster.proto";
+import "dev-tools-proto/google/protobuf/any.proto";
+import "dev-tools-proto/nodedata/v1/nodedata.proto";
+import "dev-tools-proto/nodemaster/v1/nodemaster.proto";
 
 service NodeSlaveService {
   rpc Run (NodeSlaveServiceRunRequest) returns (NodeSlaveServiceRunResponse);
