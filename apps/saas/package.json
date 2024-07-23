@@ -3,26 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint ."
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "lint": "eslint .",
+    "preview": "rsbuild preview"
   },
   "dependencies": {
     "@the-dev-tools/ui": "workspace:^",
-    "next": "14.2.5",
-    "react": "^18",
-    "react-dom": "^18"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@rsbuild/core": "1.0.1-beta.4",
+    "@rsbuild/plugin-react": "1.0.1-beta.4",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^9.7.0",
+    "globals": "^15.8.0",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.2"
   }
 }
