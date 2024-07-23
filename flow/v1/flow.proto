@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package flow.v1;
+option go_package = "devtools-services/gen/flow/v1;flowv1";
+
+
+service FlowService {
+  rpc Create (FlowServiceCreateRequest) returns (FlowServiceCreateResponse);
+  rpc Save (FlowServiceSaveRequest) returns (FlowServiceSaveResponse);
+  rpc Load  (FlowServiceLoadRequest) returns (FlowServiceLoadResponse);
+  rpc Delete (FlowServiceDeleteRequest) returns (FlowServiceDeleteResponse);
+}
+
+// Requests 
+
+message FlowServiceCreateRequest {
+  string name = 1;
+}
+
+message FlowServiceSaveRequest {
+  string id = 1;
+  string name = 2;
+  bytes data = 3;
+}
+
+message FlowServiceLoadRequest {
+  string name = 1;
+}
+
+message FlowServiceDeleteRequest {
+  string id = 1;
+}
+
+// Responses
+
+message FlowServiceCreateResponse {
+  string id = 1;
+}
+
+message FlowServiceSaveResponse {
+}
+
+message FlowServiceLoadResponse {
+  string id = 1;
+  string name = 2;
+  bytes data = 3;
+}
+
+message FlowServiceDeleteResponse {
+}
