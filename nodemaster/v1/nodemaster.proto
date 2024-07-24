@@ -2,9 +2,10 @@ syntax = "proto3";
 
 package nodemaster.v1;
 option go_package = "devtools-services/gen/nodemaster/v1;nodemasterv1";
-import "dev-tools-proto/google/protobuf/any.proto";
-import "dev-tools-proto/google/protobuf/wrappers.proto";
-import "dev-tools-proto/nodedata/v1/nodedata.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/wrappers.proto";
+import "nodedata/v1/nodedata.proto";
+import "nodestatus/v1/nodestatus.proto";
 
 service NodeMasterService {
   rpc Run (NodeMasterServiceRunRequest) returns (stream NodeMasterServiceRunResponse);
@@ -35,5 +36,6 @@ message Edges {
 
 message NodeMasterServiceRunResponse {
   string msg = 1;
+  nodestatus.v1.NodeStatus node_update = 2;
 }
 

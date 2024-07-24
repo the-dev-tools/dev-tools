@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package auth.v1;
+option go_package = "devtools-services/gen/auth/v1;authv1";
+
+// INFO: we use `paseto` for token generation and validation
+
+service AuthService {
+  // INFO: auth with DID token src: https://magic.link/docs/authentication/features/decentralized-id
+  rpc DID (AuthServiceDIDRequest) returns (AuthServiceDIDResponse);
+}
+
+// Requests
+
+message AuthServiceDIDRequest {
+        string did_token = 1;
+}
+
+// Responses
+
+message AuthServiceDIDResponse {
+        string token = 1;
+}
