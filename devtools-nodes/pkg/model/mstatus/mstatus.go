@@ -3,18 +3,20 @@ package mstatus
 const (
 	StatusTypeSetVar   = "setVar"
 	StatusTypeNextNode = "nextNode"
+	StatusTypeDone     = "done"
 )
 
-type StatusUpdateData struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
+type NodeStatus struct {
+	NodeID string
+	Type   string      `json:"type"`
+	Data   interface{} `json:"data"`
 }
 
-type StatusDataSetVar struct {
+type NodeStatusSetVar struct {
 	Key string      `json:"key"`
 	Val interface{} `json:"val"`
 }
 
-type StatusDataNextNode struct {
+type NodeStatusNextNode struct {
 	NodeID string `json:"nodeID"`
 }

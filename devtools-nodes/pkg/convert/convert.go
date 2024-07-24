@@ -5,12 +5,15 @@ import (
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mresolver"
+	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodes/api"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
+	nodestatusv1 "devtools-services/gen/nodestatus/v1"
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -46,6 +49,56 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 		return nil, err
 	}
 	return anyData, nil
+}
+
+func ConvertNodeStatusToMsg(status interface{}) (*anypb.Any, error) {
+	anyStatus := new(anypb.Any)
+	var err error
+	switch statusType := status.(type) {
+	case mstatus.NodeStatusNextNode:
+		data, ok := status.(mstatus.NodeStatusNextNode)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast NodeStatusNextNode")
+		}
+		nodeStatus := &nodestatusv1.NodeStatusNextNode{
+			NextNodeId: data.NodeID,
+		}
+		anyStatus, err = anypb.New(nodeStatus)
+		return anyStatus, err
+	case mstatus.NodeStatusSetVar:
+		data, ok := status.(mstatus.NodeStatusSetVar)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast NodeStatusSetVar")
+		}
+		anyVal, innerErr := ConvertPrimitiveInterfaceToWrapper(data.Val)
+		if innerErr != nil {
+			return nil, innerErr
+		}
+		nodeStatus := &nodestatusv1.NodeStatusSetVariable{
+			VariableName:  data.Key,
+			VariableValue: anyVal,
+		}
+		anyStatus, err = anypb.New(nodeStatus)
+		return anyStatus, err
+	default:
+		return nil, fmt.Errorf("unsupported type %T", statusType)
+	}
+}
+
+func ConvertMsgToNodeStatus(msg protoreflect.ProtoMessage) (interface{}, error) {
+	var nodeStatusData interface{}
+	switch msgType := msg.(type) {
+	case *nodestatusv1.NodeStatusNextNode:
+		casted := msg.(*nodestatusv1.NodeStatusNextNode)
+		nodeStatusData = mstatus.NodeStatusNextNode{NodeID: casted.NextNodeId}
+	case *nodestatusv1.NodeStatusSetVariable:
+		casted := msg.(*nodestatusv1.NodeStatusSetVariable)
+		nodeStatusData = mstatus.NodeStatusSetVar{Key: casted.VariableName, Val: casted.VariableValue}
+	default:
+		return nil, fmt.Errorf("unsupported type %T", msgType)
+	}
+
+	return nodeStatusData, nil
 }
 
 func ConvertPrimitiveInterfaceToWrapper(value interface{}) (*anypb.Any, error) {

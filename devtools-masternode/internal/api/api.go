@@ -12,6 +12,7 @@ import (
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
+	nodestatusv1 "devtools-services/gen/nodestatus/v1"
 	"errors"
 	"fmt"
 	"log"
@@ -54,6 +55,14 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 			return err
 		}
 	*/
+	if currentNode.Type == resolver.NodeTypeLoopRemote {
+		err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			return err
+		}
+		return nil
+	}
 
 	reqMsg := nodeslavev1.NodeSlaveServiceRunRequest{
 		Node: currentNode,
@@ -112,7 +121,7 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 	resolverFunc := mnodemaster.Resolver(resolver.ResolveNodeFunc)
 	executeNodeFunc := mnodemaster.ExcuteNodeFunc(m.ExecuteNode)
 
-	stateChan := make(chan mstatus.StatusUpdateData)
+	stateChan := make(chan mstatus.NodeStatus)
 	defer close(stateChan)
 	nodeMaster, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, stateChan, http.DefaultClient)
 	if err != nil {
@@ -130,19 +139,23 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 			case <-finished:
 				return
 			case statusUpdate := <-stateChan:
-				if statusUpdate.Type == mstatus.StatusTypeNextNode {
-					data, ok := statusUpdate.Data.(mstatus.StatusDataNextNode)
-					if !ok {
-						log.Fatal("failed to convert status data to StatusDataNextNode")
-					}
 
-					err := stream.Send(&nodemasterv1.NodeMasterServiceRunResponse{
-						// TODO: Convert to a normal value not anypb type
-						Msg: fmt.Sprintf("NextNodeID: %s", data.NodeID),
-					})
-					if err != nil {
-						log.Fatal(err)
-					}
+				statusData, err := convert.ConvertNodeStatusToMsg(statusUpdate.Data)
+				if err != nil {
+					log.Printf("Error: %v", err)
+					continue
+				}
+
+				err = stream.Send(&nodemasterv1.NodeMasterServiceRunResponse{
+					// TODO: Convert to a normal value not anypb type
+					Msg: fmt.Sprintf("Type: %s", statusUpdate.Type),
+					NodeUpdate: &nodestatusv1.NodeStatus{
+						NodeId: statusUpdate.NodeID,
+						Data:   statusData,
+					},
+				})
+				if err != nil {
+					log.Fatal(err)
 				}
 			}
 		}

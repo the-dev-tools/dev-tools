@@ -8,17 +8,20 @@ import (
 	"devtools-nodes/pkg/model/mstatus"
 	"errors"
 	"log"
+	"os"
 
 	"github.com/google/uuid"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
 
-func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mnodemaster.Resolver, executeNodeFunc mnodemaster.ExcuteNodeFunc, stateChan chan mstatus.StatusUpdateData, httpClient httpclient.HttpClient) (*mnodemaster.NodeMaster, error) {
+func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mnodemaster.Resolver, executeNodeFunc mnodemaster.ExcuteNodeFunc, stateChan chan mstatus.NodeStatus, httpClient httpclient.HttpClient) (*mnodemaster.NodeMaster, error) {
 	uuid, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
+
+	logger := log.New(os.Stdout, "devtools-nodes", log.LstdFlags)
 
 	return &mnodemaster.NodeMaster{
 		ID:              uuid.String(),
@@ -28,7 +31,7 @@ func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mno
 		Vars:            map[string]interface{}{},
 		Resolver:        resolver,
 		ExecuteNodeFunc: executeNodeFunc,
-		Logger:          log.Default(),
+		Logger:          logger,
 		StateChan:       stateChan,
 		HttpClient:      httpClient,
 		CurrentNode:     nil,
@@ -37,11 +40,11 @@ func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mno
 }
 
 func Run(nm *mnodemaster.NodeMaster, ctx context.Context) error {
-	startNode, ok := nm.Nodes[nm.StartNodeID]
-	nm.CurrentNode = &startNode
-	if !ok {
-		return ErrNodeNotFound
+	startNode, err := GetNodeByID(nm, nm.StartNodeID)
+	if err != nil {
+		return err
 	}
+	nm.CurrentNode = startNode
 
 	for {
 		nm.Logger.Printf("Executing node %s", nm.CurrentNode.ID)
@@ -75,6 +78,7 @@ func Run(nm *mnodemaster.NodeMaster, ctx context.Context) error {
 func GetNodeByID(nm *mnodemaster.NodeMaster, nodeID string) (*mnode.Node, error) {
 	node, ok := nm.Nodes[nodeID]
 	if !ok {
+		log.Printf("Node not found: %s", nodeID)
 		return nil, ErrNodeNotFound
 	}
 	return &node, nil
@@ -105,9 +109,9 @@ func SetNextNode(nm *mnodemaster.NodeMaster, nodeID string) {
 	nm.NextNodeID = nodeID
 
 	if nm.StateChan != nil {
-		nm.StateChan <- mstatus.StatusUpdateData{
+		nm.StateChan <- mstatus.NodeStatus{
 			Type: mstatus.StatusTypeNextNode,
-			Data: mstatus.StatusDataNextNode{NodeID: nodeID},
+			Data: mstatus.NodeStatusNextNode{NodeID: nodeID},
 		}
 	}
 }
@@ -124,9 +128,9 @@ func SetVar(nm *mnodemaster.NodeMaster, key string, val interface{}, triggerBy s
 	nm.Vars[key] = val
 
 	if nm.StateChan != nil {
-		nm.StateChan <- mstatus.StatusUpdateData{
+		nm.StateChan <- mstatus.NodeStatus{
 			Type: mstatus.StatusTypeSetVar,
-			Data: mstatus.StatusDataSetVar{Key: key, Val: val},
+			Data: mstatus.NodeStatusSetVar{Key: key, Val: val},
 		}
 	}
 }

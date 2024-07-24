@@ -2,12 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.34.2
 // 	protoc        (unknown)
-// source: dev-tools-proto/nodemaster/v1/nodemaster.proto
+// source: nodemaster/v1/nodemaster.proto
 
 package nodemasterv1
 
 import (
 	_ "devtools-services/gen/nodedata/v1"
+	v1 "devtools-services/gen/nodestatus/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -37,7 +38,7 @@ type NodeMasterServiceRunRequest struct {
 func (x *NodeMasterServiceRunRequest) Reset() {
 	*x = NodeMasterServiceRunRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[0]
+		mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -50,7 +51,7 @@ func (x *NodeMasterServiceRunRequest) String() string {
 func (*NodeMasterServiceRunRequest) ProtoMessage() {}
 
 func (x *NodeMasterServiceRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[0]
+	mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -63,7 +64,7 @@ func (x *NodeMasterServiceRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeMasterServiceRunRequest.ProtoReflect.Descriptor instead.
 func (*NodeMasterServiceRunRequest) Descriptor() ([]byte, []int) {
-	return file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{0}
+	return file_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *NodeMasterServiceRunRequest) GetId() string {
@@ -110,7 +111,7 @@ type Node struct {
 func (x *Node) Reset() {
 	*x = Node{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[1]
+		mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -123,7 +124,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[1]
+	mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -136,7 +137,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{1}
+	return file_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Node) GetId() string {
@@ -193,7 +194,7 @@ type Edges struct {
 func (x *Edges) Reset() {
 	*x = Edges{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[2]
+		mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -206,7 +207,7 @@ func (x *Edges) String() string {
 func (*Edges) ProtoMessage() {}
 
 func (x *Edges) ProtoReflect() protoreflect.Message {
-	mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[2]
+	mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -219,7 +220,7 @@ func (x *Edges) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edges.ProtoReflect.Descriptor instead.
 func (*Edges) Descriptor() ([]byte, []int) {
-	return file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{2}
+	return file_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Edges) GetInNodes() map[string]string {
@@ -241,13 +242,14 @@ type NodeMasterServiceRunResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Msg string `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	Msg        string         `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	NodeUpdate *v1.NodeStatus `protobuf:"bytes,2,opt,name=node_update,json=nodeUpdate,proto3" json:"node_update,omitempty"`
 }
 
 func (x *NodeMasterServiceRunResponse) Reset() {
 	*x = NodeMasterServiceRunResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[3]
+		mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -260,7 +262,7 @@ func (x *NodeMasterServiceRunResponse) String() string {
 func (*NodeMasterServiceRunResponse) ProtoMessage() {}
 
 func (x *NodeMasterServiceRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[3]
+	mi := &file_nodemaster_v1_nodemaster_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -273,7 +275,7 @@ func (x *NodeMasterServiceRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeMasterServiceRunResponse.ProtoReflect.Descriptor instead.
 func (*NodeMasterServiceRunResponse) Descriptor() ([]byte, []int) {
-	return file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{3}
+	return file_nodemaster_v1_nodemaster_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *NodeMasterServiceRunResponse) GetMsg() string {
@@ -283,21 +285,26 @@ func (x *NodeMasterServiceRunResponse) GetMsg() string {
 	return ""
 }
 
-var File_dev_tools_proto_nodemaster_v1_nodemaster_proto protoreflect.FileDescriptor
+func (x *NodeMasterServiceRunResponse) GetNodeUpdate() *v1.NodeStatus {
+	if x != nil {
+		return x.NodeUpdate
+	}
+	return nil
+}
 
-var file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDesc = []byte{
-	0x0a, 0x2e, 0x64, 0x65, 0x76, 0x2d, 0x74, 0x6f, 0x6f, 0x6c, 0x73, 0x2d, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2f, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x2f, 0x76, 0x31, 0x2f,
+var File_nodemaster_v1_nodemaster_proto protoreflect.FileDescriptor
+
+var file_nodemaster_v1_nodemaster_proto_rawDesc = []byte{
+	0x0a, 0x1e, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x2f, 0x76, 0x31, 0x2f,
 	0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x12, 0x0d, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x1a,
-	0x29, 0x64, 0x65, 0x76, 0x2d, 0x74, 0x6f, 0x6f, 0x6c, 0x73, 0x2d, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
-	0x2f, 0x61, 0x6e, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x2e, 0x64, 0x65, 0x76, 0x2d,
-	0x74, 0x6f, 0x6f, 0x6c, 0x73, 0x2d, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x6f, 0x67,
+	0x19, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
+	0x2f, 0x61, 0x6e, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1e, 0x67, 0x6f, 0x6f, 0x67,
 	0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x77, 0x72, 0x61, 0x70,
-	0x70, 0x65, 0x72, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x2a, 0x64, 0x65, 0x76, 0x2d,
-	0x74, 0x6f, 0x6f, 0x6c, 0x73, 0x2d, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x6e, 0x6f, 0x64, 0x65,
+	0x70, 0x65, 0x72, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1a, 0x6e, 0x6f, 0x64, 0x65,
 	0x64, 0x61, 0x74, 0x61, 0x2f, 0x76, 0x31, 0x2f, 0x6e, 0x6f, 0x64, 0x65, 0x64, 0x61, 0x74, 0x61,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1e, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x2f, 0x76, 0x31, 0x2f, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
 	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x86, 0x03, 0x0a, 0x1b, 0x4e, 0x6f, 0x64, 0x65, 0x4d,
 	0x61, 0x73, 0x74, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x75, 0x6e, 0x52,
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
@@ -350,37 +357,41 @@ var file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDesc = []byte{
 	0x0d, 0x4f, 0x75, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10,
 	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
 	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x30, 0x0a, 0x1c, 0x4e, 0x6f,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x6c, 0x0a, 0x1c, 0x4e, 0x6f,
 	0x64, 0x65, 0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52,
 	0x75, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6d, 0x73,
-	0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6d, 0x73, 0x67, 0x32, 0x75, 0x0a, 0x11,
-	0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x12, 0x60, 0x0a, 0x03, 0x52, 0x75, 0x6e, 0x12, 0x2a, 0x2e, 0x6e, 0x6f, 0x64, 0x65, 0x6d,
-	0x61, 0x73, 0x74, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x61, 0x73,
-	0x74, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65,
+	0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6d, 0x73, 0x67, 0x12, 0x3a, 0x0a, 0x0b,
+	0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x19, 0x2e, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x76,
+	0x31, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x0a, 0x6e, 0x6f,
+	0x64, 0x65, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x32, 0x75, 0x0a, 0x11, 0x4e, 0x6f, 0x64, 0x65,
+	0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x60, 0x0a,
+	0x03, 0x52, 0x75, 0x6e, 0x12, 0x2a, 0x2e, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65,
 	0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x53,
-	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x30, 0x01, 0x42, 0x32, 0x5a, 0x30, 0x64, 0x65, 0x76, 0x74, 0x6f, 0x6f, 0x6c, 0x73, 0x2d,
-	0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x67, 0x65, 0x6e, 0x2f, 0x6e, 0x6f, 0x64,
-	0x65, 0x6d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x6e, 0x6f, 0x64, 0x65, 0x6d,
-	0x61, 0x73, 0x74, 0x65, 0x72, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x2b, 0x2e, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x2e, 0x76, 0x31,
+	0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x61, 0x73, 0x74, 0x65, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69,
+	0x63, 0x65, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x30, 0x01, 0x42,
+	0x32, 0x5a, 0x30, 0x64, 0x65, 0x76, 0x74, 0x6f, 0x6f, 0x6c, 0x73, 0x2d, 0x73, 0x65, 0x72, 0x76,
+	0x69, 0x63, 0x65, 0x73, 0x2f, 0x67, 0x65, 0x6e, 0x2f, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73,
+	0x74, 0x65, 0x72, 0x2f, 0x76, 0x31, 0x3b, 0x6e, 0x6f, 0x64, 0x65, 0x6d, 0x61, 0x73, 0x74, 0x65,
+	0x72, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
-	file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescOnce sync.Once
-	file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescData = file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDesc
+	file_nodemaster_v1_nodemaster_proto_rawDescOnce sync.Once
+	file_nodemaster_v1_nodemaster_proto_rawDescData = file_nodemaster_v1_nodemaster_proto_rawDesc
 )
 
-func file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescGZIP() []byte {
-	file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescOnce.Do(func() {
-		file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescData = protoimpl.X.CompressGZIP(file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescData)
+func file_nodemaster_v1_nodemaster_proto_rawDescGZIP() []byte {
+	file_nodemaster_v1_nodemaster_proto_rawDescOnce.Do(func() {
+		file_nodemaster_v1_nodemaster_proto_rawDescData = protoimpl.X.CompressGZIP(file_nodemaster_v1_nodemaster_proto_rawDescData)
 	})
-	return file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDescData
+	return file_nodemaster_v1_nodemaster_proto_rawDescData
 }
 
-var file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_dev_tools_proto_nodemaster_v1_nodemaster_proto_goTypes = []any{
+var file_nodemaster_v1_nodemaster_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_nodemaster_v1_nodemaster_proto_goTypes = []any{
 	(*NodeMasterServiceRunRequest)(nil),  // 0: nodemaster.v1.NodeMasterServiceRunRequest
 	(*Node)(nil),                         // 1: nodemaster.v1.Node
 	(*Edges)(nil),                        // 2: nodemaster.v1.Edges
@@ -390,32 +401,34 @@ var file_dev_tools_proto_nodemaster_v1_nodemaster_proto_goTypes = []any{
 	nil,                                  // 6: nodemaster.v1.Edges.InNodesEntry
 	nil,                                  // 7: nodemaster.v1.Edges.OutNodesEntry
 	(*anypb.Any)(nil),                    // 8: google.protobuf.Any
+	(*v1.NodeStatus)(nil),                // 9: nodestatus.v1.NodeStatus
 }
-var file_dev_tools_proto_nodemaster_v1_nodemaster_proto_depIdxs = []int32{
-	4, // 0: nodemaster.v1.NodeMasterServiceRunRequest.nodes:type_name -> nodemaster.v1.NodeMasterServiceRunRequest.NodesEntry
-	5, // 1: nodemaster.v1.NodeMasterServiceRunRequest.vars:type_name -> nodemaster.v1.NodeMasterServiceRunRequest.VarsEntry
-	8, // 2: nodemaster.v1.Node.data:type_name -> google.protobuf.Any
-	2, // 3: nodemaster.v1.Node.edges:type_name -> nodemaster.v1.Edges
-	6, // 4: nodemaster.v1.Edges.in_nodes:type_name -> nodemaster.v1.Edges.InNodesEntry
-	7, // 5: nodemaster.v1.Edges.out_nodes:type_name -> nodemaster.v1.Edges.OutNodesEntry
-	1, // 6: nodemaster.v1.NodeMasterServiceRunRequest.NodesEntry.value:type_name -> nodemaster.v1.Node
-	8, // 7: nodemaster.v1.NodeMasterServiceRunRequest.VarsEntry.value:type_name -> google.protobuf.Any
-	0, // 8: nodemaster.v1.NodeMasterService.Run:input_type -> nodemaster.v1.NodeMasterServiceRunRequest
-	3, // 9: nodemaster.v1.NodeMasterService.Run:output_type -> nodemaster.v1.NodeMasterServiceRunResponse
-	9, // [9:10] is the sub-list for method output_type
-	8, // [8:9] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+var file_nodemaster_v1_nodemaster_proto_depIdxs = []int32{
+	4,  // 0: nodemaster.v1.NodeMasterServiceRunRequest.nodes:type_name -> nodemaster.v1.NodeMasterServiceRunRequest.NodesEntry
+	5,  // 1: nodemaster.v1.NodeMasterServiceRunRequest.vars:type_name -> nodemaster.v1.NodeMasterServiceRunRequest.VarsEntry
+	8,  // 2: nodemaster.v1.Node.data:type_name -> google.protobuf.Any
+	2,  // 3: nodemaster.v1.Node.edges:type_name -> nodemaster.v1.Edges
+	6,  // 4: nodemaster.v1.Edges.in_nodes:type_name -> nodemaster.v1.Edges.InNodesEntry
+	7,  // 5: nodemaster.v1.Edges.out_nodes:type_name -> nodemaster.v1.Edges.OutNodesEntry
+	9,  // 6: nodemaster.v1.NodeMasterServiceRunResponse.node_update:type_name -> nodestatus.v1.NodeStatus
+	1,  // 7: nodemaster.v1.NodeMasterServiceRunRequest.NodesEntry.value:type_name -> nodemaster.v1.Node
+	8,  // 8: nodemaster.v1.NodeMasterServiceRunRequest.VarsEntry.value:type_name -> google.protobuf.Any
+	0,  // 9: nodemaster.v1.NodeMasterService.Run:input_type -> nodemaster.v1.NodeMasterServiceRunRequest
+	3,  // 10: nodemaster.v1.NodeMasterService.Run:output_type -> nodemaster.v1.NodeMasterServiceRunResponse
+	10, // [10:11] is the sub-list for method output_type
+	9,  // [9:10] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_dev_tools_proto_nodemaster_v1_nodemaster_proto_init() }
-func file_dev_tools_proto_nodemaster_v1_nodemaster_proto_init() {
-	if File_dev_tools_proto_nodemaster_v1_nodemaster_proto != nil {
+func init() { file_nodemaster_v1_nodemaster_proto_init() }
+func file_nodemaster_v1_nodemaster_proto_init() {
+	if File_nodemaster_v1_nodemaster_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[0].Exporter = func(v any, i int) any {
+		file_nodemaster_v1_nodemaster_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*NodeMasterServiceRunRequest); i {
 			case 0:
 				return &v.state
@@ -427,7 +440,7 @@ func file_dev_tools_proto_nodemaster_v1_nodemaster_proto_init() {
 				return nil
 			}
 		}
-		file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[1].Exporter = func(v any, i int) any {
+		file_nodemaster_v1_nodemaster_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*Node); i {
 			case 0:
 				return &v.state
@@ -439,7 +452,7 @@ func file_dev_tools_proto_nodemaster_v1_nodemaster_proto_init() {
 				return nil
 			}
 		}
-		file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[2].Exporter = func(v any, i int) any {
+		file_nodemaster_v1_nodemaster_proto_msgTypes[2].Exporter = func(v any, i int) any {
 			switch v := v.(*Edges); i {
 			case 0:
 				return &v.state
@@ -451,7 +464,7 @@ func file_dev_tools_proto_nodemaster_v1_nodemaster_proto_init() {
 				return nil
 			}
 		}
-		file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes[3].Exporter = func(v any, i int) any {
+		file_nodemaster_v1_nodemaster_proto_msgTypes[3].Exporter = func(v any, i int) any {
 			switch v := v.(*NodeMasterServiceRunResponse); i {
 			case 0:
 				return &v.state
@@ -468,18 +481,18 @@ func file_dev_tools_proto_nodemaster_v1_nodemaster_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDesc,
+			RawDescriptor: file_nodemaster_v1_nodemaster_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_dev_tools_proto_nodemaster_v1_nodemaster_proto_goTypes,
-		DependencyIndexes: file_dev_tools_proto_nodemaster_v1_nodemaster_proto_depIdxs,
-		MessageInfos:      file_dev_tools_proto_nodemaster_v1_nodemaster_proto_msgTypes,
+		GoTypes:           file_nodemaster_v1_nodemaster_proto_goTypes,
+		DependencyIndexes: file_nodemaster_v1_nodemaster_proto_depIdxs,
+		MessageInfos:      file_nodemaster_v1_nodemaster_proto_msgTypes,
 	}.Build()
-	File_dev_tools_proto_nodemaster_v1_nodemaster_proto = out.File
-	file_dev_tools_proto_nodemaster_v1_nodemaster_proto_rawDesc = nil
-	file_dev_tools_proto_nodemaster_v1_nodemaster_proto_goTypes = nil
-	file_dev_tools_proto_nodemaster_v1_nodemaster_proto_depIdxs = nil
+	File_nodemaster_v1_nodemaster_proto = out.File
+	file_nodemaster_v1_nodemaster_proto_rawDesc = nil
+	file_nodemaster_v1_nodemaster_proto_goTypes = nil
+	file_nodemaster_v1_nodemaster_proto_depIdxs = nil
 }

@@ -5,6 +5,7 @@ import (
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodemaster"
 	"errors"
+	"log"
 	"net/http"
 )
 
@@ -38,9 +39,11 @@ func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 		req.Header.Add(key, value)
 	}
 
+	log.Printf("Sending request to: %s", apiData.Url)
 	client := nm.HttpClient
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Printf("Error: %v", err)
 		// TODO: Add error saving to masternode
 		nm.Vars["err"] = err
 	}

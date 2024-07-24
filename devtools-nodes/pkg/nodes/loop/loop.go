@@ -5,15 +5,19 @@ import (
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodemaster"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
 	"errors"
+	"log"
 	"sync"
 
 	"connectrpc.com/connect"
 	"github.com/bufbuild/httplb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func ForLoop(nm *mnodemaster.NodeMaster) error {
@@ -79,6 +83,24 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 	}
 
 	nodes := make(map[string]*nodemasterv1.Node)
+	for _, node := range nm.Nodes {
+		castedData, err := convert.ConvertStructToMsg(node.Data)
+		if err != nil {
+			return err
+		}
+
+		nodes[node.ID] = &nodemasterv1.Node{
+			Id:      node.ID,
+			Type:    node.Type,
+			Data:    castedData,
+			OwnerId: node.OwnerID,
+			GroupId: node.GroupID,
+			Edges: &nodemasterv1.Edges{
+				OutNodes: node.Edges.OutNodes,
+				InNodes:  node.Edges.InNodes,
+			},
+		}
+	}
 
 	VarAnyPb, err := convert.ConvertVarsToAny(nm.Vars)
 	if err != nil {
@@ -132,6 +154,33 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 					if msg == nil {
 						errChan <- errors.New("stream.Msg() is nil")
 					}
+
+					if msg.NodeStatus == nil {
+						panic(msg.NodeStatus)
+					}
+
+					if msg.NodeStatus.Data == nil {
+						errChan <- errors.New("stream.Msg().NodeStatus.Data is nil")
+						panic(msg.NodeStatus.Data)
+					}
+
+					nodeDataRaw, err := anypb.UnmarshalNew(msg.NodeStatus.Data, proto.UnmarshalOptions{})
+					if err != nil {
+						errChan <- errors.New("stream.Msg() is nil")
+					}
+
+					nodeStatusData, err := convert.ConvertMsgToNodeStatus(nodeDataRaw)
+					if err != nil {
+						errChan <- err
+						log.Fatalf("Error: %v", err)
+					}
+
+					nodeStatus := mstatus.NodeStatus{
+						Type: msg.NodeStatus.Type,
+						Data: nodeStatusData,
+					}
+
+					nm.StateChan <- nodeStatus
 					// nodeIDPase := stream.Msg().NodeId
 				}
 			}

@@ -21,7 +21,7 @@ type NodeMaster struct {
 	Resolver        Resolver
 	ExecuteNodeFunc ExcuteNodeFunc
 	Logger          *log.Logger
-	StateChan       chan mstatus.StatusUpdateData
+	StateChan       chan mstatus.NodeStatus
 	HttpClient      httpclient.HttpClient
 }
 

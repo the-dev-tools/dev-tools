@@ -11,6 +11,7 @@ import (
 	"devtools-nodes/pkg/resolver"
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
+	nodestatusv1 "devtools-services/gen/nodestatus/v1"
 	"fmt"
 	"log"
 	"net/http"
@@ -79,42 +80,57 @@ func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[node
 	multiRunner := MultiNodeRunner{EndNode: req.Msg.StopNodeId}
 	executeNodeFunc := mnodemaster.ExcuteNodeFunc(multiRunner.ExecuteNode)
 
-	stateChan := make(chan mstatus.StatusUpdateData)
+	stateChan := make(chan mstatus.NodeStatus)
 	defer close(stateChan)
 	nm, err := nodemaster.NewNodeMaster(req.Msg.StartNodeId, convertedNodes, resolverFunc, executeNodeFunc, stateChan, http.DefaultClient)
 	if err != nil {
 		return err
 	}
 
+	finished := make(chan bool)
+	defer close(finished)
 	go func() {
-		for statusUpdate := range stateChan {
-			err := stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
-				// TODO: Convert to a normal value not anypb type
-				NodeId: statusUpdate.Data.(mstatus.StatusDataNextNode).NodeID,
-			})
-			if err != nil {
-				log.Fatal(err)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-finished:
+				return
+			case nodeStatus := <-stateChan:
+
+				statusData, err := convert.ConvertNodeStatusToMsg(nodeStatus.Data)
+				if err != nil {
+					// TODO: find way to marshal http respose to send to the client
+					continue
+				}
+
+				err = stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
+					// TODO: Convert to a normal value not anypb type
+					NodeId: nodeStatus.Type,
+					NodeStatus: &nodestatusv1.NodeStatus{
+						NodeId: nodeStatus.NodeID,
+						Type:   nodeStatus.Type,
+						Data:   statusData,
+					},
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 	}()
 
 	err = nodemaster.Run(nm, ctx)
 	if err != nil {
+		log.Println("Error: ", err)
 		return err
 	}
 
-	convertedVars, err := convert.ConvertVarsToAny(nm.Vars)
-	if err != nil {
-		return err
+	if finished == nil {
+		log.Fatal("Finished channel is nil")
 	}
-
-	resp := &nodeslavev1.NodeSlaveServiceRunMultiResponse{
-		NodeId: nm.ID,
-		Vars:   convertedVars,
-	}
-	err = stream.Send(resp)
-	if err != nil {
-		return err
+	if finished != nil {
+		finished <- true
 	}
 
 	return nil
@@ -131,16 +147,19 @@ func (m MultiNodeRunner) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMa
 		return nil
 	}
 
-	statusUpdate := mstatus.StatusUpdateData{
-		Type: mstatus.StatusTypeNextNode,
-		Data: mstatus.StatusDataNextNode{
-			NodeID: nm.NextNodeID,
-		},
-	}
+	/*
+		// TODO: move to a function
+		statusUpdate := mstatus.NodeStatus{
+			Type: mstatus.StatusTypeNextNode,
+			Data: mstatus.NodeStatusNextNode{
+				NodeID: nm.NextNodeID,
+			},
+		}
 
-	if nm.StateChan != nil {
-		nm.StateChan <- statusUpdate
-	}
+		if nm.StateChan != nil {
+			nm.StateChan <- statusUpdate
+		}
+	*/
 
 	node, err := nodemaster.GetNodeByID(nm, nm.NextNodeID)
 	if err != nil {

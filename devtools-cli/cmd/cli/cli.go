@@ -57,11 +57,11 @@ func main() {
 	}
 
 	apiCallData := &nodedatav1.NodeApiCallData{
-		Url:         "https://api.keepitdev.com",
-		Method:      "GET",
+		Url:         "https://8bde-81-214-83-129.ngrok-free.app/",
+		Method:      "POST",
 		QueryParams: map[string]string{"param1": "value1"},
 		Headers:     map[string]string{"header1": "value1"},
-		Body:        []byte("body"),
+		Body:        []byte("start_stop=true"),
 	}
 
 	apiCallDataMsg, err := anypb.New(apiCallData)
@@ -107,6 +107,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < *times; i++ {
+				fmt.Println("sent request", i)
 				requestTime := time.Now()
 
 				httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
@@ -119,6 +120,9 @@ func main() {
 				defer stream.Close()
 				for stream.Receive() {
 					ops.Add(1)
+					msg := stream.Msg()
+					fmt.Println("Response: ", msg)
+
 				}
 				if err := stream.Err(); err != nil {
 					take := time.Since(start)
