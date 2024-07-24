@@ -17,6 +17,7 @@
 
     // Language and Environment
     "lib": ["DOM", "DOM.Iterable", "ESNext"], // https://github.com/DefinitelyTyped/DefinitelyTyped/issues/19799
+    "target": "ESNext",
 
     // Projects
     "incremental": true
