@@ -1,4 +1,7 @@
 {
   "name": "@the-dev-tools/protobuf",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
 }
