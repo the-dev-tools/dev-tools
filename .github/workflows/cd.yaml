@@ -1,0 +1,31 @@
+name: Delivery
+
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v12
+      - uses: DeterminateSystems/magic-nix-cache-action@v7
+
+      - name: Prepare runner dev shell
+        run: nix develop .#runner --command true
+
+      - name: Install PNPM dependencies
+        run: nix develop .#runner --command pnpm install --frozen-lockfile
+
+      - name: Build TypeScript modules
+        run: nix develop .#runner --command pnpm build
+
+      - name: Publish NPM package
+        env:
+          GITHUB_NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: nix develop .#runner --command pnpm publish --no-git-checks

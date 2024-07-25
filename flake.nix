@@ -11,19 +11,27 @@
   outputs = inputs @ {flake-parts, ...}:
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = import inputs.systems;
-      perSystem = {pkgs, ...}: {
+      perSystem = {pkgs, ...}: let
+        runnerBuildInputs = with pkgs; [
+          # JS tools
+          nodejs
+          pnpm_9
+        ];
+      in {
         devShells.default = pkgs.mkShell {
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
-          nativeBuildInputs = with pkgs; [
-            # JS tools
-            nodejs
-            pnpm_9
+          nativeBuildInputs =
+            runnerBuildInputs
+            ++ (with pkgs; [
+              # Nix tools
+              alejandra
+              nixd
+            ]);
+        };
 
-            # Nix tools
-            alejandra
-            nixd
-          ];
+        devShells.runner = pkgs.mkShell {
+          nativeBuildInputs = runnerBuildInputs;
         };
       };
     };
