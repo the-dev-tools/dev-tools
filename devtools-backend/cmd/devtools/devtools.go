@@ -8,6 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/bufbuild/httplb"
 )
 
 func main() {
@@ -26,7 +29,10 @@ func main() {
 	}
 	services = append(services, *authService)
 
-	nodeService, err := node.CreateService()
+	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	defer client.Close()
+
+	nodeService, err := node.CreateService(client)
 	if err != nil {
 		log.Fatal(err)
 	}

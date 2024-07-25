@@ -6,9 +6,9 @@ import (
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
 	"errors"
+	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/bufbuild/httplb"
@@ -27,6 +27,7 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 		return err
 	}
 	for upstream.Receive() {
+		fmt.Println("Received message")
 		msg := upstream.Msg()
 		err = stream.Send(msg)
 		if err != nil {
@@ -36,20 +37,18 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 	}
 
 	if err := upstream.Err(); err != nil {
+		log.Printf("Error: %v", err)
 		return err
 	}
 
 	return nil
 }
 
-func CreateService() (*api.Service, error) {
+func CreateService(httpClient *httplb.Client) (*api.Service, error) {
 	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
 	if upstream == "" {
 		return nil, errors.New("MASTER_NODE_IP env var is required")
 	}
-
-	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
-	defer httpClient.Close()
 
 	client := nodemasterv1connect.NewNodeMasterServiceClient(httpClient, upstream)
 	if client == nil {

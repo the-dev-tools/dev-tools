@@ -31,19 +31,16 @@ const (
 func main() {
 	fmt.Println("Starting cli")
 
-	args := os.Args[1:]
-	if len(args) > 1 || len(args) == 0 {
-		fmt.Println("Usage: cli")
-		os.Exit(1)
-	}
+	lastArg := len(os.Args) - 1
+	cmd := os.Args[lastArg]
 
-	switch args[0] {
+	switch cmd {
 	case NodeFunc:
 		NodeFuncHandler()
 	case AuthFunc:
 		AuthFuncHandler()
 	default:
-		fmt.Println("Invalid function", args[0])
+		fmt.Println("Invalid function", cmd)
 	}
 }
 
@@ -86,13 +83,13 @@ func AuthFuncHandler() {
 }
 
 func NodeFuncHandler() {
-	addr := flag.String("addr", "http://localhost:8080", "address of the node master service")
+	addr := flag.String("addr", "", "address of the node master service")
 	times := flag.Int("times", 1, "number of times to run the node master")
 	thread := flag.Int("thread", 10, "number of times to run the node master")
 
 	flag.Parse()
 
-	if addr == nil {
+	if *addr == "" {
 		log.Fatalf("failed to get address")
 	}
 

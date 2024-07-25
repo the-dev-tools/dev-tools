@@ -3,8 +3,6 @@ package api
 import (
 	"context"
 	"devtools-nodes/pkg/convert"
-	"devtools-nodes/pkg/model/medge"
-	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodemaster"
@@ -19,8 +17,6 @@ import (
 	"connectrpc.com/connect"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type SlaveNodeServer struct{}
@@ -30,33 +26,21 @@ type MultiNodeRunner struct {
 }
 
 func (m SlaveNodeServer) Run(ctx context.Context, req *connect.Request[nodeslavev1.NodeSlaveServiceRunRequest]) (*connect.Response[nodeslavev1.NodeSlaveServiceRunResponse], error) {
-	node := req.Msg.Node
+	rawNode := req.Msg.Node
 
-	msg, err := anypb.UnmarshalNew(req.Msg.Node.Data, proto.UnmarshalOptions{})
+	node, err := convert.ConvertMsgNodeToNode(rawNode, resolver.ConvertProtoMsg)
 	if err != nil {
 		return nil, err
 	}
 
-	castedData, err := resolver.ConvertProtoMsg(msg)
+	nm, err := nodemaster.NewNodeMaster(rawNode.Id, nil, resolver.ResolveNodeFunc, nodemaster.ExecuteNode, nil, http.DefaultClient)
 	if err != nil {
 		return nil, err
 	}
-
-	tempNode := mnode.Node{ID: node.Id, Type: node.Type, Data: castedData, OwnerID: node.OwnerId, GroupID: node.GroupId, Edges: medge.Edges{OutNodes: node.Edges.OutNodes}}
-	nodes := map[string]mnode.Node{node.Id: tempNode}
-
-	nm, err := nodemaster.NewNodeMaster(node.Id, nodes, resolver.ResolveNodeFunc, nodemaster.ExecuteNode, nil, http.DefaultClient)
-	if err != nil {
-		return nil, err
-	}
-	if nm == nil {
-		return nil, err
-	}
-	nm.CurrentNode = &tempNode
+	nm.CurrentNode = node
 
 	err = nodemaster.ExecuteNode(ctx, nm, resolver.ResolveNodeFunc)
 	if err != nil {
-		fmt.Printf("Error: %v", err)
 		return nil, err
 	}
 
@@ -89,6 +73,22 @@ func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[node
 
 	finished := make(chan bool)
 	defer close(finished)
+
+	/*
+		funcHandler := func(status mstatus.NodeStatus, anyData *anypb.Any) error {
+			err = stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
+				// TODO: Convert to a normal value not anypb type
+				NodeId: status.Type,
+				NodeStatus: &nodestatusv1.NodeStatus{
+					NodeId: status.NodeID,
+					Type:   status.Type,
+					Data:   anyData,
+				},
+			})
+			return err
+		}
+	*/
+
 	go func() {
 		for {
 			select {
@@ -98,7 +98,7 @@ func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[node
 				return
 			case nodeStatus := <-stateChan:
 
-				statusData, err := convert.ConvertNodeStatusToMsg(nodeStatus.Data)
+				statusData, err := convert.ConvertNodeStatusToMsg(nodeStatus)
 				if err != nil {
 					// TODO: find way to marshal http respose to send to the client
 					continue

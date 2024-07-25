@@ -49,12 +49,6 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 		},
 	}
 
-	/*
-		if currentNode.Type == resolver.NodeTypeLoopRemote {
-			err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
-			return err
-		}
-	*/
 	if currentNode.Type == resolver.NodeTypeLoopRemote {
 		err := nodemaster.ExecuteNode(ctx, nm, resolverFunc)
 		if err != nil {
@@ -109,14 +103,18 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 }
 
 func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest], stream *connect.ServerStream[nodemasterv1.NodeMasterServiceRunResponse]) error {
+	log.Printf("Received request: %v", req)
 	nodes := req.Msg.Nodes
 
 	// INFO: Experimental change
 
+	fmt.Println("Nodes: ", nodes)
 	convertedNodes, err := convert.ConvertMsgNodesToNodes(nodes, resolver.ConvertProtoMsg)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Converted Nodes: ", convertedNodes)
 
 	resolverFunc := mnodemaster.Resolver(resolver.ResolveNodeFunc)
 	executeNodeFunc := mnodemaster.ExcuteNodeFunc(m.ExecuteNode)
@@ -140,7 +138,7 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 				return
 			case statusUpdate := <-stateChan:
 
-				statusData, err := convert.ConvertNodeStatusToMsg(statusUpdate.Data)
+				statusData, err := convert.ConvertNodeStatusToMsg(statusUpdate)
 				if err != nil {
 					log.Printf("Error: %v", err)
 					continue
@@ -188,6 +186,8 @@ func ListenMasterNodeService(port string) error {
 	path, handler := nodemasterv1connect.NewNodeMasterServiceHandler(server)
 	mux.Handle(path, handler)
 	serverAddr := ":" + port
+
+	log.Printf("Listening on %s", serverAddr)
 	err := http.ListenAndServe(
 		serverAddr,
 		h2c.NewHandler(mux, &http2.Server{

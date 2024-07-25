@@ -1,8 +1,8 @@
 package api
 
 import (
-	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -26,14 +26,10 @@ func ListenServices(services []Service, port string) error {
 	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	defer httpClient.Close()
 
-	client := nodemasterv1connect.NewNodeMasterServiceClient(httpClient, upstream)
-	if client == nil {
-		return errors.New("failed to create client")
-	}
-
 	mux := http.NewServeMux()
 
 	for _, service := range services {
+		log.Printf("Registering service %s", service.Path)
 		mux.Handle(service.Path, service.Handler)
 	}
 

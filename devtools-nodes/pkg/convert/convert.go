@@ -50,12 +50,14 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 	return anyData, nil
 }
 
-func ConvertNodeStatusToMsg(status interface{}) (*anypb.Any, error) {
+func ConvertNodeStatusToMsg(status mstatus.NodeStatus) (*anypb.Any, error) {
+	statusData := status.Data
+
 	anyStatus := new(anypb.Any)
 	var err error
-	switch statusType := status.(type) {
+	switch statusType := statusData.(type) {
 	case mstatus.NodeStatusNextNode:
-		data, ok := status.(mstatus.NodeStatusNextNode)
+		data, ok := statusData.(mstatus.NodeStatusNextNode)
 		if !ok {
 			return nil, fmt.Errorf("failed to cast NodeStatusNextNode")
 		}
@@ -65,7 +67,7 @@ func ConvertNodeStatusToMsg(status interface{}) (*anypb.Any, error) {
 		anyStatus, err = anypb.New(nodeStatus)
 		return anyStatus, err
 	case mstatus.NodeStatusSetVar:
-		data, ok := status.(mstatus.NodeStatusSetVar)
+		data, ok := statusData.(mstatus.NodeStatusSetVar)
 		if !ok {
 			return nil, fmt.Errorf("failed to cast NodeStatusSetVar")
 		}
@@ -153,4 +155,17 @@ func ConvertMsgNodesToNodes(nodes map[string]*nodemasterv1.Node, resolverFunc mr
 		convertedNodes[key] = tempNode
 	}
 	return convertedNodes, nil
+}
+
+func ConvertMsgNodeToNode(node *nodemasterv1.Node, resolverFunc mresolver.ResolverProto) (*mnode.Node, error) {
+	msg, err := anypb.UnmarshalNew(node.Data, proto.UnmarshalOptions{})
+	if err != nil {
+		return nil, err
+	}
+	castedData, err := resolverFunc(msg)
+	if err != nil {
+		return nil, err
+	}
+	tempNode := mnode.Node{ID: node.Id, Type: node.Type, Data: castedData, OwnerID: node.OwnerId, GroupID: node.GroupId, Edges: medge.Edges{OutNodes: node.Edges.OutNodes}}
+	return &tempNode, nil
 }
