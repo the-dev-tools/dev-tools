@@ -16,6 +16,10 @@
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
           nativeBuildInputs = with pkgs; [
+            # JS tools
+            nodejs
+            pnpm_9
+
             # Nix tools
             alejandra
             nixd
