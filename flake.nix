@@ -12,20 +12,30 @@
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = import inputs.systems;
       perSystem = {pkgs, ...}: {
-        devShells.default = pkgs.mkShell {
-          NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
+        devShells.default = let
+          pnpm = pkgs.writeShellApplication {
+            name = "pnpm";
+            runtimeInputs = with pkgs; [dotenvx pnpm_9];
+            text = ''dotenvx run --env-file "''${ROOT_DOTENV:-/dev/null}" -- pnpm "$@"'';
+          };
+        in
+          pkgs.mkShell {
+            NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
-          nativeBuildInputs = with pkgs; [
-            # JS tools
-            nodejs
-            pnpm_9
-            turbo
+            shellHook = ''export ROOT_DOTENV=$(readlink -f .env)'';
 
-            # Nix tools
-            alejandra
-            nixd
-          ];
-        };
+            nativeBuildInputs =
+              [pnpm]
+              ++ (with pkgs; [
+                # JS tools
+                nodejs
+                turbo
+
+                # Nix tools
+                alejandra
+                nixd
+              ]);
+          };
       };
     };
 }
