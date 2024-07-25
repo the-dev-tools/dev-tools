@@ -6,7 +6,6 @@ import (
 	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mresolver"
 	"devtools-nodes/pkg/model/mstatus"
-	"devtools-nodes/pkg/nodes/api"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	nodestatusv1 "devtools-services/gen/nodestatus/v1"
@@ -23,8 +22,8 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 	var err error
 
 	switch msgType := rawData.(type) {
-	case *api.RestApiData:
-		data := rawData.(*api.RestApiData)
+	case *mnodedata.NodeApiRestData:
+		data := rawData.(*mnodedata.NodeApiRestData)
 		nodeData := &nodedatav1.NodeApiCallData{
 			Url:         data.Url,
 			QueryParams: data.QueryParams,
@@ -33,8 +32,8 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 			Body:        data.Body,
 		}
 		anyData, err = anypb.New(nodeData)
-	case *mnodedata.LoopRemoteData:
-		data := rawData.(*mnodedata.LoopRemoteData)
+	case *mnodedata.NodeLoopRemoteData:
+		data := rawData.(*mnodedata.NodeLoopRemoteData)
 		nodeData := &nodedatav1.NodeForRemote{
 			Count:             data.Count,
 			LoopStartNode:     data.LoopStartNode,

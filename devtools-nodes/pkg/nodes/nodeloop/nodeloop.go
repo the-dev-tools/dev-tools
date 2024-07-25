@@ -1,4 +1,4 @@
-package loop
+package nodeloop
 
 import (
 	"devtools-nodes/pkg/convert"
@@ -21,7 +21,7 @@ import (
 )
 
 func ForLoop(nm *mnodemaster.NodeMaster) error {
-	data, ok := nm.CurrentNode.Data.(*mnodedata.LoopData)
+	data, ok := nm.CurrentNode.Data.(*mnodedata.NodeLoopData)
 	if !ok {
 		return mnodemaster.ErrInvalidDataType
 	}
@@ -72,7 +72,7 @@ func ForLoop(nm *mnodemaster.NodeMaster) error {
 }
 
 func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
-	data, ok := nm.CurrentNode.Data.(*mnodedata.LoopRemoteData)
+	data, ok := nm.CurrentNode.Data.(*mnodedata.NodeLoopRemoteData)
 	if !ok {
 		return mnodemaster.ErrInvalidDataType
 	}

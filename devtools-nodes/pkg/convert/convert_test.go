@@ -3,7 +3,6 @@ package convert_test
 import (
 	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/mnodedata"
-	"devtools-nodes/pkg/nodes/api"
 	"testing"
 )
 
@@ -56,7 +55,7 @@ func TestConvertStructToMsg(t *testing.T) {
 	})
 
 	t.Run("Test supported type", func(t *testing.T) {
-		msg, err := convert.ConvertStructToMsg(&api.RestApiData{})
+		msg, err := convert.ConvertStructToMsg(&mnodedata.NodeApiRestData{})
 		if err != nil {
 			t.Error("Expected nil error, got", err)
 		}
@@ -65,7 +64,7 @@ func TestConvertStructToMsg(t *testing.T) {
 			t.Error("Expected message, got nil")
 		}
 
-		msg, err = convert.ConvertStructToMsg(&mnodedata.LoopRemoteData{})
+		msg, err = convert.ConvertStructToMsg(&mnodedata.NodeLoopRemoteData{})
 		if err != nil {
 			t.Error("Expected nil error, got", err)
 		}

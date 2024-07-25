@@ -1,11 +1,11 @@
-package loop_test
+package nodeloop_test
 
 import (
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/loop"
+	"devtools-nodes/pkg/nodes/nodeloop"
 	"testing"
 )
 
@@ -20,7 +20,7 @@ func TestLoopNode(t *testing.T) {
 	expectedResolve := loopCount * nodeLength
 
 	loopNode := &mnode.Node{
-		Data: &mnodedata.LoopData{
+		Data: &mnodedata.NodeLoopData{
 			Count:         loopCount,
 			LoopStartNode: "node1",
 		},
@@ -70,7 +70,7 @@ func TestLoopNode(t *testing.T) {
 
 	nm.Nodes = nodes
 
-	err := loop.ForLoop(nm)
+	err := nodeloop.ForLoop(nm)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

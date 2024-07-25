@@ -1,4 +1,4 @@
-package communication_test
+package nodecom_test
 
 import (
 	"devtools-nodes/pkg/mailclient/mockemailclient"

@@ -3,10 +3,10 @@ package apicondition_test
 import (
 	"devtools-nodes/pkg/httpclient/httpmockclient"
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/api"
-	"devtools-nodes/pkg/nodes/condition"
 	"devtools-nodes/pkg/nodes/merged/apicondition"
+	api "devtools-nodes/pkg/nodes/nodeapi"
 	"net/http"
 	"testing"
 )
@@ -16,13 +16,13 @@ func TestConditionRestStatus200(t *testing.T) {
 	failNodeID := "node2"
 
 	apiconditionData := &apicondition.ConditionDataRestStatus{
-		ApiData: &api.RestApiData{
+		ApiData: &mnodedata.NodeApiRestData{
 			Method:  "GET",
 			Url:     "http://localhost:8080",
 			Headers: map[string]string{},
 			Body:    []byte{},
 		},
-		ConditionData: &condition.ConditionDataRestStatus{
+		ConditionData: &mnodedata.NodeConditionRestStatusData{
 			StatusCodeExits: map[string]string{
 				"200": successNodeID,
 				"404": failNodeID,

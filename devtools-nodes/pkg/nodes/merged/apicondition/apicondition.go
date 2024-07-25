@@ -1,17 +1,18 @@
 package apicondition
 
 import (
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodemaster"
-	"devtools-nodes/pkg/nodes/api"
-	"devtools-nodes/pkg/nodes/condition"
+	api "devtools-nodes/pkg/nodes/nodeapi"
+	"devtools-nodes/pkg/nodes/nodecondition"
 	"errors"
 	"fmt"
 )
 
 type ConditionDataRestStatus struct {
-	ApiData       *api.RestApiData
-	ConditionData *condition.ConditionDataRestStatus
+	ApiData       *mnodedata.NodeApiRestData
+	ConditionData *mnodedata.NodeConditionRestStatusData
 }
 
 var ErrInvalidDataType = errors.New("invalid data type")
@@ -40,7 +41,7 @@ func ApiConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 
 	mn.CurrentNode.Data = data.ConditionData
 
-	condition.ConditionRestStatus(mn)
+	nodecondition.ConditionRestStatus(mn)
 
 	return nil
 }

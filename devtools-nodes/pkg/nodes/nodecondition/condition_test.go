@@ -1,10 +1,11 @@
-package condition_test
+package nodecondition_test
 
 import (
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/api"
-	"devtools-nodes/pkg/nodes/condition"
+	"devtools-nodes/pkg/nodes/nodeapi"
+	"devtools-nodes/pkg/nodes/nodecondition"
 	"net/http"
 	"testing"
 )
@@ -15,12 +16,12 @@ func TestConditionRestStatus200(t *testing.T) {
 
 	mn := mnodemaster.NodeMaster{
 		Vars: map[string]interface{}{
-			api.VarResponseKey: &http.Response{
+			nodeapi.VarResponseKey: &http.Response{
 				StatusCode: http.StatusOK,
 			},
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataRestStatus{
+			Data: &mnodedata.NodeConditionRestStatusData{
 				StatusCodeExits: map[string]string{
 					"200": successNodeID,
 					"404": failNodeID,
@@ -28,7 +29,7 @@ func TestConditionRestStatus200(t *testing.T) {
 			},
 		},
 	}
-	err := condition.ConditionRestStatus(&mn)
+	err := nodecondition.ConditionRestStatus(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -43,12 +44,12 @@ func TestConditionRestStatus404(t *testing.T) {
 
 	mn := mnodemaster.NodeMaster{
 		Vars: map[string]interface{}{
-			api.VarResponseKey: &http.Response{
+			nodeapi.VarResponseKey: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataRestStatus{
+			Data: &mnodedata.NodeConditionRestStatusData{
 				StatusCodeExits: map[string]string{
 					"200": successNodeID,
 					"404": failNodeID,
@@ -56,7 +57,7 @@ func TestConditionRestStatus404(t *testing.T) {
 			},
 		},
 	}
-	err := condition.ConditionRestStatus(&mn)
+	err := nodecondition.ConditionRestStatus(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -71,12 +72,12 @@ func TestConditionRestStatusMatching(t *testing.T) {
 
 	mn := mnodemaster.NodeMaster{
 		Vars: map[string]interface{}{
-			api.VarResponseKey: &http.Response{
+			nodeapi.VarResponseKey: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataRestStatus{
+			Data: &mnodedata.NodeConditionRestStatusData{
 				StatusCodeExits: map[string]string{
 					"200": successNodeID,
 					"4**": failNodeID,
@@ -84,7 +85,7 @@ func TestConditionRestStatusMatching(t *testing.T) {
 			},
 		},
 	}
-	err := condition.ConditionRestStatus(&mn)
+	err := nodecondition.ConditionRestStatus(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -99,12 +100,12 @@ func TestConditionRestStatusMatchingMulti(t *testing.T) {
 
 	mn := mnodemaster.NodeMaster{
 		Vars: map[string]interface{}{
-			api.VarResponseKey: &http.Response{
+			nodeapi.VarResponseKey: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataRestStatus{
+			Data: &mnodedata.NodeConditionRestStatusData{
 				StatusCodeExits: map[string]string{
 					"2**": testFailNodeID,
 					"300": testSuccessNodeID,
@@ -115,7 +116,7 @@ func TestConditionRestStatusMatchingMulti(t *testing.T) {
 			},
 		},
 	}
-	err := condition.ConditionRestStatus(&mn)
+	err := nodecondition.ConditionRestStatus(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -136,12 +137,12 @@ func TestConditionJsonMatch(t *testing.T) {
 
 	mn := mnodemaster.NodeMaster{
 		Vars: map[string]interface{}{
-			api.VarResponseKey: &http.Response{
+			nodeapi.VarResponseKey: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataJsonMatch{
+			Data: &mnodedata.NodeConditionJsonMatchData{
 				Data: jsonByteArr,
 				Path: "name.first",
 				MatchExits: map[string]string{
@@ -152,7 +153,7 @@ func TestConditionJsonMatch(t *testing.T) {
 		},
 	}
 
-	err := condition.ConditionJsonMatch(&mn)
+	err := nodecondition.ConditionJsonMatch(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -167,12 +168,12 @@ func TestConditionJsonMatchNoRoute(t *testing.T) {
 	TomasNodeExpected := "Tomas"
 	mn := mnodemaster.NodeMaster{
 		Vars: map[string]interface{}{
-			api.VarResponseKey: &http.Response{
+			nodeapi.VarResponseKey: &http.Response{
 				StatusCode: http.StatusNotFound,
 			},
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataJsonMatch{
+			Data: &mnodedata.NodeConditionJsonMatchData{
 				Data: jsonByteArr,
 				Path: "name.first",
 				MatchExits: map[string]string{
@@ -183,7 +184,7 @@ func TestConditionJsonMatchNoRoute(t *testing.T) {
 		},
 	}
 
-	err := condition.ConditionJsonMatch(&mn)
+	err := nodecondition.ConditionJsonMatch(&mn)
 	if err == nil {
 		t.Errorf("expected error")
 	}
@@ -205,7 +206,7 @@ func TestConditionExpression(t *testing.T) {
 			"test": 1,
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataExpression{
+			Data: &mnodedata.NodeConditionExpressionData{
 				Expression: "test == 1",
 				MatchExits: map[string]string{
 					successNodeKey: successNodeID,
@@ -214,7 +215,7 @@ func TestConditionExpression(t *testing.T) {
 			},
 		},
 	}
-	err := condition.ConditionExpression(&mn)
+	err := nodecondition.ConditionExpression(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -232,7 +233,7 @@ func TestConditionExpressionExit(t *testing.T) {
 			"test": 1,
 		},
 		CurrentNode: &mnode.Node{
-			Data: &condition.ConditionDataExpression{
+			Data: &mnodedata.NodeConditionExpressionData{
 				Expression: "10 * 10",
 				MatchExits: map[string]string{
 					"100": successNodeID,
@@ -241,7 +242,7 @@ func TestConditionExpressionExit(t *testing.T) {
 			},
 		},
 	}
-	err := condition.ConditionExpression(&mn)
+	err := nodecondition.ConditionExpression(&mn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

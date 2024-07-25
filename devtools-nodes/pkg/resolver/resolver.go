@@ -3,10 +3,10 @@ package resolver
 import (
 	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/api"
-	"devtools-nodes/pkg/nodes/communication"
-	"devtools-nodes/pkg/nodes/condition"
-	"devtools-nodes/pkg/nodes/loop"
+	"devtools-nodes/pkg/nodes/nodeapi"
+	"devtools-nodes/pkg/nodes/nodecom"
+	"devtools-nodes/pkg/nodes/nodecondition"
+	"devtools-nodes/pkg/nodes/nodeloop"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	"errors"
 
@@ -33,13 +33,13 @@ var ErrInvalidDataType = errors.New("invalid data type")
 func ResolveNodeFunc(nodeType string) (func(*mnodemaster.NodeMaster) error, error) {
 	switch nodeType {
 	case ApiCallRest:
-		return api.SendRestApiRequest, nil
+		return nodeapi.SendRestApiRequest, nil
 	case IFStatusCode:
-		return condition.ConditionRestStatus, nil
+		return nodecondition.ConditionRestStatus, nil
 	case CommunicationEmail:
-		return communication.SendEmail, nil
+		return nodecom.SendEmail, nil
 	case NodeTypeLoopRemote:
-		return loop.ForRemoteLoop, nil
+		return nodeloop.ForRemoteLoop, nil
 	}
 	return nil, nil
 }
@@ -48,7 +48,7 @@ func ConvertProtoMsg(msg proto.Message) (interface{}, error) {
 	switch msgType := msg.(type) {
 	case *nodedatav1.NodeApiCallData:
 		casted := msg.(*nodedatav1.NodeApiCallData)
-		data := &api.RestApiData{
+		data := &mnodedata.NodeApiRestData{
 			Url:         casted.Url,
 			QueryParams: casted.QueryParams,
 			Method:      casted.Method,
@@ -58,7 +58,7 @@ func ConvertProtoMsg(msg proto.Message) (interface{}, error) {
 		return data, nil
 	case *nodedatav1.NodeForRemote:
 		casted := msg.(*nodedatav1.NodeForRemote)
-		data := &mnodedata.LoopRemoteData{
+		data := &mnodedata.NodeLoopRemoteData{
 			Count:             casted.Count,
 			LoopStartNode:     casted.LoopStartNode,
 			MachinesAmount:    casted.MachineEmount,

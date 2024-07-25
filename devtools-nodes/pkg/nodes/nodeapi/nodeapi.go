@@ -1,7 +1,8 @@
-package api
+package nodeapi
 
 import (
 	"bytes"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodemaster"
 	"errors"
@@ -9,21 +10,13 @@ import (
 	"net/http"
 )
 
-type RestApiData struct {
-	Url         string            `json:"url"`
-	QueryParams map[string]string `json:"queryParams"`
-	Method      string            `json:"method"`
-	Headers     map[string]string `json:"headers"`
-	Body        []byte            `json:"body"`
-}
-
 const (
 	VarResponseKey = "response"
 )
 
 func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 	currentNode := nm.CurrentNode
-	apiData, ok := currentNode.Data.(*RestApiData)
+	apiData, ok := currentNode.Data.(*mnodedata.NodeApiRestData)
 	if !ok {
 		return errors.New("invalid data type")
 	}
@@ -59,4 +52,16 @@ func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 	nodemaster.SetNextNode(nm, nextNode)
 
 	return nil
+}
+
+func GetHttpVarResponse(nm *mnodemaster.NodeMaster) (*http.Response, error) {
+	rawResponse, err := nodemaster.GetVar(nm, VarResponseKey)
+	if err != nil {
+		return nil, err
+	}
+	response, ok := rawResponse.(*http.Response)
+	if !ok {
+		return nil, errors.New("invalid data type")
+	}
+	return response, nil
 }

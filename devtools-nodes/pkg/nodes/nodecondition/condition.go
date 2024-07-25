@@ -1,34 +1,25 @@
-package condition
+package nodecondition
 
 import (
 	"devtools-nodes/pkg/model/medge"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/nodes/nodeapi"
 	"devtools-nodes/pkg/parser"
 	"fmt"
-	"net/http"
 
 	"github.com/PaesslerAG/gval"
 )
 
-type ConditionDataRestStatus struct {
-	StatusCodeExits map[string]string
-}
-
 func ConditionRestStatus(mn *mnodemaster.NodeMaster) error {
-	data := mn.CurrentNode.Data.(*ConditionDataRestStatus)
+	data := mn.CurrentNode.Data.(*mnodedata.NodeConditionRestStatusData)
 	if data == nil {
 		return fmt.Errorf("no data provided for condition")
 	}
 
-	rawResponse, ok := mn.Vars[api.VarResponseKey]
-	if !ok {
-		return mnodemaster.ErrInvalidDataType
-	}
-
-	response, ok := rawResponse.(*http.Response)
-	if !ok {
-		return mnodemaster.ErrInvalidDataType
+	response, err := nodeapi.GetHttpVarResponse(mn)
+	if err != nil {
+		return err
 	}
 
 	restStatus := fmt.Sprint(response.StatusCode)
@@ -60,14 +51,8 @@ func ConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 	return nil
 }
 
-type ConditionDataJsonMatch struct {
-	Data       []byte
-	Path       string
-	MatchExits map[string]string
-}
-
 func ConditionJsonMatch(mn *mnodemaster.NodeMaster) error {
-	data, ok := mn.CurrentNode.Data.(*ConditionDataJsonMatch)
+	data, ok := mn.CurrentNode.Data.(*mnodedata.NodeConditionJsonMatchData)
 
 	if !ok {
 		return fmt.Errorf("no data provided for condition")
@@ -100,13 +85,8 @@ func ConditionJsonMatch(mn *mnodemaster.NodeMaster) error {
 	return nil
 }
 
-type ConditionDataExpression struct {
-	Expression string
-	MatchExits map[string]string
-}
-
 func ConditionExpression(mn *mnodemaster.NodeMaster) error {
-	data, ok := mn.CurrentNode.Data.(*ConditionDataExpression)
+	data, ok := mn.CurrentNode.Data.(*mnodedata.NodeConditionExpressionData)
 	if !ok {
 		return fmt.Errorf("no data provided for condition")
 	}

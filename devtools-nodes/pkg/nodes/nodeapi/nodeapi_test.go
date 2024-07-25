@@ -1,12 +1,13 @@
-package api_test
+package nodeapi_test
 
 import (
 	"bytes"
 	"devtools-nodes/pkg/httpclient/httpmockclient"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/api"
+	"devtools-nodes/pkg/nodes/nodeapi"
 	"devtools-nodes/pkg/resolver"
 	"io"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestSendRestApiRequest(t *testing.T) {
-	apiCallData := &api.RestApiData{
+	apiCallData := &mnodedata.NodeApiRestData{
 		Url:    "http://localhost:8080",
 		Method: "GET",
 		Body:   []byte("SomeBody"),
@@ -52,16 +53,16 @@ func TestSendRestApiRequest(t *testing.T) {
 		HttpClient:  mockHttpClient,
 		Vars:        make(map[string]interface{}),
 	}
-	err := api.SendRestApiRequest(nm)
+	err := nodeapi.SendRestApiRequest(nm)
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
 
-	if nm.Vars[api.VarResponseKey] == nil {
+	if nm.Vars[nodeapi.VarResponseKey] == nil {
 		t.Errorf("Expected response to be set in vars")
 	}
 
-	if nm.Vars[api.VarResponseKey] != &mockResponse {
+	if nm.Vars[nodeapi.VarResponseKey] != &mockResponse {
 		t.Errorf("Expected response to be set in vars")
 	}
 
@@ -71,7 +72,7 @@ func TestSendRestApiRequest(t *testing.T) {
 }
 
 func TestSendRestApiRequestNextNode(t *testing.T) {
-	apiCallData := &api.RestApiData{
+	apiCallData := &mnodedata.NodeApiRestData{
 		Url:    "http://localhost:8080",
 		Method: "GET",
 		Body:   []byte("SomeBody"),
@@ -107,14 +108,14 @@ func TestSendRestApiRequestNextNode(t *testing.T) {
 		HttpClient:  mockHttpClient,
 		Vars:        make(map[string]interface{}),
 	}
-	err := api.SendRestApiRequest(nm)
+	err := nodeapi.SendRestApiRequest(nm)
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
-	if nm.Vars[api.VarResponseKey] == nil {
+	if nm.Vars[nodeapi.VarResponseKey] == nil {
 		t.Errorf("Expected response to be set in vars")
 	}
-	if nm.Vars[api.VarResponseKey] != &mockResponse {
+	if nm.Vars[nodeapi.VarResponseKey] != &mockResponse {
 		t.Errorf("Expected response to be set in vars")
 	}
 	if nm.NextNodeID != nextNodeID {
