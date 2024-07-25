@@ -2,6 +2,12 @@
   "name": "@the-dev-tools/protobuf",
   "version": "1.0.0",
   "devDependencies": {
+    "@bufbuild/buf": "^1.35.1",
+    "@bufbuild/protoc-gen-es": "^1.10.0",
+    "@connectrpc/protoc-gen-connect-es": "^1.4.0",
     "prettier": "^3.3.3"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.10.0"
   }
 }

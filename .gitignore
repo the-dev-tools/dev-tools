@@ -1,2 +1,3 @@
 .direnv
+dist
 node_modules

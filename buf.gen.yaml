@@ -1,0 +1,13 @@
+version: v2
+
+plugins:
+  - local: protoc-gen-es
+    out: dist/typescript
+    opt: target=ts
+
+  - local: protoc-gen-connect-es
+    out: dist/typescript
+    opt: target=ts
+
+inputs:
+  - git_repo: .
