@@ -2,13 +2,14 @@ package nodemaster_test
 
 import (
 	"context"
+	"devtools-nodes/pkg/httpclient/httpmockclient"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodemaster"
+	"net/http"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func MockResolver(nodeType string) (func(*mnodemaster.NodeMaster) error, error) {
@@ -20,11 +21,6 @@ func MockResolver(nodeType string) (func(*mnodemaster.NodeMaster) error, error) 
 }
 
 func TestNodeMasterRun(t *testing.T) {
-	uuid, err := uuid.NewV7()
-	if err != nil {
-		t.Errorf("Error generating UUID: %v", err)
-	}
-
 	nodes := map[string]mnode.Node{
 		"start": {ID: "start", Type: "start", Data: nil, Edges: medge.Edges{
 			OutNodes: map[string]string{"success": "middle"},
@@ -37,14 +33,11 @@ func TestNodeMasterRun(t *testing.T) {
 		}},
 	}
 
-	nm := &mnodemaster.NodeMaster{
-		ID:          uuid.String(),
-		StartNodeID: "start",
-		Nodes:       nodes,
-		Vars:        map[string]interface{}{},
-		CurrentNode: nil,
-		NextNodeID:  "",
-		Resolver:    MockResolver,
+	stateChan := make(chan mstatus.NodeStatus)
+	mockHttpClient := httpmockclient.NewMockHttpClient(&http.Response{})
+	nm, err := nodemaster.NewNodeMaster("start", nodes, MockResolver, nodemaster.ExecuteNode, stateChan, mockHttpClient)
+	if err != nil {
+		t.Errorf("Error creating NodeMaster: %v", err)
 	}
 
 	nodemaster.Run(nm, context.Background())

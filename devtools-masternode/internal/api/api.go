@@ -28,7 +28,7 @@ import (
 )
 
 type MasterNodeServer struct {
-	upstream string
+	Upstream string
 }
 
 func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMaster, resolverFunc mnodemaster.Resolver) error {
@@ -79,7 +79,7 @@ func (m MasterNodeServer) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeM
 		return errors.New("failed to create request")
 	}
 
-	client := nodeslavev1connect.NewNodeSlaveServiceClient(httpClient, m.upstream)
+	client := nodeslavev1connect.NewNodeSlaveServiceClient(httpClient, m.Upstream)
 	if client == nil {
 		return errors.New("failed to create client")
 	}
@@ -181,7 +181,7 @@ func ListenMasterNodeService(port string) error {
 	}
 
 	server := &MasterNodeServer{
-		upstream: upstream,
+		Upstream: upstream,
 	}
 	mux := http.NewServeMux()
 
