@@ -2,16 +2,14 @@ package auth
 
 import (
 	"context"
+	"devtools-backend/internal/api"
 	authv1 "devtools-services/gen/auth/v1"
 	"devtools-services/gen/auth/v1/authv1connect"
 	"errors"
-	"net/http"
 	"os"
 	"time"
 
 	"connectrpc.com/connect"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/magiclabs/magic-admin-go"
@@ -64,41 +62,28 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 	return resp, nil
 }
 
-func ListenAndServe(port string) error {
+func CreateService() (*api.Service, error) {
 	hmacSecret := os.Getenv("HMAC_SECRET")
 	if hmacSecret == "" {
-		return errors.New("HMAC_SECRET env var is required")
+		return nil, errors.New("HMAC_SECRET env var is required")
 	}
 	hmacSecretBytes := []byte(hmacSecret)
 
 	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
 	if magicLinkSecret == "" {
-		return errors.New("MAGIC_LINK_SECRET env var is required")
+		return nil, errors.New("MAGIC_LINK_SECRET env var is required")
 	}
 
 	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
 	m, err := client.New(magicLinkSecret, cl)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	server := &AuthServer{
 		clientAPI:  m,
 		hmacSecret: hmacSecretBytes,
 	}
-	mux := http.NewServeMux()
 	path, handler := authv1connect.NewAuthServiceHandler(server)
-	mux.Handle(path, handler)
-
-	http.ListenAndServe(
-		":"+port,
-		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		h2c.NewHandler(mux, &http2.Server{
-			IdleTimeout:          0,
-			MaxConcurrentStreams: 100000,
-			MaxHandlers:          0,
-		}),
-	)
-
-	return nil
+	return &api.Service{Path: path, Handler: handler}, nil
 }

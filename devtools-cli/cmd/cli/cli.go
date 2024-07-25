@@ -4,6 +4,8 @@ import (
 	"context"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/resolver"
+	authv1 "devtools-services/gen/auth/v1"
+	"devtools-services/gen/auth/v1/authv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
@@ -11,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,7 +23,69 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+const (
+	NodeFunc = "node"
+	AuthFunc = "auth"
+)
+
 func main() {
+	fmt.Println("Starting cli")
+
+	args := os.Args[1:]
+	if len(args) > 1 || len(args) == 0 {
+		fmt.Println("Usage: cli")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case NodeFunc:
+		NodeFuncHandler()
+	case AuthFunc:
+		AuthFuncHandler()
+	default:
+		fmt.Println("Invalid function", args[0])
+	}
+}
+
+func GetHttpClient() *http.Client {
+	return http.DefaultClient
+}
+
+func AuthFuncHandler() {
+	addr := flag.String("addr", "http://localhost:8080", "address of the node master service")
+	token := flag.String("token", "", "token for the request")
+	flag.Parse()
+
+	fmt.Println("Address: ", *addr)
+	fmt.Println("Token: ", *token)
+
+	if *token == "" {
+		log.Fatalf("failed to get token")
+	}
+
+	reqRaw := &authv1.AuthServiceDIDRequest{
+		DidToken: *token,
+	}
+
+	req := connect.NewRequest(reqRaw)
+
+	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	client := authv1connect.NewAuthServiceClient(httpClient, *addr)
+	ctx := context.Background()
+	resp, err := client.DID(ctx, req)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	if resp == nil {
+		log.Fatalf("failed to get response")
+	}
+
+	fmt.Println("Response: ", resp)
+	fmt.Println("Details: ", resp.Msg.Token)
+}
+
+func NodeFuncHandler() {
 	addr := flag.String("addr", "http://localhost:8080", "address of the node master service")
 	times := flag.Int("times", 1, "number of times to run the node master")
 	thread := flag.Int("thread", 10, "number of times to run the node master")
@@ -144,8 +209,4 @@ func main() {
 	fmt.Println("Time taken: ", take)
 
 	fmt.Println("Done")
-}
-
-func GetHttpClient() *http.Client {
-	return http.DefaultClient
 }

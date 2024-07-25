@@ -2,6 +2,8 @@ package main
 
 import (
 	"devtools-backend/internal/api"
+	"devtools-backend/internal/api/auth"
+	"devtools-backend/internal/api/node"
 	"log"
 	"os"
 	"os/signal"
@@ -17,8 +19,21 @@ func main() {
 		port = "8080"
 	}
 
+	var services []api.Service
+	authService, err := auth.CreateService()
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *authService)
+
+	nodeService, err := node.CreateService()
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *nodeService)
+
 	go func() {
-		err := api.ListenBackendServerProxy(port)
+		err := api.ListenServices(services, port)
 		if err != nil {
 			log.Fatal(err)
 		}
