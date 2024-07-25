@@ -1,25 +1,32 @@
 package stoken
 
 import (
-	"time"
-
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type DefaultClaims struct {
+	jwt.RegisteredClaims
+	CustomClaims string `json:"custom_claims"`
+}
+
 func NewJWT(id string, secret []byte) (string, error) {
-	now := time.Now()
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, DefaultClaims{})
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":  id,
-		"iat": now.Unix(),
-		"nbf": now.Add(24 * time.Hour).Unix(),
-		"exp": now.Add(48 * time.Hour).Unix(),
-	})
-
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := t.SignedString(secret)
 	if err != nil {
 		return "", err
 	}
 
 	return tokenString, nil
+}
+
+func ValidateJWT(tokenString string, secret []byte) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return secret, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
 }
