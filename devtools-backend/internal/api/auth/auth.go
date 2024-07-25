@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"devtools-backend/internal/api"
+	"devtools-backend/pkg/stoken"
 	authv1 "devtools-services/gen/auth/v1"
 	"devtools-services/gen/auth/v1/authv1connect"
 	"errors"
@@ -11,7 +12,6 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/magiclabs/magic-admin-go"
 	"github.com/magiclabs/magic-admin-go/client"
 	"github.com/magiclabs/magic-admin-go/token"
@@ -40,22 +40,13 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		return nil, err
 	}
 
-	now := time.Now()
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"publicAddress": publicAddress,
-		"iat":           now.Unix(),
-		"nbf":           now.Add(24 * time.Hour).Unix(),
-		"exp":           now.Add(48 * time.Hour).Unix(),
-	})
-
-	tokenString, err := token.SignedString(a.hmacSecret)
+	jwtToken, err := stoken.NewJWT(publicAddress, a.hmacSecret)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	respRaw := &authv1.AuthServiceDIDResponse{
-		Token: tokenString,
+		Token: jwtToken,
 	}
 
 	resp := connect.NewResponse(respRaw)
