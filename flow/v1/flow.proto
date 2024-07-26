@@ -4,6 +4,12 @@ package flow.v1;
 option go_package = "devtools-services/gen/flow/v1;flowv1";
 
 
+import "google/protobuf/any.proto";
+import "google/protobuf/wrappers.proto";
+import "nodemaster/v1/nodemaster.proto";
+import "nodedata/v1/nodedata.proto";
+
+
 service FlowService {
   // base
   rpc Create (FlowServiceCreateRequest) returns (FlowServiceCreateResponse);
@@ -25,7 +31,8 @@ message FlowServiceCreateRequest {
 message FlowServiceSaveRequest {
   string id = 1;
   string name = 2;
-  bytes data = 3;
+  map<string, nodemaster.v1.Node> nodes = 3;
+  map<string, google.protobuf.Any> vars = 4;
 }
 
 message FlowServiceLoadRequest {
@@ -57,7 +64,8 @@ message FlowServiceSaveResponse {
 message FlowServiceLoadResponse {
   string id = 1;
   string name = 2;
-  bytes data = 3;
+  map<string, nodemaster.v1.Node> nodes = 3;
+  map<string, google.protobuf.Any> vars = 4;
 }
 
 message FlowServiceDeleteResponse {
