@@ -5,13 +5,18 @@ option go_package = "devtools-services/gen/flow/v1;flowv1";
 
 
 service FlowService {
+  // base
   rpc Create (FlowServiceCreateRequest) returns (FlowServiceCreateResponse);
   rpc Save (FlowServiceSaveRequest) returns (FlowServiceSaveResponse);
   rpc Load  (FlowServiceLoadRequest) returns (FlowServiceLoadResponse);
   rpc Delete (FlowServiceDeleteRequest) returns (FlowServiceDeleteResponse);
+
+  // postman
+  rpc AddPostmanCollection (FlowServiceAddPostmanCollectionRequest) returns (FlowServiceAddPostmanCollectionResponse);
 }
 
-// Requests 
+// Requests
+// // Base
 
 message FlowServiceCreateRequest {
   string name = 1;
@@ -31,7 +36,16 @@ message FlowServiceDeleteRequest {
   string id = 1;
 }
 
+// // Postman
+message FlowServiceAddPostmanCollectionRequest {
+  string id = 1; // flow id
+  string name = 2; // collection name
+  bytes data = 3; // collection data (json)
+}
+
+
 // Responses
+// // Base
 
 message FlowServiceCreateResponse {
   string id = 1;
@@ -47,4 +61,8 @@ message FlowServiceLoadResponse {
 }
 
 message FlowServiceDeleteResponse {
+}
+
+// // Postman
+message FlowServiceAddPostmanCollectionResponse {
 }
