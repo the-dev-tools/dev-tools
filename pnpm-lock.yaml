@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@bufbuild/protobuf':
-        specifier: ^1.10.0
-        version: 1.10.0
     devDependencies:
       '@bufbuild/buf':
         specifier: ^1.35.1

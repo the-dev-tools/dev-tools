@@ -24,8 +24,5 @@
     "prettier": "^3.3.3",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"
-  },
-  "dependencies": {
-    "@bufbuild/protobuf": "^1.10.0"
   }
 }
