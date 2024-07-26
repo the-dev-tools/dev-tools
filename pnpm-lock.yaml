@@ -21,6 +21,9 @@ importers:
       '@connectrpc/protoc-gen-connect-es':
         specifier: ^1.4.0
         version: 1.4.0(@bufbuild/protoc-gen-es@1.10.0(@bufbuild/protobuf@1.10.0))
+      '@connectrpc/protoc-gen-connect-query':
+        specifier: ^1.4.1
+        version: 1.4.1(@bufbuild/protoc-gen-es@1.10.0(@bufbuild/protobuf@1.10.0))
       '@prettier/sync':
         specifier: ^0.5.2
         version: 0.5.2(prettier@3.3.3)
@@ -116,6 +119,16 @@ packages:
       '@bufbuild/protoc-gen-es':
         optional: true
       '@connectrpc/connect':
+        optional: true
+
+  '@connectrpc/protoc-gen-connect-query@1.4.1':
+    resolution: {integrity: sha512-L/x+f1x+GWgfsGvRs2XZjdX044cchIAiNOSWQFavOrfHadZD8Kb8qFykHHDj7Cw+7CyQ7+SeW5UxtIkBB1WB3Q==}
+    engines: {node: '>=16'}
+    hasBin: true
+    peerDependencies:
+      '@bufbuild/protoc-gen-es': 1.x
+    peerDependenciesMeta:
+      '@bufbuild/protoc-gen-es':
         optional: true
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -380,6 +393,15 @@ snapshots:
       - supports-color
 
   '@connectrpc/protoc-gen-connect-es@1.4.0(@bufbuild/protoc-gen-es@1.10.0(@bufbuild/protobuf@1.10.0))':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.0
+      '@bufbuild/protoplugin': 1.10.0
+    optionalDependencies:
+      '@bufbuild/protoc-gen-es': 1.10.0(@bufbuild/protobuf@1.10.0)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@connectrpc/protoc-gen-connect-query@1.4.1(@bufbuild/protoc-gen-es@1.10.0(@bufbuild/protobuf@1.10.0))':
     dependencies:
       '@bufbuild/protobuf': 1.10.0
       '@bufbuild/protoplugin': 1.10.0

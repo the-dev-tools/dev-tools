@@ -9,5 +9,9 @@ plugins:
     out: dist/typescript
     opt: target=ts
 
+  - local: protoc-gen-connect-query
+    out: dist/typescript
+    opt: target=ts
+
 inputs:
   - git_repo: .
