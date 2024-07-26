@@ -41,23 +41,30 @@ const (
 	FlowServiceLoadProcedure = "/flow.v1.FlowService/Load"
 	// FlowServiceDeleteProcedure is the fully-qualified name of the FlowService's Delete RPC.
 	FlowServiceDeleteProcedure = "/flow.v1.FlowService/Delete"
+	// FlowServiceAddPostmanCollectionProcedure is the fully-qualified name of the FlowService's
+	// AddPostmanCollection RPC.
+	FlowServiceAddPostmanCollectionProcedure = "/flow.v1.FlowService/AddPostmanCollection"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	flowServiceServiceDescriptor      = v1.File_flow_v1_flow_proto.Services().ByName("FlowService")
-	flowServiceCreateMethodDescriptor = flowServiceServiceDescriptor.Methods().ByName("Create")
-	flowServiceSaveMethodDescriptor   = flowServiceServiceDescriptor.Methods().ByName("Save")
-	flowServiceLoadMethodDescriptor   = flowServiceServiceDescriptor.Methods().ByName("Load")
-	flowServiceDeleteMethodDescriptor = flowServiceServiceDescriptor.Methods().ByName("Delete")
+	flowServiceServiceDescriptor                    = v1.File_flow_v1_flow_proto.Services().ByName("FlowService")
+	flowServiceCreateMethodDescriptor               = flowServiceServiceDescriptor.Methods().ByName("Create")
+	flowServiceSaveMethodDescriptor                 = flowServiceServiceDescriptor.Methods().ByName("Save")
+	flowServiceLoadMethodDescriptor                 = flowServiceServiceDescriptor.Methods().ByName("Load")
+	flowServiceDeleteMethodDescriptor               = flowServiceServiceDescriptor.Methods().ByName("Delete")
+	flowServiceAddPostmanCollectionMethodDescriptor = flowServiceServiceDescriptor.Methods().ByName("AddPostmanCollection")
 )
 
 // FlowServiceClient is a client for the flow.v1.FlowService service.
 type FlowServiceClient interface {
+	// base
 	Create(context.Context, *connect.Request[v1.FlowServiceCreateRequest]) (*connect.Response[v1.FlowServiceCreateResponse], error)
 	Save(context.Context, *connect.Request[v1.FlowServiceSaveRequest]) (*connect.Response[v1.FlowServiceSaveResponse], error)
 	Load(context.Context, *connect.Request[v1.FlowServiceLoadRequest]) (*connect.Response[v1.FlowServiceLoadResponse], error)
 	Delete(context.Context, *connect.Request[v1.FlowServiceDeleteRequest]) (*connect.Response[v1.FlowServiceDeleteResponse], error)
+	// postman
+	AddPostmanCollection(context.Context, *connect.Request[v1.FlowServiceAddPostmanCollectionRequest]) (*connect.Response[v1.FlowServiceAddPostmanCollectionResponse], error)
 }
 
 // NewFlowServiceClient constructs a client for the flow.v1.FlowService service. By default, it uses
@@ -94,15 +101,22 @@ func NewFlowServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(flowServiceDeleteMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		addPostmanCollection: connect.NewClient[v1.FlowServiceAddPostmanCollectionRequest, v1.FlowServiceAddPostmanCollectionResponse](
+			httpClient,
+			baseURL+FlowServiceAddPostmanCollectionProcedure,
+			connect.WithSchema(flowServiceAddPostmanCollectionMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // flowServiceClient implements FlowServiceClient.
 type flowServiceClient struct {
-	create *connect.Client[v1.FlowServiceCreateRequest, v1.FlowServiceCreateResponse]
-	save   *connect.Client[v1.FlowServiceSaveRequest, v1.FlowServiceSaveResponse]
-	load   *connect.Client[v1.FlowServiceLoadRequest, v1.FlowServiceLoadResponse]
-	delete *connect.Client[v1.FlowServiceDeleteRequest, v1.FlowServiceDeleteResponse]
+	create               *connect.Client[v1.FlowServiceCreateRequest, v1.FlowServiceCreateResponse]
+	save                 *connect.Client[v1.FlowServiceSaveRequest, v1.FlowServiceSaveResponse]
+	load                 *connect.Client[v1.FlowServiceLoadRequest, v1.FlowServiceLoadResponse]
+	delete               *connect.Client[v1.FlowServiceDeleteRequest, v1.FlowServiceDeleteResponse]
+	addPostmanCollection *connect.Client[v1.FlowServiceAddPostmanCollectionRequest, v1.FlowServiceAddPostmanCollectionResponse]
 }
 
 // Create calls flow.v1.FlowService.Create.
@@ -125,12 +139,20 @@ func (c *flowServiceClient) Delete(ctx context.Context, req *connect.Request[v1.
 	return c.delete.CallUnary(ctx, req)
 }
 
+// AddPostmanCollection calls flow.v1.FlowService.AddPostmanCollection.
+func (c *flowServiceClient) AddPostmanCollection(ctx context.Context, req *connect.Request[v1.FlowServiceAddPostmanCollectionRequest]) (*connect.Response[v1.FlowServiceAddPostmanCollectionResponse], error) {
+	return c.addPostmanCollection.CallUnary(ctx, req)
+}
+
 // FlowServiceHandler is an implementation of the flow.v1.FlowService service.
 type FlowServiceHandler interface {
+	// base
 	Create(context.Context, *connect.Request[v1.FlowServiceCreateRequest]) (*connect.Response[v1.FlowServiceCreateResponse], error)
 	Save(context.Context, *connect.Request[v1.FlowServiceSaveRequest]) (*connect.Response[v1.FlowServiceSaveResponse], error)
 	Load(context.Context, *connect.Request[v1.FlowServiceLoadRequest]) (*connect.Response[v1.FlowServiceLoadResponse], error)
 	Delete(context.Context, *connect.Request[v1.FlowServiceDeleteRequest]) (*connect.Response[v1.FlowServiceDeleteResponse], error)
+	// postman
+	AddPostmanCollection(context.Context, *connect.Request[v1.FlowServiceAddPostmanCollectionRequest]) (*connect.Response[v1.FlowServiceAddPostmanCollectionResponse], error)
 }
 
 // NewFlowServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -163,6 +185,12 @@ func NewFlowServiceHandler(svc FlowServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(flowServiceDeleteMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	flowServiceAddPostmanCollectionHandler := connect.NewUnaryHandler(
+		FlowServiceAddPostmanCollectionProcedure,
+		svc.AddPostmanCollection,
+		connect.WithSchema(flowServiceAddPostmanCollectionMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/flow.v1.FlowService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case FlowServiceCreateProcedure:
@@ -173,6 +201,8 @@ func NewFlowServiceHandler(svc FlowServiceHandler, opts ...connect.HandlerOption
 			flowServiceLoadHandler.ServeHTTP(w, r)
 		case FlowServiceDeleteProcedure:
 			flowServiceDeleteHandler.ServeHTTP(w, r)
+		case FlowServiceAddPostmanCollectionProcedure:
+			flowServiceAddPostmanCollectionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -196,4 +226,8 @@ func (UnimplementedFlowServiceHandler) Load(context.Context, *connect.Request[v1
 
 func (UnimplementedFlowServiceHandler) Delete(context.Context, *connect.Request[v1.FlowServiceDeleteRequest]) (*connect.Response[v1.FlowServiceDeleteResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flow.v1.FlowService.Delete is not implemented"))
+}
+
+func (UnimplementedFlowServiceHandler) AddPostmanCollection(context.Context, *connect.Request[v1.FlowServiceAddPostmanCollectionRequest]) (*connect.Response[v1.FlowServiceAddPostmanCollectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flow.v1.FlowService.AddPostmanCollection is not implemented"))
 }

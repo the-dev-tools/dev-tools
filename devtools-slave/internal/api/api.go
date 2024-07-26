@@ -7,6 +7,7 @@ import (
 	"devtools-nodes/pkg/model/mstatus"
 	"devtools-nodes/pkg/nodemaster"
 	"devtools-nodes/pkg/resolver"
+	"devtools-nodes/pkg/status"
 	nodeslavev1 "devtools-services/gen/nodeslave/v1"
 	"devtools-services/gen/nodeslave/v1/nodeslavev1connect"
 	nodestatusv1 "devtools-services/gen/nodestatus/v1"
@@ -17,6 +18,7 @@ import (
 	"connectrpc.com/connect"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type SlaveNodeServer struct{}
@@ -74,51 +76,20 @@ func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[node
 	finished := make(chan bool)
 	defer close(finished)
 
-	/*
-		funcHandler := func(status mstatus.NodeStatus, anyData *anypb.Any) error {
-			err = stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
-				// TODO: Convert to a normal value not anypb type
-				NodeId: status.Type,
-				NodeStatus: &nodestatusv1.NodeStatus{
-					NodeId: status.NodeID,
-					Type:   status.Type,
-					Data:   anyData,
-				},
-			})
-			return err
-		}
-	*/
+	funcHandler := func(status mstatus.NodeStatus, anyData *anypb.Any) error {
+		err = stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
+			// TODO: Convert to a normal value not anypb type
+			NodeId: status.Type,
+			NodeStatus: &nodestatusv1.NodeStatus{
+				NodeId: status.NodeID,
+				Type:   status.Type,
+				Data:   anyData,
+			},
+		})
+		return err
+	}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-finished:
-				return
-			case nodeStatus := <-stateChan:
-
-				statusData, err := convert.ConvertNodeStatusToMsg(nodeStatus)
-				if err != nil {
-					// TODO: find way to marshal http respose to send to the client
-					continue
-				}
-
-				err = stream.Send(&nodeslavev1.NodeSlaveServiceRunMultiResponse{
-					// TODO: Convert to a normal value not anypb type
-					NodeId: nodeStatus.Type,
-					NodeStatus: &nodestatusv1.NodeStatus{
-						NodeId: nodeStatus.NodeID,
-						Type:   nodeStatus.Type,
-						Data:   statusData,
-					},
-				})
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-		}
-	}()
+	status.ProxyNotify(ctx, stateChan, convert.ConvertNodeStatusToMsg, funcHandler, finished)
 
 	err = nodemaster.Run(nm, ctx)
 	if err != nil {
@@ -126,12 +97,7 @@ func (m SlaveNodeServer) RunMulti(ctx context.Context, req *connect.Request[node
 		return err
 	}
 
-	if finished == nil {
-		log.Fatal("Finished channel is nil")
-	}
-	if finished != nil {
-		finished <- true
-	}
+	finished <- true
 
 	return nil
 }
