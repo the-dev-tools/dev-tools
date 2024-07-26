@@ -7,7 +7,9 @@ import (
 	"os"
 	"time"
 
+	connectcors "connectrpc.com/cors"
 	"github.com/bufbuild/httplb"
+	"github.com/rs/cors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -15,6 +17,16 @@ import (
 type Service struct {
 	Path    string
 	Handler http.Handler
+}
+
+func withCORS(h http.Handler) http.Handler {
+	middleware := cors.New(cors.Options{
+		AllowedOrigins: []string{"localhost:3000", "localhost", "*"},
+		AllowedMethods: connectcors.AllowedMethods(),
+		AllowedHeaders: connectcors.AllowedHeaders(),
+		ExposedHeaders: connectcors.ExposedHeaders(),
+	})
+	return middleware.Handler(h)
 }
 
 func ListenServices(services []Service, port string) error {
