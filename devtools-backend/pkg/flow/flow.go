@@ -11,22 +11,27 @@ import (
 )
 
 type Flows struct {
-	ID      string       `json:"id"`
-	Name    string       `json:"name"`
-	Nodes   []mnode.Node `json:"nodes"`
-	OwnerID string       `json:"ownerID"`
+	ID       string            `json:"id"`
+	Name     string            `json:"name"`
+	Nodes    []mnode.Node      `json:"nodes"`
+	OwnerID  string            `json:"ownerID"`
+	GroupMap map[string]string `json:"groupMap"`
 }
 
-func ConvertPostmanCollection(collection mcollection.Collection, ownerID string) *Flows {
+func ConvertPostmanCollection(collection mcollection.Collection, ownerID string) []mnode.Node {
 	uuid, err := uuid.NewV7()
 	if err != nil {
 		return nil
 	}
 
-	flow := Flows{
-		ID:   uuid.String(),
-		Name: collection.Info.Name,
-	}
+	uuidStr := uuid.String()
+
+	/*
+		flow := Flows{
+			ID:   uuid.String(),
+			Name: collection.Info.Name,
+		}
+	*/
 
 	var nodes []mnode.Node
 	var lastNode *mnode.Node
@@ -66,7 +71,7 @@ func ConvertPostmanCollection(collection mcollection.Collection, ownerID string)
 			Type:    resolver.ApiCallRest,
 			Data:    data,
 			OwnerID: ownerID,
-			GroupID: flow.ID,
+			GroupID: uuidStr,
 			Edges:   edges,
 		}
 
@@ -75,7 +80,38 @@ func ConvertPostmanCollection(collection mcollection.Collection, ownerID string)
 		nodes = append(nodes, node)
 	}
 
-	flow.Nodes = nodes
+	return nodes
+}
 
-	return &flow
+func CreateFlow(name string, ownerID string) Flows {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return Flows{}
+	}
+	uuidStr := uuid.String()
+	return Flows{
+		ID:       uuidStr,
+		Name:     name,
+		Nodes:    []mnode.Node{},
+		OwnerID:  ownerID,
+		GroupMap: map[string]string{},
+	}
+}
+
+func AddNodeToFlow(flow Flows, node mnode.Node) Flows {
+	flow.Nodes = append(flow.Nodes, node)
+	flow.GroupMap[node.ID] = flow.ID
+	return flow
+}
+
+func RemoveNodeFromFlow(flow Flows, nodeID string) Flows {
+	var newNodes []mnode.Node
+	for _, v := range flow.Nodes {
+		if v.ID != nodeID {
+			newNodes = append(newNodes, v)
+		}
+	}
+	delete(flow.GroupMap, nodeID)
+	flow.Nodes = newNodes
+	return flow
 }

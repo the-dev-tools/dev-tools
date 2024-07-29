@@ -5,6 +5,7 @@ import (
 	"devtools-backend/internal/api/auth"
 	"devtools-backend/internal/api/flow"
 	"devtools-backend/internal/api/node"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -23,8 +24,14 @@ func main() {
 		port = "8080"
 	}
 
+	hmacSecret := os.Getenv("HMAC_SECRET")
+	if hmacSecret == "" {
+		log.Fatal(errors.New("HMAC_SECRET env var is required"))
+	}
+	hmacSecretBytes := []byte(hmacSecret)
+
 	var services []api.Service
-	authService, err := auth.CreateService()
+	authService, err := auth.CreateService(hmacSecretBytes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,7 +46,7 @@ func main() {
 	}
 	services = append(services, *nodeService)
 
-	flowService, err := flow.CreateService(client)
+	flowService, err := flow.CreateService(hmacSecretBytes)
 	if err != nil {
 		log.Fatal(err)
 	}

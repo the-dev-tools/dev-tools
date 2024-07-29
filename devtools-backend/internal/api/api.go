@@ -42,7 +42,8 @@ func ListenServices(services []Service, port string) error {
 
 	for _, service := range services {
 		log.Printf("Registering service %s", service.Path)
-		mux.Handle(service.Path, service.Handler)
+		handler := withCORS(service.Handler)
+		mux.Handle(service.Path, handler)
 	}
 
 	return http.ListenAndServe(

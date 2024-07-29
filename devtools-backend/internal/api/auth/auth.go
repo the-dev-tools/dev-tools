@@ -53,13 +53,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 	return resp, nil
 }
 
-func CreateService() (*api.Service, error) {
-	hmacSecret := os.Getenv("HMAC_SECRET")
-	if hmacSecret == "" {
-		return nil, errors.New("HMAC_SECRET env var is required")
-	}
-	hmacSecretBytes := []byte(hmacSecret)
-
+func CreateService(secret []byte) (*api.Service, error) {
 	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
 	if magicLinkSecret == "" {
 		return nil, errors.New("MAGIC_LINK_SECRET env var is required")
@@ -73,7 +67,7 @@ func CreateService() (*api.Service, error) {
 
 	server := &AuthServer{
 		clientAPI:  m,
-		hmacSecret: hmacSecretBytes,
+		hmacSecret: secret,
 	}
 	path, handler := authv1connect.NewAuthServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil

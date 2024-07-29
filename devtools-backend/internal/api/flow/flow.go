@@ -3,16 +3,44 @@ package flow
 import (
 	"context"
 	"devtools-backend/internal/api"
+	"devtools-backend/pkg/stoken"
 	flowv1 "devtools-services/gen/flow/v1"
 	"devtools-services/gen/flow/v1/flowv1connect"
 	"errors"
 	"os"
 
 	"connectrpc.com/connect"
-	"github.com/bufbuild/httplb"
 )
 
-type FlowServer struct{}
+// TODO: Move to a common package.
+const tokenHeaderKey = "token"
+
+func (c FlowServer) NewAuthInterceptor() connect.UnaryInterceptorFunc {
+	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
+		return connect.UnaryFunc(func(
+			ctx context.Context,
+			req connect.AnyRequest,
+		) (connect.AnyResponse, error) {
+			tokenTemp := req.Header().Get(tokenHeaderKey)
+			if tokenTemp == "" {
+				// Check token in handlers.
+				return nil, connect.NewError(
+					connect.CodeUnauthenticated,
+					errors.New("no token provided"),
+				)
+			}
+
+			stoken.ValidateJWT(tokenTemp, c.secret)
+
+			return next(ctx, req)
+		})
+	}
+	return connect.UnaryInterceptorFunc(interceptor)
+}
+
+type FlowServer struct {
+	secret []byte
+}
 
 func (c FlowServer) Create(ctx context.Context, req *connect.Request[flowv1.FlowServiceCreateRequest]) (*connect.Response[flowv1.FlowServiceCreateResponse], error) {
 	return nil, nil
@@ -34,13 +62,15 @@ func (c FlowServer) AddPostmanCollection(ctx context.Context, req *connect.Reque
 	return nil, nil
 }
 
-func CreateService(httpClient *httplb.Client) (*api.Service, error) {
+func CreateService(secret []byte) (*api.Service, error) {
 	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
 	if upstream == "" {
 		return nil, errors.New("MASTER_NODE_IP env var is required")
 	}
 
-	server := &FlowServer{}
+	server := &FlowServer{
+		secret: secret,
+	}
 	path, handler := flowv1connect.NewFlowServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
