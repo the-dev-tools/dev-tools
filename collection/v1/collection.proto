@@ -98,9 +98,10 @@ message MoveResponse {
 // Collection Node
 message CollectionNode{
     string id = 1;
-    string name = 2;
-    string type = 3; // such as "request", "folder"
-    optional string parent_id = 4; // INFO: optional
-    optional nodedata.v1.NodeApiCallData data = 5; // INFO: optional
+	  string collection_id = 2;
+    string name = 3;
+    string type = 4; // such as "request", "folder"
+    optional string parent_id = 5; // INFO: optional
+    optional nodedata.v1.NodeApiCallData data = 6; // INFO: optional
 }
 
