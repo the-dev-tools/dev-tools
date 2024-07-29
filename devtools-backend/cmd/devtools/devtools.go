@@ -3,8 +3,10 @@ package main
 import (
 	"devtools-backend/internal/api"
 	"devtools-backend/internal/api/auth"
+	"devtools-backend/internal/api/collection"
 	"devtools-backend/internal/api/flow"
 	"devtools-backend/internal/api/node"
+	"devtools-backend/pkg/db/turso"
 	"errors"
 	"log"
 	"os"
@@ -22,6 +24,26 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		log.Fatal(errors.New("DB_NAME env var is required"))
+	}
+
+	dbToken := os.Getenv("DB_TOKEN")
+	if dbToken == "" {
+		log.Fatal(errors.New("DB_TOKEN env var is required"))
+	}
+
+	dbUsername := os.Getenv("DB_USERNAME")
+	if dbUsername == "" {
+		log.Fatal(errors.New("DB_USERNAME env var is required"))
+	}
+
+	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	hmacSecret := os.Getenv("HMAC_SECRET")
@@ -51,6 +73,12 @@ func main() {
 		log.Fatal(err)
 	}
 	services = append(services, *flowService)
+
+	collectionService, err := collection.CreateService(db, hmacSecretBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *collectionService)
 
 	go func() {
 		err := api.ListenServices(services, port)

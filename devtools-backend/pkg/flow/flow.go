@@ -1,7 +1,7 @@
 package flow
 
 import (
-	"devtools-backend/pkg/model/postman/v21/mcollection"
+	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodedata"
@@ -18,7 +18,7 @@ type Flows struct {
 	GroupMap map[string]string `json:"groupMap"`
 }
 
-func ConvertPostmanCollection(collection mcollection.Collection, ownerID string) []mnode.Node {
+func ConvertPostmanCollection(collection mpostmancollection.Collection, ownerID string) []mnode.Node {
 	uuid, err := uuid.NewV7()
 	if err != nil {
 		return nil

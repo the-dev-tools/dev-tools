@@ -1,4 +1,4 @@
-package mcollection
+package mpostmancollection
 
 import (
 	"devtools-backend/pkg/model/postman/v21/mauth"

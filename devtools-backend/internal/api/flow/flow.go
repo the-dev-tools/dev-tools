@@ -2,12 +2,12 @@ package flow
 
 import (
 	"context"
+	"database/sql"
 	"devtools-backend/internal/api"
 	"devtools-backend/pkg/stoken"
 	flowv1 "devtools-services/gen/flow/v1"
 	"devtools-services/gen/flow/v1/flowv1connect"
 	"errors"
-	"os"
 
 	"connectrpc.com/connect"
 )
@@ -39,6 +39,7 @@ func (c FlowServer) NewAuthInterceptor() connect.UnaryInterceptorFunc {
 }
 
 type FlowServer struct {
+	db     *sql.DB
 	secret []byte
 }
 
@@ -63,11 +64,6 @@ func (c FlowServer) AddPostmanCollection(ctx context.Context, req *connect.Reque
 }
 
 func CreateService(secret []byte) (*api.Service, error) {
-	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
-	if upstream == "" {
-		return nil, errors.New("MASTER_NODE_IP env var is required")
-	}
-
 	server := &FlowServer{
 		secret: secret,
 	}
