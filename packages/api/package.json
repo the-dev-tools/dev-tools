@@ -1,0 +1,23 @@
+{
+  "name": "@the-dev-tools/api",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "exports": {
+    "./client": "./src/client.ts",
+    "./effect-client": "./src/effect-client.ts",
+    "./transport": "./src/transport.ts"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.10.0",
+    "@connectrpc/connect": "^1.4.0",
+    "@connectrpc/connect-web": "^1.4.0",
+    "@the-dev-tools/protobuf": "^1.2.0",
+    "effect": "^3.4.3"
+  },
+  "devDependencies": {
+    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/config-typescript": "workspace:^",
+    "typescript": "^5.5.3"
+  }
+}
