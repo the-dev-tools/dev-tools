@@ -51,6 +51,8 @@ message LoadResponse {
 // // // Save
 message SaveRequest {
   string id = 1;
+  string name = 2;
+  repeated CollectionNode nodes = 3;
 }
 
 message SaveResponse {
