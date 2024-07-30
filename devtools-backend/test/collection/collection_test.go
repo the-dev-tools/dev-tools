@@ -1,7 +1,7 @@
 package collection_test
 
 import (
-	"devtools-backend/pkg/model/postman/v21/mcollection"
+	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,7 +31,7 @@ func TestCollection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var collection mcollection.Collection
+			var collection mpostmancollection.Collection
 
 			err = json.Unmarshal(data, &collection)
 			if err != nil {

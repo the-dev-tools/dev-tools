@@ -118,7 +118,7 @@ func (c *CollectionService) Load(ctx context.Context, req *connect.Request[colle
 		}
 
 		nodes = append(nodes, &collectionv1.CollectionNode{
-			Id:       ulidID,
+			Id:       ulidID.String(),
 			Name:     node.Name,
 			Type:     node.Type,
 			ParentId: node.ParentID,
