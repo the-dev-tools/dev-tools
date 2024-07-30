@@ -1,0 +1,47 @@
+name: golangci-lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+      - "master"
+
+env:
+  GO_VERSION: 1.22.5
+  GOLANGCI_LINT_VERSION: v1.59
+
+jobs:
+  detect-modules:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch specific submodule
+        run: git submodule update --init --recursive fly-go
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - id: set-modules
+        ## ignore fly-go
+        run: echo "modules=$(go list -m -json | jq -s '.' | jq -c '[ .[] | select( .Path | contains("fly") | not) ]' | jq -c '[.[].Dir]')" >> $GITHUB_OUTPUT
+
+  golangci-lint:
+    needs: detect-modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        modules: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch specific submodule
+        run: git submodule update --init --recursive fly-go
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: golangci-lint ${{ matrix.modules }}
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          working-directory: ${{ matrix.modules }}

@@ -1,6 +1,6 @@
 [submodule "fly-go"]
 	path = fly-go
-	url = git@github.com:superfly/fly-go.git
+	url = https://github.com/superfly/fly-go.git
 [submodule "devtools-services/dev-tools-proto"]
 	path = devtools-services/dev-tools-proto
 	url = git@github.com:DevToolsGit/dev-tools-proto.git
