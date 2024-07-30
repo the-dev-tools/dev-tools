@@ -8,76 +8,83 @@ import "nodedata/v1/nodedata.proto";
 
 
 service CollectionService {
-  // CRUD operations
-  rpc Create (CreateRequest) returns (CreateResponse);
-  rpc Save (SaveRequest) returns (SaveResponse);
-  rpc Load  (LoadRequest) returns (LoadResponse);
-  rpc Delete (DeleteRequest) returns (DeleteResponse);
+  // Collection operations
+  rpc ListCollections (ListCollectionsRequest) returns (ListCollectionsResponse);
+  rpc CreateCollection (CreateCollectionRequest) returns (CreateCollectionResponse);
+  rpc GetCollection  (GetCollectionRequest) returns (GetCollectionResponse);
+  rpc UpdateCollection (UpdateCollectionRequest) returns (UpdateCollectionResponse);
+  rpc DeleteCollection (DeleteCollectionRequest) returns (DeleteCollectionResponse);
 
-  rpc List (ListRequest) returns (ListResponse);
 
-  // // Helper rpcs
+  // Helper rpcs
   // // // postman
   rpc ImportPostman (ImportPostmanRequest) returns (ImportPostmanResponse);
 
-  // // // Move node to another parent
-  rpc Move (MoveRequest) returns (MoveResponse);
+  // Node operations
+  rpc ListNodes (ListNodesRequest) returns (ListNodesResponse);
+  rpc CreateNode (CreateNodeRequest) returns (CreateNodeResponse);
+  rpc GetNode  (GetNodeRequest) returns (GetNodeResponse);
+  rpc GetNodeBulk  (GetNodeBulkRequest) returns (GetNodeBulkResponse);
+  rpc UpdateNode (UpdateNodeRequest) returns (UpdateNodeResponse);
+  rpc DeleteNode (DeleteNodeRequest) returns (DeleteNodeResponse);
+
+
+  // Helper rpcs
+  // // Move node to another parent or collection
+  rpc MoveNode (MoveNodeRequest) returns (MoveNodeResponse);
+  rpc RunNode (RunNodeRequest) returns (RunNodeResponse);
 }
 
-// Requests
-// // Base
+// Collection Operations Request and Response
+// // List
+message ListCollectionsRequest {
+}
 
-// // // Create
-message CreateRequest {
+message ListCollectionsResponse {
+  repeated string ids = 1; // collection ids
+}
+
+// // Create
+message CreateCollectionRequest {
   string name = 1;
 }
 
-message CreateResponse {
+message CreateCollectionResponse {
   string id = 1;
   string name = 2;
 }
 
-// // // Load
-message LoadRequest {
+// // Get
+message GetCollectionRequest {
   string id = 1;
 }
 
-message LoadResponse {
-  string id = 1;
-  string name = 2;
-  repeated CollectionNode nodes = 3;
-}
-
-// // // Save
-message SaveRequest {
+message GetCollectionResponse {
   string id = 1;
   string name = 2;
-  repeated CollectionNode nodes = 3;
 }
 
-message SaveResponse {
+// // Update
+message UpdateCollectionRequest {
+  string id = 1;
+  string name = 2;
 }
 
-// // // Delete
-message DeleteRequest {
+message UpdateCollectionResponse {
+}
+
+// // Delete
+message DeleteCollectionRequest {
   string id = 1;
 }
 
-message DeleteResponse {
+message DeleteCollectionResponse {
 }
 
 
-// // // List
-message ListRequest {
-}
-
-message ListResponse {
-  repeated string ids = 1;
-}
 
 // Helper Requests
-
-// // //  Postman
+// // Postman
 message ImportPostmanRequest {
   string name = 2; // collection name
   bytes data = 3; // collection data (json)
@@ -87,18 +94,85 @@ message ImportPostmanResponse {
   string id = 1;
 }
 
-// // Move
-message MoveRequest {
+// //  Node Operations Request and Response
+
+message ListNodesRequest {
+  string collection_id = 1; // collection id
+}
+
+message ListNodesResponse {
+  repeated string ids = 1; // node ids
+}
+
+message CreateNodeRequest {
+    string id = 1; // node id
+	  string collection_id = 2;
+    string name = 3; // name of the node
+    string type = 4; // such as "request", "folder"
+    optional string parent_id = 5; // INFO: optional
+    optional nodedata.v1.NodeApiCallData data = 6; // INFO: optional
+}
+
+message CreateNodeResponse {
+  string id = 1;
+}
+
+message GetNodeRequest {
+  string id = 1;
+}
+
+message GetNodeResponse {
+  CollectionNode node = 1;
+}
+
+message GetNodeBulkRequest {
+  repeated string ids = 1;
+}
+
+message GetNodeBulkResponse {
+  repeated CollectionNode nodes = 1;
+}
+
+message UpdateNodeRequest {
+  string id = 1;
+	string collection_id = 2;
+  string name = 3;
+  string type = 4;
+  optional string parent_id = 5; // INFO: optional
+  optional nodedata.v1.NodeApiCallData data = 6; // INFO: optional
+}
+
+message UpdateNodeResponse {
+}
+
+message DeleteNodeRequest {
+  string id = 1;
+}
+
+message DeleteNodeResponse {
+}
+
+message MoveNodeRequest {
   string id = 1;
   string parent_id = 2;
 }
 
-message MoveResponse {
+
+message MoveNodeResponse {
 }
 
+message RunNodeRequest {
+  string id = 1;
+}
+
+message RunNodeResponse {
+  int32 status = 1;
+  bytes body = 2;
+  int64 duration = 3;
+}
 
 // Collection Node
-message CollectionNode{
+message CollectionNode {
     string id = 1;
 	  string collection_id = 2;
     string name = 3;
