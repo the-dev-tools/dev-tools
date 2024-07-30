@@ -8,12 +8,10 @@ package collectionv1
 
 import (
 	v1 "devtools-services/gen/nodedata/v1"
-	reflect "reflect"
-	sync "sync"
-
-	"github.com/oklog/ulid/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -714,7 +712,7 @@ type CollectionNode struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id           ulid.ULID           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id           string              `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	CollectionId string              `protobuf:"bytes,2,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
 	Name         string              `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Type         string              `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`                               // such as "request", "folder"
@@ -907,27 +905,25 @@ func file_collection_v1_collection_proto_rawDescGZIP() []byte {
 	return file_collection_v1_collection_proto_rawDescData
 }
 
-var (
-	file_collection_v1_collection_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
-	file_collection_v1_collection_proto_goTypes  = []any{
-		(*CreateRequest)(nil),         // 0: collection.v1.CreateRequest
-		(*CreateResponse)(nil),        // 1: collection.v1.CreateResponse
-		(*LoadRequest)(nil),           // 2: collection.v1.LoadRequest
-		(*LoadResponse)(nil),          // 3: collection.v1.LoadResponse
-		(*SaveRequest)(nil),           // 4: collection.v1.SaveRequest
-		(*SaveResponse)(nil),          // 5: collection.v1.SaveResponse
-		(*DeleteRequest)(nil),         // 6: collection.v1.DeleteRequest
-		(*DeleteResponse)(nil),        // 7: collection.v1.DeleteResponse
-		(*ListRequest)(nil),           // 8: collection.v1.ListRequest
-		(*ListResponse)(nil),          // 9: collection.v1.ListResponse
-		(*ImportPostmanRequest)(nil),  // 10: collection.v1.ImportPostmanRequest
-		(*ImportPostmanResponse)(nil), // 11: collection.v1.ImportPostmanResponse
-		(*MoveRequest)(nil),           // 12: collection.v1.MoveRequest
-		(*MoveResponse)(nil),          // 13: collection.v1.MoveResponse
-		(*CollectionNode)(nil),        // 14: collection.v1.CollectionNode
-		(*v1.NodeApiCallData)(nil),    // 15: nodedata.v1.NodeApiCallData
-	}
-)
+var file_collection_v1_collection_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_collection_v1_collection_proto_goTypes = []any{
+	(*CreateRequest)(nil),         // 0: collection.v1.CreateRequest
+	(*CreateResponse)(nil),        // 1: collection.v1.CreateResponse
+	(*LoadRequest)(nil),           // 2: collection.v1.LoadRequest
+	(*LoadResponse)(nil),          // 3: collection.v1.LoadResponse
+	(*SaveRequest)(nil),           // 4: collection.v1.SaveRequest
+	(*SaveResponse)(nil),          // 5: collection.v1.SaveResponse
+	(*DeleteRequest)(nil),         // 6: collection.v1.DeleteRequest
+	(*DeleteResponse)(nil),        // 7: collection.v1.DeleteResponse
+	(*ListRequest)(nil),           // 8: collection.v1.ListRequest
+	(*ListResponse)(nil),          // 9: collection.v1.ListResponse
+	(*ImportPostmanRequest)(nil),  // 10: collection.v1.ImportPostmanRequest
+	(*ImportPostmanResponse)(nil), // 11: collection.v1.ImportPostmanResponse
+	(*MoveRequest)(nil),           // 12: collection.v1.MoveRequest
+	(*MoveResponse)(nil),          // 13: collection.v1.MoveResponse
+	(*CollectionNode)(nil),        // 14: collection.v1.CollectionNode
+	(*v1.NodeApiCallData)(nil),    // 15: nodedata.v1.NodeApiCallData
+}
 var file_collection_v1_collection_proto_depIdxs = []int32{
 	14, // 0: collection.v1.LoadResponse.nodes:type_name -> collection.v1.CollectionNode
 	14, // 1: collection.v1.SaveRequest.nodes:type_name -> collection.v1.CollectionNode
