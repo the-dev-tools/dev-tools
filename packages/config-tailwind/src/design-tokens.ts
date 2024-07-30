@@ -1,6 +1,6 @@
 import * as FS from 'node:fs';
 import * as Path from 'node:path';
-import { Array, flow, identity, Match, Number, pipe, Record, String, Tuple } from 'effect';
+import { Array, flow, identity, Match, Number, Option, pipe, Record, String, Struct, Tuple } from 'effect';
 import * as Tailwind from 'tailwindcss';
 import resolveConfig from 'tailwindcss/resolveConfig';
 
@@ -29,12 +29,37 @@ const toPercentage = (self: string) =>
 
 const config = resolveConfig(rawConfig as Tailwind.Config);
 
+const boxShadows = pipe(
+  config.theme.boxShadow,
+  Struct.omit('none'),
+  Record.mapKeys(mapKey),
+  Record.map(
+    flow(
+      String.split(', '),
+      Array.map(
+        flow(
+          String.match(/[^\s(]+(\(.+\))?/g), // https://stackoverflow.com/a/62648896
+          Option.map((_) => {
+            const type = _[0] === 'inset' ? 'innerShadow' : 'dropShadow';
+            if (type === 'innerShadow') _.shift();
+            const color = pipe(_[4] ?? '', String.replaceAll(' / ', ','), String.replaceAll(' ', ','));
+            return { type, x: _[0], y: _[1], blur: _[2], spread: _[3], color };
+          }),
+        ),
+      ),
+      Array.getSomes,
+      (_) => ({ type: 'boxShadow', value: _ }),
+    ),
+  ),
+);
+
 const core = {
   ...mapTokenType('color', { ...config.theme.colors }),
   ...mapTokenType('spacing', { ...config.theme.spacing }),
   ...mapTokenType('sizing', { ...config.theme.size }),
   ...mapTokenType('borderRadius', { ...config.theme.borderRadius }),
   ...mapTokenType('borderWidth', { ...config.theme.borderWidth }),
+  boxShadows,
   ...mapTokenType('opacity', { ...config.theme.opacity }),
   ...mapTokenType('fontFamilies', Record.map(config.theme.fontFamily, Array.join(','))),
   ...mapTokenType('fontWeights', { ...config.theme.fontWeight }),
