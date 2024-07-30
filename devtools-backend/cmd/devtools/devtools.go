@@ -7,6 +7,7 @@ import (
 	"devtools-backend/internal/api/flow"
 	"devtools-backend/internal/api/node"
 	"devtools-backend/pkg/db/turso"
+	"devtools-backend/pkg/service/scollection"
 	"errors"
 	"log"
 	"os"
@@ -21,6 +22,7 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
+	// Environment variables
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -41,17 +43,30 @@ func main() {
 		log.Fatal(errors.New("DB_USERNAME env var is required"))
 	}
 
-	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	hmacSecret := os.Getenv("HMAC_SECRET")
 	if hmacSecret == "" {
 		log.Fatal(errors.New("HMAC_SECRET env var is required"))
 	}
 	hmacSecretBytes := []byte(hmacSecret)
 
+	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Tables
+	err = scollection.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Prepared statements
+	err = scollection.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Services Connect RPC
 	var services []api.Service
 	authService, err := auth.CreateService(hmacSecretBytes)
 	if err != nil {
@@ -80,6 +95,7 @@ func main() {
 	}
 	services = append(services, *collectionService)
 
+	// Start services
 	go func() {
 		err := api.ListenServices(services, port)
 		if err != nil {
@@ -87,5 +103,6 @@ func main() {
 		}
 	}()
 
+	// Wait for signal
 	<-sc
 }

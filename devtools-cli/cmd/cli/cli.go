@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"devtools-backend/pkg/model/mcollection"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/resolver"
 	authv1 "devtools-services/gen/auth/v1"
 	"devtools-services/gen/auth/v1/authv1connect"
+	collectionv1 "devtools-services/gen/collection/v1"
+	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
@@ -24,8 +27,9 @@ import (
 )
 
 const (
-	NodeFunc = "node"
-	AuthFunc = "auth"
+	NodeFunc       = "node"
+	AuthFunc       = "auth"
+	CollectionFunc = "collection"
 )
 
 func main() {
@@ -39,6 +43,8 @@ func main() {
 		NodeFuncHandler()
 	case AuthFunc:
 		AuthFuncHandler()
+	case CollectionFunc:
+		Collection()
 	default:
 		fmt.Println("Invalid function", cmd)
 	}
@@ -206,4 +212,68 @@ func NodeFuncHandler() {
 	fmt.Println("Time taken: ", take)
 
 	fmt.Println("Done")
+}
+
+func Collection() {
+	addr := flag.String("addr", "", "address of the node master service")
+
+	flag.Parse()
+
+	ctx := context.Background()
+
+	createReqRaw := &collectionv1.CreateRequest{
+		Name: "test",
+	}
+
+	createReq := connect.NewRequest(createReqRaw)
+
+	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	client := collectionv1connect.NewCollectionServiceClient(httpClient, *addr)
+	createResp, err := client.Create(ctx, createReq)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	loadReqRaw := &collectionv1.LoadRequest{
+		Id: createResp.Msg.Id,
+	}
+
+	var parentID string = "parent"
+
+	// Add node to collection
+	createNodeReqRaw := &collectionv1.CollectionNode{
+		Id:           "node1",
+		CollectionId: createResp.Msg.Id,
+		Name:         "test",
+		Type:         mcollection.CollectionNodeTypeRequest,
+		ParentId:     &parentID,
+		Data: &nodedatav1.NodeApiCallData{
+			Method:      "GET",
+			Url:         "https://google.com/",
+			Headers:     map[string]string{"header1": "value1"},
+			Body:        []byte("start_stop=true"),
+			QueryParams: map[string]string{"param1": "value1"},
+		},
+	}
+
+	saveReqRaw := &collectionv1.SaveRequest{
+		Id:    createResp.Msg.Id,
+		Name:  "test",
+		Nodes: []*collectionv1.CollectionNode{createNodeReqRaw},
+	}
+
+	saveReq := connect.NewRequest(saveReqRaw)
+
+	_, err = client.Save(ctx, saveReq)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	loadReq := connect.NewRequest(loadReqRaw)
+	loadResp, err := client.Load(ctx, loadReq)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	fmt.Println("Response: ", loadResp)
 }

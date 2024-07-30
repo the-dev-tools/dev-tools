@@ -66,7 +66,6 @@ func PrepareStatements(db *sql.DB) error {
 	PreparedGetCollection, err = db.Prepare(`
                 SELECT id, name
                 FROM collections
-                JOIN collection_nodes ON collections.id = collection_nodes.collection_id
                 WHERE id = ?
         `)
 	if err != nil {
@@ -177,7 +176,7 @@ func CreateCollection(db *sql.DB, id ulid.ULID, name string) error {
 
 func GetCollection(db *sql.DB, id ulid.ULID) (*mcollection.Collection, error) {
 	var collection mcollection.Collection
-	err := PreparedGetCollection.QueryRow(id).Scan(&collection.ID, &collection.Name, &collection.Nodes)
+	err := PreparedGetCollection.QueryRow(id).Scan(&collection.ID, &collection.Name)
 	return &collection, err
 }
 
@@ -207,6 +206,24 @@ func ListCollections(db *sql.DB) ([]ulid.ULID, error) {
 		collections = append(collections, collection)
 	}
 	return collections, nil
+}
+
+func GetCollectionNodeWithCollectionID(db *sql.DB, collectionID ulid.ULID) ([]mcollection.CollectionNode, error) {
+	rows, err := PreparedListCollectionNodes.Query()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var nodes []mcollection.CollectionNode
+	for rows.Next() {
+		var node mcollection.CollectionNode
+		err = rows.Scan(&node.ID, &node.CollectionID, &node.Name, &node.Type, &node.ParentID, &node.Data)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
 }
 
 func CreateCollectionNode(db *sql.DB, collectionNode mcollection.CollectionNode) error {

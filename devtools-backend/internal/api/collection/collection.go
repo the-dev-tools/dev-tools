@@ -107,8 +107,13 @@ func (c *CollectionService) Load(ctx context.Context, req *connect.Request[colle
 		return nil, err
 	}
 
-	var nodes []*collectionv1.CollectionNode
-	for _, node := range *collection.Nodes {
+	nodes, err := scollection.GetCollectionNodeWithCollectionID(c.db, collection.ID)
+	if err != nil {
+		return nil, err
+	}
+	var nodesRpc []*collectionv1.CollectionNode
+
+	for _, node := range nodes {
 		data := &nodedatav1.NodeApiCallData{
 			Method:      node.Data.Method,
 			Url:         node.Data.Url,
@@ -117,7 +122,7 @@ func (c *CollectionService) Load(ctx context.Context, req *connect.Request[colle
 			QueryParams: node.Data.QueryParams,
 		}
 
-		nodes = append(nodes, &collectionv1.CollectionNode{
+		nodesRpc = append(nodesRpc, &collectionv1.CollectionNode{
 			Id:       ulidID.String(),
 			Name:     node.Name,
 			Type:     node.Type,
@@ -129,7 +134,7 @@ func (c *CollectionService) Load(ctx context.Context, req *connect.Request[colle
 	respRaw := &collectionv1.LoadResponse{
 		Id:    collection.ID.String(),
 		Name:  collection.Name,
-		Nodes: nodes,
+		Nodes: nodesRpc,
 	}
 	resp := connect.NewResponse(respRaw)
 

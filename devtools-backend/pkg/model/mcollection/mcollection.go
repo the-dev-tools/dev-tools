@@ -6,10 +6,14 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+const (
+	CollectionNodeTypeRequest = "request"
+	CollectionNodeTypeFolder  = "folder"
+)
+
 type Collection struct {
-	ID    ulid.ULID
-	Name  string
-	Nodes *[]CollectionNode
+	ID   ulid.ULID
+	Name string
 }
 
 /*
