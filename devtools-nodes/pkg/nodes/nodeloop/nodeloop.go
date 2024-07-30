@@ -153,6 +153,7 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 					msg := stream.Msg()
 					if msg == nil {
 						errChan <- errors.New("stream.Msg() is nil")
+						continue
 					}
 
 					if msg.NodeStatus == nil {

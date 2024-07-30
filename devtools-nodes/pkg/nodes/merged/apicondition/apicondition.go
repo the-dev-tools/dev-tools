@@ -41,7 +41,6 @@ func ApiConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 
 	mn.CurrentNode.Data = data.ConditionData
 
-	nodecondition.ConditionRestStatus(mn)
-
-	return nil
+	err = nodecondition.ConditionRestStatus(mn)
+	return err
 }

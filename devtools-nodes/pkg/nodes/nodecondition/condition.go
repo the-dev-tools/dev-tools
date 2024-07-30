@@ -74,7 +74,7 @@ func ConditionJsonMatch(mn *mnodemaster.NodeMaster) error {
 		if key == valStr {
 			mn.NextNodeID = edge
 			found = true
-			return nil
+			break
 		}
 	}
 

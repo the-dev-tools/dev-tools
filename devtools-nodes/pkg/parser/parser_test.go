@@ -18,6 +18,7 @@ func TestParser(t *testing.T) {
 
 	if res == nil {
 		t.Errorf("Result is nil")
+		return
 	}
 
 	if !res.Exists() {

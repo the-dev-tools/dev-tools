@@ -18,7 +18,7 @@ import (
 )
 
 func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
-	anyData := new(anypb.Any)
+	var anyData *anypb.Any
 	var err error
 
 	switch msgType := rawData.(type) {
@@ -52,8 +52,7 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 
 func ConvertNodeStatusToMsg(status mstatus.NodeStatus) (*anypb.Any, error) {
 	statusData := status.Data
-
-	anyStatus := new(anypb.Any)
+	var anyStatus *anypb.Any
 	var err error
 	switch statusType := statusData.(type) {
 	case mstatus.NodeStatusNextNode:

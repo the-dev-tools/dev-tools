@@ -40,7 +40,10 @@ func TestNodeMasterRun(t *testing.T) {
 		t.Errorf("Error creating NodeMaster: %v", err)
 	}
 
-	nodemaster.Run(nm, context.Background())
+	err = nodemaster.Run(nm, context.Background())
+	if err != nil {
+		t.Errorf("Error running NodeMaster: %v", err)
+	}
 }
 
 func TestNodeMasterSetAndGetVar(t *testing.T) {

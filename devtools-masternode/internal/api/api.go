@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
 	"devtools-nodes/pkg/convert"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/model/mstatus"
@@ -16,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"time"
@@ -196,16 +194,4 @@ func ListenMasterNodeService(port string) error {
 		}),
 	)
 	return err
-}
-
-func newInsecureClient() *http.Client {
-	return &http.Client{
-		Transport: &http2.Transport{
-			AllowHTTP: true,
-			DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
-				return net.Dial(network, addr)
-			},
-			// Don't forget timeouts!
-		},
-	}
 }
