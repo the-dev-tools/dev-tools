@@ -1,9 +1,13 @@
+import { useQuery } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from '@tanstack/react-router';
-import { Cause, Effect, Option } from 'effect';
+import { Effect, Option, pipe } from 'effect';
 import { useState } from 'react';
 
+import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+
 import * as Auth from './auth';
+import { Runtime } from './runtime';
 
 const root = createRootRoute({
   component: () => (
@@ -33,14 +37,12 @@ const login = createRoute({
           onInput={(event) => void setEmail(event.currentTarget.value)}
         />
         <button
-          onClick={async () => {
-            const loggedIn = await Auth.login({ email }).pipe(
-              Effect.mapError(() => null),
-              Effect.runPromise,
-            );
-            if (loggedIn === null) return;
-            router.history.push(redirect ?? dashboard.fullPath);
-          }}
+          onClick={() =>
+            Effect.gen(function* () {
+              yield* Auth.login({ email });
+              router.history.push(redirect ?? dashboard.fullPath);
+            }).pipe(Runtime.runPromise)
+          }
         >
           Login
         </button>
@@ -53,11 +55,7 @@ const authenticated = createRoute({
   getParentRoute: () => root,
   id: 'authenticated',
   loader: ({ location }) =>
-    Effect.gen(function* () {
-      const isLoggedIn = yield* Auth.isLoggedIn;
-      if (!isLoggedIn) return yield* Effect.fail(new Cause.RuntimeException('Not logged in'));
-      return yield* Auth.getInfo;
-    }).pipe(Effect.option, Effect.runPromise, async (_) =>
+    pipe(Effect.option(Auth.getUser), Runtime.runPromise, async (_) =>
       Option.getOrThrowWith(await _, () =>
         redirect({ to: '/login', search: new LoginSearch({ redirect: location.href }) }),
       ),
@@ -73,10 +71,10 @@ const dashboard = createRoute({
     return (
       <>
         <div>The Dev Tools</div>
-        <div>{userInfo.email}</div>
+        <div className='max-w-sm overflow-hidden text-ellipsis text-nowrap'>JWT: {userInfo.jwt}</div>
         <button
           onClick={async () => {
-            await Auth.logout.pipe(Effect.ignoreLogged, Effect.runPromise);
+            await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
             await router.navigate({ to: '/login' });
             await router.invalidate();
           }}
@@ -92,7 +90,16 @@ const dashboard = createRoute({
 const dashboardIndex = createRoute({
   getParentRoute: () => dashboard,
   path: '/',
-  component: () => 'Dashboard Index',
+  component: () => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const collections = useQuery(CollectionQuery.load, { id: 'hello world' });
+    return (
+      <>
+        <div>{collections.error?.code}</div>
+        <div>{JSON.stringify(collections.data)}</div>
+      </>
+    );
+  },
 });
 
 const routeTree = root.addChildren([login, authenticated.addChildren([dashboard.addChildren([dashboardIndex])])]);

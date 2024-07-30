@@ -27,14 +27,14 @@ importers:
   apps/api-recorder-extension:
     dependencies:
       '@effect/schema':
-        specifier: ^0.68.10
-        version: 0.68.26(effect@3.5.6)
+        specifier: ^0.70.0
+        version: 0.70.0(effect@3.6.0)
       '@plasmohq/storage':
         specifier: ^1.11.0
         version: 1.11.0(react@18.3.1)
       effect:
-        specifier: ^3.4.3
-        version: 3.5.6
+        specifier: ^3.6.0
+        version: 3.6.0
       magic-sdk:
         specifier: ^28.0.7
         version: 28.2.0
@@ -120,9 +120,15 @@ importers:
       '@connectrpc/connect-web':
         specifier: ^1.4.0
         version: 1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))
+      '@effect/platform':
+        specifier: ^0.61.0
+        version: 0.61.0(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0)
+      '@effect/platform-browser':
+        specifier: ^0.40.0
+        version: 0.40.0(@effect/platform@0.61.0(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0))(effect@3.6.0)
       '@effect/schema':
-        specifier: ^0.68.10
-        version: 0.68.26(effect@3.5.6)
+        specifier: ^0.70.0
+        version: 0.70.0(effect@3.6.0)
       '@tanstack/react-query':
         specifier: ^5.51.15
         version: 5.51.15(react@18.3.1)
@@ -139,8 +145,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/ui
       effect:
-        specifier: ^3.4.3
-        version: 3.5.6
+        specifier: ^3.6.0
+        version: 3.6.0
       magic-sdk:
         specifier: ^28.0.7
         version: 28.2.0
@@ -196,12 +202,18 @@ importers:
       '@connectrpc/connect-web':
         specifier: ^1.4.0
         version: 1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))
+      '@effect/platform':
+        specifier: ^0.61.0
+        version: 0.61.0(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0)
+      '@effect/schema':
+        specifier: ^0.70.0
+        version: 0.70.0(effect@3.6.0)
       '@the-dev-tools/protobuf':
         specifier: ^1.2.0
         version: 1.2.0
       effect:
-        specifier: ^3.4.3
-        version: 3.5.6
+        specifier: ^3.6.0
+        version: 3.6.0
     devDependencies:
       '@the-dev-tools/config-eslint':
         specifier: workspace:^
@@ -285,8 +297,8 @@ importers:
         specifier: ^20.14.8
         version: 20.14.11
       effect:
-        specifier: ^3.4.3
-        version: 3.5.6
+        specifier: ^3.6.0
+        version: 3.6.0
       tailwindcss:
         specifier: ^3.4.4
         version: 3.4.6
@@ -312,8 +324,8 @@ importers:
         specifier: ^5.0.13
         version: 5.0.13
       effect:
-        specifier: ^3.4.3
-        version: 3.5.6
+        specifier: ^3.6.0
+        version: 3.6.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -352,8 +364,8 @@ importers:
   packages/utils:
     dependencies:
       effect:
-        specifier: ^3.4.3
-        version: 3.5.6
+        specifier: ^3.6.0
+        version: 3.6.0
     devDependencies:
       '@the-dev-tools/config-eslint':
         specifier: workspace:^
@@ -489,10 +501,22 @@ packages:
     peerDependencies:
       '@bufbuild/protobuf': ^1.4.2
 
-  '@effect/schema@0.68.26':
-    resolution: {integrity: sha512-o1O/ZmlHXRe9t548YrQ9sudjRWJqCtsU9KnQHzvZm5pHSc4reuZVQufCXctcR0aETf9OFOYUuETrxjEQehq/Lg==}
+  '@effect/platform-browser@0.40.0':
+    resolution: {integrity: sha512-QUv+BCt6oa6rgzaNx6oEzi62QyW/w0vTYFR1eiFrnG4oolQ4igrT4KXGq1P25DVX76otsKVANbzJIgcarVin+Q==}
     peerDependencies:
-      effect: ^3.5.6
+      '@effect/platform': ^0.61.0
+      effect: ^3.6.0
+
+  '@effect/platform@0.61.0':
+    resolution: {integrity: sha512-o81qZzF+AaDzKaUK6LOCpYOuV9ihZIvxWGzabXCn/s602WY+QPHbWthaawKpVHDhQgrqxZyxNpHknAESfmVCQg==}
+    peerDependencies:
+      '@effect/schema': ^0.70.0
+      effect: ^3.6.0
+
+  '@effect/schema@0.70.0':
+    resolution: {integrity: sha512-3ndFEr9J/F79Fn925XhScGO5i5qxkYXGLy1VgKjjYgXaDhSxxwxqqcyQgSGBaZzM88G7IR4DZaJM1ColnHgj3g==}
+    peerDependencies:
+      effect: ^3.6.0
 
   '@emnapi/runtime@1.2.0':
     resolution: {integrity: sha512-bV21/9LQmcQeCPEg3BDFtvwL6cwiTMksYNWQQ4KOxCZikEGalWtenoZ0wCiukJINlGCIi2KXx01g4FoH/LxpzQ==}
@@ -3365,8 +3389,8 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  effect@3.5.6:
-    resolution: {integrity: sha512-3PMiC+XMaLkHx9Nlxfr6ot/8/gVq9aEjMlBvyKzJx0p4h1ZyNEjPxvAZQ9tlxAtXBvmfRpmIwHxG99hi8qhEtQ==}
+  effect@3.6.0:
+    resolution: {integrity: sha512-7bUV/Ytt058F3YWZJyra63MGA80msTk4AnFiVlvCM65RN7afc3LsvLOHpMifLqX/8CG0eDlJLg2lDLByyEnYGQ==}
 
   electron-to-chromium@1.4.829:
     resolution: {integrity: sha512-5qp1N2POAfW0u1qGAxXEtz6P7bO1m6gpZr5hdf5ve6lxpLM7MpiM4jIPz7xcrNlClQMafbyUDDWjlIQZ1Mw0Rw==}
@@ -3685,6 +3709,9 @@ packages:
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
+
+  find-my-way-ts@0.1.5:
+    resolution: {integrity: sha512-4GOTMrpGQVzsCH2ruUn2vmwzV/02zF4q+ybhCIrw/Rkt3L8KWcycdC6aJMctJzwN4fXD4SD5F/4B9Sksh5rE0A==}
 
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
@@ -4501,6 +4528,9 @@ packages:
 
   msgpackr@1.8.5:
     resolution: {integrity: sha512-mpPs3qqTug6ahbblkThoUY2DQdNXcm4IapwOS3Vm/87vmpzLVelvp9h3It1y9l1VPpiFLV11vfOXnmeEwiIXwg==}
+
+  multipasta@0.2.2:
+    resolution: {integrity: sha512-KKGdmXIJUmt9BV45LsbUdMnju8eCNSyF9KpbyqK2E3wQXjpPQOg52/Hc+nsmBacmEkNxLVT5h1y3ZgEXB4prXg==}
 
   mute-stream@1.0.0:
     resolution: {integrity: sha512-avsJQhyd+680gKXyG/sQc0nXaC6rBkPOfyHYcFb9+hdkqQkR9bdnkJ0AMZhke0oesPqIO+mFFJ+IdBc7mst4IA==}
@@ -5775,9 +5805,22 @@ snapshots:
     dependencies:
       '@bufbuild/protobuf': 1.10.0
 
-  '@effect/schema@0.68.26(effect@3.5.6)':
+  '@effect/platform-browser@0.40.0(@effect/platform@0.61.0(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0))(effect@3.6.0)':
     dependencies:
-      effect: 3.5.6
+      '@effect/platform': 0.61.0(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0)
+      effect: 3.6.0
+      multipasta: 0.2.2
+
+  '@effect/platform@0.61.0(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0)':
+    dependencies:
+      '@effect/schema': 0.70.0(effect@3.6.0)
+      effect: 3.6.0
+      find-my-way-ts: 0.1.5
+      multipasta: 0.2.2
+
+  '@effect/schema@0.70.0(effect@3.6.0)':
+    dependencies:
+      effect: 3.6.0
       fast-check: 3.20.0
 
   '@emnapi/runtime@1.2.0':
@@ -9364,7 +9407,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  effect@3.5.6: {}
+  effect@3.6.0: {}
 
   electron-to-chromium@1.4.829: {}
 
@@ -9930,6 +9973,8 @@ snapshots:
   fill-range@7.1.1:
     dependencies:
       to-regex-range: 5.0.1
+
+  find-my-way-ts@0.1.5: {}
 
   find-up@5.0.0:
     dependencies:
@@ -10718,6 +10763,8 @@ snapshots:
   msgpackr@1.8.5:
     optionalDependencies:
       msgpackr-extract: 3.0.3
+
+  multipasta@0.2.2: {}
 
   mute-stream@1.0.0: {}
 

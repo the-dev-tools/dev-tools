@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@fontsource-variable/lexend-deca": "^5.0.13",
-    "effect": "^3.4.3",
+    "effect": "^3.6.0",
     "react": "^18.3.1",
     "react-aria-components": "^1.2.1",
     "tailwind-merge": "^2.3.0",

@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "effect": "^3.4.3"
+    "effect": "^3.6.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",

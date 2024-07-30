@@ -9,9 +9,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@effect/schema": "^0.68.10",
+    "@effect/schema": "^0.70.0",
     "@plasmohq/storage": "^1.11.0",
-    "effect": "^3.4.3",
+    "effect": "^3.6.0",
     "magic-sdk": "^28.0.7",
     "plasmo": "^0.88.0",
     "react": "^18.3.1",

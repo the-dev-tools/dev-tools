@@ -1,6 +1,8 @@
 import { createRouterTransport, Interceptor, Transport } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
-import { Context, Effect, Layer } from 'effect';
+import { KeyValueStore } from '@effect/platform/KeyValueStore';
+import { Schema } from '@effect/schema';
+import { Context, Effect, Layer, pipe, Runtime } from 'effect';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
 import { CollectionService } from '@the-dev-tools/protobuf/collection/v1/collection_connect';
@@ -8,27 +10,21 @@ import { FlowService } from '@the-dev-tools/protobuf/flow/v1/flow_connect';
 
 export class ApiTransport extends Context.Tag('ApiTransport')<ApiTransport, Transport>() {}
 
-export const ApiTransportDev = Layer.succeed(
+export const ApiTransportDev = Layer.effect(
   ApiTransport,
-  ApiTransport.of(
-    createConnectTransport({
+  Effect.gen(function* () {
+    return createConnectTransport({
       baseUrl: 'https://devtools-backend.fly.dev',
       useHttpGet: true,
-    }),
-  ),
+      interceptors: [yield* authorizationInterceptor],
+    });
+  }),
 );
 
-const mockInterceptor: Interceptor = (next) => async (req) =>
-  Effect.gen(function* () {
-    yield* Effect.logDebug(`Sending message to ${req.url}`);
-    yield* Effect.sleep('1 seconds');
-    return yield* Effect.tryPromise(() => next(req));
-  }).pipe(Effect.runPromise);
-
-export const ApiTransportMock = Layer.succeed(
+export const ApiTransportMock = Layer.effect(
   ApiTransport,
-  ApiTransport.of(
-    createRouterTransport(
+  Effect.gen(function* () {
+    return createRouterTransport(
       ({ service }) => {
         service(AuthService, {
           dID: (_) => ({ token: _.didToken }),
@@ -50,7 +46,40 @@ export const ApiTransportMock = Layer.succeed(
           addPostmanCollection: () => ({}),
         });
       },
-      { transport: { interceptors: [mockInterceptor] } },
-    ),
-  ),
+      { transport: { interceptors: [yield* authorizationInterceptor, yield* mockInterceptor] } },
+    );
+  }),
 );
+
+const authorizationInterceptor = Effect.gen(function* () {
+  const runtime = yield* Effect.runtime<KeyValueStore>();
+
+  const interceptor: Interceptor = (next) => async (request) =>
+    Effect.gen(function* () {
+      if (request.service.typeName === AuthService.typeName) return next(request);
+
+      const store = yield* KeyValueStore;
+      yield* pipe(
+        store.forSchema(Schema.String).get('AccessToken'),
+        Effect.flatten,
+        Effect.tap((_) => void request.header.set('Authorization', `Bearer ${_}`)),
+      );
+
+      return next(request);
+    }).pipe(Runtime.runPromise(runtime));
+
+  return interceptor;
+});
+
+const mockInterceptor = Effect.gen(function* () {
+  const runtime = yield* Effect.runtime();
+
+  const interceptor: Interceptor = (next) => async (request) =>
+    Effect.gen(function* () {
+      yield* Effect.logDebug('Sending message', request);
+      yield* Effect.sleep('500 millis');
+      return next(request);
+    }).pipe(Runtime.runPromise(runtime));
+
+  return interceptor;
+});
