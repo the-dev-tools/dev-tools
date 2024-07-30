@@ -4,29 +4,32 @@ import { Array, flow, identity, Match, Number, pipe, Record, String, Tuple } fro
 import * as Tailwind from 'tailwindcss';
 import resolveConfig from 'tailwindcss/resolveConfig';
 
+import { keyValue } from '@the-dev-tools/utils';
+
 import { config as rawConfig } from './config';
 
-interface TokenRecord extends Record<string, { value: string } | TokenRecord> {}
+interface TokenRecord<T> extends Record<string, { type: T; value: string } | TokenRecord<T>> {}
 
 interface TailwindRecord extends Record.ReadonlyRecord<string, TailwindRecord | string> {}
 
 const mapKey = (key: string) => pipe(key, String.replaceAll('.', ','), String.replaceAll('/', '\\'));
 
-const mapTokenEntry = (value: TailwindRecord | string, key: string): [string, TokenRecord[string]] => {
-  if (typeof value === 'string') return [mapKey(key), { value }];
-  return [mapKey(key), Record.mapEntries(value, mapTokenEntry)];
-};
+const mapTokenEntry =
+  <T>(type: T) =>
+  (value: TailwindRecord | string, key: string): [string, TokenRecord<T>[string]] => {
+    if (typeof value === 'string') return [mapKey(key), { type, value }];
+    return [mapKey(key), Record.mapEntries(value, mapTokenEntry(type))];
+  };
 
-const mapTokenType = (type: string, record: TailwindRecord) => ({
-  [type]: { type, ...Record.mapEntries(record, mapTokenEntry) },
-});
+const mapTokenType = <T extends string>(type: T, record: TailwindRecord) =>
+  keyValue(type, Record.mapEntries(record, mapTokenEntry(type)));
 
 const toPercentage = (self: string) =>
   pipe(self, parseFloat, Number.multiply(100), (_) => _.toString(), String.concat('%'));
 
 const config = resolveConfig(rawConfig as Tailwind.Config);
 
-const tokens = {
+const core = {
   ...mapTokenType('color', { ...config.theme.colors }),
   ...mapTokenType('spacing', { ...config.theme.spacing }),
   ...mapTokenType('sizing', { ...config.theme.size }),
@@ -60,6 +63,34 @@ const tokens = {
   }),
 };
 
-const dist = Path.resolve(__dirname, '../dist');
+// Typography presets
+const tFontSizes = ['xs', 'sm', 'base', 'lg', 'xl'];
+const tFontWeights = ['light', 'normal', 'medium'];
+const tLineHeights = ['none', 'tight', 'normal'];
+
+const typography = pipe(
+  Array.cartesian(tFontSizes, tFontWeights),
+  Array.cartesianWith(tLineHeights, ([a, b], c) => [a, b, c] as const),
+  Array.map(
+    ([fontSize, fontWeight, lineHeight]) =>
+      [
+        `${fontSize}-${fontWeight}-${lineHeight}`,
+        {
+          type: 'typography',
+          value: {
+            fontSize: `{fontSizes.${fontSize}}`,
+            fontWeight: `{fontWeights.${fontWeight}}`,
+            lineHeight: `{lineHeights.${lineHeight}}`,
+            fontFamily: '{fontFamilies.sans}',
+            letterSpacing: '{letterSpacing.normal}',
+          },
+        },
+      ] as const,
+  ),
+  Record.fromEntries,
+);
+
+const dist = Path.resolve(__dirname, '../dist/design-tokens');
 FS.mkdirSync(dist, { recursive: true });
-FS.writeFileSync(Path.resolve(dist, 'tokens.json'), JSON.stringify(tokens, null, 2));
+FS.writeFileSync(Path.resolve(dist, 'core.json'), JSON.stringify(core, null, 2));
+FS.writeFileSync(Path.resolve(dist, 'typography.json'), JSON.stringify(typography, null, 2));

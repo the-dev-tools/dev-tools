@@ -278,6 +278,9 @@ importers:
       '@the-dev-tools/config-typescript':
         specifier: workspace:^
         version: link:../config-typescript
+      '@the-dev-tools/utils':
+        specifier: workspace:^
+        version: link:../utils
       '@types/node':
         specifier: ^20.14.8
         version: 20.14.11
