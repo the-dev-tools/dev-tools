@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	connectcors "connectrpc.com/cors"
 	"github.com/bufbuild/httplb"
 	"github.com/rs/cors"
 	"golang.org/x/net/http2"
@@ -19,14 +18,35 @@ type Service struct {
 	Handler http.Handler
 }
 
-func withCORS(h http.Handler) http.Handler {
-	middleware := cors.New(cors.Options{
-		AllowedOrigins: []string{"localhost:3000", "localhost", "*"},
-		AllowedMethods: connectcors.AllowedMethods(),
-		AllowedHeaders: connectcors.AllowedHeaders(),
-		ExposedHeaders: connectcors.ExposedHeaders(),
+func newCORS() *cors.Cors {
+	return cors.New(cors.Options{
+		AllowedMethods: []string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		},
+		AllowOriginFunc: func(origin string) bool {
+			return true
+		},
+		AllowedHeaders: []string{"*"},
+		ExposedHeaders: []string{
+			"Accept",
+			"Accept-Encoding",
+			"Accept-Post",
+			"Connect-Accept-Encoding",
+			"Connect-Content-Encoding",
+			"Content-Encoding",
+			"Grpc-Accept-Encoding",
+			"Grpc-Encoding",
+			"Grpc-Message",
+			"Grpc-Status",
+			"Grpc-Status-Details-Bin",
+		},
+		MaxAge: int(time.Second),
 	})
-	return middleware.Handler(h)
 }
 
 func ListenServices(services []Service, port string) error {
@@ -42,14 +62,13 @@ func ListenServices(services []Service, port string) error {
 
 	for _, service := range services {
 		log.Printf("Registering service %s", service.Path)
-		handler := withCORS(service.Handler)
-		mux.Handle(service.Path, handler)
+		mux.Handle(service.Path, service.Handler)
 	}
 
 	return http.ListenAndServe(
 		":"+port,
 		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		h2c.NewHandler(mux, &http2.Server{
+		h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
 			IdleTimeout:          0,
 			MaxConcurrentStreams: 100000,
 			MaxHandlers:          0,
