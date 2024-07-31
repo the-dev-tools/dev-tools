@@ -35,18 +35,27 @@ const (
 const (
 	// AuthServiceDIDProcedure is the fully-qualified name of the AuthService's DID RPC.
 	AuthServiceDIDProcedure = "/auth.v1.AuthService/DID"
+	// AuthServiceRefreshTokenProcedure is the fully-qualified name of the AuthService's RefreshToken
+	// RPC.
+	AuthServiceRefreshTokenProcedure = "/auth.v1.AuthService/RefreshToken"
+	// AuthServiceAccessTokenProcedure is the fully-qualified name of the AuthService's AccessToken RPC.
+	AuthServiceAccessTokenProcedure = "/auth.v1.AuthService/AccessToken"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	authServiceServiceDescriptor   = v1.File_auth_v1_auth_proto.Services().ByName("AuthService")
-	authServiceDIDMethodDescriptor = authServiceServiceDescriptor.Methods().ByName("DID")
+	authServiceServiceDescriptor            = v1.File_auth_v1_auth_proto.Services().ByName("AuthService")
+	authServiceDIDMethodDescriptor          = authServiceServiceDescriptor.Methods().ByName("DID")
+	authServiceRefreshTokenMethodDescriptor = authServiceServiceDescriptor.Methods().ByName("RefreshToken")
+	authServiceAccessTokenMethodDescriptor  = authServiceServiceDescriptor.Methods().ByName("AccessToken")
 )
 
 // AuthServiceClient is a client for the auth.v1.AuthService service.
 type AuthServiceClient interface {
 	// INFO: auth with DID token src: https://magic.link/docs/authentication/features/decentralized-id
 	DID(context.Context, *connect.Request[v1.AuthServiceDIDRequest]) (*connect.Response[v1.AuthServiceDIDResponse], error)
+	RefreshToken(context.Context, *connect.Request[v1.AuthServiceRefreshTokenRequest]) (*connect.Response[v1.AuthServiceRefreshTokenResponse], error)
+	AccessToken(context.Context, *connect.Request[v1.AuthServiceAccessTokenRequest]) (*connect.Response[v1.AuthServiceAccessTokenResponse], error)
 }
 
 // NewAuthServiceClient constructs a client for the auth.v1.AuthService service. By default, it uses
@@ -65,12 +74,26 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceDIDMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		refreshToken: connect.NewClient[v1.AuthServiceRefreshTokenRequest, v1.AuthServiceRefreshTokenResponse](
+			httpClient,
+			baseURL+AuthServiceRefreshTokenProcedure,
+			connect.WithSchema(authServiceRefreshTokenMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		accessToken: connect.NewClient[v1.AuthServiceAccessTokenRequest, v1.AuthServiceAccessTokenResponse](
+			httpClient,
+			baseURL+AuthServiceAccessTokenProcedure,
+			connect.WithSchema(authServiceAccessTokenMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // authServiceClient implements AuthServiceClient.
 type authServiceClient struct {
-	dID *connect.Client[v1.AuthServiceDIDRequest, v1.AuthServiceDIDResponse]
+	dID          *connect.Client[v1.AuthServiceDIDRequest, v1.AuthServiceDIDResponse]
+	refreshToken *connect.Client[v1.AuthServiceRefreshTokenRequest, v1.AuthServiceRefreshTokenResponse]
+	accessToken  *connect.Client[v1.AuthServiceAccessTokenRequest, v1.AuthServiceAccessTokenResponse]
 }
 
 // DID calls auth.v1.AuthService.DID.
@@ -78,10 +101,22 @@ func (c *authServiceClient) DID(ctx context.Context, req *connect.Request[v1.Aut
 	return c.dID.CallUnary(ctx, req)
 }
 
+// RefreshToken calls auth.v1.AuthService.RefreshToken.
+func (c *authServiceClient) RefreshToken(ctx context.Context, req *connect.Request[v1.AuthServiceRefreshTokenRequest]) (*connect.Response[v1.AuthServiceRefreshTokenResponse], error) {
+	return c.refreshToken.CallUnary(ctx, req)
+}
+
+// AccessToken calls auth.v1.AuthService.AccessToken.
+func (c *authServiceClient) AccessToken(ctx context.Context, req *connect.Request[v1.AuthServiceAccessTokenRequest]) (*connect.Response[v1.AuthServiceAccessTokenResponse], error) {
+	return c.accessToken.CallUnary(ctx, req)
+}
+
 // AuthServiceHandler is an implementation of the auth.v1.AuthService service.
 type AuthServiceHandler interface {
 	// INFO: auth with DID token src: https://magic.link/docs/authentication/features/decentralized-id
 	DID(context.Context, *connect.Request[v1.AuthServiceDIDRequest]) (*connect.Response[v1.AuthServiceDIDResponse], error)
+	RefreshToken(context.Context, *connect.Request[v1.AuthServiceRefreshTokenRequest]) (*connect.Response[v1.AuthServiceRefreshTokenResponse], error)
+	AccessToken(context.Context, *connect.Request[v1.AuthServiceAccessTokenRequest]) (*connect.Response[v1.AuthServiceAccessTokenResponse], error)
 }
 
 // NewAuthServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -96,10 +131,26 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceDIDMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	authServiceRefreshTokenHandler := connect.NewUnaryHandler(
+		AuthServiceRefreshTokenProcedure,
+		svc.RefreshToken,
+		connect.WithSchema(authServiceRefreshTokenMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceAccessTokenHandler := connect.NewUnaryHandler(
+		AuthServiceAccessTokenProcedure,
+		svc.AccessToken,
+		connect.WithSchema(authServiceAccessTokenMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/auth.v1.AuthService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AuthServiceDIDProcedure:
 			authServiceDIDHandler.ServeHTTP(w, r)
+		case AuthServiceRefreshTokenProcedure:
+			authServiceRefreshTokenHandler.ServeHTTP(w, r)
+		case AuthServiceAccessTokenProcedure:
+			authServiceAccessTokenHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -111,4 +162,12 @@ type UnimplementedAuthServiceHandler struct{}
 
 func (UnimplementedAuthServiceHandler) DID(context.Context, *connect.Request[v1.AuthServiceDIDRequest]) (*connect.Response[v1.AuthServiceDIDResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("auth.v1.AuthService.DID is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) RefreshToken(context.Context, *connect.Request[v1.AuthServiceRefreshTokenRequest]) (*connect.Response[v1.AuthServiceRefreshTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("auth.v1.AuthService.RefreshToken is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) AccessToken(context.Context, *connect.Request[v1.AuthServiceAccessTokenRequest]) (*connect.Response[v1.AuthServiceAccessTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("auth.v1.AuthService.AccessToken is not implemented"))
 }
