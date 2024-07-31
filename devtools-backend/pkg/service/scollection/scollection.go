@@ -26,6 +26,9 @@ var (
 
 	// List
 	PreparedListCollectionNodes *sql.Stmt = nil
+
+	// Move Node
+	PreparedMoveCollectionNode *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -45,6 +48,7 @@ func PrepareTables(db *sql.DB) error {
                         name TEXT,
                         type TEXT,
                         parent_id TEXT,
+                        data TEXT,
                         FOREIGN KEY (collection_id) REFERENCES collections (id)
                 )
         `)
@@ -134,6 +138,16 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	PreparedMoveCollectionNode, err = db.Prepare(`
+                UPDATE collection_nodes
+                SET parent_id = ?, collection_id = ?
+                WHERE id = ?
+        `)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -167,6 +181,9 @@ func CloseStatements() {
 	}
 	if PreparedListCollectionNodes != nil {
 		PreparedListCollectionNodes.Close()
+	}
+	if PreparedMoveCollectionNode != nil {
+		PreparedMoveCollectionNode.Close()
 	}
 }
 
@@ -245,5 +262,10 @@ func UpdateCollectionNode(db *sql.DB, id ulid.ULID, name, nodeType string, paren
 
 func DeleteCollectionNode(db *sql.DB, id ulid.ULID) error {
 	_, err := PreparedDeleteCollectionNode.Exec(id)
+	return err
+}
+
+func MoveCollectionNode(db *sql.DB, id ulid.ULID, parentID, collectionID ulid.ULID) error {
+	_, err := PreparedMoveCollectionNode.Exec(parentID, collectionID, id)
 	return err
 }

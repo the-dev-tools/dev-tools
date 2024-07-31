@@ -357,11 +357,53 @@ func (c *CollectionService) DeleteNode(ctx context.Context, req *connect.Request
 
 // MoveNode calls collection.v1.CollectionService.MoveNode.
 func (c *CollectionService) MoveNode(ctx context.Context, req *connect.Request[collectionv1.MoveNodeRequest]) (*connect.Response[collectionv1.MoveNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	id := req.Msg.Id // node id
+	ulidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+	parentUlidID, err := ulid.Parse(req.Msg.ParentId)
+	if err != nil {
+		return nil, err
+	}
+	collectionUlidID, err := ulid.Parse(req.Msg.CollectionId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = scollection.MoveCollectionNode(c.db, ulidID, parentUlidID, collectionUlidID)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 // RunNode calls collection.v1.CollectionService.RunNode.
 func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[collectionv1.RunNodeRequest]) (*connect.Response[collectionv1.RunNodeResponse], error) {
+	/*
+		httplbClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Minute))
+
+		id := req.Msg.Id
+		ulidID, err := ulid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+
+		node, err := scollection.GetCollectionNode(c.db, ulidID)
+
+		/*
+
+			nm := &mnodemaster.NodeMaster{
+				CurrentNode: node,
+				Logger:      nil, // TODO: add logger
+				HttpClient:  http.DefaultClient,
+			}
+
+			nodeapi.SendRestApiRequest(nm * mnodemaster.NodeMaster)
+
+	*/
+
 	return nil, connect.NewError(connect.CodeUnimplemented, nil)
 }
 

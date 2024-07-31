@@ -16,7 +16,7 @@ const (
 
 type DefaultClaims struct {
 	jwt.RegisteredClaims
-	TokenType TokenType `json:"type"`
+	TokenType TokenType `json:"token_type"`
 }
 
 func NewJWT(id string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
@@ -42,26 +42,28 @@ func NewJWT(id string, tokenType TokenType, duration time.Duration, secret []byt
 }
 
 func ValidateJWT(tokenString string, tokenType TokenType, secret []byte) (*jwt.Token, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &DefaultClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
 		return secret, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
+	if !token.Valid {
 		return nil, fmt.Errorf("invalid token")
 	}
 
-	claimType, ok := claims["type"].(TokenType)
-	if !ok || claimType != tokenType {
-		return nil, fmt.Errorf("invalid token type")
+	claims, ok := token.Claims.(*DefaultClaims)
+	if !ok {
+		return nil, fmt.Errorf("cannot cast claims")
 	}
 
-	if err != nil {
-		return nil, err
+	if claims.TokenType != tokenType {
+		return nil, fmt.Errorf("invalid token type")
 	}
 
 	return token, nil

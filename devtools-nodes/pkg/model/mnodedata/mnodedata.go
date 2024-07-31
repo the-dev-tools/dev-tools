@@ -28,6 +28,11 @@ type NodeApiRestData struct {
 	Body        []byte            `json:"body"`
 }
 
+// Driver value
+func (d NodeApiRestData) Driver() string {
+	return "rest"
+}
+
 //
 // Condition data struct
 //
