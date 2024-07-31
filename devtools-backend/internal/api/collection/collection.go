@@ -66,82 +66,57 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 	return collectionNodes
 }
 
-func (c *CollectionService) Create(ctx context.Context, req *connect.Request[collectionv1.CreateRequest]) (*connect.Response[collectionv1.CreateResponse], error) {
+func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	ulidID := ulid.Make()
 	err := scollection.CreateCollection(c.db, ulidID, req.Msg.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	respRaw := &collectionv1.CreateResponse{Id: ulidID.String()}
+	respRaw := &collectionv1.CreateCollectionResponse{Name: ulidID.String()}
 	resp := connect.NewResponse(respRaw)
 	return resp, nil
 }
 
-func (c *CollectionService) Save(ctx context.Context, req *connect.Request[collectionv1.SaveRequest]) (*connect.Response[collectionv1.SaveResponse], error) {
+func (c *CollectionService) UpdateCollection(ctx context.Context, req *connect.Request[collectionv1.UpdateCollectionRequest]) (*connect.Response[collectionv1.UpdateCollectionResponse], error) {
 	id := req.Msg.Id
 	// convert id to ulid
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	err = scollection.UpdateCollection(c.db, ulidID, req.Msg.Name)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	respRaw := &collectionv1.SaveResponse{}
+	respRaw := &collectionv1.UpdateCollectionResponse{}
 	resp := connect.NewResponse(respRaw)
 
 	return resp, nil
 }
 
-func (c *CollectionService) Load(ctx context.Context, req *connect.Request[collectionv1.LoadRequest]) (*connect.Response[collectionv1.LoadResponse], error) {
+func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Request[collectionv1.GetCollectionRequest]) (*connect.Response[collectionv1.GetCollectionResponse], error) {
 	id := req.Msg.Id
 	// convert id to ulid
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	collection, err := scollection.GetCollection(c.db, ulidID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	nodes, err := scollection.GetCollectionNodeWithCollectionID(c.db, collection.ID)
-	if err != nil {
-		return nil, err
-	}
-	var nodesRpc []*collectionv1.CollectionNode
-
-	for _, node := range nodes {
-		data := &nodedatav1.NodeApiCallData{
-			Method:      node.Data.Method,
-			Url:         node.Data.Url,
-			Headers:     node.Data.Headers,
-			Body:        node.Data.Body,
-			QueryParams: node.Data.QueryParams,
-		}
-
-		nodesRpc = append(nodesRpc, &collectionv1.CollectionNode{
-			Id:       ulidID.String(),
-			Name:     node.Name,
-			Type:     node.Type,
-			ParentId: node.ParentID,
-			Data:     data,
-		})
-	}
-
-	respRaw := &collectionv1.LoadResponse{
-		Id:    collection.ID.String(),
-		Name:  collection.Name,
-		Nodes: nodesRpc,
+	respRaw := &collectionv1.GetCollectionResponse{
+		Id:   collection.ID.String(),
+		Name: collection.Name,
 	}
 	resp := connect.NewResponse(respRaw)
 
 	return resp, nil
 }
 
-func (c *CollectionService) Delete(ctx context.Context, req *connect.Request[collectionv1.DeleteRequest]) (*connect.Response[collectionv1.DeleteResponse], error) {
+func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.Request[collectionv1.DeleteCollectionRequest]) (*connect.Response[collectionv1.DeleteCollectionResponse], error) {
 	id := req.Msg.Id
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
@@ -156,7 +131,7 @@ func (c *CollectionService) Delete(ctx context.Context, req *connect.Request[col
 	return nil, nil
 }
 
-func (c *CollectionService) List(ctx context.Context, req *connect.Request[collectionv1.ListRequest]) (*connect.Response[collectionv1.ListResponse], error) {
+func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
 	collections, err := scollection.ListCollections(c.db)
 	if err != nil {
 		return nil, err
@@ -167,7 +142,7 @@ func (c *CollectionService) List(ctx context.Context, req *connect.Request[colle
 		ids = append(ids, id.String())
 	}
 
-	respRaw := &collectionv1.ListResponse{
+	respRaw := &collectionv1.ListCollectionsResponse{
 		Ids: ids,
 	}
 
@@ -203,8 +178,188 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 	return resp, nil
 }
 
-func (c *CollectionService) Move(ctx context.Context, req *connect.Request[collectionv1.MoveRequest]) (*connect.Response[collectionv1.MoveResponse], error) {
-	return nil, nil
+// ListNodes calls collection.v1.CollectionService.ListNodes.
+func (c *CollectionService) ListNodes(ctx context.Context, req *connect.Request[collectionv1.ListNodesRequest]) (*connect.Response[collectionv1.ListNodesResponse], error) {
+	id := req.Msg.CollectionId
+	ulidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeIds, err := scollection.GetCollectionNodeWithCollectionID(c.db, ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(nodeIds))
+	for _, id := range nodeIds {
+		ids = append(ids, id.String())
+	}
+
+	return connect.NewResponse(&collectionv1.ListNodesResponse{Ids: ids}), nil
+}
+
+// CreateNode calls collection.v1.CollectionService.CreateNode.
+func (c *CollectionService) CreateNode(ctx context.Context, req *connect.Request[collectionv1.CreateNodeRequest]) (*connect.Response[collectionv1.CreateNodeResponse], error) {
+	id := req.Msg.CollectionId
+	collectionUlidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+	nodeUlidID := ulid.Make()
+
+	data := &mnodedata.NodeApiRestData{
+		Url:         req.Msg.Data.Url,
+		Method:      req.Msg.Data.Method,
+		Headers:     req.Msg.Data.Headers,
+		QueryParams: req.Msg.Data.QueryParams,
+		Body:        req.Msg.Data.Body,
+	}
+
+	node := mcollection.CollectionNode{
+		ID:           nodeUlidID,
+		CollectionID: collectionUlidID,
+		Name:         req.Msg.Name,
+		Type:         req.Msg.Type,
+		Data:         data,
+	}
+
+	err = scollection.CreateCollectionNode(c.db, node)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&collectionv1.CreateNodeResponse{Id: nodeUlidID.String()}), err
+}
+
+// GetNode calls collection.v1.CollectionService.GetNode.
+func (c *CollectionService) GetNode(ctx context.Context, req *connect.Request[collectionv1.GetNodeRequest]) (*connect.Response[collectionv1.GetNodeResponse], error) {
+	nodeID := req.Msg.Id
+	ulidID, err := ulid.Parse(nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := scollection.GetCollectionNode(c.db, ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeData := &nodedatav1.NodeApiCallData{
+		Url:         node.Data.Url,
+		Method:      node.Data.Method,
+		Headers:     node.Data.Headers,
+		QueryParams: node.Data.QueryParams,
+		Body:        node.Data.Body,
+	}
+
+	respNode := &collectionv1.CollectionNode{
+		Id:   node.ID.String(),
+		Name: node.Name,
+		Type: node.Type,
+		Data: nodeData,
+	}
+
+	return connect.NewResponse(&collectionv1.GetNodeResponse{Node: respNode}), nil
+}
+
+// GetNodeBulk calls collection.v1.CollectionService.GetNodeBulk.
+func (c *CollectionService) GetNodeBulk(ctx context.Context, req *connect.Request[collectionv1.GetNodeBulkRequest]) (*connect.Response[collectionv1.GetNodeBulkResponse], error) {
+	nodeIds := req.Msg.Ids
+	nodeIdsUlid := make([]ulid.ULID, 0, len(nodeIds))
+	for _, id := range nodeIds {
+		ulidID, err := ulid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+		nodeIdsUlid = append(nodeIdsUlid, ulidID)
+	}
+
+	if len(nodeIdsUlid) == 0 {
+		return connect.NewResponse(&collectionv1.GetNodeBulkResponse{}), nil
+	}
+
+	var nodes []*mcollection.CollectionNode
+	for _, id := range nodeIdsUlid {
+		node, err := scollection.GetCollectionNode(c.db, id)
+		nodes = append(nodes, node)
+	}
+
+	var respNodes []*collectionv1.CollectionNode
+	for _, node := range nodes {
+		nodeData := &nodedatav1.NodeApiCallData{
+			Url:         node.Data.Url,
+			Method:      node.Data.Method,
+			Headers:     node.Data.Headers,
+			QueryParams: node.Data.QueryParams,
+			Body:        node.Data.Body,
+		}
+
+		respNode := &collectionv1.CollectionNode{
+			Id:   node.ID.String(),
+			Name: node.Name,
+			Type: node.Type,
+			Data: nodeData,
+		}
+		respNodes = append(respNodes, respNode)
+	}
+
+	return connect.NewResponse(&collectionv1.GetNodeBulkResponse{Nodes: respNodes}), nil
+}
+
+// UpdateNode calls collection.v1.CollectionService.UpdateNode.
+func (c *CollectionService) UpdateNode(ctx context.Context, req *connect.Request[collectionv1.UpdateNodeRequest]) (*connect.Response[collectionv1.UpdateNodeResponse], error) {
+	id := req.Msg.Id
+	ulidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := scollection.GetCollectionNode(c.db, ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	data := &mnodedata.NodeApiRestData{
+		Url:         req.Msg.Data.Url,
+		Method:      req.Msg.Data.Method,
+		Headers:     req.Msg.Data.Headers,
+		QueryParams: req.Msg.Data.QueryParams,
+		Body:        req.Msg.Data.Body,
+	}
+
+	err = scollection.UpdateCollectionNode(c.db, ulidID, req.Msg.Name, node.Type, req.Msg.ParentId, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&collectionv1.UpdateNodeResponse{}), nil
+}
+
+// DeleteNode calls collection.v1.CollectionService.DeleteNode.
+func (c *CollectionService) DeleteNode(ctx context.Context, req *connect.Request[collectionv1.DeleteNodeRequest]) (*connect.Response[collectionv1.DeleteNodeResponse], error) {
+	id := req.Msg.Id
+	ulidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+
+	err = scollection.DeleteCollectionNode(c.db, ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&collectionv1.DeleteNodeResponse{}), err
+}
+
+// MoveNode calls collection.v1.CollectionService.MoveNode.
+func (c *CollectionService) MoveNode(ctx context.Context, req *connect.Request[collectionv1.MoveNodeRequest]) (*connect.Response[collectionv1.MoveNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+}
+
+// RunNode calls collection.v1.CollectionService.RunNode.
+func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[collectionv1.RunNodeRequest]) (*connect.Response[collectionv1.RunNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, nil)
 }
 
 func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {

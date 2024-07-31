@@ -18,10 +18,11 @@ var (
 	PreparedListCollections *sql.Stmt = nil
 
 	// Collection Node Statements
-	PreparedCreateCollectionNode *sql.Stmt = nil
-	PreparedGetCollectionNode    *sql.Stmt = nil
-	PreparedUpdateCollectionNode *sql.Stmt = nil
-	PreparedDeleteCollectionNode *sql.Stmt = nil
+	PreparedCreateCollectionNode   *sql.Stmt = nil
+	PreparedGetCollectionNode      *sql.Stmt = nil
+	PreparedGetBulkCollectionNodes *sql.Stmt = nil
+	PreparedUpdateCollectionNode   *sql.Stmt = nil
+	PreparedDeleteCollectionNode   *sql.Stmt = nil
 
 	// List
 	PreparedListCollectionNodes *sql.Stmt = nil
@@ -127,7 +128,7 @@ func PrepareStatements(db *sql.DB) error {
 	}
 	// List
 	PreparedListCollectionNodes, err = db.Prepare(`
-                SELECT id, collection_id, name, type, parent_id
+                SELECT id
                 FROM collection_nodes
         `)
 	if err != nil {
@@ -208,22 +209,22 @@ func ListCollections(db *sql.DB) ([]ulid.ULID, error) {
 	return collections, nil
 }
 
-func GetCollectionNodeWithCollectionID(db *sql.DB, collectionID ulid.ULID) ([]mcollection.CollectionNode, error) {
+func GetCollectionNodeWithCollectionID(db *sql.DB, collectionID ulid.ULID) ([]ulid.ULID, error) {
 	rows, err := PreparedListCollectionNodes.Query()
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var nodes []mcollection.CollectionNode
+	var nodeIds []ulid.ULID
 	for rows.Next() {
-		var node mcollection.CollectionNode
-		err = rows.Scan(&node.ID, &node.CollectionID, &node.Name, &node.Type, &node.ParentID, &node.Data)
+		var id ulid.ULID
+		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, node)
+		nodeIds = append(nodeIds, id)
 	}
-	return nodes, nil
+	return nodeIds, nil
 }
 
 func CreateCollectionNode(db *sql.DB, collectionNode mcollection.CollectionNode) error {
