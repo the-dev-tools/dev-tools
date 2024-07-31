@@ -19,9 +19,10 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
       Effect.flatMap(Effect.fromNullable),
     );
     const apiClient = yield* ApiClient;
-    const response = yield* apiClient.auth.dID({ didToken });
+    const { refreshToken } = (yield* apiClient.auth.dID({ didToken })).message;
+    const { accessToken } = (yield* apiClient.auth.accessToken({ refreshToken })).message;
     const store = yield* KeyValueStore;
-    yield* store.forSchema(Schema.String).set(accessTokenKey, response.message.token);
+    yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
   });
 
 export const logout = Effect.gen(function* () {

@@ -18,7 +18,7 @@
     "@tanstack/react-query": "^5.51.15",
     "@tanstack/react-router": "^1.45.8",
     "@the-dev-tools/api": "workspace:^",
-    "@the-dev-tools/protobuf": "^1.2.0",
+    "@the-dev-tools/protobuf": "^1.4.1",
     "@the-dev-tools/ui": "workspace:^",
     "effect": "^3.6.0",
     "magic-sdk": "^28.0.7",

@@ -5,17 +5,12 @@ import { Effect, Option, pipe } from 'effect';
 import { useState } from 'react';
 
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+import { Button } from '@the-dev-tools/ui/button';
 
 import * as Auth from './auth';
 import { Runtime } from './runtime';
 
-const root = createRootRoute({
-  component: () => (
-    <div className='flex h-full flex-col items-center justify-center'>
-      <Outlet />
-    </div>
-  ),
-});
+const root = createRootRoute();
 
 class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
   redirect: Schema.optional(Schema.String),
@@ -70,19 +65,24 @@ const dashboard = createRoute({
   component: () => {
     const userInfo = authenticated.useLoaderData();
     return (
-      <>
-        <div>The Dev Tools</div>
-        <div className='max-w-sm overflow-hidden text-ellipsis text-nowrap'>JWT: {userInfo.jwt}</div>
-        <button
-          onClick={async () => {
-            await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
-            queueMicrotask(() => void location.reload());
-          }}
-        >
-          Log out
-        </button>
-        <Outlet />
-      </>
+      <div className='flex h-full'>
+        <div className='flex h-full w-80 flex-col overflow-auto border-r-4 border-black p-2'>
+          <h1 className='text-center text-2xl font-extrabold'>The Dev Tools</h1>
+          <div className='flex-1' />
+          <div className='overflow-hidden text-ellipsis text-nowrap'>JWT: {userInfo.jwt}</div>
+          <Button
+            onPress={async () => {
+              await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
+              queueMicrotask(() => void location.reload());
+            }}
+          >
+            Log out
+          </Button>
+        </div>
+        <div className='h-full flex-1 overflow-auto p-2'>
+          <Outlet />
+        </div>
+      </div>
     );
   },
 });
@@ -92,9 +92,10 @@ const dashboardIndex = createRoute({
   path: '/',
   component: () => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const collections = useQuery(CollectionQuery.load, { id: 'hello world' });
+    const collections = useQuery(CollectionQuery.listCollections);
     return (
       <>
+        <h2 className='text-center text-2xl font-extrabold'>Collections</h2>
         <div>{collections.error?.code}</div>
         <div>{JSON.stringify(collections.data)}</div>
       </>

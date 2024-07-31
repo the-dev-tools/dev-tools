@@ -139,8 +139,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/api
       '@the-dev-tools/protobuf':
-        specifier: ^1.2.0
-        version: 1.2.0
+        specifier: ^1.4.1
+        version: 1.4.1
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -209,8 +209,8 @@ importers:
         specifier: ^0.70.0
         version: 0.70.0(effect@3.6.0)
       '@the-dev-tools/protobuf':
-        specifier: ^1.2.0
-        version: 1.2.0
+        specifier: ^1.4.1
+        version: 1.4.1
       effect:
         specifier: ^3.6.0
         version: 3.6.0
@@ -2650,8 +2650,8 @@ packages:
   '@tanstack/store@0.5.5':
     resolution: {integrity: sha512-EOSrgdDAJExbvRZEQ/Xhh9iZchXpMN+ga1Bnk8Nmygzs8TfiE6hbzThF+Pr2G19uHL6+DTDTHhJ8VQiOd7l4tA==}
 
-  '@the-dev-tools/protobuf@1.2.0':
-    resolution: {integrity: sha512-4rtQ0TSYJf6f1K+EPwHh40Bs2ZuVUeVE9ylkL2SuffC59oU3tSZKNumYhf60z3kdDCNNxsiDEb9frTw3FAR0ww==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.2.0/95d9816ef862d41a12079f70146b945dfb44c898}
+  '@the-dev-tools/protobuf@1.4.1':
+    resolution: {integrity: sha512-kwByZbJJiGA3P5/1RRn+a9sgYvNo+hDsZpKxob7wbCsfEEFcaGS13WpTaCRTPo/EE8nup/JgiN4EFn/O10jGxg==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.4.1/e7bf128e9514707eb0986b7c5dbadfc2f12b0a15}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -8583,7 +8583,7 @@ snapshots:
 
   '@tanstack/store@0.5.5': {}
 
-  '@the-dev-tools/protobuf@1.2.0': {}
+  '@the-dev-tools/protobuf@1.4.1': {}
 
   '@trysound/sax@0.2.0': {}
 
