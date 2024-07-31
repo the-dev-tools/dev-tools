@@ -41,6 +41,7 @@ const login = createRoute({
             Effect.gen(function* () {
               yield* Auth.login({ email });
               router.history.push(redirect ?? dashboard.fullPath);
+              queueMicrotask(() => void location.reload());
             }).pipe(Runtime.runPromise)
           }
         >
@@ -75,8 +76,7 @@ const dashboard = createRoute({
         <button
           onClick={async () => {
             await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
-            await router.navigate({ to: '/login' });
-            await router.invalidate();
+            queueMicrotask(() => void location.reload());
           }}
         >
           Log out

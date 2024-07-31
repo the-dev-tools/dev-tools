@@ -7,6 +7,7 @@ import { ApiClient } from '@the-dev-tools/api/client';
 
 export const magicLink = new Magic('pk_live_75E3754872D9F513', {
   useStorageCache: true,
+  deferPreload: true,
 });
 
 const accessTokenKey = 'AccessToken';
