@@ -71,7 +71,7 @@ export class Response extends S.Class<Response>('Response')({
   ),
   responseTime: S.optional(S.Union(S.Number, S.Null, S.String)),
   status: S.optional(S.Union(S.Null, S.String)),
-  timings: S.optional(S.Union(S.Record(S.String, S.Any), S.Null)),
+  timings: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
 }) {}
 
 export class ProxyConfig extends S.Class<ProxyConfig>('ProxyConfig')({
@@ -149,9 +149,9 @@ export class Body extends S.Class<Body>('Body')({
   disabled: S.optional(S.Union(S.Boolean, S.Null)),
   file: S.optional(S.Union(File, S.Null)),
   formdata: S.optional(S.Union(S.Array(FormParameter), S.Null)),
-  graphql: S.optional(S.Union(S.Record(S.String, S.Any), S.Null)),
+  graphql: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
   mode: S.optional(S.Union(Mode, S.Null)),
-  options: S.optional(S.Union(S.Record(S.String, S.Any), S.Null)),
+  options: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
   raw: S.optional(S.Union(S.Null, S.String)),
   urlencoded: S.optional(S.Union(S.Array(UrlEncodedParameter), S.Null)),
 }) {}
@@ -195,7 +195,7 @@ export class Item extends S.Class<Item>('Item')({
   event: S.optional(S.Union(S.Array(S.suspend(() => Event)), S.Null)),
   id: S.optional(S.Union(S.Null, S.String)),
   name: S.optional(S.Union(S.Null, S.String)),
-  protocolProfileBehavior: S.optional(S.Union(S.Record(S.String, S.Any), S.Null)),
+  protocolProfileBehavior: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
   request: S.optional(S.Union(RequestClass, S.Null, S.String)),
   response: S.optional(S.Union(S.Array(Response), S.Null)),
   variable: S.optional(S.Union(S.Array(S.suspend(() => Variable)), S.Null)),
@@ -320,6 +320,6 @@ export class Collection extends S.Class<Collection>('Collection')({
     S.withConstructorDefault(() => new Information({ name: DEFAULT_NAME, schema: DEFAULT_SCHEMA })),
   ),
   item: S.optional(S.Array(Item)).pipe(S.withDefaults({ decoding: () => [], constructor: () => [] })),
-  protocolProfileBehavior: S.optional(S.Union(S.Record(S.String, S.Any), S.Null)),
+  protocolProfileBehavior: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
   variable: S.optional(S.Union(S.Array(Variable), S.Null)),
 }) {}
