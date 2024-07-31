@@ -7,12 +7,18 @@ import (
 	"devtools-backend/pkg/model/mcollection"
 	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
 	"devtools-backend/pkg/service/scollection"
+	"devtools-nodes/pkg/model/mnode"
 	"devtools-nodes/pkg/model/mnodedata"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/nodeapi"
 	"devtools-nodes/pkg/resolver"
 	collectionv1 "devtools-services/gen/collection/v1"
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -381,30 +387,54 @@ func (c *CollectionService) MoveNode(ctx context.Context, req *connect.Request[c
 
 // RunNode calls collection.v1.CollectionService.RunNode.
 func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[collectionv1.RunNodeRequest]) (*connect.Response[collectionv1.RunNodeResponse], error) {
-	/*
-		httplbClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Minute))
+	id := req.Msg.Id
+	ulidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
 
-		id := req.Msg.Id
-		ulidID, err := ulid.Parse(id)
-		if err != nil {
-			return nil, err
-		}
+	node, err := scollection.GetCollectionNode(c.db, ulidID)
 
-		node, err := scollection.GetCollectionNode(c.db, ulidID)
+	tempNode := &mnode.Node{
+		ID:      node.ID.String(),
+		Type:    resolver.ApiCallRest,
+		Data:    node.Data,
+		GroupID: "some-group",
+		OwnerID: "some-owner-id",
+	}
 
-		/*
+	nm := &mnodemaster.NodeMaster{
+		CurrentNode: tempNode,
+		Logger:      nil, // TODO: add logger
+		HttpClient:  http.DefaultClient,
+	}
 
-			nm := &mnodemaster.NodeMaster{
-				CurrentNode: node,
-				Logger:      nil, // TODO: add logger
-				HttpClient:  http.DefaultClient,
-			}
+	startTime := time.Now()
+	err = nodeapi.SendRestApiRequest(nm)
+	if err != nil {
+		return nil, err
+	}
 
-			nodeapi.SendRestApiRequest(nm * mnodemaster.NodeMaster)
+	timeTaken := time.Since(startTime)
 
-	*/
+	apiRespAny, ok := nm.Vars[nodeapi.VarResponseKey]
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("cannot find response"))
+	}
 
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	apiResp, ok := apiRespAny.(*http.Response)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("cannto cast to http.Response"))
+	}
+
+	bodyBytes := make([]byte, apiResp.ContentLength)
+	_, err = apiResp.Body.Read(bodyBytes)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	resp := connect.NewResponse(&collectionv1.RunNodeResponse{Status: int32(apiResp.StatusCode), Body: bodyBytes, Duration: timeTaken.Nanoseconds()})
+	return resp, nil
 }
 
 func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
