@@ -128,7 +128,7 @@ export const IntroIcon = ({ className, ...props }: React.ComponentPropsWithoutRe
   </div>
 );
 
-export const Collection = (props: React.ComponentPropsWithoutRef<'svg'>) => (
+export const EmptyCollectionIllustration = (props: React.ComponentPropsWithoutRef<'svg'>) => (
   <svg width='218' height='130' viewBox='0 0 218 130' fill='none' xmlns='http://www.w3.org/2000/svg' {...props}>
     <g filter='url(#filter0_d_129_9310)'>
       <path

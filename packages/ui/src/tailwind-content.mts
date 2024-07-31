@@ -1,12 +1,12 @@
-import path from 'path';
+import { dirname, join } from 'path';
 import { Array, pipe, String } from 'effect';
 import { ContentConfig } from 'tailwindcss/types/config';
 
 export const tailwindContent = pipe(
   '@the-dev-tools/ui',
   require.resolve,
-  (_) => path.dirname(_),
+  dirname,
   String.concat('/**/*.tsx'),
-  (_) => path.join(_),
+  join,
   Array.ensure,
 ) satisfies ContentConfig;

@@ -1,12 +1,12 @@
-import * as RAC from 'react-aria-components';
+import { Button as RACButton, ButtonProps as RACButtonProps } from 'react-aria-components';
 import { tv, type VariantProps } from 'tailwind-variants';
 
-import * as FocusRing from './focus-ring';
+import { focusRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
-const styles = tv({
-  extend: FocusRing.styles,
+export const buttonStyles = tv({
+  extend: focusRingStyles,
   base: tw`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
   variants: {
     variant: {
@@ -20,8 +20,8 @@ const styles = tv({
   },
 });
 
-interface Props extends RAC.ButtonProps, VariantProps<typeof styles> {}
+export interface ButtonProps extends RACButtonProps, VariantProps<typeof buttonStyles> {}
 
-export const Main = ({ className, variant, ...props }: Props) => (
-  <RAC.Button {...props} className={composeRenderPropsTV(className, styles, { variant })} />
+export const Button = ({ className, variant, ...props }: ButtonProps) => (
+  <RACButton {...props} className={composeRenderPropsTV(className, buttonStyles, { variant })} />
 );

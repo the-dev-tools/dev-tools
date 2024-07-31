@@ -1,26 +1,28 @@
+import '@the-dev-tools/ui/fonts';
+import '~styles.css';
+
 import { Schema } from '@effect/schema';
-import backgroundImage from 'data-base64:~/../assets/background.png';
 import { Array, Clock, Duration, Effect, flow, HashMap, Match, Option, pipe, String, Struct, Tuple } from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
 import * as FeatherIcons from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
-import * as UI from '@the-dev-tools/ui';
-import { tw } from '@the-dev-tools/ui';
+import { Button } from '@the-dev-tools/ui/button';
+import { focusRingStyles } from '@the-dev-tools/ui/focus-ring';
+import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/illustrations';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import * as Utils from '@the-dev-tools/utils';
 
 import * as Auth from '~auth';
+import { Layout as BaseLayout, type LayoutProps } from '~layout';
 import * as Postman from '~postman';
 import * as Recorder from '~recorder';
 import { Runtime } from '~runtime';
 import * as Storage from '~storage';
 
-import '@the-dev-tools/ui/fonts';
-import '~styles.css';
-
-const Layout = (props: Omit<UI.Layout.WithBackgroundProps, 'className'>) => (
-  <UI.Layout.WithBackground {...props} className='h-[600px] w-[800px] overflow-hidden border border-slate-300' />
+const Layout = (props: Omit<LayoutProps, 'className'>) => (
+  <BaseLayout {...props} className='h-[600px] w-[800px] overflow-hidden border border-slate-300' />
 );
 
 class LoginFormData extends Schema.Class<LoginFormData>('LoginFormData')({
@@ -30,7 +32,7 @@ class LoginFormData extends Schema.Class<LoginFormData>('LoginFormData')({
 const LoginPage = () => {
   const [loading, setLoading] = React.useState(false);
   return (
-    <Layout src={backgroundImage}>
+    <Layout>
       <RAC.Form
         className='flex size-full flex-col items-center justify-center px-44'
         onSubmit={(event) =>
@@ -47,7 +49,7 @@ const LoginPage = () => {
           }).pipe(Runtime.runPromise)
         }
       >
-        <UI.Illustrations.Logo className='mb-2 h-16 w-auto' />
+        <Logo className='mb-2 h-16 w-auto' />
         <h1 className='mb-1 text-center text-4xl font-semibold uppercase leading-tight'>Dev Tools</h1>
         <h2 className='mb-10 w-64 text-center text-sm leading-snug'>
           Create your account and get your APIs call in seconds
@@ -56,7 +58,7 @@ const LoginPage = () => {
           <RAC.Label className='mb-2 block'>Email</RAC.Label>
           <RAC.Input
             className={(renderProps) =>
-              UI.FocusRing.styles({
+              focusRingStyles({
                 ...renderProps,
                 className: [
                   tw`w-full rounded-lg border bg-white px-3 py-2 text-sm leading-tight text-slate-500`,
@@ -67,10 +69,10 @@ const LoginPage = () => {
           />
           <RAC.FieldError className='mt-2 block text-sm leading-none text-red-700' />
         </RAC.TextField>
-        <UI.Button.Main className='w-full' type='submit'>
+        <Button className='w-full' type='submit'>
           {loading && <FeatherIcons.FiLoader className='animate-spin' />}
           Get Started
-        </UI.Button.Main>
+        </Button>
       </RAC.Form>
     </Layout>
   );
@@ -82,9 +84,9 @@ interface RecorderLayoutProps {
 }
 
 const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
-  <Layout src={backgroundImage} innerClassName='flex flex-col divide-y divide-slate-300'>
+  <Layout innerClassName='flex flex-col divide-y divide-slate-300'>
     <div className='flex items-center gap-2 p-4'>
-      <UI.Illustrations.Logo className='h-6 w-auto' />
+      <Logo className='h-6 w-auto' />
       <h1 className='text-xl font-medium uppercase leading-tight'>Dev Tools</h1>
       <div className='h-9 flex-1' />
       {headerSlot}
@@ -96,14 +98,12 @@ const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
 const IntroPage = () => (
   <RecorderLayout>
     <div className='flex min-h-0 flex-1 flex-col items-center justify-center gap-6'>
-      <UI.Illustrations.IntroIcon />
+      <IntroIcon />
       <div className='text-center'>
         <h2 className='mb-2 text-2xl font-medium leading-tight'>Get your API quicker</h2>
         <h3 className='text-sm leading-5'>Click the record to start the record</h3>
       </div>
-      <UI.Button.Main onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>
-        Start Recording
-      </UI.Button.Main>
+      <Button onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Start Recording</Button>
     </div>
   </RecorderLayout>
 );
@@ -278,7 +278,7 @@ const RecorderPage = () => {
         <RAC.SearchField value={searchTerm} onChange={setSearchTerm} className='group w-80' aria-label='Search'>
           <RAC.Group
             className={(renderProps) =>
-              UI.FocusRing.styles({
+              focusRingStyles({
                 ...renderProps,
                 className: [
                   tw`flex items-center rounded-lg border bg-white px-3 text-slate-500`,
@@ -322,7 +322,7 @@ const RecorderPage = () => {
                       id={host.id ?? ''}
                       textValue={host.name ?? ''}
                       className={(renderProps) =>
-                        UI.FocusRing.styles({
+                        focusRingStyles({
                           ...renderProps,
                           className: [
                             tw`group relative -mt-px flex cursor-pointer items-center gap-2.5 overflow-auto border bg-slate-50 px-4 py-6 text-sm transition-[border-color,outline-color,outline-width,background-color] last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100`,
@@ -360,14 +360,14 @@ const RecorderPage = () => {
             onSelectionChange={flow(setRequestsSelection, Runtime.runPromise)}
             aria-label='API Calls'
             className={(renderProps) =>
-              UI.FocusRing.styles({
+              focusRingStyles({
                 ...renderProps,
                 className: [tw`w-full`, renderProps.isEmpty && tw`min-h-0 flex-1`],
               })
             }
             renderEmptyState={() => (
               <div className='flex h-full flex-col items-center justify-center'>
-                <UI.Illustrations.Collection className='mb-6' />
+                <EmptyCollectionIllustration className='mb-6' />
                 <h3 className='mb-2 text-xl font-semibold leading-tight'>No calls yet</h3>
                 <span className='text-sm leading-5'>{"Let's try another one"}</span>
               </div>
@@ -378,7 +378,7 @@ const RecorderPage = () => {
                 id={request.id ?? ''}
                 textValue={request.name ?? ''}
                 className={(renderProps) =>
-                  UI.FocusRing.styles({
+                  focusRingStyles({
                     ...renderProps,
                     className: [
                       tw`-mt-px grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center gap-y-1.5 border bg-slate-50 p-4 text-slate-500 transition-[border-color,outline-color,outline-width,background-color] first:mt-0 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
@@ -495,47 +495,41 @@ const RecorderPage = () => {
 
         <div className='flex-1' />
 
-        <UI.Button.Main
-          onPress={() => void Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-          variant='secondary gray'
-        >
+        <Button onPress={() => void Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise)} variant='secondary gray'>
           Log out
-        </UI.Button.Main>
+        </Button>
 
-        <UI.Button.Main
+        <Button
           onPress={() => void Recorder.setReset(true).pipe(Effect.ignoreLogged, Runtime.runPromise)}
           variant='secondary gray'
         >
           Reset
-        </UI.Button.Main>
+        </Button>
 
         {Option.match(tabId, {
           onNone: () => (
-            <UI.Button.Main
+            <Button
               onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}
               variant='secondary color'
             >
               Resume
               <FeatherIcons.FiPlayCircle />
-            </UI.Button.Main>
+            </Button>
           ),
           onSome: () => (
-            <UI.Button.Main
+            <Button
               onPress={() => void Recorder.stop.pipe(Effect.ignoreLogged, Runtime.runPromise)}
               variant='secondary color'
             >
               Pause
               <FeatherIcons.FiPauseCircle />
-            </UI.Button.Main>
+            </Button>
           ),
         })}
 
-        <UI.Button.Main
-          onPress={() => void exportCollection.pipe(Effect.ignoreLogged, Runtime.runPromise)}
-          variant='primary'
-        >
+        <Button onPress={() => void exportCollection.pipe(Effect.ignoreLogged, Runtime.runPromise)} variant='primary'>
           Export
-        </UI.Button.Main>
+        </Button>
       </div>
     </RecorderLayout>
   );

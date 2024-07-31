@@ -1,19 +1,18 @@
-import backgroundImage from 'data-base64:~/../assets/background.png';
+import '@the-dev-tools/ui/fonts';
+import '~styles.css';
+
 import { Effect, Match, Option, pipe, Tuple } from 'effect';
 import * as React from 'react';
 import type { IconType } from 'react-icons';
 import * as FeatherIcons from 'react-icons/fi';
+import { twMerge } from 'tailwind-merge';
 
-import * as UI from '@the-dev-tools/ui';
-import { tw } from '@the-dev-tools/ui';
+import { Button } from '@the-dev-tools/ui/button';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import * as Auth from '~auth';
+import { Layout } from '~layout';
 import { Runtime } from '~runtime';
-
-import '@the-dev-tools/ui/fonts';
-import '~styles.css';
-
-import { twMerge } from 'tailwind-merge';
 
 interface FeaturedIconProps extends React.ComponentPropsWithoutRef<'div'> {
   Icon: IconType;
@@ -101,7 +100,7 @@ const AuthCallbackPage = () => {
           </Subheading>
         </div>
 
-        <UI.Button.Main
+        <Button
           className='w-full'
           onPress={() =>
             Effect.gen(function* () {
@@ -114,7 +113,7 @@ const AuthCallbackPage = () => {
         >
           {resendLoading && <FeatherIcons.FiLoader className='animate-spin' />}
           Resend email
-        </UI.Button.Main>
+        </Button>
       </>
     )),
 
@@ -122,9 +121,9 @@ const AuthCallbackPage = () => {
   );
 
   return (
-    <UI.Layout.WithBackground src={backgroundImage} innerClassName={tw`flex items-center justify-center`}>
+    <Layout innerClassName={tw`flex items-center justify-center`}>
       <div className='flex flex-col items-center gap-6'>{inner}</div>
-    </UI.Layout.WithBackground>
+    </Layout>
   );
 };
 

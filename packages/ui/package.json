@@ -4,8 +4,7 @@
     "lint": "eslint ."
   },
   "exports": {
-    ".": "./src/index.tsx",
-    "./fonts": "./src/fonts.tsx",
+    "./*": "./src/*.tsx",
     "./tailwind-content": "./src/tailwind-content.mts"
   },
   "dependencies": {
