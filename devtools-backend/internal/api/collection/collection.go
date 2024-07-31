@@ -282,6 +282,9 @@ func (c *CollectionService) GetNodeBulk(ctx context.Context, req *connect.Reques
 	var nodes []*mcollection.CollectionNode
 	for _, id := range nodeIdsUlid {
 		node, err := scollection.GetCollectionNode(c.db, id)
+		if err != nil {
+			return nil, err
+		}
 		nodes = append(nodes, node)
 	}
 

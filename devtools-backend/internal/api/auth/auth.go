@@ -60,6 +60,9 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 	}
 
 	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.RefreshToken, a.hmacSecret)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	subject, err := jwtToken.Claims.GetSubject()
 	if err != nil {
@@ -68,6 +71,9 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 
 	// generate new refresh token
 	newJwtToken, err := stoken.NewJWT(subject, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&authv1.AuthServiceRefreshTokenResponse{RefreshToken: newJwtToken}), nil
 }
 
@@ -79,6 +85,9 @@ func (a *AuthServer) AccessToken(ctx context.Context, req *connect.Request[authv
 	}
 
 	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.AccessToken, a.hmacSecret)
+	if err != nil {
+		return nil, err
+	}
 	subject, err := jwtToken.Claims.GetSubject()
 	if err != nil {
 		return nil, err
@@ -86,6 +95,10 @@ func (a *AuthServer) AccessToken(ctx context.Context, req *connect.Request[authv
 
 	// generate new refresh token
 	newJwtToken, err := stoken.NewJWT(subject, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	if err != nil {
+		return nil, err
+	}
+
 	return connect.NewResponse(&authv1.AuthServiceAccessTokenResponse{AccessToken: newJwtToken}), nil
 }
 
