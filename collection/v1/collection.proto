@@ -155,6 +155,7 @@ message DeleteNodeResponse {
 message MoveNodeRequest {
   string id = 1;
   string parent_id = 2;
+  string collection_id = 3; // INFO: optional
 }
 
 
