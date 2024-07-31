@@ -40,17 +40,53 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		return nil, err
 	}
 
-	jwtToken, err := stoken.NewJWT(publicAddress, a.hmacSecret)
+	jwtToken, err := stoken.NewJWT(publicAddress, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	respRaw := &authv1.AuthServiceDIDResponse{
-		Token: jwtToken,
+		RefreshToken: jwtToken,
 	}
 
 	resp := connect.NewResponse(respRaw)
 	return resp, nil
+}
+
+func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[authv1.AuthServiceRefreshTokenRequest]) (*connect.Response[authv1.AuthServiceRefreshTokenResponse], error) {
+	if req.Msg.RefreshToken == "" {
+		// connect invalid token error
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
+	}
+
+	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.RefreshToken, a.hmacSecret)
+
+	subject, err := jwtToken.Claims.GetSubject()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate new refresh token
+	newJwtToken, err := stoken.NewJWT(subject, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	return connect.NewResponse(&authv1.AuthServiceRefreshTokenResponse{RefreshToken: newJwtToken}), nil
+}
+
+// AccessToken calls auth.v1.AuthService.AccessToken.
+func (a *AuthServer) AccessToken(ctx context.Context, req *connect.Request[authv1.AuthServiceAccessTokenRequest]) (*connect.Response[authv1.AuthServiceAccessTokenResponse], error) {
+	if req.Msg.RefreshToken == "" {
+		// connect invalid token error
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
+	}
+
+	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.AccessToken, a.hmacSecret)
+	subject, err := jwtToken.Claims.GetSubject()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate new refresh token
+	newJwtToken, err := stoken.NewJWT(subject, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	return connect.NewResponse(&authv1.AuthServiceAccessTokenResponse{AccessToken: newJwtToken}), nil
 }
 
 func CreateService(secret []byte) (*api.Service, error) {

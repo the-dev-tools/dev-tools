@@ -3,18 +3,19 @@ package stoken_test
 import (
 	"devtools-backend/pkg/stoken"
 	"testing"
+	"time"
 )
 
 func TestNewJWT(t *testing.T) {
 	someID := "someID"
 	secret := []byte("someSecret")
 
-	jwtToken, err := stoken.NewJWT(someID, secret)
+	jwtToken, err := stoken.NewJWT(someID, stoken.AccessToken, time.Hour, secret)
 	if err != nil {
 		t.Fatalf("NewJWT() failed: %v", err)
 	}
 
-	token, err := stoken.ValidateJWT(jwtToken, secret)
+	token, err := stoken.ValidateJWT(jwtToken, stoken.AccessToken, secret)
 	if err != nil {
 		t.Fatalf("ValidateJWT() failed: %v", err)
 	}
@@ -29,12 +30,12 @@ func TestFailValidate(t *testing.T) {
 	secret := []byte("someSecret")
 	wrongSecret := []byte("wrongSecret")
 
-	jwtToken, err := stoken.NewJWT(someID, secret)
+	jwtToken, err := stoken.NewJWT(someID, stoken.AccessToken, time.Hour, secret)
 	if err != nil {
 		t.Fatalf("NewJWT() failed: %v", err)
 	}
 
-	token, err := stoken.ValidateJWT(jwtToken, wrongSecret)
+	token, err := stoken.ValidateJWT(jwtToken, stoken.AccessToken, wrongSecret)
 	if err == nil {
 		t.Fatalf("ValidateJWT() should have failed")
 	}

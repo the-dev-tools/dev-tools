@@ -30,7 +30,7 @@ func (c FlowServer) NewAuthInterceptor() connect.UnaryInterceptorFunc {
 				)
 			}
 
-			stoken.ValidateJWT(tokenTemp, c.secret)
+			stoken.ValidateJWT(tokenTemp, stoken.AccessToken, c.secret)
 
 			return next(ctx, req)
 		})
