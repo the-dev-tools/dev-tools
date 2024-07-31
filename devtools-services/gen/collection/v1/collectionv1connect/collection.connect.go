@@ -33,50 +33,91 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// CollectionServiceCreateProcedure is the fully-qualified name of the CollectionService's Create
-	// RPC.
-	CollectionServiceCreateProcedure = "/collection.v1.CollectionService/Create"
-	// CollectionServiceSaveProcedure is the fully-qualified name of the CollectionService's Save RPC.
-	CollectionServiceSaveProcedure = "/collection.v1.CollectionService/Save"
-	// CollectionServiceLoadProcedure is the fully-qualified name of the CollectionService's Load RPC.
-	CollectionServiceLoadProcedure = "/collection.v1.CollectionService/Load"
-	// CollectionServiceDeleteProcedure is the fully-qualified name of the CollectionService's Delete
-	// RPC.
-	CollectionServiceDeleteProcedure = "/collection.v1.CollectionService/Delete"
-	// CollectionServiceListProcedure is the fully-qualified name of the CollectionService's List RPC.
-	CollectionServiceListProcedure = "/collection.v1.CollectionService/List"
+	// CollectionServiceListCollectionsProcedure is the fully-qualified name of the CollectionService's
+	// ListCollections RPC.
+	CollectionServiceListCollectionsProcedure = "/collection.v1.CollectionService/ListCollections"
+	// CollectionServiceCreateCollectionProcedure is the fully-qualified name of the CollectionService's
+	// CreateCollection RPC.
+	CollectionServiceCreateCollectionProcedure = "/collection.v1.CollectionService/CreateCollection"
+	// CollectionServiceGetCollectionProcedure is the fully-qualified name of the CollectionService's
+	// GetCollection RPC.
+	CollectionServiceGetCollectionProcedure = "/collection.v1.CollectionService/GetCollection"
+	// CollectionServiceUpdateCollectionProcedure is the fully-qualified name of the CollectionService's
+	// UpdateCollection RPC.
+	CollectionServiceUpdateCollectionProcedure = "/collection.v1.CollectionService/UpdateCollection"
+	// CollectionServiceDeleteCollectionProcedure is the fully-qualified name of the CollectionService's
+	// DeleteCollection RPC.
+	CollectionServiceDeleteCollectionProcedure = "/collection.v1.CollectionService/DeleteCollection"
 	// CollectionServiceImportPostmanProcedure is the fully-qualified name of the CollectionService's
 	// ImportPostman RPC.
 	CollectionServiceImportPostmanProcedure = "/collection.v1.CollectionService/ImportPostman"
-	// CollectionServiceMoveProcedure is the fully-qualified name of the CollectionService's Move RPC.
-	CollectionServiceMoveProcedure = "/collection.v1.CollectionService/Move"
+	// CollectionServiceListNodesProcedure is the fully-qualified name of the CollectionService's
+	// ListNodes RPC.
+	CollectionServiceListNodesProcedure = "/collection.v1.CollectionService/ListNodes"
+	// CollectionServiceCreateNodeProcedure is the fully-qualified name of the CollectionService's
+	// CreateNode RPC.
+	CollectionServiceCreateNodeProcedure = "/collection.v1.CollectionService/CreateNode"
+	// CollectionServiceGetNodeProcedure is the fully-qualified name of the CollectionService's GetNode
+	// RPC.
+	CollectionServiceGetNodeProcedure = "/collection.v1.CollectionService/GetNode"
+	// CollectionServiceGetNodeBulkProcedure is the fully-qualified name of the CollectionService's
+	// GetNodeBulk RPC.
+	CollectionServiceGetNodeBulkProcedure = "/collection.v1.CollectionService/GetNodeBulk"
+	// CollectionServiceUpdateNodeProcedure is the fully-qualified name of the CollectionService's
+	// UpdateNode RPC.
+	CollectionServiceUpdateNodeProcedure = "/collection.v1.CollectionService/UpdateNode"
+	// CollectionServiceDeleteNodeProcedure is the fully-qualified name of the CollectionService's
+	// DeleteNode RPC.
+	CollectionServiceDeleteNodeProcedure = "/collection.v1.CollectionService/DeleteNode"
+	// CollectionServiceMoveNodeProcedure is the fully-qualified name of the CollectionService's
+	// MoveNode RPC.
+	CollectionServiceMoveNodeProcedure = "/collection.v1.CollectionService/MoveNode"
+	// CollectionServiceRunNodeProcedure is the fully-qualified name of the CollectionService's RunNode
+	// RPC.
+	CollectionServiceRunNodeProcedure = "/collection.v1.CollectionService/RunNode"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	collectionServiceServiceDescriptor             = v1.File_collection_v1_collection_proto.Services().ByName("CollectionService")
-	collectionServiceCreateMethodDescriptor        = collectionServiceServiceDescriptor.Methods().ByName("Create")
-	collectionServiceSaveMethodDescriptor          = collectionServiceServiceDescriptor.Methods().ByName("Save")
-	collectionServiceLoadMethodDescriptor          = collectionServiceServiceDescriptor.Methods().ByName("Load")
-	collectionServiceDeleteMethodDescriptor        = collectionServiceServiceDescriptor.Methods().ByName("Delete")
-	collectionServiceListMethodDescriptor          = collectionServiceServiceDescriptor.Methods().ByName("List")
-	collectionServiceImportPostmanMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("ImportPostman")
-	collectionServiceMoveMethodDescriptor          = collectionServiceServiceDescriptor.Methods().ByName("Move")
+	collectionServiceServiceDescriptor                = v1.File_collection_v1_collection_proto.Services().ByName("CollectionService")
+	collectionServiceListCollectionsMethodDescriptor  = collectionServiceServiceDescriptor.Methods().ByName("ListCollections")
+	collectionServiceCreateCollectionMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("CreateCollection")
+	collectionServiceGetCollectionMethodDescriptor    = collectionServiceServiceDescriptor.Methods().ByName("GetCollection")
+	collectionServiceUpdateCollectionMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("UpdateCollection")
+	collectionServiceDeleteCollectionMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("DeleteCollection")
+	collectionServiceImportPostmanMethodDescriptor    = collectionServiceServiceDescriptor.Methods().ByName("ImportPostman")
+	collectionServiceListNodesMethodDescriptor        = collectionServiceServiceDescriptor.Methods().ByName("ListNodes")
+	collectionServiceCreateNodeMethodDescriptor       = collectionServiceServiceDescriptor.Methods().ByName("CreateNode")
+	collectionServiceGetNodeMethodDescriptor          = collectionServiceServiceDescriptor.Methods().ByName("GetNode")
+	collectionServiceGetNodeBulkMethodDescriptor      = collectionServiceServiceDescriptor.Methods().ByName("GetNodeBulk")
+	collectionServiceUpdateNodeMethodDescriptor       = collectionServiceServiceDescriptor.Methods().ByName("UpdateNode")
+	collectionServiceDeleteNodeMethodDescriptor       = collectionServiceServiceDescriptor.Methods().ByName("DeleteNode")
+	collectionServiceMoveNodeMethodDescriptor         = collectionServiceServiceDescriptor.Methods().ByName("MoveNode")
+	collectionServiceRunNodeMethodDescriptor          = collectionServiceServiceDescriptor.Methods().ByName("RunNode")
 )
 
 // CollectionServiceClient is a client for the collection.v1.CollectionService service.
 type CollectionServiceClient interface {
-	// CRUD operations
-	Create(context.Context, *connect.Request[v1.CreateRequest]) (*connect.Response[v1.CreateResponse], error)
-	Save(context.Context, *connect.Request[v1.SaveRequest]) (*connect.Response[v1.SaveResponse], error)
-	Load(context.Context, *connect.Request[v1.LoadRequest]) (*connect.Response[v1.LoadResponse], error)
-	Delete(context.Context, *connect.Request[v1.DeleteRequest]) (*connect.Response[v1.DeleteResponse], error)
-	List(context.Context, *connect.Request[v1.ListRequest]) (*connect.Response[v1.ListResponse], error)
-	// // Helper rpcs
+	// Collection operations
+	ListCollections(context.Context, *connect.Request[v1.ListCollectionsRequest]) (*connect.Response[v1.ListCollectionsResponse], error)
+	CreateCollection(context.Context, *connect.Request[v1.CreateCollectionRequest]) (*connect.Response[v1.CreateCollectionResponse], error)
+	GetCollection(context.Context, *connect.Request[v1.GetCollectionRequest]) (*connect.Response[v1.GetCollectionResponse], error)
+	UpdateCollection(context.Context, *connect.Request[v1.UpdateCollectionRequest]) (*connect.Response[v1.UpdateCollectionResponse], error)
+	DeleteCollection(context.Context, *connect.Request[v1.DeleteCollectionRequest]) (*connect.Response[v1.DeleteCollectionResponse], error)
+	// Helper rpcs
 	// // // postman
 	ImportPostman(context.Context, *connect.Request[v1.ImportPostmanRequest]) (*connect.Response[v1.ImportPostmanResponse], error)
-	// // // Move node to another parent
-	Move(context.Context, *connect.Request[v1.MoveRequest]) (*connect.Response[v1.MoveResponse], error)
+	// Node operations
+	ListNodes(context.Context, *connect.Request[v1.ListNodesRequest]) (*connect.Response[v1.ListNodesResponse], error)
+	CreateNode(context.Context, *connect.Request[v1.CreateNodeRequest]) (*connect.Response[v1.CreateNodeResponse], error)
+	GetNode(context.Context, *connect.Request[v1.GetNodeRequest]) (*connect.Response[v1.GetNodeResponse], error)
+	GetNodeBulk(context.Context, *connect.Request[v1.GetNodeBulkRequest]) (*connect.Response[v1.GetNodeBulkResponse], error)
+	UpdateNode(context.Context, *connect.Request[v1.UpdateNodeRequest]) (*connect.Response[v1.UpdateNodeResponse], error)
+	DeleteNode(context.Context, *connect.Request[v1.DeleteNodeRequest]) (*connect.Response[v1.DeleteNodeResponse], error)
+	// Helper rpcs
+	// // Move node to another parent or collection
+	MoveNode(context.Context, *connect.Request[v1.MoveNodeRequest]) (*connect.Response[v1.MoveNodeResponse], error)
+	RunNode(context.Context, *connect.Request[v1.RunNodeRequest]) (*connect.Response[v1.RunNodeResponse], error)
 }
 
 // NewCollectionServiceClient constructs a client for the collection.v1.CollectionService service.
@@ -89,34 +130,34 @@ type CollectionServiceClient interface {
 func NewCollectionServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CollectionServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &collectionServiceClient{
-		create: connect.NewClient[v1.CreateRequest, v1.CreateResponse](
+		listCollections: connect.NewClient[v1.ListCollectionsRequest, v1.ListCollectionsResponse](
 			httpClient,
-			baseURL+CollectionServiceCreateProcedure,
-			connect.WithSchema(collectionServiceCreateMethodDescriptor),
+			baseURL+CollectionServiceListCollectionsProcedure,
+			connect.WithSchema(collectionServiceListCollectionsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		save: connect.NewClient[v1.SaveRequest, v1.SaveResponse](
+		createCollection: connect.NewClient[v1.CreateCollectionRequest, v1.CreateCollectionResponse](
 			httpClient,
-			baseURL+CollectionServiceSaveProcedure,
-			connect.WithSchema(collectionServiceSaveMethodDescriptor),
+			baseURL+CollectionServiceCreateCollectionProcedure,
+			connect.WithSchema(collectionServiceCreateCollectionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		load: connect.NewClient[v1.LoadRequest, v1.LoadResponse](
+		getCollection: connect.NewClient[v1.GetCollectionRequest, v1.GetCollectionResponse](
 			httpClient,
-			baseURL+CollectionServiceLoadProcedure,
-			connect.WithSchema(collectionServiceLoadMethodDescriptor),
+			baseURL+CollectionServiceGetCollectionProcedure,
+			connect.WithSchema(collectionServiceGetCollectionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		delete: connect.NewClient[v1.DeleteRequest, v1.DeleteResponse](
+		updateCollection: connect.NewClient[v1.UpdateCollectionRequest, v1.UpdateCollectionResponse](
 			httpClient,
-			baseURL+CollectionServiceDeleteProcedure,
-			connect.WithSchema(collectionServiceDeleteMethodDescriptor),
+			baseURL+CollectionServiceUpdateCollectionProcedure,
+			connect.WithSchema(collectionServiceUpdateCollectionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		list: connect.NewClient[v1.ListRequest, v1.ListResponse](
+		deleteCollection: connect.NewClient[v1.DeleteCollectionRequest, v1.DeleteCollectionResponse](
 			httpClient,
-			baseURL+CollectionServiceListProcedure,
-			connect.WithSchema(collectionServiceListMethodDescriptor),
+			baseURL+CollectionServiceDeleteCollectionProcedure,
+			connect.WithSchema(collectionServiceDeleteCollectionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		importPostman: connect.NewClient[v1.ImportPostmanRequest, v1.ImportPostmanResponse](
@@ -125,10 +166,52 @@ func NewCollectionServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(collectionServiceImportPostmanMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		move: connect.NewClient[v1.MoveRequest, v1.MoveResponse](
+		listNodes: connect.NewClient[v1.ListNodesRequest, v1.ListNodesResponse](
 			httpClient,
-			baseURL+CollectionServiceMoveProcedure,
-			connect.WithSchema(collectionServiceMoveMethodDescriptor),
+			baseURL+CollectionServiceListNodesProcedure,
+			connect.WithSchema(collectionServiceListNodesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createNode: connect.NewClient[v1.CreateNodeRequest, v1.CreateNodeResponse](
+			httpClient,
+			baseURL+CollectionServiceCreateNodeProcedure,
+			connect.WithSchema(collectionServiceCreateNodeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getNode: connect.NewClient[v1.GetNodeRequest, v1.GetNodeResponse](
+			httpClient,
+			baseURL+CollectionServiceGetNodeProcedure,
+			connect.WithSchema(collectionServiceGetNodeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getNodeBulk: connect.NewClient[v1.GetNodeBulkRequest, v1.GetNodeBulkResponse](
+			httpClient,
+			baseURL+CollectionServiceGetNodeBulkProcedure,
+			connect.WithSchema(collectionServiceGetNodeBulkMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateNode: connect.NewClient[v1.UpdateNodeRequest, v1.UpdateNodeResponse](
+			httpClient,
+			baseURL+CollectionServiceUpdateNodeProcedure,
+			connect.WithSchema(collectionServiceUpdateNodeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNode: connect.NewClient[v1.DeleteNodeRequest, v1.DeleteNodeResponse](
+			httpClient,
+			baseURL+CollectionServiceDeleteNodeProcedure,
+			connect.WithSchema(collectionServiceDeleteNodeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		moveNode: connect.NewClient[v1.MoveNodeRequest, v1.MoveNodeResponse](
+			httpClient,
+			baseURL+CollectionServiceMoveNodeProcedure,
+			connect.WithSchema(collectionServiceMoveNodeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		runNode: connect.NewClient[v1.RunNodeRequest, v1.RunNodeResponse](
+			httpClient,
+			baseURL+CollectionServiceRunNodeProcedure,
+			connect.WithSchema(collectionServiceRunNodeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -136,38 +219,45 @@ func NewCollectionServiceClient(httpClient connect.HTTPClient, baseURL string, o
 
 // collectionServiceClient implements CollectionServiceClient.
 type collectionServiceClient struct {
-	create        *connect.Client[v1.CreateRequest, v1.CreateResponse]
-	save          *connect.Client[v1.SaveRequest, v1.SaveResponse]
-	load          *connect.Client[v1.LoadRequest, v1.LoadResponse]
-	delete        *connect.Client[v1.DeleteRequest, v1.DeleteResponse]
-	list          *connect.Client[v1.ListRequest, v1.ListResponse]
-	importPostman *connect.Client[v1.ImportPostmanRequest, v1.ImportPostmanResponse]
-	move          *connect.Client[v1.MoveRequest, v1.MoveResponse]
+	listCollections  *connect.Client[v1.ListCollectionsRequest, v1.ListCollectionsResponse]
+	createCollection *connect.Client[v1.CreateCollectionRequest, v1.CreateCollectionResponse]
+	getCollection    *connect.Client[v1.GetCollectionRequest, v1.GetCollectionResponse]
+	updateCollection *connect.Client[v1.UpdateCollectionRequest, v1.UpdateCollectionResponse]
+	deleteCollection *connect.Client[v1.DeleteCollectionRequest, v1.DeleteCollectionResponse]
+	importPostman    *connect.Client[v1.ImportPostmanRequest, v1.ImportPostmanResponse]
+	listNodes        *connect.Client[v1.ListNodesRequest, v1.ListNodesResponse]
+	createNode       *connect.Client[v1.CreateNodeRequest, v1.CreateNodeResponse]
+	getNode          *connect.Client[v1.GetNodeRequest, v1.GetNodeResponse]
+	getNodeBulk      *connect.Client[v1.GetNodeBulkRequest, v1.GetNodeBulkResponse]
+	updateNode       *connect.Client[v1.UpdateNodeRequest, v1.UpdateNodeResponse]
+	deleteNode       *connect.Client[v1.DeleteNodeRequest, v1.DeleteNodeResponse]
+	moveNode         *connect.Client[v1.MoveNodeRequest, v1.MoveNodeResponse]
+	runNode          *connect.Client[v1.RunNodeRequest, v1.RunNodeResponse]
 }
 
-// Create calls collection.v1.CollectionService.Create.
-func (c *collectionServiceClient) Create(ctx context.Context, req *connect.Request[v1.CreateRequest]) (*connect.Response[v1.CreateResponse], error) {
-	return c.create.CallUnary(ctx, req)
+// ListCollections calls collection.v1.CollectionService.ListCollections.
+func (c *collectionServiceClient) ListCollections(ctx context.Context, req *connect.Request[v1.ListCollectionsRequest]) (*connect.Response[v1.ListCollectionsResponse], error) {
+	return c.listCollections.CallUnary(ctx, req)
 }
 
-// Save calls collection.v1.CollectionService.Save.
-func (c *collectionServiceClient) Save(ctx context.Context, req *connect.Request[v1.SaveRequest]) (*connect.Response[v1.SaveResponse], error) {
-	return c.save.CallUnary(ctx, req)
+// CreateCollection calls collection.v1.CollectionService.CreateCollection.
+func (c *collectionServiceClient) CreateCollection(ctx context.Context, req *connect.Request[v1.CreateCollectionRequest]) (*connect.Response[v1.CreateCollectionResponse], error) {
+	return c.createCollection.CallUnary(ctx, req)
 }
 
-// Load calls collection.v1.CollectionService.Load.
-func (c *collectionServiceClient) Load(ctx context.Context, req *connect.Request[v1.LoadRequest]) (*connect.Response[v1.LoadResponse], error) {
-	return c.load.CallUnary(ctx, req)
+// GetCollection calls collection.v1.CollectionService.GetCollection.
+func (c *collectionServiceClient) GetCollection(ctx context.Context, req *connect.Request[v1.GetCollectionRequest]) (*connect.Response[v1.GetCollectionResponse], error) {
+	return c.getCollection.CallUnary(ctx, req)
 }
 
-// Delete calls collection.v1.CollectionService.Delete.
-func (c *collectionServiceClient) Delete(ctx context.Context, req *connect.Request[v1.DeleteRequest]) (*connect.Response[v1.DeleteResponse], error) {
-	return c.delete.CallUnary(ctx, req)
+// UpdateCollection calls collection.v1.CollectionService.UpdateCollection.
+func (c *collectionServiceClient) UpdateCollection(ctx context.Context, req *connect.Request[v1.UpdateCollectionRequest]) (*connect.Response[v1.UpdateCollectionResponse], error) {
+	return c.updateCollection.CallUnary(ctx, req)
 }
 
-// List calls collection.v1.CollectionService.List.
-func (c *collectionServiceClient) List(ctx context.Context, req *connect.Request[v1.ListRequest]) (*connect.Response[v1.ListResponse], error) {
-	return c.list.CallUnary(ctx, req)
+// DeleteCollection calls collection.v1.CollectionService.DeleteCollection.
+func (c *collectionServiceClient) DeleteCollection(ctx context.Context, req *connect.Request[v1.DeleteCollectionRequest]) (*connect.Response[v1.DeleteCollectionResponse], error) {
+	return c.deleteCollection.CallUnary(ctx, req)
 }
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
@@ -175,24 +265,68 @@ func (c *collectionServiceClient) ImportPostman(ctx context.Context, req *connec
 	return c.importPostman.CallUnary(ctx, req)
 }
 
-// Move calls collection.v1.CollectionService.Move.
-func (c *collectionServiceClient) Move(ctx context.Context, req *connect.Request[v1.MoveRequest]) (*connect.Response[v1.MoveResponse], error) {
-	return c.move.CallUnary(ctx, req)
+// ListNodes calls collection.v1.CollectionService.ListNodes.
+func (c *collectionServiceClient) ListNodes(ctx context.Context, req *connect.Request[v1.ListNodesRequest]) (*connect.Response[v1.ListNodesResponse], error) {
+	return c.listNodes.CallUnary(ctx, req)
+}
+
+// CreateNode calls collection.v1.CollectionService.CreateNode.
+func (c *collectionServiceClient) CreateNode(ctx context.Context, req *connect.Request[v1.CreateNodeRequest]) (*connect.Response[v1.CreateNodeResponse], error) {
+	return c.createNode.CallUnary(ctx, req)
+}
+
+// GetNode calls collection.v1.CollectionService.GetNode.
+func (c *collectionServiceClient) GetNode(ctx context.Context, req *connect.Request[v1.GetNodeRequest]) (*connect.Response[v1.GetNodeResponse], error) {
+	return c.getNode.CallUnary(ctx, req)
+}
+
+// GetNodeBulk calls collection.v1.CollectionService.GetNodeBulk.
+func (c *collectionServiceClient) GetNodeBulk(ctx context.Context, req *connect.Request[v1.GetNodeBulkRequest]) (*connect.Response[v1.GetNodeBulkResponse], error) {
+	return c.getNodeBulk.CallUnary(ctx, req)
+}
+
+// UpdateNode calls collection.v1.CollectionService.UpdateNode.
+func (c *collectionServiceClient) UpdateNode(ctx context.Context, req *connect.Request[v1.UpdateNodeRequest]) (*connect.Response[v1.UpdateNodeResponse], error) {
+	return c.updateNode.CallUnary(ctx, req)
+}
+
+// DeleteNode calls collection.v1.CollectionService.DeleteNode.
+func (c *collectionServiceClient) DeleteNode(ctx context.Context, req *connect.Request[v1.DeleteNodeRequest]) (*connect.Response[v1.DeleteNodeResponse], error) {
+	return c.deleteNode.CallUnary(ctx, req)
+}
+
+// MoveNode calls collection.v1.CollectionService.MoveNode.
+func (c *collectionServiceClient) MoveNode(ctx context.Context, req *connect.Request[v1.MoveNodeRequest]) (*connect.Response[v1.MoveNodeResponse], error) {
+	return c.moveNode.CallUnary(ctx, req)
+}
+
+// RunNode calls collection.v1.CollectionService.RunNode.
+func (c *collectionServiceClient) RunNode(ctx context.Context, req *connect.Request[v1.RunNodeRequest]) (*connect.Response[v1.RunNodeResponse], error) {
+	return c.runNode.CallUnary(ctx, req)
 }
 
 // CollectionServiceHandler is an implementation of the collection.v1.CollectionService service.
 type CollectionServiceHandler interface {
-	// CRUD operations
-	Create(context.Context, *connect.Request[v1.CreateRequest]) (*connect.Response[v1.CreateResponse], error)
-	Save(context.Context, *connect.Request[v1.SaveRequest]) (*connect.Response[v1.SaveResponse], error)
-	Load(context.Context, *connect.Request[v1.LoadRequest]) (*connect.Response[v1.LoadResponse], error)
-	Delete(context.Context, *connect.Request[v1.DeleteRequest]) (*connect.Response[v1.DeleteResponse], error)
-	List(context.Context, *connect.Request[v1.ListRequest]) (*connect.Response[v1.ListResponse], error)
-	// // Helper rpcs
+	// Collection operations
+	ListCollections(context.Context, *connect.Request[v1.ListCollectionsRequest]) (*connect.Response[v1.ListCollectionsResponse], error)
+	CreateCollection(context.Context, *connect.Request[v1.CreateCollectionRequest]) (*connect.Response[v1.CreateCollectionResponse], error)
+	GetCollection(context.Context, *connect.Request[v1.GetCollectionRequest]) (*connect.Response[v1.GetCollectionResponse], error)
+	UpdateCollection(context.Context, *connect.Request[v1.UpdateCollectionRequest]) (*connect.Response[v1.UpdateCollectionResponse], error)
+	DeleteCollection(context.Context, *connect.Request[v1.DeleteCollectionRequest]) (*connect.Response[v1.DeleteCollectionResponse], error)
+	// Helper rpcs
 	// // // postman
 	ImportPostman(context.Context, *connect.Request[v1.ImportPostmanRequest]) (*connect.Response[v1.ImportPostmanResponse], error)
-	// // // Move node to another parent
-	Move(context.Context, *connect.Request[v1.MoveRequest]) (*connect.Response[v1.MoveResponse], error)
+	// Node operations
+	ListNodes(context.Context, *connect.Request[v1.ListNodesRequest]) (*connect.Response[v1.ListNodesResponse], error)
+	CreateNode(context.Context, *connect.Request[v1.CreateNodeRequest]) (*connect.Response[v1.CreateNodeResponse], error)
+	GetNode(context.Context, *connect.Request[v1.GetNodeRequest]) (*connect.Response[v1.GetNodeResponse], error)
+	GetNodeBulk(context.Context, *connect.Request[v1.GetNodeBulkRequest]) (*connect.Response[v1.GetNodeBulkResponse], error)
+	UpdateNode(context.Context, *connect.Request[v1.UpdateNodeRequest]) (*connect.Response[v1.UpdateNodeResponse], error)
+	DeleteNode(context.Context, *connect.Request[v1.DeleteNodeRequest]) (*connect.Response[v1.DeleteNodeResponse], error)
+	// Helper rpcs
+	// // Move node to another parent or collection
+	MoveNode(context.Context, *connect.Request[v1.MoveNodeRequest]) (*connect.Response[v1.MoveNodeResponse], error)
+	RunNode(context.Context, *connect.Request[v1.RunNodeRequest]) (*connect.Response[v1.RunNodeResponse], error)
 }
 
 // NewCollectionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -201,34 +335,34 @@ type CollectionServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	collectionServiceCreateHandler := connect.NewUnaryHandler(
-		CollectionServiceCreateProcedure,
-		svc.Create,
-		connect.WithSchema(collectionServiceCreateMethodDescriptor),
+	collectionServiceListCollectionsHandler := connect.NewUnaryHandler(
+		CollectionServiceListCollectionsProcedure,
+		svc.ListCollections,
+		connect.WithSchema(collectionServiceListCollectionsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	collectionServiceSaveHandler := connect.NewUnaryHandler(
-		CollectionServiceSaveProcedure,
-		svc.Save,
-		connect.WithSchema(collectionServiceSaveMethodDescriptor),
+	collectionServiceCreateCollectionHandler := connect.NewUnaryHandler(
+		CollectionServiceCreateCollectionProcedure,
+		svc.CreateCollection,
+		connect.WithSchema(collectionServiceCreateCollectionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	collectionServiceLoadHandler := connect.NewUnaryHandler(
-		CollectionServiceLoadProcedure,
-		svc.Load,
-		connect.WithSchema(collectionServiceLoadMethodDescriptor),
+	collectionServiceGetCollectionHandler := connect.NewUnaryHandler(
+		CollectionServiceGetCollectionProcedure,
+		svc.GetCollection,
+		connect.WithSchema(collectionServiceGetCollectionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	collectionServiceDeleteHandler := connect.NewUnaryHandler(
-		CollectionServiceDeleteProcedure,
-		svc.Delete,
-		connect.WithSchema(collectionServiceDeleteMethodDescriptor),
+	collectionServiceUpdateCollectionHandler := connect.NewUnaryHandler(
+		CollectionServiceUpdateCollectionProcedure,
+		svc.UpdateCollection,
+		connect.WithSchema(collectionServiceUpdateCollectionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	collectionServiceListHandler := connect.NewUnaryHandler(
-		CollectionServiceListProcedure,
-		svc.List,
-		connect.WithSchema(collectionServiceListMethodDescriptor),
+	collectionServiceDeleteCollectionHandler := connect.NewUnaryHandler(
+		CollectionServiceDeleteCollectionProcedure,
+		svc.DeleteCollection,
+		connect.WithSchema(collectionServiceDeleteCollectionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	collectionServiceImportPostmanHandler := connect.NewUnaryHandler(
@@ -237,28 +371,84 @@ func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.H
 		connect.WithSchema(collectionServiceImportPostmanMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	collectionServiceMoveHandler := connect.NewUnaryHandler(
-		CollectionServiceMoveProcedure,
-		svc.Move,
-		connect.WithSchema(collectionServiceMoveMethodDescriptor),
+	collectionServiceListNodesHandler := connect.NewUnaryHandler(
+		CollectionServiceListNodesProcedure,
+		svc.ListNodes,
+		connect.WithSchema(collectionServiceListNodesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceCreateNodeHandler := connect.NewUnaryHandler(
+		CollectionServiceCreateNodeProcedure,
+		svc.CreateNode,
+		connect.WithSchema(collectionServiceCreateNodeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceGetNodeHandler := connect.NewUnaryHandler(
+		CollectionServiceGetNodeProcedure,
+		svc.GetNode,
+		connect.WithSchema(collectionServiceGetNodeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceGetNodeBulkHandler := connect.NewUnaryHandler(
+		CollectionServiceGetNodeBulkProcedure,
+		svc.GetNodeBulk,
+		connect.WithSchema(collectionServiceGetNodeBulkMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceUpdateNodeHandler := connect.NewUnaryHandler(
+		CollectionServiceUpdateNodeProcedure,
+		svc.UpdateNode,
+		connect.WithSchema(collectionServiceUpdateNodeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceDeleteNodeHandler := connect.NewUnaryHandler(
+		CollectionServiceDeleteNodeProcedure,
+		svc.DeleteNode,
+		connect.WithSchema(collectionServiceDeleteNodeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceMoveNodeHandler := connect.NewUnaryHandler(
+		CollectionServiceMoveNodeProcedure,
+		svc.MoveNode,
+		connect.WithSchema(collectionServiceMoveNodeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	collectionServiceRunNodeHandler := connect.NewUnaryHandler(
+		CollectionServiceRunNodeProcedure,
+		svc.RunNode,
+		connect.WithSchema(collectionServiceRunNodeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/collection.v1.CollectionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case CollectionServiceCreateProcedure:
-			collectionServiceCreateHandler.ServeHTTP(w, r)
-		case CollectionServiceSaveProcedure:
-			collectionServiceSaveHandler.ServeHTTP(w, r)
-		case CollectionServiceLoadProcedure:
-			collectionServiceLoadHandler.ServeHTTP(w, r)
-		case CollectionServiceDeleteProcedure:
-			collectionServiceDeleteHandler.ServeHTTP(w, r)
-		case CollectionServiceListProcedure:
-			collectionServiceListHandler.ServeHTTP(w, r)
+		case CollectionServiceListCollectionsProcedure:
+			collectionServiceListCollectionsHandler.ServeHTTP(w, r)
+		case CollectionServiceCreateCollectionProcedure:
+			collectionServiceCreateCollectionHandler.ServeHTTP(w, r)
+		case CollectionServiceGetCollectionProcedure:
+			collectionServiceGetCollectionHandler.ServeHTTP(w, r)
+		case CollectionServiceUpdateCollectionProcedure:
+			collectionServiceUpdateCollectionHandler.ServeHTTP(w, r)
+		case CollectionServiceDeleteCollectionProcedure:
+			collectionServiceDeleteCollectionHandler.ServeHTTP(w, r)
 		case CollectionServiceImportPostmanProcedure:
 			collectionServiceImportPostmanHandler.ServeHTTP(w, r)
-		case CollectionServiceMoveProcedure:
-			collectionServiceMoveHandler.ServeHTTP(w, r)
+		case CollectionServiceListNodesProcedure:
+			collectionServiceListNodesHandler.ServeHTTP(w, r)
+		case CollectionServiceCreateNodeProcedure:
+			collectionServiceCreateNodeHandler.ServeHTTP(w, r)
+		case CollectionServiceGetNodeProcedure:
+			collectionServiceGetNodeHandler.ServeHTTP(w, r)
+		case CollectionServiceGetNodeBulkProcedure:
+			collectionServiceGetNodeBulkHandler.ServeHTTP(w, r)
+		case CollectionServiceUpdateNodeProcedure:
+			collectionServiceUpdateNodeHandler.ServeHTTP(w, r)
+		case CollectionServiceDeleteNodeProcedure:
+			collectionServiceDeleteNodeHandler.ServeHTTP(w, r)
+		case CollectionServiceMoveNodeProcedure:
+			collectionServiceMoveNodeHandler.ServeHTTP(w, r)
+		case CollectionServiceRunNodeProcedure:
+			collectionServiceRunNodeHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -268,30 +458,58 @@ func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.H
 // UnimplementedCollectionServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedCollectionServiceHandler struct{}
 
-func (UnimplementedCollectionServiceHandler) Create(context.Context, *connect.Request[v1.CreateRequest]) (*connect.Response[v1.CreateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.Create is not implemented"))
+func (UnimplementedCollectionServiceHandler) ListCollections(context.Context, *connect.Request[v1.ListCollectionsRequest]) (*connect.Response[v1.ListCollectionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.ListCollections is not implemented"))
 }
 
-func (UnimplementedCollectionServiceHandler) Save(context.Context, *connect.Request[v1.SaveRequest]) (*connect.Response[v1.SaveResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.Save is not implemented"))
+func (UnimplementedCollectionServiceHandler) CreateCollection(context.Context, *connect.Request[v1.CreateCollectionRequest]) (*connect.Response[v1.CreateCollectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CreateCollection is not implemented"))
 }
 
-func (UnimplementedCollectionServiceHandler) Load(context.Context, *connect.Request[v1.LoadRequest]) (*connect.Response[v1.LoadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.Load is not implemented"))
+func (UnimplementedCollectionServiceHandler) GetCollection(context.Context, *connect.Request[v1.GetCollectionRequest]) (*connect.Response[v1.GetCollectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.GetCollection is not implemented"))
 }
 
-func (UnimplementedCollectionServiceHandler) Delete(context.Context, *connect.Request[v1.DeleteRequest]) (*connect.Response[v1.DeleteResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.Delete is not implemented"))
+func (UnimplementedCollectionServiceHandler) UpdateCollection(context.Context, *connect.Request[v1.UpdateCollectionRequest]) (*connect.Response[v1.UpdateCollectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.UpdateCollection is not implemented"))
 }
 
-func (UnimplementedCollectionServiceHandler) List(context.Context, *connect.Request[v1.ListRequest]) (*connect.Response[v1.ListResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.List is not implemented"))
+func (UnimplementedCollectionServiceHandler) DeleteCollection(context.Context, *connect.Request[v1.DeleteCollectionRequest]) (*connect.Response[v1.DeleteCollectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.DeleteCollection is not implemented"))
 }
 
 func (UnimplementedCollectionServiceHandler) ImportPostman(context.Context, *connect.Request[v1.ImportPostmanRequest]) (*connect.Response[v1.ImportPostmanResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.ImportPostman is not implemented"))
 }
 
-func (UnimplementedCollectionServiceHandler) Move(context.Context, *connect.Request[v1.MoveRequest]) (*connect.Response[v1.MoveResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.Move is not implemented"))
+func (UnimplementedCollectionServiceHandler) ListNodes(context.Context, *connect.Request[v1.ListNodesRequest]) (*connect.Response[v1.ListNodesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.ListNodes is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) CreateNode(context.Context, *connect.Request[v1.CreateNodeRequest]) (*connect.Response[v1.CreateNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CreateNode is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) GetNode(context.Context, *connect.Request[v1.GetNodeRequest]) (*connect.Response[v1.GetNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.GetNode is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) GetNodeBulk(context.Context, *connect.Request[v1.GetNodeBulkRequest]) (*connect.Response[v1.GetNodeBulkResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.GetNodeBulk is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) UpdateNode(context.Context, *connect.Request[v1.UpdateNodeRequest]) (*connect.Response[v1.UpdateNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.UpdateNode is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) DeleteNode(context.Context, *connect.Request[v1.DeleteNodeRequest]) (*connect.Response[v1.DeleteNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.DeleteNode is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) MoveNode(context.Context, *connect.Request[v1.MoveNodeRequest]) (*connect.Response[v1.MoveNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.MoveNode is not implemented"))
+}
+
+func (UnimplementedCollectionServiceHandler) RunNode(context.Context, *connect.Request[v1.RunNodeRequest]) (*connect.Response[v1.RunNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.RunNode is not implemented"))
 }
