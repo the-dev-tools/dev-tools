@@ -41,8 +41,7 @@ message ListCollectionsRequest {
 }
 
 message ListCollectionsResponse {
-  repeated string ids = 1; // collection ids
-  repeated string names = 2; // collection names
+  repeated SimpleCollection simple_collections = 1;
 }
 
 // // Create
@@ -104,6 +103,7 @@ message ListNodesRequest {
 message ListNodesResponse {
   repeated string ids = 1; // node ids
 }
+
 
 message CreateNodeRequest {
     string id = 1; // node id
@@ -171,6 +171,11 @@ message RunNodeResponse {
   int32 status = 1;
   bytes body = 2;
   int64 duration = 3;
+}
+
+message SimpleCollection {
+  string id = 1;
+  string name = 2;
 }
 
 // Collection Node
