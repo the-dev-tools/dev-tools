@@ -4,10 +4,10 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from '@t
 import { Effect, Option, pipe } from 'effect';
 import { useState } from 'react';
 
+import * as Auth from '@the-dev-tools/api/auth';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 
-import * as Auth from './auth';
 import { Runtime } from './runtime';
 
 const root = createRootRoute();

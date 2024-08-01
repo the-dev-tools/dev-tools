@@ -2,11 +2,14 @@ import { createRouterTransport, Interceptor, Transport } from '@connectrpc/conne
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Context, Effect, Layer, pipe, Runtime } from 'effect';
+import { Context, DateTime, Effect, Layer, pipe, Runtime } from 'effect';
+import * as Jose from 'jose';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
 import { CollectionService } from '@the-dev-tools/protobuf/collection/v1/collection_connect';
 import { FlowService } from '@the-dev-tools/protobuf/flow/v1/flow_connect';
+
+import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
 
 export class ApiTransport extends Context.Tag('ApiTransport')<ApiTransport, Transport>() {}
 
@@ -21,14 +24,39 @@ export const ApiTransportDev = Layer.effect(
   }),
 );
 
+let mockEmailCount = 0;
+const mockTokens = Effect.gen(function* () {
+  const accessToken = yield* pipe(
+    AccessTokenPayload.make({
+      token_type: 'access_token',
+      exp: pipe(yield* DateTime.now, DateTime.add({ hours: 2 }), DateTime.toDate),
+      email: (++mockEmailCount).toString() + '@mock.com',
+    }),
+    Schema.encode(AccessTokenPayload),
+    Effect.map((_) => new Jose.UnsecuredJWT(_).encode()),
+  );
+
+  const refreshToken = yield* pipe(
+    RefreshTokenPayload.make({
+      token_type: 'refresh_token',
+      exp: pipe(yield* DateTime.now, DateTime.add({ days: 2 }), DateTime.toDate),
+    }),
+    Schema.encode(RefreshTokenPayload),
+    Effect.map((_) => new Jose.UnsecuredJWT(_).encode()),
+  );
+
+  return { accessToken, refreshToken };
+});
+
 export const ApiTransportMock = Layer.effect(
   ApiTransport,
   Effect.gen(function* () {
+    const runtime = yield* Effect.runtime<KeyValueStore>();
     return createRouterTransport(
       (router) => {
         router.service(AuthService, {
-          dID: (_) => ({ accessToken: _.didToken, refreshToken: _.didToken }),
-          refreshToken: (_) => ({ accessToken: _.refreshToken, refreshToken: _.refreshToken }),
+          dID: () => Runtime.runPromise(runtime)(mockTokens),
+          refreshToken: () => Runtime.runPromise(runtime)(mockTokens),
         });
         router.service(CollectionService, {
           createCollection: (_) => ({ id: _.name, name: _.name }),
