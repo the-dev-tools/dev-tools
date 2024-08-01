@@ -1,12 +1,13 @@
-import { dirname, join } from 'path';
+import { fileURLToPath } from 'node:url';
+import { dirname, normalize } from 'path';
 import { Array, pipe, String } from 'effect';
 import { ContentConfig } from 'tailwindcss/types/config';
 
 export const tailwindContent = pipe(
-  '@the-dev-tools/ui',
-  require.resolve,
+  import.meta.url,
+  fileURLToPath,
   dirname,
   String.concat('/**/*.tsx'),
-  join,
-  Array.ensure,
+  normalize,
+  Array.make,
 ) satisfies ContentConfig;
