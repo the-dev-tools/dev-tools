@@ -9,7 +9,6 @@ service AuthService {
   // INFO: auth with DID token src: https://magic.link/docs/authentication/features/decentralized-id
   rpc DID (AuthServiceDIDRequest) returns (AuthServiceDIDResponse);
   rpc RefreshToken (AuthServiceRefreshTokenRequest) returns (AuthServiceRefreshTokenResponse); // INFO: will valid until 2 day
-  rpc AccessToken (AuthServiceAccessTokenRequest) returns (AuthServiceAccessTokenResponse); // INFO: will valid until 1 hour
 }
 
 // DID
@@ -29,13 +28,5 @@ message AuthServiceRefreshTokenRequest {
 
 message AuthServiceRefreshTokenResponse {
   string refresh_token = 1;
-}
-
-// Access token
-message AuthServiceAccessTokenRequest {
-  string refresh_token = 1;
-}
-
-message AuthServiceAccessTokenResponse {
-  string access_token = 1;
+  string access_token = 2;
 }
