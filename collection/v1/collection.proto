@@ -42,6 +42,7 @@ message ListCollectionsRequest {
 
 message ListCollectionsResponse {
   repeated string ids = 1; // collection ids
+  repeated string names = 2; // collection names
 }
 
 // // Create

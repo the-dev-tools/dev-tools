@@ -19,6 +19,7 @@ message AuthServiceDIDRequest {
 
 message AuthServiceDIDResponse {
   string refresh_token = 1;
+  string access_token = 2;
 }
 
 // Refresh token
