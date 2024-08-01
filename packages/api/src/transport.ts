@@ -25,16 +25,16 @@ export const ApiTransportMock = Layer.effect(
   ApiTransport,
   Effect.gen(function* () {
     return createRouterTransport(
-      ({ service }) => {
-        service(AuthService, {
-          dID: (_) => ({ refreshToken: _.didToken }),
-          accessToken: (_) => ({ accessToken: _.refreshToken }),
+      (router) => {
+        router.service(AuthService, {
+          dID: (_) => ({ accessToken: _.didToken, refreshToken: _.didToken }),
+          refreshToken: (_) => ({ accessToken: _.refreshToken, refreshToken: _.refreshToken }),
         });
-        service(CollectionService, {
+        router.service(CollectionService, {
           createCollection: (_) => ({ id: _.name, name: _.name }),
           listCollections: () => ({ ids: [] }),
         });
-        service(FlowService, {
+        router.service(FlowService, {
           create: (_) => ({ id: _.name, name: _.name }),
           save: () => ({}),
           load: (_) => ({ id: _.name, name: _.name, nodes: {}, vars: {} }),

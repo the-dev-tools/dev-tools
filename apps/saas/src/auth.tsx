@@ -11,6 +11,7 @@ export const magicLink = new Magic('pk_live_75E3754872D9F513', {
 });
 
 const accessTokenKey = 'AccessToken';
+const refreshTokenKey = 'RefreshToken';
 
 export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   Effect.gen(function* () {
@@ -19,16 +20,17 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
       Effect.flatMap(Effect.fromNullable),
     );
     const apiClient = yield* ApiClient;
-    const { refreshToken } = (yield* apiClient.auth.dID({ didToken })).message;
-    const { accessToken } = (yield* apiClient.auth.accessToken({ refreshToken })).message;
+    const { accessToken, refreshToken } = (yield* apiClient.auth.dID({ didToken })).message;
     const store = yield* KeyValueStore;
     yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
+    yield* store.forSchema(Schema.String).set(refreshTokenKey, refreshToken);
   });
 
 export const logout = Effect.gen(function* () {
   yield* Effect.tryPromise(() => magicLink.user.logout());
   const store = yield* KeyValueStore;
   yield* store.remove(accessTokenKey);
+  yield* store.remove(refreshTokenKey);
 });
 
 export const getUser = Effect.gen(function* () {
