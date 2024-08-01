@@ -17,11 +17,13 @@ const (
 type DefaultClaims struct {
 	jwt.RegisteredClaims
 	TokenType TokenType `json:"token_type"`
+	Email     string    `json:"email"`
 }
 
-func NewJWT(id string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
+func NewJWT(id, email string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, DefaultClaims{
 		TokenType: tokenType,
+		Email:     email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "devtools-backend",
 			Subject:   "devtools-backend",
@@ -67,4 +69,12 @@ func ValidateJWT(tokenString string, tokenType TokenType, secret []byte) (*jwt.T
 	}
 
 	return token, nil
+}
+
+func GetClaims(token *jwt.Token) *DefaultClaims {
+	claims, ok := token.Claims.(*DefaultClaims)
+	if !ok {
+		return nil
+	}
+	return claims
 }

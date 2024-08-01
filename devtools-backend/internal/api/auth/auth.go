@@ -45,12 +45,19 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		return nil, err
 	}
 
-	jwtToken, err := stoken.NewJWT(publicAddress, stoken.RefreshToken, RefreshTokenTimeSpan, a.hmacSecret)
+	userInfo, err := a.clientAPI.User.GetMetadataByPublicAddress(publicAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := stoken.NewJWT(publicAddress, stoken.AccessToken, AccessTokenTimeSpan, a.hmacSecret)
+	email := userInfo.Email
+
+	jwtToken, err := stoken.NewJWT(publicAddress, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.hmacSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := stoken.NewJWT(publicAddress, email, stoken.AccessToken, AccessTokenTimeSpan, a.hmacSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -75,18 +82,20 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	subject, err := jwtToken.Claims.GetSubject()
+	claims := stoken.GetClaims(jwtToken)
+
+	subject, err := claims.GetSubject()
 	if err != nil {
 		return nil, err
 	}
 
 	// generate new refresh token
-	newRefreshJWT, err := stoken.NewJWT(subject, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	newRefreshJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	newAccessJWT, err := stoken.NewJWT(subject, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	newAccessJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

@@ -9,8 +9,9 @@ import (
 func TestNewJWT(t *testing.T) {
 	someID := "someID"
 	secret := []byte("someSecret")
+	someEmail := "someEmail"
 
-	jwtToken, err := stoken.NewJWT(someID, stoken.AccessToken, time.Hour, secret)
+	jwtToken, err := stoken.NewJWT(someID, someEmail, stoken.AccessToken, time.Hour, secret)
 	if err != nil {
 		t.Fatalf("NewJWT() failed: %v", err)
 	}
@@ -29,8 +30,9 @@ func TestFailNotValidSecretValidate(t *testing.T) {
 	someID := "someID"
 	secret := []byte("someSecret")
 	wrongSecret := []byte("wrongSecret")
+	someEmail := "someEmail"
 
-	jwtToken, err := stoken.NewJWT(someID, stoken.AccessToken, time.Hour, secret)
+	jwtToken, err := stoken.NewJWT(someID, someEmail, stoken.AccessToken, time.Hour, secret)
 	if err != nil {
 		t.Fatalf("NewJWT() failed: %v", err)
 	}
@@ -48,9 +50,10 @@ func TestFailNotValidSecretValidate(t *testing.T) {
 func TestFailNotValidTokenType(t *testing.T) {
 	someID := "someID"
 	secret := []byte("someSecret")
+	someEmail := "someEmail"
 
 	t.Run("FailNotValidTokenType AccessToken", func(t *testing.T) {
-		jwtToken, err := stoken.NewJWT(someID, stoken.AccessToken, time.Hour, secret)
+		jwtToken, err := stoken.NewJWT(someID, someEmail, stoken.AccessToken, time.Hour, secret)
 		if err != nil {
 			t.Fatalf("NewJWT() failed: %v", err)
 		}
@@ -62,7 +65,7 @@ func TestFailNotValidTokenType(t *testing.T) {
 	})
 
 	t.Run("FailNotValidTokenType RefreshToken", func(t *testing.T) {
-		jwtToken, err := stoken.NewJWT(someID, stoken.RefreshToken, time.Hour, secret)
+		jwtToken, err := stoken.NewJWT(someID, someEmail, stoken.RefreshToken, time.Hour, secret)
 		if err != nil {
 			t.Fatalf("NewJWT() failed: %v", err)
 		}
