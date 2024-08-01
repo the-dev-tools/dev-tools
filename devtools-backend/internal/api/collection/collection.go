@@ -394,6 +394,9 @@ func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[co
 	}
 
 	node, err := scollection.GetCollectionNode(c.db, ulidID)
+	if err != nil {
+		return nil, err
+	}
 
 	tempNode := &mnode.Node{
 		ID:      node.ID.String(),
