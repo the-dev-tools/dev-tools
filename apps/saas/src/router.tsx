@@ -69,7 +69,7 @@ const dashboard = createRoute({
         <div className='flex h-full w-80 flex-col overflow-auto border-r-4 border-black p-2'>
           <h1 className='text-center text-2xl font-extrabold'>The Dev Tools</h1>
           <div className='flex-1' />
-          <div className='overflow-hidden text-ellipsis text-nowrap'>JWT: {userInfo.jwt}</div>
+          <div className='mb-1'>User: {userInfo.email}</div>
           <Button
             onPress={async () => {
               await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
