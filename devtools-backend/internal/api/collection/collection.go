@@ -138,7 +138,7 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 }
 
 func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	collections, err := scollection.ListCollections(c.db)
+	collections, names, err := scollection.ListCollections(c.db)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,8 @@ func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Re
 	}
 
 	respRaw := &collectionv1.ListCollectionsResponse{
-		Ids: ids,
+		Ids:   ids,
+		Names: names,
 	}
 
 	resp := connect.NewResponse(respRaw)

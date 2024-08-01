@@ -93,7 +93,7 @@ func PrepareStatements(db *sql.DB) error {
 	}
 	// List
 	PreparedListCollections, err = db.Prepare(`
-                SELECT id
+                SELECT id, name
                 FROM collections
         `)
 	if err != nil {
@@ -208,22 +208,25 @@ func DeleteCollection(db *sql.DB, id ulid.ULID) error {
 	return err
 }
 
-func ListCollections(db *sql.DB) ([]ulid.ULID, error) {
+func ListCollections(db *sql.DB) ([]ulid.ULID, []string, error) {
 	rows, err := PreparedListCollections.Query()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 	var collections []ulid.ULID
+	var names []string
 	for rows.Next() {
 		var collection ulid.ULID
-		err = rows.Scan(&collection)
+		var name string
+		err = rows.Scan(&collection, &name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		collections = append(collections, collection)
+		names = append(names, name)
 	}
-	return collections, nil
+	return collections, names, nil
 }
 
 func GetCollectionNodeWithCollectionID(db *sql.DB, collectionID ulid.ULID) ([]ulid.ULID, error) {

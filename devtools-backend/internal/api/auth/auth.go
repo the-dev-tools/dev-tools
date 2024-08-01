@@ -17,6 +17,11 @@ import (
 	"github.com/magiclabs/magic-admin-go/token"
 )
 
+var (
+	AccessTokenTimeSpan  = time.Hour * 2
+	RefreshTokenTimeSpan = time.Hour * 24 * 2
+)
+
 type AuthServer struct {
 	clientAPI  *client.API
 	hmacSecret []byte
@@ -40,13 +45,19 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		return nil, err
 	}
 
-	jwtToken, err := stoken.NewJWT(publicAddress, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	jwtToken, err := stoken.NewJWT(publicAddress, stoken.RefreshToken, RefreshTokenTimeSpan, a.hmacSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := stoken.NewJWT(publicAddress, stoken.AccessToken, AccessTokenTimeSpan, a.hmacSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	respRaw := &authv1.AuthServiceDIDResponse{
 		RefreshToken: jwtToken,
+		AccessToken:  accessToken,
 	}
 
 	resp := connect.NewResponse(respRaw)

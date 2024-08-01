@@ -85,7 +85,8 @@ func AuthFuncHandler() {
 	}
 
 	fmt.Println("Response: ", resp)
-	fmt.Println("Details: ", resp.Msg.Token)
+	fmt.Println("AccessToken: ", resp.Msg.AccessToken)
+	fmt.Println("RefreshToken: ", resp.Msg.RefreshToken)
 }
 
 func NodeFuncHandler() {
