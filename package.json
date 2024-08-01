@@ -8,16 +8,6 @@
     "lint": "turbo lint"
   },
   "pnpm": {
-    "supportedArchitectures": {
-      "os": [
-        "linux",
-        "darwin"
-      ],
-      "cpu": [
-        "x64",
-        "arm64"
-      ]
-    },
     "peerDependencyRules": {
       "allowedVersions": {
         "svgo": "^2.8.0",
