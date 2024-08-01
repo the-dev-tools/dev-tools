@@ -12,6 +12,6 @@
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.4"
   }
 }
