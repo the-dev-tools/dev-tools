@@ -7,7 +7,6 @@ import * as Auth from '@the-dev-tools/api/auth';
 import { Runtime } from './runtime';
 
 const route = getRouteApi('/login');
-const dashboardRoute = getRouteApi('/authenticated/dashboard');
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -24,7 +23,8 @@ export const LoginPage = () => {
         onClick={() =>
           Effect.gen(function* () {
             yield* Auth.login({ email });
-            router.history.push(redirect ?? dashboardRoute.id);
+            if (redirect) router.history.push(redirect);
+            else void router.navigate({ to: '/' });
             queueMicrotask(() => void location.reload());
           }).pipe(Runtime.runPromise)
         }
