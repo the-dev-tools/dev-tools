@@ -60,6 +60,7 @@ export const ApiTransportMock = Layer.effect(
         });
         router.service(CollectionService, {
           createCollection: (_) => ({ id: _.name, name: _.name }),
+          getCollectionWithNode: (_) => ({ id: _.id, name: _.id, nodes: [] }),
           listCollections: () => ({ simpleCollections: [{ id: 'test', name: 'test' }] }),
         });
         router.service(FlowService, {

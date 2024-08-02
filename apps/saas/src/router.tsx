@@ -4,8 +4,8 @@ import { Effect, Option, pipe } from 'effect';
 
 import * as Auth from '@the-dev-tools/api/auth';
 
-import { CollectionListPage } from './collection';
-import { DashboardLayout } from './dashboard';
+import { CollectionEditPage, CollectionListPage } from './collection';
+import { DashboardIndexPage, DashboardLayout } from './dashboard';
 import { LoginPage } from './login';
 import { Runtime } from './runtime';
 
@@ -17,7 +17,7 @@ class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
 
 const login = createRoute({
   getParentRoute: () => root,
-  path: 'login',
+  path: '/login',
   validateSearch: Schema.decodeSync(LoginSearch),
   component: LoginPage,
 });
@@ -43,10 +43,25 @@ const dashboard = createRoute({
 const dashboardIndex = createRoute({
   getParentRoute: () => dashboard,
   path: '/',
+  component: DashboardIndexPage,
+});
+
+const collectionList = createRoute({
+  getParentRoute: () => dashboard,
+  path: '/collections',
   component: CollectionListPage,
 });
 
-const routeTree = root.addChildren([login, authenticated.addChildren([dashboard.addChildren([dashboardIndex])])]);
+const collectionEdit = createRoute({
+  getParentRoute: () => dashboard,
+  path: '/collection/$id',
+  component: CollectionEditPage,
+});
+
+const routeTree = root.addChildren([
+  login,
+  authenticated.addChildren([dashboard.addChildren([dashboardIndex, collectionList, collectionEdit])]),
+]);
 
 export const router = createRouter({ routeTree });
 
