@@ -5,6 +5,7 @@ option go_package = "devtools-services/gen/collection/v1;collectionv1";
 
 
 import "nodedata/v1/nodedata.proto";
+import "google/protobuf/empty.proto";
 
 
 service CollectionService {
@@ -125,8 +126,11 @@ message CreateNodeRequest {
 	  string collection_id = 2;
     string name = 3; // name of the node
     NodeType type = 4; // enum type of the node
-    optional string parent_id = 5; // INFO: optional
-    optional nodedata.v1.NodeApiCallData data = 6; // INFO: optional
+    string parent_id = 5; // can be empty for root node
+    oneof data { // INFO: optional
+      google.protobuf.Empty empty = 7;
+      nodedata.v1.NodeApiCallData api_call_data = 6;
+    }
 }
 
 message CreateNodeResponse {
@@ -155,7 +159,10 @@ message UpdateNodeRequest {
   string name = 3;
   NodeType type = 4;
   optional string parent_id = 5; // INFO: optional
-  optional nodedata.v1.NodeApiCallData data = 6; // INFO: optional
+  oneof data { // INFO: optional
+      Empty empty = 7;
+      nodedata.v1.NodeApiCallData api_call_data = 6;
+  }
 }
 
 message UpdateNodeResponse {
@@ -207,7 +214,7 @@ message CollectionNode {
     NodeType type = 4;
     string parent_id = 5; // can be empty for root node
     oneof data { // INFO: optional
-      Empty empty = 7;
+      google.protobuf.Empty empty = 7;
       nodedata.v1.NodeApiCallData api_call_data = 6;
     }
 }
