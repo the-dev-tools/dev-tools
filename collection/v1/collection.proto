@@ -12,6 +12,8 @@ service CollectionService {
   rpc ListCollections (ListCollectionsRequest) returns (ListCollectionsResponse);
   rpc CreateCollection (CreateCollectionRequest) returns (CreateCollectionResponse);
   rpc GetCollection  (GetCollectionRequest) returns (GetCollectionResponse);
+  rpc GetCollectionWithNode (GetCollectionWithNodeRequest) returns (GetCollectionWithNodeResponse);
+
   rpc UpdateCollection (UpdateCollectionRequest) returns (UpdateCollectionResponse);
   rpc DeleteCollection (DeleteCollectionRequest) returns (DeleteCollectionResponse);
 
@@ -34,6 +36,9 @@ service CollectionService {
   rpc MoveNode (MoveNodeRequest) returns (MoveNodeResponse);
   rpc RunNode (RunNodeRequest) returns (RunNodeResponse);
 }
+
+message Empty {}
+
 
 // Collection Operations Request and Response
 // // List
@@ -62,6 +67,16 @@ message GetCollectionRequest {
 message GetCollectionResponse {
   string id = 1;
   string name = 2;
+}
+
+message GetCollectionWithNodeRequest {
+  string id = 1;
+}
+
+message GetCollectionWithNodeResponse {
+  string id = 1;
+  string name = 2;
+  repeated CollectionNode nodes = 3;
 }
 
 // // Update
@@ -178,13 +193,22 @@ message SimpleCollection {
   string name = 2;
 }
 
+enum NodeType {
+  NODE_TYPE_UNSPECIFIED = 0;
+  NODE_TYPE_APICALL = 1;
+  NODE_TYPE_FOLDER = 2;
+}
+
 // Collection Node
 message CollectionNode {
     string id = 1;
 	  string collection_id = 2;
     string name = 3;
-    string type = 4; // such as "request", "folder"
-    optional string parent_id = 5; // INFO: optional
-    optional nodedata.v1.NodeApiCallData data = 6; // INFO: optional
+    NodeType type = 4;
+    string parent_id = 5; // can be empty for root node
+    oneof data { // INFO: optional
+      Empty empty = 7;
+      nodedata.v1.NodeApiCallData api_call_data = 6;
+    }
 }
 
