@@ -5,7 +5,6 @@ option go_package = "devtools-services/gen/collection/v1;collectionv1";
 
 
 import "nodedata/v1/nodedata.proto";
-import "google/protobuf/empty.proto";
 
 
 service CollectionService {
@@ -18,26 +17,23 @@ service CollectionService {
   rpc DeleteCollection (DeleteCollectionRequest) returns (DeleteCollectionResponse);
 
   // Helper rpcs
-  // // // postman
+  // // Postman
   rpc ImportPostman (ImportPostmanRequest) returns (ImportPostmanResponse);
 
-  // Node operations
-  rpc CreateItem (CreateItemRequest) returns (CreateItemResponse);
-
-  // Specific operations
+  // Specific operations per Item Type
+  // // Create
+  rpc CreateFolder (CreateFolderRequest) returns (CreateFolderResponse);
+  rpc CreateApiCall (CreateApiCallRequest) returns (CreateApiCallResponse);
+  // // Get
   rpc GetFolder (GetFolderRequest) returns (GetFolderResponse);
   rpc GetApiCall (GetApiCallRequest) returns (GetApiCallResponse);
-
+  // // Update
   rpc UpdateFolder (UpdateFolderRequest) returns (UpdateFolderResponse);
   rpc UpdateApiCall (UpdateApiCallRequest) returns (UpdateApiCallResponse);
-
-
+  // // Delete
   rpc DeleteFolder (DeleteFolderRequest) returns (DeleteFolderResponse);
   rpc DeleteApiCall (DeleteApiCallRequest) returns (DeleteApiCallResponse);
-
-
-
-  // Helper rpcs
+  // // Run
   rpc RunApiCall (RunApiCallRequest) returns (RunApiCallResponse);
 }
 
@@ -48,7 +44,7 @@ message ListCollectionsRequest {
 }
 
 message ListCollectionsResponse {
-  repeated SimpleCollection simple_collections = 1;
+  repeated MetaCollection meta_collections = 1;
 }
 
 // // Create
@@ -129,9 +125,32 @@ message RunApiCallResponse {
 }
 
 // Specific Operations Request and Response
+message CreateFolderRequest {
+  string name = 1;
+  string collection_id = 2;
+}
+
+message CreateFolderResponse {
+  string id = 1;
+  string name = 2;
+}
+
+message CreateApiCallRequest {
+  string collection_id = 1;
+  string name = 2;
+  nodedata.v1.NodeApiCallData api_call_data = 3;
+}
+
+message CreateApiCallResponse {
+  string id = 1;
+  string name = 2;
+}
+
+
 // // GET
 message GetFolderRequest {
   string id = 1;
+  string collection_id = 2;
 }
 
 message GetFolderResponse {
@@ -140,6 +159,7 @@ message GetFolderResponse {
 
 message GetApiCallRequest {
   string id = 1;
+  string collection_id = 2;
 }
 
 message GetApiCallResponse {
@@ -164,6 +184,7 @@ message UpdateApiCallResponse {
 // // DELETE
 message DeleteFolderRequest {
   string id = 1;
+  string collection_id = 2;
 }
 
 message DeleteFolderResponse {
@@ -171,15 +192,13 @@ message DeleteFolderResponse {
 
 message DeleteApiCallRequest {
   string id = 1;
+  string collection_id = 2;
 }
 
 message DeleteApiCallResponse {
 }
 
-
-
-
-message SimpleCollection {
+message MetaCollection {
   string id = 1;
   string name = 2;
 }
@@ -192,14 +211,26 @@ message Item {
   }
 }
 
+message ItemApiCallMeta {
+    string id = 1;
+    string name = 2;
+}
+
 message ItemApiCall {
     string id = 1;
     string name = 2;
-    nodedata.v1.NodeApiCallData api_call_data = 3;
+    string collection_id = 3;
+    nodedata.v1.NodeApiCallData api_call_data = 4;
+}
+
+message ItemFolderMeta {
+  string id = 1;
+  string name = 2;
 }
 
 message ItemFolder {
   string id = 1;
   string name = 2;
+  repeated Item items = 3;
 }
 
