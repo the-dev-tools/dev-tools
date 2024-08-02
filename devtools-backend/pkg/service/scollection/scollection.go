@@ -61,6 +61,60 @@ func PrepareTables(db *sql.DB) error {
 func PrepareStatements(db *sql.DB) error {
 	var err error
 	// Base Statements
+	err = PrepareCreateCollection(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareGetCollection(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareUpdateCollection(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareDeleteCollection(db)
+	if err != nil {
+		return err
+	}
+	// List
+	err = PrepareListCollections(db)
+	if err != nil {
+		return err
+	}
+	// Collection Node Statements
+	err = PrepareCreateCollectionNode(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareGetCollectionNode(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareGetBulkCollectionNodes(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareUpdateCollectionNode(db)
+	if err != nil {
+		return err
+	}
+	// List
+	err = PrepareListCollectionNodes(db)
+	if err != nil {
+		return err
+	}
+
+	err = PrepareMoveCollectionNode(db)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PrepareCreateCollection(db *sql.DB) error {
+	var err error
 	PreparedCreateCollection, err = db.Prepare(`
                 INSERT INTO collections (id, name)
                 VALUES (?, ?)
@@ -68,6 +122,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func PrepareGetCollection(db *sql.DB) error {
+	var err error
 	PreparedGetCollection, err = db.Prepare(`
                 SELECT id, name
                 FROM collections
@@ -76,6 +135,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func PrepareUpdateCollection(db *sql.DB) error {
+	var err error
 	PreparedUpdateCollection, err = db.Prepare(`
                 UPDATE collections
                 SET name = ?
@@ -84,6 +148,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func PrepareDeleteCollection(db *sql.DB) error {
+	var err error
 	PreparedDeleteCollection, err = db.Prepare(`
                 DELETE FROM collections
                 WHERE id = ?
@@ -91,7 +160,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	// List
+	return nil
+}
+
+func PrepareListCollections(db *sql.DB) error {
+	var err error
 	PreparedListCollections, err = db.Prepare(`
                 SELECT id, name
                 FROM collections
@@ -99,7 +172,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	// Collection Node Statements
+	return nil
+}
+
+func PrepareCreateCollectionNode(db *sql.DB) error {
+	var err error
 	PreparedCreateCollectionNode, err = db.Prepare(`
                 INSERT INTO collection_nodes (id, collection_id, name, type, parent_id)
                 VALUES (?, ?, ?, ?, ?)
@@ -107,14 +184,24 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func PrepareGetCollectionNode(db *sql.DB) error {
+	var err error
 	PreparedGetCollectionNode, err = db.Prepare(`
-                SELECT id, collection_id, name, type, parent_id
+                SELECT id, collection_id, name, type, parent_id, data
                 FROM collection_nodes
                 WHERE id = ?
         `)
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func PrepareUpdateCollectionNode(db *sql.DB) error {
+	var err error
 	PreparedUpdateCollectionNode, err = db.Prepare(`
                 UPDATE collection_nodes
                 SET name = ?, type = ?, parent_id = ? 
@@ -123,6 +210,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func PrepareDeleteCollectionNode(db *sql.DB) error {
+	var err error
 	PreparedDeleteCollectionNode, err = db.Prepare(`
                 DELETE FROM collection_nodes
                 WHERE id = ? 
@@ -130,7 +222,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	// List
+	return nil
+}
+
+func PrepareListCollectionNodes(db *sql.DB) error {
+	var err error
 	PreparedListCollectionNodes, err = db.Prepare(`
                 SELECT id
                 FROM collection_nodes
@@ -138,7 +234,24 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
+func PrepareGetBulkCollectionNodes(db *sql.DB) error {
+	var err error
+	PreparedGetBulkCollectionNodes, err = db.Prepare(`
+                SELECT id, collection_id, name, type, parent_id, data
+                FROM collection_nodes
+                WHERE id IN (?)
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func PrepareMoveCollectionNode(db *sql.DB) error {
+	var err error
 	PreparedMoveCollectionNode, err = db.Prepare(`
                 UPDATE collection_nodes
                 SET parent_id = ?, collection_id = ?
@@ -147,7 +260,6 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -253,8 +365,9 @@ func CreateCollectionNode(db *sql.DB, collectionNode mcollection.CollectionNode)
 }
 
 func GetCollectionNode(db *sql.DB, id ulid.ULID) (*mcollection.CollectionNode, error) {
-	var node mcollection.CollectionNode
-	err := PreparedGetCollectionNode.QueryRow(id).Scan(&node.ID, &node.CollectionID, &node.Name, &node.Type, &node.ParentID, &node.Data)
+	node := *mcollection.NewEmptyCollectionNode()
+	row := PreparedGetCollectionNode.QueryRow(id)
+	err := row.Scan(&node.ID, &node.CollectionID, &node.Name, &node.Type, &node.ParentID, node.Data)
 	return &node, err
 }
 

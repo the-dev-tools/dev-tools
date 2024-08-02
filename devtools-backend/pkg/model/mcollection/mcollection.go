@@ -29,6 +29,30 @@ type CollectionNode struct {
 	CollectionID ulid.ULID
 	Name         string
 	Type         string
-	ParentID     *string
+	ParentID     string
 	Data         *mnodedata.NodeApiRestData
+}
+
+func NewCollectionNode(id ulid.ULID, collectionID ulid.ULID, name string, nodeType string, parentID string, data *mnodedata.NodeApiRestData) *CollectionNode {
+	return &CollectionNode{
+		ID:           id,
+		CollectionID: collectionID,
+		Name:         name,
+		Type:         nodeType,
+		ParentID:     parentID,
+		Data:         data,
+	}
+}
+
+func NewEmptyCollectionNode() *CollectionNode {
+	ulidID := ulid.Make()
+	collectionID := ulid.Make()
+
+	var str string
+	return &CollectionNode{
+		ID:           ulidID,
+		CollectionID: collectionID,
+		ParentID:     str,
+		Data:         &mnodedata.NodeApiRestData{},
+	}
 }

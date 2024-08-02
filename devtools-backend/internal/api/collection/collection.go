@@ -25,8 +25,7 @@ import (
 )
 
 type CollectionService struct {
-	db     *sql.DB
-	secret []byte
+	DB *sql.DB
 }
 
 func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID, ownerID string) []mcollection.CollectionNode {
@@ -74,7 +73,7 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 
 func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	ulidID := ulid.Make()
-	err := scollection.CreateCollection(c.db, ulidID, req.Msg.Name)
+	err := scollection.CreateCollection(c.DB, ulidID, req.Msg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +90,7 @@ func (c *CollectionService) UpdateCollection(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	err = scollection.UpdateCollection(c.db, ulidID, req.Msg.Name)
+	err = scollection.UpdateCollection(c.DB, ulidID, req.Msg.Name)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -108,7 +107,7 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collection, err := scollection.GetCollection(c.db, ulidID)
+	collection, err := scollection.GetCollection(c.DB, ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -129,7 +128,7 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 		return nil, err
 	}
 
-	err = scollection.DeleteCollection(c.db, ulidID)
+	err = scollection.DeleteCollection(c.DB, ulidID)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,7 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 }
 
 func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	collections, names, err := scollection.ListCollections(c.db)
+	collections, names, err := scollection.ListCollections(c.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +166,7 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 	}
 
 	ulidID := ulid.Make()
-	err = scollection.CreateCollection(c.db, ulidID, req.Msg.Name)
+	err = scollection.CreateCollection(c.DB, ulidID, req.Msg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +174,7 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 	// TODO: make owner id later with user
 	nodes := ConvertPostmanCollection(postmanCollection, ulidID, "some-owner-id")
 	for _, node := range nodes {
-		err = scollection.CreateCollectionNode(c.db, node)
+		err = scollection.CreateCollectionNode(c.DB, node)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +192,7 @@ func (c *CollectionService) ListNodes(ctx context.Context, req *connect.Request[
 		return nil, err
 	}
 
-	nodeIds, err := scollection.GetCollectionNodeWithCollectionID(c.db, ulidID)
+	nodeIds, err := scollection.GetCollectionNodeWithCollectionID(c.DB, ulidID)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +230,7 @@ func (c *CollectionService) CreateNode(ctx context.Context, req *connect.Request
 		Data:         data,
 	}
 
-	err = scollection.CreateCollectionNode(c.db, node)
+	err = scollection.CreateCollectionNode(c.DB, node)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +246,7 @@ func (c *CollectionService) GetNode(ctx context.Context, req *connect.Request[co
 		return nil, err
 	}
 
-	node, err := scollection.GetCollectionNode(c.db, ulidID)
+	node, err := scollection.GetCollectionNode(c.DB, ulidID)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +287,7 @@ func (c *CollectionService) GetNodeBulk(ctx context.Context, req *connect.Reques
 
 	var nodes []*mcollection.CollectionNode
 	for _, id := range nodeIdsUlid {
-		node, err := scollection.GetCollectionNode(c.db, id)
+		node, err := scollection.GetCollectionNode(c.DB, id)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +324,7 @@ func (c *CollectionService) UpdateNode(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	node, err := scollection.GetCollectionNode(c.db, ulidID)
+	node, err := scollection.GetCollectionNode(c.DB, ulidID)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +337,7 @@ func (c *CollectionService) UpdateNode(ctx context.Context, req *connect.Request
 		Body:        req.Msg.Data.Body,
 	}
 
-	err = scollection.UpdateCollectionNode(c.db, ulidID, req.Msg.Name, node.Type, req.Msg.ParentId, data)
+	err = scollection.UpdateCollectionNode(c.DB, ulidID, req.Msg.Name, node.Type, req.Msg.ParentId, data)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +353,7 @@ func (c *CollectionService) DeleteNode(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	err = scollection.DeleteCollectionNode(c.db, ulidID)
+	err = scollection.DeleteCollectionNode(c.DB, ulidID)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +377,7 @@ func (c *CollectionService) MoveNode(ctx context.Context, req *connect.Request[c
 		return nil, err
 	}
 
-	err = scollection.MoveCollectionNode(c.db, ulidID, parentUlidID, collectionUlidID)
+	err = scollection.MoveCollectionNode(c.DB, ulidID, parentUlidID, collectionUlidID)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +393,7 @@ func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[co
 		return nil, err
 	}
 
-	node, err := scollection.GetCollectionNode(c.db, ulidID)
+	node, err := scollection.GetCollectionNode(c.DB, ulidID)
 	if err != nil {
 		return nil, err
 	}
@@ -441,10 +440,9 @@ func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[co
 	return resp, nil
 }
 
-func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
+func CreateService(db *sql.DB) (*api.Service, error) {
 	server := &CollectionService{
-		db:     db,
-		secret: secret,
+		DB: db,
 	}
 	path, handler := collectionv1connect.NewCollectionServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil

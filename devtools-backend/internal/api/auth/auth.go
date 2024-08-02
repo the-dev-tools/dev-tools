@@ -23,8 +23,8 @@ var (
 )
 
 type AuthServer struct {
-	clientAPI  *client.API
-	hmacSecret []byte
+	ClientAPI  *client.API
+	HmacSecret []byte
 }
 
 func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
@@ -35,7 +35,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 	if err != nil {
 		return nil, err
 	}
-	err = tk.Validate(a.clientAPI.ClientInfo.ClientId)
+	err = tk.Validate(a.ClientAPI.ClientInfo.ClientId)
 	if err != nil {
 		return nil, err
 	}
@@ -45,19 +45,19 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		return nil, err
 	}
 
-	userInfo, err := a.clientAPI.User.GetMetadataByPublicAddress(publicAddress)
+	userInfo, err := a.ClientAPI.User.GetMetadataByPublicAddress(publicAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	email := userInfo.Email
 
-	jwtToken, err := stoken.NewJWT(publicAddress, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.hmacSecret)
+	jwtToken, err := stoken.NewJWT(publicAddress, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := stoken.NewJWT(publicAddress, email, stoken.AccessToken, AccessTokenTimeSpan, a.hmacSecret)
+	accessToken, err := stoken.NewJWT(publicAddress, email, stoken.AccessToken, AccessTokenTimeSpan, a.HmacSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
 	}
 
-	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.RefreshToken, a.hmacSecret)
+	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.RefreshToken, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -90,12 +90,12 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 	}
 
 	// generate new refresh token
-	newRefreshJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	newRefreshJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	newAccessJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.hmacSecret)
+	newAccessJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -115,8 +115,8 @@ func CreateService(secret []byte) (*api.Service, error) {
 	}
 
 	server := &AuthServer{
-		clientAPI:  m,
-		hmacSecret: secret,
+		ClientAPI:  m,
+		HmacSecret: secret,
 	}
 	path, handler := authv1connect.NewAuthServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil

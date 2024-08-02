@@ -1,5 +1,11 @@
 package mnodedata
 
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+)
+
 //
 // Loop data struct
 //
@@ -29,8 +35,20 @@ type NodeApiRestData struct {
 }
 
 // Driver value
-func (d NodeApiRestData) Driver() string {
-	return "rest"
+func (Social NodeApiRestData) Value() (driver.Value, error) {
+	byteArr, err := json.Marshal(Social)
+	if err != nil {
+		return nil, err
+	}
+	return byteArr, nil
+}
+
+func (Socal *NodeApiRestData) Scan(value interface{}) error {
+	byteArr, ok := value.([]byte)
+	if !ok {
+		return errors.New("nodeapirestdata is not []byte")
+	}
+	return json.Unmarshal(byteArr, Socal)
 }
 
 //

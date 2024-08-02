@@ -89,7 +89,7 @@ func main() {
 	}
 	services = append(services, *flowService)
 
-	collectionService, err := collection.CreateService(db, hmacSecretBytes)
+	collectionService, err := collection.CreateService(db)
 	if err != nil {
 		log.Fatal(err)
 	}
