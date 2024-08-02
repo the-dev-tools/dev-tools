@@ -1,8 +1,17 @@
-import { createRouterTransport, Interceptor, Transport } from '@connectrpc/connect';
+import {
+  Code,
+  ConnectError,
+  createRouterTransport,
+  StreamRequest,
+  StreamResponse,
+  Transport,
+  UnaryRequest,
+  UnaryResponse,
+} from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Context, DateTime, Effect, Layer, pipe, Runtime } from 'effect';
+import { Context, DateTime, Effect, flow, Layer, pipe, Runtime } from 'effect';
 import * as Jose from 'jose';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
@@ -20,7 +29,7 @@ export const ApiTransportDev = Layer.effect(
     return createConnectTransport({
       baseUrl: 'https://devtools-backend.fly.dev',
       useHttpGet: true,
-      interceptors: [yield* authorizationInterceptor],
+      interceptors: [yield* effectInterceptor(authorizationInterceptor)],
     });
   }),
 );
@@ -82,17 +91,54 @@ export const ApiTransportMock = Layer.effect(
           addPostmanCollection: () => ({}),
         });
       },
-      { transport: { interceptors: [yield* authorizationInterceptor, yield* mockInterceptor] } },
+      {
+        transport: {
+          interceptors: [
+            yield* effectInterceptor(
+              flow(
+                // Interceptor flow order is reversed
+                mockInterceptor,
+                authorizationInterceptor,
+              ),
+            ),
+          ],
+        },
+      },
     );
   }),
 );
 
-const authorizationInterceptor = Effect.gen(function* () {
-  const runtime = yield* Effect.runtime<KeyValueStore>();
+type Request = UnaryRequest | StreamRequest;
+type Response = UnaryResponse | StreamResponse;
+type AnyFn = (req: Request) => Promise<Response>;
+type AnyFnEffect<E, R> = (req: Request) => Effect.Effect<Response, E, R>;
 
-  const interceptor: Interceptor = (next) => async (request) =>
+const finalizeEffectInterceptor = (next: AnyFn) => (request: Request) =>
+  pipe(
+    Effect.tryPromise({
+      try: (_) => next({ ...request, signal: AbortSignal.any([_, request.signal]) }),
+      catch: (_) => ConnectError.from(_),
+    }),
+    Effect.catchIf(
+      (_) => _.code === Code.Canceled,
+      () => Effect.interrupt,
+    ),
+  );
+
+const effectInterceptor = <E, R>(
+  interceptor: (next: ReturnType<typeof finalizeEffectInterceptor>) => AnyFnEffect<E, R>,
+) =>
+  Effect.gen(function* () {
+    const runtime = yield* Effect.runtime<R>();
+    return (next: AnyFn) => (request: Request) =>
+      pipe(next, finalizeEffectInterceptor, interceptor, (_) => _(request), Runtime.runPromise(runtime));
+  });
+
+const authorizationInterceptor =
+  <E, R>(next: AnyFnEffect<E, R>) =>
+  (request: Request) =>
     Effect.gen(function* () {
-      if (request.service.typeName === AuthService.typeName) return next(request);
+      if (request.service.typeName === AuthService.typeName) return yield* next(request);
 
       const store = yield* KeyValueStore;
       yield* pipe(
@@ -101,21 +147,15 @@ const authorizationInterceptor = Effect.gen(function* () {
         Effect.tap((_) => void request.header.set('Authorization', `Bearer ${_}`)),
       );
 
-      return next(request);
-    }).pipe(Runtime.runPromise(runtime));
+      return yield* next(request);
+    });
 
-  return interceptor;
-});
-
-const mockInterceptor = Effect.gen(function* () {
-  const runtime = yield* Effect.runtime();
-
-  const interceptor: Interceptor = (next) => async (request) =>
+const mockInterceptor =
+  <E, R>(next: AnyFnEffect<E, R>) =>
+  (request: Request) =>
     Effect.gen(function* () {
-      yield* Effect.logDebug('Sending message', request);
+      const response = yield* next(request);
+      yield* Effect.logDebug(`Mocking ${request.url}`, { request, response });
       yield* Effect.sleep('500 millis');
-      return next(request);
-    }).pipe(Runtime.runPromise(runtime));
-
-  return interceptor;
-});
+      return response;
+    });
