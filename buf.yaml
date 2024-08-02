@@ -2,8 +2,6 @@ version: v2
 lint:
   use:
     - DEFAULT
-  ignore:
-    - google
 breaking:
   use:
     - FILE
