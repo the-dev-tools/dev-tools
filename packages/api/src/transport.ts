@@ -7,6 +7,7 @@ import * as Jose from 'jose';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
 import { CollectionService } from '@the-dev-tools/protobuf/collection/v1/collection_connect';
+import { NodeType } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import { FlowService } from '@the-dev-tools/protobuf/flow/v1/flow_connect';
 
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
@@ -59,9 +60,19 @@ export const ApiTransportMock = Layer.effect(
           refreshToken: () => Runtime.runPromise(runtime)(mockTokens),
         });
         router.service(CollectionService, {
-          createCollection: (_) => ({ id: _.name, name: _.name }),
-          getCollectionWithNode: (_) => ({ id: _.id, name: _.id, nodes: [] }),
           listCollections: () => ({ simpleCollections: [{ id: 'test', name: 'test' }] }),
+          getCollectionWithNode: (_) => ({
+            id: _.id,
+            name: _.id,
+            nodes: [
+              {
+                id: _.id + '_api_call',
+                name: 'API Call #' + _.id,
+                type: NodeType.APICALL,
+              },
+            ],
+          }),
+          runNode: () => ({ status: 200 }),
         });
         router.service(FlowService, {
           create: (_) => ({ id: _.name, name: _.name }),
