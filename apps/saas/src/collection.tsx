@@ -1,13 +1,14 @@
 import { useMutation, useQuery } from '@connectrpc/connect-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
+import { flow, Match, Struct } from 'effect';
 
-import { CollectionNode } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { ItemApiCall } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
 export const CollectionListPage = () => {
   const collectionsQuery = useQuery(CollectionQuery.listCollections);
   if (!collectionsQuery.isSuccess) return null;
-  const collections = collectionsQuery.data.simpleCollections;
+  const collections = collectionsQuery.data.metaCollections;
 
   return (
     <>
@@ -27,7 +28,7 @@ const collectionEditRoute = getRouteApi('/authenticated/dashboard/collection/$id
 
 export const CollectionEditPage = () => {
   const { id } = collectionEditRoute.useParams();
-  const collectionQuery = useQuery(CollectionQuery.getCollectionWithNode, { id });
+  const collectionQuery = useQuery(CollectionQuery.getCollection, { id });
   if (!collectionQuery.isSuccess) return null;
 
   return (
@@ -36,24 +37,29 @@ export const CollectionEditPage = () => {
       <div>ID: {collectionQuery.data.id}</div>
       <div>Name: {collectionQuery.data.name}</div>
       <div>Nodes:</div>
-      {collectionQuery.data.nodes.map((_) => (
-        <Node key={_.id} node={_} />
-      ))}
+      {collectionQuery.data.item.map(
+        flow(
+          Struct.get('itemData'),
+          Match.value,
+          Match.when({ case: 'itemApiCall' }, (_) => <ApiCall key={_.value.id} item={_.value} />),
+          Match.orElse(() => null),
+        ),
+      )}
     </>
   );
 };
 
-interface NodeProps {
-  node: CollectionNode;
+interface ApiCallProps {
+  item: ItemApiCall;
 }
 
-const Node = ({ node }: NodeProps) => {
-  const runNodeMutation = useMutation(CollectionQuery.runNode);
+const ApiCall = ({ item }: ApiCallProps) => {
+  const runNodeMutation = useMutation(CollectionQuery.runApiCall);
 
   return (
     <div>
-      <span>{node.name} | </span>
-      <button onClick={() => void runNodeMutation.mutate({ id: node.id })}>Run</button>
+      <span>{item.name} | </span>
+      <button onClick={() => void runNodeMutation.mutate({ id: item.id })}>Run</button>
       {runNodeMutation.isSuccess && <span> | Status: {runNodeMutation.data.status}</span>}
     </div>
   );
