@@ -57,9 +57,11 @@ func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, err
 	}
-
-	respRaw := &collectionv1.CreateCollectionResponse{Name: ulidID.String()}
-	return connect.NewResponse(respRaw), nil
+	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
+		Id:    ulidID.String(),
+		Name:  req.Msg.Name,
+		Items: []*collectionv1.Item{},
+	}), nil
 }
 
 // GetCollection calls collection.v1.CollectionService.GetCollection.
@@ -185,11 +187,11 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 	}
 
 	// TODO: add ownerID
-	collectionNodes := tpostman.ConvertPostmanCollection(postmanCollection, ulidID, "")
-	for _, node := range collectionNodes {
-		err = sitemapi.CreateItemApi(&node)
+	items := tpostman.ConvertPostmanCollection(postmanCollection, ulidID, "")
+	for _, item := range items {
+		err = sitemapi.CreateItemApi(&item)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
