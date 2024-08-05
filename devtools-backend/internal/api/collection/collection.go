@@ -50,9 +50,13 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 			Name:         item.Name,
 			Url:          item.Request.URL.Raw,
 			Method:       item.Request.Method,
-			QueryParams:  queryParams,
-			Headers:      headers,
-			Body:         []byte(item.Request.Body.Raw),
+			QueryParams: mitemapi.QueryParams{
+				QueryMap: queryParams,
+			},
+			Headers: mitemapi.Headers{
+				HeaderMap: headers,
+			},
+			Body: []byte(item.Request.Body.Raw),
 		}
 
 		collectionNodes = append(collectionNodes, collectionItem)
@@ -128,8 +132,8 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 					ApiCallData: &nodedatav1.NodeApiCallData{
 						Url:         item.Url,
 						Method:      item.Method,
-						QueryParams: item.QueryParams,
-						Headers:     item.Headers,
+						QueryParams: item.QueryParams.QueryMap,
+						Headers:     item.Headers.HeaderMap,
 					},
 				},
 			},
@@ -327,8 +331,8 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 			ApiCallData: &nodedatav1.NodeApiCallData{
 				Url:         item.Url,
 				Method:      item.Method,
-				QueryParams: item.QueryParams,
-				Headers:     item.Headers,
+				QueryParams: item.QueryParams.QueryMap,
+				Headers:     item.Headers.HeaderMap,
 			},
 		},
 	}
@@ -347,10 +351,15 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	parentUlidID, err := ulid.Parse(req.Msg.ItemFolder.ParentId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	folder := mitemfolder.ItemFolder{
 		ID:           ulidID,
 		CollectionID: collectionId,
-		ParentID:     req.Msg.ItemFolder.ParentId,
+		ParentID:     parentUlidID,
 		Name:         req.Msg.ItemFolder.Name,
 	}
 
@@ -378,9 +387,9 @@ func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Requ
 		Name:         req.Msg.ItemApiCall.Name,
 		Url:          req.Msg.ItemApiCall.ApiCallData.Url,
 		Method:       req.Msg.ItemApiCall.ApiCallData.Method,
-		Headers:      req.Msg.ItemApiCall.ApiCallData.Headers,
+		Headers:      mitemapi.Headers{HeaderMap: req.Msg.ItemApiCall.ApiCallData.Headers},
+		QueryParams:  mitemapi.QueryParams{QueryMap: req.Msg.ItemApiCall.ApiCallData.QueryParams},
 		Body:         req.Msg.ItemApiCall.ApiCallData.Body,
-		QueryParams:  req.Msg.ItemApiCall.ApiCallData.QueryParams,
 	}
 
 	err = sitemapi.UpdateItemApi(itemApi)

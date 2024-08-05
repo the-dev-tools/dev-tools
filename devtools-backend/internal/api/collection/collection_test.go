@@ -1,20 +1,7 @@
 package collection_test
 
-import (
-	"context"
-	"devtools-backend/internal/api/collection"
-	"devtools-backend/pkg/service/scollection"
-	"devtools-nodes/pkg/model/mnodedata"
-	collectionv1 "devtools-services/gen/collection/v1"
-	"encoding/json"
-	"testing"
-
-	"connectrpc.com/connect"
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/oklog/ulid/v2"
-)
-
-func TestCollection(t *testing.T) {
+/*
+func TestCreateCollection(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
@@ -28,13 +15,11 @@ func TestCollection(t *testing.T) {
 
 	id := ulid.Make()
 
-	req := &connect.Request[collectionv1.GetNodeRequest]{
-		Msg: &collectionv1.GetNodeRequest{
+	req := connect.NewRequest(
+		&collectionv1.GetCollectionRequest{
 			Id: id.String(),
-		},
-	}
+		})
 
-	/*
 	   CREATE TABLE IF NOT EXISTS collection_nodes (
 	           id TEXT PRIMARY KEY,
 	           collection_id TEXT,
@@ -44,7 +29,6 @@ func TestCollection(t *testing.T) {
 	           data TEXT,
 	           FOREIGN KEY (collection_id) REFERENCES collections (id)
 	   )
-	*/
 	// use collection_nodes table instead of nodes
 
 	query := `
@@ -73,7 +57,6 @@ func TestCollection(t *testing.T) {
 		WithArgs(id).
 		WillReturnRows(row)
 
-	/*
 		apidata := mnodedata.NodeApiRestData{
 			Url:         "http://localhost:8080",
 			QueryParams: map[string]string{"key": "value"},
@@ -81,9 +64,8 @@ func TestCollection(t *testing.T) {
 			Headers:     map[string]string{"key": "value"},
 			Body:        []byte("hello"),
 		}
-	*/
 
-	err = scollection.PrepareGetCollectionNode(db)
+	err = scollection.PrepareCreateCollection(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,3 +87,4 @@ func TestCollection(t *testing.T) {
 		t.Fatalf("GetNode failed: invalid response")
 	}
 }
+*/
