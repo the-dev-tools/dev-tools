@@ -29,7 +29,7 @@ func TestCreateFolder(t *testing.T) {
 		ID:           ulid.Make(),
 		CollectionID: ulid.Make(),
 		Name:         "name",
-		ParentID:     ulid.Make(),
+		ParentID:     nil,
 	}
 
 	query := `
@@ -71,7 +71,7 @@ func TestGetFolder(t *testing.T) {
 		ID:           ulid.Make(),
 		CollectionID: ulid.Make(),
 		Name:         "name",
-		ParentID:     ulid.Make(),
+		ParentID:     nil,
 	}
 	query := `
                 SELECT id, name, parent_id, collection_id
@@ -123,7 +123,7 @@ func TestUpdateFolder(t *testing.T) {
 		ID:           ulid.Make(),
 		CollectionID: ulid.Make(),
 		Name:         "name",
-		ParentID:     ulid.Make(),
+		ParentID:     nil,
 	}
 	query := `
                 UPDATE item_folder

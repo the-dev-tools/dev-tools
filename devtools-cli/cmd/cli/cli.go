@@ -221,19 +221,40 @@ func Collection() {
 
 	ctx := context.Background()
 
-	createReqRaw := &collectionv1.CreateCollectionRequest{
-		Name: "test",
-	}
+	/*
+		createReqRaw := &collectionv1.CreateCollectionRequest{
+			Name: "test",
+		}
+	*/
 
-	createReq := connect.NewRequest(createReqRaw)
+	// createReq := connect.NewRequest(createReqRaw)
 
 	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	client := collectionv1connect.NewCollectionServiceClient(httpClient, *addr)
 
-	createResp, err := client.CreateCollection(ctx, createReq)
+	/*
+		createResp, err := client.CreateCollection(ctx, createReq)
+		if err != nil {
+			log.Fatalf("service returns error: %v", err)
+		}
+	*/
+
+	data, err := os.ReadFile("/home/electwix/dev/work/devtools-go-mono/devtools-cli/postman.json")
+	if err != nil {
+		log.Fatalf("failed to open file: %v", err)
+	}
+
+	req := &connect.Request[collectionv1.ImportPostmanRequest]{
+		Msg: &collectionv1.ImportPostmanRequest{
+			Name: "test",
+			Data: data,
+		},
+	}
+
+	resp, err := client.ImportPostman(ctx, req)
 	if err != nil {
 		log.Fatalf("service returns error: %v", err)
 	}
 
-	fmt.Println("Create Response: ", createResp.Msg.Id)
+	fmt.Println("Create Response: ", resp.Msg.Id)
 }

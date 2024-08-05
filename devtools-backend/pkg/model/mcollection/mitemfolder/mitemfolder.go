@@ -6,5 +6,5 @@ type ItemFolder struct {
 	ID           ulid.ULID
 	CollectionID ulid.ULID
 	Name         string
-	ParentID     ulid.ULID
+	ParentID     *ulid.ULID
 }

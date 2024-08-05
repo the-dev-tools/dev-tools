@@ -180,13 +180,24 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 	}
 	err = scollection.CreateCollection(&collection)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// TODO: add ownerID
-	items := tpostman.ConvertPostmanCollection(postmanCollection, ulidID, "")
-	for _, item := range items {
-		err = sitemapi.CreateItemApi(&item)
+	items, err := tpostman.ConvertPostmanCollection(postmanCollection, ulidID, "")
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, folder := range items.Folder {
+		err = sitemfolder.CreateItemFolder(&folder)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	for _, api := range items.Api {
+		err = sitemapi.CreateItemApi(&api)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -294,6 +305,7 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 				Name: item.Name,
 			},
 			CollectionId: item.CollectionID.String(),
+			ParentId:     item.ParentID.String(),
 			Data: &nodedatav1.NodeApiCallData{
 				Url:         item.Url,
 				Method:      item.Method,
@@ -317,9 +329,15 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	parentUlidID, err := ulid.Parse(req.Msg.Folder.ParentId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	var parentUlidID *ulid.ULID
+	if req.Msg.Folder.ParentId == "" {
+		parentUlidID = nil
+	} else {
+		tempParentUlidID, err := ulid.Parse(req.Msg.Folder.ParentId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		parentUlidID = &tempParentUlidID
 	}
 
 	folder := mitemfolder.ItemFolder{
