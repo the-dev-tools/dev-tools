@@ -19,14 +19,15 @@ var (
 func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
                 CREATE TABLE IF NOT EXISTS item_api (
-                        id BLOB PRIMARY KEY,
-                        collection_id BLOB,
+                        id TEXT PRIMARY KEY,
+                        collection_id TEXT,
                         name TEXT,
                         url TEXT,
                         method TEXT,
                         headers TEXT,
                         query_params TEXT,
                         body TEXT,
+                        FOREIGN KEY (collection_id) REFERENCES collections (id)
                 )
         `)
 	if err != nil {

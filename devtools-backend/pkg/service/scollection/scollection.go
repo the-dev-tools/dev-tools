@@ -28,20 +28,6 @@ func PrepareTables(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`
-                CREATE TABLE IF NOT EXISTS collection_nodes (
-                        id TEXT PRIMARY KEY,
-                        collection_id TEXT,
-                        name TEXT,
-                        type TEXT,
-                        parent_id TEXT,
-                        data TEXT,
-                        FOREIGN KEY (collection_id) REFERENCES collections (id)
-                )
-        `)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

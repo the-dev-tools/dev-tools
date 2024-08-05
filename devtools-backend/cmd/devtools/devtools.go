@@ -62,12 +62,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sitemapi.PrepareTables(db)
+	err = sitemapi.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sitemfolder.PrepareTables(db)
+	err = sitemfolder.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
