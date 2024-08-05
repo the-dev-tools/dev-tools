@@ -43,7 +43,7 @@ service CollectionService {
 message ListCollectionsRequest {}
 
 message ListCollectionsResponse {
-  repeated MetaCollection meta_collections = 1;
+  repeated CollectionMeta meta_collections = 1;
 }
 
 // // Create
@@ -135,21 +135,21 @@ message GetFolderRequest {
   string collection_id = 2;
 }
 
-message GetFolderResponse { ItemFolder folder = 1; }
+message GetFolderResponse { Folder folder = 1; }
 
 message GetApiCallRequest {
   string id = 1;
   string collection_id = 2;
 }
 
-message GetApiCallResponse { ItemApiCall api_call = 1; }
+message GetApiCallResponse { ApiCall api_call = 1; }
 
 // // UPDATE
-message UpdateFolderRequest { ItemFolder folder = 1; }
+message UpdateFolderRequest { Folder folder = 1; }
 
 message UpdateFolderResponse {}
 
-message UpdateApiCallRequest { ItemApiCall api_call = 1; }
+message UpdateApiCallRequest { ApiCall api_call = 1; }
 
 message UpdateApiCallResponse {}
 
@@ -173,11 +173,19 @@ message CollectionMeta {
   string name = 2;
 }
 
+// Collection Item Meta
+message ItemMeta {
+  oneof meta {
+    FolderMeta folder_meta = 1;
+    ApiCallMeta api_call_meta = 2;
+  }
+}
+
 // Collection Item
 message Item {
   oneof data {
-    ItemFolder folder = 1;
-    ItemApiCall api_call = 2;
+    Folder folder = 1;
+    ApiCall api_call = 2;
   }
 }
 
