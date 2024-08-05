@@ -196,8 +196,9 @@ message ApiCallMeta {
 
 message ApiCall {
   ApiCallMeta meta = 1;
-  string collection_id = 2;
-  nodedata.v1.NodeApiCallData data = 3;
+  string parent_id = 2;
+  string collection_id = 3;
+  nodedata.v1.NodeApiCallData data = 4;
 }
 
 message FolderMeta {
