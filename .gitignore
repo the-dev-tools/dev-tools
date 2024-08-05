@@ -1,5 +1,7 @@
 .direnv
-.env
+.env.*.local
+.env.keys
+.env.local
 .next
 .plasmo
 .turbo

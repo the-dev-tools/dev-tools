@@ -16,18 +16,17 @@
           pnpm = pkgs.writeShellApplication {
             name = "pnpm";
             runtimeInputs = with pkgs; [dotenvx pnpm_9];
-            text = ''dotenvx run --env-file "''${ROOT_DOTENV:-/dev/null}" -- pnpm "$@"'';
+            text = ''dotenvx run --convention=nextjs -- pnpm "$@"'';
           };
         in
           pkgs.mkShell {
             NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
-            shellHook = ''export ROOT_DOTENV=$(readlink -f .env)'';
-
             nativeBuildInputs =
               [pnpm]
               ++ (with pkgs; [
                 # JS tools
+                dotenvx
                 nodejs
                 turbo
 
