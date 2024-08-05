@@ -11,6 +11,7 @@ import (
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"devtools-backend/pkg/translate/tpostman"
 	collectionv1 "devtools-services/gen/collection/v1"
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
@@ -24,48 +25,6 @@ type CollectionService struct {
 	DB *sql.DB
 }
 
-func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID, ownerID string) []mitemapi.ItemApi {
-	var collectionNodes []mitemapi.ItemApi
-
-	for _, item := range collection.Items {
-		queryParams := make(map[string]string)
-
-		for _, v := range item.Request.URL.Query {
-			queryParams[v.Key] = v.Value
-		}
-
-		headers := make(map[string]string)
-		for _, v := range item.Request.Header {
-			if v.Disabled {
-				continue
-			}
-			headers[v.Key] = v.Value
-		}
-
-		ulidID := ulid.Make()
-
-		collectionItem := mitemapi.ItemApi{
-			ID:           ulidID,
-			CollectionID: collectionID,
-			Name:         item.Name,
-			Url:          item.Request.URL.Raw,
-			Method:       item.Request.Method,
-			QueryParams: mitemapi.QueryParams{
-				QueryMap: queryParams,
-			},
-			Headers: mitemapi.Headers{
-				HeaderMap: headers,
-			},
-			Body: []byte(item.Request.Body.Raw),
-		}
-
-		collectionNodes = append(collectionNodes, collectionItem)
-
-	}
-
-	return collectionNodes
-}
-
 // ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
 	simpleCollections, err := scollection.ListCollections()
@@ -73,9 +32,9 @@ func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Re
 		return nil, err
 	}
 
-	metaCollections := make([]*collectionv1.MetaCollection, 0, len(simpleCollections))
+	metaCollections := make([]*collectionv1.CollectionMeta, 0, len(simpleCollections))
 	for _, collection := range simpleCollections {
-		metaCollections = append(metaCollections, &collectionv1.MetaCollection{
+		metaCollections = append(metaCollections, &collectionv1.CollectionMeta{
 			Id:   collection.ID.String(),
 			Name: collection.Name,
 		})
@@ -124,12 +83,14 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 
 	for _, item := range apiItems {
 		apiItem := &collectionv1.Item{
-			ItemData: &collectionv1.Item_ItemApiCall{
-				ItemApiCall: &collectionv1.ItemApiCall{
-					Id:           item.ID.String(),
+			Data: &collectionv1.Item_ApiCall{
+				ApiCall: &collectionv1.ApiCall{
+					Meta: &collectionv1.ApiCallMeta{
+						Name: item.Name,
+						Id:   item.ID.String(),
+					},
 					CollectionId: item.CollectionID.String(),
-					Name:         item.Name,
-					ApiCallData: &nodedatav1.NodeApiCallData{
+					Data: &nodedatav1.NodeApiCallData{
 						Url:         item.Url,
 						Method:      item.Method,
 						QueryParams: item.QueryParams.QueryMap,
@@ -148,10 +109,12 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 
 	for _, item := range folderItems {
 		folderItem := &collectionv1.Item{
-			ItemData: &collectionv1.Item_ItemFolder{
-				ItemFolder: &collectionv1.ItemFolder{
-					Id:   item.ID.String(),
-					Name: item.Name,
+			Data: &collectionv1.Item_Folder{
+				Folder: &collectionv1.Folder{
+					Meta: &collectionv1.FolderMeta{
+						Id:   item.ID.String(),
+						Name: item.Name,
+					},
 				},
 			},
 		}
@@ -159,9 +122,9 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 	}
 
 	respRaw := &collectionv1.GetCollectionResponse{
-		Id:   collection.ID.String(),
-		Name: collection.Name,
-		Item: items,
+		Id:    collection.ID.String(),
+		Name:  collection.Name,
+		Items: items,
 	}
 	resp := connect.NewResponse(respRaw)
 
@@ -222,7 +185,7 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 	}
 
 	// TODO: add ownerID
-	collectionNodes := ConvertPostmanCollection(postmanCollection, ulidID, "")
+	collectionNodes := tpostman.ConvertPostmanCollection(postmanCollection, ulidID, "")
 	for _, node := range collectionNodes {
 		err = sitemapi.CreateItemApi(&node)
 		if err != nil {
@@ -302,9 +265,11 @@ func (c *CollectionService) GetFolder(ctx context.Context, req *connect.Request[
 	}
 
 	respRaw := &collectionv1.GetFolderResponse{
-		ItemFolder: &collectionv1.ItemFolder{
-			Id:    folder.ID.String(),
-			Name:  folder.Name,
+		Folder: &collectionv1.Folder{
+			Meta: &collectionv1.FolderMeta{
+				Id:   folder.ID.String(),
+				Name: folder.Name,
+			},
 			Items: []*collectionv1.Item{},
 		},
 	}
@@ -324,11 +289,13 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 	}
 
 	respRaw := &collectionv1.GetApiCallResponse{
-		ItemApiCall: &collectionv1.ItemApiCall{
-			Id:           item.ID.String(),
+		ApiCall: &collectionv1.ApiCall{
+			Meta: &collectionv1.ApiCallMeta{
+				Id:   item.ID.String(),
+				Name: item.Name,
+			},
 			CollectionId: item.CollectionID.String(),
-			Name:         item.Name,
-			ApiCallData: &nodedatav1.NodeApiCallData{
+			Data: &nodedatav1.NodeApiCallData{
 				Url:         item.Url,
 				Method:      item.Method,
 				QueryParams: item.QueryParams.QueryMap,
@@ -342,16 +309,16 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 
 // UpdateFolder calls collection.v1.CollectionService.UpdateFolder.
 func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Request[collectionv1.UpdateFolderRequest]) (*connect.Response[collectionv1.UpdateFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.ItemFolder.Id)
+	ulidID, err := ulid.Parse(req.Msg.Folder.Meta.Id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collectionId, err := ulid.Parse(req.Msg.ItemFolder.CollectionId)
+	collectionId, err := ulid.Parse(req.Msg.Folder.CollectionId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	parentUlidID, err := ulid.Parse(req.Msg.ItemFolder.ParentId)
+	parentUlidID, err := ulid.Parse(req.Msg.Folder.ParentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -360,7 +327,7 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 		ID:           ulidID,
 		CollectionID: collectionId,
 		ParentID:     parentUlidID,
-		Name:         req.Msg.ItemFolder.Name,
+		Name:         req.Msg.Folder.Meta.Name,
 	}
 
 	sitemfolder.UpdateItemFolder(&folder)
@@ -371,12 +338,12 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 
 // UpdateApiCall calls collection.v1.CollectionService.UpdateApiCall.
 func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Request[collectionv1.UpdateApiCallRequest]) (*connect.Response[collectionv1.UpdateApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.ItemApiCall.Id)
+	ulidID, err := ulid.Parse(req.Msg.ApiCall.Meta.Id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	ulidCollectionID, err := ulid.Parse(req.Msg.ItemApiCall.CollectionId)
+	ulidCollectionID, err := ulid.Parse(req.Msg.ApiCall.CollectionId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -384,12 +351,12 @@ func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Requ
 	itemApi := &mitemapi.ItemApi{
 		ID:           ulidID,
 		CollectionID: ulidCollectionID,
-		Name:         req.Msg.ItemApiCall.Name,
-		Url:          req.Msg.ItemApiCall.ApiCallData.Url,
-		Method:       req.Msg.ItemApiCall.ApiCallData.Method,
-		Headers:      mitemapi.Headers{HeaderMap: req.Msg.ItemApiCall.ApiCallData.Headers},
-		QueryParams:  mitemapi.QueryParams{QueryMap: req.Msg.ItemApiCall.ApiCallData.QueryParams},
-		Body:         req.Msg.ItemApiCall.ApiCallData.Body,
+		Name:         req.Msg.ApiCall.Meta.Name,
+		Url:          req.Msg.ApiCall.Data.Url,
+		Method:       req.Msg.ApiCall.Data.Method,
+		Headers:      mitemapi.Headers{HeaderMap: req.Msg.ApiCall.Data.Headers},
+		QueryParams:  mitemapi.QueryParams{QueryMap: req.Msg.ApiCall.Data.QueryParams},
+		Body:         req.Msg.ApiCall.Data.Body,
 	}
 
 	err = sitemapi.UpdateItemApi(itemApi)

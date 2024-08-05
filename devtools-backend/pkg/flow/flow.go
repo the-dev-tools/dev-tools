@@ -1,11 +1,7 @@
 package flow
 
 import (
-	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
-	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/model/mnode"
-	"devtools-nodes/pkg/model/mnodedata"
-	"devtools-nodes/pkg/resolver"
 
 	"github.com/google/uuid"
 )
@@ -18,6 +14,7 @@ type Flows struct {
 	GroupMap map[string]string `json:"groupMap"`
 }
 
+/*
 func ConvertPostmanCollection(collection mpostmancollection.Collection, ownerID string) []mnode.Node {
 	uuid, err := uuid.NewV7()
 	if err != nil {
@@ -26,12 +23,11 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, ownerID 
 
 	uuidStr := uuid.String()
 
-	/*
 		flow := Flows{
 			ID:   uuid.String(),
 			Name: collection.Info.Name,
 		}
-	*/
+
 
 	var nodes []mnode.Node
 	var lastNode *mnode.Node
@@ -82,6 +78,8 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, ownerID 
 
 	return nodes
 }
+
+*/
 
 func CreateFlow(name string, ownerID string) Flows {
 	uuid, err := uuid.NewV7()

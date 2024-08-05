@@ -10,10 +10,11 @@ import (
 
 // Can be generic for single or group items
 type Items struct {
-	ID                      string                `json:"id,omitempty"`
-	Name                    string                `json:"name"`
-	Description             string                `json:"description,omitempty"`
-	Variables               []*mvariable.Variable `json:"variable,omitempty"`
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	// Variables can be generic for single or group items | []*mvariable.Variable
+	Variables               interface{}           `json:"variable,omitempty"`
 	Events                  []*mevent.Event       `json:"event,omitempty"`
 	ProtocolProfileBehavior interface{}           `json:"protocolProfileBehavior,omitempty"`
 	Request                 *mrequest.Request     `json:"request,omitempty"`

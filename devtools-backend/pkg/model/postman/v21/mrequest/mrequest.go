@@ -4,11 +4,11 @@ import (
 	"devtools-backend/pkg/model/postman/v21/mauth"
 	"devtools-backend/pkg/model/postman/v21/mbody"
 	"devtools-backend/pkg/model/postman/v21/mheader"
-	"devtools-backend/pkg/model/postman/v21/murl"
 )
 
 type Request struct {
-	URL         *murl.URL        `json:"url"`
+	// URL can be string or *murl.URL
+	URL         interface{}      `json:"url"`
 	Auth        *mauth.Auth      `json:"auth,omitempty"`
 	Proxy       interface{}      `json:"proxy,omitempty"`
 	Certificate interface{}      `json:"certificate,omitempty"`

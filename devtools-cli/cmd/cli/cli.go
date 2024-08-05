@@ -235,45 +235,5 @@ func Collection() {
 		log.Fatalf("service returns error: %v", err)
 	}
 
-	createNodeReq := &collectionv1.CreateNodeRequest{
-		CollectionId: createResp.Msg.Id,
-		Name:         "Test",
-		Type:         collectionv1.NodeType_NODE_TYPE_APICALL,
-		ParentId:     "",
-
-		Data: &collectionv1.CreateNodeRequest_ApiCallData{
-			ApiCallData: &nodedatav1.NodeApiCallData{
-				Method:      "GET",
-				Url:         "https://google.com/",
-				Headers:     map[string]string{"header1": "value1"},
-				Body:        []byte("start_stop=true"),
-				QueryParams: map[string]string{"param1": "value1"},
-			},
-		},
-	}
-	CreateNodeReq := connect.NewRequest(createNodeReq)
-	createNodeResp, err := client.CreateNode(ctx, CreateNodeReq)
-	if err != nil {
-		log.Fatalf("service returns error: %v", err)
-	}
-
-	if createNodeResp.Msg.Id == "" {
-		log.Fatalf("failed to get node id")
-	}
-
-	GetCollectionWithNodeRequest := &collectionv1.GetCollectionWithNodeRequest{
-		Id: createResp.Msg.Id,
-	}
-
-	GetCollectionWithNodeReq := connect.NewRequest(GetCollectionWithNodeRequest)
-	GetCollectionWithNodeResp, err := client.GetCollectionWithNode(ctx, GetCollectionWithNodeReq)
-	if err != nil {
-		log.Fatalf("service returns error: %v", err)
-	}
-
-	if GetCollectionWithNodeResp.Msg == nil {
-		log.Fatalf("failed to get collection")
-	}
-
-	fmt.Println("Response: ", GetCollectionWithNodeResp)
+	fmt.Println("Create Response: ", createResp.Msg.Id)
 }
