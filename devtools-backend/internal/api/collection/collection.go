@@ -7,7 +7,6 @@ import (
 	"devtools-backend/pkg/model/mcollection"
 	"devtools-backend/pkg/model/mcollection/mitemapi"
 	"devtools-backend/pkg/model/mcollection/mitemfolder"
-	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
@@ -15,7 +14,6 @@ import (
 	collectionv1 "devtools-services/gen/collection/v1"
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
-	"encoding/json"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -170,8 +168,7 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
-	var postmanCollection mpostmancollection.Collection
-	err := json.Unmarshal(req.Msg.Data, &postmanCollection)
+	postmanCollection, err := tpostman.ParsePostmanCollection(req.Msg.Data)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

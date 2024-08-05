@@ -8,6 +8,8 @@ import (
 	"devtools-backend/internal/api/node"
 	"devtools-backend/pkg/db/turso"
 	"devtools-backend/pkg/service/scollection"
+	"devtools-backend/pkg/service/scollection/sitemapi"
+	"devtools-backend/pkg/service/scollection/sitemfolder"
 	"errors"
 	"log"
 	"os"
@@ -60,8 +62,28 @@ func main() {
 		log.Fatal(err)
 	}
 
+	sitemapi.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sitemfolder.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Prepared statements
 	err = scollection.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sitemapi.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sitemfolder.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
