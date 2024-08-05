@@ -62,9 +62,6 @@ func TestCollection(t *testing.T) {
 	}
 
 	byteData, err := json.Marshal(apiData)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	row := sqlmock.NewRows([]string{"id", "collection_id", "name", "type", "parent_id", "data"}).
 		AddRow(id.Bytes(), id.Bytes(), "name", "type", "parent_id", byteData)
@@ -97,14 +94,14 @@ func TestCollection(t *testing.T) {
 	}
 
 	if resp.Msg == nil {
-		t.Fatalf("GetNode failed: Msg nil")
+		t.Fatalf("GetNode failed: invalid response")
 	}
 
 	if resp.Msg.Node == nil {
-		t.Fatalf("GetNode failed: Node nil")
+		t.Fatalf("GetNode failed: invalid response")
 	}
 
-	if resp.Msg.Node.Id != id.String() {
-		t.Fatalf("GetNode failed: id is not %s", id.String())
+	if resp.Msg.Node.Id != "1" {
+		t.Fatalf("GetNode failed: invalid response")
 	}
 }

@@ -7,11 +7,17 @@ import (
 )
 
 const (
-	CollectionNodeTypeRequest = "request"
-	CollectionNodeTypeFolder  = "folder"
+	CollectionNodeTypeUnspecified int32 = 0
+	CollectionNodeTypeRequest     int32 = 1
+	CollectionNodeTypeFolder      int32 = 2
 )
 
 type Collection struct {
+	ID   ulid.ULID
+	Name string
+}
+
+type MetaCollection struct {
 	ID   ulid.ULID
 	Name string
 }
@@ -28,12 +34,12 @@ type CollectionNode struct {
 	ID           ulid.ULID
 	CollectionID ulid.ULID
 	Name         string
-	Type         string
+	Type         int32
 	ParentID     string
 	Data         *mnodedata.NodeApiRestData
 }
 
-func NewCollectionNode(id ulid.ULID, collectionID ulid.ULID, name string, nodeType string, parentID string, data *mnodedata.NodeApiRestData) *CollectionNode {
+func NewCollectionNode(id ulid.ULID, collectionID ulid.ULID, name, parentID string, nodeType int32, data *mnodedata.NodeApiRestData) *CollectionNode {
 	return &CollectionNode{
 		ID:           id,
 		CollectionID: collectionID,

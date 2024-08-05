@@ -5,20 +5,16 @@ import (
 	"database/sql"
 	"devtools-backend/internal/api"
 	"devtools-backend/pkg/model/mcollection"
+	"devtools-backend/pkg/model/mcollection/mitemapi"
+	"devtools-backend/pkg/model/mcollection/mitemfolder"
 	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
 	"devtools-backend/pkg/service/scollection"
-	"devtools-nodes/pkg/model/mnode"
-	"devtools-nodes/pkg/model/mnodedata"
-	"devtools-nodes/pkg/model/mnodemaster"
-	"devtools-nodes/pkg/nodes/nodeapi"
-	"devtools-nodes/pkg/resolver"
+	"devtools-backend/pkg/service/scollection/sitemapi"
+	"devtools-backend/pkg/service/scollection/sitemfolder"
 	collectionv1 "devtools-services/gen/collection/v1"
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	"encoding/json"
-	"errors"
-	"net/http"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -28,8 +24,8 @@ type CollectionService struct {
 	DB *sql.DB
 }
 
-func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID, ownerID string) []mcollection.CollectionNode {
-	var collectionNodes []mcollection.CollectionNode
+func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID, ownerID string) []mitemapi.ItemApi {
+	var collectionNodes []mitemapi.ItemApi
 
 	for _, item := range collection.Items {
 		queryParams := make(map[string]string)
@@ -46,60 +42,64 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 			headers[v.Key] = v.Value
 		}
 
-		data := &mnodedata.NodeApiRestData{
-			Url:         item.Request.URL.Raw,
-			Method:      item.Request.Method,
-			Headers:     headers,
-			QueryParams: queryParams,
-			Body:        []byte(item.Request.Body.Raw),
-		}
-
 		ulidID := ulid.Make()
 
-		node := mcollection.CollectionNode{
-			CollectionID: collectionID,
+		collectionItem := mitemapi.ItemApi{
 			ID:           ulidID,
+			CollectionID: collectionID,
 			Name:         item.Name,
-			Type:         resolver.ApiCallRest, // TODO: Change to something more meaningful.
-			Data:         data,
+			Url:          item.Request.URL.Raw,
+			Method:       item.Request.Method,
+			QueryParams:  queryParams,
+			Headers:      headers,
+			Body:         []byte(item.Request.Body.Raw),
 		}
 
-		collectionNodes = append(collectionNodes, node)
+		collectionNodes = append(collectionNodes, collectionItem)
 
 	}
 
 	return collectionNodes
 }
 
+// ListCollections calls collection.v1.CollectionService.ListCollections.
+func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
+	simpleCollections, err := scollection.ListCollections()
+	if err != nil {
+		return nil, err
+	}
+
+	metaCollections := make([]*collectionv1.MetaCollection, 0, len(simpleCollections))
+	for _, collection := range simpleCollections {
+		metaCollections = append(metaCollections, &collectionv1.MetaCollection{
+			Id:   collection.ID.String(),
+			Name: collection.Name,
+		})
+	}
+
+	respRaw := &collectionv1.ListCollectionsResponse{
+		MetaCollections: metaCollections,
+	}
+	return connect.NewResponse(respRaw), nil
+}
+
+// CreateCollection calls collection.v1.CollectionService.CreateCollection.
 func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	ulidID := ulid.Make()
-	err := scollection.CreateCollection(c.DB, ulidID, req.Msg.Name)
+	collection := mcollection.Collection{
+		ID:   ulidID,
+		Name: req.Msg.Name,
+	}
+	err := scollection.CreateCollection(&collection)
 	if err != nil {
 		return nil, err
 	}
 
 	respRaw := &collectionv1.CreateCollectionResponse{Name: ulidID.String()}
-	resp := connect.NewResponse(respRaw)
-	return resp, nil
+	return connect.NewResponse(respRaw), nil
 }
 
-func (c *CollectionService) UpdateCollection(ctx context.Context, req *connect.Request[collectionv1.UpdateCollectionRequest]) (*connect.Response[collectionv1.UpdateCollectionResponse], error) {
-	id := req.Msg.Id
-	// convert id to ulid
-	ulidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	err = scollection.UpdateCollection(c.DB, ulidID, req.Msg.Name)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	respRaw := &collectionv1.UpdateCollectionResponse{}
-	resp := connect.NewResponse(respRaw)
-
-	return resp, nil
-}
-
+// GetCollection calls collection.v1.CollectionService.GetCollection.
 func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Request[collectionv1.GetCollectionRequest]) (*connect.Response[collectionv1.GetCollectionResponse], error) {
 	id := req.Msg.Id
 	// convert id to ulid
@@ -107,337 +107,324 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collection, err := scollection.GetCollection(c.DB, ulidID)
+	collection, err := scollection.GetCollection(ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	items := make([]*collectionv1.Item, 0)
+	apiItems, err := sitemapi.GetApisWithCollectionID(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, item := range apiItems {
+		apiItem := &collectionv1.Item{
+			ItemData: &collectionv1.Item_ItemApiCall{
+				ItemApiCall: &collectionv1.ItemApiCall{
+					Id:           item.ID.String(),
+					CollectionId: item.CollectionID.String(),
+					Name:         item.Name,
+					ApiCallData: &nodedatav1.NodeApiCallData{
+						Url:         item.Url,
+						Method:      item.Method,
+						QueryParams: item.QueryParams,
+						Headers:     item.Headers,
+					},
+				},
+			},
+		}
+		items = append(items, apiItem)
+	}
+
+	folderItems, err := sitemfolder.GetFoldersWithCollectionID(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, item := range folderItems {
+		folderItem := &collectionv1.Item{
+			ItemData: &collectionv1.Item_ItemFolder{
+				ItemFolder: &collectionv1.ItemFolder{
+					Id:   item.ID.String(),
+					Name: item.Name,
+				},
+			},
+		}
+		items = append(items, folderItem)
 	}
 
 	respRaw := &collectionv1.GetCollectionResponse{
 		Id:   collection.ID.String(),
 		Name: collection.Name,
+		Item: items,
 	}
 	resp := connect.NewResponse(respRaw)
 
 	return resp, nil
 }
 
-func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.Request[collectionv1.DeleteCollectionRequest]) (*connect.Response[collectionv1.DeleteCollectionResponse], error) {
+// UpdateCollection calls collection.v1.CollectionService.UpdateCollection.
+func (c *CollectionService) UpdateCollection(ctx context.Context, req *connect.Request[collectionv1.UpdateCollectionRequest]) (*connect.Response[collectionv1.UpdateCollectionResponse], error) {
 	id := req.Msg.Id
+	// convert id to ulid
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-
-	err = scollection.DeleteCollection(c.DB, ulidID)
+	collection := mcollection.Collection{
+		ID:   ulidID,
+		Name: req.Msg.Name,
+	}
+	err = scollection.UpdateCollection(&collection)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return connect.NewResponse(&collectionv1.UpdateCollectionResponse{}), nil
 }
 
-func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	collections, names, err := scollection.ListCollections(c.DB)
+// DeleteCollection calls collection.v1.CollectionService.DeleteCollection.
+func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.Request[collectionv1.DeleteCollectionRequest]) (*connect.Response[collectionv1.DeleteCollectionResponse], error) {
+	id := req.Msg.Id
+	// convert id
+	ulidID, err := ulid.Parse(id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	err = scollection.DeleteCollection(ulidID)
 	if err != nil {
 		return nil, err
 	}
-
-	var ids []string
-	for _, id := range collections {
-		ids = append(ids, id.String())
-	}
-
-	respRaw := &collectionv1.ListCollectionsResponse{
-		Ids:   ids,
-		Names: names,
-	}
-
-	resp := connect.NewResponse(respRaw)
-
-	return resp, nil
+	return connect.NewResponse(&collectionv1.DeleteCollectionResponse{}), nil
 }
 
+// ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
 	var postmanCollection mpostmancollection.Collection
-
 	err := json.Unmarshal(req.Msg.Data, &postmanCollection)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	ulidID := ulid.Make()
-	err = scollection.CreateCollection(c.DB, ulidID, req.Msg.Name)
+	collection := mcollection.Collection{
+		ID:   ulidID,
+		Name: req.Msg.Name,
+	}
+	err = scollection.CreateCollection(&collection)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: make owner id later with user
-	nodes := ConvertPostmanCollection(postmanCollection, ulidID, "some-owner-id")
-	for _, node := range nodes {
-		err = scollection.CreateCollectionNode(c.DB, node)
+	// TODO: add ownerID
+	collectionNodes := ConvertPostmanCollection(postmanCollection, ulidID, "")
+	for _, node := range collectionNodes {
+		err = sitemapi.CreateItemApi(&node)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	resp := connect.NewResponse(&collectionv1.ImportPostmanResponse{Id: ulidID.String()})
+	respRaw := &collectionv1.ImportPostmanResponse{
+		Id: ulidID.String(),
+	}
+	resp := connect.NewResponse(respRaw)
 	return resp, nil
 }
 
-// ListNodes calls collection.v1.CollectionService.ListNodes.
-func (c *CollectionService) ListNodes(ctx context.Context, req *connect.Request[collectionv1.ListNodesRequest]) (*connect.Response[collectionv1.ListNodesResponse], error) {
-	id := req.Msg.CollectionId
-	ulidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-
-	nodeIds, err := scollection.GetCollectionNodeWithCollectionID(c.DB, ulidID)
-	if err != nil {
-		return nil, err
-	}
-
-	ids := make([]string, 0, len(nodeIds))
-	for _, id := range nodeIds {
-		ids = append(ids, id.String())
-	}
-
-	return connect.NewResponse(&collectionv1.ListNodesResponse{Ids: ids}), nil
-}
-
-// CreateNode calls collection.v1.CollectionService.CreateNode.
-func (c *CollectionService) CreateNode(ctx context.Context, req *connect.Request[collectionv1.CreateNodeRequest]) (*connect.Response[collectionv1.CreateNodeResponse], error) {
-	id := req.Msg.CollectionId
-	collectionUlidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-	nodeUlidID := ulid.Make()
-
-	data := &mnodedata.NodeApiRestData{
-		Url:         req.Msg.Data.Url,
-		Method:      req.Msg.Data.Method,
-		Headers:     req.Msg.Data.Headers,
-		QueryParams: req.Msg.Data.QueryParams,
-		Body:        req.Msg.Data.Body,
-	}
-
-	node := mcollection.CollectionNode{
-		ID:           nodeUlidID,
-		CollectionID: collectionUlidID,
-		Name:         req.Msg.Name,
-		Type:         req.Msg.Type,
-		Data:         data,
-	}
-
-	err = scollection.CreateCollectionNode(c.DB, node)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(&collectionv1.CreateNodeResponse{Id: nodeUlidID.String()}), err
-}
-
-// GetNode calls collection.v1.CollectionService.GetNode.
-func (c *CollectionService) GetNode(ctx context.Context, req *connect.Request[collectionv1.GetNodeRequest]) (*connect.Response[collectionv1.GetNodeResponse], error) {
-	nodeID := req.Msg.Id
-	ulidID, err := ulid.Parse(nodeID)
-	if err != nil {
-		return nil, err
-	}
-
-	node, err := scollection.GetCollectionNode(c.DB, ulidID)
-	if err != nil {
-		return nil, err
-	}
-
-	nodeData := &nodedatav1.NodeApiCallData{
-		Url:         node.Data.Url,
-		Method:      node.Data.Method,
-		Headers:     node.Data.Headers,
-		QueryParams: node.Data.QueryParams,
-		Body:        node.Data.Body,
-	}
-
-	respNode := &collectionv1.CollectionNode{
-		Id:   node.ID.String(),
-		Name: node.Name,
-		Type: node.Type,
-		Data: nodeData,
-	}
-
-	return connect.NewResponse(&collectionv1.GetNodeResponse{Node: respNode}), nil
-}
-
-// GetNodeBulk calls collection.v1.CollectionService.GetNodeBulk.
-func (c *CollectionService) GetNodeBulk(ctx context.Context, req *connect.Request[collectionv1.GetNodeBulkRequest]) (*connect.Response[collectionv1.GetNodeBulkResponse], error) {
-	nodeIds := req.Msg.Ids
-	nodeIdsUlid := make([]ulid.ULID, 0, len(nodeIds))
-	for _, id := range nodeIds {
-		ulidID, err := ulid.Parse(id)
-		if err != nil {
-			return nil, err
-		}
-		nodeIdsUlid = append(nodeIdsUlid, ulidID)
-	}
-
-	if len(nodeIdsUlid) == 0 {
-		return connect.NewResponse(&collectionv1.GetNodeBulkResponse{}), nil
-	}
-
-	var nodes []*mcollection.CollectionNode
-	for _, id := range nodeIdsUlid {
-		node, err := scollection.GetCollectionNode(c.DB, id)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, node)
-	}
-
-	var respNodes []*collectionv1.CollectionNode
-	for _, node := range nodes {
-		nodeData := &nodedatav1.NodeApiCallData{
-			Url:         node.Data.Url,
-			Method:      node.Data.Method,
-			Headers:     node.Data.Headers,
-			QueryParams: node.Data.QueryParams,
-			Body:        node.Data.Body,
-		}
-
-		respNode := &collectionv1.CollectionNode{
-			Id:   node.ID.String(),
-			Name: node.Name,
-			Type: node.Type,
-			Data: nodeData,
-		}
-		respNodes = append(respNodes, respNode)
-	}
-
-	return connect.NewResponse(&collectionv1.GetNodeBulkResponse{Nodes: respNodes}), nil
-}
-
-// UpdateNode calls collection.v1.CollectionService.UpdateNode.
-func (c *CollectionService) UpdateNode(ctx context.Context, req *connect.Request[collectionv1.UpdateNodeRequest]) (*connect.Response[collectionv1.UpdateNodeResponse], error) {
-	id := req.Msg.Id
-	ulidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-
-	node, err := scollection.GetCollectionNode(c.DB, ulidID)
-	if err != nil {
-		return nil, err
-	}
-
-	data := &mnodedata.NodeApiRestData{
-		Url:         req.Msg.Data.Url,
-		Method:      req.Msg.Data.Method,
-		Headers:     req.Msg.Data.Headers,
-		QueryParams: req.Msg.Data.QueryParams,
-		Body:        req.Msg.Data.Body,
-	}
-
-	err = scollection.UpdateCollectionNode(c.DB, ulidID, req.Msg.Name, node.Type, req.Msg.ParentId, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(&collectionv1.UpdateNodeResponse{}), nil
-}
-
-// DeleteNode calls collection.v1.CollectionService.DeleteNode.
-func (c *CollectionService) DeleteNode(ctx context.Context, req *connect.Request[collectionv1.DeleteNodeRequest]) (*connect.Response[collectionv1.DeleteNodeResponse], error) {
-	id := req.Msg.Id
-	ulidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-
-	err = scollection.DeleteCollectionNode(c.DB, ulidID)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(&collectionv1.DeleteNodeResponse{}), err
-}
-
-// MoveNode calls collection.v1.CollectionService.MoveNode.
-func (c *CollectionService) MoveNode(ctx context.Context, req *connect.Request[collectionv1.MoveNodeRequest]) (*connect.Response[collectionv1.MoveNodeResponse], error) {
-	id := req.Msg.Id // node id
-	ulidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-	parentUlidID, err := ulid.Parse(req.Msg.ParentId)
-	if err != nil {
-		return nil, err
-	}
+// CreateFolder calls collection.v1.CollectionService.CreateFolder.
+func (c *CollectionService) CreateFolder(ctx context.Context, req *connect.Request[collectionv1.CreateFolderRequest]) (*connect.Response[collectionv1.CreateFolderResponse], error) {
+	ulidID := ulid.Make()
 	collectionUlidID, err := ulid.Parse(req.Msg.CollectionId)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	err = scollection.MoveCollectionNode(c.DB, ulidID, parentUlidID, collectionUlidID)
-	if err != nil {
-		return nil, err
+	// TODO: parentID
+	folder := mitemfolder.ItemFolder{
+		ID:           ulidID,
+		CollectionID: collectionUlidID,
+		Name:         req.Msg.Name,
 	}
-
-	return nil, nil
-}
-
-// RunNode calls collection.v1.CollectionService.RunNode.
-func (c *CollectionService) RunNode(ctx context.Context, req *connect.Request[collectionv1.RunNodeRequest]) (*connect.Response[collectionv1.RunNodeResponse], error) {
-	id := req.Msg.Id
-	ulidID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-
-	node, err := scollection.GetCollectionNode(c.DB, ulidID)
-	if err != nil {
-		return nil, err
-	}
-
-	tempNode := &mnode.Node{
-		ID:      node.ID.String(),
-		Type:    resolver.ApiCallRest,
-		Data:    node.Data,
-		GroupID: "some-group",
-		OwnerID: "some-owner-id",
-	}
-
-	nm := &mnodemaster.NodeMaster{
-		CurrentNode: tempNode,
-		Logger:      nil, // TODO: add logger
-		HttpClient:  http.DefaultClient,
-	}
-
-	startTime := time.Now()
-	err = nodeapi.SendRestApiRequest(nm)
-	if err != nil {
-		return nil, err
-	}
-
-	timeTaken := time.Since(startTime)
-
-	apiRespAny, ok := nm.Vars[nodeapi.VarResponseKey]
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("cannot find response"))
-	}
-
-	apiResp, ok := apiRespAny.(*http.Response)
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("cannto cast to http.Response"))
-	}
-
-	bodyBytes := make([]byte, apiResp.ContentLength)
-	_, err = apiResp.Body.Read(bodyBytes)
+	err = sitemfolder.CreateItemFolder(&folder)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := connect.NewResponse(&collectionv1.RunNodeResponse{Status: int32(apiResp.StatusCode), Body: bodyBytes, Duration: timeTaken.Nanoseconds()})
+	respRaw := &collectionv1.CreateFolderResponse{
+		Id:   ulidID.String(),
+		Name: req.Msg.Name,
+	}
+	resp := connect.NewResponse(respRaw)
 	return resp, nil
+}
+
+// CreateApiCall calls collection.v1.CollectionService.CreateApiCall.
+func (c *CollectionService) CreateApiCall(ctx context.Context, req *connect.Request[collectionv1.CreateApiCallRequest]) (*connect.Response[collectionv1.CreateApiCallResponse], error) {
+	ulidID := ulid.Make()
+	collectionUlidID, err := ulid.Parse(req.Msg.CollectionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	apiCall := &mitemapi.ItemApi{
+		ID:           ulidID,
+		CollectionID: collectionUlidID,
+		Name:         req.Msg.Name,
+		// TODO: ParentID:
+	}
+	err = sitemapi.CreateItemApi(apiCall)
+	if err != nil {
+		return nil, err
+	}
+
+	respRaw := &collectionv1.CreateApiCallResponse{
+		Id: ulidID.String(),
+	}
+	resp := connect.NewResponse(respRaw)
+	return resp, nil
+}
+
+// GetFolder calls collection.v1.CollectionService.GetFolder.
+func (c *CollectionService) GetFolder(ctx context.Context, req *connect.Request[collectionv1.GetFolderRequest]) (*connect.Response[collectionv1.GetFolderResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	folder, err := sitemfolder.GetItemFolder(ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	respRaw := &collectionv1.GetFolderResponse{
+		ItemFolder: &collectionv1.ItemFolder{
+			Id:    folder.ID.String(),
+			Name:  folder.Name,
+			Items: []*collectionv1.Item{},
+		},
+	}
+
+	return connect.NewResponse(respRaw), nil
+}
+
+// GetApiCall calls collection.v1.CollectionService.GetApiCall.
+func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request[collectionv1.GetApiCallRequest]) (*connect.Response[collectionv1.GetApiCallResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	item, err := sitemapi.GetItemApi(ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	respRaw := &collectionv1.GetApiCallResponse{
+		ItemApiCall: &collectionv1.ItemApiCall{
+			Id:           item.ID.String(),
+			CollectionId: item.CollectionID.String(),
+			Name:         item.Name,
+			ApiCallData: &nodedatav1.NodeApiCallData{
+				Url:         item.Url,
+				Method:      item.Method,
+				QueryParams: item.QueryParams,
+				Headers:     item.Headers,
+			},
+		},
+	}
+
+	return connect.NewResponse(respRaw), nil
+}
+
+// UpdateFolder calls collection.v1.CollectionService.UpdateFolder.
+func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Request[collectionv1.UpdateFolderRequest]) (*connect.Response[collectionv1.UpdateFolderResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.ItemFolder.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	collectionId, err := ulid.Parse(req.Msg.ItemFolder.CollectionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	folder := mitemfolder.ItemFolder{
+		ID:           ulidID,
+		CollectionID: collectionId,
+		ParentID:     req.Msg.ItemFolder.ParentId,
+		Name:         req.Msg.ItemFolder.Name,
+	}
+
+	sitemfolder.UpdateItemFolder(&folder)
+
+	// sitemfolder.UpdateItemFolder(folder * mitemfolder.ItemFolder)
+	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+}
+
+// UpdateApiCall calls collection.v1.CollectionService.UpdateApiCall.
+func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Request[collectionv1.UpdateApiCallRequest]) (*connect.Response[collectionv1.UpdateApiCallResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.ItemApiCall.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	ulidCollectionID, err := ulid.Parse(req.Msg.ItemApiCall.CollectionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	itemApi := &mitemapi.ItemApi{
+		ID:           ulidID,
+		CollectionID: ulidCollectionID,
+		Name:         req.Msg.ItemApiCall.Name,
+		Url:          req.Msg.ItemApiCall.ApiCallData.Url,
+		Method:       req.Msg.ItemApiCall.ApiCallData.Method,
+		Headers:      req.Msg.ItemApiCall.ApiCallData.Headers,
+		Body:         req.Msg.ItemApiCall.ApiCallData.Body,
+		QueryParams:  req.Msg.ItemApiCall.ApiCallData.QueryParams,
+	}
+
+	err = sitemapi.UpdateItemApi(itemApi)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+}
+
+// DeleteFolder calls collection.v1.CollectionService.DeleteFolder.
+func (c *CollectionService) DeleteFolder(ctx context.Context, req *connect.Request[collectionv1.DeleteFolderRequest]) (*connect.Response[collectionv1.DeleteFolderResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	err = sitemfolder.DeleteItemFolder(ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&collectionv1.DeleteFolderResponse{}), nil
+}
+
+// DeleteApiCall calls collection.v1.CollectionService.DeleteApiCall.
+func (c *CollectionService) DeleteApiCall(ctx context.Context, req *connect.Request[collectionv1.DeleteApiCallRequest]) (*connect.Response[collectionv1.DeleteApiCallResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	err = sitemapi.DeleteItemApi(ulidID)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&collectionv1.DeleteApiCallResponse{}), nil
+}
+
+// RunApiCall calls collection.v1.CollectionService.RunApiCall.
+func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request[collectionv1.RunApiCallRequest]) (*connect.Response[collectionv1.RunApiCallResponse], error) {
+	// TODO: implement
+	return nil, connect.NewError(connect.CodeUnimplemented, nil)
 }
 
 func CreateService(db *sql.DB) (*api.Service, error) {

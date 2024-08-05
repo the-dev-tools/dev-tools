@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"devtools-backend/pkg/model/mcollection"
 	"devtools-nodes/pkg/model/medge"
 	"devtools-nodes/pkg/resolver"
 	authv1 "devtools-services/gen/auth/v1"
@@ -222,7 +221,7 @@ func Collection() {
 
 	ctx := context.Background()
 
-	createReqRaw := &collectionv1.CreateRequest{
+	createReqRaw := &collectionv1.CreateCollectionRequest{
 		Name: "test",
 	}
 
@@ -230,51 +229,51 @@ func Collection() {
 
 	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	client := collectionv1connect.NewCollectionServiceClient(httpClient, *addr)
-	createResp, err := client.Create(ctx, createReq)
+
+	createResp, err := client.CreateCollection(ctx, createReq)
 	if err != nil {
 		log.Fatalf("service returns error: %v", err)
 	}
 
-	loadReqRaw := &collectionv1.LoadRequest{
+	createNodeReq := &collectionv1.CreateNodeRequest{
+		CollectionId: createResp.Msg.Id,
+		Name:         "Test",
+		Type:         collectionv1.NodeType_NODE_TYPE_APICALL,
+		ParentId:     "",
+
+		Data: &collectionv1.CreateNodeRequest_ApiCallData{
+			ApiCallData: &nodedatav1.NodeApiCallData{
+				Method:      "GET",
+				Url:         "https://google.com/",
+				Headers:     map[string]string{"header1": "value1"},
+				Body:        []byte("start_stop=true"),
+				QueryParams: map[string]string{"param1": "value1"},
+			},
+		},
+	}
+	CreateNodeReq := connect.NewRequest(createNodeReq)
+	createNodeResp, err := client.CreateNode(ctx, CreateNodeReq)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	if createNodeResp.Msg.Id == "" {
+		log.Fatalf("failed to get node id")
+	}
+
+	GetCollectionWithNodeRequest := &collectionv1.GetCollectionWithNodeRequest{
 		Id: createResp.Msg.Id,
 	}
 
-	var parentID string = "parent"
-
-	// Add node to collection
-	createNodeReqRaw := &collectionv1.CollectionNode{
-		Id:           "node1",
-		CollectionId: createResp.Msg.Id,
-		Name:         "test",
-		Type:         mcollection.CollectionNodeTypeRequest,
-		ParentId:     &parentID,
-		Data: &nodedatav1.NodeApiCallData{
-			Method:      "GET",
-			Url:         "https://google.com/",
-			Headers:     map[string]string{"header1": "value1"},
-			Body:        []byte("start_stop=true"),
-			QueryParams: map[string]string{"param1": "value1"},
-		},
-	}
-
-	saveReqRaw := &collectionv1.SaveRequest{
-		Id:    createResp.Msg.Id,
-		Name:  "test",
-		Nodes: []*collectionv1.CollectionNode{createNodeReqRaw},
-	}
-
-	saveReq := connect.NewRequest(saveReqRaw)
-
-	_, err = client.Save(ctx, saveReq)
+	GetCollectionWithNodeReq := connect.NewRequest(GetCollectionWithNodeRequest)
+	GetCollectionWithNodeResp, err := client.GetCollectionWithNode(ctx, GetCollectionWithNodeReq)
 	if err != nil {
 		log.Fatalf("service returns error: %v", err)
 	}
 
-	loadReq := connect.NewRequest(loadReqRaw)
-	loadResp, err := client.Load(ctx, loadReq)
-	if err != nil {
-		log.Fatalf("service returns error: %v", err)
+	if GetCollectionWithNodeResp.Msg == nil {
+		log.Fatalf("failed to get collection")
 	}
 
-	fmt.Println("Response: ", loadResp)
+	fmt.Println("Response: ", GetCollectionWithNodeResp)
 }

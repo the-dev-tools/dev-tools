@@ -8,27 +8,14 @@ import (
 )
 
 var (
+	// List
+	PreparedListCollections *sql.Stmt = nil
+
 	// Base Statements
 	PreparedCreateCollection *sql.Stmt = nil
 	PreparedGetCollection    *sql.Stmt = nil
 	PreparedUpdateCollection *sql.Stmt = nil
 	PreparedDeleteCollection *sql.Stmt = nil
-
-	// List
-	PreparedListCollections *sql.Stmt = nil
-
-	// Collection Node Statements
-	PreparedCreateCollectionNode   *sql.Stmt = nil
-	PreparedGetCollectionNode      *sql.Stmt = nil
-	PreparedGetBulkCollectionNodes *sql.Stmt = nil
-	PreparedUpdateCollectionNode   *sql.Stmt = nil
-	PreparedDeleteCollectionNode   *sql.Stmt = nil
-
-	// List
-	PreparedListCollectionNodes *sql.Stmt = nil
-
-	// Move Node
-	PreparedMoveCollectionNode *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -82,34 +69,6 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	// Collection Node Statements
-	err = PrepareCreateCollectionNode(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetCollectionNode(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetBulkCollectionNodes(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareUpdateCollectionNode(db)
-	if err != nil {
-		return err
-	}
-	// List
-	err = PrepareListCollectionNodes(db)
-	if err != nil {
-		return err
-	}
-
-	err = PrepareMoveCollectionNode(db)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -175,94 +134,6 @@ func PrepareListCollections(db *sql.DB) error {
 	return nil
 }
 
-func PrepareCreateCollectionNode(db *sql.DB) error {
-	var err error
-	PreparedCreateCollectionNode, err = db.Prepare(`
-                INSERT INTO collection_nodes (id, collection_id, name, type, parent_id)
-                VALUES (?, ?, ?, ?, ?)
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetCollectionNode(db *sql.DB) error {
-	var err error
-	PreparedGetCollectionNode, err = db.Prepare(`
-                SELECT id, collection_id, name, type, parent_id, data
-                FROM collection_nodes
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareUpdateCollectionNode(db *sql.DB) error {
-	var err error
-	PreparedUpdateCollectionNode, err = db.Prepare(`
-                UPDATE collection_nodes
-                SET name = ?, type = ?, parent_id = ? 
-                WHERE id = ? 
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteCollectionNode(db *sql.DB) error {
-	var err error
-	PreparedDeleteCollectionNode, err = db.Prepare(`
-                DELETE FROM collection_nodes
-                WHERE id = ? 
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareListCollectionNodes(db *sql.DB) error {
-	var err error
-	PreparedListCollectionNodes, err = db.Prepare(`
-                SELECT id
-                FROM collection_nodes
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetBulkCollectionNodes(db *sql.DB) error {
-	var err error
-	PreparedGetBulkCollectionNodes, err = db.Prepare(`
-                SELECT id, collection_id, name, type, parent_id, data
-                FROM collection_nodes
-                WHERE id IN (?)
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareMoveCollectionNode(db *sql.DB) error {
-	var err error
-	PreparedMoveCollectionNode, err = db.Prepare(`
-                UPDATE collection_nodes
-                SET parent_id = ?, collection_id = ?
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func CloseStatements() {
 	if PreparedCreateCollection != nil {
 		PreparedCreateCollection.Close()
@@ -279,109 +150,55 @@ func CloseStatements() {
 	if PreparedListCollections != nil {
 		PreparedListCollections.Close()
 	}
-	if PreparedCreateCollectionNode != nil {
-		PreparedCreateCollectionNode.Close()
-	}
-	if PreparedGetCollectionNode != nil {
-		PreparedGetCollectionNode.Close()
-	}
-	if PreparedUpdateCollectionNode != nil {
-		PreparedUpdateCollectionNode.Close()
-	}
-	if PreparedDeleteCollectionNode != nil {
-		PreparedDeleteCollectionNode.Close()
-	}
-	if PreparedListCollectionNodes != nil {
-		PreparedListCollectionNodes.Close()
-	}
-	if PreparedMoveCollectionNode != nil {
-		PreparedMoveCollectionNode.Close()
-	}
 }
 
-func CreateCollection(db *sql.DB, id ulid.ULID, name string) error {
-	_, err := PreparedCreateCollection.Exec(id, name)
-	return err
-}
-
-func GetCollection(db *sql.DB, id ulid.ULID) (*mcollection.Collection, error) {
-	var collection mcollection.Collection
-	err := PreparedGetCollection.QueryRow(id).Scan(&collection.ID, &collection.Name)
-	return &collection, err
-}
-
-func UpdateCollection(db *sql.DB, id ulid.ULID, name string) error {
-	_, err := PreparedUpdateCollection.Exec(name, id)
-	return err
-}
-
-func DeleteCollection(db *sql.DB, id ulid.ULID) error {
-	_, err := PreparedDeleteCollection.Exec(id)
-	return err
-}
-
-func ListCollections(db *sql.DB) ([]ulid.ULID, []string, error) {
+func ListCollections() ([]mcollection.Collection, error) {
 	rows, err := PreparedListCollections.Query()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-	var collections []ulid.ULID
-	var names []string
-	for rows.Next() {
-		var collection ulid.ULID
-		var name string
-		err = rows.Scan(&collection, &name)
-		if err != nil {
-			return nil, nil, err
-		}
-		collections = append(collections, collection)
-		names = append(names, name)
-	}
-	return collections, names, nil
-}
-
-func GetCollectionNodeWithCollectionID(db *sql.DB, collectionID ulid.ULID) ([]ulid.ULID, error) {
-	rows, err := PreparedListCollectionNodes.Query()
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var nodeIds []ulid.ULID
+	var collections []mcollection.Collection
 	for rows.Next() {
-		var id ulid.ULID
-		err = rows.Scan(&id)
+		var c mcollection.Collection
+		err := rows.Scan(&c.ID, &c.Name)
 		if err != nil {
 			return nil, err
 		}
-		nodeIds = append(nodeIds, id)
+		collections = append(collections, c)
 	}
-	return nodeIds, nil
+	return collections, nil
 }
 
-func CreateCollectionNode(db *sql.DB, collectionNode mcollection.CollectionNode) error {
-	_, err := PreparedCreateCollectionNode.Exec(collectionNode.ID, collectionNode.CollectionID, collectionNode.Name, collectionNode.Type, collectionNode.Data)
-	return err
+func CreateCollection(collection *mcollection.Collection) error {
+	_, err := PreparedCreateCollection.Exec(collection.ID, collection.Name)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func GetCollectionNode(db *sql.DB, id ulid.ULID) (*mcollection.CollectionNode, error) {
-	node := *mcollection.NewEmptyCollectionNode()
-	row := PreparedGetCollectionNode.QueryRow(id)
-	err := row.Scan(&node.ID, &node.CollectionID, &node.Name, &node.Type, &node.ParentID, node.Data)
-	return &node, err
+func GetCollection(id ulid.ULID) (*mcollection.Collection, error) {
+	c := mcollection.Collection{}
+	err := PreparedGetCollection.QueryRow(id).Scan(&c.ID, &c.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
-func UpdateCollectionNode(db *sql.DB, id ulid.ULID, name, nodeType string, parentID *string, data interface{}) error {
-	_, err := PreparedUpdateCollectionNode.Exec(name, nodeType, parentID, id)
-	return err
+func UpdateCollection(collection *mcollection.Collection) error {
+	_, err := PreparedUpdateCollection.Exec(collection.Name, collection.ID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func DeleteCollectionNode(db *sql.DB, id ulid.ULID) error {
-	_, err := PreparedDeleteCollectionNode.Exec(id)
-	return err
-}
-
-func MoveCollectionNode(db *sql.DB, id ulid.ULID, parentID, collectionID ulid.ULID) error {
-	_, err := PreparedMoveCollectionNode.Exec(parentID, collectionID, id)
-	return err
+func DeleteCollection(id ulid.ULID) error {
+	_, err := PreparedDeleteCollection.Exec(id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
