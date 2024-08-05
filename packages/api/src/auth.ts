@@ -1,20 +1,38 @@
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Effect, pipe } from 'effect';
+import { Config, Context, Effect, Layer, pipe } from 'effect';
 import { decodeJwt } from 'jose';
-import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
+import { LoginWithMagicLinkConfiguration, Magic, PromiEvent } from 'magic-sdk';
 
 import { ApiClient } from './client';
 import { accessTokenKey, AccessTokenPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
 
-const magicClient = new Magic('pk_live_75E3754872D9F513', {
-  useStorageCache: true,
-  deferPreload: true,
-});
+class MagicClient extends Context.Tag('MagicClient')<MagicClient, Magic>() {}
+
+export const MagicClientLive = Layer.effect(
+  MagicClient,
+  Effect.gen(function* () {
+    const apiKey = yield* Config.string('PUBLIC_MAGIC_KEY');
+    return new Magic(apiKey, {
+      useStorageCache: true,
+      deferPreload: true,
+    });
+  }),
+);
+
+export const MagicClientMock = Layer.succeed(MagicClient, {
+  auth: {
+    loginWithMagicLink: () => Promise.resolve('mock-did-token') as PromiEvent<string>,
+  } as Partial<Magic['auth']>,
+  user: {
+    logout: () => Promise.resolve(true),
+  },
+} as Magic);
 
 export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   Effect.gen(function* () {
     // Authenticate using Magic SDK
+    const magicClient = yield* MagicClient;
     const didToken = yield* pipe(
       Effect.tryPromise(() => magicClient.auth.loginWithMagicLink(configuration)),
       Effect.flatMap(Effect.fromNullable),
@@ -41,6 +59,7 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   });
 
 export const logout = Effect.gen(function* () {
+  const magicClient = yield* MagicClient;
   yield* Effect.tryPromise(() => magicClient.user.logout());
   const store = yield* KeyValueStore;
   yield* store.remove(accessTokenKey);
