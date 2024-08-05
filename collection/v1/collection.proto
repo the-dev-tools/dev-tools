@@ -52,7 +52,7 @@ message CreateCollectionRequest { string name = 1; }
 message CreateCollectionResponse {
   string id = 1;
   string name = 2;
-  repeated Item item = 3;
+  repeated Item items = 3; // Optional: items can be added while creating
 }
 
 // // Get
@@ -61,7 +61,7 @@ message GetCollectionRequest { string id = 1; }
 message GetCollectionResponse {
   string id = 1;
   string name = 2;
-  repeated Item item = 3;
+  repeated Item items = 3;
 }
 
 // // Update
@@ -121,7 +121,7 @@ message CreateFolderResponse {
 message CreateApiCallRequest {
   string collection_id = 1;
   string name = 2;
-  nodedata.v1.NodeApiCallData api_call_data = 3;
+  nodedata.v1.NodeApiCallData data = 3;
 }
 
 message CreateApiCallResponse {
@@ -135,21 +135,21 @@ message GetFolderRequest {
   string collection_id = 2;
 }
 
-message GetFolderResponse { ItemFolder item_folder = 1; }
+message GetFolderResponse { ItemFolder folder = 1; }
 
 message GetApiCallRequest {
   string id = 1;
   string collection_id = 2;
 }
 
-message GetApiCallResponse { ItemApiCall item_api_call = 1; }
+message GetApiCallResponse { ItemApiCall api_call = 1; }
 
 // // UPDATE
-message UpdateFolderRequest { ItemFolder item_folder = 1; }
+message UpdateFolderRequest { ItemFolder folder = 1; }
 
 message UpdateFolderResponse {}
 
-message UpdateApiCallRequest { ItemApiCall item_api_call = 1; }
+message UpdateApiCallRequest { ItemApiCall api_call = 1; }
 
 message UpdateApiCallResponse {}
 
@@ -168,40 +168,38 @@ message DeleteApiCallRequest {
 
 message DeleteApiCallResponse {}
 
-message MetaCollection {
+message CollectionMeta {
   string id = 1;
   string name = 2;
 }
 
 // Collection Item
 message Item {
-  oneof item_data {
-    ItemFolder item_folder = 1;
-    ItemApiCall item_api_call = 2;
+  oneof data {
+    ItemFolder folder = 1;
+    ItemApiCall api_call = 2;
   }
 }
 
-message ItemApiCallMeta {
+message ApiCallMeta {
   string id = 1;
   string name = 2;
 }
 
-message ItemApiCall {
-  string id = 1;
-  string name = 2;
-  string collection_id = 3;
-  nodedata.v1.NodeApiCallData api_call_data = 4;
+message ApiCall {
+  ApiCallMeta meta = 1;
+  string collection_id = 2;
+  nodedata.v1.NodeApiCallData data = 3;
 }
 
-message ItemFolderMeta {
+message FolderMeta {
   string id = 1;
   string name = 2;
 }
 
-message ItemFolder {
-  string id = 1;
+message Folder {
+  FolderMeta meta = 1;
   string parent_id = 2;
-  string name = 3;
-  string collection_id = 4;
-  repeated Item items = 5;
+  string collection_id = 3;
+  repeated Item items = 4;
 }
