@@ -6,7 +6,7 @@ import * as Uuid from 'uuid';
 
 import * as PlasmoStorage from '@plasmohq/storage/hook';
 
-import * as Utils from '@the-dev-tools/utils';
+import { makeUrl } from '@the-dev-tools/utils/url';
 
 import * as Postman from '~postman';
 import { Runtime } from '~runtime';
@@ -58,7 +58,7 @@ export const useCollection = () => {
 export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.Tab) =>
   Effect.gen(function* () {
     if (!tab.url) return collection;
-    const url = yield* Utils.URL.make(tab.url);
+    const url = yield* makeUrl(tab.url);
 
     let newCollection = collection;
 
@@ -94,7 +94,7 @@ export const addRequest = (
   { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
-    const url = yield* Utils.URL.make(request.url);
+    const url = yield* makeUrl(request.url);
     if (Array.contains(hostnameBlacklist, url.hostname)) return collection;
 
     const host = yield* Array.head(collection.item);
@@ -150,7 +150,7 @@ export const addResponse = (
   { body }: Partial<Devtools.Protocol.Network.GetResponseBodyResponse> = {},
 ) =>
   Effect.gen(function* () {
-    const url = yield* Utils.URL.make(response.url);
+    const url = yield* makeUrl(response.url);
     if (Array.contains(hostnameBlacklist, url.hostname)) return collection;
 
     const index = yield* MutableHashMap.get(indexMap, requestId);

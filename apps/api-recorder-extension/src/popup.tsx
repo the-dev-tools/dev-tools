@@ -12,7 +12,8 @@ import { Button } from '@the-dev-tools/ui/button';
 import { focusRingStyles } from '@the-dev-tools/ui/focus-ring';
 import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import * as Utils from '@the-dev-tools/utils';
+import { keyValue } from '@the-dev-tools/utils/helpers';
+import { makeUrl } from '@the-dev-tools/utils/url';
 
 import * as Auth from '~auth';
 import { Layout as BaseLayout, type LayoutProps } from '~layout';
@@ -140,7 +141,7 @@ const RecorderPage = () => {
         Array.map(items ?? [], (item, index) =>
           Tuple.make(item.id, {
             item,
-            index: { ...previousIndex, ...Utils.keyValue(key, index) },
+            index: { ...previousIndex, ...keyValue(key, index) },
           }),
         );
 
@@ -430,7 +431,7 @@ const RecorderPage = () => {
 
                     {pipe(
                       request.name ?? '',
-                      Utils.URL.make,
+                      makeUrl,
                       Effect.map((url) => (
                         <>
                           <span className='col-span-2 col-start-2 truncate text-xs leading-none text-indigo-600'>
