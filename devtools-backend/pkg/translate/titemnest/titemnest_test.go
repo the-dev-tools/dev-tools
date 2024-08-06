@@ -12,11 +12,25 @@ import (
 )
 
 func TestTranslateItemFolderNested(t *testing.T) {
+	rootFolderUlid := ulid.Make()
+
 	folders := []mitemfolder.ItemFolder{
+		{
+			ID:           rootFolderUlid,
+			Name:         "test root",
+			ParentID:     nil,
+			CollectionID: ulid.Make(),
+		},
 		{
 			ID:           ulid.Make(),
 			Name:         "test",
-			ParentID:     nil,
+			ParentID:     &rootFolderUlid,
+			CollectionID: ulid.Make(),
+		},
+		{
+			ID:           ulid.Make(),
+			Name:         "test",
+			ParentID:     &rootFolderUlid,
 			CollectionID: ulid.Make(),
 		},
 	}
@@ -27,6 +41,7 @@ func TestTranslateItemFolderNested(t *testing.T) {
 			CollectionID: ulid.Make(),
 			Url:          "http://localhost:8080",
 			Method:       "GET",
+			ParentID:     nil,
 		},
 		{
 			ID:           ulid.Make(),
@@ -34,13 +49,16 @@ func TestTranslateItemFolderNested(t *testing.T) {
 			CollectionID: ulid.Make(),
 			Url:          "http://localhost:8080",
 			Method:       "GET",
-			ParentID:     &folders[0].ID,
+			ParentID:     &rootFolderUlid,
 		},
 	}
 
 	collectionPair := titemnest.TranslateItemFolderNested(folders, apis)
 	items := collectionPair.GetItemFolders()
 	if len(items) != 2 {
+		for _, item := range items {
+			fmt.Println("Item", item)
+		}
 		t.Errorf("expected 2 items, got %d", len(items))
 	}
 
@@ -48,9 +66,11 @@ func TestTranslateItemFolderNested(t *testing.T) {
 		t.Errorf("expected %s, got %s", folders[0].ID.String(), items[0].GetData().(*collectionv1.Item_Folder).Folder.Meta.Id)
 	}
 
+	fmt.Println(items[0].GetData().(*collectionv1.Item_Folder).Folder.Meta.Name)
+
 	newItems := items[0].GetData().(*collectionv1.Item_Folder).Folder.Items
-	fmt.Println("New Items", newItems)
-	for _, item := range newItems {
-		fmt.Println("Nested item", item)
+	fmt.Println(len(newItems))
+	if len(newItems) != 3 {
+		t.Errorf("expected 1 item, got %d", len(newItems))
 	}
 }

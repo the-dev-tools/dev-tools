@@ -20,6 +20,7 @@ import (
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	"io"
+	"net/http"
 	"time"
 
 	"connectrpc.com/connect"
@@ -415,8 +416,12 @@ func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request
 		Data: &apiCallNodeData,
 	}
 
+	runApiVars := make(map[string]interface{}, 0)
+
 	nm := &mnodemaster.NodeMaster{
 		CurrentNode: &node,
+		HttpClient:  http.DefaultClient,
+		Vars:        runApiVars,
 	}
 
 	now := time.Now()

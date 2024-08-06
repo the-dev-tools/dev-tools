@@ -17,6 +17,7 @@ type CollectionPair struct {
 
 func (c CollectionPair) GetItemFolders() []*collectionv1.Item {
 	var items []*collectionv1.Item
+
 	for _, item := range c.itemFolders {
 		folderItem := &collectionv1.Item{
 			Data: &collectionv1.Item_Folder{
@@ -61,7 +62,6 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 	for _, child := range item.Children {
 		folder, ok := child.(mitemfolder.ItemFolderNested)
 		if ok {
-			items = RecursiveTranslate(folder)
 			folderCollection := &collectionv1.Item{
 				Data: &collectionv1.Item_Folder{
 					Folder: &collectionv1.Folder{
@@ -69,7 +69,9 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 							Id:   folder.ID.String(),
 							Name: folder.Name,
 						},
-						Items: items,
+
+						ParentId: folder.ParentID.String(),
+						Items:    RecursiveTranslate(folder),
 					},
 				},
 			}
@@ -84,6 +86,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 								Name: api.Name,
 								Id:   api.ID.String(),
 							},
+							ParentId: api.ParentID.String(),
 							Data: &nodedatav1.NodeApiCallData{
 								Url:         api.Url,
 								Method:      api.Method,
@@ -98,6 +101,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 			}
 		}
 	}
+
 	return items
 }
 
@@ -106,6 +110,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi) CollectionPair {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
+	fmt.Println("api len", len(apis))
 
 	for i, item := range apis {
 		if item.ParentID == nil {
@@ -113,6 +118,8 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 			apis = append(apis[:i], apis[i+1:]...)
 		}
 	}
+
+	fmt.Println("api len", len(apis))
 
 	tempNestedArr := make([]mitemfolder.ItemFolderNested, len(folders))
 	for i, item := range sortedFolders {
@@ -122,15 +129,8 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 		}
 	}
 
-	fmt.Println(tempNestedArr)
-	newFolders := PutFoldersToSubFolder(tempNestedArr, apis)
+	newFolders := PutFoldersToSubFolder(tempNestedArr, &apis)
 	collection.itemFolders = newFolders
-	for _, item := range newFolders {
-		fmt.Println("Item: ", item, "Children: ", item.Children)
-		for _, child := range item.Children {
-			fmt.Println("Child: ", child)
-		}
-	}
 
 	return collection
 }
@@ -139,10 +139,10 @@ func SortFoldersByUlidTime(folders []mitemfolder.ItemFolder) []mitemfolder.ItemF
 	sortedFolders := make([]mitemfolder.ItemFolder, len(folders))
 	copy(sortedFolders, folders)
 
-	// Sort Folders via Ulid
+	// Sort Folders older to newer
 	for i := 0; i < len(sortedFolders); i++ {
 		for j := i + 1; j < len(sortedFolders); j++ {
-			if sortedFolders[i].ID.Compare(sortedFolders[j].ID) == -1 {
+			if sortedFolders[i].ID.Compare(sortedFolders[j].ID) == 1 {
 				sortedFolders[i], sortedFolders[j] = sortedFolders[j], sortedFolders[i]
 			}
 		}
@@ -151,40 +151,39 @@ func SortFoldersByUlidTime(folders []mitemfolder.ItemFolder) []mitemfolder.ItemF
 	return sortedFolders
 }
 
-func PutFoldersToSubFolder(folders []mitemfolder.ItemFolderNested, apis []mitemapi.ItemApi) []mitemfolder.ItemFolderNested {
-	tempNestedArr := make([]mitemfolder.ItemFolderNested, len(folders))
-	for i, item := range folders {
-		tempNestedArr[i] = mitemfolder.ItemFolderNested{
-			ItemFolder: item.ItemFolder,
-			Children:   []interface{}{},
+func PutFoldersToSubFolder(folders []mitemfolder.ItemFolderNested, apis *[]mitemapi.ItemApi) []mitemfolder.ItemFolderNested {
+	rootFolders := []mitemfolder.ItemFolderNested{}
+	// check folders and sub folder if find parentID match set put them inside
+
+	for _, folder := range folders {
+		if folder.ParentID == nil {
+
+			folder.Children = searchAndPut(&folder.ID, folders, apis)
+			rootFolders = append(rootFolders, folder)
 		}
 	}
-	// check folders and sub folder if find parentID match set put them inside
-	for i, folder := range folders {
-		folder.Children = searchAndPut(&folder.ID, tempNestedArr, apis)
-		folders[i] = folder
-	}
-	return folders
+
+	return rootFolders
 }
 
-func searchAndPut(parentID *ulid.ULID, folders []mitemfolder.ItemFolderNested, apis []mitemapi.ItemApi) []interface{} {
+func searchAndPut(parentID *ulid.ULID, folders []mitemfolder.ItemFolderNested, apis *[]mitemapi.ItemApi) []interface{} {
 	var children []interface{}
-	for i, item := range apis {
-		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
-			children = append(children, item)
-			if i < len(apis) {
-				apis = append(apis[:i], apis[i+1:]...)
-			}
-		}
-	}
 
 	for i, item := range folders {
 		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
-			item.Children = searchAndPut(&item.ID, folders, apis)
-			children = append(children, item)
 			if i < len(folders) {
 				folders = append(folders[:i], folders[i+1:]...)
+				fmt.Println("remove folder: ", item.Name)
 			}
+			item.Children = searchAndPut(&item.ID, folders, apis)
+			children = append(children, item)
+		}
+	}
+
+	for i, item := range *apis {
+		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
+			fmt.Println("ParentID: ", *parentID, i)
+			children = append(children, item)
 		}
 	}
 

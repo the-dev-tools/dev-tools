@@ -30,6 +30,7 @@ const (
 	AuthFunc          = "auth"
 	PostmanImportFunc = "import"
 	CollectionFunc    = "collection"
+	RunApiFunc        = "runapi"
 )
 
 func main() {
@@ -47,6 +48,8 @@ func main() {
 		PostManCollection()
 	case CollectionFunc:
 		GetCollection()
+	case RunApiFunc:
+		RunApi()
 	default:
 		fmt.Println("Invalid function", cmd)
 	}
@@ -280,7 +283,7 @@ func GetCollection() {
 	fmt.Println("List Response: ", respList.Msg)
 
 	req := connect.NewRequest(&collectionv1.GetCollectionRequest{
-		Id: "01J4HGW00AQQZZ3C7FWJ709R29",
+		Id: "01J4M6YJVZEM4KMF9JZQG3XRGP",
 	})
 
 	resp, err := client.GetCollection(ctx, req)
@@ -299,7 +302,8 @@ func RecursivePrint(item *collectionv1.Item) {
 	// Get The childs
 	api := item.GetApiCall()
 	if api != nil {
-		fmt.Println("Api Call: ", api.Meta.Name)
+		fmt.Println(api.ParentId)
+		fmt.Println(api.Meta.Id, api.Meta.Name, api.Data.Url)
 	}
 	folder := item.GetFolder()
 	if folder != nil {
@@ -314,4 +318,25 @@ func RecursivePrint(item *collectionv1.Item) {
 	if data == nil {
 		return
 	}
+}
+
+func RunApi() {
+	addr := flag.String("addr", "", "address of the node master service")
+	flag.Parse()
+
+	ctx := context.Background()
+
+	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	client := collectionv1connect.NewCollectionServiceClient(httpClient, *addr)
+
+	reqRun := connect.NewRequest(&collectionv1.RunApiCallRequest{
+		Id: "01J4M6YJXY9NYH7KA5FQKDTPFV",
+	})
+
+	resp, err := client.RunApiCall(ctx, reqRun)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	fmt.Println("Run Response: ", resp.Msg)
 }

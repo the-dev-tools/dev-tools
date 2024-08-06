@@ -34,7 +34,14 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 	for _, item := range collection.Items {
 		// means it is a folder
 		if item.Request == nil {
-			err := GetRecursiveFolders(item, nil, collectionID, &pair)
+			rootFolder := mitemfolder.ItemFolder{
+				ID:           ulid.Make(),
+				Name:         item.Name,
+				ParentID:     nil,
+				CollectionID: collectionID,
+			}
+			pair.Folder = append(pair.Folder, rootFolder)
+			err := GetRecursiveFolders(item, &rootFolder.ID, collectionID, &pair)
 			if err != nil {
 				return nil, err
 			}
