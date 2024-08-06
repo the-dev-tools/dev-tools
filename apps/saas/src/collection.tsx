@@ -1,10 +1,10 @@
 import { createConnectQueryKey, useMutation, useQuery } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
-import { flow, Match, Struct } from 'effect';
+import { Match, pipe, Struct } from 'effect';
 import { Button, FileTrigger } from 'react-aria-components';
 
-import { ApiCall } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { ApiCall, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
 export const CollectionListPage = () => {
@@ -16,7 +16,7 @@ export const CollectionListPage = () => {
     <>
       <h2 className='text-center text-2xl font-extrabold'>Collections</h2>
       <ImportPostman />
-      <div>
+      <div className='mt-4 flex flex-col'>
         {collections.map((_) => (
           <Link key={_.id} to='/collection/$id' params={{ id: _.id }}>
             {_.name}
@@ -59,37 +59,56 @@ export const CollectionEditPage = () => {
   const { id } = collectionEditRoute.useParams();
   const collectionQuery = useQuery(CollectionQuery.getCollection, { id });
   if (!collectionQuery.isSuccess) return null;
+  const { data } = collectionQuery;
 
   return (
     <>
-      <h2 className='text-center text-2xl font-extrabold'>Collection</h2>
-      <div>ID: {collectionQuery.data.id}</div>
-      <div>Name: {collectionQuery.data.name}</div>
-      <div>Nodes:</div>
-      {collectionQuery.data.items.map(
-        flow(
-          Struct.get('data'),
-          Match.value,
-          Match.when({ case: 'apiCall' }, (_) => <ApiCallItem key={_.value.meta?.id ?? ''} item={_.value} />),
-          Match.orElse(() => null),
-        ),
-      )}
+      <h2 className='text-center text-2xl font-extrabold'>{data.name}</h2>
+      {data.items.map((_) => (
+        <ItemRow key={_.data.value?.meta?.id ?? ''} item={_} />
+      ))}
     </>
   );
 };
 
-interface ApiCallItemProps {
-  item: ApiCall;
+interface ItemRowProps {
+  item: Item;
 }
 
-const ApiCallItem = ({ item }: ApiCallItemProps) => {
+const ItemRow = ({ item }: ItemRowProps) =>
+  pipe(
+    item,
+    Struct.get('data'),
+    Match.value,
+    Match.when({ case: 'apiCall' }, (_) => <ApiCallRow apiCall={_.value} />),
+    Match.when({ case: 'folder' }, (_) => <FolderRow folder={_.value} />),
+    Match.orElse(() => null),
+  );
+
+interface FolderRowProps {
+  folder: Folder;
+}
+
+const FolderRow = ({ folder }: FolderRowProps) => (
+  <div className='flex gap-2'>
+    <div>FOLDER</div>
+    <div>{folder.meta?.name}</div>
+  </div>
+);
+
+interface ApiCallRowProps {
+  apiCall: ApiCall;
+}
+
+const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
   const runNodeMutation = useMutation(CollectionQuery.runApiCall);
 
   return (
-    <div>
-      <span>{item.meta?.name} | </span>
-      <button onClick={() => void runNodeMutation.mutate({ id: item.meta?.id ?? '' })}>Run</button>
-      {runNodeMutation.isSuccess && <span> | Status: {runNodeMutation.data.status}</span>}
+    <div className='flex gap-2'>
+      <div>{apiCall.data?.method}</div>
+      <div className='flex-1 truncate'>{apiCall.meta?.name}</div>
+      {runNodeMutation.isSuccess && <div>Status: {runNodeMutation.data.status}</div>}
+      <button onClick={() => void runNodeMutation.mutate({ id: apiCall.meta?.id ?? '' })}>Run</button>
     </div>
   );
 };
