@@ -8,3 +8,8 @@ type ItemFolder struct {
 	Name         string
 	ParentID     *ulid.ULID
 }
+
+type ItemFolderNested struct {
+	ItemFolder
+	Children []interface{} // can be  ItemFolderNest or ItemApi
+}

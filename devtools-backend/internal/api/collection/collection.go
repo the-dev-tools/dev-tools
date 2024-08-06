@@ -10,8 +10,10 @@ import (
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"devtools-backend/pkg/translate/titemnest"
 	"devtools-backend/pkg/translate/tpostman"
 	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodes/nodeapi"
 	collectionv1 "devtools-services/gen/collection/v1"
@@ -80,51 +82,18 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	items := make([]*collectionv1.Item, 0)
-	apiItems, err := sitemapi.GetApisWithCollectionID(ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	for _, item := range apiItems {
-		apiItem := &collectionv1.Item{
-			Data: &collectionv1.Item_ApiCall{
-				ApiCall: &collectionv1.ApiCall{
-					Meta: &collectionv1.ApiCallMeta{
-						Name: item.Name,
-						Id:   item.ID.String(),
-					},
-					CollectionId: item.CollectionID.String(),
-					Data: &nodedatav1.NodeApiCallData{
-						Url:         item.Url,
-						Method:      item.Method,
-						QueryParams: item.QueryParams.QueryMap,
-						Headers:     item.Headers.HeaderMap,
-					},
-				},
-			},
-		}
-		items = append(items, apiItem)
-	}
-
 	folderItems, err := sitemfolder.GetFoldersWithCollectionID(ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, item := range folderItems {
-		folderItem := &collectionv1.Item{
-			Data: &collectionv1.Item_Folder{
-				Folder: &collectionv1.Folder{
-					Meta: &collectionv1.FolderMeta{
-						Id:   item.ID.String(),
-						Name: item.Name,
-					},
-				},
-			},
-		}
-		items = append(items, folderItem)
+	apiItems, err := sitemapi.GetApisWithCollectionID(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	pair := titemnest.TranslateItemFolderNested(folderItems, apiItems)
+	items := pair.GetItemFolders()
 
 	respRaw := &collectionv1.GetCollectionResponse{
 		Id:    collection.ID.String(),
@@ -432,7 +401,7 @@ func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	apiCallNodeData := nodedatav1.NodeApiCallData{
+	apiCallNodeData := mnodedata.NodeApiRestData{
 		Url:         itemApiCall.Url,
 		Method:      itemApiCall.Method,
 		Headers:     itemApiCall.Headers.HeaderMap,

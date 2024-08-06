@@ -290,6 +290,28 @@ func GetCollection() {
 
 	fmt.Println("Got Response: ", resp.Msg.Id)
 	for _, item := range resp.Msg.Items {
-		fmt.Println("Item: ", item)
+		RecursivePrint(item)
+	}
+}
+
+// recursive print
+func RecursivePrint(item *collectionv1.Item) {
+	// Get The childs
+	api := item.GetApiCall()
+	if api != nil {
+		fmt.Println("Api Call: ", api.Meta.Name)
+	}
+	folder := item.GetFolder()
+	if folder != nil {
+		fmt.Println("Folder: ", folder.Meta.Name)
+		for _, item := range folder.Items {
+			RecursivePrint(item)
+		}
+	}
+	// Get Data
+
+	data := item.GetData()
+	if data == nil {
+		return
 	}
 }
