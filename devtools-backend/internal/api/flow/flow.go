@@ -1,17 +1,6 @@
 package flow
 
-import (
-	"context"
-	"database/sql"
-	"devtools-backend/internal/api"
-	"devtools-backend/pkg/stoken"
-	flowv1 "devtools-services/gen/flow/v1"
-	"devtools-services/gen/flow/v1/flowv1connect"
-	"errors"
-
-	"connectrpc.com/connect"
-)
-
+/*
 // TODO: Move to a common package.
 const tokenHeaderKey = "token"
 
@@ -70,3 +59,4 @@ func CreateService(secret []byte) (*api.Service, error) {
 	path, handler := flowv1connect.NewFlowServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
+*/

@@ -346,10 +346,12 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 		Name:         req.Msg.Folder.Meta.Name,
 	}
 
-	sitemfolder.UpdateItemFolder(&folder)
+	err = sitemfolder.UpdateItemFolder(&folder)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-	// sitemfolder.UpdateItemFolder(folder * mitemfolder.ItemFolder)
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	return connect.NewResponse(&collectionv1.UpdateFolderResponse{}), nil
 }
 
 // UpdateApiCall calls collection.v1.CollectionService.UpdateApiCall.

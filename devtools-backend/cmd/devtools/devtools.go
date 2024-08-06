@@ -4,7 +4,6 @@ import (
 	"devtools-backend/internal/api"
 	"devtools-backend/internal/api/auth"
 	"devtools-backend/internal/api/collection"
-	"devtools-backend/internal/api/flow"
 	"devtools-backend/internal/api/node"
 	"devtools-backend/pkg/db/turso"
 	"devtools-backend/pkg/service/scollection"
@@ -105,11 +104,13 @@ func main() {
 	}
 	services = append(services, *nodeService)
 
-	flowService, err := flow.CreateService(hmacSecretBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *flowService)
+	/*
+		flowService, err := flow.CreateService(hmacSecretBytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+		services = append(services, *flowService)
+	*/
 
 	collectionService, err := collection.CreateService(db)
 	if err != nil {

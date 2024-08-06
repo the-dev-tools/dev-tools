@@ -64,9 +64,15 @@ func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ul
 				CollectionID: collectionID,
 			}
 			pair.Folder = append(pair.Folder, folder)
-			GetRecursiveFolders(item, &folder.ID, collectionID, pair)
+			err := GetRecursiveFolders(item, &folder.ID, collectionID, pair)
+			if err != nil {
+				return err
+			}
 		} else {
-			GetRequest(item, parentID, collectionID, pair)
+			err := GetRequest(item, parentID, collectionID, pair)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -74,7 +80,6 @@ func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ul
 
 func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, pair *ItemsPair) error {
 	headers := make(map[string]string)
-	fmt.Println(parentID)
 
 	if item.Request == nil {
 		return errors.New("item is not an api")

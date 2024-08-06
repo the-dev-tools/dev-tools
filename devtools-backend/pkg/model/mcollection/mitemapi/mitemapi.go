@@ -34,8 +34,7 @@ func (h Headers) Value() (driver.Value, error) {
 
 func (h *Headers) Scan(value interface{}) error {
 	// TODO: check if value is not byte array
-	json.Unmarshal(value.([]byte), &h.HeaderMap)
-	return nil
+	return json.Unmarshal(value.([]byte), &h.HeaderMap)
 }
 
 func (i *ItemApi) SetHeaders(headers map[string]string) {
