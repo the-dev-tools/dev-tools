@@ -10,7 +10,7 @@ import { Runtime } from '~runtime';
 export const Local = new PlasmoStorage.Storage({ area: 'local' });
 
 export const Change = <S extends Schema.Schema.All>(schema: S) => {
-  const value = pipe(schema, Schema.optional({ as: 'Option' }));
+  const value = pipe(schema, Schema.optionalWith({ as: 'Option' }));
   return Schema.Struct({ newValue: value, oldValue: value });
 };
 
