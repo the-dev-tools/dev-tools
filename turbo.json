@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["PUBLIC_MAGIC_KEY"],
+  "globalEnv": ["PUBLIC_API_URL", "PUBLIC_MAGIC_KEY", "NODE_ENV"],
   "tasks": {
     "dev": {
       "cache": false,

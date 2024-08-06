@@ -147,6 +147,9 @@ importers:
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../../packages/ui
+      '@the-dev-tools/utils':
+        specifier: workspace:^
+        version: link:../../packages/utils
       effect:
         specifier: ^3.6.0
         version: 3.6.0
@@ -214,6 +217,9 @@ importers:
       '@the-dev-tools/protobuf':
         specifier: ^1.7.0
         version: 1.7.0
+      '@the-dev-tools/utils':
+        specifier: workspace:^
+        version: link:../utils
       effect:
         specifier: ^3.6.0
         version: 3.6.0
@@ -376,6 +382,9 @@ importers:
         specifier: ^3.6.0
         version: 3.6.0
     devDependencies:
+      '@faker-js/faker':
+        specifier: ^8.4.1
+        version: 8.4.1
       '@the-dev-tools/config-eslint':
         specifier: workspace:^
         version: link:../config-eslint
@@ -850,6 +859,10 @@ packages:
   '@expo/spawn-async@1.7.2':
     resolution: {integrity: sha512-QdWi16+CHB9JYP7gma19OVVg0BFkvU8zNj9GjWorYI8Iv8FUxjOCcYRuAmX4s/h91e4e7BPsskc8cSrZYho9Ew==}
     engines: {node: '>=12'}
+
+  '@faker-js/faker@8.4.1':
+    resolution: {integrity: sha512-XQ3cU+Q8Uqmrbf2e0cIC/QN43sTBSC8KF12u29Mb47tWrt2hAgBXSgpZMj4Ao8Uk0iJcU99QsOCaIL8934obCg==}
+    engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0, npm: '>=6.14.13'}
 
   '@fontsource-variable/lexend-deca@5.0.13':
     resolution: {integrity: sha512-P4kVBE9587FsGdW++aMfIPMQAZqh1n3tgm5vaPvQ1tXj+T8NpnCywlZSh3cr1P2q+o8+Bn4yVMtEltoujCZkoQ==}
@@ -6139,6 +6152,8 @@ snapshots:
   '@expo/spawn-async@1.7.2':
     dependencies:
       cross-spawn: 7.0.3
+
+  '@faker-js/faker@8.4.1': {}
 
   '@fontsource-variable/lexend-deca@5.0.13': {}
 

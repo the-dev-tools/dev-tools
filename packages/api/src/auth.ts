@@ -20,9 +20,9 @@ export const MagicClientLive = Layer.effect(
   }),
 );
 
-export const MagicClientMock = Layer.succeed(MagicClient, {
+export const MagicClientTest = Layer.succeed(MagicClient, {
   auth: {
-    loginWithMagicLink: () => Promise.resolve('mock-did-token') as PromiEvent<string>,
+    loginWithMagicLink: (_) => Promise.resolve(_.email) as PromiEvent<string>,
   } as Partial<Magic['auth']>,
   user: {
     logout: () => Promise.resolve(true),
