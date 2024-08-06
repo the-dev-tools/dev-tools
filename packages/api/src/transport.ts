@@ -72,13 +72,15 @@ export const ApiTransportMock = Layer.effect(
           getCollection: (_) => ({
             id: _.id,
             name: _.id,
-            item: [
+            items: [
               {
-                itemData: {
-                  case: 'itemApiCall',
+                data: {
+                  case: 'apiCall',
                   value: {
-                    id: _.id + '_api_call',
-                    name: 'API Call #' + _.id,
+                    meta: {
+                      id: _.id + '_api_call',
+                      name: 'API Call #' + _.id,
+                    },
                   },
                 },
               },

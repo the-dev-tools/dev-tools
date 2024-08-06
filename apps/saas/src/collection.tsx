@@ -4,7 +4,7 @@ import { getRouteApi, Link } from '@tanstack/react-router';
 import { flow, Match, Struct } from 'effect';
 import { Button, FileTrigger } from 'react-aria-components';
 
-import { ItemApiCall } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { ApiCall } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
 export const CollectionListPage = () => {
@@ -66,11 +66,11 @@ export const CollectionEditPage = () => {
       <div>ID: {collectionQuery.data.id}</div>
       <div>Name: {collectionQuery.data.name}</div>
       <div>Nodes:</div>
-      {collectionQuery.data.item.map(
+      {collectionQuery.data.items.map(
         flow(
-          Struct.get('itemData'),
+          Struct.get('data'),
           Match.value,
-          Match.when({ case: 'itemApiCall' }, (_) => <ApiCall key={_.value.id} item={_.value} />),
+          Match.when({ case: 'apiCall' }, (_) => <ApiCallItem key={_.value.meta?.id ?? ''} item={_.value} />),
           Match.orElse(() => null),
         ),
       )}
@@ -78,17 +78,17 @@ export const CollectionEditPage = () => {
   );
 };
 
-interface ApiCallProps {
-  item: ItemApiCall;
+interface ApiCallItemProps {
+  item: ApiCall;
 }
 
-const ApiCall = ({ item }: ApiCallProps) => {
+const ApiCallItem = ({ item }: ApiCallItemProps) => {
   const runNodeMutation = useMutation(CollectionQuery.runApiCall);
 
   return (
     <div>
-      <span>{item.name} | </span>
-      <button onClick={() => void runNodeMutation.mutate({ id: item.id })}>Run</button>
+      <span>{item.meta?.name} | </span>
+      <button onClick={() => void runNodeMutation.mutate({ id: item.meta?.id ?? '' })}>Run</button>
       {runNodeMutation.isSuccess && <span> | Status: {runNodeMutation.data.status}</span>}
     </div>
   );

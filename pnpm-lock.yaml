@@ -142,8 +142,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/api
       '@the-dev-tools/protobuf':
-        specifier: ^1.5.0
-        version: 1.5.0
+        specifier: ^1.7.0
+        version: 1.7.0
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -212,8 +212,8 @@ importers:
         specifier: ^0.70.1
         version: 0.70.1(effect@3.6.0)
       '@the-dev-tools/protobuf':
-        specifier: ^1.5.0
-        version: 1.5.0
+        specifier: ^1.7.0
+        version: 1.7.0
       effect:
         specifier: ^3.6.0
         version: 3.6.0
@@ -2726,8 +2726,8 @@ packages:
   '@tanstack/store@0.5.5':
     resolution: {integrity: sha512-EOSrgdDAJExbvRZEQ/Xhh9iZchXpMN+ga1Bnk8Nmygzs8TfiE6hbzThF+Pr2G19uHL6+DTDTHhJ8VQiOd7l4tA==}
 
-  '@the-dev-tools/protobuf@1.5.0':
-    resolution: {integrity: sha512-IGDp41Xa1kjViJN/tSQyGA17obh8os80iGHyYKOocYpmNYITPmxqh8XgtMnFmAYNGT601AmGZj/TosXfPsrdvw==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.5.0/21a182d6655b1306795492af4e38f441678f3943}
+  '@the-dev-tools/protobuf@1.7.0':
+    resolution: {integrity: sha512-6CzmLlWGJk4zOvDPhwan4gxD+mFkDvSrXYQ9lgn+t7zZAppd9LpCC62YzCxx/H6x3dew1hMF18bx9VzJgPr/1Q==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.7.0/e3c08ff6f49b8686d617250951e60309ed58f63f}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -4899,6 +4899,10 @@ packages:
 
   postcss@8.4.40:
     resolution: {integrity: sha512-YF2kKIUzAofPMpfH6hOi2cGnv/HrUlfucspc7pDyvv7kGdqXrfj8SCl/t8owkEgKEuu8ZcRjSOxFxVLqwChZ2Q==}
+    engines: {node: ^10 || ^12 || >=14}
+
+  postcss@8.4.41:
+    resolution: {integrity: sha512-TesUflQ0WKZqAvg52PWL6kHgLKP6xB6heTOdoYM0Wt2UHyxNa4K25EZZMgKns3BH1RLVbZCREPpLY0rhnNoHVQ==}
     engines: {node: ^10 || ^12 || >=14}
 
   posthtml-parser@0.10.2:
@@ -8730,7 +8734,7 @@ snapshots:
 
   '@tanstack/store@0.5.5': {}
 
-  '@the-dev-tools/protobuf@1.5.0': {}
+  '@the-dev-tools/protobuf@1.7.0': {}
 
   '@trysound/sax@0.2.0': {}
 
@@ -8941,7 +8945,7 @@ snapshots:
       '@vue/shared': 3.4.35
       estree-walker: 2.0.2
       magic-string: 0.30.11
-      postcss: 8.4.40
+      postcss: 8.4.41
       source-map-js: 1.2.0
     optional: true
 
@@ -11296,6 +11300,13 @@ snapshots:
       nanoid: 3.3.7
       picocolors: 1.0.1
       source-map-js: 1.2.0
+
+  postcss@8.4.41:
+    dependencies:
+      nanoid: 3.3.7
+      picocolors: 1.0.1
+      source-map-js: 1.2.0
+    optional: true
 
   posthtml-parser@0.10.2:
     dependencies:
