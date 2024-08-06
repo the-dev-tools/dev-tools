@@ -1,7 +1,8 @@
 import { createConnectQueryKey, useMutation, useQuery } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
-import { Match, pipe, Struct } from 'effect';
+import { Boolean, Match, pipe, Struct } from 'effect';
+import { useState } from 'react';
 import { Button, FileTrigger } from 'react-aria-components';
 
 import { ApiCall, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
@@ -89,12 +90,30 @@ interface FolderRowProps {
   folder: Folder;
 }
 
-const FolderRow = ({ folder }: FolderRowProps) => (
-  <div className='flex gap-2'>
-    <div>FOLDER</div>
-    <div>{folder.meta?.name}</div>
-  </div>
-);
+const FolderRow = ({ folder }: FolderRowProps) => {
+  const [open, setOpen] = useState(false);
+
+  const row = (
+    <div className='flex gap-2'>
+      <div>FOLDER</div>
+      <div className='flex-1'>{folder.meta?.name}</div>
+      <button onClick={() => void setOpen(Boolean.not)}>{open ? 'Close' : 'Open'}</button>
+    </div>
+  );
+
+  if (!open) return row;
+
+  return (
+    <>
+      {row}
+      <div className='border-l-2 border-black pl-2'>
+        {folder.items.map((_) => (
+          <ItemRow key={_.data.value?.meta?.id ?? ''} item={_} />
+        ))}
+      </div>
+    </>
+  );
+};
 
 interface ApiCallRowProps {
   apiCall: ApiCall;
