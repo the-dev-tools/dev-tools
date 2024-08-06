@@ -57,6 +57,10 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	err = PrepareGetItemsWithCollectionID(db)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -165,7 +169,7 @@ func GetApisWithCollectionID(collectionID ulid.ULID) ([]mitemapi.ItemApi, error)
 	defer rows.Close()
 	for rows.Next() {
 		item := mitemapi.ItemApi{}
-		err = rows.Scan(&item.ID, &item.CollectionID, &item.ParentID, &item.Name, &item.Url, &item.Method, &item.Headers, &item.Body)
+		err = rows.Scan(&item.ID, &item.CollectionID, &item.ParentID, &item.Name, &item.Url, &item.Method, &item.Headers, &item.QueryParams, &item.Body)
 		if err != nil {
 			return nil, err
 		}

@@ -26,9 +26,10 @@ import (
 )
 
 const (
-	NodeFunc       = "node"
-	AuthFunc       = "auth"
-	CollectionFunc = "collection"
+	NodeFunc          = "node"
+	AuthFunc          = "auth"
+	PostmanImportFunc = "import"
+	CollectionFunc    = "collection"
 )
 
 func main() {
@@ -42,8 +43,10 @@ func main() {
 		NodeFuncHandler()
 	case AuthFunc:
 		AuthFuncHandler()
+	case PostmanImportFunc:
+		PostManCollection()
 	case CollectionFunc:
-		Collection()
+		GetCollection()
 	default:
 		fmt.Println("Invalid function", cmd)
 	}
@@ -214,7 +217,7 @@ func NodeFuncHandler() {
 	fmt.Println("Done")
 }
 
-func Collection() {
+func PostManCollection() {
 	addr := flag.String("addr", "", "address of the node master service")
 
 	flag.Parse()
@@ -257,4 +260,36 @@ func Collection() {
 	}
 
 	fmt.Println("Create Response: ", resp.Msg.Id)
+}
+
+func GetCollection() {
+	addr := flag.String("addr", "", "address of the node master service")
+	flag.Parse()
+
+	ctx := context.Background()
+
+	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	client := collectionv1connect.NewCollectionServiceClient(httpClient, *addr)
+
+	reqList := connect.NewRequest(&collectionv1.ListCollectionsRequest{})
+	respList, err := client.ListCollections(ctx, reqList)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	fmt.Println("List Response: ", respList.Msg)
+
+	req := connect.NewRequest(&collectionv1.GetCollectionRequest{
+		Id: "01J4HGW00AQQZZ3C7FWJ709R29",
+	})
+
+	resp, err := client.GetCollection(ctx, req)
+	if err != nil {
+		log.Fatalf("service returns error: %v", err)
+	}
+
+	fmt.Println("Got Response: ", resp.Msg.Id)
+	for _, item := range resp.Msg.Items {
+		fmt.Println("Item: ", item)
+	}
 }

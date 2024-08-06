@@ -50,6 +50,11 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	err = PrepareGetFoldersWithCollectionID(db)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -96,6 +101,19 @@ func PrepareDeleteItemFolder(db *sql.DB) error {
 	PreparedDeleteItemFolder, err = db.Prepare(`
                 DELETE FROM item_folder
                 WHERE id = ?
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func PrepareGetFoldersWithCollectionID(db *sql.DB) error {
+	var err error
+	PreparedGetFoldersWithCollectionID, err = db.Prepare(`
+                SELECT id, name, parent_id, collection_id
+                FROM item_folder
+                WHERE collection_id = ?
         `)
 	if err != nil {
 		return err

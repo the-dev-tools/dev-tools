@@ -126,9 +126,8 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 		Name:  collection.Name,
 		Items: items,
 	}
-	resp := connect.NewResponse(respRaw)
 
-	return resp, nil
+	return connect.NewResponse(respRaw), nil
 }
 
 // UpdateCollection calls collection.v1.CollectionService.UpdateCollection.
