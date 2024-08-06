@@ -11,9 +11,14 @@ import (
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
 	"devtools-backend/pkg/translate/tpostman"
+	"devtools-nodes/pkg/model/mnode"
+	"devtools-nodes/pkg/model/mnodemaster"
+	"devtools-nodes/pkg/nodes/nodeapi"
 	collectionv1 "devtools-services/gen/collection/v1"
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
+	"io"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -27,7 +32,7 @@ type CollectionService struct {
 func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
 	simpleCollections, err := scollection.ListCollections()
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	metaCollections := make([]*collectionv1.CollectionMeta, 0, len(simpleCollections))
@@ -53,7 +58,7 @@ func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.R
 	}
 	err := scollection.CreateCollection(&collection)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
 		Id:    ulidID.String(),
@@ -144,7 +149,7 @@ func (c *CollectionService) UpdateCollection(ctx context.Context, req *connect.R
 	}
 	err = scollection.UpdateCollection(&collection)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&collectionv1.UpdateCollectionResponse{}), nil
@@ -160,7 +165,7 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 	}
 	err = scollection.DeleteCollection(ulidID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&collectionv1.DeleteCollectionResponse{}), nil
 }
@@ -252,7 +257,7 @@ func (c *CollectionService) CreateApiCall(ctx context.Context, req *connect.Requ
 	}
 	err = sitemapi.CreateItemApi(apiCall)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	respRaw := &collectionv1.CreateApiCallResponse{
@@ -270,7 +275,7 @@ func (c *CollectionService) GetFolder(ctx context.Context, req *connect.Request[
 	}
 	folder, err := sitemfolder.GetItemFolder(ulidID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	respRaw := &collectionv1.GetFolderResponse{
@@ -294,7 +299,7 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 	}
 	item, err := sitemapi.GetItemApi(ulidID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	respRaw := &collectionv1.GetApiCallResponse{
@@ -379,7 +384,7 @@ func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Requ
 
 	err = sitemapi.UpdateItemApi(itemApi)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return nil, connect.NewError(connect.CodeUnimplemented, nil)
@@ -394,7 +399,7 @@ func (c *CollectionService) DeleteFolder(ctx context.Context, req *connect.Reque
 
 	err = sitemfolder.DeleteItemFolder(ulidID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&collectionv1.DeleteFolderResponse{}), nil
@@ -409,7 +414,7 @@ func (c *CollectionService) DeleteApiCall(ctx context.Context, req *connect.Requ
 
 	err = sitemapi.DeleteItemApi(ulidID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&collectionv1.DeleteApiCallResponse{}), nil
@@ -417,8 +422,56 @@ func (c *CollectionService) DeleteApiCall(ctx context.Context, req *connect.Requ
 
 // RunApiCall calls collection.v1.CollectionService.RunApiCall.
 func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request[collectionv1.RunApiCallRequest]) (*connect.Response[collectionv1.RunApiCallResponse], error) {
-	// TODO: implement
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	ulidID, err := ulid.Parse(req.Msg.Id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	itemApiCall, err := sitemapi.GetItemApi(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	apiCallNodeData := nodedatav1.NodeApiCallData{
+		Url:         itemApiCall.Url,
+		Method:      itemApiCall.Method,
+		Headers:     itemApiCall.Headers.HeaderMap,
+		QueryParams: itemApiCall.QueryParams.QueryMap,
+		Body:        itemApiCall.Body,
+	}
+
+	node := mnode.Node{
+		ID:   ulidID.String(),
+		Type: mnodemaster.ApiCallRest,
+		Data: &apiCallNodeData,
+	}
+
+	nm := &mnodemaster.NodeMaster{
+		CurrentNode: &node,
+	}
+
+	now := time.Now()
+	err = nodeapi.SendRestApiRequest(nm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeAborted, err)
+	}
+	lapse := time.Since(now)
+
+	httpResp, err := nodeapi.GetHttpVarResponse(nm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeAborted, err)
+	}
+
+	bodyData, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&collectionv1.RunApiCallResponse{
+		Status:   int32(httpResp.StatusCode),
+		Body:     bodyData,
+		Duration: lapse.Milliseconds(),
+	}), nil
 }
 
 func CreateService(db *sql.DB) (*api.Service, error) {
