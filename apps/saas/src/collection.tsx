@@ -92,6 +92,7 @@ export const CollectionEditPage = () => {
 
   const deleteMutation = useMutation(CollectionQuery.deleteCollection);
   const updateMutation = useMutation(CollectionQuery.updateCollection);
+  const createFolderMutation = useMutation(CollectionQuery.createFolder);
 
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
@@ -129,24 +130,33 @@ export const CollectionEditPage = () => {
           }).pipe(Runtime.runPromise)
         }
       >
-        <TextField defaultValue={data.name} name='name'>
-          <Label className='mr-2'>Name:</Label>
+        <TextField defaultValue={data.name} name='name' className='flex gap-2'>
+          <Label>Name:</Label>
           <Input />
         </TextField>
 
-        <Button type='submit' className='mr-2'>
-          Save
-        </Button>
+        <div className='flex gap-2'>
+          <Button type='submit'>Save</Button>
 
-        <Button
-          onPress={async () => {
-            await deleteMutation.mutateAsync({ id });
-            await router.navigate({ to: '/collections' });
-            await queryClient.invalidateQueries(queryOptions);
-          }}
-        >
-          Delete
-        </Button>
+          <Button
+            onPress={async () => {
+              await deleteMutation.mutateAsync({ id });
+              await router.navigate({ to: '/collections' });
+              await queryClient.invalidateQueries(queryOptions);
+            }}
+          >
+            Delete
+          </Button>
+
+          <Button
+            onPress={async () => {
+              await createFolderMutation.mutateAsync({ collectionId: id, name: 'New folder' });
+              await queryClient.invalidateQueries(queryOptions);
+            }}
+          >
+            Create folder
+          </Button>
+        </div>
       </Form>
 
       {data.items.map((_) => (
