@@ -1,5 +1,11 @@
-import { createConnectQueryKey, useMutation, useQuery } from '@connectrpc/connect-query';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+  createConnectQueryKey,
+  createQueryOptions,
+  useQuery as useConnectQuery,
+  useMutation,
+  useTransport,
+} from '@connectrpc/connect-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
 import { Boolean, Match, pipe, Struct } from 'effect';
 import { useState } from 'react';
@@ -11,7 +17,7 @@ import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collecti
 export const CollectionListPage = () => {
   const router = useRouter();
   const createCollectionMutation = useMutation(CollectionQuery.createCollection);
-  const collectionsQuery = useQuery(CollectionQuery.listCollections);
+  const collectionsQuery = useConnectQuery(CollectionQuery.listCollections);
 
   if (!collectionsQuery.isSuccess) return null;
   const collections = collectionsQuery.data.metaCollections;
@@ -71,13 +77,33 @@ const collectionEditRoute = getRouteApi('/authenticated/dashboard/collection/$id
 
 export const CollectionEditPage = () => {
   const { id } = collectionEditRoute.useParams();
-  const collectionQuery = useQuery(CollectionQuery.getCollection, { id });
-  if (!collectionQuery.isSuccess) return null;
-  const { data } = collectionQuery;
+
+  const router = useRouter();
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation(CollectionQuery.deleteCollection);
+
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
+  const query = useQuery({ ...queryOptions, enabled: true });
+
+  if (!query.isSuccess) return null;
+  const { data } = query;
 
   return (
     <>
       <h2 className='text-center text-2xl font-extrabold'>{data.name}</h2>
+      <div>
+        <button
+          onClick={async () => {
+            await deleteMutation.mutateAsync({ id });
+            await router.navigate({ to: '/collections' });
+            await queryClient.invalidateQueries(queryOptions);
+          }}
+        >
+          Delete collection
+        </button>
+      </div>
       {data.items.map((_) => (
         <ItemRow key={_.data.value?.meta?.id ?? ''} item={_} />
       ))}

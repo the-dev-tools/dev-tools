@@ -1,13 +1,15 @@
+import { createQueryOptions } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 import { Effect, Option, pipe } from 'effect';
 
 import * as Auth from '@the-dev-tools/api/auth';
+import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
 import { CollectionEditPage, CollectionListPage } from './collection';
 import { DashboardIndexPage, DashboardLayout } from './dashboard';
 import { LoginPage } from './login';
-import { Runtime } from './runtime';
+import { queryClient, Runtime, transport } from './runtime';
 
 const root = createRootRoute();
 
@@ -56,6 +58,10 @@ const collectionEdit = createRoute({
   getParentRoute: () => dashboard,
   path: '/collection/$id',
   component: CollectionEditPage,
+  loader: async ({ params: { id } }) => {
+    const options = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
+    await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/collections', throw: true }));
+  },
 });
 
 const routeTree = root.addChildren([
