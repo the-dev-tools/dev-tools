@@ -1,6 +1,6 @@
 import { createConnectQueryKey, useMutation, useQuery } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
 import { Boolean, Match, pipe, Struct } from 'effect';
 import { useState } from 'react';
 import { Button, FileTrigger } from 'react-aria-components';
@@ -9,14 +9,27 @@ import { ApiCall, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/col
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
 export const CollectionListPage = () => {
+  const router = useRouter();
+  const createCollectionMutation = useMutation(CollectionQuery.createCollection);
   const collectionsQuery = useQuery(CollectionQuery.listCollections);
+
   if (!collectionsQuery.isSuccess) return null;
   const collections = collectionsQuery.data.metaCollections;
 
   return (
     <>
       <h2 className='text-center text-2xl font-extrabold'>Collections</h2>
-      <ImportPostman />
+      <div className='flex justify-between'>
+        <ImportPostman />
+        <button
+          onClick={async () => {
+            const response = await createCollectionMutation.mutateAsync({ name: 'New collection' });
+            await router.navigate({ to: '/collection/$id', params: { id: response.id } });
+          }}
+        >
+          Create collection
+        </button>
+      </div>
       <div className='mt-4 flex flex-col'>
         {collections.map((_) => (
           <Link key={_.id} to='/collection/$id' params={{ id: _.id }}>
