@@ -170,17 +170,62 @@ const ItemRow = ({ item }: ItemRowProps) =>
     Match.orElse(() => null),
   );
 
+class FolderUpdateForm extends Schema.Class<FolderUpdateForm>('FolderUpdateForm')({
+  name: Schema.String,
+}) {}
+
 interface FolderRowProps {
   folder: Folder;
 }
 
 const FolderRow = ({ folder }: FolderRowProps) => {
+  const transport = useTransport();
+
+  const updateMutation = useMutation(CollectionQuery.updateFolder);
+  const queryClient = useQueryClient();
+
+  const { id } = collectionEditRoute.useParams();
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
+
   const [open, setOpen] = useState(false);
 
   const row = (
     <div className='flex gap-2'>
       <div>FOLDER</div>
-      <div className='flex-1'>{folder.meta?.name}</div>
+      <Form
+        className='flex-1'
+        onSubmit={(event) =>
+          Effect.gen(function* () {
+            event.preventDefault();
+
+            const { name } = yield* pipe(
+              new FormData(event.currentTarget),
+              Object.fromEntries,
+              Schema.decode(FolderUpdateForm),
+            );
+
+            yield* Effect.tryPromise(() =>
+              updateMutation.mutateAsync({
+                folder: pipe(
+                  folder,
+                  Struct.omit('items'),
+                  Struct.evolve({
+                    meta: Struct.evolve({
+                      name: () => name,
+                    }),
+                  }),
+                ),
+              }),
+            );
+
+            yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
+          }).pipe(Runtime.runPromise)
+        }
+      >
+        <TextField name='name' aria-label='Folder name' defaultValue={folder.meta?.name ?? ''}>
+          <Input className='w-full bg-transparent' />
+        </TextField>
+      </Form>
       <button onClick={() => void setOpen(Boolean.not)}>{open ? 'Close' : 'Open'}</button>
     </div>
   );
