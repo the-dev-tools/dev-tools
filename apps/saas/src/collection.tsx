@@ -180,9 +180,10 @@ interface FolderRowProps {
 
 const FolderRow = ({ folder }: FolderRowProps) => {
   const transport = useTransport();
-
-  const updateMutation = useMutation(CollectionQuery.updateFolder);
   const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation(CollectionQuery.deleteFolder);
+  const updateMutation = useMutation(CollectionQuery.updateFolder);
 
   const { id } = collectionEditRoute.useParams();
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
@@ -226,7 +227,15 @@ const FolderRow = ({ folder }: FolderRowProps) => {
           <Input className='w-full bg-transparent' />
         </TextField>
       </Form>
-      <button onClick={() => void setOpen(Boolean.not)}>{open ? 'Close' : 'Open'}</button>
+      <Button
+        onPress={async () => {
+          await deleteMutation.mutateAsync({ collectionId: id, id: folder.meta?.id ?? '' });
+          await queryClient.invalidateQueries(queryOptions);
+        }}
+      >
+        Delete
+      </Button>
+      <Button onPress={() => void setOpen(Boolean.not)}>{open ? 'Close' : 'Open'}</Button>
     </div>
   );
 
