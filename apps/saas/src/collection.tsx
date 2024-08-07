@@ -1,18 +1,22 @@
 import {
   createConnectQueryKey,
+  createProtobufSafeUpdater,
   createQueryOptions,
   useQuery as useConnectQuery,
   useMutation,
   useTransport,
 } from '@connectrpc/connect-query';
+import { Schema } from '@effect/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
-import { Boolean, Match, pipe, Struct } from 'effect';
+import { Boolean, Effect, Match, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Button, FileTrigger } from 'react-aria-components';
+import { Button, FileTrigger, Form, Input, TextField } from 'react-aria-components';
 
 import { ApiCall, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+
+import { Runtime } from './runtime';
 
 export const CollectionListPage = () => {
   const router = useRouter();
@@ -75,6 +79,10 @@ const ImportPostman = () => {
 
 const collectionEditRoute = getRouteApi('/authenticated/dashboard/collection/$id');
 
+class CollectionUpdateForm extends Schema.Class<CollectionUpdateForm>('CollectionUpdateForm')({
+  name: Schema.String,
+}) {}
+
 export const CollectionEditPage = () => {
   const { id } = collectionEditRoute.useParams();
 
@@ -83,6 +91,7 @@ export const CollectionEditPage = () => {
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation(CollectionQuery.deleteCollection);
+  const updateMutation = useMutation(CollectionQuery.updateCollection);
 
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
@@ -93,7 +102,7 @@ export const CollectionEditPage = () => {
   return (
     <>
       <h2 className='text-center text-2xl font-extrabold'>{data.name}</h2>
-      <div>
+      <div className='flex gap-2'>
         <button
           onClick={async () => {
             await deleteMutation.mutateAsync({ id });
@@ -103,6 +112,37 @@ export const CollectionEditPage = () => {
         >
           Delete collection
         </button>
+        <Form
+          className='flex gap-2'
+          onSubmit={(event) =>
+            Effect.gen(function* () {
+              event.preventDefault();
+
+              const { name } = yield* pipe(
+                new FormData(event.currentTarget),
+                Object.fromEntries,
+                Schema.decode(CollectionUpdateForm),
+              );
+
+              yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id, name }));
+
+              queryClient.setQueriesData(
+                queryOptions,
+                createProtobufSafeUpdater(
+                  CollectionQuery.getCollection,
+                  Struct.evolve({
+                    name: () => name,
+                  }),
+                ),
+              );
+            }).pipe(Runtime.runPromise)
+          }
+        >
+          <Button type='submit'>Rename collection</Button>
+          <TextField aria-label='New collection name' name='name'>
+            <Input placeholder='New name' />
+          </TextField>
+        </Form>
       </div>
       {data.items.map((_) => (
         <ItemRow key={_.data.value?.meta?.id ?? ''} item={_} />
