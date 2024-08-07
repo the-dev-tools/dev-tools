@@ -29,8 +29,8 @@ func TestCreateItemApi(t *testing.T) {
 	*/
 
 	query := `
-                INSERT INTO item_api (id, collection_id, name, url, method, headers, query_params, body)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query_params, body)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
 
 	id := ulid.Make()
@@ -55,7 +55,7 @@ func TestCreateItemApi(t *testing.T) {
 
 	ExpectPrepare.
 		ExpectExec().
-		WithArgs(id, collectionID, item.Name, item.Url, item.Method, item.Headers, item.QueryParams, item.Body).
+		WithArgs(id, collectionID, item.ParentID, item.Name, item.Url, item.Method, item.Headers, item.QueryParams, item.Body).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = sitemapi.CreateItemApi(item)
@@ -82,7 +82,7 @@ func TestGetItemApi(t *testing.T) {
 	   )
 	*/
 	query := `
-                SELECT id, collection_id, name, url, method, headers, query_params, body
+                SELECT id, collection_id, parent_id, name, url, method, headers, query_params, body
                 FROM item_api
                 WHERE id = ?
         `
@@ -104,8 +104,8 @@ func TestGetItemApi(t *testing.T) {
 		t.Fatal(err)
 	}
 	ExpectPrepare.ExpectQuery().WithArgs(id).
-		WillReturnRows(mock.NewRows([]string{"id", "collection_id", "name", "url", "method", "headers", "query_params", "body"}).
-			AddRow(item.ID, item.CollectionID, item.Name, item.Url, item.Method, item.Headers, item.QueryParams, item.Body))
+		WillReturnRows(mock.NewRows([]string{"id", "collection_id", "parent_id", "name", "url", "method", "headers", "query_params", "body"}).
+			AddRow(item.ID, item.CollectionID, item.ParentID, item.Name, item.Url, item.Method, item.Headers, item.QueryParams, item.Body))
 
 	rows, err := sitemapi.GetItemApi(id)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestUpdateItemApi(t *testing.T) {
 	*/
 	query := `
                 UPDATE item_api
-                SET collection_id = ?, name = ?, url = ?, method = ?, headers = ?, query_params = ?, body = ?
+                SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?, headers = ?, query_params = ?, body = ?
                 WHERE id = ?
         `
 	id := ulid.Make()
@@ -159,7 +159,7 @@ func TestUpdateItemApi(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ExpectPrepare.ExpectExec().WithArgs(item.CollectionID, item.Name, item.Url, item.Method, item.Headers, item.QueryParams, item.Body, id).
+	ExpectPrepare.ExpectExec().WithArgs(item.CollectionID, item.ParentID, item.Name, item.Url, item.Method, item.Headers, item.QueryParams, item.Body, id).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	err = sitemapi.UpdateItemApi(item)
 	if err != nil {

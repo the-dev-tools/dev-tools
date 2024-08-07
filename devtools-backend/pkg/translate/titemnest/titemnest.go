@@ -110,7 +110,6 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi) CollectionPair {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
-	fmt.Println("api len", len(apis))
 
 	for i, item := range apis {
 		if item.ParentID == nil {
@@ -118,8 +117,6 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 			apis = append(apis[:i], apis[i+1:]...)
 		}
 	}
-
-	fmt.Println("api len", len(apis))
 
 	tempNestedArr := make([]mitemfolder.ItemFolderNested, len(folders))
 	for i, item := range sortedFolders {
@@ -180,9 +177,8 @@ func searchAndPut(parentID *ulid.ULID, folders []mitemfolder.ItemFolderNested, a
 		}
 	}
 
-	for i, item := range *apis {
+	for _, item := range *apis {
 		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
-			fmt.Println("ParentID: ", *parentID, i)
 			children = append(children, item)
 		}
 	}
