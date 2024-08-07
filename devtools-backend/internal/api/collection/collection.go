@@ -7,9 +7,11 @@ import (
 	"devtools-backend/pkg/model/mcollection"
 	"devtools-backend/pkg/model/mcollection/mitemapi"
 	"devtools-backend/pkg/model/mcollection/mitemfolder"
+	"devtools-backend/pkg/model/result/mresultapi"
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"devtools-backend/pkg/service/sresultapi"
 	"devtools-backend/pkg/translate/titemnest"
 	"devtools-backend/pkg/translate/tpostman"
 	"devtools-nodes/pkg/model/mnode"
@@ -437,6 +439,28 @@ func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request
 	}
 
 	bodyData, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	result := &mresultapi.MResultAPI{
+		ID:        ulid.Make(),
+		TriggerBy: mresultapi.TriggerTypeManuel,
+		ReqID:     ulidID,
+		Name:      itemApiCall.Name,
+		Status:    httpResp.Status,
+		Time:      time.Now(),
+		Duration:  time.Duration(lapse),
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: httpResp.StatusCode,
+			Proto:      httpResp.Proto,
+			ProtoMajor: httpResp.ProtoMajor,
+			ProtoMinor: httpResp.ProtoMinor,
+			Header:     httpResp.Header,
+			Body:       bodyData,
+		},
+	}
+
+	err = sresultapi.CreateResultApi(result)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

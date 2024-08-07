@@ -1,0 +1,325 @@
+package sresultapi_test
+
+import (
+	"devtools-backend/pkg/model/result/mresultapi"
+	"devtools-backend/pkg/service/sresultapi"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/oklog/ulid/v2"
+)
+
+func TestCreateReqResp(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS result_api (
+	           id TEXT PRIMARY KEY,
+	           req_id TEXT,
+	           trigger_by INT,
+	           name TEXT,
+	           status TEXT,
+	           time TIMESTAMP,
+	           duration BIGINT,
+	           http_resp BLOB
+	   )
+	*/
+	query := `
+                INSERT INTO result_api (id, req_id, trigger_by, name, status, time, duration, http_resp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `
+	id := ulid.Make()
+	ReqID := ulid.Make()
+
+	apiResult := &mresultapi.MResultAPI{
+		ID:        id,
+		ReqID:     ReqID,
+		TriggerBy: mresultapi.TriggerTypeManuel,
+		Name:      "name",
+		Status:    "status",
+		Time:      time.Now(),
+		Duration:  time.Second,
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: 200,
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"application/json", "charset=utf"},
+			},
+			Body: []byte(`{"key":"value"}`),
+		},
+	}
+
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sresultapi.PrepareCreateResultAPI(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectExec().
+		WithArgs(apiResult.ID,
+			apiResult.ReqID,
+			apiResult.TriggerBy,
+			apiResult.Name,
+			apiResult.Status,
+			apiResult.Time,
+			apiResult.Duration,
+			apiResult.HttpResp,
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = sresultapi.CreateResultApi(apiResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetReqResp(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS result_api (
+	           id TEXT PRIMARY KEY,
+	           req_id TEXT,
+	           trigger_by INT,
+	           name TEXT,
+	           status TEXT,
+	           time TIMESTAMP,
+	           duration BIGINT,
+	           http_resp BLOB
+	   )
+	*/
+	query := `
+                SELECT * FROM result_api WHERE id = ?
+        `
+	id := ulid.Make()
+	ReqID := ulid.Make()
+	apiResult := &mresultapi.MResultAPI{
+		ID:        id,
+		ReqID:     ReqID,
+		TriggerBy: mresultapi.TriggerTypeManuel,
+		Name:      "name",
+		Status:    "status",
+		Time:      time.Now(),
+		Duration:  time.Second,
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: 200,
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"application/json", "charset=utf"},
+			},
+			Body: []byte(`{"key":"value"}`),
+		},
+	}
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sresultapi.PrepareGetResultAPI(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectQuery().
+		WithArgs(apiResult.ID).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"id", "req_id", "trigger_by", "name", "status", "time", "duration", "http_resp"}).
+				AddRow(apiResult.ID, apiResult.ReqID, apiResult.TriggerBy, apiResult.Name, apiResult.Status, apiResult.Time, apiResult.Duration, apiResult.HttpResp),
+		)
+	result, err := sresultapi.GetResultApi(apiResult.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ID != apiResult.ID {
+		t.Fatalf("expected %v but got %v", apiResult.ID, result.ID)
+	}
+	if result.ReqID != apiResult.ReqID {
+		t.Fatalf("expected %v but got %v", apiResult.ReqID, result.ReqID)
+	}
+}
+
+func TestUpdateReqResp(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS result_api (
+	           id TEXT PRIMARY KEY,
+	           req_id TEXT,
+	           trigger_by INT,
+	           name TEXT,
+	           status TEXT,
+	           time TIMESTAMP,
+	           duration BIGINT,
+	           http_resp BLOB
+	   )
+	*/
+	query := `
+                UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
+        `
+	id := ulid.Make()
+	ReqID := ulid.Make()
+	apiResult := &mresultapi.MResultAPI{
+		ID:        id,
+		ReqID:     ReqID,
+		TriggerBy: mresultapi.TriggerTypeManuel,
+		Name:      "name",
+		Status:    "status",
+		Time:      time.Now(),
+		Duration:  time.Second,
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: 200,
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"application/json", "charset=utf"},
+			},
+			Body: []byte(`{"key":"value"}`),
+		},
+	}
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sresultapi.PrepareUpdateResultAPI(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectExec().
+		WithArgs(apiResult.Name, apiResult.Status, apiResult.Time, apiResult.Duration, apiResult.HttpResp, apiResult.ID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	err = sresultapi.UpdateResultApi(apiResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeleteReqResp(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS result_api (
+	           id TEXT PRIMARY KEY,
+	           req_id TEXT,
+	           trigger_by INT,
+	           name TEXT,
+	           status TEXT,
+	           time TIMESTAMP,
+	           duration BIGINT,
+	           http_resp BLOB
+	   )
+	*/
+	query := `
+                DELETE FROM result_api WHERE id = ?
+        `
+	id := ulid.Make()
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sresultapi.PrepareDeleteResultAPI(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectExec().
+		WithArgs(id).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	err = sresultapi.DeleteResultApi(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetResultsAPIWithReqID(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS result_api (
+	           id TEXT PRIMARY KEY,
+	           req_id TEXT,
+	           trigger_by INT,
+	           name TEXT,
+	           status TEXT,
+	           time TIMESTAMP,
+	           duration BIGINT,
+	           http_resp BLOB
+	   )
+	*/
+	query := `
+                SELECT * FROM result_api WHERE req_id = ?
+        `
+	id := ulid.Make()
+	ReqID := ulid.Make()
+	apiResult := &mresultapi.MResultAPI{
+		ID:        id,
+		ReqID:     ReqID,
+		TriggerBy: mresultapi.TriggerTypeManuel,
+		Name:      "name",
+		Status:    "status",
+		Time:      time.Now(),
+		Duration:  time.Second,
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: 200,
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"application/json", "charset=utf"},
+			},
+			Body: []byte(`{"key":"value"}`),
+		},
+	}
+
+	apiResult2 := &mresultapi.MResultAPI{
+		ID:        id,
+		ReqID:     ReqID,
+		TriggerBy: mresultapi.TriggerTypeManuel,
+		Name:      "name",
+		Status:    "status",
+		Time:      time.Now(),
+		Duration:  time.Second,
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: 200,
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"application/json", "charset=utf"},
+			},
+			Body: []byte(`{"key":"value"}`),
+		},
+	}
+
+	expectedResults := []*mresultapi.MResultAPI{apiResult, apiResult2}
+
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sresultapi.PrepareGetResultsAPIWithReqID(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectQuery().
+		WithArgs(apiResult.ReqID).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"id", "req_id", "trigger_by", "name", "status", "time", "duration", "http_resp"}).
+				AddRow(apiResult.ID, apiResult.ReqID, apiResult.TriggerBy, apiResult.Name, apiResult.Status, apiResult.Time, apiResult.Duration, apiResult.HttpResp).
+				AddRow(apiResult2.ID, apiResult2.ReqID, apiResult2.TriggerBy, apiResult2.Name, apiResult2.Status, apiResult2.Time, apiResult2.Duration, apiResult2.HttpResp),
+		)
+	result, err := sresultapi.GetResultsApiWithReqID(apiResult.ReqID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range expectedResults {
+		if result[i].ID != expectedResults[i].ID {
+			t.Fatalf("expected %v but got %v", expectedResults[i].ID, result[i].ID)
+		}
+	}
+}

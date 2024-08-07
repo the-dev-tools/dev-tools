@@ -9,6 +9,7 @@ import (
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"devtools-backend/pkg/service/sresultapi"
 	"errors"
 	"log"
 	"os"
@@ -71,6 +72,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	err = sresultapi.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Prepared statements
 	err = scollection.PrepareStatements(db)
 	if err != nil {
@@ -83,6 +89,11 @@ func main() {
 	}
 
 	err = sitemfolder.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sresultapi.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
