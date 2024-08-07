@@ -16,6 +16,8 @@ var (
 	PreparedGetCollection    *sql.Stmt = nil
 	PreparedUpdateCollection *sql.Stmt = nil
 	PreparedDeleteCollection *sql.Stmt = nil
+
+	PreparedDeleteApisWithCollectionID *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -52,6 +54,10 @@ func PrepareStatements(db *sql.DB) error {
 	}
 	// List
 	err = PrepareListCollections(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareDeleteApisWithCollectionID(db)
 	if err != nil {
 		return err
 	}
@@ -120,6 +126,18 @@ func PrepareListCollections(db *sql.DB) error {
 	return nil
 }
 
+func PrepareDeleteApisWithCollectionID(db *sql.DB) error {
+	var err error
+	PreparedDeleteApisWithCollectionID, err = db.Prepare(`
+                DELETE FROM item_api
+                WHERE collection_id = ?
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func CloseStatements() {
 	if PreparedCreateCollection != nil {
 		PreparedCreateCollection.Close()
@@ -135,6 +153,9 @@ func CloseStatements() {
 	}
 	if PreparedListCollections != nil {
 		PreparedListCollections.Close()
+	}
+	if PreparedDeleteApisWithCollectionID != nil {
+		PreparedDeleteApisWithCollectionID.Close()
 	}
 }
 

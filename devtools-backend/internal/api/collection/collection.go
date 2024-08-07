@@ -135,6 +135,16 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	err = sitemapi.DeleteApisWithCollectionID(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = sitemfolder.DeleteFoldersWithCollectionID(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	err = scollection.DeleteCollection(ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

@@ -14,6 +14,8 @@ var (
 	PreparedGetItemApi    *sql.Stmt = nil
 	PreparedUpdateItemApi *sql.Stmt = nil
 	PreparedDeleteItemApi *sql.Stmt = nil
+
+	PreparedDeleteApisWithCollectionID *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -58,6 +60,10 @@ func PrepareStatements(db *sql.DB) error {
 		return err
 	}
 	err = PrepareGetItemsWithCollectionID(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareDeleteApisWithCollectionID(db)
 	if err != nil {
 		return err
 	}
@@ -127,6 +133,18 @@ func PrepareGetItemsWithCollectionID(db *sql.DB) error {
 	return nil
 }
 
+func PrepareDeleteApisWithCollectionID(db *sql.DB) error {
+	var err error
+	PreparedDeleteApisWithCollectionID, err = db.Prepare(`
+                DELETE FROM item_api
+                WHERE collection_id = ?
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetItemApi(id ulid.ULID) (*mitemapi.ItemApi, error) {
 	item := mitemapi.ItemApi{}
 	err := PreparedGetItemApi.QueryRow(id).Scan(&item.ID, &item.CollectionID, &item.ParentID, &item.Name, &item.Url, &item.Method, &item.Headers, &item.QueryParams, &item.Body)
@@ -176,4 +194,12 @@ func GetApisWithCollectionID(collectionID ulid.ULID) ([]mitemapi.ItemApi, error)
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+func DeleteApisWithCollectionID(collectionID ulid.ULID) error {
+	_, err := PreparedDeleteApisWithCollectionID.Exec(collectionID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

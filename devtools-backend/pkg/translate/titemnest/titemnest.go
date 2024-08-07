@@ -5,7 +5,6 @@ import (
 	"devtools-backend/pkg/model/mcollection/mitemfolder"
 	collectionv1 "devtools-services/gen/collection/v1"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
-	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -170,7 +169,6 @@ func searchAndPut(parentID *ulid.ULID, folders []mitemfolder.ItemFolderNested, a
 		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
 			if i < len(folders) {
 				folders = append(folders[:i], folders[i+1:]...)
-				fmt.Println("remove folder: ", item.Name)
 			}
 			item.Children = searchAndPut(&item.ID, folders, apis)
 			children = append(children, item)

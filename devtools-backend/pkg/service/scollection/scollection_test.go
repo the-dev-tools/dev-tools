@@ -140,6 +140,7 @@ func TestDeleteCollection(t *testing.T) {
 	           name TEXT
 	   )
 	*/
+
 	query := `
                 DELETE FROM collections
                 WHERE id = ?

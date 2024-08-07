@@ -201,3 +201,38 @@ func TestDeleteItemApi(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDeleteItemApiWithCollectionID(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS item_api (
+	           id TEXT PRIMARY KEY,
+	           collection_id TEXT,
+	           name TEXT,
+	           url TEXT,
+	           method TEXT,
+	           headers TEXT,
+	           query_params TEXT,
+	           body TEXT,
+	   )
+	*/
+	query := `
+                DELETE FROM item_api
+                WHERE collection_id = ?
+        `
+	id := ulid.Make()
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sitemapi.PrepareDeleteApisWithCollectionID(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.ExpectExec().WithArgs(id).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	err = sitemapi.DeleteApisWithCollectionID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

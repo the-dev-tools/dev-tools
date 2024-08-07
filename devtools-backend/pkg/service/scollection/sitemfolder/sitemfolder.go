@@ -13,6 +13,8 @@ var (
 	PreparedGetItemFolder              *sql.Stmt = nil
 	PreparedUpdateItemFolder           *sql.Stmt = nil
 	PreparedDeleteItemFolder           *sql.Stmt = nil
+
+	PreparedDeleteFoldersWithCollectionID *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -51,6 +53,11 @@ func PrepareStatements(db *sql.DB) error {
 		return err
 	}
 	err = PrepareGetFoldersWithCollectionID(db)
+	if err != nil {
+		return err
+	}
+
+	err = PrepareDeleteFoldersWithCollectionID(db)
 	if err != nil {
 		return err
 	}
@@ -121,6 +128,18 @@ func PrepareGetFoldersWithCollectionID(db *sql.DB) error {
 	return nil
 }
 
+func PrepareDeleteFoldersWithCollectionID(db *sql.DB) error {
+	var err error
+	PreparedDeleteFoldersWithCollectionID, err = db.Prepare(`
+                DELETE FROM item_folder
+                WHERE collection_id = ?
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetFoldersWithCollectionID(collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
 	rows, err := PreparedGetFoldersWithCollectionID.Query(collectionID)
 	if err != nil {
@@ -166,6 +185,14 @@ func UpdateItemFolder(folder *mitemfolder.ItemFolder) error {
 
 func DeleteItemFolder(id ulid.ULID) error {
 	_, err := PreparedDeleteItemFolder.Exec(id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteFoldersWithCollectionID(collectionID ulid.ULID) error {
+	_, err := PreparedDeleteFoldersWithCollectionID.Exec(collectionID)
 	if err != nil {
 		return err
 	}

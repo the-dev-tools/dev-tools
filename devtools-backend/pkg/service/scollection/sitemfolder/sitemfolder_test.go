@@ -178,3 +178,76 @@ func TestDeleteFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGetFoldersWithCollectionID(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS item_folder (
+	           id TEXT PRIMARY KEY,
+	           name TEXT,
+	           parent_id TEXT,
+	           collection_id TEXT,
+	           FOREIGN KEY (collection_id) REFERENCES collections (id)
+	   )
+	*/
+	collectionID := ulid.Make()
+	query := `
+                SELECT id, name, parent_id, collection_id
+                FROM item_folder
+                WHERE collection_id = ?
+        `
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sitemfolder.PrepareGetFoldersWithCollectionID(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectQuery().
+		WithArgs(collectionID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "parent_id", "collection_id"}).
+			AddRow(ulid.Make(), "name", nil, collectionID))
+	folders, err := sitemfolder.GetFoldersWithCollectionID(collectionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(folders) != 1 {
+		t.Fatal("Folder not found")
+	}
+}
+
+func TestDeleteFoldersWithCollectionID(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   CREATE TABLE IF NOT EXISTS item_folder (
+	           id TEXT PRIMARY KEY,
+	           name TEXT,
+	           parent_id TEXT,
+	           collection_id TEXT,
+	           FOREIGN KEY (collection_id) REFERENCES collections (id)
+	   )
+	*/
+	collectionID := ulid.Make()
+	query := `
+                DELETE FROM item_folder
+                WHERE collection_id = ?
+        `
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sitemfolder.PrepareDeleteFoldersWithCollectionID(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectExec().
+		WithArgs(collectionID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	err = sitemfolder.DeleteFoldersWithCollectionID(collectionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
