@@ -42,7 +42,7 @@ export const LoginPage = () => {
         <Input className='border border-black' />
         <FieldError className='mt-2 text-red-700' />
       </TextField>
-      <Button>Login</Button>
+      <Button type='submit'>Login</Button>
     </Form>
   );
 };
