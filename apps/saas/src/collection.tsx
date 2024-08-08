@@ -9,9 +9,22 @@ import {
 import { Schema } from '@effect/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
-import { Boolean, Effect, Match, pipe, Struct } from 'effect';
+import { Array, Boolean, Effect, Match, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Button, FileTrigger, Form, Input, Label, TextField } from 'react-aria-components';
+import {
+  Button,
+  FileTrigger,
+  Form,
+  Input,
+  Label,
+  ListBox,
+  ListBoxItem,
+  Popover,
+  Select,
+  SelectValue,
+  TextArea,
+  TextField,
+} from 'react-aria-components';
 
 import { ApiCall, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
@@ -290,7 +303,98 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
       >
         Delete
       </Button>
+      <Link to='/api-call/$id' params={{ id: apiCall.meta?.id ?? '' }}>
+        Edit
+      </Link>
       <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta?.id ?? '' })}>Run</Button>
     </div>
+  );
+};
+
+const apiCallEditRoute = getRouteApi('/authenticated/dashboard/api-call/$id');
+
+class ApiCallEditForm extends Schema.Class<ApiCallEditForm>('ApiCallEditForm')({
+  name: Schema.String,
+  method: Schema.Literal('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'),
+  url: Schema.String,
+  body: Schema.String,
+}) {}
+
+export const ApiCallEditPage = () => {
+  const { id } = apiCallEditRoute.useParams();
+
+  const updateMutation = useMutation(CollectionQuery.updateApiCall);
+
+  const query = useConnectQuery(CollectionQuery.getApiCall, { id });
+  if (!query.isSuccess) return null;
+  const { data } = query;
+
+  const body = new TextDecoder().decode(data.apiCall!.data!.body);
+
+  return (
+    <>
+      <h2 className='truncate text-center text-2xl font-extrabold'>{data.apiCall!.meta!.name}</h2>
+
+      <div className='my-2 h-px bg-black' />
+
+      <Form
+        onSubmit={(event) =>
+          Effect.gen(function* () {
+            event.preventDefault();
+
+            const { name, method, url, body } = yield* pipe(
+              new FormData(event.currentTarget),
+              Object.fromEntries,
+              Schema.decode(ApiCallEditForm),
+            );
+
+            const newApiCall = Struct.evolve(data.apiCall!, {
+              meta: (_) => Struct.evolve(_!, { name: () => name }),
+              data: (_) =>
+                Struct.evolve(_!, {
+                  method: () => method,
+                  url: () => url,
+                  body: () => new TextEncoder().encode(body),
+                }),
+            });
+
+            yield* Effect.tryPromise(() => updateMutation.mutateAsync({ apiCall: newApiCall }));
+          }).pipe(Runtime.runPromise)
+        }
+      >
+        <TextField name='name' defaultValue={data.apiCall!.meta!.name} className='flex gap-2'>
+          <Label>Name:</Label>
+          <Input className='flex-1' />
+        </TextField>
+
+        <Select name='method' defaultSelectedKey={data.apiCall!.data!.method} className='flex gap-2'>
+          <Label>Method:</Label>
+          <Button>
+            <SelectValue />
+          </Button>
+          <Popover className='bg-white'>
+            <ListBox>
+              {Array.map(ApiCallEditForm.fields.method.literals, (_) => (
+                <ListBoxItem key={_} id={_} className='cursor-pointer'>
+                  {_}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+
+        <TextField name='url' defaultValue={data.apiCall!.data!.url} className='flex gap-2'>
+          <Label>URL:</Label>
+          <Input className='flex-1' />
+        </TextField>
+
+        <TextField name='body' defaultValue={body} className='flex gap-2'>
+          <Label>Body:</Label>
+          <TextArea className='flex-1' />
+        </TextField>
+
+        <Button type='submit'>Save</Button>
+      </Form>
+    </>
   );
 };

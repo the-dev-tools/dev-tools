@@ -80,6 +80,7 @@ export const makeConfig = (/** @type {string} */ url) => {
       '@typescript-eslint/no-empty-interface': ['error', { allowSingleExtends: true }],
       '@typescript-eslint/no-meaningless-void-operator': 'off',
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
+      '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
       'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
       'react/prop-types': 'off',
     },

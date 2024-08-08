@@ -6,7 +6,7 @@ import { Effect, Option, pipe } from 'effect';
 import * as Auth from '@the-dev-tools/api/auth';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
-import { CollectionEditPage, CollectionListPage } from './collection';
+import { ApiCallEditPage, CollectionEditPage, CollectionListPage } from './collection';
 import { DashboardIndexPage, DashboardLayout } from './dashboard';
 import { LoginPage } from './login';
 import { queryClient, Runtime, transport } from './runtime';
@@ -64,9 +64,15 @@ const collectionEdit = createRoute({
   },
 });
 
+const apiCallEdit = createRoute({
+  getParentRoute: () => dashboard,
+  path: '/api-call/$id',
+  component: ApiCallEditPage,
+});
+
 const routeTree = root.addChildren([
   login,
-  authenticated.addChildren([dashboard.addChildren([dashboardIndex, collectionList, collectionEdit])]),
+  authenticated.addChildren([dashboard.addChildren([dashboardIndex, collectionList, collectionEdit, apiCallEdit])]),
 ]);
 
 export const router = createRouter({ routeTree });
