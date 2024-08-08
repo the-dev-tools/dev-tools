@@ -230,15 +230,12 @@ const FolderRow = ({ folder }: FolderRowProps) => {
 
             yield* Effect.tryPromise(() =>
               updateMutation.mutateAsync({
-                folder: pipe(
-                  folder,
-                  Struct.omit('items'),
-                  Struct.evolve({
-                    meta: Struct.evolve({
-                      name: () => name,
-                    }),
+                folder: {
+                  ...Struct.evolve(folder, {
+                    meta: Struct.evolve({ name: () => name }),
                   }),
-                ),
+                  collectionId,
+                },
               }),
             );
 
