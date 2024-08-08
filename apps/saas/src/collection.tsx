@@ -195,8 +195,8 @@ const FolderRow = ({ folder }: FolderRowProps) => {
   const deleteMutation = useMutation(CollectionQuery.deleteFolder);
   const updateMutation = useMutation(CollectionQuery.updateFolder);
 
-  const { id } = collectionEditRoute.useParams();
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
+  const { id: collectionId } = collectionEditRoute.useParams();
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
 
   const [open, setOpen] = useState(false);
 
@@ -239,7 +239,7 @@ const FolderRow = ({ folder }: FolderRowProps) => {
       </Form>
       <Button
         onPress={async () => {
-          await deleteMutation.mutateAsync({ collectionId: id, id: folder.meta?.id ?? '' });
+          await deleteMutation.mutateAsync({ collectionId, id: folder.meta?.id ?? '' });
           await queryClient.invalidateQueries(queryOptions);
         }}
       >
@@ -268,14 +268,29 @@ interface ApiCallRowProps {
 }
 
 const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
   const runNodeMutation = useMutation(CollectionQuery.runApiCall);
+  const deleteMutation = useMutation(CollectionQuery.deleteApiCall);
+
+  const { id: collectionId } = collectionEditRoute.useParams();
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
 
   return (
     <div className='flex gap-2'>
       <div>{apiCall.data?.method}</div>
       <div className='flex-1 truncate'>{apiCall.meta?.name}</div>
       {runNodeMutation.isSuccess && <div>Status: {runNodeMutation.data.status}</div>}
-      <button onClick={() => void runNodeMutation.mutate({ id: apiCall.meta?.id ?? '' })}>Run</button>
+      <Button
+        onPress={async () => {
+          await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta?.id ?? '' });
+          await queryClient.invalidateQueries(queryOptions);
+        }}
+      >
+        Delete
+      </Button>
+      <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta?.id ?? '' })}>Run</Button>
     </div>
   );
 };
