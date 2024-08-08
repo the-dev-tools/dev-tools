@@ -173,7 +173,7 @@ export const CollectionEditPage = () => {
       </Form>
 
       {data.items.map((_) => (
-        <ItemRow key={_.data.value?.meta?.id ?? ''} item={_} />
+        <ItemRow key={_.data.value!.meta!.id} item={_} />
       ))}
     </>
   );
@@ -246,13 +246,13 @@ const FolderRow = ({ folder }: FolderRowProps) => {
           }).pipe(Runtime.runPromise)
         }
       >
-        <TextField name='name' aria-label='Folder name' defaultValue={folder.meta?.name ?? ''}>
+        <TextField name='name' aria-label='Folder name' defaultValue={folder.meta!.name}>
           <Input className='w-full bg-transparent' />
         </TextField>
       </Form>
       <Button
         onPress={async () => {
-          await deleteMutation.mutateAsync({ collectionId, id: folder.meta?.id ?? '' });
+          await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
           await queryClient.invalidateQueries(queryOptions);
         }}
       >
@@ -269,7 +269,7 @@ const FolderRow = ({ folder }: FolderRowProps) => {
       {row}
       <div className='border-l-2 border-black pl-2'>
         {folder.items.map((_) => (
-          <ItemRow key={_.data.value?.meta?.id ?? ''} item={_} />
+          <ItemRow key={_.data.value!.meta!.id} item={_} />
         ))}
       </div>
     </>
@@ -292,21 +292,21 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
 
   return (
     <div className='flex gap-2'>
-      <div>{apiCall.data?.method}</div>
-      <div className='flex-1 truncate'>{apiCall.meta?.name}</div>
+      <div>{apiCall.data!.method}</div>
+      <div className='flex-1 truncate'>{apiCall.meta!.name}</div>
       {runNodeMutation.isSuccess && <div>Status: {runNodeMutation.data.status}</div>}
       <Button
         onPress={async () => {
-          await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta?.id ?? '' });
+          await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });
           await queryClient.invalidateQueries(queryOptions);
         }}
       >
         Delete
       </Button>
-      <Link to='/api-call/$id' params={{ id: apiCall.meta?.id ?? '' }}>
+      <Link to='/api-call/$id' params={{ id: apiCall.meta!.id }}>
         Edit
       </Link>
-      <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta?.id ?? '' })}>Run</Button>
+      <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta!.id })}>Run</Button>
     </div>
   );
 };
