@@ -10,6 +10,7 @@ import (
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
 	"devtools-backend/pkg/service/sresultapi"
+	"devtools-backend/pkg/service/suser"
 	"errors"
 	"log"
 	"os"
@@ -77,6 +78,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	err = suser.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Prepared statements
 	err = scollection.PrepareStatements(db)
 	if err != nil {
@@ -94,6 +100,11 @@ func main() {
 	}
 
 	err = sresultapi.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = suser.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,7 +134,7 @@ func main() {
 		services = append(services, *flowService)
 	*/
 
-	collectionService, err := collection.CreateService(db)
+	collectionService, err := collection.CreateService(db, hmacSecretBytes)
 	if err != nil {
 		log.Fatal(err)
 	}

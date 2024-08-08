@@ -13,8 +13,9 @@ const (
 )
 
 type Collection struct {
-	ID   ulid.ULID
-	Name string
+	ID      ulid.ULID
+	OwnerID ulid.ULID
+	Name    string
 }
 
 type MetaCollection struct {

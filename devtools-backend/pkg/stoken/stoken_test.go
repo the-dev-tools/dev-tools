@@ -4,10 +4,12 @@ import (
 	"devtools-backend/pkg/stoken"
 	"testing"
 	"time"
+
+	"github.com/oklog/ulid/v2"
 )
 
 func TestNewJWT(t *testing.T) {
-	someID := "someID"
+	someID := ulid.Make()
 	secret := []byte("someSecret")
 	someEmail := "someEmail"
 
@@ -27,7 +29,7 @@ func TestNewJWT(t *testing.T) {
 }
 
 func TestFailNotValidSecretValidate(t *testing.T) {
-	someID := "someID"
+	someID := ulid.Make()
 	secret := []byte("someSecret")
 	wrongSecret := []byte("wrongSecret")
 	someEmail := "someEmail"
@@ -48,7 +50,7 @@ func TestFailNotValidSecretValidate(t *testing.T) {
 }
 
 func TestFailNotValidTokenType(t *testing.T) {
-	someID := "someID"
+	someID := ulid.Make()
 	secret := []byte("someSecret")
 	someEmail := "someEmail"
 

@@ -15,6 +15,7 @@ var (
 	PreparedDeleteItemFolder           *sql.Stmt = nil
 
 	PreparedDeleteFoldersWithCollectionID *sql.Stmt = nil
+	PrepaerdCheckOwnerID                  *sql.Stmt
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -56,12 +57,14 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-
 	err = PrepareDeleteFoldersWithCollectionID(db)
 	if err != nil {
 		return err
 	}
-
+	err = PrepareCheckOwnerID(db)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -140,6 +143,21 @@ func PrepareDeleteFoldersWithCollectionID(db *sql.DB) error {
 	return nil
 }
 
+func PrepareCheckOwnerID(db *sql.DB) error {
+	var err error
+
+	// check owner_id from collections table and collection_id from item
+	PrepaerdCheckOwnerID, err = db.Prepare(`
+                SELECT c.owner_id FROM collections c
+                JOIN item_folder i ON c.id = i.collection_id
+                WHERE i.id = ?
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetFoldersWithCollectionID(collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
 	rows, err := PreparedGetFoldersWithCollectionID.Query(collectionID)
 	if err != nil {
@@ -197,4 +215,18 @@ func DeleteFoldersWithCollectionID(collectionID ulid.ULID) error {
 		return err
 	}
 	return nil
+}
+
+func GetOwnerID(folderID ulid.ULID) (ulid.ULID, error) {
+	var collectionOwnerID ulid.ULID
+	err := PrepaerdCheckOwnerID.QueryRow(folderID).Scan(&collectionOwnerID)
+	return collectionOwnerID, err
+}
+
+func CheckOwnerID(folderID ulid.ULID, ownerID ulid.ULID) (bool, error) {
+	CollectionOwnerID, err := GetOwnerID(folderID)
+	if err != nil {
+		return false, err
+	}
+	return folderID.Compare(CollectionOwnerID) == 0, nil
 }

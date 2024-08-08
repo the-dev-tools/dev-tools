@@ -28,7 +28,7 @@ type ItemsPair struct {
 	Folder []mitemfolder.ItemFolder
 }
 
-func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID, ownerID string) (*ItemsPair, error) {
+func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID) (*ItemsPair, error) {
 	var pair ItemsPair
 
 	for _, item := range collection.Items {
@@ -49,7 +49,7 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 		} else {
 			err := GetRequest(item, nil, collectionID, &pair)
 			if err != nil {
-				fmt.Println("error: ", err)
+				return nil, err
 			}
 
 		}
@@ -149,6 +149,31 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 			Method:       item.Request.Method,
 			QueryParams: mitemapi.QueryParams{
 				QueryMap: queryParams,
+			},
+			Headers: mitemapi.Headers{
+				HeaderMap: headers,
+			},
+			Body: bodyData,
+		}
+		pair.Api = append(pair.Api, api)
+		return nil
+	}
+
+	mapObject, ok := item.Request.URL.(map[string]interface{})
+	if ok {
+		url, ok := mapObject["raw"].(string)
+		if !ok {
+			return errors.New("url is not a string")
+		}
+		api := mitemapi.ItemApi{
+			ID:           ulidID,
+			CollectionID: collectionID,
+			ParentID:     parentID,
+			Name:         item.Name,
+			Url:          url,
+			Method:       item.Request.Method,
+			QueryParams: mitemapi.QueryParams{
+				QueryMap: make(map[string]string, 0),
 			},
 			Headers: mitemapi.Headers{
 				HeaderMap: headers,

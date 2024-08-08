@@ -113,7 +113,9 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 	for i, item := range apis {
 		if item.ParentID == nil {
 			collection.itemApis = append(collection.itemApis, item)
-			apis = append(apis[:i], apis[i+1:]...)
+			if i < len(apis) {
+				apis = append(apis[:i], apis[i+1:]...)
+			}
 		}
 	}
 

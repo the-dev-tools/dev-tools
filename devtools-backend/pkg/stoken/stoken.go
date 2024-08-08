@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/oklog/ulid/v2"
 )
 
 type TokenType string
@@ -12,6 +13,8 @@ type TokenType string
 const (
 	AccessToken  TokenType = "access_token"
 	RefreshToken TokenType = "refresh_token"
+
+	TokenHeaderKey string = "Authorization"
 )
 
 type DefaultClaims struct {
@@ -20,18 +23,18 @@ type DefaultClaims struct {
 	Email     string    `json:"email"`
 }
 
-func NewJWT(id, email string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
+func NewJWT(id ulid.ULID, email string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, DefaultClaims{
 		TokenType: tokenType,
 		Email:     email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "devtools-backend",
-			Subject:   "devtools-backend",
+			Subject:   id.String(),
 			Audience:  jwt.ClaimStrings{"devtools-backend"},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        id,
+			ID:        ulid.Make().String(),
 		},
 	})
 

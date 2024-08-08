@@ -2,11 +2,19 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"devtools-backend/internal/api"
+	"devtools-backend/pkg/model/morg"
+	"devtools-backend/pkg/model/morguser"
+	"devtools-backend/pkg/model/muser"
+	"devtools-backend/pkg/service/sorg"
+	"devtools-backend/pkg/service/sorguser"
+	"devtools-backend/pkg/service/suser"
 	"devtools-backend/pkg/stoken"
 	authv1 "devtools-services/gen/auth/v1"
 	"devtools-services/gen/auth/v1/authv1connect"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -15,6 +23,7 @@ import (
 	"github.com/magiclabs/magic-admin-go"
 	"github.com/magiclabs/magic-admin-go/client"
 	"github.com/magiclabs/magic-admin-go/token"
+	"github.com/oklog/ulid/v2"
 )
 
 var (
@@ -52,12 +61,57 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 
 	email := userInfo.Email
 
-	jwtToken, err := stoken.NewJWT(publicAddress, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
+	user, err := suser.GetUserWithOAuthIDAndType(publicAddress, muser.MagicLink)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			org := &morg.Org{
+				ID:   ulid.Make(),
+				Name: fmt.Sprintf("%s's org", email),
+			}
+			err = sorg.CreateOrg(org)
+			if err != nil {
+				return nil, err
+			}
+
+			user := &muser.User{
+				ID:        ulid.Make(),
+				Email:     email,
+				Password:  nil,
+				OAuthType: muser.MagicLink,
+				OAuthID:   publicAddress,
+			}
+
+			err = suser.CreateUser(user)
+			if err != nil {
+				return nil, err
+			}
+
+			orgUser := &morguser.OrgUser{
+				ID:     ulid.Make(),
+				OrgID:  org.ID,
+				UserID: user.ID,
+			}
+
+			err = sorguser.CreateOrgUser(orgUser)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = suser.GetUserWithOAuthIDAndType(publicAddress, muser.MagicLink)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	jwtToken, err := stoken.NewJWT(user.ID, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := stoken.NewJWT(publicAddress, email, stoken.AccessToken, AccessTokenTimeSpan, a.HmacSecret)
+	accessToken, err := stoken.NewJWT(user.ID, email, stoken.AccessToken, AccessTokenTimeSpan, a.HmacSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -84,18 +138,18 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 
 	claims := stoken.GetClaims(jwtToken)
 
-	subject, err := claims.GetSubject()
-	if err != nil {
-		return nil, err
-	}
-
-	// generate new refresh token
-	newRefreshJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
+	ulidID, err := ulid.Parse(claims.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	newAccessJWT, err := stoken.NewJWT(subject, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
+	// generate new refresh token
+	newRefreshJWT, err := stoken.NewJWT(ulidID, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	newAccessJWT, err := stoken.NewJWT(ulidID, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

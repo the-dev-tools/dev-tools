@@ -18,12 +18,15 @@ var (
 	PreparedDeleteCollection *sql.Stmt = nil
 
 	PreparedDeleteApisWithCollectionID *sql.Stmt = nil
+
+	PreparedCheckOwner *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
                 CREATE TABLE IF NOT EXISTS collections (
                         id TEXT PRIMARY KEY,
+                        owner_id TEXT,
                         name TEXT
                 )
         `)
@@ -61,14 +64,18 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	err = PrepareCheckOwner(db)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func PrepareCreateCollection(db *sql.DB) error {
 	var err error
 	PreparedCreateCollection, err = db.Prepare(`
-                INSERT INTO collections (id, name)
-                VALUES (?, ?)
+                INSERT INTO collections (id, owner_id, name)
+                VALUES (?, ?, ?)
         `)
 	if err != nil {
 		return err
@@ -79,7 +86,7 @@ func PrepareCreateCollection(db *sql.DB) error {
 func PrepareGetCollection(db *sql.DB) error {
 	var err error
 	PreparedGetCollection, err = db.Prepare(`
-                SELECT id, name
+                SELECT id, owner_id, name
                 FROM collections
                 WHERE id = ?
         `)
@@ -93,7 +100,7 @@ func PrepareUpdateCollection(db *sql.DB) error {
 	var err error
 	PreparedUpdateCollection, err = db.Prepare(`
                 UPDATE collections
-                SET name = ?
+                SET name = ?, owner_id = ?
                 WHERE id = ?
         `)
 	if err != nil {
@@ -117,7 +124,7 @@ func PrepareDeleteCollection(db *sql.DB) error {
 func PrepareListCollections(db *sql.DB) error {
 	var err error
 	PreparedListCollections, err = db.Prepare(`
-                SELECT id, name
+                SELECT id, owner_id, name
                 FROM collections
         `)
 	if err != nil {
@@ -130,7 +137,20 @@ func PrepareDeleteApisWithCollectionID(db *sql.DB) error {
 	var err error
 	PreparedDeleteApisWithCollectionID, err = db.Prepare(`
                 DELETE FROM item_api
-                WHERE collection_id = ?
+                WHERE collection_id = ?, owner_id = ?
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func PrepareCheckOwner(db *sql.DB) error {
+	var err error
+	PreparedCheckOwner, err = db.Prepare(`
+                SELECT owner_id
+                FROM collections
+                WHERE id = ?
         `)
 	if err != nil {
 		return err
@@ -168,7 +188,7 @@ func ListCollections() ([]mcollection.Collection, error) {
 	var collections []mcollection.Collection
 	for rows.Next() {
 		var c mcollection.Collection
-		err := rows.Scan(&c.ID, &c.Name)
+		err := rows.Scan(&c.ID, &c.OwnerID, &c.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +198,7 @@ func ListCollections() ([]mcollection.Collection, error) {
 }
 
 func CreateCollection(collection *mcollection.Collection) error {
-	_, err := PreparedCreateCollection.Exec(collection.ID, collection.Name)
+	_, err := PreparedCreateCollection.Exec(collection.ID, collection.OwnerID, collection.Name)
 	if err != nil {
 		return err
 	}
@@ -187,7 +207,7 @@ func CreateCollection(collection *mcollection.Collection) error {
 
 func GetCollection(id ulid.ULID) (*mcollection.Collection, error) {
 	c := mcollection.Collection{}
-	err := PreparedGetCollection.QueryRow(id).Scan(&c.ID, &c.Name)
+	err := PreparedGetCollection.QueryRow(id).Scan(&c.ID, &c.OwnerID, &c.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +215,7 @@ func GetCollection(id ulid.ULID) (*mcollection.Collection, error) {
 }
 
 func UpdateCollection(collection *mcollection.Collection) error {
-	_, err := PreparedUpdateCollection.Exec(collection.Name, collection.ID)
+	_, err := PreparedUpdateCollection.Exec(collection.Name, collection.OwnerID, collection.ID)
 	if err != nil {
 		return err
 	}
@@ -208,4 +228,29 @@ func DeleteCollection(id ulid.ULID) error {
 		return err
 	}
 	return nil
+}
+
+func DeleteApisWithCollectionID(collectionID ulid.ULID, owner_id ulid.ULID) error {
+	_, err := PreparedDeleteApisWithCollectionID.Exec(collectionID, owner_id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetOwner(id ulid.ULID) (ulid.ULID, error) {
+	var ownerID ulid.ULID
+	err := PreparedCheckOwner.QueryRow(id).Scan(&ownerID)
+	if err != nil {
+		return ownerID, err
+	}
+	return ownerID, nil
+}
+
+func CheckOwner(id ulid.ULID, ownerID ulid.ULID) (bool, error) {
+	CollectionOwnerID, err := GetOwner(id)
+	if err != nil {
+		return false, err
+	}
+	return ownerID.Compare(CollectionOwnerID) == 0, nil
 }

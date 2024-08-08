@@ -16,6 +16,7 @@ var (
 	PreparedDeleteItemApi *sql.Stmt = nil
 
 	PreparedDeleteApisWithCollectionID *sql.Stmt = nil
+	PreparedCheckOwnerID               *sql.Stmt
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -64,6 +65,10 @@ func PrepareStatements(db *sql.DB) error {
 		return err
 	}
 	err = PrepareDeleteApisWithCollectionID(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareCheckOwnerID(db)
 	if err != nil {
 		return err
 	}
@@ -145,6 +150,21 @@ func PrepareDeleteApisWithCollectionID(db *sql.DB) error {
 	return nil
 }
 
+func PrepareCheckOwnerID(db *sql.DB) error {
+	var err error
+	// check owner_id from collections table and collection_id from item
+	PreparedCheckOwnerID, err = db.Prepare(`
+                SELECT c.owner_id FROM collections c
+                JOIN item_api i ON c.id = i.collection_id
+                WHERE i.id = ?
+
+        `)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetItemApi(id ulid.ULID) (*mitemapi.ItemApi, error) {
 	item := mitemapi.ItemApi{}
 	err := PreparedGetItemApi.QueryRow(id).Scan(&item.ID, &item.CollectionID, &item.ParentID, &item.Name, &item.Url, &item.Method, &item.Headers, &item.QueryParams, &item.Body)
@@ -202,4 +222,18 @@ func DeleteApisWithCollectionID(collectionID ulid.ULID) error {
 		return err
 	}
 	return nil
+}
+
+func GetOwnerID(id ulid.ULID) (ulid.ULID, error) {
+	var ownerID ulid.ULID
+	err := PreparedCheckOwnerID.QueryRow(id).Scan(&ownerID)
+	return ownerID, err
+}
+
+func CheckOwnerID(id ulid.ULID, ownerID ulid.ULID) (bool, error) {
+	collectionOwnerID, err := GetOwnerID(id)
+	if err != nil {
+		return false, err
+	}
+	return ownerID.Compare(collectionOwnerID) == 0, nil
 }

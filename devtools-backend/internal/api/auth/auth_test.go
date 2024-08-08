@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/oklog/ulid/v2"
 )
 
 func TestRefreshToken(t *testing.T) {
@@ -21,10 +22,10 @@ func TestRefreshToken(t *testing.T) {
 
 	ctx := context.Background()
 
-	id := "some-id"
+	ulidID := ulid.Make()
 	email := "some-email"
 
-	tk, err := stoken.NewJWT(id, email, stoken.RefreshToken, time.Minute, someSecret)
+	tk, err := stoken.NewJWT(ulidID, email, stoken.RefreshToken, time.Minute, someSecret)
 	if err != nil {
 		t.Fatal(err)
 	}

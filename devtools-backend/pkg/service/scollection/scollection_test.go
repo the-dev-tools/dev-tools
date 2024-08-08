@@ -14,15 +14,9 @@ func TestCreateCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS collections (
-	           id TEXT PRIMARY KEY,
-	           name TEXT
-	   )
-	*/
 	query := `
-                INSERT INTO collections (id, name)
-                VALUES (?, ?)
+                INSERT INTO collections (id, owner_id, name)
+                VALUES (?, ?, ?)
         `
 	id := ulid.Make()
 
@@ -38,7 +32,7 @@ func TestCreateCollection(t *testing.T) {
 	}
 	ExpectPrepare.
 		ExpectExec().
-		WithArgs(collection.ID, collection.Name).
+		WithArgs(collection.ID, collection.OwnerID, collection.Name).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = scollection.CreateCollection(collection)
@@ -52,23 +46,19 @@ func TestGetCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS collections (
-	           id TEXT PRIMARY KEY,
-	           name TEXT
-	   )
-	*/
 	query := `
-                SELECT id, name
+                SELECT id, owner_id, name
                 FROM collections
                 WHERE id = ?
         `
 
 	id := ulid.Make()
+	ownerID := ulid.Make()
 
 	collection := &mcollection.Collection{
-		ID:   id,
-		Name: "name",
+		ID:      id,
+		OwnerID: ownerID,
+		Name:    "name",
 	}
 
 	ExpectPrepare := mock.ExpectPrepare(query)
@@ -79,7 +69,7 @@ func TestGetCollection(t *testing.T) {
 	ExpectPrepare.
 		ExpectQuery().
 		WithArgs(collection.ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(collection.ID, collection.Name))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "owner_id", "name"}).AddRow(collection.ID, collection.OwnerID, collection.Name))
 	collectionReturned, err := scollection.GetCollection(id)
 	if err != nil {
 		t.Fatal(err)
@@ -98,21 +88,17 @@ func TestUpdateCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS collections (
-	           id TEXT PRIMARY KEY,
-	           name TEXT
-	   )
-	*/
 	query := `
                 UPDATE collections
-                SET name = ?
+                SET name = ?, owner_id = ?
                 WHERE id = ?
         `
 	id := ulid.Make()
+	ownerID := ulid.Make()
 	collection := &mcollection.Collection{
-		ID:   id,
-		Name: "name",
+		ID:      id,
+		OwnerID: ownerID,
+		Name:    "name",
 	}
 	ExpectPrepare := mock.ExpectPrepare(query)
 	err = scollection.PrepareUpdateCollection(db)
@@ -121,7 +107,7 @@ func TestUpdateCollection(t *testing.T) {
 	}
 	ExpectPrepare.
 		ExpectExec().
-		WithArgs(collection.Name, collection.ID).
+		WithArgs(collection.Name, collection.OwnerID, collection.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	err = scollection.UpdateCollection(collection)
 	if err != nil {
@@ -134,12 +120,6 @@ func TestDeleteCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS collections (
-	           id TEXT PRIMARY KEY,
-	           name TEXT
-	   )
-	*/
 
 	query := `
                 DELETE FROM collections
