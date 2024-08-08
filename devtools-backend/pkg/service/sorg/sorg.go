@@ -3,6 +3,8 @@ package sorg
 import (
 	"database/sql"
 	"devtools-backend/pkg/model/morg"
+
+	"github.com/oklog/ulid/v2"
 )
 
 var (
@@ -146,7 +148,7 @@ func CreateOrg(org *morg.Org) error {
 	return nil
 }
 
-func GetOrg(id string) (*morg.Org, error) {
+func GetOrg(id ulid.ULID) (*morg.Org, error) {
 	var org morg.Org
 	err := PreparedGetOrg.QueryRow(id).Scan(&org.ID, &org.Name)
 	if err != nil {
@@ -163,7 +165,7 @@ func UpdateOrg(org *morg.Org) error {
 	return nil
 }
 
-func DeleteOrg(id string) error {
+func DeleteOrg(id ulid.ULID) error {
 	_, err := PreparedDeleteOrg.Exec(id)
 	if err != nil {
 		return err
@@ -180,7 +182,7 @@ func GetOrgByName(name string) (*morg.Org, error) {
 	return &org, nil
 }
 
-func GetOrgByUserID(userID string) (*morg.Org, error) {
+func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 	var org morg.Org
 	err := PreparedGetOrgByUserID.QueryRow(userID).Scan(&org.ID, &org.Name)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"devtools-backend/pkg/service/sorg"
 	"devtools-backend/pkg/service/sresultapi"
 	"devtools-backend/pkg/stoken"
 	"devtools-backend/pkg/translate/titemnest"
@@ -661,7 +662,12 @@ func CheckOwnerCollection(ctx context.Context, collectionID ulid.ULID) (bool, er
 		return false, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
 	}
 
-	isOwner, err := scollection.CheckOwner(collectionID, ownerID)
+	org, err := sorg.GetOrgByUserID(ownerID)
+	if err != nil {
+		return false, connect.NewError(connect.CodeInternal, err)
+	}
+
+	isOwner, err := scollection.CheckOwner(collectionID, org.ID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
@@ -678,6 +684,7 @@ func CheckOwnerFolder(ctx context.Context, folderID ulid.ULID) (bool, error) {
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
+
 	isOwner, err := CheckOwnerCollection(ctx, folder.CollectionID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
