@@ -9,6 +9,8 @@ import (
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
 	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"devtools-backend/pkg/service/sorg"
+	"devtools-backend/pkg/service/sorguser"
 	"devtools-backend/pkg/service/sresultapi"
 	"devtools-backend/pkg/service/suser"
 	"errors"
@@ -83,6 +85,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	err = sorg.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sorguser.PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Prepared statements
 	err = scollection.PrepareStatements(db)
 	if err != nil {
@@ -105,6 +117,16 @@ func main() {
 	}
 
 	err = suser.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sorg.PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sorguser.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}

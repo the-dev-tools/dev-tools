@@ -155,10 +155,10 @@ func DeleteUser(id ulid.ULID) error {
 }
 
 func GetUserWithOAuthIDAndType(oauthID string, oauthType muser.OAuthType) (*muser.User, error) {
-	user := &muser.User{}
+	var user muser.User
 	err := PreparedGetUserWithOAuthIDAndType.QueryRow(oauthID, oauthType).Scan(&user.ID, &user.Email, &user.OAuthType, &user.OAuthID)
 	if err != nil {
 		return nil, err
 	}
-	return user, nil
+	return &user, nil
 }

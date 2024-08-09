@@ -31,8 +31,8 @@ func PrepareTables(db *sql.DB) error {
                         headers TEXT,
                         query_params TEXT,
                         body TEXT,
-                        FOREIGN KEY (collection_id) REFERENCES collections (id)
-                        FOREIGN KEY (parent_id) REFERENCES item_folder (id)
+                        FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
+                        FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
                 )
         `)
 	if err != nil {

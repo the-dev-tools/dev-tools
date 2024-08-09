@@ -126,6 +126,7 @@ func PrepareListCollections(db *sql.DB) error {
 	PreparedListCollections, err = db.Prepare(`
                 SELECT id, owner_id, name
                 FROM collections
+                WHERE owner_id = ?
         `)
 	if err != nil {
 		return err
@@ -179,8 +180,8 @@ func CloseStatements() {
 	}
 }
 
-func ListCollections() ([]mcollection.Collection, error) {
-	rows, err := PreparedListCollections.Query()
+func ListCollections(ownerID ulid.ULID) ([]mcollection.Collection, error) {
+	rows, err := PreparedListCollections.Query(ownerID)
 	if err != nil {
 		return nil, err
 	}

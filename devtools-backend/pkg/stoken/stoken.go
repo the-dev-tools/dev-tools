@@ -74,10 +74,10 @@ func ValidateJWT(tokenString string, tokenType TokenType, secret []byte) (*jwt.T
 	return token, nil
 }
 
-func GetClaims(token *jwt.Token) *DefaultClaims {
+func GetClaims(token *jwt.Token) (*DefaultClaims, error) {
 	claims, ok := token.Claims.(*DefaultClaims)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("cannot cast claims")
 	}
-	return claims
+	return claims, nil
 }

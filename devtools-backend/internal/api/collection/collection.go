@@ -24,8 +24,8 @@ import (
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -42,7 +42,7 @@ type CollectionService struct {
 type ContextKeyStr string
 
 const (
-	OwnerIDKeyContext ContextKeyStr = "auth"
+	UserIDKeyCtx ContextKeyStr = "auth"
 )
 
 func (c CollectionService) NewAuthInterceptor() connect.UnaryInterceptorFunc {
@@ -66,23 +66,21 @@ func (c CollectionService) NewAuthInterceptor() connect.UnaryInterceptorFunc {
 					connect.CodeUnauthenticated, errors.New("invalid token"))
 			}
 
-			fmt.Println("tokenRaw[1]: ", tokenRaw[1])
-
 			token, err := stoken.ValidateJWT(tokenRaw[1], stoken.AccessToken, c.secret)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
-			claims := stoken.GetClaims(token)
-			if claims == nil {
-				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("no claims in token"))
+			claims, err := stoken.GetClaims(token)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
 
-			ulidID, err := ulid.Parse(claims.ID)
+			ulidID, err := ulid.Parse(claims.Subject)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
 
-			CtxWithValue := context.WithValue(ctx, OwnerIDKeyContext, ulidID)
+			CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ulidID)
 
 			return next(CtxWithValue, req)
 		})
@@ -92,7 +90,17 @@ func (c CollectionService) NewAuthInterceptor() connect.UnaryInterceptorFunc {
 
 // ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	simpleCollections, err := scollection.ListCollections()
+	ownerID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
+	}
+
+	org, err := sorg.GetOrgByUserID(ownerID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+
+	simpleCollections, err := scollection.ListCollections(org.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -115,7 +123,7 @@ func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Re
 func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	ulidID := ulid.Make()
 
-	ownerID, ok := ctx.Value(OwnerIDKeyContext).(ulid.ULID)
+	ownerID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
 	if !ok {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
 	}
@@ -147,6 +155,7 @@ func (c *CollectionService) GetCollection(ctx context.Context, req *connect.Requ
 
 	isOwner, err := CheckOwnerCollection(ctx, ulidID)
 	if err != nil {
+		log.Print("try to get collection error: ", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !isOwner {
@@ -197,9 +206,16 @@ func (c *CollectionService) UpdateCollection(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
+	// TODO: can be merge with check
+	collectionOld, err := scollection.GetCollection(ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	collection := mcollection.Collection{
-		ID:   ulidID,
-		Name: req.Msg.Name,
+		ID:      ulidID,
+		Name:    req.Msg.Name,
+		OwnerID: collectionOld.OwnerID,
 	}
 	err = scollection.UpdateCollection(&collection)
 	if err != nil {
@@ -244,6 +260,16 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
+	userID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
+	}
+
+	org, err := sorg.GetOrgByUserID(userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	postmanCollection, err := tpostman.ParsePostmanCollection(req.Msg.Data)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -251,15 +277,10 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 
 	ulidID := ulid.Make()
 
-	ownerID, ok := ctx.Value(OwnerIDKeyContext).(ulid.ULID)
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
-	}
-
 	collection := mcollection.Collection{
 		ID:      ulidID,
 		Name:    req.Msg.Name,
-		OwnerID: ownerID,
+		OwnerID: org.ID,
 	}
 	err = scollection.CreateCollection(&collection)
 	if err != nil {
@@ -398,6 +419,13 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
+	var parentID string
+	if item.ParentID == nil {
+		parentID = ""
+	} else {
+		parentID = item.ParentID.String()
+	}
+
 	respRaw := &collectionv1.GetApiCallResponse{
 		ApiCall: &collectionv1.ApiCall{
 			Meta: &collectionv1.ApiCallMeta{
@@ -405,7 +433,7 @@ func (c *CollectionService) GetApiCall(ctx context.Context, req *connect.Request
 				Name: item.Name,
 			},
 			CollectionId: item.CollectionID.String(),
-			ParentId:     item.ParentID.String(),
+			ParentId:     parentID,
 			Data: &nodedatav1.NodeApiCallData{
 				Url:         item.Url,
 				Method:      item.Method,
@@ -509,7 +537,7 @@ func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	return connect.NewResponse(&collectionv1.UpdateApiCallResponse{}), nil
 }
 
 // DeleteFolder calls collection.v1.CollectionService.DeleteFolder.
@@ -657,12 +685,12 @@ func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 }
 
 func CheckOwnerCollection(ctx context.Context, collectionID ulid.ULID) (bool, error) {
-	ownerID, ok := ctx.Value(OwnerIDKeyContext).(ulid.ULID)
+	userID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
 	if !ok {
 		return false, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
 	}
 
-	org, err := sorg.GetOrgByUserID(ownerID)
+	org, err := sorg.GetOrgByUserID(userID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}

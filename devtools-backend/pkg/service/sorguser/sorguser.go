@@ -19,8 +19,8 @@ func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
                 CREATE TABLE IF NOT EXISTS org_users (
                         id TEXT PRIMARY KEY,
-                        org_id TEXT,
-                        user_id TEXT
+                        org_id TEXT NOT NULL REFERENCES orgs(id),
+                        user_id TEXT NOT NULL REFERENCES users(id)
                 )
         `)
 	if err != nil {

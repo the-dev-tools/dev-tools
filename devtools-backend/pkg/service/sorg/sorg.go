@@ -3,6 +3,8 @@ package sorg
 import (
 	"database/sql"
 	"devtools-backend/pkg/model/morg"
+	"encoding/hex"
+	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -68,10 +70,7 @@ func PrepareCreateOrg(db *sql.DB) error {
                 INSERT INTO orgs (id, name)
                 VALUES (?, ?)
         `)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func PrepareGetOrg(db *sql.DB) error {
@@ -81,10 +80,7 @@ func PrepareGetOrg(db *sql.DB) error {
                 FROM orgs
                 WHERE id = ?
         `)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func PrepareUpdateOrg(db *sql.DB) error {
@@ -94,10 +90,7 @@ func PrepareUpdateOrg(db *sql.DB) error {
                 SET name = ?
                 WHERE id = ?
         `)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func PrepareDeleteOrg(db *sql.DB) error {
@@ -106,10 +99,7 @@ func PrepareDeleteOrg(db *sql.DB) error {
                 DELETE FROM orgs
                 WHERE id = ?
         `)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func PrepareGetOrgByName(db *sql.DB) error {
@@ -119,10 +109,7 @@ func PrepareGetOrgByName(db *sql.DB) error {
                 FROM orgs
                 WHERE name = ?
         `)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func PrepareGetOrgByUserID(db *sql.DB) error {
@@ -130,22 +117,16 @@ func PrepareGetOrgByUserID(db *sql.DB) error {
 	PreparedGetOrgByUserID, err = db.Prepare(`
                 SELECT o.id, o.name
                 FROM orgs o
-                JOIN user_orgs uo
-                ON o.id = uo.org_id
-                WHERE uo.user_id = ?
+                JOIN org_users ou
+                ON o.id = ou.org_id
+                WHERE ou.user_id = ?
         `)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func CreateOrg(org *morg.Org) error {
 	_, err := PreparedCreateOrg.Exec(org.ID, org.Name)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func GetOrg(id ulid.ULID) (*morg.Org, error) {
@@ -184,9 +165,15 @@ func GetOrgByName(name string) (*morg.Org, error) {
 
 func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 	var org morg.Org
+	str := hex.EncodeToString(userID.Bytes())
+	fmt.Println("GetOrgByUserID: ", str)
+
 	err := PreparedGetOrgByUserID.QueryRow(userID).Scan(&org.ID, &org.Name)
 	if err != nil {
 		return nil, err
 	}
+
+	str = hex.EncodeToString(org.ID.Bytes())
+	fmt.Println("Org ID: ", str)
 	return &org, nil
 }

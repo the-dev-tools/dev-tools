@@ -25,7 +25,7 @@ func PrepareTables(db *sql.DB) error {
                         name TEXT,
                         parent_id TEXT,
                         collection_id TEXT,
-                        FOREIGN KEY (collection_id) REFERENCES collections (id)
+                        FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
                 )
         `)
 	if err != nil {
