@@ -1,33 +1,18 @@
+import { Transport } from '@connectrpc/connect';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Config, Context, Effect, Layer, pipe } from 'effect';
+import { Context, DateTime, Effect, pipe } from 'effect';
 import { decodeJwt } from 'jose';
-import { LoginWithMagicLinkConfiguration, Magic, PromiEvent } from 'magic-sdk';
+import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 
-import { ApiClient } from './client';
-import { accessTokenKey, AccessTokenPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
+import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
 
-class MagicClient extends Context.Tag('MagicClient')<MagicClient, Magic>() {}
+import { accessTokenKey, AccessTokenPayload, JWTPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
+import { AnyFnEffect, Request } from './transport';
 
-export const MagicClientLive = Layer.effect(
-  MagicClient,
-  Effect.gen(function* () {
-    const apiKey = yield* Config.string('PUBLIC_MAGIC_KEY');
-    return new Magic(apiKey, {
-      useStorageCache: true,
-      deferPreload: true,
-    });
-  }),
-);
+export class AuthTransport extends Context.Tag('AuthTransport')<AuthTransport, Transport>() {}
 
-export const MagicClientTest = Layer.succeed(MagicClient, {
-  auth: {
-    loginWithMagicLink: (_) => Promise.resolve(_.email) as PromiEvent<string>,
-  } as Partial<Magic['auth']>,
-  user: {
-    logout: () => Promise.resolve(true),
-  },
-} as Magic);
+export class MagicClient extends Context.Tag('MagicClient')<MagicClient, Magic>() {}
 
 export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   Effect.gen(function* () {
@@ -39,8 +24,11 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
     );
 
     // Authorize
-    const apiClient = yield* ApiClient;
-    const { accessToken, refreshToken } = (yield* apiClient.auth.dID({ didToken })).message;
+    const transport = yield* AuthTransport;
+    const response = yield* Effect.tryPromise((signal) =>
+      transport.unary(AuthService, AuthService.methods.dID, signal, undefined, undefined, { didToken }),
+    );
+    const { accessToken, refreshToken } = response.message;
 
     // Validate tokens
     yield* pipe(
@@ -73,3 +61,45 @@ export const getUser = pipe(
   Effect.flatMap((_) => Effect.try(() => decodeJwt<typeof AccessTokenPayload.Encoded>(_))),
   Effect.flatMap(Schema.decode(AccessTokenPayload)),
 );
+
+const isTokenExpired = (token: string) =>
+  pipe(
+    Effect.try(() => decodeJwt<typeof JWTPayload.Encoded>(token)),
+    Effect.flatMap(Schema.decode(JWTPayload)),
+    Effect.flatMap((_) => DateTime.make(_.exp)),
+    Effect.flatMap(DateTime.isPast),
+  );
+
+export const authorizationInterceptor =
+  <E, R>(next: AnyFnEffect<E, R>) =>
+  (request: Request) =>
+    Effect.gen(function* () {
+      const store = yield* KeyValueStore;
+      let accessToken = yield* pipe(store.forSchema(Schema.String).get(accessTokenKey), Effect.flatten);
+      const accessTokenExpired = yield* isTokenExpired(accessToken);
+
+      if (accessTokenExpired) {
+        let refreshToken = yield* pipe(store.forSchema(Schema.String).get(refreshTokenKey), Effect.flatten);
+        const refreshTokenExpired = yield* isTokenExpired(refreshToken);
+
+        if (refreshTokenExpired) {
+          yield* logout;
+          yield* Effect.fail('Authorization expired' as const);
+        }
+
+        const transport = yield* AuthTransport;
+        const response = yield* Effect.tryPromise((signal) =>
+          transport.unary(AuthService, AuthService.methods.refreshToken, signal, undefined, undefined, {
+            refreshToken,
+          }),
+        );
+        ({ accessToken, refreshToken } = response.message);
+
+        yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
+        yield* store.forSchema(Schema.String).set(refreshTokenKey, refreshToken);
+      }
+
+      request.header.set('Authorization', `Bearer ${accessToken}`);
+
+      return yield* next(request);
+    });

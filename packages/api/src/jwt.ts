@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema';
 
-class JWTPayload extends Schema.Class<JWTPayload>('JWTPayload')({
+export class JWTPayload extends Schema.Class<JWTPayload>('JWTPayload')({
   exp: Schema.transform(Schema.Number, Schema.DateFromSelf, {
     strict: true,
     decode: (_) => new Date(_ * 1000),

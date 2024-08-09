@@ -1,10 +1,11 @@
 import { createRouterTransport } from '@connectrpc/connect';
 import { Schema } from '@effect/schema';
-import { DateTime, Effect, flow, Layer, Match, pipe, Runtime, String } from 'effect';
+import { Context, DateTime, Effect, flow, Layer, Match, pipe, Ref, Runtime, String } from 'effect';
 import { UnsecuredJWT } from 'jose';
+import { Magic, PromiEvent } from 'magic-sdk';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
-import { AuthServiceDIDRequest, AuthServiceDIDResponse } from '@the-dev-tools/protobuf/auth/v1/auth_pb';
+import { AuthServiceDIDResponse } from '@the-dev-tools/protobuf/auth/v1/auth_pb';
 import { CollectionService } from '@the-dev-tools/protobuf/collection/v1/collection_connect';
 import {
   ApiCall,
@@ -15,20 +16,61 @@ import {
   ListCollectionsResponse,
   RunApiCallResponse,
 } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
-import { Faker } from '@the-dev-tools/utils/faker';
+import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
+import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
-import { AnyFnEffect, ApiTransport, authorizationInterceptor, effectInterceptor, Request } from './transport';
+import { AnyFnEffect, ApiTransport, effectInterceptor, Request } from './transport';
 
-export const ApiTransportTest = Layer.effect(
+class EmailRef extends Context.Tag('EmailRef')<EmailRef, Ref.Ref<string>>() {}
+
+const EmailTest = Layer.effect(
+  EmailRef,
+  Effect.flatMap(Faker, (_) => Ref.make(_.internet.email())),
+);
+
+const AuthTransportTest = Layer.effect(
+  AuthTransport,
+  Effect.gen(function* () {
+    const runtime = yield* Effect.runtime<Faker | EmailRef>();
+    return createRouterTransport(
+      (router) => {
+        router.service(AuthService, {
+          dID: () => Runtime.runPromise(runtime)(tokens),
+          refreshToken: () => Runtime.runPromise(runtime)(tokens),
+        });
+      },
+      { transport: { interceptors: [yield* effectInterceptor(mockInterceptor)] } },
+    );
+  }),
+);
+
+const MagicClientTest = Layer.effect(
+  MagicClient,
+  Effect.gen(function* () {
+    const runtime = yield* Effect.runtime<Faker | EmailRef>();
+    return {
+      auth: {
+        loginWithMagicLink: (request) =>
+          Effect.gen(function* () {
+            yield* Effect.flatMap(EmailRef, Ref.set(request.email));
+            const faker = yield* Faker;
+            return faker.string.uuid();
+          }).pipe(Runtime.runPromise(runtime)) as PromiEvent<string>,
+      } as Partial<Magic['auth']>,
+      user: {
+        logout: () => Promise.resolve(true),
+      },
+    } as Magic;
+  }),
+);
+
+const ApiTransportTest = Layer.effect(
   ApiTransport,
   Effect.gen(function* () {
     const runtime = yield* Effect.runtime<Faker>();
     return createRouterTransport(
       (router) => {
-        router.service(AuthService, {
-          dID: flow(dID, Runtime.runPromise(runtime)),
-        });
         router.service(CollectionService, {
           listCollections: flow(listCollections, Runtime.runPromise(runtime)),
           getCollection: flow(getCollection, Runtime.runPromise(runtime)),
@@ -38,14 +80,22 @@ export const ApiTransportTest = Layer.effect(
       {
         transport: {
           // Interceptor flow order is reversed
-          interceptors: [yield* effectInterceptor(flow(interceptor, authorizationInterceptor))],
+          interceptors: [yield* effectInterceptor(flow(mockInterceptor, authorizationInterceptor))],
         },
       },
     );
   }),
 );
 
-const interceptor =
+export const ApiTest = pipe(
+  ApiTransportTest,
+  Layer.provideMerge(AuthTransportTest),
+  Layer.provideMerge(MagicClientTest),
+  Layer.provide(EmailTest),
+  Layer.provide(FakerLive),
+);
+
+const mockInterceptor =
   <E, R>(next: AnyFnEffect<E, R>) =>
   (request: Request) =>
     Effect.gen(function* () {
@@ -55,29 +105,30 @@ const interceptor =
       return response;
     });
 
-const dID = (request: AuthServiceDIDRequest) =>
-  Effect.gen(function* () {
-    const accessToken = yield* pipe(
-      AccessTokenPayload.make({
-        token_type: 'access_token',
-        exp: pipe(yield* DateTime.now, DateTime.add({ hours: 2 }), DateTime.toDate),
-        email: request.didToken,
-      }),
-      Schema.encode(AccessTokenPayload),
-      Effect.map((_) => new UnsecuredJWT(_).encode()),
-    );
+const tokens = Effect.gen(function* () {
+  const email = yield* Effect.flatMap(EmailRef, Ref.get);
 
-    const refreshToken = yield* pipe(
-      RefreshTokenPayload.make({
-        token_type: 'refresh_token',
-        exp: pipe(yield* DateTime.now, DateTime.add({ days: 2 }), DateTime.toDate),
-      }),
-      Schema.encode(RefreshTokenPayload),
-      Effect.map((_) => new UnsecuredJWT(_).encode()),
-    );
+  const accessToken = yield* pipe(
+    AccessTokenPayload.make({
+      token_type: 'access_token',
+      exp: pipe(yield* DateTime.now, DateTime.add({ hours: 1 }), DateTime.toDate),
+      email,
+    }),
+    Schema.encode(AccessTokenPayload),
+    Effect.map((_) => new UnsecuredJWT(_).encode()),
+  );
 
-    return new AuthServiceDIDResponse({ accessToken, refreshToken });
-  });
+  const refreshToken = yield* pipe(
+    RefreshTokenPayload.make({
+      token_type: 'refresh_token',
+      exp: pipe(yield* DateTime.now, DateTime.add({ days: 1 }), DateTime.toDate),
+    }),
+    Schema.encode(RefreshTokenPayload),
+    Effect.map((_) => new UnsecuredJWT(_).encode()),
+  );
+
+  return new AuthServiceDIDResponse({ accessToken, refreshToken });
+});
 
 const listCollections = () =>
   Effect.gen(function* () {
