@@ -13,7 +13,6 @@ import (
 	"devtools-backend/pkg/stoken"
 	authv1 "devtools-services/gen/auth/v1"
 	"devtools-services/gen/auth/v1/authv1connect"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -106,9 +105,6 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 			return nil, err
 		}
 	}
-
-	str := hex.EncodeToString(user.ID.Bytes())
-	fmt.Println("userID: ", str)
 
 	jwtToken, err := stoken.NewJWT(user.ID, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
 	if err != nil {

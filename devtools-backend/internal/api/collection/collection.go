@@ -123,17 +123,22 @@ func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Re
 func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	ulidID := ulid.Make()
 
-	ownerID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
+	userID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
 	if !ok {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
 	}
 
+	org, err := sorg.GetOrgByUserID(userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	collection := mcollection.Collection{
 		ID:      ulidID,
-		OwnerID: ownerID,
+		OwnerID: org.ID,
 		Name:    req.Msg.Name,
 	}
-	err := scollection.CreateCollection(&collection)
+	err = scollection.CreateCollection(&collection)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
