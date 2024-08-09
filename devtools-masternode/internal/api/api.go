@@ -106,13 +106,10 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 
 	// INFO: Experimental change
 
-	fmt.Println("Nodes: ", nodes)
 	convertedNodes, err := convert.ConvertMsgNodesToNodes(nodes, resolver.ConvertProtoMsg)
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Converted Nodes: ", convertedNodes)
 
 	resolverFunc := mnodemaster.Resolver(resolver.ResolveNodeFunc)
 	executeNodeFunc := mnodemaster.ExcuteNodeFunc(m.ExecuteNode)

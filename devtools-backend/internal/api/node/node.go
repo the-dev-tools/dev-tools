@@ -6,7 +6,6 @@ import (
 	nodemasterv1 "devtools-services/gen/nodemaster/v1"
 	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 
@@ -27,7 +26,6 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 		return err
 	}
 	for upstream.Receive() {
-		fmt.Println("Received message")
 		msg := upstream.Msg()
 		err = stream.Send(msg)
 		if err != nil {

@@ -66,10 +66,7 @@ func TestTranslateItemFolderNested(t *testing.T) {
 		t.Errorf("expected %s, got %s", folders[0].ID.String(), items[0].GetData().(*collectionv1.Item_Folder).Folder.Meta.Id)
 	}
 
-	fmt.Println(items[0].GetData().(*collectionv1.Item_Folder).Folder.Meta.Name)
-
 	newItems := items[0].GetData().(*collectionv1.Item_Folder).Folder.Items
-	fmt.Println(len(newItems))
 	if len(newItems) != 3 {
 		t.Errorf("expected 1 item, got %d", len(newItems))
 	}

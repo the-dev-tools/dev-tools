@@ -3,8 +3,6 @@ package sorg
 import (
 	"database/sql"
 	"devtools-backend/pkg/model/morg"
-	"encoding/hex"
-	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -165,15 +163,11 @@ func GetOrgByName(name string) (*morg.Org, error) {
 
 func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 	var org morg.Org
-	str := hex.EncodeToString(userID.Bytes())
-	fmt.Println("GetOrgByUserID: ", str)
 
 	err := PreparedGetOrgByUserID.QueryRow(userID).Scan(&org.ID, &org.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	str = hex.EncodeToString(org.ID.Bytes())
-	fmt.Println("Org ID: ", str)
 	return &org, nil
 }
