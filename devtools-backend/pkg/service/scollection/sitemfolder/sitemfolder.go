@@ -31,6 +31,21 @@ func PrepareTables(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	row := db.QueryRow(`
+                SELECT * FROM sqlite_master LIMIT 1
+                WHERE type= 'index' and tbl_name = 'item_folder' and name = 'Idx1';
+        `)
+
+	if row.Err() == sql.ErrNoRows {
+		_, err = db.Exec(`
+                        CREATE INDEX Idx1 ON item_folder(collection_id);
+                `)
+		if err != nil {
+			return err
+		}
+
+	}
+
 	return nil
 }
 

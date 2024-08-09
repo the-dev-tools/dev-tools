@@ -511,8 +511,6 @@ func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	// TODO: add check for collectionID with folders and apis cuz
-	// it can be changed to another collection cuz we only can check ownerID for collection
 	checkOwner, err := CheckOwnerCollection(ctx, CollectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
