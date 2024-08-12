@@ -16,6 +16,11 @@ jobs:
       - name: Load Nix runner shell environment
         run: nix run .#gha-nix-develop -- .#runner
 
+      - name: Setup PNPM cache
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+
       - name: Install PNPM dependencies
         run: pnpm install
 
