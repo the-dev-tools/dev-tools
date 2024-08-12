@@ -54,17 +54,6 @@ export const makeConfig = (/** @type {string} */ url) => {
     ImportX.configs.typescript,
   );
 
-  const react = TS.config(
-    { settings: { react: { version: 'detect' } } },
-    {
-      plugins: { 'react-hooks': CompatUtils.fixupPluginRules(ReactHooks) },
-      rules: ReactHooks.configs.recommended.rules,
-    },
-    ReactRecommended,
-    ReactJsxRuntime,
-    JsxA11y.flatConfigs.recommended,
-  );
-
   const tailwind = TS.config(...Tailwind.configs['flat/recommended'], {
     settings: {
       tailwindcss: {
@@ -82,7 +71,6 @@ export const makeConfig = (/** @type {string} */ url) => {
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
       '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
       'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
-      'react/prop-types': 'off',
     },
   });
 
@@ -91,10 +79,28 @@ export const makeConfig = (/** @type {string} */ url) => {
     JS.configs.recommended,
     ...typescript,
     ...imports,
-    ...react,
     ...tailwind,
     ...commonjs,
     Prettier,
     ...rules,
+  );
+};
+
+export const makeConfigReact = (/** @type {string} */ url) => {
+  return TS.config(
+    ...makeConfig(url),
+    { settings: { react: { version: 'detect' } } },
+    {
+      plugins: { 'react-hooks': CompatUtils.fixupPluginRules(ReactHooks) },
+      rules: ReactHooks.configs.recommended.rules,
+    },
+    ReactRecommended,
+    ReactJsxRuntime,
+    JsxA11y.flatConfigs.recommended,
+    {
+      rules: {
+        'react/prop-types': 'off',
+      },
+    },
   );
 };
