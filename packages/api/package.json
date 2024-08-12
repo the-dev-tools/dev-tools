@@ -1,5 +1,6 @@
 {
   "name": "@the-dev-tools/api",
+  "version": "0.0.0",
   "scripts": {
     "lint": "eslint ."
   },
