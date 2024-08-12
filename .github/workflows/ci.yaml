@@ -2,6 +2,9 @@ name: Integration
 
 on: [push]
 
+env:
+  DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
