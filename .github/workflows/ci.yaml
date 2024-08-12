@@ -6,18 +6,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      # TODO: rewrite this workflow for monorepo
-      - name: This workflow is temporarily disabled
-        run: 'false'
-
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # get the full git history
-
       - uses: DeterminateSystems/nix-installer-action@v12
       - uses: DeterminateSystems/magic-nix-cache-action@v7
 
-      - name: Prepare runner dev shell
+      - name: Install Nix dependencies
         run: nix develop .#runner --command true
 
-      - run: nix develop .#runner --command task lint
+      - name: Install PNPM dependencies
+        run: nix develop .#runner --command pnpm install
+
+      - name: Lint
+        run: nix develop .#runner --command pnpm lint

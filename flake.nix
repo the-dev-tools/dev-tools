@@ -11,8 +11,12 @@
   outputs = inputs @ {flake-parts, ...}:
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = import inputs.systems;
-      perSystem = {pkgs, ...}: {
-        devShells.default = let
+      perSystem = {
+        pkgs,
+        self',
+        ...
+      }: {
+        devShells.runner = let
           pnpm = pkgs.writeShellApplication {
             name = "pnpm";
             runtimeInputs = with pkgs; [dotenvx pnpm_9];
@@ -20,21 +24,24 @@
           };
         in
           pkgs.mkShell {
-            NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
-
             nativeBuildInputs =
               [pnpm]
               ++ (with pkgs; [
-                # JS tools
                 dotenvx
                 nodejs
                 turbo
-
-                # Nix tools
-                alejandra
-                nixd
               ]);
           };
+
+        devShells.default = pkgs.mkShell {
+          NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
+          nativeBuildInputs =
+            self'.devShells.runner.nativeBuildInputs
+            ++ (with pkgs; [
+              alejandra
+              nixd
+            ]);
+        };
       };
     };
 }
