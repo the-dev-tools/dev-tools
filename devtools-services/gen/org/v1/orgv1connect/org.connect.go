@@ -22,7 +22,7 @@ const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// OrgServiceName is the fully-qualified name of the OrgService service.
-	OrgServiceName = "collection.v1.OrgService"
+	OrgServiceName = "org.v1.OrgService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -34,9 +34,9 @@ const (
 // period.
 const (
 	// OrgServiceGetOrgProcedure is the fully-qualified name of the OrgService's GetOrg RPC.
-	OrgServiceGetOrgProcedure = "/collection.v1.OrgService/GetOrg"
+	OrgServiceGetOrgProcedure = "/org.v1.OrgService/GetOrg"
 	// OrgServiceGetOrgsProcedure is the fully-qualified name of the OrgService's GetOrgs RPC.
-	OrgServiceGetOrgsProcedure = "/collection.v1.OrgService/GetOrgs"
+	OrgServiceGetOrgsProcedure = "/org.v1.OrgService/GetOrgs"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -46,14 +46,14 @@ var (
 	orgServiceGetOrgsMethodDescriptor = orgServiceServiceDescriptor.Methods().ByName("GetOrgs")
 )
 
-// OrgServiceClient is a client for the collection.v1.OrgService service.
+// OrgServiceClient is a client for the org.v1.OrgService service.
 type OrgServiceClient interface {
 	GetOrg(context.Context, *connect.Request[v1.GetOrgRequest]) (*connect.Response[v1.Org], error)
 	GetOrgs(context.Context, *connect.Request[v1.GetOrgsRequest]) (*connect.Response[v1.GetOrgsResponse], error)
 }
 
-// NewOrgServiceClient constructs a client for the collection.v1.OrgService service. By default, it
-// uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
+// NewOrgServiceClient constructs a client for the org.v1.OrgService service. By default, it uses
+// the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
 // uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or
 // connect.WithGRPCWeb() options.
 //
@@ -83,17 +83,17 @@ type orgServiceClient struct {
 	getOrgs *connect.Client[v1.GetOrgsRequest, v1.GetOrgsResponse]
 }
 
-// GetOrg calls collection.v1.OrgService.GetOrg.
+// GetOrg calls org.v1.OrgService.GetOrg.
 func (c *orgServiceClient) GetOrg(ctx context.Context, req *connect.Request[v1.GetOrgRequest]) (*connect.Response[v1.Org], error) {
 	return c.getOrg.CallUnary(ctx, req)
 }
 
-// GetOrgs calls collection.v1.OrgService.GetOrgs.
+// GetOrgs calls org.v1.OrgService.GetOrgs.
 func (c *orgServiceClient) GetOrgs(ctx context.Context, req *connect.Request[v1.GetOrgsRequest]) (*connect.Response[v1.GetOrgsResponse], error) {
 	return c.getOrgs.CallUnary(ctx, req)
 }
 
-// OrgServiceHandler is an implementation of the collection.v1.OrgService service.
+// OrgServiceHandler is an implementation of the org.v1.OrgService service.
 type OrgServiceHandler interface {
 	GetOrg(context.Context, *connect.Request[v1.GetOrgRequest]) (*connect.Response[v1.Org], error)
 	GetOrgs(context.Context, *connect.Request[v1.GetOrgsRequest]) (*connect.Response[v1.GetOrgsResponse], error)
@@ -117,7 +117,7 @@ func NewOrgServiceHandler(svc OrgServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(orgServiceGetOrgsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	return "/collection.v1.OrgService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return "/org.v1.OrgService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrgServiceGetOrgProcedure:
 			orgServiceGetOrgHandler.ServeHTTP(w, r)
@@ -133,9 +133,9 @@ func NewOrgServiceHandler(svc OrgServiceHandler, opts ...connect.HandlerOption) 
 type UnimplementedOrgServiceHandler struct{}
 
 func (UnimplementedOrgServiceHandler) GetOrg(context.Context, *connect.Request[v1.GetOrgRequest]) (*connect.Response[v1.Org], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.OrgService.GetOrg is not implemented"))
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("org.v1.OrgService.GetOrg is not implemented"))
 }
 
 func (UnimplementedOrgServiceHandler) GetOrgs(context.Context, *connect.Request[v1.GetOrgsRequest]) (*connect.Response[v1.GetOrgsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.OrgService.GetOrgs is not implemented"))
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("org.v1.OrgService.GetOrgs is not implemented"))
 }

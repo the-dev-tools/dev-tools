@@ -35,9 +35,8 @@ func (c *OrgService) GetOrg(ctx context.Context, req *connect.Request[orgv1.GetO
 	}
 
 	resp := &orgv1.Org{
-		OrgId:       org.ID.String(),
-		Name:        org.Name,
-		DisplayName: org.Name,
+		OrgId: org.ID.String(),
+		Name:  org.Name,
 	}
 
 	return connect.NewResponse(resp), nil
@@ -59,9 +58,8 @@ func (c *OrgService) GetOrgs(ctx context.Context, req *connect.Request[orgv1.Get
 	respOrgs := make([]*orgv1.Org, len(orgs))
 	for i, org := range orgs {
 		respOrgs[i] = &orgv1.Org{
-			OrgId:       org.ID.String(),
-			Name:        org.Name,
-			DisplayName: org.Name,
+			OrgId: org.ID.String(),
+			Name:  org.Name,
 		}
 	}
 
