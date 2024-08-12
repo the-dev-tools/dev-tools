@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package collection.v1;
+package org.v1;
 option go_package = "devtools-services/gen/org/v1;orgv1";
 
 
@@ -17,7 +17,6 @@ message GetOrgRequest {
 message Org {
   string org_id = 1;
   string name = 2;
-  string display_name = 3;
 }
 
 message GetOrgsRequest {
