@@ -3,6 +3,8 @@ package sorguser
 import (
 	"database/sql"
 	"devtools-backend/pkg/model/morguser"
+
+	"github.com/oklog/ulid/v2"
 )
 
 var (
@@ -140,7 +142,7 @@ func CreateOrgUser(user *morguser.OrgUser) error {
 	return nil
 }
 
-func GetOrgUser(id string) (*morguser.OrgUser, error) {
+func GetOrgUser(id ulid.ULID) (*morguser.OrgUser, error) {
 	var orgUser morguser.OrgUser
 	err := PreparedGetOrgUser.QueryRow(id).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {
@@ -157,7 +159,7 @@ func UpdateOrgUser(user *morguser.OrgUser) error {
 	return nil
 }
 
-func DeleteOrgUser(id string) error {
+func DeleteOrgUser(id ulid.ULID) error {
 	_, err := PreparedDeleteOrgUser.Exec(id)
 	if err != nil {
 		return err

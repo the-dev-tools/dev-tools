@@ -1,10 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"devtools-backend/internal/api"
 	"devtools-backend/internal/api/auth"
 	"devtools-backend/internal/api/collection"
 	"devtools-backend/internal/api/node"
+	"devtools-backend/internal/api/rorg"
 	"devtools-backend/pkg/db/turso"
 	"devtools-backend/pkg/service/scollection"
 	"devtools-backend/pkg/service/scollection/sitemapi"
@@ -59,8 +61,58 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Services Connect RPC
+	var services []api.Service
+	authService, err := auth.CreateService(hmacSecretBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *authService)
+
+	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	defer client.Close()
+
+	nodeService, err := node.CreateService(client)
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *nodeService)
+
+	/*
+		flowService, err := flow.CreateService(hmacSecretBytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+		services = append(services, *flowService)
+	*/
+
+	collectionService, err := collection.CreateService(db, hmacSecretBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *collectionService)
+
+	rorgService, err := rorg.CreateService(hmacSecretBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *rorgService)
+
+	// Start services
+	go func() {
+		err := api.ListenServices(services, port)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// Wait for signal
+	<-sc
+}
+
+func PrepareTables(db *sql.DB) error {
 	// Tables
-	err = scollection.PrepareTables(db)
+	err := scollection.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -94,9 +146,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	return nil
+}
 
+func PrepareStatements(db *sql.DB) error {
 	// Prepared statements
-	err = scollection.PrepareStatements(db)
+	err := scollection.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -130,46 +185,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Services Connect RPC
-	var services []api.Service
-	authService, err := auth.CreateService(hmacSecretBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *authService)
-
-	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
-	defer client.Close()
-
-	nodeService, err := node.CreateService(client)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *nodeService)
-
-	/*
-		flowService, err := flow.CreateService(hmacSecretBytes)
-		if err != nil {
-			log.Fatal(err)
-		}
-		services = append(services, *flowService)
-	*/
-
-	collectionService, err := collection.CreateService(db, hmacSecretBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *collectionService)
-
-	// Start services
-	go func() {
-		err := api.ListenServices(services, port)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	// Wait for signal
-	<-sc
+	return nil
 }

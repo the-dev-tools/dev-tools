@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"devtools-backend/internal/api"
+	"devtools-backend/internal/api/middleware/mwauth"
 	"devtools-backend/pkg/model/mcollection"
 	"devtools-backend/pkg/model/mcollection/mitemapi"
 	"devtools-backend/pkg/model/mcollection/mitemfolder"
@@ -679,11 +680,13 @@ func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request
 }
 
 func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
+	AuthInterceptor := mwauth.NewAuthInterceptor(secret)
 	server := &CollectionService{
 		DB:     db,
 		secret: secret,
 	}
-	path, handler := collectionv1connect.NewCollectionServiceHandler(server, connect.WithInterceptors(server.NewAuthInterceptor()))
+
+	path, handler := collectionv1connect.NewCollectionServiceHandler(server, connect.WithInterceptors(AuthInterceptor))
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

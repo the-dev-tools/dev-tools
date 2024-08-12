@@ -7,6 +7,8 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+var ErrOrgNotFound = sql.ErrNoRows
+
 var (
 	PreparedCreateOrg *sql.Stmt = nil
 	PreparedGetOrg    *sql.Stmt = nil
@@ -16,7 +18,8 @@ var (
 	PreparedGetOrgByName *sql.Stmt = nil
 
 	// User related
-	PreparedGetOrgByUserID *sql.Stmt = nil
+	PreparedGetOrgByUserID         *sql.Stmt = nil
+	PreparedGetOrgByUserIDAndOrgID *sql.Stmt = nil
 )
 
 func PrepareTables(db *sql.DB) error {
@@ -56,6 +59,10 @@ func PrepareStatements(db *sql.DB) error {
 		return err
 	}
 	err = PrepareGetOrgByUserID(db)
+	if err != nil {
+		return err
+	}
+	err = PrepareGetOrgByUserIDAndOrgID(db)
 	if err != nil {
 		return err
 	}
@@ -122,6 +129,18 @@ func PrepareGetOrgByUserID(db *sql.DB) error {
 	return err
 }
 
+func PrepareGetOrgByUserIDAndOrgID(db *sql.DB) error {
+	var err error
+	PreparedGetOrgByUserIDAndOrgID, err = db.Prepare(`
+                SELECT o.id, o.name
+                FROM orgs o
+                JOIN org_users ou
+                ON o.id = ou.org_id
+                WHERE ou.user_id = ?, ou.org_id = ?
+        `)
+	return err
+}
+
 func CreateOrg(org *morg.Org) error {
 	_, err := PreparedCreateOrg.Exec(org.ID, org.Name)
 	return err
@@ -169,5 +188,33 @@ func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 		return nil, err
 	}
 
+	return &org, nil
+}
+
+func GetOrgsByUserID(userID ulid.ULID) ([]morg.Org, error) {
+	rows, err := PreparedGetOrgByUserID.Query(userID)
+	var orgs []morg.Org
+	for rows.Next() {
+		var org morg.Org
+		err = rows.Scan(&org.ID, &org.Name)
+		if err != nil {
+			return nil, err
+		}
+		orgs = append(orgs, org)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return orgs, nil
+}
+
+func GetOrgByUserIDAndOrgID(userID *ulid.ULID, orgID *ulid.ULID) (*morg.Org, error) {
+	var org morg.Org
+	err := PreparedGetOrgByUserIDAndOrgID.QueryRow(userID, orgID).Scan(&org.ID, &org.Name)
+	if err != nil {
+		return nil, err
+	}
 	return &org, nil
 }
