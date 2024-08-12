@@ -4,7 +4,7 @@ import { Array, flow, identity, Match, Number, Option, pipe, Record, String, Str
 import * as Tailwind from 'tailwindcss';
 import resolveConfig from 'tailwindcss/resolveConfig';
 
-import { keyValue } from '@the-dev-tools/utils';
+import { keyValue } from '@the-dev-tools/utils/helpers';
 
 import { config as rawConfig } from './config';
 
