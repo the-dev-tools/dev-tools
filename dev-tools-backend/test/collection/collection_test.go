@@ -1,7 +1,7 @@
 package collection_test
 
 import (
-	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
+	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
 	"encoding/json"
 	"fmt"
 	"os"

@@ -2,9 +2,9 @@ package rorg
 
 import (
 	"context"
-	"devtools-backend/internal/api"
-	"devtools-backend/internal/api/middleware/mwauth"
-	"devtools-backend/pkg/service/sorg"
+	"dev-tools-backend/internal/api"
+	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/pkg/service/sorg"
 	orgv1 "devtools-services/gen/organization/v1"
 	"devtools-services/gen/organization/v1/organizationv1connect"
 	"errors"

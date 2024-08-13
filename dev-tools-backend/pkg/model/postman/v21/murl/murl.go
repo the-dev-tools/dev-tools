@@ -1,6 +1,6 @@
 package murl
 
-import "devtools-backend/pkg/model/postman/v21/mvariable"
+import "dev-tools-backend/pkg/model/postman/v21/mvariable"
 
 type URL struct {
 	Version   string               `json:"version,omitempty"`

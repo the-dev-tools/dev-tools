@@ -2,7 +2,7 @@ package sresultapi
 
 import (
 	"database/sql"
-	"devtools-backend/pkg/model/result/mresultapi"
+	"dev-tools-backend/pkg/model/result/mresultapi"
 
 	"github.com/oklog/ulid/v2"
 )

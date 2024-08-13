@@ -1,4 +1,4 @@
-module devtools-backend
+module dev-tools-backend
 
 go 1.22.5
 

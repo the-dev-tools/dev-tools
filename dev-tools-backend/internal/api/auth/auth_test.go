@@ -2,8 +2,8 @@ package auth_test
 
 import (
 	"context"
-	"devtools-backend/internal/api/auth"
-	"devtools-backend/pkg/stoken"
+	"dev-tools-backend/internal/api/auth"
+	"dev-tools-backend/pkg/stoken"
 	authv1 "devtools-services/gen/auth/v1"
 	"testing"
 	"time"

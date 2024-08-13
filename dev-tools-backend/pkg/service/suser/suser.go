@@ -2,7 +2,7 @@ package suser
 
 import (
 	"database/sql"
-	"devtools-backend/pkg/model/muser"
+	"dev-tools-backend/pkg/model/muser"
 
 	"github.com/oklog/ulid/v2"
 )

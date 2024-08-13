@@ -1,8 +1,8 @@
 package titemnest
 
 import (
-	"devtools-backend/pkg/model/mcollection/mitemapi"
-	"devtools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/model/mcollection/mitemapi"
+	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
 	collectionv1 "devtools-services/gen/collection/v1"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
 

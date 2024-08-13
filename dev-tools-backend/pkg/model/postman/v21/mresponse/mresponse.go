@@ -1,9 +1,9 @@
 package mresponse
 
 import (
-	"devtools-backend/pkg/model/postman/v21/mcookie"
-	"devtools-backend/pkg/model/postman/v21/mheader"
-	"devtools-backend/pkg/model/postman/v21/mrequest"
+	"dev-tools-backend/pkg/model/postman/v21/mcookie"
+	"dev-tools-backend/pkg/model/postman/v21/mheader"
+	"dev-tools-backend/pkg/model/postman/v21/mrequest"
 )
 
 type Response struct {

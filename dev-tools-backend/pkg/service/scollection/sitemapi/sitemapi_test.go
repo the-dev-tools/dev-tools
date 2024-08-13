@@ -1,8 +1,8 @@
 package sitemapi_test
 
 import (
-	"devtools-backend/pkg/model/mcollection/mitemapi"
-	"devtools-backend/pkg/service/scollection/sitemapi"
+	"dev-tools-backend/pkg/model/mcollection/mitemapi"
+	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"

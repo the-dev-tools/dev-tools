@@ -2,7 +2,7 @@ package scollection
 
 import (
 	"database/sql"
-	"devtools-backend/pkg/model/mcollection"
+	"dev-tools-backend/pkg/model/mcollection"
 
 	"github.com/oklog/ulid/v2"
 )

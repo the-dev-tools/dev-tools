@@ -1,8 +1,8 @@
 package scollection_test
 
 import (
-	"devtools-backend/pkg/model/mcollection"
-	"devtools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/model/mcollection"
+	"dev-tools-backend/pkg/service/scollection"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"

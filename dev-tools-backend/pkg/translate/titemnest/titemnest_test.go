@@ -1,9 +1,9 @@
 package titemnest_test
 
 import (
-	"devtools-backend/pkg/model/mcollection/mitemapi"
-	"devtools-backend/pkg/model/mcollection/mitemfolder"
-	"devtools-backend/pkg/translate/titemnest"
+	"dev-tools-backend/pkg/model/mcollection/mitemapi"
+	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/translate/titemnest"
 	collectionv1 "devtools-services/gen/collection/v1"
 	"fmt"
 	"testing"

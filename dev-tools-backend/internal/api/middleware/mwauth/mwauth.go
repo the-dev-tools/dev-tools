@@ -2,8 +2,8 @@ package mwauth
 
 import (
 	"context"
-	"devtools-backend/pkg/service/sorg"
-	"devtools-backend/pkg/stoken"
+	"dev-tools-backend/pkg/service/sorg"
+	"dev-tools-backend/pkg/stoken"
 	"errors"
 	"strings"
 

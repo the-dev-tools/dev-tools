@@ -1,7 +1,7 @@
 package stoken_test
 
 import (
-	"devtools-backend/pkg/stoken"
+	"dev-tools-backend/pkg/stoken"
 	"testing"
 	"time"
 

@@ -1,8 +1,8 @@
 package suser_test
 
 import (
-	"devtools-backend/pkg/model/muser"
-	"devtools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/model/muser"
+	"dev-tools-backend/pkg/service/suser"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"

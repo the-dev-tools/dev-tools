@@ -2,7 +2,7 @@ package sitemapi
 
 import (
 	"database/sql"
-	"devtools-backend/pkg/model/mcollection/mitemapi"
+	"dev-tools-backend/pkg/model/mcollection/mitemapi"
 
 	"github.com/oklog/ulid/v2"
 )

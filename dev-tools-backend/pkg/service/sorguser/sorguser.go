@@ -2,7 +2,7 @@ package sorguser
 
 import (
 	"database/sql"
-	"devtools-backend/pkg/model/morguser"
+	"dev-tools-backend/pkg/model/morguser"
 
 	"github.com/oklog/ulid/v2"
 )

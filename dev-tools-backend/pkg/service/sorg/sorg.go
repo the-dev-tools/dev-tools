@@ -2,7 +2,7 @@ package sorg
 
 import (
 	"database/sql"
-	"devtools-backend/pkg/model/morg"
+	"dev-tools-backend/pkg/model/morg"
 
 	"github.com/oklog/ulid/v2"
 )

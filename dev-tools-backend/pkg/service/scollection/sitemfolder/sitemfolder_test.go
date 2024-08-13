@@ -1,8 +1,8 @@
 package sitemfolder_test
 
 import (
-	"devtools-backend/pkg/model/mcollection/mitemfolder"
-	"devtools-backend/pkg/service/scollection/sitemfolder"
+	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/service/scollection/sitemfolder"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"

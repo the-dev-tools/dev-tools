@@ -1,8 +1,8 @@
 package sresultapi_test
 
 import (
-	"devtools-backend/pkg/model/result/mresultapi"
-	"devtools-backend/pkg/service/sresultapi"
+	"dev-tools-backend/pkg/model/result/mresultapi"
+	"dev-tools-backend/pkg/service/sresultapi"
 	"net/http"
 	"testing"
 	"time"

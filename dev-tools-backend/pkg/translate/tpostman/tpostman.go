@@ -1,11 +1,11 @@
 package tpostman
 
 import (
-	"devtools-backend/pkg/model/mcollection/mitemapi"
-	"devtools-backend/pkg/model/mcollection/mitemfolder"
-	"devtools-backend/pkg/model/postman/v21/mitem"
-	"devtools-backend/pkg/model/postman/v21/mpostmancollection"
-	"devtools-backend/pkg/model/postman/v21/murl"
+	"dev-tools-backend/pkg/model/mcollection/mitemapi"
+	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/model/postman/v21/mitem"
+	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
+	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"encoding/json"
 	"errors"
 	"fmt"
