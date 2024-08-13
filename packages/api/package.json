@@ -17,7 +17,7 @@
     "@the-dev-tools/utils": "workspace:^",
     "effect": "^3.6.3",
     "jose": "^5.6.3",
-    "magic-sdk": "^28.3.1"
+    "magic-sdk": "^28.4.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
