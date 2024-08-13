@@ -1,5 +1,5 @@
-name: Setup
-description: Checkout, load shell environment, setup cache, install dependencies
+name: Setup runner environment
+description: Load runner shell environment, setup cache, install dependencies
 
 runs:
   using: composite
