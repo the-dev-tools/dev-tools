@@ -28,5 +28,7 @@ jobs:
 
       - name: Create version pull request
         uses: changesets/action@v1
+        with:
+          publish: pnpm changeset tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
