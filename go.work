@@ -1,7 +1,7 @@
 go 1.22.5
 
 use (
-	./devtools-backend
+	./dev-tools-backend
 	./devtools-cli
 	./devtools-masternode
 	./devtools-nodes
