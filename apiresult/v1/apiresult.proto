@@ -13,13 +13,13 @@ service ApiResultService {
 // base
 enum TriggerType {
   TRIGGER_TYPE_UNSPECIFIED = 0;
-  TRIGGER_TYPE_ANUEL = 1;
-  TRIGGER_TYPE_LOW = 2;
-  TRIGGER_TYPE_RON = 3;
-  TRIGGER_TYPE_EBHOOK = 4;
+  TRIGGER_TYPE_COLLECTION = 1;
+  TRIGGER_TYPE_FLOW = 2;
+  TRIGGER_TYPE_CRON = 3;
+  TRIGGER_TYPE_WEBHOOK = 4;
 }
 
-message HttpResp {
+message HttpResponse {
   int32 status_code = 1;
   string proto = 2; // such as HTTP
   int32 proto_major = 3; // such as HTTP major version
@@ -29,15 +29,15 @@ message HttpResp {
 }
 
 message Result {
-  string id = 1;
-  TriggerType trigger_type = 2;
-  string trigger_by = 3;
-  string name = 5;
-  int64 time = 7;
-  int64 duration = 8;
-  oneof resp {
-    string error = 6; // optional
-    HttpResp http_resp = 9;
+  string id = 1; // ulid string
+  TriggerType trigger_type = 2; // such as collection, flow, cron, webhook
+  string trigger_by = 3; // such as  collection id, flow id, cron id, webhook id
+  string name = 4;
+  int64 time = 5;
+  int64 duration = 6;
+  oneof response {
+    HttpResponse http_response = 7;
+    string error = 8; // optional
   }
 }
 

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package organization.v1;
+option go_package = "devtools-services/gen/organization/v1;organizationv1";
+
+
+service OrganizationService {
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
+  rpc GetOrganizations(GetOrganizationsRequest) returns (GetOrganizationsResponse);
+}
+
+
+message GetOrganizationRequest {
+  string organization_id = 1;
+}
+
+message GetOrganizationResponse {
+   Organization organization = 1;
+}
+
+message Organization {
+  string organization_id = 1;
+  string name = 2;
+}
+
+message GetOrganizationsRequest {
+}
+
+message GetOrganizationsResponse {
+  repeated Organization organizations = 1;
+}
