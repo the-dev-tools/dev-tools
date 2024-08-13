@@ -21,7 +21,7 @@ jobs:
           # https://github.com/changesets/action/issues/187#issuecomment-1228413850
           token: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
 
-      - name: Setup
+      - name: Setup runner environment
         uses: ./.github/actions/setup
 
       - name: Create version pull request

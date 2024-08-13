@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup
+      - name: Setup runner environment
         uses: ./.github/actions/setup
 
       - name: Lint
