@@ -1,11 +1,11 @@
 name: goci
 
 on:
-  pull_request:
   push:
     branches:
       - "main"
-      - "master"
+    paths:
+      - "**.go"
 
 env:
   GO_VERSION: 1.22.6
