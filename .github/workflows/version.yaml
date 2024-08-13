@@ -25,7 +25,8 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Create version pull request
-        uses: changesets/action@v1
+        # https://github.com/changesets/action/issues/192#issuecomment-2070377713
+        uses: the-dev-tools/changesets-action@v1
         with:
           publish: pnpm changeset tag
         env:
