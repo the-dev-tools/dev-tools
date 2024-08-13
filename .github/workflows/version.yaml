@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           # https://github.com/changesets/action/issues/187#issuecomment-1228413850
           token: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
 
