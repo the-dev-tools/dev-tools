@@ -8,7 +8,7 @@ on:
       - "master"
 
 env:
-  GO_VERSION: 1.22.5
+  GO_VERSION: 1.22.6
   GOLANGCI_LINT_VERSION: v1.59
 
 jobs:
@@ -22,6 +22,7 @@ jobs:
         run: git submodule update --init --recursive fly-go
       - uses: actions/setup-go@v5
         with:
+          cache-dependency-path: "*/go.sum"
           go-version: ${{ env.GO_VERSION }}
       - id: set-modules
         ## ignore fly-go
@@ -31,32 +32,34 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        modules: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
+        module: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
       - name: Fetch specific submodule
         run: git submodule update --init --recursive fly-go
       - uses: actions/setup-go@v5
         with:
+          cache-dependency-path: ${{ matrix.modules }}/go.sum
           go-version: ${{ env.GO_VERSION }}
       - name: Unit Test
         run: go test -v ./...
-        working-directory: ${{ matrix.modules }}
+        working-directory: ${{ matrix.module }}
   golangci-lint:
     needs: detect-modules
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        modules: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
+        module: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
       - name: Fetch specific submodule
         run: git submodule update --init --recursive fly-go
       - uses: actions/setup-go@v5
         with:
+          cache-dependency-path: ${{ matrix.modules }}/go.sum
           go-version: ${{ env.GO_VERSION }}
-      - name: golangci-lint ${{ matrix.modules }}
+      - name: golangci-lint ${{ matrix.module }}
         uses: golangci/golangci-lint-action@v6
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
-          working-directory: ${{ matrix.modules }}
+          working-directory: ${{ matrix.module }}
