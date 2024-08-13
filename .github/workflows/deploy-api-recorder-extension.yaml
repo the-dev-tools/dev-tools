@@ -1,0 +1,46 @@
+name: Deploy / API Recorder Extension
+
+on:
+  push:
+    tags: ['@the-dev-tools/api-recorder-extension@*']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+  DOTENV_PRIVATE_KEY_PRODUCTION: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build
+        run: pnpm build --filter=@the-dev-tools/api-recorder-extension
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: apps/api-recorder-extension/dist/*.zip
+          if-no-files-found: error
+
+  publish-chrome:
+    name: Publish to Chrome Webstore
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          pattern: chrome-mv3-prod.zip
+
+      - uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.BPP_KEYS }}
+          chrome-file: chrome-mv3-prod.zip
