@@ -2,6 +2,7 @@ package mwauth
 
 import (
 	"context"
+	"devtools-backend/pkg/service/sorg"
 	"devtools-backend/pkg/stoken"
 	"errors"
 	"strings"
@@ -13,6 +14,11 @@ import (
 type ContextKey string
 
 const UserIDKeyCtx ContextKey = "UserID"
+
+const (
+	OrgHeaderKey            = "organization_id"
+	OrgIDKeyCtx  ContextKey = "OrgID"
+)
 
 func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
 	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
@@ -50,6 +56,51 @@ func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
 			}
 
 			CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ulidID)
+
+			return next(CtxWithValue, req)
+		})
+	}
+	return connect.UnaryInterceptorFunc(interceptor)
+}
+
+// this need NewAuthInterceptor before execute
+func NewOrgInterceptor() connect.UnaryInterceptorFunc {
+	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
+		return connect.UnaryFunc(func(
+			ctx context.Context,
+			req connect.AnyRequest,
+		) (connect.AnyResponse, error) {
+			orgID := req.Header().Get(OrgHeaderKey)
+			if orgID == "" {
+				// Check token in handlers.
+				return nil, connect.NewError(
+					connect.CodeUnauthenticated,
+					errors.New("no organization_id provided"),
+				)
+			}
+
+			userID, err := GetContextUserID(ctx)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+			}
+
+			ulidID, err := ulid.Parse(orgID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+
+			org, err := sorg.GetOrgByUserIDAndOrgID(userID, &ulidID)
+			if err != nil {
+				if errors.Is(err, sorg.ErrOrgNotFound) {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if org == nil {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("org not found"))
+			}
+
+			CtxWithValue := context.WithValue(ctx, OrgIDKeyCtx, ulidID)
 
 			return next(CtxWithValue, req)
 		})

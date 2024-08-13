@@ -21,6 +21,7 @@ import (
 	"devtools-nodes/pkg/model/mnodedata"
 	"devtools-nodes/pkg/model/mnodemaster"
 	"devtools-nodes/pkg/nodes/nodeapi"
+	apiresultv1 "devtools-services/gen/apiresult/v1"
 	collectionv1 "devtools-services/gen/collection/v1"
 	"devtools-services/gen/collection/v1/collectionv1connect"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
@@ -36,8 +37,8 @@ import (
 )
 
 type CollectionService struct {
-	secret []byte
 	DB     *sql.DB
+	secret []byte
 }
 
 type ContextKeyStr string
@@ -672,21 +673,41 @@ func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	headers := make(map[string]string, 0)
+	for key, values := range httpResp.Header {
+		headers[key] = strings.Join(values, ",")
+	}
+
 	return connect.NewResponse(&collectionv1.RunApiCallResponse{
-		Status:   int32(httpResp.StatusCode),
-		Body:     bodyData,
-		Duration: lapse.Milliseconds(),
+		Result: &apiresultv1.Result{
+			Id:       result.ID.String(),
+			Name:     result.Name,
+			Time:     result.Time.Unix(),
+			Duration: result.Duration.Milliseconds(),
+			Response: &apiresultv1.Result_HttpResponse{
+				HttpResponse: &apiresultv1.HttpResponse{
+					StatusCode: int32(result.HttpResp.StatusCode),
+					Proto:      result.HttpResp.Proto,
+					ProtoMajor: int32(result.HttpResp.ProtoMajor),
+					ProtoMinor: int32(result.HttpResp.ProtoMinor),
+					Header:     headers,
+					Body:       result.HttpResp.Body,
+				},
+			},
+		},
 	}), nil
 }
 
 func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
-	AuthInterceptor := mwauth.NewAuthInterceptor(secret)
+	authInterceptor := mwauth.NewAuthInterceptor(secret)
+	orgInterceptor := mwauth.NewOrgInterceptor()
+	interceptors := connect.WithInterceptors(authInterceptor, orgInterceptor)
 	server := &CollectionService{
 		DB:     db,
 		secret: secret,
 	}
 
-	path, handler := collectionv1connect.NewCollectionServiceHandler(server, connect.WithInterceptors(AuthInterceptor))
+	path, handler := collectionv1connect.NewCollectionServiceHandler(server, interceptors)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
