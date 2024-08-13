@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+
+package apiresult.v1;
+option go_package = "devtools-services/gen/apiresult/v1;apiresultv1";
+
+service ApiResultService {
+  rpc Get (GetRequest) returns (GetResponse);
+  rpc GetResults (GetResultsRequest) returns (GetResultsResponse);
+}
+
+
+// base
+enum TriggerType {
+  TRIGGER_TYPE_UNSPECIFIED = 0;
+  TRIGGER_TYPE_ANUEL = 1;
+  TRIGGER_TYPE_LOW = 2;
+  TRIGGER_TYPE_RON = 3;
+  TRIGGER_TYPE_EBHOOK = 4;
+}
+
+message HttpResp {
+  int32 status_code = 1;
+  string proto = 2; // such as HTTP
+  int32 proto_major = 3; // such as HTTP major version
+  int32 proto_minor = 4; // such as HTTP minor version
+  map<string, string> header = 5;
+  bytes body = 6;
+}
+
+message Result {
+  string id = 1;
+  TriggerType trigger_type = 2;
+  string trigger_by = 3;
+  string name = 5;
+  int64 time = 7;
+  int64 duration = 8;
+  oneof resp {
+    string error = 6; // optional
+    HttpResp http_resp = 9;
+  }
+}
+
+
+// GetResult
+
+message GetRequest {
+  string id = 1;
+}
+
+
+message GetResponse {
+  Result result = 1;
+}
+
+message GetResultsRequest {
+  TriggerType trigger_by = 1;
+  TriggerType trigger_type = 2;
+  int32 offset = 3;
+  int32 limit = 4;
+}
+
+message GetResultsResponse {
+  repeated Result results = 1;
+}
