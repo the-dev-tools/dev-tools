@@ -1,0 +1,31 @@
+name: Setup
+description: Checkout, load shell environment, setup cache, install dependencies
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+
+    - uses: DeterminateSystems/nix-installer-action@v12
+    - uses: DeterminateSystems/magic-nix-cache-action@v7
+
+    - name: Load Nix runner shell environment
+      shell: bash
+      run: nix run .#gha-nix-develop -- .#runner
+
+    - name: Setup PNPM cache
+      uses: actions/setup-node@v4
+      with:
+        cache: pnpm
+
+    - name: Install PNPM dependencies
+      shell: bash
+      run: pnpm install
+
+    - name: Setup Turbo cache
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: ${{ runner.os }}-turbo-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-
