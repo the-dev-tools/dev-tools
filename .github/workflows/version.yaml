@@ -14,12 +14,11 @@ jobs:
   version:
     name: Version
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # https://github.com/changesets/action/issues/187#issuecomment-1228413850
+          token: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -29,4 +28,5 @@ jobs:
         with:
           publish: pnpm changeset tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # https://github.com/changesets/action/issues/187#issuecomment-1228413850
+          GITHUB_TOKEN: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
