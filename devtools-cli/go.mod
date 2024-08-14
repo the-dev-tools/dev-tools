@@ -1,6 +1,6 @@
 module devtools-cli
 
-go 1.22.5
+go 1.23
 
 require (
 	connectrpc.com/connect v1.16.2
