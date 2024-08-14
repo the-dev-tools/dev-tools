@@ -1,18 +1,21 @@
 import { Transport } from '@connectrpc/connect';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Context, DateTime, Effect, pipe } from 'effect';
+import { Context, DateTime, Effect, Option, pipe } from 'effect';
 import { decodeJwt } from 'jose';
 import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
+import { OrganizationService } from '@the-dev-tools/protobuf/organization/v1/organization_connect';
 
 import { accessTokenKey, AccessTokenPayload, JWTPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
-import { AnyFnEffect, Request } from './transport';
+import { AnyFnEffect, ApiTransport, Request } from './transport';
 
 export class AuthTransport extends Context.Tag('AuthTransport')<AuthTransport, Transport>() {}
 
 export class MagicClient extends Context.Tag('MagicClient')<MagicClient, Magic>() {}
+
+const organizationIdKey = 'OrganizationId';
 
 export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   Effect.gen(function* () {
@@ -24,11 +27,11 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
     );
 
     // Authorize
-    const transport = yield* AuthTransport;
-    const response = yield* Effect.tryPromise((signal) =>
-      transport.unary(AuthService, AuthService.methods.dID, signal, undefined, undefined, { didToken }),
+    const authTransport = yield* AuthTransport;
+    const loginResponse = yield* Effect.tryPromise((signal) =>
+      authTransport.unary(AuthService, AuthService.methods.dID, signal, undefined, undefined, { didToken }),
     );
-    const { accessToken, refreshToken } = response.message;
+    const { accessToken, refreshToken } = loginResponse.message;
 
     // Validate tokens
     yield* pipe(
@@ -44,6 +47,23 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
     const store = yield* KeyValueStore;
     yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
     yield* store.forSchema(Schema.String).set(refreshTokenKey, refreshToken);
+
+    // Select first organization if user has exactly one
+    const transport = yield* ApiTransport;
+    const organizationsResponse = yield* Effect.tryPromise((signal) =>
+      transport.unary(
+        OrganizationService,
+        OrganizationService.methods.getOrganizations,
+        signal,
+        undefined,
+        undefined,
+        {},
+      ),
+    );
+    const { organizations } = organizationsResponse.message;
+    if (organizations.length !== 1) return;
+    const { organizationId } = organizations[0]!;
+    yield* store.forSchema(Schema.String).set(organizationIdKey, organizationId);
   });
 
 export const logout = Effect.gen(function* () {
@@ -52,6 +72,7 @@ export const logout = Effect.gen(function* () {
   const store = yield* KeyValueStore;
   yield* store.remove(accessTokenKey);
   yield* store.remove(refreshTokenKey);
+  yield* store.remove(organizationIdKey);
 });
 
 export const getUser = pipe(
@@ -100,6 +121,11 @@ export const authorizationInterceptor =
       }
 
       request.header.set('Authorization', `Bearer ${accessToken}`);
+
+      const organizationId = yield* store.forSchema(Schema.String).get(organizationIdKey);
+      if (Option.isSome(organizationId)) {
+        request.header.set('organization_id', organizationId.value);
+      }
 
       return yield* next(request);
     });

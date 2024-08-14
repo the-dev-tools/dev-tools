@@ -19,7 +19,7 @@
     "@tanstack/react-query": "^5.51.23",
     "@tanstack/react-router": "^1.47.1",
     "@the-dev-tools/api": "workspace:^",
-    "@the-dev-tools/protobuf": "^1.8.1",
+    "@the-dev-tools/protobuf": "^1.8.2",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "^3.6.3",
