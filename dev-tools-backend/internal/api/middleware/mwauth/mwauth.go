@@ -115,3 +115,11 @@ func GetContextUserID(ctx context.Context) (*ulid.ULID, error) {
 	}
 	return &ulidID, nil
 }
+
+func GetContextUserOrgID(ctx context.Context) (*ulid.ULID, error) {
+	ulidID, ok := ctx.Value(OrgIDKeyCtx).(ulid.ULID)
+	if !ok {
+		return nil, errors.New("org id not found in context")
+	}
+	return &ulidID, nil
+}

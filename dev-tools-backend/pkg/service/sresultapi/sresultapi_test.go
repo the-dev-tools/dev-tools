@@ -253,7 +253,7 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 	   )
 	*/
 	query := `
-                SELECT * FROM result_api WHERE req_id = ?
+                SELECT * FROM result_api WHERE trigger_by = ?, trigger_type = ?
         `
 	id := ulid.Make()
 	ReqID := ulid.Make()
@@ -304,7 +304,7 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 	}
 	ExpectPrepare.
 		ExpectQuery().
-		WithArgs(apiResult.TriggerBy).
+		WithArgs(apiResult.TriggerBy, apiResult.TriggerType).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "trigger_type", "trigger_by", "name", "time", "duration", "http_resp"}).
 				AddRow(apiResult.ID, apiResult.TriggerType, apiResult.TriggerBy,
@@ -312,7 +312,7 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 				AddRow(apiResult2.ID, apiResult2.TriggerType, apiResult2.TriggerBy,
 					apiResult2.Name, apiResult2.Time, apiResult2.Duration, apiResult2.HttpResp),
 		)
-	result, err := sresultapi.GetResultsApiWithTriggerBy(apiResult.TriggerBy)
+	result, err := sresultapi.GetResultsApiWithTriggerBy(apiResult.TriggerBy, apiResult.TriggerType)
 	if err != nil {
 		t.Fatal(err)
 	}

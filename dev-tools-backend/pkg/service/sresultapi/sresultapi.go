@@ -100,7 +100,7 @@ func PrepareDeleteResultAPI(db *sql.DB) error {
 func PrepareGetResultsAPIWithReqID(db *sql.DB) error {
 	var err error
 	PreparedGetResultsAPIWithReqID, err = db.Prepare(`
-                SELECT * FROM result_api WHERE req_id = ?
+                SELECT * FROM result_api WHERE trigger_by = ?, trigger_type = ?
         `)
 	return err
 }
@@ -129,8 +129,8 @@ func DeleteResultApi(id ulid.ULID) error {
 	return err
 }
 
-func GetResultsApiWithTriggerBy(triggerBy ulid.ULID) ([]*mresultapi.MResultAPI, error) {
-	rows, err := PreparedGetResultsAPIWithReqID.Query(triggerBy)
+func GetResultsApiWithTriggerBy(triggerBy ulid.ULID, triggerType mresultapi.TriggerType) ([]*mresultapi.MResultAPI, error) {
+	rows, err := PreparedGetResultsAPIWithReqID.Query(triggerBy, triggerType)
 	if err != nil {
 		return nil, err
 	}
@@ -156,10 +156,8 @@ func GetOwnerID(id ulid.ULID) (ulid.ULID, error) {
 	}
 	switch result.TriggerType {
 	case mresultapi.TRIGGER_TYPE_COLLECTION:
-		sitemapi.GetOwnerID(result.TriggerBy)
+		return sitemapi.GetOwnerID(result.TriggerBy)
 	default:
 		return ownerID, errors.New("unsupported trigger type")
 	}
-
-	return ownerID, err
 }
