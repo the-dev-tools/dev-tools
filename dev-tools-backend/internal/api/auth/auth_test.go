@@ -43,10 +43,12 @@ func TestRefreshToken(t *testing.T) {
 
 	if resp == nil {
 		t.Fatal("response is nil")
+		return // need this cuz golint cannot understand that t.Fatal will stop the function
 	}
 
 	if resp.Msg == nil {
 		t.Fatal("response message is nil")
+		return // need this cuz golint cannot understand that t.Fatal will stop the function
 	}
 
 	if resp.Msg.AccessToken == "" {
