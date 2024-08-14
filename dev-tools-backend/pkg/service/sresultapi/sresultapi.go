@@ -3,6 +3,8 @@ package sresultapi
 import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/result/mresultapi"
+	"dev-tools-backend/pkg/service/scollection/sitemapi"
+	"errors"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -21,8 +23,8 @@ func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
                 CREATE TABLE IF NOT EXISTS result_api (
                         id TEXT PRIMARY KEY,
-                        req_id TEXT,
-                        trigger_by INT,
+                        trigger_type INT,
+                        trigger_by TEXT,
                         name TEXT,
                         status TEXT,
                         time TIMESTAMP,
@@ -65,8 +67,8 @@ func PrepareStatements(db *sql.DB) error {
 func PrepareCreateResultAPI(db *sql.DB) error {
 	var err error
 	PreparedCreateResultAPI, err = db.Prepare(`
-                INSERT INTO result_api (id, req_id, trigger_by, name, status, time, duration, http_resp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO result_api (id, trigger_type, trigger_by, name, time, duration, http_resp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
         `)
 	return err
 }
@@ -82,7 +84,7 @@ func PrepareGetResultAPI(db *sql.DB) error {
 func PrepareUpdateResultAPI(db *sql.DB) error {
 	var err error
 	PreparedUpdateResultAPI, err = db.Prepare(`
-                UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
+                UPDATE result_api SET name = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
         `)
 	return err
 }
@@ -104,18 +106,21 @@ func PrepareGetResultsAPIWithReqID(db *sql.DB) error {
 }
 
 func CreateResultApi(result *mresultapi.MResultAPI) error {
-	_, err := PreparedCreateResultAPI.Exec(result.ID, result.ReqID, result.TriggerBy, result.Name, result.Status, result.Time, result.Duration, result.HttpResp)
+	_, err := PreparedCreateResultAPI.Exec(result.ID, result.TriggerType,
+		result.TriggerBy, result.Name, result.Time, result.Duration, result.HttpResp)
 	return err
 }
 
 func GetResultApi(id ulid.ULID) (*mresultapi.MResultAPI, error) {
 	result := &mresultapi.MResultAPI{}
-	err := PreparedGetResultAPI.QueryRow(id).Scan(&result.ID, &result.ReqID, &result.TriggerBy, &result.Name, &result.Status, &result.Time, &result.Duration, &result.HttpResp)
+	err := PreparedGetResultAPI.QueryRow(id).Scan(&result.ID, &result.TriggerType,
+		&result.TriggerBy, &result.Name, &result.Time, &result.Duration, &result.HttpResp)
 	return result, err
 }
 
 func UpdateResultApi(result *mresultapi.MResultAPI) error {
-	_, err := PreparedUpdateResultAPI.Exec(result.Name, result.Status, result.Time, result.Duration, result.HttpResp, result.ID)
+	_, err := PreparedUpdateResultAPI.Exec(result.Name, result.Time, result.Duration,
+		result.HttpResp, result.ID)
 	return err
 }
 
@@ -124,8 +129,8 @@ func DeleteResultApi(id ulid.ULID) error {
 	return err
 }
 
-func GetResultsApiWithReqID(reqID ulid.ULID) ([]*mresultapi.MResultAPI, error) {
-	rows, err := PreparedGetResultsAPIWithReqID.Query(reqID)
+func GetResultsApiWithTriggerBy(triggerBy ulid.ULID) ([]*mresultapi.MResultAPI, error) {
+	rows, err := PreparedGetResultsAPIWithReqID.Query(triggerBy)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +138,28 @@ func GetResultsApiWithReqID(reqID ulid.ULID) ([]*mresultapi.MResultAPI, error) {
 	results := make([]*mresultapi.MResultAPI, 0)
 	for rows.Next() {
 		result := &mresultapi.MResultAPI{}
-		err = rows.Scan(&result.ID, &result.ReqID, &result.TriggerBy, &result.Name, &result.Status, &result.Time, &result.Duration, &result.HttpResp)
+		err = rows.Scan(&result.ID, &result.TriggerType, &result.TriggerBy, &result.Name,
+			&result.Time, &result.Duration, &result.HttpResp)
 		if err != nil {
 			return nil, err
 		}
 		results = append(results, result)
 	}
 	return results, nil
+}
+
+func GetOwnerID(id ulid.ULID) (ulid.ULID, error) {
+	var ownerID ulid.ULID
+	result, err := GetResultApi(id)
+	if err != nil {
+		return ownerID, err
+	}
+	switch result.TriggerType {
+	case mresultapi.TRIGGER_TYPE_COLLECTION:
+		sitemapi.GetOwnerID(result.TriggerBy)
+	default:
+		return ownerID, errors.New("unsupported trigger type")
+	}
+
+	return ownerID, err
 }

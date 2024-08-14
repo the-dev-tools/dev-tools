@@ -651,13 +651,12 @@ func (c *CollectionService) RunApiCall(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	result := &mresultapi.MResultAPI{
-		ID:        ulid.Make(),
-		TriggerBy: mresultapi.TriggerTypeManuel,
-		ReqID:     ulidID,
-		Name:      itemApiCall.Name,
-		Status:    httpResp.Status,
-		Time:      time.Now(),
-		Duration:  time.Duration(lapse),
+		ID:          ulid.Make(),
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   ulidID,
+		Name:        itemApiCall.Name,
+		Time:        time.Now(),
+		Duration:    time.Duration(lapse),
 		HttpResp: mresultapi.HttpResp{
 			StatusCode: httpResp.StatusCode,
 			Proto:      httpResp.Proto,

@@ -12,22 +12,21 @@ import (
 type TriggerType int32
 
 var (
-	TriggerTypeUnknown TriggerType = 0
-	TriggerTypeManuel  TriggerType = 1
-	TriggerTypeFlow    TriggerType = 2
-	TriggerTypeCron    TriggerType = 3
-	TriggerTypeWebhook TriggerType = 4
+	TRIGGER_TYPE_UNSPECIFIED TriggerType = 0
+	TRIGGER_TYPE_COLLECTION  TriggerType = 1
+	TRIGGER_TYPE_FLOW        TriggerType = 2
+	TRIGGER_TYPE_CRON        TriggerType = 3
+	TRIGGER_TYPE_WEBHOOK     TriggerType = 4
 )
 
 type MResultAPI struct {
-	ID        ulid.ULID     `json:"id"`
-	ReqID     ulid.ULID     `json:"rootID"`
-	TriggerBy TriggerType   `json:"triggerdBy"`
-	Name      string        `json:"name"`
-	Status    string        `json:"status"`
-	Time      time.Time     `json:"time"`
-	Duration  time.Duration `json:"duration"`
-	HttpResp  HttpResp      `json:"httpResp"`
+	ID          ulid.ULID     `json:"id"`
+	TriggerType TriggerType   `json:"triggerdBy"`
+	TriggerBy   ulid.ULID     `json:"rootID"`
+	Name        string        `json:"name"`
+	Time        time.Time     `json:"time"`
+	Duration    time.Duration `json:"duration"`
+	HttpResp    HttpResp      `json:"httpResp"`
 }
 
 type HttpResp struct {

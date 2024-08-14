@@ -29,20 +29,19 @@ func TestCreateReqResp(t *testing.T) {
 	   )
 	*/
 	query := `
-                INSERT INTO result_api (id, req_id, trigger_by, name, status, time, duration, http_resp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO result_api (id, trigger_type, trigger_by, name, time, duration, http_resp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
         `
 	id := ulid.Make()
 	ReqID := ulid.Make()
 
 	apiResult := &mresultapi.MResultAPI{
-		ID:        id,
-		ReqID:     ReqID,
-		TriggerBy: mresultapi.TriggerTypeManuel,
-		Name:      "name",
-		Status:    "status",
-		Time:      time.Now(),
-		Duration:  time.Second,
+		ID:          id,
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   ReqID,
+		Name:        "name",
+		Time:        time.Now(),
+		Duration:    time.Second,
 		HttpResp: mresultapi.HttpResp{
 			StatusCode: 200,
 			Proto:      "HTTP/1.1",
@@ -63,10 +62,9 @@ func TestCreateReqResp(t *testing.T) {
 	ExpectPrepare.
 		ExpectExec().
 		WithArgs(apiResult.ID,
-			apiResult.ReqID,
+			apiResult.TriggerType,
 			apiResult.TriggerBy,
 			apiResult.Name,
-			apiResult.Status,
 			apiResult.Time,
 			apiResult.Duration,
 			apiResult.HttpResp,
@@ -102,13 +100,12 @@ func TestGetReqResp(t *testing.T) {
 	id := ulid.Make()
 	ReqID := ulid.Make()
 	apiResult := &mresultapi.MResultAPI{
-		ID:        id,
-		ReqID:     ReqID,
-		TriggerBy: mresultapi.TriggerTypeManuel,
-		Name:      "name",
-		Status:    "status",
-		Time:      time.Now(),
-		Duration:  time.Second,
+		ID:          id,
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   ReqID,
+		Name:        "name",
+		Time:        time.Now(),
+		Duration:    time.Second,
 		HttpResp: mresultapi.HttpResp{
 			StatusCode: 200,
 			Proto:      "HTTP/1.1",
@@ -129,8 +126,8 @@ func TestGetReqResp(t *testing.T) {
 		ExpectQuery().
 		WithArgs(apiResult.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "req_id", "trigger_by", "name", "status", "time", "duration", "http_resp"}).
-				AddRow(apiResult.ID, apiResult.ReqID, apiResult.TriggerBy, apiResult.Name, apiResult.Status, apiResult.Time, apiResult.Duration, apiResult.HttpResp),
+			sqlmock.NewRows([]string{"id", "trigger_type", "trigger_by", "name", "time", "duration", "http_resp"}).
+				AddRow(apiResult.ID, apiResult.TriggerType, apiResult.TriggerBy, apiResult.Name, apiResult.Time, apiResult.Duration, apiResult.HttpResp),
 		)
 	result, err := sresultapi.GetResultApi(apiResult.ID)
 	if err != nil {
@@ -139,8 +136,11 @@ func TestGetReqResp(t *testing.T) {
 	if result.ID != apiResult.ID {
 		t.Fatalf("expected %v but got %v", apiResult.ID, result.ID)
 	}
-	if result.ReqID != apiResult.ReqID {
-		t.Fatalf("expected %v but got %v", apiResult.ReqID, result.ReqID)
+	if result.TriggerBy != apiResult.TriggerBy {
+		t.Fatalf("expected %v but got %v", apiResult.TriggerBy, result.TriggerBy)
+	}
+	if result.Name != apiResult.Name {
+		t.Fatalf("expected %v but got %v", apiResult.Name, result.Name)
 	}
 }
 
@@ -162,18 +162,17 @@ func TestUpdateReqResp(t *testing.T) {
 	   )
 	*/
 	query := `
-                UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
+                UPDATE result_api SET name = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
         `
 	id := ulid.Make()
 	ReqID := ulid.Make()
 	apiResult := &mresultapi.MResultAPI{
-		ID:        id,
-		ReqID:     ReqID,
-		TriggerBy: mresultapi.TriggerTypeManuel,
-		Name:      "name",
-		Status:    "status",
-		Time:      time.Now(),
-		Duration:  time.Second,
+		ID:          id,
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   ReqID,
+		Name:        "name",
+		Time:        time.Now(),
+		Duration:    time.Second,
 		HttpResp: mresultapi.HttpResp{
 			StatusCode: 200,
 			Proto:      "HTTP/1.1",
@@ -192,7 +191,7 @@ func TestUpdateReqResp(t *testing.T) {
 	}
 	ExpectPrepare.
 		ExpectExec().
-		WithArgs(apiResult.Name, apiResult.Status, apiResult.Time, apiResult.Duration, apiResult.HttpResp, apiResult.ID).
+		WithArgs(apiResult.Name, apiResult.Time, apiResult.Duration, apiResult.HttpResp, apiResult.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	err = sresultapi.UpdateResultApi(apiResult)
 	if err != nil {
@@ -259,13 +258,12 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 	id := ulid.Make()
 	ReqID := ulid.Make()
 	apiResult := &mresultapi.MResultAPI{
-		ID:        id,
-		ReqID:     ReqID,
-		TriggerBy: mresultapi.TriggerTypeManuel,
-		Name:      "name",
-		Status:    "status",
-		Time:      time.Now(),
-		Duration:  time.Second,
+		ID:          id,
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   ReqID,
+		Name:        "name",
+		Time:        time.Now(),
+		Duration:    time.Second,
 		HttpResp: mresultapi.HttpResp{
 			StatusCode: 200,
 			Proto:      "HTTP/1.1",
@@ -279,13 +277,12 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 	}
 
 	apiResult2 := &mresultapi.MResultAPI{
-		ID:        id,
-		ReqID:     ReqID,
-		TriggerBy: mresultapi.TriggerTypeManuel,
-		Name:      "name",
-		Status:    "status",
-		Time:      time.Now(),
-		Duration:  time.Second,
+		ID:          id,
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   ReqID,
+		Name:        "name",
+		Time:        time.Now(),
+		Duration:    time.Second,
 		HttpResp: mresultapi.HttpResp{
 			StatusCode: 200,
 			Proto:      "HTTP/1.1",
@@ -307,13 +304,15 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 	}
 	ExpectPrepare.
 		ExpectQuery().
-		WithArgs(apiResult.ReqID).
+		WithArgs(apiResult.TriggerBy).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "req_id", "trigger_by", "name", "status", "time", "duration", "http_resp"}).
-				AddRow(apiResult.ID, apiResult.ReqID, apiResult.TriggerBy, apiResult.Name, apiResult.Status, apiResult.Time, apiResult.Duration, apiResult.HttpResp).
-				AddRow(apiResult2.ID, apiResult2.ReqID, apiResult2.TriggerBy, apiResult2.Name, apiResult2.Status, apiResult2.Time, apiResult2.Duration, apiResult2.HttpResp),
+			sqlmock.NewRows([]string{"id", "trigger_type", "trigger_by", "name", "time", "duration", "http_resp"}).
+				AddRow(apiResult.ID, apiResult.TriggerType, apiResult.TriggerBy,
+					apiResult.Name, apiResult.Time, apiResult.Duration, apiResult.HttpResp).
+				AddRow(apiResult2.ID, apiResult2.TriggerType, apiResult2.TriggerBy,
+					apiResult2.Name, apiResult2.Time, apiResult2.Duration, apiResult2.HttpResp),
 		)
-	result, err := sresultapi.GetResultsApiWithReqID(apiResult.ReqID)
+	result, err := sresultapi.GetResultsApiWithTriggerBy(apiResult.TriggerBy)
 	if err != nil {
 		t.Fatal(err)
 	}
