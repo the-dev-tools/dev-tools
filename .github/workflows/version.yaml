@@ -40,6 +40,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Dispatch check workflow for changeset release
+        uses: actions/github-script@v7
+        if: steps.changesets.outputs.hasChangesets == 'true'
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              ...context.repo,
+              workflow_id: 'check.yaml',
+              ref: 'changeset-release/main',
+            });
+
       - name: Dispatch workflows for published packages
         uses: actions/github-script@v7
         if: steps.changesets.outputs.published == 'true'
