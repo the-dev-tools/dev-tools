@@ -89,7 +89,7 @@ func NewOrgInterceptor() connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
 
-			org, err := sorg.GetOrgByUserIDAndOrgID(userID, &ulidID)
+			org, err := sorg.GetOrgByUserIDAndOrgID(userID, ulidID)
 			if err != nil {
 				if errors.Is(err, sorg.ErrOrgNotFound) {
 					return nil, connect.NewError(connect.CodeNotFound, err)
@@ -108,12 +108,12 @@ func NewOrgInterceptor() connect.UnaryInterceptorFunc {
 	return connect.UnaryInterceptorFunc(interceptor)
 }
 
-func GetContextUserID(ctx context.Context) (*ulid.ULID, error) {
+func GetContextUserID(ctx context.Context) (ulid.ULID, error) {
 	ulidID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
 	if !ok {
-		return nil, errors.New("user id not found in context")
+		return ulidID, errors.New("user id not found in context")
 	}
-	return &ulidID, nil
+	return ulidID, nil
 }
 
 func GetContextUserOrgID(ctx context.Context) (*ulid.ULID, error) {

@@ -16,18 +16,6 @@ func TestCreateReqResp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS result_api (
-	           id TEXT PRIMARY KEY,
-	           req_id TEXT,
-	           trigger_by INT,
-	           name TEXT,
-	           status TEXT,
-	           time TIMESTAMP,
-	           duration BIGINT,
-	           http_resp BLOB
-	   )
-	*/
 	query := `
                 INSERT INTO result_api (id, trigger_type, trigger_by, name, time, duration, http_resp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -82,18 +70,6 @@ func TestGetReqResp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS result_api (
-	           id TEXT PRIMARY KEY,
-	           req_id TEXT,
-	           trigger_by INT,
-	           name TEXT,
-	           status TEXT,
-	           time TIMESTAMP,
-	           duration BIGINT,
-	           http_resp BLOB
-	   )
-	*/
 	query := `
                 SELECT * FROM result_api WHERE id = ?
         `
@@ -149,18 +125,6 @@ func TestUpdateReqResp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS result_api (
-	           id TEXT PRIMARY KEY,
-	           req_id TEXT,
-	           trigger_by INT,
-	           name TEXT,
-	           status TEXT,
-	           time TIMESTAMP,
-	           duration BIGINT,
-	           http_resp BLOB
-	   )
-	*/
 	query := `
                 UPDATE result_api SET name = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
         `
@@ -204,18 +168,6 @@ func TestDeleteReqResp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS result_api (
-	           id TEXT PRIMARY KEY,
-	           req_id TEXT,
-	           trigger_by INT,
-	           name TEXT,
-	           status TEXT,
-	           time TIMESTAMP,
-	           duration BIGINT,
-	           http_resp BLOB
-	   )
-	*/
 	query := `
                 DELETE FROM result_api WHERE id = ?
         `
@@ -240,18 +192,6 @@ func TestGetResultsAPIWithReqID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-	   CREATE TABLE IF NOT EXISTS result_api (
-	           id TEXT PRIMARY KEY,
-	           req_id TEXT,
-	           trigger_by INT,
-	           name TEXT,
-	           status TEXT,
-	           time TIMESTAMP,
-	           duration BIGINT,
-	           http_resp BLOB
-	   )
-	*/
 	query := `
                 SELECT * FROM result_api WHERE trigger_by = ?, trigger_type = ?
         `

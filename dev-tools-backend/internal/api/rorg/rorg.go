@@ -26,7 +26,7 @@ func (c *OrgService) GetOrganization(ctx context.Context, req *connect.Request[o
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	org, err := sorg.GetOrgByUserIDAndOrgID(&orgID, userID)
+	org, err := sorg.GetOrgByUserIDAndOrgID(orgID, userID)
 	if err != nil {
 		if errors.Is(err, sorg.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -50,7 +50,7 @@ func (c *OrgService) GetOrganizations(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	orgs, err := sorg.GetOrgsByUserID(*userID)
+	orgs, err := sorg.GetOrgsByUserID(userID)
 	if err != nil {
 		if errors.Is(err, sorg.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)

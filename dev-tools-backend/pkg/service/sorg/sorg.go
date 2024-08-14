@@ -120,11 +120,7 @@ func PrepareGetOrgByName(db *sql.DB) error {
 func PrepareGetOrgByUserID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByUserID, err = db.Prepare(`
-                SELECT o.id, o.name
-                FROM orgs o
-                JOIN org_users ou
-                ON o.id = ou.org_id
-                WHERE ou.user_id = ?
+                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ?)
         `)
 	return err
 }
@@ -132,11 +128,7 @@ func PrepareGetOrgByUserID(db *sql.DB) error {
 func PrepareGetOrgByUserIDAndOrgID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByUserIDAndOrgID, err = db.Prepare(`
-                SELECT o.id, o.name
-                FROM orgs o
-                JOIN org_users ou
-                ON o.id = ou.org_id
-                WHERE ou.user_id = ?, ou.org_id = ?
+                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ?, org_id = ?)
         `)
 	return err
 }
@@ -193,6 +185,9 @@ func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 
 func GetOrgsByUserID(userID ulid.ULID) ([]morg.Org, error) {
 	rows, err := PreparedGetOrgByUserID.Query(userID)
+	if err != nil {
+		return nil, err
+	}
 	var orgs []morg.Org
 	for rows.Next() {
 		var org morg.Org
@@ -210,7 +205,7 @@ func GetOrgsByUserID(userID ulid.ULID) ([]morg.Org, error) {
 	return orgs, nil
 }
 
-func GetOrgByUserIDAndOrgID(userID *ulid.ULID, orgID *ulid.ULID) (*morg.Org, error) {
+func GetOrgByUserIDAndOrgID(userID ulid.ULID, orgID ulid.ULID) (*morg.Org, error) {
 	var org morg.Org
 	err := PreparedGetOrgByUserIDAndOrgID.QueryRow(userID, orgID).Scan(&org.ID, &org.Name)
 	if err != nil {
