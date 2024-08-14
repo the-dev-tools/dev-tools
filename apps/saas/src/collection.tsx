@@ -291,7 +291,7 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
     <div className='flex gap-2'>
       <div>{apiCall.data!.method}</div>
       <div className='flex-1 truncate'>{apiCall.meta!.name}</div>
-      {runNodeMutation.isSuccess && <div>Status: {runNodeMutation.data.status}</div>}
+      {runNodeMutation.isSuccess && <div>Duration: {runNodeMutation.data.result!.duration.toString()} ms</div>}
       <Button
         onPress={async () => {
           await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });

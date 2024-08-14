@@ -14,6 +14,7 @@ import {
   GetCollectionResponse,
   Item,
   ListCollectionsResponse,
+  RunApiCallRequest,
   RunApiCallResponse,
 } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
@@ -149,12 +150,19 @@ const getCollection = (request: GetCollectionRequest) =>
     });
   });
 
-const runApiCall = () =>
+const runApiCall = (request: RunApiCallRequest) =>
   Effect.gen(function* () {
     const faker = yield* Faker;
     return new RunApiCallResponse({
-      status: faker.internet.httpStatusCode(),
-      duration: faker.number.bigInt(),
+      result: {
+        id: request.id,
+        name: faker.internet.url(),
+        duration: faker.number.bigInt(),
+        response: {
+          case: 'httpResponse',
+          value: { statusCode: faker.internet.httpStatusCode() },
+        },
+      },
     });
   });
 
