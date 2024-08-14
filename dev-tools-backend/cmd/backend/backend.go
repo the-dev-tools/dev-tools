@@ -61,6 +61,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// PrepareTables and PrepareStatements are functions that create tables and prepared statements in the database
+	err = PrepareTables(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = PrepareStatements(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Services Connect RPC
 	var services []api.Service
 	authService, err := auth.CreateService(hmacSecretBytes)
