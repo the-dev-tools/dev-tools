@@ -18,6 +18,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: github.event.commits.author.name != 'github-actions[bot]'
     steps:
       - uses: actions/checkout@v4
 
