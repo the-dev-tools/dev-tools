@@ -14,26 +14,45 @@ jobs:
   version:
     name: Version
     runs-on: ubuntu-latest
+
     permissions:
+      actions: write
       contents: write
       id-token: write
       issues: read
       packages: write
       pull-requests: write
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # https://github.com/changesets/action/issues/187#issuecomment-1228413850
-          token: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
 
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
       - name: Create version pull request
+        id: changesets
         # https://github.com/changesets/action/issues/192#issuecomment-2070377713
         uses: the-dev-tools/changesets-action@v1
         with:
           publish: pnpm changeset tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch workflows for published packages
+        uses: actions/github-script@v7
+        if: steps.changesets.outputs.published == 'true'
+        with:
+          script: |
+            const workflows = {
+              '@the-dev-tools/api-recorder-extension': 'deploy-api-recorder-extension.yaml',
+            };
+
+            ${{ steps.changesets.outputs.publishedPackages }}.forEach((pkg) => {
+              const workflow_id = workflows[pkg.name];
+              if (!workflow_id) return;
+              const ref = `${pkg.name}@${pkg.version}`;
+              console.log(`Dispatching workflow '${workflow_id}' at '${ref}'`);
+              github.rest.actions.createWorkflowDispatch({ ...context.repo, workflow_id, ref });
+            });

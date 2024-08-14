@@ -1,8 +1,6 @@
 name: Deploy / API Recorder Extension
 
-on:
-  push:
-    tags: ['@the-dev-tools/api-recorder-extension@*']
+on: [workflow_dispatch]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
