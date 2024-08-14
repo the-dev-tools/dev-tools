@@ -54,8 +54,8 @@ message GetResponse {
 }
 
 message GetResultsRequest {
-  TriggerType trigger_by = 1;
-  TriggerType trigger_type = 2;
+  TriggerType trigger_type = 1;
+  string trigger_by = 2;
   int32 offset = 3;
   int32 limit = 4;
 }
