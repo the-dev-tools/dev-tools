@@ -711,17 +711,12 @@ func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 }
 
 func CheckOwnerCollection(ctx context.Context, collectionID ulid.ULID) (bool, error) {
-	userID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
-	if !ok {
-		return false, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
-	}
-
-	org, err := sorg.GetOrgByUserID(userID)
+	orgID, err := mwauth.GetContextUserOrgID(ctx)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
 
-	isOwner, err := scollection.CheckOwner(collectionID, org.ID)
+	isOwner, err := scollection.CheckOwner(collectionID, orgID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
