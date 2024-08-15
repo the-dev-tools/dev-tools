@@ -155,7 +155,7 @@ func TestGetOrgByUserID(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM user_org WHERE user_id = ?)
+                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ?)
         `
 	userID := ulid.Make()
 	org := &morg.Org{
@@ -185,7 +185,7 @@ func TestGetOrgByUserIDAndOrgID(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM user_org WHERE user_id = ?, org_id = ?)
+                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ? AND org_id = ? )
         `
 	userID := ulid.Make()
 	orgID := ulid.Make()

@@ -128,7 +128,7 @@ func PrepareGetOrgByUserID(db *sql.DB) error {
 func PrepareGetOrgByUserIDAndOrgID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByUserIDAndOrgID, err = db.Prepare(`
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ?, org_id = ?)
+                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ? AND org_id = ? )
         `)
 	return err
 }
