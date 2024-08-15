@@ -459,7 +459,7 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collectionId, err := ulid.Parse(req.Msg.Folder.CollectionId)
+	collectionID, err := ulid.Parse(req.Msg.Folder.CollectionId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -472,22 +472,27 @@ func (c *CollectionService) UpdateFolder(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	var parentUlidID *ulid.ULID
-	if req.Msg.Folder.ParentId == "" {
-		parentUlidID = nil
-	} else {
-		tempParentUlidID, err := ulid.Parse(req.Msg.Folder.ParentId)
+	var parentUlidIDPtr *ulid.ULID = nil
+	if req.Msg.Folder.ParentId != "" {
+		parentUlidID, err := ulid.Parse(req.Msg.Folder.ParentId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		parentUlidID = &tempParentUlidID
+		checkfolder, err := sitemfolder.GetItemFolder(parentUlidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if checkfolder.CollectionID != collectionID {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+		}
+		parentUlidIDPtr = &parentUlidID
 	}
 
 	folder := mitemfolder.ItemFolder{
 		ID:           ulidID,
-		CollectionID: collectionId,
-		ParentID:     parentUlidID,
+		CollectionID: collectionID,
 		Name:         req.Msg.Folder.Meta.Name,
+		ParentID:     parentUlidIDPtr,
 	}
 
 	err = sitemfolder.UpdateItemFolder(&folder)
@@ -526,9 +531,26 @@ func (c *CollectionService) UpdateApiCall(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
+	var parentUlidIDPtr *ulid.ULID = nil
+	if req.Msg.ApiCall.ParentId != "" {
+		parentUlidID, err := ulid.Parse(req.Msg.ApiCall.ParentId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		checkfolder, err := sitemfolder.GetItemFolder(parentUlidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if checkfolder.CollectionID != CollectionID {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+		}
+		parentUlidIDPtr = &parentUlidID
+	}
+
 	itemApi := &mitemapi.ItemApi{
 		ID:           ulidID,
 		CollectionID: CollectionID,
+		ParentID:     parentUlidIDPtr,
 		Name:         req.Msg.ApiCall.Meta.Name,
 		Url:          req.Msg.ApiCall.Data.Url,
 		Method:       req.Msg.ApiCall.Data.Method,
