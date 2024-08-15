@@ -9,9 +9,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@effect/schema": "^0.70.4",
+    "@effect/schema": "^0.71.0",
     "@plasmohq/storage": "^1.11.0",
-    "effect": "^3.6.3",
+    "effect": "^3.6.4",
     "magic-sdk": "^28.4.0",
     "plasmo": "^0.88.0",
     "react": "^18.3.1",
@@ -34,9 +34,9 @@
     "@types/react-dom": "^18.3.0",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
-    "devtools-protocol": "^0.0.1340018",
+    "devtools-protocol": "^0.0.1342118",
     "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.9",
+    "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4"
   },
   "manifest": {
