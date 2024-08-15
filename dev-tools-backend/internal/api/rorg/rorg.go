@@ -30,7 +30,7 @@ func (c *OrgService) GetOrganization(ctx context.Context, req *connect.Request[o
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	org, err := sorg.GetOrgByUserIDAndOrgID(orgID, userID)
+	org, err := sorg.GetOrgByUserIDAndOrgID(userID, orgID)
 	if err != nil {
 		if errors.Is(err, sorg.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
