@@ -1,10 +1,13 @@
-import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { getRouteApi, useRouter } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import { Button } from 'react-aria-components';
 
 import { setOrganizationId } from '@the-dev-tools/api/auth';
-import { getOrganizations } from '@the-dev-tools/protobuf/organization/v1/organization-OrganizationService_connectquery';
+import {
+  createOrganization,
+  getOrganizations,
+} from '@the-dev-tools/protobuf/organization/v1/organization-OrganizationService_connectquery';
 
 import { Runtime } from './runtime';
 
@@ -16,12 +19,23 @@ export const OrganizationsPage = () => {
   const { redirect } = route.useSearch();
 
   const organizationsQuery = useConnectQuery(getOrganizations);
+  const createOrganizationMutation = useConnectMutation(createOrganization);
 
   if (!organizationsQuery.isSuccess) return null;
   const { organizations } = organizationsQuery.data;
 
   return (
     <div className='flex size-full flex-col items-center justify-center gap-4'>
+      <div>
+        <Button
+          onPress={() => {
+            createOrganizationMutation.mutate({ name: 'New organization' });
+          }}
+        >
+          Create organization
+        </Button>
+      </div>
+
       {organizations.map((_) => (
         <div key={_.organizationId}>
           <Button
