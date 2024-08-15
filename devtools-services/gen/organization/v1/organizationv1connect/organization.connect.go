@@ -33,25 +33,40 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// OrganizationServiceGetOrganizationProcedure is the fully-qualified name of the
-	// OrganizationService's GetOrganization RPC.
-	OrganizationServiceGetOrganizationProcedure = "/organization.v1.OrganizationService/GetOrganization"
 	// OrganizationServiceGetOrganizationsProcedure is the fully-qualified name of the
 	// OrganizationService's GetOrganizations RPC.
 	OrganizationServiceGetOrganizationsProcedure = "/organization.v1.OrganizationService/GetOrganizations"
+	// OrganizationServiceGetOrganizationProcedure is the fully-qualified name of the
+	// OrganizationService's GetOrganization RPC.
+	OrganizationServiceGetOrganizationProcedure = "/organization.v1.OrganizationService/GetOrganization"
+	// OrganizationServiceCreateOrganizationProcedure is the fully-qualified name of the
+	// OrganizationService's CreateOrganization RPC.
+	OrganizationServiceCreateOrganizationProcedure = "/organization.v1.OrganizationService/CreateOrganization"
+	// OrganizationServiceUpdateOrganizationProcedure is the fully-qualified name of the
+	// OrganizationService's UpdateOrganization RPC.
+	OrganizationServiceUpdateOrganizationProcedure = "/organization.v1.OrganizationService/UpdateOrganization"
+	// OrganizationServiceDeleteOrganizationProcedure is the fully-qualified name of the
+	// OrganizationService's DeleteOrganization RPC.
+	OrganizationServiceDeleteOrganizationProcedure = "/organization.v1.OrganizationService/DeleteOrganization"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	organizationServiceServiceDescriptor                = v1.File_organization_v1_organization_proto.Services().ByName("OrganizationService")
-	organizationServiceGetOrganizationMethodDescriptor  = organizationServiceServiceDescriptor.Methods().ByName("GetOrganization")
-	organizationServiceGetOrganizationsMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("GetOrganizations")
+	organizationServiceServiceDescriptor                  = v1.File_organization_v1_organization_proto.Services().ByName("OrganizationService")
+	organizationServiceGetOrganizationsMethodDescriptor   = organizationServiceServiceDescriptor.Methods().ByName("GetOrganizations")
+	organizationServiceGetOrganizationMethodDescriptor    = organizationServiceServiceDescriptor.Methods().ByName("GetOrganization")
+	organizationServiceCreateOrganizationMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("CreateOrganization")
+	organizationServiceUpdateOrganizationMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("UpdateOrganization")
+	organizationServiceDeleteOrganizationMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("DeleteOrganization")
 )
 
 // OrganizationServiceClient is a client for the organization.v1.OrganizationService service.
 type OrganizationServiceClient interface {
-	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
 	GetOrganizations(context.Context, *connect.Request[v1.GetOrganizationsRequest]) (*connect.Response[v1.GetOrganizationsResponse], error)
+	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
+	CreateOrganization(context.Context, *connect.Request[v1.CreateOrganizationRequest]) (*connect.Response[v1.CreateOrganizationResponse], error)
+	UpdateOrganization(context.Context, *connect.Request[v1.UpdateOrganizationRequest]) (*connect.Response[v1.UpdateOrganizationResponse], error)
+	DeleteOrganization(context.Context, *connect.Request[v1.DeleteOrganizationRequest]) (*connect.Response[v1.DeleteOrganizationResponse], error)
 }
 
 // NewOrganizationServiceClient constructs a client for the organization.v1.OrganizationService
@@ -64,16 +79,34 @@ type OrganizationServiceClient interface {
 func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OrganizationServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &organizationServiceClient{
+		getOrganizations: connect.NewClient[v1.GetOrganizationsRequest, v1.GetOrganizationsResponse](
+			httpClient,
+			baseURL+OrganizationServiceGetOrganizationsProcedure,
+			connect.WithSchema(organizationServiceGetOrganizationsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getOrganization: connect.NewClient[v1.GetOrganizationRequest, v1.GetOrganizationResponse](
 			httpClient,
 			baseURL+OrganizationServiceGetOrganizationProcedure,
 			connect.WithSchema(organizationServiceGetOrganizationMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		getOrganizations: connect.NewClient[v1.GetOrganizationsRequest, v1.GetOrganizationsResponse](
+		createOrganization: connect.NewClient[v1.CreateOrganizationRequest, v1.CreateOrganizationResponse](
 			httpClient,
-			baseURL+OrganizationServiceGetOrganizationsProcedure,
-			connect.WithSchema(organizationServiceGetOrganizationsMethodDescriptor),
+			baseURL+OrganizationServiceCreateOrganizationProcedure,
+			connect.WithSchema(organizationServiceCreateOrganizationMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateOrganization: connect.NewClient[v1.UpdateOrganizationRequest, v1.UpdateOrganizationResponse](
+			httpClient,
+			baseURL+OrganizationServiceUpdateOrganizationProcedure,
+			connect.WithSchema(organizationServiceUpdateOrganizationMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteOrganization: connect.NewClient[v1.DeleteOrganizationRequest, v1.DeleteOrganizationResponse](
+			httpClient,
+			baseURL+OrganizationServiceDeleteOrganizationProcedure,
+			connect.WithSchema(organizationServiceDeleteOrganizationMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -81,13 +114,11 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 
 // organizationServiceClient implements OrganizationServiceClient.
 type organizationServiceClient struct {
-	getOrganization  *connect.Client[v1.GetOrganizationRequest, v1.GetOrganizationResponse]
-	getOrganizations *connect.Client[v1.GetOrganizationsRequest, v1.GetOrganizationsResponse]
-}
-
-// GetOrganization calls organization.v1.OrganizationService.GetOrganization.
-func (c *organizationServiceClient) GetOrganization(ctx context.Context, req *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error) {
-	return c.getOrganization.CallUnary(ctx, req)
+	getOrganizations   *connect.Client[v1.GetOrganizationsRequest, v1.GetOrganizationsResponse]
+	getOrganization    *connect.Client[v1.GetOrganizationRequest, v1.GetOrganizationResponse]
+	createOrganization *connect.Client[v1.CreateOrganizationRequest, v1.CreateOrganizationResponse]
+	updateOrganization *connect.Client[v1.UpdateOrganizationRequest, v1.UpdateOrganizationResponse]
+	deleteOrganization *connect.Client[v1.DeleteOrganizationRequest, v1.DeleteOrganizationResponse]
 }
 
 // GetOrganizations calls organization.v1.OrganizationService.GetOrganizations.
@@ -95,11 +126,34 @@ func (c *organizationServiceClient) GetOrganizations(ctx context.Context, req *c
 	return c.getOrganizations.CallUnary(ctx, req)
 }
 
+// GetOrganization calls organization.v1.OrganizationService.GetOrganization.
+func (c *organizationServiceClient) GetOrganization(ctx context.Context, req *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error) {
+	return c.getOrganization.CallUnary(ctx, req)
+}
+
+// CreateOrganization calls organization.v1.OrganizationService.CreateOrganization.
+func (c *organizationServiceClient) CreateOrganization(ctx context.Context, req *connect.Request[v1.CreateOrganizationRequest]) (*connect.Response[v1.CreateOrganizationResponse], error) {
+	return c.createOrganization.CallUnary(ctx, req)
+}
+
+// UpdateOrganization calls organization.v1.OrganizationService.UpdateOrganization.
+func (c *organizationServiceClient) UpdateOrganization(ctx context.Context, req *connect.Request[v1.UpdateOrganizationRequest]) (*connect.Response[v1.UpdateOrganizationResponse], error) {
+	return c.updateOrganization.CallUnary(ctx, req)
+}
+
+// DeleteOrganization calls organization.v1.OrganizationService.DeleteOrganization.
+func (c *organizationServiceClient) DeleteOrganization(ctx context.Context, req *connect.Request[v1.DeleteOrganizationRequest]) (*connect.Response[v1.DeleteOrganizationResponse], error) {
+	return c.deleteOrganization.CallUnary(ctx, req)
+}
+
 // OrganizationServiceHandler is an implementation of the organization.v1.OrganizationService
 // service.
 type OrganizationServiceHandler interface {
-	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
 	GetOrganizations(context.Context, *connect.Request[v1.GetOrganizationsRequest]) (*connect.Response[v1.GetOrganizationsResponse], error)
+	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
+	CreateOrganization(context.Context, *connect.Request[v1.CreateOrganizationRequest]) (*connect.Response[v1.CreateOrganizationResponse], error)
+	UpdateOrganization(context.Context, *connect.Request[v1.UpdateOrganizationRequest]) (*connect.Response[v1.UpdateOrganizationResponse], error)
+	DeleteOrganization(context.Context, *connect.Request[v1.DeleteOrganizationRequest]) (*connect.Response[v1.DeleteOrganizationResponse], error)
 }
 
 // NewOrganizationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -108,24 +162,48 @@ type OrganizationServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	organizationServiceGetOrganizationHandler := connect.NewUnaryHandler(
-		OrganizationServiceGetOrganizationProcedure,
-		svc.GetOrganization,
-		connect.WithSchema(organizationServiceGetOrganizationMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
 	organizationServiceGetOrganizationsHandler := connect.NewUnaryHandler(
 		OrganizationServiceGetOrganizationsProcedure,
 		svc.GetOrganizations,
 		connect.WithSchema(organizationServiceGetOrganizationsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceGetOrganizationHandler := connect.NewUnaryHandler(
+		OrganizationServiceGetOrganizationProcedure,
+		svc.GetOrganization,
+		connect.WithSchema(organizationServiceGetOrganizationMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceCreateOrganizationHandler := connect.NewUnaryHandler(
+		OrganizationServiceCreateOrganizationProcedure,
+		svc.CreateOrganization,
+		connect.WithSchema(organizationServiceCreateOrganizationMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceUpdateOrganizationHandler := connect.NewUnaryHandler(
+		OrganizationServiceUpdateOrganizationProcedure,
+		svc.UpdateOrganization,
+		connect.WithSchema(organizationServiceUpdateOrganizationMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceDeleteOrganizationHandler := connect.NewUnaryHandler(
+		OrganizationServiceDeleteOrganizationProcedure,
+		svc.DeleteOrganization,
+		connect.WithSchema(organizationServiceDeleteOrganizationMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/organization.v1.OrganizationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case OrganizationServiceGetOrganizationProcedure:
-			organizationServiceGetOrganizationHandler.ServeHTTP(w, r)
 		case OrganizationServiceGetOrganizationsProcedure:
 			organizationServiceGetOrganizationsHandler.ServeHTTP(w, r)
+		case OrganizationServiceGetOrganizationProcedure:
+			organizationServiceGetOrganizationHandler.ServeHTTP(w, r)
+		case OrganizationServiceCreateOrganizationProcedure:
+			organizationServiceCreateOrganizationHandler.ServeHTTP(w, r)
+		case OrganizationServiceUpdateOrganizationProcedure:
+			organizationServiceUpdateOrganizationHandler.ServeHTTP(w, r)
+		case OrganizationServiceDeleteOrganizationProcedure:
+			organizationServiceDeleteOrganizationHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -135,10 +213,22 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 // UnimplementedOrganizationServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedOrganizationServiceHandler struct{}
 
+func (UnimplementedOrganizationServiceHandler) GetOrganizations(context.Context, *connect.Request[v1.GetOrganizationsRequest]) (*connect.Response[v1.GetOrganizationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("organization.v1.OrganizationService.GetOrganizations is not implemented"))
+}
+
 func (UnimplementedOrganizationServiceHandler) GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("organization.v1.OrganizationService.GetOrganization is not implemented"))
 }
 
-func (UnimplementedOrganizationServiceHandler) GetOrganizations(context.Context, *connect.Request[v1.GetOrganizationsRequest]) (*connect.Response[v1.GetOrganizationsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("organization.v1.OrganizationService.GetOrganizations is not implemented"))
+func (UnimplementedOrganizationServiceHandler) CreateOrganization(context.Context, *connect.Request[v1.CreateOrganizationRequest]) (*connect.Response[v1.CreateOrganizationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("organization.v1.OrganizationService.CreateOrganization is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) UpdateOrganization(context.Context, *connect.Request[v1.UpdateOrganizationRequest]) (*connect.Response[v1.UpdateOrganizationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("organization.v1.OrganizationService.UpdateOrganization is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) DeleteOrganization(context.Context, *connect.Request[v1.DeleteOrganizationRequest]) (*connect.Response[v1.DeleteOrganizationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("organization.v1.OrganizationService.DeleteOrganization is not implemented"))
 }
