@@ -5,17 +5,11 @@ option go_package = "devtools-services/gen/organization/v1;organizationv1";
 
 
 service OrganizationService {
-  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
   rpc GetOrganizations(GetOrganizationsRequest) returns (GetOrganizationsResponse);
-}
-
-
-message GetOrganizationRequest {
-  string organization_id = 1;
-}
-
-message GetOrganizationResponse {
-   Organization organization = 1;
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
+  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse);
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (UpdateOrganizationResponse);
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
 }
 
 message Organization {
@@ -28,4 +22,35 @@ message GetOrganizationsRequest {
 
 message GetOrganizationsResponse {
   repeated Organization organizations = 1;
+}
+
+message GetOrganizationRequest {
+  string organization_id = 1;
+}
+
+message GetOrganizationResponse {
+   Organization organization = 1;
+}
+
+message CreateOrganizationRequest {
+  string name = 1;
+}
+
+message CreateOrganizationResponse {
+  Organization organization = 1;
+}
+
+message UpdateOrganizationRequest {
+  string organization_id = 1;
+  string name = 2;
+}
+
+message UpdateOrganizationResponse {
+}
+
+message DeleteOrganizationRequest {
+  string organization_id = 1;
+}
+
+message DeleteOrganizationResponse {
 }
