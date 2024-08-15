@@ -32,7 +32,7 @@ func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if ownerID.Compare(*orgID) != 0 {
+	if ownerID.Compare(orgID) != 0 {
 		return nil, connect.NewError(connect.CodePermissionDenied, nil)
 	}
 
@@ -66,7 +66,7 @@ func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if ownerID.Compare(*orgID) != 0 {
+	if ownerID.Compare(orgID) != 0 {
 		return nil, connect.NewError(connect.CodePermissionDenied, nil)
 	}
 

@@ -2,6 +2,7 @@ package mwauth
 
 import (
 	"context"
+	"database/sql"
 	"dev-tools-backend/pkg/service/sorg"
 	"dev-tools-backend/pkg/stoken"
 	"errors"
@@ -84,15 +85,15 @@ func NewOrgInterceptor() connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 			}
 
-			ulidID, err := ulid.Parse(orgID)
+			OrgUlid, err := ulid.Parse(orgID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
 
-			org, err := sorg.GetOrgByUserIDAndOrgID(userID, ulidID)
+			org, err := sorg.GetOrgByUserIDAndOrgID(userID, OrgUlid)
 			if err != nil {
-				if errors.Is(err, sorg.ErrOrgNotFound) {
-					return nil, connect.NewError(connect.CodeNotFound, err)
+				if err == sql.ErrNoRows {
+					return nil, connect.NewError(connect.CodeNotFound, errors.New("org not found"))
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -100,7 +101,7 @@ func NewOrgInterceptor() connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeNotFound, errors.New("org not found"))
 			}
 
-			CtxWithValue := context.WithValue(ctx, OrgIDKeyCtx, ulidID)
+			CtxWithValue := context.WithValue(ctx, OrgIDKeyCtx, OrgUlid)
 
 			return next(CtxWithValue, req)
 		})
@@ -116,10 +117,10 @@ func GetContextUserID(ctx context.Context) (ulid.ULID, error) {
 	return ulidID, nil
 }
 
-func GetContextUserOrgID(ctx context.Context) (*ulid.ULID, error) {
+func GetContextUserOrgID(ctx context.Context) (ulid.ULID, error) {
 	ulidID, ok := ctx.Value(OrgIDKeyCtx).(ulid.ULID)
 	if !ok {
-		return nil, errors.New("org id not found in context")
+		return ulidID, errors.New("org id not found in context")
 	}
-	return &ulidID, nil
+	return ulidID, nil
 }

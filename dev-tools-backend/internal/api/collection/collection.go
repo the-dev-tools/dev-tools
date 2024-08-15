@@ -92,12 +92,12 @@ func (c CollectionService) NewAuthInterceptor() connect.UnaryInterceptorFunc {
 
 // ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	ownerID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
+	orgUlid, err := mwauth.GetContextUserOrgID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	org, err := sorg.GetOrgByUserID(ownerID)
+	org, err := sorg.GetOrg(orgUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
@@ -125,12 +125,12 @@ func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Re
 func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	ulidID := ulid.Make()
 
-	userID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
+	orgUlid, err := mwauth.GetContextUserOrgID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	org, err := sorg.GetOrgByUserID(userID)
+	org, err := sorg.GetOrg(orgUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -267,12 +267,12 @@ func (c *CollectionService) DeleteCollection(ctx context.Context, req *connect.R
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
-	userID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("ownerID not found"))
+	orgUlid, err := mwauth.GetContextUserOrgID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	org, err := sorg.GetOrgByUserID(userID)
+	org, err := sorg.GetOrg(orgUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
