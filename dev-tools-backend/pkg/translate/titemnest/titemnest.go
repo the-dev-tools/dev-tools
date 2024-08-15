@@ -5,6 +5,7 @@ import (
 	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
 	collectionv1 "devtools-services/gen/collection/v1"
 	nodedatav1 "devtools-services/gen/nodedata/v1"
+	"log"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -109,26 +110,46 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi) CollectionPair {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
-
-	for i, item := range apis {
-		if item.ParentID == nil {
-			collection.itemApis = append(collection.itemApis, item)
-			if i < len(apis) {
-				apis = append(apis[:i], apis[i+1:]...)
-			}
-		}
-	}
-
-	tempNestedArr := make([]mitemfolder.ItemFolderNested, len(folders))
+	sortedFolderIds := make([]ulid.ULID, len(sortedFolders))
 	for i, item := range sortedFolders {
-		tempNestedArr[i] = mitemfolder.ItemFolderNested{
+		sortedFolderIds[i] = item.ID
+	}
+	folderMap := make(map[ulid.ULID]mitemfolder.ItemFolderNested, len(sortedFolders))
+	for _, item := range sortedFolders {
+		folderMap[item.ID] = mitemfolder.ItemFolderNested{
 			ItemFolder: item,
 			Children:   []interface{}{},
 		}
 	}
 
-	newFolders := PutFoldersToSubFolder(tempNestedArr, &apis)
-	collection.itemFolders = newFolders
+	for _, api := range apis {
+		if api.ParentID != nil {
+			folder, ok := folderMap[*api.ParentID]
+			if ok {
+				folder.Children = append(folder.Children, api)
+				folderMap[*api.ParentID] = folder
+			} else {
+				log.Fatalf("Parent folder not found %s", folder.ParentID)
+			}
+		} else {
+			collection.itemApis = append(collection.itemApis, api)
+		}
+	}
+
+	for _, folder := range sortedFolderIds {
+		folder := folderMap[folder]
+		if folder.ParentID != nil {
+			parentFolder, ok := folderMap[*folder.ParentID]
+			if ok {
+				parentFolder.Children = append(parentFolder.Children, folder)
+				folderMap[*folder.ParentID] = parentFolder
+			} else {
+				log.Fatalf("Parent folder not found %s", folder.ParentID)
+			}
+		} else {
+			collection.itemFolders = append(collection.itemFolders, folder)
+		}
+	}
 
 	return collection
 }
@@ -137,51 +158,29 @@ func SortFoldersByUlidTime(folders []mitemfolder.ItemFolder) []mitemfolder.ItemF
 	sortedFolders := make([]mitemfolder.ItemFolder, len(folders))
 	copy(sortedFolders, folders)
 
-	// Sort Folders older to newer
-	for i := 0; i < len(sortedFolders); i++ {
-		for j := i + 1; j < len(sortedFolders); j++ {
-			if sortedFolders[i].ID.Compare(sortedFolders[j].ID) == 1 {
-				sortedFolders[i], sortedFolders[j] = sortedFolders[j], sortedFolders[i]
-			}
-		}
-	}
+	// quick sort by ulid timestamp in descending order
+	quickSort(sortedFolders, 0, len(sortedFolders)-1)
 
 	return sortedFolders
 }
 
-func PutFoldersToSubFolder(folders []mitemfolder.ItemFolderNested, apis *[]mitemapi.ItemApi) []mitemfolder.ItemFolderNested {
-	rootFolders := []mitemfolder.ItemFolderNested{}
-	// check folders and sub folder if find parentID match set put them inside
-
-	for _, folder := range folders {
-		if folder.ParentID == nil {
-
-			folder.Children = searchAndPut(&folder.ID, folders, apis)
-			rootFolders = append(rootFolders, folder)
-		}
+func quickSort(arr []mitemfolder.ItemFolder, low, high int) {
+	if low < high {
+		pi := partition(arr, low, high)
+		quickSort(arr, low, pi-1)
+		quickSort(arr, pi+1, high)
 	}
-
-	return rootFolders
 }
 
-func searchAndPut(parentID *ulid.ULID, folders []mitemfolder.ItemFolderNested, apis *[]mitemapi.ItemApi) []interface{} {
-	var children []interface{}
-
-	for i, item := range folders {
-		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
-			if i < len(folders) {
-				folders = append(folders[:i], folders[i+1:]...)
-			}
-			item.Children = searchAndPut(&item.ID, folders, apis)
-			children = append(children, item)
+func partition(arr []mitemfolder.ItemFolder, low, high int) int {
+	pivot := arr[high].ID.Time()
+	i := low - 1
+	for j := low; j < high; j++ {
+		if arr[j].ID.Time() > pivot {
+			i++
+			arr[i], arr[j] = arr[j], arr[i]
 		}
 	}
-
-	for _, item := range *apis {
-		if item.ParentID != nil && item.ParentID.Compare(*parentID) == 0 {
-			children = append(children, item)
-		}
-	}
-
-	return children
+	arr[i+1], arr[high] = arr[high], arr[i+1]
+	return i + 1
 }
