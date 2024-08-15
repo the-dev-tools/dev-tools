@@ -90,7 +90,7 @@ const ImportPostman = () => {
   );
 };
 
-const collectionEditRoute = getRouteApi('/authenticated/dashboard/collection/$id');
+const collectionEditRoute = getRouteApi('/user/org/dashboard/collection/$id');
 
 class CollectionUpdateForm extends Schema.Class<CollectionUpdateForm>('CollectionUpdateForm')({
   name: Schema.String,
@@ -308,7 +308,7 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
   );
 };
 
-const apiCallEditRoute = getRouteApi('/authenticated/dashboard/api-call/$id');
+const apiCallEditRoute = getRouteApi('/user/org/dashboard/api-call/$id');
 
 class ApiCallEditForm extends Schema.Class<ApiCallEditForm>('ApiCallEditForm')({
   name: Schema.String,

@@ -29,9 +29,19 @@ export const LoginPage = () => {
             Object.fromEntries,
             Schema.decode(LoginFormData),
           );
-          yield* Auth.login({ email });
-          if (redirect) router.history.push(redirect);
-          else void router.navigate({ to: '/' });
+
+          const loginResult = yield* Auth.login({ email }).pipe(
+            Effect.catchTag('NoOrganizationSelectedError', Effect.succeed),
+          );
+
+          if (loginResult?._tag === 'NoOrganizationSelectedError') {
+            yield* Effect.tryPromise(() => router.navigate({ to: '/organizations', search: { redirect } }));
+          } else if (redirect) {
+            router.history.push(redirect);
+          } else {
+            yield* Effect.tryPromise(() => router.navigate({ to: '/' }));
+          }
+
           queueMicrotask(() => void location.reload());
         }).pipe(Runtime.runPromise);
       }}

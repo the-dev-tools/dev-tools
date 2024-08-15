@@ -9,35 +9,60 @@ import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collecti
 import { ApiCallEditPage, CollectionEditPage, CollectionListPage } from './collection';
 import { DashboardIndexPage, DashboardLayout } from './dashboard';
 import { LoginPage } from './login';
+import { OrganizationsPage } from './organization';
 import { queryClient, Runtime, transport } from './runtime';
 
 const root = createRootRoute();
 
-class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
+class RedirectSearch extends Schema.Class<RedirectSearch>('RedirectSearch')({
   redirect: Schema.optional(Schema.String),
 }) {}
 
 const login = createRoute({
   getParentRoute: () => root,
   path: '/login',
-  validateSearch: Schema.decodeSync(LoginSearch),
+  validateSearch: Schema.decodeSync(RedirectSearch),
   component: LoginPage,
 });
 
-const authenticated = createRoute({
+const user = createRoute({
   getParentRoute: () => root,
-  id: 'authenticated',
-  loader: ({ location }) =>
+  id: 'user',
+  beforeLoad: ({ location }) =>
     pipe(Effect.option(Auth.getUser), Runtime.runPromise, async (_) =>
       Option.getOrThrowWith(await _, () =>
-        redirect({ to: '/login', search: new LoginSearch({ redirect: location.href }) }),
+        redirect({ to: '/login', search: new RedirectSearch({ redirect: location.href }) }),
       ),
     ),
-  pendingComponent: () => 'Loading...',
+  pendingComponent: () => 'Loading user...',
+});
+
+const organizations = createRoute({
+  getParentRoute: () => user,
+  path: '/organizations',
+  validateSearch: Schema.decodeSync(RedirectSearch),
+  component: OrganizationsPage,
+});
+
+const organization = createRoute({
+  getParentRoute: () => user,
+  id: 'org',
+  beforeLoad: ({ location }) =>
+    pipe(
+      Auth.getOrganizationId,
+      Effect.map((_) => ({ organizationId: _ })),
+      Effect.option,
+      Runtime.runPromise,
+      async (_) =>
+        Option.getOrThrowWith(await _, () =>
+          redirect({ to: '/organizations', search: new RedirectSearch({ redirect: location.href }) }),
+        ),
+    ),
+  pendingComponent: () => 'Loading organization...',
 });
 
 const dashboard = createRoute({
-  getParentRoute: () => authenticated,
+  getParentRoute: () => organization,
   id: 'dashboard',
   component: DashboardLayout,
 });
@@ -72,7 +97,10 @@ const apiCallEdit = createRoute({
 
 const routeTree = root.addChildren([
   login,
-  authenticated.addChildren([dashboard.addChildren([dashboardIndex, collectionList, collectionEdit, apiCallEdit])]),
+  user.addChildren([
+    organizations,
+    organization.addChildren([dashboard.addChildren([dashboardIndex, collectionList, collectionEdit, apiCallEdit])]),
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });

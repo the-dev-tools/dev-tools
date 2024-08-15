@@ -1,7 +1,7 @@
 import { Transport } from '@connectrpc/connect';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Context, DateTime, Effect, Option, pipe } from 'effect';
+import { Context, Data, DateTime, Effect, Option, pipe } from 'effect';
 import { decodeJwt } from 'jose';
 import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 
@@ -15,7 +15,7 @@ export class AuthTransport extends Context.Tag('AuthTransport')<AuthTransport, T
 
 export class MagicClient extends Context.Tag('MagicClient')<MagicClient, Magic>() {}
 
-const organizationIdKey = 'OrganizationId';
+export class NoOrganizationSelectedError extends Data.TaggedError('NoOrganizationSelectedError') {}
 
 export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   Effect.gen(function* () {
@@ -61,9 +61,8 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
       ),
     );
     const { organizations } = organizationsResponse.message;
-    if (organizations.length !== 1) return;
-    const { organizationId } = organizations[0]!;
-    yield* store.forSchema(Schema.String).set(organizationIdKey, organizationId);
+    if (organizations.length !== 1) return yield* new NoOrganizationSelectedError();
+    yield* setOrganizationId(organizations[0]!.organizationId);
   });
 
 export const logout = Effect.gen(function* () {
@@ -74,6 +73,22 @@ export const logout = Effect.gen(function* () {
   yield* store.remove(refreshTokenKey);
   yield* store.remove(organizationIdKey);
 });
+
+const organizationIdKey = 'OrganizationId';
+
+export const getOrganizationId = Effect.gen(function* () {
+  const store = yield* KeyValueStore;
+  return yield* pipe(
+    store.forSchema(Schema.String).get(organizationIdKey),
+    Effect.flatMap(Effect.orElseFail(() => new NoOrganizationSelectedError())),
+  );
+});
+
+export const setOrganizationId = (id: string) =>
+  Effect.gen(function* () {
+    const store = yield* KeyValueStore;
+    yield* store.forSchema(Schema.String).set(organizationIdKey, id);
+  });
 
 export const getUser = pipe(
   KeyValueStore,
