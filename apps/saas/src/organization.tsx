@@ -1,4 +1,5 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { createQueryOptions, useMutation as useConnectMutation, useTransport } from '@connectrpc/connect-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useRouter } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import { Button } from 'react-aria-components';
@@ -15,10 +16,13 @@ const route = getRouteApi('/user/organizations');
 
 export const OrganizationsPage = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const transport = useTransport();
 
   const { redirect } = route.useSearch();
 
-  const organizationsQuery = useConnectQuery(getOrganizations);
+  const organizationsQueryOptions = createQueryOptions(getOrganizations, undefined, { transport });
+  const organizationsQuery = useQuery({ ...organizationsQueryOptions, enabled: true });
   const createOrganizationMutation = useConnectMutation(createOrganization);
 
   if (!organizationsQuery.isSuccess) return null;
@@ -28,8 +32,9 @@ export const OrganizationsPage = () => {
     <div className='flex size-full flex-col items-center justify-center gap-4'>
       <div>
         <Button
-          onPress={() => {
-            createOrganizationMutation.mutate({ name: 'New organization' });
+          onPress={async () => {
+            await createOrganizationMutation.mutateAsync({ name: 'New organization' });
+            await queryClient.invalidateQueries(organizationsQueryOptions);
           }}
         >
           Create organization
