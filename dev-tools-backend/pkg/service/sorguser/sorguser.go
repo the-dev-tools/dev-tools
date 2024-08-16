@@ -21,13 +21,31 @@ func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
                 CREATE TABLE IF NOT EXISTS org_users (
                         id TEXT PRIMARY KEY,
-                        org_id TEXT NOT NULL REFERENCES orgs(id),
-                        user_id TEXT NOT NULL REFERENCES users(id)
+
+                        org_id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+
+                        UNIQUE(org_id, user_id),
+                        FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
         `)
 	if err != nil {
 		return err
 	}
+	/*
+		        TODO: check if this is needed
+			row := db.QueryRow(`
+		                SELECT * FROM sqlite_master LIMIT 1
+		                WHERE type= 'index' and tbl_name = 'org_users' and name = 'Idx1';
+		        `)
+			if row.Err() == sql.ErrNoRows {
+				_, err = db.Exec(`
+		                CREATE INDEX Idx1 ON item_api(org_id, user_id);
+		        `)
+			}
+	*/
+
 	return nil
 }
 
