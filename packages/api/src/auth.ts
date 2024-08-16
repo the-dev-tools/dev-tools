@@ -90,14 +90,6 @@ export const setOrganizationId = (id: string) =>
     yield* store.forSchema(Schema.String).set(organizationIdKey, id);
   });
 
-export const getUser = pipe(
-  KeyValueStore,
-  Effect.flatMap((_) => _.forSchema(Schema.String).get(accessTokenKey)),
-  Effect.flatten,
-  Effect.flatMap((_) => Effect.try(() => decodeJwt<typeof AccessTokenPayload.Encoded>(_))),
-  Effect.flatMap(Schema.decode(AccessTokenPayload)),
-);
-
 const isTokenExpired = (token: string) =>
   pipe(
     Effect.try(() => decodeJwt<typeof JWTPayload.Encoded>(token)),
@@ -106,36 +98,42 @@ const isTokenExpired = (token: string) =>
     Effect.flatMap(DateTime.isPast),
   );
 
+const accessToken = Effect.gen(function* () {
+  const store = yield* KeyValueStore;
+  let accessToken = yield* pipe(store.forSchema(Schema.String).get(accessTokenKey), Effect.flatten);
+  const accessTokenExpired = yield* isTokenExpired(accessToken);
+
+  if (!accessTokenExpired) return accessToken;
+
+  let refreshToken = yield* pipe(store.forSchema(Schema.String).get(refreshTokenKey), Effect.flatten);
+  const refreshTokenExpired = yield* isTokenExpired(refreshToken);
+
+  if (refreshTokenExpired) {
+    yield* logout;
+    return yield* Effect.fail('Authorization expired' as const);
+  }
+
+  const transport = yield* AuthTransport;
+  const response = yield* Effect.tryPromise((signal) =>
+    transport.unary(AuthService, AuthService.methods.refreshToken, signal, undefined, undefined, {
+      refreshToken,
+    }),
+  );
+  ({ accessToken, refreshToken } = response.message);
+
+  yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
+  yield* store.forSchema(Schema.String).set(refreshTokenKey, refreshToken);
+
+  return accessToken;
+});
+
 export const authorizationInterceptor =
   <E, R>(next: AnyFnEffect<E, R>) =>
   (request: Request) =>
     Effect.gen(function* () {
       const store = yield* KeyValueStore;
-      let accessToken = yield* pipe(store.forSchema(Schema.String).get(accessTokenKey), Effect.flatten);
-      const accessTokenExpired = yield* isTokenExpired(accessToken);
 
-      if (accessTokenExpired) {
-        let refreshToken = yield* pipe(store.forSchema(Schema.String).get(refreshTokenKey), Effect.flatten);
-        const refreshTokenExpired = yield* isTokenExpired(refreshToken);
-
-        if (refreshTokenExpired) {
-          yield* logout;
-          yield* Effect.fail('Authorization expired' as const);
-        }
-
-        const transport = yield* AuthTransport;
-        const response = yield* Effect.tryPromise((signal) =>
-          transport.unary(AuthService, AuthService.methods.refreshToken, signal, undefined, undefined, {
-            refreshToken,
-          }),
-        );
-        ({ accessToken, refreshToken } = response.message);
-
-        yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
-        yield* store.forSchema(Schema.String).set(refreshTokenKey, refreshToken);
-      }
-
-      request.header.set('Authorization', `Bearer ${accessToken}`);
+      request.header.set('Authorization', `Bearer ${yield* accessToken}`);
 
       const organizationId = yield* store.forSchema(Schema.String).get(organizationIdKey);
       if (Option.isSome(organizationId)) {
@@ -144,3 +142,9 @@ export const authorizationInterceptor =
 
       return yield* next(request);
     });
+
+export const getUser = pipe(
+  accessToken,
+  Effect.flatMap((_) => Effect.try(() => decodeJwt<typeof AccessTokenPayload.Encoded>(_))),
+  Effect.flatMap(Schema.decode(AccessTokenPayload)),
+);
