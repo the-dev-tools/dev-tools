@@ -17,6 +17,13 @@ import {
   RunApiCallRequest,
   RunApiCallResponse,
 } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { OrganizationService } from '@the-dev-tools/protobuf/organization/v1/organization_connect';
+import {
+  GetOrganizationRequest,
+  GetOrganizationResponse,
+  GetOrganizationsResponse,
+  Organization,
+} from '@the-dev-tools/protobuf/organization/v1/organization_pb';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
@@ -77,6 +84,11 @@ const ApiTransportTest = Layer.effect(
           getCollection: flow(getCollection, Runtime.runPromise(runtime)),
           runApiCall: flow(runApiCall, Runtime.runPromise(runtime)),
         });
+
+        router.service(OrganizationService, {
+          getOrganizations: flow(getOrganizations, Runtime.runPromise(runtime)),
+          getOrganization: flow(getOrganization, Runtime.runPromise(runtime)),
+        });
       },
       {
         transport: {
@@ -112,7 +124,7 @@ const tokens = Effect.gen(function* () {
   const accessToken = yield* pipe(
     AccessTokenPayload.make({
       token_type: 'access_token',
-      exp: pipe(yield* DateTime.now, DateTime.add({ hours: 1 }), DateTime.toDate),
+      exp: pipe(yield* DateTime.now, DateTime.add({ minutes: 1 }), DateTime.toDate),
       email,
     }),
     Schema.encode(AccessTokenPayload),
@@ -220,5 +232,28 @@ const folder = (collectionId: string, parentId: string | undefined, depth: numbe
       collectionId,
       ...(parentId ? { parentId } : {}),
       items: yield* items(collectionId, meta_.id, depth),
+    });
+  });
+
+const organization = (id?: string) =>
+  Effect.gen(function* () {
+    const faker = yield* Faker;
+    return new Organization({
+      organizationId: id ?? faker.string.uuid(),
+      name: faker.word.sample(),
+    });
+  });
+
+const getOrganizations = () =>
+  Effect.gen(function* () {
+    return new GetOrganizationsResponse({
+      organizations: [yield* organization()],
+    });
+  });
+
+const getOrganization = (request: GetOrganizationRequest) =>
+  Effect.gen(function* () {
+    return new GetOrganizationResponse({
+      organization: yield* organization(request.organizationId),
     });
   });
