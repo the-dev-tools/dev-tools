@@ -179,6 +179,36 @@ func TestGetOrgByUserID(t *testing.T) {
 	}
 }
 
+func TestGetOrgsByUserID(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := `
+                 SELECT id, name FROM orgs WHERE id IN (SELECT org_id FROM org_users WHERE user_id = ?);
+        `
+	userID := ulid.Make()
+	org := &morg.Org{
+		ID:   ulid.Make(),
+		Name: "name",
+	}
+	rows := sqlmock.NewRows([]string{"id", "name"}).
+		AddRow(org.ID, org.Name)
+	ExpectPrepare := mock.ExpectPrepare(query)
+	err = sorg.PrepareGetOrgsByUserID(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExpectPrepare.
+		ExpectQuery().
+		WithArgs(userID).
+		WillReturnRows(rows)
+	_, err = sorg.GetOrgsByUserID(userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGetOrgByUserIDAndOrgID(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {

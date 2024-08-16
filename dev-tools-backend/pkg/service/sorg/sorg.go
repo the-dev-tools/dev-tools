@@ -63,6 +63,10 @@ func PrepareStatements(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	err = PrepareGetOrgsByUserID(db)
+	if err != nil {
+		return err
+	}
 	err = PrepareGetOrgByUserIDAndOrgID(db)
 	if err != nil {
 		return err
