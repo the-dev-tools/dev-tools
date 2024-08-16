@@ -1,7 +1,7 @@
 package flow
 
 import (
-	"devtools-nodes/pkg/model/mnode"
+	"dev-tools-nodes/pkg/model/mnode"
 
 	"github.com/google/uuid"
 )

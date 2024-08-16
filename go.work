@@ -2,11 +2,11 @@ go 1.23
 
 use (
 	./dev-tools-backend
-	./devtools-cli
-	./devtools-masternode
-	./devtools-nodes
-	./devtools-platform
-	./devtools-services
-	./devtools-slave
+	./dev-tools-cli
+	./dev-tools-masternode
+	./dev-tools-nodes
+	./dev-tools-platform
+	./dev-tools-services
+	./dev-tools-slave
 	./fly-go
 )

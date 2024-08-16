@@ -3,8 +3,8 @@ package node
 import (
 	"context"
 	"dev-tools-backend/internal/api"
-	nodemasterv1 "devtools-services/gen/nodemaster/v1"
-	"devtools-services/gen/nodemaster/v1/nodemasterv1connect"
+	nodemasterv1 "dev-tools-services/gen/nodemaster/v1"
+	"dev-tools-services/gen/nodemaster/v1/nodemasterv1connect"
 	"errors"
 	"log"
 	"os"

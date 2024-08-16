@@ -19,6 +19,7 @@ var (
 
 	// User related
 	PreparedGetOrgByUserID         *sql.Stmt = nil
+	PreparedGetOrgsByUserID        *sql.Stmt = nil
 	PreparedGetOrgByUserIDAndOrgID *sql.Stmt = nil
 )
 
@@ -125,6 +126,14 @@ func PrepareGetOrgByUserID(db *sql.DB) error {
 	return err
 }
 
+func PrepareGetOrgsByUserID(db *sql.DB) error {
+	var err error
+	PreparedGetOrgsByUserID, err = db.Prepare(`
+                 SELECT id, name FROM orgs WHERE id IN (SELECT org_id FROM org_users WHERE user_id = ?);
+        `)
+	return err
+}
+
 func PrepareGetOrgByUserIDAndOrgID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByUserIDAndOrgID, err = db.Prepare(`
@@ -184,7 +193,7 @@ func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 }
 
 func GetOrgsByUserID(userID ulid.ULID) ([]morg.Org, error) {
-	rows, err := PreparedGetOrgByUserID.Query(userID)
+	rows, err := PreparedGetOrgsByUserID.Query(userID)
 	if err != nil {
 		return nil, err
 	}

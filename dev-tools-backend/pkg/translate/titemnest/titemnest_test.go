@@ -4,7 +4,7 @@ import (
 	"dev-tools-backend/pkg/model/mcollection/mitemapi"
 	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
 	"dev-tools-backend/pkg/translate/titemnest"
-	collectionv1 "devtools-services/gen/collection/v1"
+	collectionv1 "dev-tools-services/gen/collection/v1"
 	"fmt"
 	"testing"
 	"time"

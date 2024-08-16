@@ -1,7 +1,7 @@
 package mcollection
 
 import (
-	"devtools-nodes/pkg/model/mnodedata"
+	"dev-tools-nodes/pkg/model/mnodedata"
 
 	"github.com/oklog/ulid/v2"
 )

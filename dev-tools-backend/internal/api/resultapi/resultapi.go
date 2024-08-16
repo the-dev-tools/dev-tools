@@ -6,8 +6,8 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/sresultapi"
-	apiresultv1 "devtools-services/gen/apiresult/v1"
-	"devtools-services/gen/apiresult/v1/apiresultv1connect"
+	apiresultv1 "dev-tools-services/gen/apiresult/v1"
+	"dev-tools-services/gen/apiresult/v1/apiresultv1connect"
 	"strings"
 
 	"connectrpc.com/connect"

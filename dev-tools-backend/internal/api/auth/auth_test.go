@@ -4,7 +4,7 @@ import (
 	"context"
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/pkg/stoken"
-	authv1 "devtools-services/gen/auth/v1"
+	authv1 "dev-tools-services/gen/auth/v1"
 	"testing"
 	"time"
 
