@@ -115,7 +115,7 @@ func (c *OrgService) CreateOrganization(ctx context.Context, req *connect.Reques
 }
 
 func (c *OrgService) UpdateOrganization(ctx context.Context, req *connect.Request[orgv1.UpdateOrganizationRequest]) (*connect.Response[orgv1.UpdateOrganizationResponse], error) {
-	userUlid, err := mwauth.GetContextUserOrgID(ctx)
+	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
@@ -144,7 +144,7 @@ func (c *OrgService) UpdateOrganization(ctx context.Context, req *connect.Reques
 }
 
 func (c *OrgService) DeleteOrganization(ctx context.Context, req *connect.Request[orgv1.DeleteOrganizationRequest]) (*connect.Response[orgv1.DeleteOrganizationResponse], error) {
-	userUlid, err := mwauth.GetContextUserOrgID(ctx)
+	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
