@@ -128,7 +128,7 @@ func (c *OrgService) UpdateOrganization(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	org, err := sorg.GetOrgByUserIDAndOrgID(orgUlid, userUlid)
+	org, err := sorg.GetOrgByUserIDAndOrgID(userUlid, orgUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
@@ -154,7 +154,7 @@ func (c *OrgService) DeleteOrganization(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	org, err := sorg.GetOrgByUserIDAndOrgID(orgUlid, userUlid)
+	org, err := sorg.GetOrgByUserIDAndOrgID(userUlid, orgUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
