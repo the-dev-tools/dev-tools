@@ -9,8 +9,8 @@ import (
 	"dev-tools-backend/pkg/model/morguser"
 	"dev-tools-backend/pkg/service/sorg"
 	"dev-tools-backend/pkg/service/sorguser"
-	orgv1 "devtools-services/gen/organization/v1"
-	"devtools-services/gen/organization/v1/organizationv1connect"
+	orgv1 "dev-tools-services/gen/organization/v1"
+	"dev-tools-services/gen/organization/v1/organizationv1connect"
 	"errors"
 
 	"connectrpc.com/connect"
