@@ -32,6 +32,6 @@ jobs:
         run: pnpm build --filter=${{ inputs.package }}
 
       - name: Publish
-        env:
-          GITHUB_NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm publish --filter=${{ inputs.package }}
+        run: |
+          pnpm config --location=project set //npm.pkg.github.com/:_authToken ${{ secrets.GITHUB_TOKEN }}
+          pnpm publish --no-git-checks --filter=${{ inputs.package }}
