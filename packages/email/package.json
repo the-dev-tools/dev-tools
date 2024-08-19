@@ -1,6 +1,14 @@
 {
   "name": "@the-dev-tools/email",
   "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "directory": "packages/email",
+    "url": "https://github.com/the-dev-tools/dev-tools-ts.git"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "email dev --dir=src --port=3010",
     "build": "email export --dir=src --outDir=dist",

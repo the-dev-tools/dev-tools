@@ -31,10 +31,9 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
-      - name: Create version pull request
+      - name: Process changesets
         id: changesets
-        # https://github.com/changesets/action/issues/192#issuecomment-2070377713
-        uses: the-dev-tools/changesets-action@v1
+        uses: changesets/action@v1
         with:
           publish: pnpm changeset tag
         env:
@@ -58,6 +57,7 @@ jobs:
           script: |
             const workflows = {
               '@the-dev-tools/api-recorder-extension': 'deploy-api-recorder-extension.yaml',
+              '@the-dev-tools/email': 'deploy-github-npm.yaml',
             };
 
             ${{ steps.changesets.outputs.publishedPackages }}.forEach((pkg) => {
@@ -65,5 +65,10 @@ jobs:
               if (!workflow_id) return;
               const ref = `${pkg.name}@${pkg.version}`;
               console.log(`Dispatching workflow '${workflow_id}' at '${ref}'`);
-              github.rest.actions.createWorkflowDispatch({ ...context.repo, workflow_id, ref });
+              github.rest.actions.createWorkflowDispatch({
+                ...context.repo,
+                workflow_id,
+                ref,
+                inputs: { package: pkg },
+              });
             });

@@ -1,0 +1,37 @@
+name: Deploy / GitHub NPM Registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.package }}-${{ github.ref }}
+
+env:
+  DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+
+jobs:
+  publish:
+    name: Publish to GitHub NPM Registry
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - name: Build
+        run: pnpm build --filter=${{ inputs.package }}
+
+      - name: Publish
+        env:
+          GITHUB_NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm publish --filter=${{ inputs.package }}
