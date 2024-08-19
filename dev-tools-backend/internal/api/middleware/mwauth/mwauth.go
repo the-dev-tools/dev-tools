@@ -3,7 +3,7 @@ package mwauth
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/service/sorg"
+	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/stoken"
 	"errors"
 	"strings"
@@ -90,7 +90,7 @@ func NewOrgInterceptor() connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
 
-			org, err := sorg.GetOrgByUserIDAndOrgID(userID, OrgUlid)
+			org, err := sworkspace.GetByIDandUserID(OrgUlid, userID)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, connect.NewError(connect.CodeNotFound, errors.New("org not found"))

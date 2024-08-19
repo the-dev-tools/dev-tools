@@ -6,15 +6,15 @@ import (
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/node"
-	"dev-tools-backend/internal/api/rorg"
+	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/db/turso"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"dev-tools-backend/pkg/service/scollection/sitemfolder"
-	"dev-tools-backend/pkg/service/sorg"
-	"dev-tools-backend/pkg/service/sorguser"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/service/sworkspacesusers"
 	"errors"
 	"log"
 	"os"
@@ -102,7 +102,7 @@ func main() {
 	}
 	services = append(services, *collectionService)
 
-	rorgService, err := rorg.CreateService(hmacSecretBytes)
+	rorgService, err := rworkspace.CreateService(hmacSecretBytes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,12 +147,12 @@ func PrepareTables(db *sql.DB) error {
 		log.Fatal(err)
 	}
 
-	err = sorg.PrepareTables(db)
+	err = sworkspace.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = sorguser.PrepareTables(db)
+	err = sworkspacesusers.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -186,12 +186,12 @@ func PrepareStatements(db *sql.DB) error {
 		log.Fatal(err)
 	}
 
-	err = sorg.PrepareStatements(db)
+	err = sworkspace.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = sorguser.PrepareStatements(db)
+	err = sworkspacesusers.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
-	"dev-tools-backend/pkg/model/morg"
-	"dev-tools-backend/pkg/model/morguser"
 	"dev-tools-backend/pkg/model/muser"
-	"dev-tools-backend/pkg/service/sorg"
-	"dev-tools-backend/pkg/service/sorguser"
+	"dev-tools-backend/pkg/model/mworkspace"
+	"dev-tools-backend/pkg/model/mworkspaceuser"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/service/sworkspacesusers"
 	"dev-tools-backend/pkg/stoken"
 	authv1 "dev-tools-services/gen/auth/v1"
 	"dev-tools-services/gen/auth/v1/authv1connect"
@@ -64,11 +64,11 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 	user, err := suser.GetUserWithOAuthIDAndType(publicAddress, muser.MagicLink)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			org := &morg.Org{
+			org := &mworkspace.Workspace{
 				ID:   ulid.Make(),
 				Name: fmt.Sprintf("%s's org", email),
 			}
-			err = sorg.CreateOrg(org)
+			err = sworkspace.Create(org)
 			if err != nil {
 				return nil, err
 			}
@@ -86,13 +86,13 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 				return nil, err
 			}
 
-			orgUser := &morguser.OrgUser{
+			orgUser := &mworkspaceuser.WorkspaceUser{
 				ID:     ulid.Make(),
 				OrgID:  org.ID,
 				UserID: user.ID,
 			}
 
-			err = sorguser.CreateOrgUser(orgUser)
+			err = sworkspacesusers.CreateOrgUser(orgUser)
 			if err != nil {
 				return nil, err
 			}

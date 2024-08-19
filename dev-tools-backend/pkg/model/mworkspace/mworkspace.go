@@ -1,8 +1,8 @@
-package morg
+package mworkspace
 
 import "github.com/oklog/ulid/v2"
 
-type Org struct {
+type Workspace struct {
 	ID   ulid.ULID
 	Name string
 }

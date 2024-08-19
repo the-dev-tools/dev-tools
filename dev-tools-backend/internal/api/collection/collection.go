@@ -12,8 +12,8 @@ import (
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"dev-tools-backend/pkg/service/scollection/sitemfolder"
-	"dev-tools-backend/pkg/service/sorg"
 	"dev-tools-backend/pkg/service/sresultapi"
+	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/stoken"
 	"dev-tools-backend/pkg/translate/titemnest"
 	"dev-tools-backend/pkg/translate/tpostman"
@@ -97,7 +97,7 @@ func (c *CollectionService) ListCollections(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	org, err := sorg.GetOrg(orgUlid)
+	org, err := sworkspace.Get(orgUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
@@ -130,7 +130,7 @@ func (c *CollectionService) CreateCollection(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	org, err := sorg.GetOrg(orgUlid)
+	org, err := sworkspace.Get(orgUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -272,7 +272,7 @@ func (c *CollectionService) ImportPostman(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	org, err := sorg.GetOrg(orgUlid)
+	org, err := sworkspace.Get(orgUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

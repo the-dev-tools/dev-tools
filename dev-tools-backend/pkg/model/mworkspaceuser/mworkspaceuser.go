@@ -1,8 +1,8 @@
-package morguser
+package mworkspaceuser
 
 import "github.com/oklog/ulid/v2"
 
-type OrgUser struct {
+type WorkspaceUser struct {
 	ID     ulid.ULID
 	OrgID  ulid.ULID
 	UserID ulid.ULID

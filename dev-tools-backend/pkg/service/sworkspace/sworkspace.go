@@ -1,8 +1,8 @@
-package sorg
+package sworkspace
 
 import (
 	"database/sql"
-	"dev-tools-backend/pkg/model/morg"
+	"dev-tools-backend/pkg/model/mworkspace"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -25,7 +25,7 @@ var (
 
 func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS orgs (
+                CREATE TABLE IF NOT EXISTS workspaces (
                         id TEXT PRIMARY KEY,
                         name TEXT
                 )
@@ -39,120 +39,120 @@ func PrepareTables(db *sql.DB) error {
 func PrepareStatements(db *sql.DB) error {
 	var err error
 	// Base Statements
-	err = PrepareCreateOrg(db)
+	err = PrepareCreate(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrg(db)
+	err = PrepareGet(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareUpdateOrg(db)
+	err = PrepareUpdate(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareDeleteOrg(db)
+	err = PrepareDelete(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgByName(db)
+	err = PrepareGetByName(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgByUserID(db)
+	err = PrepareGetByUserID(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgsByUserID(db)
+	err = PrepareGetMultiByUserID(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgByUserIDAndOrgID(db)
+	err = PrepareGetByIDAndUserID(db)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func PrepareCreateOrg(db *sql.DB) error {
+func PrepareCreate(db *sql.DB) error {
 	var err error
 	PreparedCreateOrg, err = db.Prepare(`
-                INSERT INTO orgs (id, name)
+                INSERT INTO workspaces (id, name)
                 VALUES (?, ?)
         `)
 	return err
 }
 
-func PrepareGetOrg(db *sql.DB) error {
+func PrepareGet(db *sql.DB) error {
 	var err error
 	PreparedGetOrg, err = db.Prepare(`
                 SELECT id, name
-                FROM orgs
+                FROM workspaces
                 WHERE id = ?
         `)
 	return err
 }
 
-func PrepareUpdateOrg(db *sql.DB) error {
+func PrepareUpdate(db *sql.DB) error {
 	var err error
 	PreparedUpdateOrg, err = db.Prepare(`
-                UPDATE orgs
+                UPDATE workspaces
                 SET name = ?
                 WHERE id = ?
         `)
 	return err
 }
 
-func PrepareDeleteOrg(db *sql.DB) error {
+func PrepareDelete(db *sql.DB) error {
 	var err error
 	PreparedDeleteOrg, err = db.Prepare(`
-                DELETE FROM orgs
+                DELETE FROM workspaces
                 WHERE id = ?
         `)
 	return err
 }
 
-func PrepareGetOrgByName(db *sql.DB) error {
+func PrepareGetByName(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByName, err = db.Prepare(`
                 SELECT id, name
-                FROM orgs
+                FROM workspaces
                 WHERE name = ?
         `)
 	return err
 }
 
-func PrepareGetOrgByUserID(db *sql.DB) error {
+func PrepareGetByUserID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByUserID, err = db.Prepare(`
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ?)
+                SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ?)
         `)
 	return err
 }
 
-func PrepareGetOrgsByUserID(db *sql.DB) error {
+func PrepareGetMultiByUserID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgsByUserID, err = db.Prepare(`
-                 SELECT id, name FROM orgs WHERE id IN (SELECT org_id FROM org_users WHERE user_id = ?);
+                 SELECT id, name FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?);
         `)
 	return err
 }
 
-func PrepareGetOrgByUserIDAndOrgID(db *sql.DB) error {
+func PrepareGetByIDAndUserID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgByUserIDAndOrgID, err = db.Prepare(`
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ? AND org_id = ? )
+                SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? )
         `)
 	return err
 }
 
-func CreateOrg(org *morg.Org) error {
+func Create(org *mworkspace.Workspace) error {
 	_, err := PreparedCreateOrg.Exec(org.ID, org.Name)
 	return err
 }
 
-func GetOrg(id ulid.ULID) (*morg.Org, error) {
-	var org morg.Org
+func Get(id ulid.ULID) (*mworkspace.Workspace, error) {
+	var org mworkspace.Workspace
 	err := PreparedGetOrg.QueryRow(id).Scan(&org.ID, &org.Name)
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func GetOrg(id ulid.ULID) (*morg.Org, error) {
 	return &org, nil
 }
 
-func UpdateOrg(org *morg.Org) error {
+func Update(org *mworkspace.Workspace) error {
 	_, err := PreparedUpdateOrg.Exec(org.Name, org.ID)
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func UpdateOrg(org *morg.Org) error {
 	return nil
 }
 
-func DeleteOrg(id ulid.ULID) error {
+func Delete(id ulid.ULID) error {
 	_, err := PreparedDeleteOrg.Exec(id)
 	if err != nil {
 		return err
@@ -176,8 +176,8 @@ func DeleteOrg(id ulid.ULID) error {
 	return nil
 }
 
-func GetOrgByName(name string) (*morg.Org, error) {
-	var org morg.Org
+func GetByName(name string) (*mworkspace.Workspace, error) {
+	var org mworkspace.Workspace
 	err := PreparedGetOrgByName.QueryRow(name).Scan(&org.ID, &org.Name)
 	if err != nil {
 		return nil, err
@@ -185,8 +185,8 @@ func GetOrgByName(name string) (*morg.Org, error) {
 	return &org, nil
 }
 
-func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
-	var org morg.Org
+func GetByUserID(userID ulid.ULID) (*mworkspace.Workspace, error) {
+	var org mworkspace.Workspace
 
 	err := PreparedGetOrgByUserID.QueryRow(userID).Scan(&org.ID, &org.Name)
 	if err != nil {
@@ -196,31 +196,31 @@ func GetOrgByUserID(userID ulid.ULID) (*morg.Org, error) {
 	return &org, nil
 }
 
-func GetOrgsByUserID(userID ulid.ULID) ([]morg.Org, error) {
+func GetMultiByUserID(userID ulid.ULID) ([]mworkspace.Workspace, error) {
 	rows, err := PreparedGetOrgsByUserID.Query(userID)
 	if err != nil {
 		return nil, err
 	}
-	var orgs []morg.Org
+	var workspaces []mworkspace.Workspace
 	for rows.Next() {
-		var org morg.Org
+		var org mworkspace.Workspace
 		err = rows.Scan(&org.ID, &org.Name)
 		if err != nil {
 			return nil, err
 		}
-		orgs = append(orgs, org)
+		workspaces = append(workspaces, org)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return orgs, nil
+	return workspaces, nil
 }
 
-func GetOrgByUserIDAndOrgID(userID ulid.ULID, orgID ulid.ULID) (*morg.Org, error) {
-	var org morg.Org
-	err := PreparedGetOrgByUserIDAndOrgID.QueryRow(userID, orgID).Scan(&org.ID, &org.Name)
+func GetByIDandUserID(orgID, userID ulid.ULID) (*mworkspace.Workspace, error) {
+	var org mworkspace.Workspace
+	err := PreparedGetOrgByUserIDAndOrgID.QueryRow(orgID, userID).Scan(&org.ID, &org.Name)
 	if err != nil {
 		return nil, err
 	}

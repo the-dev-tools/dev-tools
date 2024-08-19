@@ -1,8 +1,8 @@
-package sorg_test
+package sworkspace_test
 
 import (
-	"dev-tools-backend/pkg/model/morg"
-	"dev-tools-backend/pkg/service/sorg"
+	"dev-tools-backend/pkg/model/mworkspace"
+	"dev-tools-backend/pkg/service/sworkspace"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -15,16 +15,16 @@ func TestCreateOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                INSERT INTO orgs (id, name) VALUES (?, ?)
+                INSERT INTO workspaces (id, name) VALUES (?, ?)
         `
 	ulidID := ulid.Make()
 
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   ulidID,
 		Name: "name",
 	}
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareCreateOrg(db)
+	err = sworkspace.PrepareCreate(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestCreateOrg(t *testing.T) {
 		ExpectExec().
 		WithArgs(org.ID, org.Name).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	err = sorg.CreateOrg(org)
+	err = sworkspace.Create(org)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,17 +44,17 @@ func TestGetOrgBy(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                SELECT id, name FROM orgs WHERE id = ?
+                SELECT id, name FROM workspaces WHERE id = ?
         `
 	ulidID := ulid.Make()
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   ulidID,
 		Name: "name",
 	}
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(org.ID, org.Name)
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareGetOrg(db)
+	err = sworkspace.PrepareGet(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestGetOrgBy(t *testing.T) {
 		ExpectQuery().
 		WithArgs(org.ID).
 		WillReturnRows(rows)
-	_, err = sorg.GetOrg(org.ID)
+	_, err = sworkspace.Get(org.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,15 +74,15 @@ func TestUpdateOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                UPDATE orgs SET name = ? WHERE id = ?
+                UPDATE workspaces SET name = ? WHERE id = ?
         `
 	ulidID := ulid.Make()
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   ulidID,
 		Name: "name",
 	}
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareUpdateOrg(db)
+	err = sworkspace.PrepareUpdate(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestUpdateOrg(t *testing.T) {
 		ExpectExec().
 		WithArgs(org.Name, org.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	err = sorg.UpdateOrg(org)
+	err = sworkspace.Update(org)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,11 +102,11 @@ func TestDeleteOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                DELETE FROM orgs WHERE id = ?
+                DELETE FROM workspaces WHERE id = ?
         `
 	ulidID := ulid.Make()
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareDeleteOrg(db)
+	err = sworkspace.PrepareDelete(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestDeleteOrg(t *testing.T) {
 		ExpectExec().
 		WithArgs(ulidID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	err = sorg.DeleteOrg(ulidID)
+	err = sworkspace.Delete(ulidID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,16 +126,16 @@ func TestGetGetOrgByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                SELECT id, name FROM orgs WHERE name = ?
+                SELECT id, name FROM workspaces WHERE name = ?
         `
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   ulid.Make(),
 		Name: "name",
 	}
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(org.ID, org.Name)
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareGetOrgByName(db)
+	err = sworkspace.PrepareGetByName(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestGetGetOrgByName(t *testing.T) {
 		ExpectQuery().
 		WithArgs(org.Name).
 		WillReturnRows(rows)
-	_, err = sorg.GetOrgByName(org.Name)
+	_, err = sworkspace.GetByName(org.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,17 +155,17 @@ func TestGetOrgByUserID(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ?)
+                SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ?)
         `
 	userID := ulid.Make()
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   ulid.Make(),
 		Name: "name",
 	}
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(org.ID, org.Name)
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareGetOrgByUserID(db)
+	err = sworkspace.PrepareGetByUserID(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestGetOrgByUserID(t *testing.T) {
 		ExpectQuery().
 		WithArgs(userID).
 		WillReturnRows(rows)
-	_, err = sorg.GetOrgByUserID(userID)
+	_, err = sworkspace.GetByUserID(userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,17 +185,17 @@ func TestGetOrgsByUserID(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                 SELECT id, name FROM orgs WHERE id IN (SELECT org_id FROM org_users WHERE user_id = ?);
+                 SELECT id, name FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?);
         `
 	userID := ulid.Make()
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   ulid.Make(),
 		Name: "name",
 	}
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(org.ID, org.Name)
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareGetOrgsByUserID(db)
+	err = sworkspace.PrepareGetMultiByUserID(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestGetOrgsByUserID(t *testing.T) {
 		ExpectQuery().
 		WithArgs(userID).
 		WillReturnRows(rows)
-	_, err = sorg.GetOrgsByUserID(userID)
+	_, err = sworkspace.GetMultiByUserID(userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,26 +215,26 @@ func TestGetOrgByUserIDAndOrgID(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := `
-                SELECT id, name FROM orgs WHERE id = (SELECT org_id FROM org_users WHERE user_id = ? AND org_id = ? )
+                SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? )
         `
 	userID := ulid.Make()
 	orgID := ulid.Make()
-	org := &morg.Org{
+	org := &mworkspace.Workspace{
 		ID:   orgID,
 		Name: "name",
 	}
 	rows := sqlmock.NewRows([]string{"id", "name"}).
 		AddRow(org.ID, org.Name)
 	ExpectPrepare := mock.ExpectPrepare(query)
-	err = sorg.PrepareGetOrgByUserIDAndOrgID(db)
+	err = sworkspace.PrepareGetByIDAndUserID(db)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ExpectPrepare.
 		ExpectQuery().
-		WithArgs(userID, orgID).
+		WithArgs(orgID, userID).
 		WillReturnRows(rows)
-	_, err = sorg.GetOrgByUserIDAndOrgID(userID, orgID)
+	_, err = sworkspace.GetByIDandUserID(orgID, userID)
 	if err != nil {
 		t.Fatal(err)
 	}

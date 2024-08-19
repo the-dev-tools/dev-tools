@@ -1,8 +1,8 @@
-package sorguser
+package sworkspacesusers
 
 import (
 	"database/sql"
-	"dev-tools-backend/pkg/model/morguser"
+	"dev-tools-backend/pkg/model/mworkspaceuser"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -19,14 +19,14 @@ var (
 
 func PrepareTables(db *sql.DB) error {
 	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS org_users (
+                CREATE TABLE IF NOT EXISTS workspaces_users (
                         id TEXT PRIMARY KEY,
 
-                        org_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
+                        workspace_id BLOB NOT NULL,
+                        user_id BLOB NOT NULL,
 
-                        UNIQUE(org_id, user_id),
-                        FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE,
+                        UNIQUE(workspace_id, user_id),
+                        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
                         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
         `)
@@ -37,11 +37,11 @@ func PrepareTables(db *sql.DB) error {
 		        TODO: check if this is needed
 			row := db.QueryRow(`
 		                SELECT * FROM sqlite_master LIMIT 1
-		                WHERE type= 'index' and tbl_name = 'org_users' and name = 'Idx1';
+		                WHERE type= 'index' and tbl_name = 'workspaces_users' and name = 'Idx1';
 		        `)
 			if row.Err() == sql.ErrNoRows {
 				_, err = db.Exec(`
-		                CREATE INDEX Idx1 ON item_api(org_id, user_id);
+		                CREATE INDEX Idx1 ON item_api(workspace_id, user_id);
 		        `)
 			}
 	*/
@@ -82,7 +82,7 @@ func PrepareStatements(db *sql.DB) error {
 func PrepareCreateOrgUser(db *sql.DB) error {
 	var err error
 	PreparedCreateOrgUser, err = db.Prepare(`
-                INSERT INTO org_users (id, org_id, user_id)
+                INSERT INTO workspaces_users (id, workspace_id, user_id)
                 VALUES (?, ?, ?)
         `)
 	if err != nil {
@@ -94,7 +94,7 @@ func PrepareCreateOrgUser(db *sql.DB) error {
 func PrepareGetOrgUser(db *sql.DB) error {
 	var err error
 	PreparedGetOrgUser, err = db.Prepare(`
-                SELECT id, org_id, user_id FROM org_users
+                SELECT id, workspace_id, user_id FROM workspaces_users
                 WHERE id = ?
         `)
 	if err != nil {
@@ -106,8 +106,8 @@ func PrepareGetOrgUser(db *sql.DB) error {
 func PrepareUpdateOrgUser(db *sql.DB) error {
 	var err error
 	PreparedUpdateOrgUser, err = db.Prepare(`
-                UPDATE org_users
-                SET org_id = ?, user_id = ?
+                UPDATE workspaces_users
+                SET workspace_id = ?, user_id = ?
                 WHERE id = ?
         `)
 	if err != nil {
@@ -119,7 +119,7 @@ func PrepareUpdateOrgUser(db *sql.DB) error {
 func PrepareDeleteOrgUser(db *sql.DB) error {
 	var err error
 	PreparedDeleteOrgUser, err = db.Prepare(`
-                DELETE FROM org_users
+                DELETE FROM workspaces_users
                 WHERE id = ?
         `)
 	if err != nil {
@@ -131,7 +131,7 @@ func PrepareDeleteOrgUser(db *sql.DB) error {
 func PrepareGetOrgUserByUserID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgUserByUserID, err = db.Prepare(`
-                SELECT id, org_id, user_id FROM org_users
+                SELECT id, workspace_id, user_id FROM workspaces_users
                 WHERE user_id = ?
         `)
 	if err != nil {
@@ -143,8 +143,8 @@ func PrepareGetOrgUserByUserID(db *sql.DB) error {
 func PrepareGetOrgUserByOrgID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgUserByOrgID, err = db.Prepare(`
-                SELECT id, org_id, user_id FROM org_users
-                WHERE org_id = ?
+                SELECT id, workspace_id, user_id FROM workspaces_users
+                WHERE workspace_id = ?
         `)
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func PrepareGetOrgUserByOrgID(db *sql.DB) error {
 	return nil
 }
 
-func CreateOrgUser(user *morguser.OrgUser) error {
+func CreateOrgUser(user *mworkspaceuser.WorkspaceUser) error {
 	_, err := PreparedCreateOrgUser.Exec(user.ID, user.OrgID, user.UserID)
 	if err != nil {
 		return err
@@ -160,8 +160,8 @@ func CreateOrgUser(user *morguser.OrgUser) error {
 	return nil
 }
 
-func GetOrgUser(id ulid.ULID) (*morguser.OrgUser, error) {
-	var orgUser morguser.OrgUser
+func GetOrgUser(id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+	var orgUser mworkspaceuser.WorkspaceUser
 	err := PreparedGetOrgUser.QueryRow(id).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func GetOrgUser(id ulid.ULID) (*morguser.OrgUser, error) {
 	return &orgUser, nil
 }
 
-func UpdateOrgUser(user *morguser.OrgUser) error {
+func UpdateOrgUser(user *mworkspaceuser.WorkspaceUser) error {
 	_, err := PreparedUpdateOrgUser.Exec(user.OrgID, user.UserID, user.ID)
 	if err != nil {
 		return err
@@ -185,8 +185,8 @@ func DeleteOrgUser(id ulid.ULID) error {
 	return nil
 }
 
-func GetOrgUserByUserID(userID string) (*morguser.OrgUser, error) {
-	var orgUser morguser.OrgUser
+func GetOrgUserByUserID(userID string) (*mworkspaceuser.WorkspaceUser, error) {
+	var orgUser mworkspaceuser.WorkspaceUser
 	err := PreparedGetOrgUserByUserID.QueryRow(userID).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {
 		return nil, err
@@ -194,8 +194,8 @@ func GetOrgUserByUserID(userID string) (*morguser.OrgUser, error) {
 	return &orgUser, nil
 }
 
-func GetOrgUserByOrgID(orgID string) (*morguser.OrgUser, error) {
-	var orgUser morguser.OrgUser
+func GetOrgUserByOrgID(orgID string) (*mworkspaceuser.WorkspaceUser, error) {
+	var orgUser mworkspaceuser.WorkspaceUser
 	err := PreparedGetOrgUserByOrgID.QueryRow(orgID).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {
 		return nil, err
