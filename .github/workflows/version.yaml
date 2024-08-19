@@ -69,6 +69,6 @@ jobs:
                 ...context.repo,
                 workflow_id,
                 ref,
-                inputs: { package: pkg },
+                inputs: { package: pkg.name },
               });
             });
