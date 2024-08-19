@@ -41,7 +41,9 @@ service CollectionService {
 
 // Collection Operations Request and Response
 // // List
-message ListCollectionsRequest {}
+message ListCollectionsRequest {
+    string workspace_id = 1;
+}
 
 message ListCollectionsResponse {
   repeated CollectionMeta meta_collections = 1;
