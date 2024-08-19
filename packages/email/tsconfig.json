@@ -1,0 +1,5 @@
+{
+  "extends": "@the-dev-tools/config-typescript/tsconfig.react",
+  "include": ["."],
+  "exclude": ["node_modules", "dist"]
+}
