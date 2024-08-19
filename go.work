@@ -1,8 +1,9 @@
-go 1.23
+go 1.23.0
 
 use (
 	./dev-tools-backend
 	./dev-tools-cli
+	./dev-tools-mail
 	./dev-tools-masternode
 	./dev-tools-nodes
 	./dev-tools-platform
