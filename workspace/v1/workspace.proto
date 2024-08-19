@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package workspace.v1;
-option go_package = "devtools-services/gen/workspace/v1;workspacev1";
+option go_package = "dev-tools-services/gen/workspace/v1;workspacev1";
 
 
 service WorkspaceService {

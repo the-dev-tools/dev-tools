@@ -2,7 +2,7 @@ syntax = "proto3";
 
 
 package apiresult.v1;
-option go_package = "devtools-services/gen/apiresult/v1;apiresultv1";
+option go_package = "dev-tools-services/gen/apiresult/v1;apiresultv1";
 
 service ApiResultService {
   rpc Get (GetRequest) returns (GetResponse);

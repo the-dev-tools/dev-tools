@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package nodestatus.v1;
-option go_package = "devtools-services/gen/nodestatus/v1;nodestatusv1";
+option go_package = "dev-tools-services/gen/nodestatus/v1;nodestatusv1";
 import "google/protobuf/any.proto";
 import "google/protobuf/wrappers.proto";
 
