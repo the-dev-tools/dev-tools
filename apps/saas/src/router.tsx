@@ -3,14 +3,15 @@ import { Schema } from '@effect/schema';
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 import { Effect, Option, pipe } from 'effect';
 
-import * as Auth from '@the-dev-tools/api/auth';
-import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+import { getUser } from '@the-dev-tools/api/auth';
+import { getCollection } from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+import { getWorkspace } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 
-import { ApiCallEditPage, CollectionEditPage, CollectionListPage } from './collection';
-import { DashboardIndexPage, DashboardLayout } from './dashboard';
+import { ApiCallPage, CollectionPage, CollectionsPage } from './collection';
+import { DashboardLayout } from './dashboard';
 import { LoginPage } from './login';
-import { OrganizationsPage } from './organization';
 import { queryClient, Runtime, transport } from './runtime';
+import { WorkspaceLayout, WorkspacesPage } from './workspace';
 
 const root = createRootRoute();
 
@@ -25,11 +26,11 @@ const login = createRoute({
   component: LoginPage,
 });
 
-const user = createRoute({
+const authorized = createRoute({
   getParentRoute: () => root,
-  id: 'user',
+  id: 'authorized',
   beforeLoad: ({ location }) =>
-    pipe(Effect.option(Auth.getUser), Runtime.runPromise, async (_) =>
+    pipe(Effect.option(getUser), Runtime.runPromise, async (_) =>
       Option.getOrThrowWith(await _, () =>
         redirect({ to: '/login', search: new RedirectSearch({ redirect: location.href }) }),
       ),
@@ -37,69 +38,55 @@ const user = createRoute({
   pendingComponent: () => 'Loading user...',
 });
 
-const organizations = createRoute({
-  getParentRoute: () => user,
-  path: '/organizations',
-  validateSearch: Schema.decodeSync(RedirectSearch),
-  component: OrganizationsPage,
-});
-
-const organization = createRoute({
-  getParentRoute: () => user,
-  id: 'org',
-  beforeLoad: ({ location }) =>
-    pipe(
-      Auth.getOrganizationId,
-      Effect.map((_) => ({ organizationId: _ })),
-      Effect.option,
-      Runtime.runPromise,
-      async (_) =>
-        Option.getOrThrowWith(await _, () =>
-          redirect({ to: '/organizations', search: new RedirectSearch({ redirect: location.href }) }),
-        ),
-    ),
-  pendingComponent: () => 'Loading organization...',
-});
-
 const dashboard = createRoute({
-  getParentRoute: () => organization,
+  getParentRoute: () => authorized,
   id: 'dashboard',
   component: DashboardLayout,
 });
 
-const dashboardIndex = createRoute({
+const workspaces = createRoute({
   getParentRoute: () => dashboard,
   path: '/',
-  component: DashboardIndexPage,
+  component: WorkspacesPage,
 });
 
-const collectionList = createRoute({
-  getParentRoute: () => dashboard,
-  path: '/collections',
-  component: CollectionListPage,
-});
-
-const collectionEdit = createRoute({
-  getParentRoute: () => dashboard,
-  path: '/collection/$id',
-  component: CollectionEditPage,
-  loader: async ({ params: { id } }) => {
-    const options = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
-    await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/collections', throw: true }));
+const workspace = createRoute({
+  getParentRoute: () => authorized,
+  path: '/workspace/$workspaceId',
+  component: WorkspaceLayout,
+  loader: async ({ params: { workspaceId } }) => {
+    const options = createQueryOptions(getWorkspace, { id: workspaceId }, { transport });
+    await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/', throw: true }));
   },
 });
 
-const apiCallEdit = createRoute({
-  getParentRoute: () => dashboard,
-  path: '/api-call/$id',
-  component: ApiCallEditPage,
+const collections = createRoute({
+  getParentRoute: () => workspace,
+  path: '/',
+  component: CollectionsPage,
+});
+
+const collection = createRoute({
+  getParentRoute: () => workspace,
+  path: '/collection/$collectionId',
+  component: CollectionPage,
+  loader: async ({ params: { collectionId } }) => {
+    const options = createQueryOptions(getCollection, { id: collectionId }, { transport });
+    await queryClient.ensureQueryData(options).catch(() => redirect({ to: '../../', throw: true }));
+  },
+});
+
+const apiCall = createRoute({
+  getParentRoute: () => workspace,
+  path: '/api-call/$apiCallId',
+  component: ApiCallPage,
 });
 
 const routeTree = root.addChildren([
   login,
-  user.addChildren([
-    organizations,
-    organization.addChildren([dashboard.addChildren([dashboardIndex, collectionList, collectionEdit, apiCallEdit])]),
+  authorized.addChildren([
+    dashboard.addChildren([workspaces]),
+    workspace.addChildren([collections, collection, apiCall]),
   ]),
 ]);
 

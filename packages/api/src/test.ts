@@ -17,13 +17,13 @@ import {
   RunApiCallRequest,
   RunApiCallResponse,
 } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
-import { OrganizationService } from '@the-dev-tools/protobuf/organization/v1/organization_connect';
+import { WorkspaceService } from '@the-dev-tools/protobuf/workspace/v1/workspace_connect';
 import {
-  GetOrganizationRequest,
-  GetOrganizationResponse,
-  GetOrganizationsResponse,
-  Organization,
-} from '@the-dev-tools/protobuf/organization/v1/organization_pb';
+  GetWorkspaceRequest,
+  GetWorkspaceResponse,
+  GetWorkspacesResponse,
+  Workspace,
+} from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
@@ -85,9 +85,9 @@ const ApiTransportTest = Layer.effect(
           runApiCall: flow(runApiCall, Runtime.runPromise(runtime)),
         });
 
-        router.service(OrganizationService, {
-          getOrganizations: flow(getOrganizations, Runtime.runPromise(runtime)),
-          getOrganization: flow(getOrganization, Runtime.runPromise(runtime)),
+        router.service(WorkspaceService, {
+          getWorkspaces: flow(getWorkspaces, Runtime.runPromise(runtime)),
+          getWorkspace: flow(getWorkspace, Runtime.runPromise(runtime)),
         });
       },
       {
@@ -235,25 +235,25 @@ const folder = (collectionId: string, parentId: string | undefined, depth: numbe
     });
   });
 
-const organization = (id?: string) =>
+const workspace = (id?: string) =>
   Effect.gen(function* () {
     const faker = yield* Faker;
-    return new Organization({
-      organizationId: id ?? faker.string.uuid(),
+    return new Workspace({
+      id: id ?? faker.string.uuid(),
       name: faker.word.sample(),
     });
   });
 
-const getOrganizations = () =>
+const getWorkspaces = () =>
   Effect.gen(function* () {
-    return new GetOrganizationsResponse({
-      organizations: [yield* organization()],
+    return new GetWorkspacesResponse({
+      workspaces: [yield* workspace()],
     });
   });
 
-const getOrganization = (request: GetOrganizationRequest) =>
+const getWorkspace = (request: GetWorkspaceRequest) =>
   Effect.gen(function* () {
-    return new GetOrganizationResponse({
-      organization: yield* organization(request.organizationId),
+    return new GetWorkspaceResponse({
+      workspace: yield* workspace(request.id),
     });
   });

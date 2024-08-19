@@ -11,7 +11,7 @@ import { Runtime } from './runtime';
 
 const route = getRouteApi('/login');
 
-class LoginFormData extends Schema.Class<LoginFormData>('LoginFormData')({
+class LoginForm extends Schema.Class<LoginForm>('LoginForm')({
   email: Schema.String,
 }) {}
 
@@ -27,16 +27,12 @@ export const LoginPage = () => {
           const { email } = yield* pipe(
             new FormData(event.currentTarget),
             Object.fromEntries,
-            Schema.decode(LoginFormData),
+            Schema.decode(LoginForm),
           );
 
-          const loginResult = yield* Auth.login({ email }).pipe(
-            Effect.catchTag('NoOrganizationSelectedError', Effect.succeed),
-          );
+          yield* Auth.login({ email });
 
-          if (loginResult?._tag === 'NoOrganizationSelectedError') {
-            yield* Effect.tryPromise(() => router.navigate({ to: '/organizations', search: { redirect } }));
-          } else if (redirect) {
+          if (redirect) {
             router.history.push(redirect);
           } else {
             yield* Effect.tryPromise(() => router.navigate({ to: '/' }));

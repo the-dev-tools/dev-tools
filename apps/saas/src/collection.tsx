@@ -31,10 +31,15 @@ import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collecti
 
 import { Runtime } from './runtime';
 
-export const CollectionListPage = () => {
+const workspaceRoute = getRouteApi('/authorized/workspace/$workspaceId');
+
+export const CollectionsPage = () => {
   const router = useRouter();
+
+  const { workspaceId } = workspaceRoute.useParams();
+
   const createCollectionMutation = useMutation(CollectionQuery.createCollection);
-  const collectionsQuery = useConnectQuery(CollectionQuery.listCollections);
+  const collectionsQuery = useConnectQuery(CollectionQuery.listCollections, { workspaceId });
 
   if (!collectionsQuery.isSuccess) return null;
   const collections = collectionsQuery.data.metaCollections;
@@ -47,7 +52,10 @@ export const CollectionListPage = () => {
         <button
           onClick={async () => {
             const response = await createCollectionMutation.mutateAsync({ name: 'New collection' });
-            await router.navigate({ to: '/collection/$id', params: { id: response.id } });
+            await router.navigate({
+              to: '/workspace/$workspaceId/collection/$collectionId',
+              params: { workspaceId, collectionId: response.id },
+            });
           }}
         >
           Create collection
@@ -55,7 +63,11 @@ export const CollectionListPage = () => {
       </div>
       <div className='mt-4 flex flex-col'>
         {collections.map((_) => (
-          <Link key={_.id} to='/collection/$id' params={{ id: _.id }}>
+          <Link
+            key={_.id}
+            to='/workspace/$workspaceId/collection/$collectionId'
+            params={{ workspaceId, collectionId: _.id }}
+          >
             {_.name}
           </Link>
         ))}
@@ -90,14 +102,14 @@ const ImportPostman = () => {
   );
 };
 
-const collectionEditRoute = getRouteApi('/user/org/dashboard/collection/$id');
+const collectionRoute = getRouteApi('/authorized/workspace/$workspaceId/collection/$collectionId');
 
-class CollectionUpdateForm extends Schema.Class<CollectionUpdateForm>('CollectionUpdateForm')({
+class CollectionForm extends Schema.Class<CollectionForm>('CollectionForm')({
   name: Schema.String,
 }) {}
 
-export const CollectionEditPage = () => {
-  const { id } = collectionEditRoute.useParams();
+export const CollectionPage = () => {
+  const { workspaceId, collectionId } = collectionRoute.useParams();
 
   const router = useRouter();
   const transport = useTransport();
@@ -107,7 +119,7 @@ export const CollectionEditPage = () => {
   const updateMutation = useMutation(CollectionQuery.updateCollection);
   const createFolderMutation = useMutation(CollectionQuery.createFolder);
 
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id }, { transport });
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
 
   if (!query.isSuccess) return null;
@@ -126,10 +138,10 @@ export const CollectionEditPage = () => {
             const { name } = yield* pipe(
               new FormData(event.currentTarget),
               Object.fromEntries,
-              Schema.decode(CollectionUpdateForm),
+              Schema.decode(CollectionForm),
             );
 
-            yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id, name }));
+            yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: collectionId, name }));
 
             queryClient.setQueriesData(
               queryOptions,
@@ -153,8 +165,8 @@ export const CollectionEditPage = () => {
 
           <Button
             onPress={async () => {
-              await deleteMutation.mutateAsync({ id });
-              await router.navigate({ to: '/collections' });
+              await deleteMutation.mutateAsync({ id: collectionId });
+              await router.navigate({ to: '/workspace/$workspaceId', params: { workspaceId } });
               await queryClient.invalidateQueries(queryOptions);
             }}
           >
@@ -163,7 +175,7 @@ export const CollectionEditPage = () => {
 
           <Button
             onPress={async () => {
-              await createFolderMutation.mutateAsync({ collectionId: id, name: 'New folder' });
+              await createFolderMutation.mutateAsync({ collectionId, name: 'New folder' });
               await queryClient.invalidateQueries(queryOptions);
             }}
           >
@@ -193,7 +205,7 @@ const ItemRow = ({ item }: ItemRowProps) =>
     Match.orElse(() => null),
   );
 
-class FolderUpdateForm extends Schema.Class<FolderUpdateForm>('FolderUpdateForm')({
+class FolderForm extends Schema.Class<FolderForm>('FolderForm')({
   name: Schema.String,
 }) {}
 
@@ -208,7 +220,7 @@ const FolderRow = ({ folder }: FolderRowProps) => {
   const deleteMutation = useMutation(CollectionQuery.deleteFolder);
   const updateMutation = useMutation(CollectionQuery.updateFolder);
 
-  const { id: collectionId } = collectionEditRoute.useParams();
+  const { collectionId } = collectionRoute.useParams();
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
 
   const [open, setOpen] = useState(false);
@@ -225,7 +237,7 @@ const FolderRow = ({ folder }: FolderRowProps) => {
             const { name } = yield* pipe(
               new FormData(event.currentTarget),
               Object.fromEntries,
-              Schema.decode(FolderUpdateForm),
+              Schema.decode(FolderForm),
             );
 
             yield* Effect.tryPromise(() =>
@@ -284,7 +296,7 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
   const runNodeMutation = useMutation(CollectionQuery.runApiCall);
   const deleteMutation = useMutation(CollectionQuery.deleteApiCall);
 
-  const { id: collectionId } = collectionEditRoute.useParams();
+  const { workspaceId, collectionId } = collectionRoute.useParams();
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
 
   return (
@@ -300,7 +312,7 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
       >
         Delete
       </Button>
-      <Link to='/api-call/$id' params={{ id: apiCall.meta!.id }}>
+      <Link to='/workspace/$workspaceId/api-call/$apiCallId' params={{ workspaceId, apiCallId: apiCall.meta!.id }}>
         Edit
       </Link>
       <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta!.id })}>Run</Button>
@@ -308,21 +320,21 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
   );
 };
 
-const apiCallEditRoute = getRouteApi('/user/org/dashboard/api-call/$id');
+const apiCallRoute = getRouteApi('/authorized/workspace/$workspaceId/api-call/$apiCallId');
 
-class ApiCallEditForm extends Schema.Class<ApiCallEditForm>('ApiCallEditForm')({
+class ApiCallForm extends Schema.Class<ApiCallForm>('ApiCallForm')({
   name: Schema.String,
   method: Schema.Literal('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'),
   url: Schema.String,
   body: Schema.String,
 }) {}
 
-export const ApiCallEditPage = () => {
-  const { id } = apiCallEditRoute.useParams();
+export const ApiCallPage = () => {
+  const { apiCallId } = apiCallRoute.useParams();
 
   const updateMutation = useMutation(CollectionQuery.updateApiCall);
 
-  const query = useConnectQuery(CollectionQuery.getApiCall, { id });
+  const query = useConnectQuery(CollectionQuery.getApiCall, { id: apiCallId });
   if (!query.isSuccess) return null;
   const { data } = query;
 
@@ -342,7 +354,7 @@ export const ApiCallEditPage = () => {
             const { name, method, url, body } = yield* pipe(
               new FormData(event.currentTarget),
               Object.fromEntries,
-              Schema.decode(ApiCallEditForm),
+              Schema.decode(ApiCallForm),
             );
 
             const newApiCall = Struct.evolve(data.apiCall!, {
@@ -371,7 +383,7 @@ export const ApiCallEditPage = () => {
           </Button>
           <Popover className='bg-white'>
             <ListBox>
-              {Array.map(ApiCallEditForm.fields.method.literals, (_) => (
+              {Array.map(ApiCallForm.fields.method.literals, (_) => (
                 <ListBoxItem key={_} id={_} className='cursor-pointer'>
                   {_}
                 </ListBoxItem>

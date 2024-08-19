@@ -1,21 +1,18 @@
 import { Transport } from '@connectrpc/connect';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { Schema } from '@effect/schema';
-import { Context, Data, DateTime, Effect, Option, pipe } from 'effect';
+import { Context, DateTime, Effect, pipe } from 'effect';
 import { decodeJwt } from 'jose';
 import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 
 import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
-import { OrganizationService } from '@the-dev-tools/protobuf/organization/v1/organization_connect';
 
 import { accessTokenKey, AccessTokenPayload, JWTPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
-import { AnyFnEffect, ApiTransport, Request } from './transport';
+import { AnyFnEffect, Request } from './transport';
 
 export class AuthTransport extends Context.Tag('AuthTransport')<AuthTransport, Transport>() {}
 
 export class MagicClient extends Context.Tag('MagicClient')<MagicClient, Magic>() {}
-
-export class NoOrganizationSelectedError extends Data.TaggedError('NoOrganizationSelectedError') {}
 
 export const login = (configuration: LoginWithMagicLinkConfiguration) =>
   Effect.gen(function* () {
@@ -47,22 +44,6 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
     const store = yield* KeyValueStore;
     yield* store.forSchema(Schema.String).set(accessTokenKey, accessToken);
     yield* store.forSchema(Schema.String).set(refreshTokenKey, refreshToken);
-
-    // Select first organization if user has exactly one
-    const transport = yield* ApiTransport;
-    const organizationsResponse = yield* Effect.tryPromise((signal) =>
-      transport.unary(
-        OrganizationService,
-        OrganizationService.methods.getOrganizations,
-        signal,
-        undefined,
-        undefined,
-        {},
-      ),
-    );
-    const { organizations } = organizationsResponse.message;
-    if (organizations.length !== 1) return yield* new NoOrganizationSelectedError();
-    yield* setOrganizationId(organizations[0]!.organizationId);
   });
 
 export const logout = Effect.gen(function* () {
@@ -71,24 +52,7 @@ export const logout = Effect.gen(function* () {
   const store = yield* KeyValueStore;
   yield* store.remove(accessTokenKey);
   yield* store.remove(refreshTokenKey);
-  yield* store.remove(organizationIdKey);
 });
-
-const organizationIdKey = 'OrganizationId';
-
-export const getOrganizationId = Effect.gen(function* () {
-  const store = yield* KeyValueStore;
-  return yield* pipe(
-    store.forSchema(Schema.String).get(organizationIdKey),
-    Effect.flatMap(Effect.orElseFail(() => new NoOrganizationSelectedError())),
-  );
-});
-
-export const setOrganizationId = (id: string) =>
-  Effect.gen(function* () {
-    const store = yield* KeyValueStore;
-    yield* store.forSchema(Schema.String).set(organizationIdKey, id);
-  });
 
 const isTokenExpired = (token: string) =>
   pipe(
@@ -131,15 +95,7 @@ export const authorizationInterceptor =
   <E, R>(next: AnyFnEffect<E, R>) =>
   (request: Request) =>
     Effect.gen(function* () {
-      const store = yield* KeyValueStore;
-
       request.header.set('Authorization', `Bearer ${yield* accessToken}`);
-
-      const organizationId = yield* store.forSchema(Schema.String).get(organizationIdKey);
-      if (Option.isSome(organizationId)) {
-        request.header.set('organization_id', organizationId.value);
-      }
-
       return yield* next(request);
     });
 
