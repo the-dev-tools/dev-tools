@@ -51,7 +51,7 @@ export const CollectionsPage = () => {
         <ImportPostman />
         <button
           onClick={async () => {
-            const response = await createCollectionMutation.mutateAsync({ name: 'New collection' });
+            const response = await createCollectionMutation.mutateAsync({ workspaceId, name: 'New collection' });
             await router.navigate({
               to: '/workspace/$workspaceId/collection/$collectionId',
               params: { workspaceId, collectionId: response.id },
@@ -77,6 +77,8 @@ export const CollectionsPage = () => {
 };
 
 const ImportPostman = () => {
+  const { workspaceId } = workspaceRoute.useParams();
+
   const queryClient = useQueryClient();
   const createMutation = useMutation(CollectionQuery.importPostman);
 
@@ -88,6 +90,7 @@ const ImportPostman = () => {
           const file = _?.item(0);
           if (!file) return;
           await createMutation.mutateAsync({
+            workspaceId,
             name: file.name,
             data: new Uint8Array(await file.arrayBuffer()),
           });
