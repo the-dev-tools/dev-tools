@@ -18,12 +18,18 @@
             runtimeInputs = with pkgs; [dotenvx go];
             text = ''dotenvx run --convention=nextjs -- go "$@"'';
           };
+          pnpmWrapper = pkgs.writeShellApplication {
+            name = "pnpm";
+            runtimeInputs = with pkgs; [dotenvx pnpm_9];
+            text = ''dotenvx run --convention=nextjs -- pnpm "$@"'';
+          };
         in
           pkgs.mkShell {
             NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
             nativeBuildInputs =
               [
                 goWrapper
+                pnpmWrapper
               ]
               ++ (with pkgs; [
                 alejandra

@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@the-dev-tools/email':
+        specifier: ^0.1.0
+        version: 0.1.0
+
+packages:
+
+  '@the-dev-tools/email@0.1.0':
+    resolution: {integrity: sha512-Ryn5kgHkiakQqpx1jPMAuiANYaTJrvrwijx7n7hulc41CGCgV6XYT9LJO1CVDAu7NeghDXQA9+tQPHEi1/gf9A==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/email/0.1.0/69ecf63c36d67e66347dda8a30f5636cbaf54357}
+
+snapshots:
+
+  '@the-dev-tools/email@0.1.0': {}

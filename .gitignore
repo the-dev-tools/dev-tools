@@ -2,3 +2,4 @@
 .env.*.local
 .env.keys
 .env.local
+node_modules
