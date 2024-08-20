@@ -1,2 +1,4 @@
-.env
+.direnv
+.env.*.local
 .env.keys
+.env.local
