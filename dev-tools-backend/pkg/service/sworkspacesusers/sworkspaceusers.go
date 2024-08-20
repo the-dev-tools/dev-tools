@@ -52,34 +52,34 @@ func PrepareTables(db *sql.DB) error {
 func PrepareStatements(db *sql.DB) error {
 	var err error
 	// Base Statements
-	err = PrepareCreateOrgUser(db)
+	err = PrepareCreateWorkspaceUser(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgUser(db)
+	err = PrepareGetWorkspaceUser(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareUpdateOrgUser(db)
+	err = PrepareUpdateWorkspaceUser(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareDeleteOrgUser(db)
+	err = PrepareDeleteWorkspaceUser(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgUserByUserID(db)
+	err = PrepareGetWorkspaceUserByUserID(db)
 	if err != nil {
 		return err
 	}
-	err = PrepareGetOrgUserByOrgID(db)
+	err = PrepareGetWorkspaceUserByOrgID(db)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func PrepareCreateOrgUser(db *sql.DB) error {
+func PrepareCreateWorkspaceUser(db *sql.DB) error {
 	var err error
 	PreparedCreateOrgUser, err = db.Prepare(`
                 INSERT INTO workspaces_users (id, workspace_id, user_id)
@@ -91,7 +91,7 @@ func PrepareCreateOrgUser(db *sql.DB) error {
 	return nil
 }
 
-func PrepareGetOrgUser(db *sql.DB) error {
+func PrepareGetWorkspaceUser(db *sql.DB) error {
 	var err error
 	PreparedGetOrgUser, err = db.Prepare(`
                 SELECT id, workspace_id, user_id FROM workspaces_users
@@ -103,7 +103,7 @@ func PrepareGetOrgUser(db *sql.DB) error {
 	return nil
 }
 
-func PrepareUpdateOrgUser(db *sql.DB) error {
+func PrepareUpdateWorkspaceUser(db *sql.DB) error {
 	var err error
 	PreparedUpdateOrgUser, err = db.Prepare(`
                 UPDATE workspaces_users
@@ -116,7 +116,7 @@ func PrepareUpdateOrgUser(db *sql.DB) error {
 	return nil
 }
 
-func PrepareDeleteOrgUser(db *sql.DB) error {
+func PrepareDeleteWorkspaceUser(db *sql.DB) error {
 	var err error
 	PreparedDeleteOrgUser, err = db.Prepare(`
                 DELETE FROM workspaces_users
@@ -128,7 +128,7 @@ func PrepareDeleteOrgUser(db *sql.DB) error {
 	return nil
 }
 
-func PrepareGetOrgUserByUserID(db *sql.DB) error {
+func PrepareGetWorkspaceUserByUserID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgUserByUserID, err = db.Prepare(`
                 SELECT id, workspace_id, user_id FROM workspaces_users
@@ -140,7 +140,7 @@ func PrepareGetOrgUserByUserID(db *sql.DB) error {
 	return nil
 }
 
-func PrepareGetOrgUserByOrgID(db *sql.DB) error {
+func PrepareGetWorkspaceUserByOrgID(db *sql.DB) error {
 	var err error
 	PreparedGetOrgUserByOrgID, err = db.Prepare(`
                 SELECT id, workspace_id, user_id FROM workspaces_users
@@ -152,7 +152,7 @@ func PrepareGetOrgUserByOrgID(db *sql.DB) error {
 	return nil
 }
 
-func CreateOrgUser(user *mworkspaceuser.WorkspaceUser) error {
+func CreateWorkspaceUser(user *mworkspaceuser.WorkspaceUser) error {
 	_, err := PreparedCreateOrgUser.Exec(user.ID, user.OrgID, user.UserID)
 	if err != nil {
 		return err
@@ -160,7 +160,7 @@ func CreateOrgUser(user *mworkspaceuser.WorkspaceUser) error {
 	return nil
 }
 
-func GetOrgUser(id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+func GetWorkspaceUser(id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
 	var orgUser mworkspaceuser.WorkspaceUser
 	err := PreparedGetOrgUser.QueryRow(id).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {
@@ -169,7 +169,7 @@ func GetOrgUser(id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
 	return &orgUser, nil
 }
 
-func UpdateOrgUser(user *mworkspaceuser.WorkspaceUser) error {
+func UpdateWorkspaceUser(user *mworkspaceuser.WorkspaceUser) error {
 	_, err := PreparedUpdateOrgUser.Exec(user.OrgID, user.UserID, user.ID)
 	if err != nil {
 		return err
@@ -177,7 +177,7 @@ func UpdateOrgUser(user *mworkspaceuser.WorkspaceUser) error {
 	return nil
 }
 
-func DeleteOrgUser(id ulid.ULID) error {
+func DeleteWorkspaceUser(id ulid.ULID) error {
 	_, err := PreparedDeleteOrgUser.Exec(id)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func DeleteOrgUser(id ulid.ULID) error {
 	return nil
 }
 
-func GetOrgUserByUserID(userID string) (*mworkspaceuser.WorkspaceUser, error) {
+func GetWorkspaceUserByUserID(userID string) (*mworkspaceuser.WorkspaceUser, error) {
 	var orgUser mworkspaceuser.WorkspaceUser
 	err := PreparedGetOrgUserByUserID.QueryRow(userID).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {
@@ -194,7 +194,7 @@ func GetOrgUserByUserID(userID string) (*mworkspaceuser.WorkspaceUser, error) {
 	return &orgUser, nil
 }
 
-func GetOrgUserByOrgID(orgID string) (*mworkspaceuser.WorkspaceUser, error) {
+func GetWorkspaceUserByWorkspaceID(orgID string) (*mworkspaceuser.WorkspaceUser, error) {
 	var orgUser mworkspaceuser.WorkspaceUser
 	err := PreparedGetOrgUserByOrgID.QueryRow(orgID).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
 	if err != nil {

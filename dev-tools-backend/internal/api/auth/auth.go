@@ -94,7 +94,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 				UserID: user.ID,
 			}
 
-			err = sworkspacesusers.CreateOrgUser(orgUser)
+			err = sworkspacesusers.CreateWorkspaceUser(orgUser)
 			if err != nil {
 				return nil, err
 			}

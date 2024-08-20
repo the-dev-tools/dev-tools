@@ -100,7 +100,7 @@ func (c *WorkspaceService) CreateWorkspace(ctx context.Context, req *connect.Req
 		UserID: userID,
 	}
 
-	err = sworkspacesusers.CreateOrgUser(orgUser)
+	err = sworkspacesusers.CreateWorkspaceUser(orgUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

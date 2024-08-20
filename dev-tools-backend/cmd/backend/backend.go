@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/auth"
@@ -8,7 +9,6 @@ import (
 	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/db/turso"
-	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"dev-tools-backend/pkg/service/scollection/sitemfolder"
 	"dev-tools-backend/pkg/service/sresultapi"
@@ -27,6 +27,9 @@ import (
 func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
 
 	// Environment variables
 	port := os.Getenv("PORT")
@@ -95,7 +98,7 @@ func main() {
 		services = append(services, *flowService)
 	*/
 
-	collectionService, err := collection.CreateService(db, hmacSecretBytes)
+	collectionService, err := collection.CreateService(ctx, db, hmacSecretBytes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,16 +120,12 @@ func main() {
 
 	// Wait for signal
 	<-sc
+	cancel()
 }
 
 func PrepareTables(db *sql.DB) error {
 	// Tables
-	err := scollection.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sitemapi.PrepareTables(db)
+	err := sitemapi.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -155,12 +154,7 @@ func PrepareTables(db *sql.DB) error {
 
 func PrepareStatements(db *sql.DB) error {
 	// Prepared statements
-	err := scollection.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sitemapi.PrepareStatements(db)
+	err := sitemapi.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}

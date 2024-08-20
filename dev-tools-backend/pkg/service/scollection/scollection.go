@@ -1,255 +1,91 @@
 package scollection
 
 import (
+	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/mcollection"
+	"dev-tools-db/collectionsqlc/collectionsdb"
+	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
 
-var (
-	// List
-	PreparedListCollections *sql.Stmt = nil
-
-	// Base Statements
-	PreparedCreateCollection *sql.Stmt = nil
-	PreparedGetCollection    *sql.Stmt = nil
-	PreparedUpdateCollection *sql.Stmt = nil
-	PreparedDeleteCollection *sql.Stmt = nil
-
-	PreparedDeleteApisWithCollectionID *sql.Stmt = nil
-
-	PreparedCheckOwner *sql.Stmt = nil
-)
-
-func PrepareTables(db *sql.DB) error {
-	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS collections (
-                        id TEXT PRIMARY KEY,
-                        owner_id TEXT,
-                        name TEXT
-                )
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
+type CollectionService struct {
+	DB            *sql.DB
+	collectionsdb *collectionsdb.Queries
 }
 
-func PrepareStatements(db *sql.DB) error {
-	var err error
-	// Base Statements
-	err = PrepareCreateCollection(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetCollection(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareUpdateCollection(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareDeleteCollection(db)
-	if err != nil {
-		return err
-	}
-	// List
-	err = PrepareListCollections(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareDeleteApisWithCollectionID(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareCheckOwner(db)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCreateCollection(db *sql.DB) error {
-	var err error
-	PreparedCreateCollection, err = db.Prepare(`
-                INSERT INTO collections (id, owner_id, name)
-                VALUES (?, ?, ?)
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetCollection(db *sql.DB) error {
-	var err error
-	PreparedGetCollection, err = db.Prepare(`
-                SELECT id, owner_id, name
-                FROM collections
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareUpdateCollection(db *sql.DB) error {
-	var err error
-	PreparedUpdateCollection, err = db.Prepare(`
-                UPDATE collections
-                SET name = ?, owner_id = ?
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteCollection(db *sql.DB) error {
-	var err error
-	PreparedDeleteCollection, err = db.Prepare(`
-                DELETE FROM collections
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareListCollections(db *sql.DB) error {
-	var err error
-	PreparedListCollections, err = db.Prepare(`
-                SELECT id, owner_id, name
-                FROM collections
-                WHERE owner_id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteApisWithCollectionID(db *sql.DB) error {
-	var err error
-	PreparedDeleteApisWithCollectionID, err = db.Prepare(`
-                DELETE FROM item_api
-                WHERE collection_id = ?, owner_id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCheckOwner(db *sql.DB) error {
-	var err error
-	PreparedCheckOwner, err = db.Prepare(`
-                SELECT owner_id
-                FROM collections
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func CloseStatements() {
-	if PreparedCreateCollection != nil {
-		PreparedCreateCollection.Close()
-	}
-	if PreparedGetCollection != nil {
-		PreparedGetCollection.Close()
-	}
-	if PreparedUpdateCollection != nil {
-		PreparedUpdateCollection.Close()
-	}
-	if PreparedDeleteCollection != nil {
-		PreparedDeleteCollection.Close()
-	}
-	if PreparedListCollections != nil {
-		PreparedListCollections.Close()
-	}
-	if PreparedDeleteApisWithCollectionID != nil {
-		PreparedDeleteApisWithCollectionID.Close()
-	}
-}
-
-func ListCollections(ownerID ulid.ULID) ([]mcollection.Collection, error) {
-	rows, err := PreparedListCollections.Query(ownerID)
+func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
+	queries, err := collectionsdb.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	service := CollectionService{DB: db, collectionsdb: queries}
+	return &service, nil
+}
+
+func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.ULID) ([]mcollection.Collection, error) {
+	fmt.Println(ownerID, ctx)
+	rows, err := cs.collectionsdb.GetByOwnerID(ctx, ownerID.Bytes())
+	if err != nil {
+		return nil, err
+	}
 	var collections []mcollection.Collection
-	for rows.Next() {
-		var c mcollection.Collection
-		err := rows.Scan(&c.ID, &c.OwnerID, &c.Name)
-		if err != nil {
-			return nil, err
-		}
-		collections = append(collections, c)
+	for _, row := range rows {
+		collections = append(collections, mcollection.Collection{
+			ID:      ulid.ULID(row.ID),
+			OwnerID: ulid.ULID(row.OwnerID),
+			Name:    row.Name,
+		})
 	}
 	return collections, nil
 }
 
-func CreateCollection(collection *mcollection.Collection) error {
-	_, err := PreparedCreateCollection.Exec(collection.ID, collection.OwnerID, collection.Name)
-	if err != nil {
-		return err
-	}
-	return nil
+func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
+	_, err := cs.collectionsdb.Create(ctx, collectionsdb.CreateParams{
+		ID:      collection.ID.Bytes(),
+		OwnerID: collection.OwnerID.Bytes(),
+		Name:    collection.Name,
+	})
+	return err
 }
 
-func GetCollection(id ulid.ULID) (*mcollection.Collection, error) {
-	c := mcollection.Collection{}
-	err := PreparedGetCollection.QueryRow(id).Scan(&c.ID, &c.OwnerID, &c.Name)
+func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*mcollection.Collection, error) {
+	collection, err := cs.collectionsdb.Get(ctx, id.Bytes())
 	if err != nil {
 		return nil, err
+	}
+	c := mcollection.Collection{
+		ID:      ulid.ULID(collection.ID),
+		OwnerID: ulid.ULID(collection.OwnerID),
+		Name:    collection.Name,
 	}
 	return &c, nil
 }
 
-func UpdateCollection(collection *mcollection.Collection) error {
-	_, err := PreparedUpdateCollection.Exec(collection.Name, collection.OwnerID, collection.ID)
-	if err != nil {
-		return err
-	}
-	return nil
+func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mcollection.Collection) error {
+	err := cs.collectionsdb.Update(ctx, collectionsdb.UpdateParams{
+		ID:      collection.ID.Bytes(),
+		OwnerID: collection.OwnerID.Bytes(),
+		Name:    collection.Name,
+	})
+	return err
 }
 
-func DeleteCollection(id ulid.ULID) error {
-	_, err := PreparedDeleteCollection.Exec(id)
-	if err != nil {
-		return err
-	}
-	return nil
+func (cs CollectionService) DeleteCollection(ctx context.Context, id ulid.ULID) error {
+	return cs.collectionsdb.Delete(ctx, id.Bytes())
 }
 
-func DeleteApisWithCollectionID(collectionID ulid.ULID, owner_id ulid.ULID) error {
-	_, err := PreparedDeleteApisWithCollectionID.Exec(collectionID, owner_id)
+func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
+	ulidBytes, err := cs.collectionsdb.GetOwnerID(ctx, id.Bytes())
 	if err != nil {
-		return err
+		return ulid.ULID{}, err
 	}
-	return nil
+	return ulid.ULID(ulidBytes), nil
 }
 
-func GetOwner(id ulid.ULID) (ulid.ULID, error) {
-	var ownerID ulid.ULID
-	err := PreparedCheckOwner.QueryRow(id).Scan(&ownerID)
-	if err != nil {
-		return ownerID, err
-	}
-	return ownerID, nil
-}
-
-func CheckOwner(id ulid.ULID, ownerID ulid.ULID) (bool, error) {
-	CollectionOwnerID, err := GetOwner(id)
+func (cs CollectionService) CheckOwner(ctx context.Context, id ulid.ULID, ownerID ulid.ULID) (bool, error) {
+	CollectionOwnerID, err := cs.GetOwner(ctx, id)
 	if err != nil {
 		return false, err
 	}

@@ -1,0 +1,10 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "query.sql"
+    schema: "schema.sql"
+    gen:
+      go:
+        emit_prepared_queries: true
+        package: "collectionsdb"
+        out: "collectionsdb"

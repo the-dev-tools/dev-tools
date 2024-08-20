@@ -1,8 +1,10 @@
 package sresultapi
 
 import (
+	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/result/mresultapi"
+	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"errors"
 
@@ -148,7 +150,7 @@ func GetResultsApiWithTriggerBy(triggerBy ulid.ULID, triggerType mresultapi.Trig
 	return results, nil
 }
 
-func GetOwnerID(id ulid.ULID) (ulid.ULID, error) {
+func GetWorkspaceID(ctx context.Context, id ulid.ULID, collectionService scollection.CollectionService) (ulid.ULID, error) {
 	var ownerID ulid.ULID
 	result, err := GetResultApi(id)
 	if err != nil {
@@ -156,7 +158,11 @@ func GetOwnerID(id ulid.ULID) (ulid.ULID, error) {
 	}
 	switch result.TriggerType {
 	case mresultapi.TRIGGER_TYPE_COLLECTION:
-		return sitemapi.GetOwnerID(result.TriggerBy)
+		collectionID, err := sitemapi.GetOwnerID(result.TriggerBy)
+		if err != nil {
+			return ownerID, err
+		}
+		return collectionService.GetOwner(ctx, collectionID)
 	default:
 		return ownerID, errors.New("unsupported trigger type")
 	}
