@@ -88,6 +88,7 @@ message DeleteCollectionResponse {}
 message ImportPostmanRequest {
   string name = 1; // collection name
   bytes data = 2;  // collection data (json)
+  string workspace_id = 3; // workspace id that owns the collection
 }
 
 message ImportPostmanResponse { string id = 1; }
