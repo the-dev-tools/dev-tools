@@ -95,7 +95,7 @@ const ImportPostman = () => {
             data: new Uint8Array(await file.arrayBuffer()),
           });
           await queryClient.invalidateQueries({
-            queryKey: createConnectQueryKey(CollectionQuery.listCollections),
+            queryKey: createConnectQueryKey(CollectionQuery.listCollections, { workspaceId }),
           });
         }}
       >
