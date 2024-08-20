@@ -50,7 +50,10 @@ message ListCollectionsResponse {
 }
 
 // // Create
-message CreateCollectionRequest { string name = 1; }
+message CreateCollectionRequest {
+  string workspace_id = 1;
+  string name = 2;
+}
 
 message CreateCollectionResponse {
   string id = 1;
