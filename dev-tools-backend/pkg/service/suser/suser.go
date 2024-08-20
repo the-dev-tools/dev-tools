@@ -1,164 +1,103 @@
 package suser
 
 import (
+	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/muser"
+	"dev-tools-db/userssqlc/usersdb"
 
 	"github.com/oklog/ulid/v2"
 )
 
-func PrepareTables(db *sql.DB) error {
-	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS users (
-                        id TEXT PRIMARY KEY,
-                        email TEXT,
-                        password TEXT,
-                        oauth_type INTEGER,
-                        oauth_id TEXT
-                )
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
+type UserService struct {
+	DB      *sql.DB
+	usersdb *usersdb.Queries
 }
 
-var (
-	PreparedCreateUser *sql.Stmt = nil
-	PreparedGetUser    *sql.Stmt = nil
-	PreparedUpdateUser *sql.Stmt = nil
-	PreparedDeleteUser *sql.Stmt = nil
-
-	PreparedGetUserWithOAuthIDAndType *sql.Stmt = nil
-)
-
-func PrepareStatements(db *sql.DB) error {
-	var err error
-	// Base Statements
-	err = PrepareCreateUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareUpdateUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareDeleteUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetUserWithOAuthIDAndType(db)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCreateUser(db *sql.DB) error {
-	var err error
-	PreparedCreateUser, err = db.Prepare(`
-                INSERT INTO users (id, email, password, oauth_type, oauth_id)
-                VALUES (?, ?, ?, ?, ?)
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetUser(db *sql.DB) error {
-	var err error
-	PreparedGetUser, err = db.Prepare(`
-                SELECT email, oauth_type, oauth_id
-                FROM users
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareUpdateUser(db *sql.DB) error {
-	var err error
-	PreparedUpdateUser, err = db.Prepare(`
-                UPDATE users
-                SET email = ?, oauth_type = ?, oauth_id = ?
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteUser(db *sql.DB) error {
-	var err error
-	PreparedDeleteUser, err = db.Prepare(`
-                DELETE FROM users
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetUserWithOAuthIDAndType(db *sql.DB) error {
-	var err error
-	PreparedGetUserWithOAuthIDAndType, err = db.Prepare(`
-                SELECT id, email, oauth_type, oauth_id
-                FROM users
-                WHERE oauth_id = ? AND oauth_type = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func CreateUser(user *muser.User) error {
-	_, err := PreparedCreateUser.Exec(user.ID, user.Email, user.Password, user.OAuthType, user.OAuthID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetUser(id ulid.ULID) (*muser.User, error) {
-	user := &muser.User{}
-	err := PreparedGetUser.QueryRow(id).Scan(&user.Email, &user.OAuthType, &user.OAuthID)
+func New(ctx context.Context, db *sql.DB) (*UserService, error) {
+	queries, err := usersdb.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	return user, nil
+	userService := UserService{DB: db, usersdb: queries}
+	return &userService, nil
 }
 
-func UpdateUser(user *muser.User) error {
-	_, err := PreparedUpdateUser.Exec(user.Email, user.OAuthType, user.OAuthID, user.ID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func DeleteUser(id ulid.ULID) error {
-	_, err := PreparedDeleteUser.Exec(id)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetUserWithOAuthIDAndType(oauthID string, oauthType muser.OAuthType) (*muser.User, error) {
-	var user muser.User
-	err := PreparedGetUserWithOAuthIDAndType.QueryRow(oauthID, oauthType).Scan(&user.ID, &user.Email, &user.OAuthType, &user.OAuthID)
+// WARNING: this is also get user password hash do not use for public api
+func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, error) {
+	user, err := us.usersdb.Get(ctx, id.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
+	return &muser.User{
+		ID:        ulid.ULID(user.ID),
+		Email:     user.Email,
+		Password:  user.PasswordHash,
+		OAuthType: muser.OAuthType(user.PlatformType.Int64),
+		OAuthID:   user.PlatformID.String,
+	}, nil
+}
+
+func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.User, error) {
+	newUser, err := us.usersdb.Create(ctx, usersdb.CreateParams{
+		ID:           user.ID.Bytes(),
+		Email:        user.Email,
+		PasswordHash: user.Password,
+		PlatformType: sql.NullInt64{
+			Int64: int64(user.OAuthType),
+			Valid: true,
+		},
+		PlatformID: sql.NullString{
+			String: user.OAuthID,
+			Valid:  true,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &muser.User{
+		ID:        ulid.ULID(newUser.ID),
+		Email:     newUser.Email,
+		Password:  newUser.PasswordHash,
+		OAuthType: muser.OAuthType(newUser.PlatformType.Int64),
+		OAuthID:   newUser.PlatformID.String,
+	}, nil
+}
+
+func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
+	err := us.usersdb.Update(ctx, usersdb.UpdateParams{
+		ID:           user.ID.Bytes(),
+		Email:        user.Email,
+		PasswordHash: user.Password,
+	})
+	return err
+}
+
+func (us UserService) DeleteUser(ctx context.Context, id ulid.ULID) error {
+	return us.usersdb.Delete(ctx, id.Bytes())
+}
+
+// WARNING: this is also get user password hash do not use for public api
+func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID string, oauthType muser.OAuthType) (*muser.User, error) {
+	user, err := us.usersdb.GetByPlatformIDandType(ctx, usersdb.GetByPlatformIDandTypeParams{
+		PlatformID: sql.NullString{
+			String: oauthID,
+			Valid:  true,
+		},
+		PlatformType: sql.NullInt64{
+			Int64: int64(oauthType),
+			Valid: true,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &muser.User{
+		ID:        ulid.ULID(user.ID),
+		Email:     user.Email,
+		Password:  user.PasswordHash,
+		OAuthType: oauthType,
+		OAuthID:   oauthID,
+	}, nil
 }

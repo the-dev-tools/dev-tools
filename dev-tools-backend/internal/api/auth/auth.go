@@ -15,6 +15,7 @@ import (
 	"dev-tools-services/gen/auth/v1/authv1connect"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -32,8 +33,9 @@ var (
 )
 
 type AuthServer struct {
-	ClientAPI  *client.API
-	HmacSecret []byte
+	ClientAPI   *client.API
+	HmacSecret  []byte
+	userService suser.UserService
 }
 
 func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
@@ -61,7 +63,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 
 	email := userInfo.Email
 
-	user, err := suser.GetUserWithOAuthIDAndType(publicAddress, muser.MagicLink)
+	user, err := a.userService.GetUserWithOAuthIDAndType(ctx, publicAddress, muser.MagicLink)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			org := &mworkspace.Workspace{
@@ -73,7 +75,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 				return nil, err
 			}
 
-			user := &muser.User{
+			user = &muser.User{
 				ID:        ulid.Make(),
 				Email:     email,
 				Password:  nil,
@@ -81,7 +83,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 				OAuthID:   publicAddress,
 			}
 
-			err = suser.CreateUser(user)
+			_, err = a.userService.CreateUser(ctx, user)
 			if err != nil {
 				return nil, err
 			}
@@ -97,7 +99,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 				return nil, err
 			}
 
-			_, err = suser.GetUserWithOAuthIDAndType(publicAddress, muser.MagicLink)
+			_, err = a.userService.GetUserWithOAuthIDAndType(ctx, publicAddress, muser.MagicLink)
 			if err != nil {
 				return nil, err
 			}
@@ -105,6 +107,8 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 			return nil, err
 		}
 	}
+	fmt.Println(user.ID)
+	fmt.Println(user.Email)
 
 	jwtToken, err := stoken.NewJWT(user.ID, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
 	if err != nil {
@@ -161,10 +165,16 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 	return connect.NewResponse(&authv1.AuthServiceRefreshTokenResponse{RefreshToken: newRefreshJWT, AccessToken: newAccessJWT}), nil
 }
 
-func CreateService(secret []byte) (*api.Service, error) {
+func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
 	if magicLinkSecret == "" {
 		return nil, errors.New("MAGIC_LINK_SECRET env var is required")
+	}
+
+	ctx := context.Background()
+	userService, err := suser.New(ctx, db)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
@@ -174,8 +184,9 @@ func CreateService(secret []byte) (*api.Service, error) {
 	}
 
 	server := &AuthServer{
-		ClientAPI:  m,
-		HmacSecret: secret,
+		ClientAPI:   m,
+		HmacSecret:  secret,
+		userService: *userService,
 	}
 	path, handler := authv1connect.NewAuthServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil

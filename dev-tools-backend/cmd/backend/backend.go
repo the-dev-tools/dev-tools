@@ -12,7 +12,6 @@ import (
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"dev-tools-backend/pkg/service/scollection/sitemfolder"
 	"dev-tools-backend/pkg/service/sresultapi"
-	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
 	"errors"
@@ -73,7 +72,7 @@ func main() {
 
 	// Services Connect RPC
 	var services []api.Service
-	authService, err := auth.CreateService(hmacSecretBytes)
+	authService, err := auth.CreateService(db, hmacSecretBytes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -142,11 +141,6 @@ func PrepareTables(db *sql.DB) error {
 		log.Fatal(err)
 	}
 
-	err = suser.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	err = sworkspace.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
@@ -177,11 +171,6 @@ func PrepareStatements(db *sql.DB) error {
 	}
 
 	err = sresultapi.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = suser.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}

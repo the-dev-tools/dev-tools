@@ -3,6 +3,7 @@ go 1.23.0
 use (
 	./dev-tools-backend
 	./dev-tools-cli
+	./dev-tools-db
 	./dev-tools-mail
 	./dev-tools-masternode
 	./dev-tools-nodes
