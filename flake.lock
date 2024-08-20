@@ -20,6 +20,26 @@
         "type": "github"
       }
     },
+    "gha-nix-develop": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1719880597,
+        "narHash": "sha256-4jL+RNOAQQbTLHtgIN31cK5eGivUc6gD4n51HSZKo0k=",
+        "owner": "nicknovitski",
+        "repo": "nix-develop",
+        "rev": "972b7cc346f0e0ce0b676231f1544e0bf9323c46",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nicknovitski",
+        "repo": "nix-develop",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1721379653,
@@ -39,6 +59,7 @@
     "root": {
       "inputs": {
         "flake-parts": "flake-parts",
+        "gha-nix-develop": "gha-nix-develop",
         "nixpkgs": "nixpkgs",
         "systems": "systems"
       }
