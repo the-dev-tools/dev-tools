@@ -26,4 +26,4 @@ jobs:
       - name: Publish
         run: |
           pnpm config --location=project set //npm.pkg.github.com/:_authToken ${{ secrets.GITHUB_TOKEN }}
-          pnpm publish
+          pnpm publish --no-git-checks
