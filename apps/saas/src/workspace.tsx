@@ -133,7 +133,9 @@ export const WorkspaceLayout = () => {
 
   return (
     <DashboardLayout>
-      <div>{workspace!.name}</div>
+      <Link to='/workspace/$workspaceId' params={{ workspaceId }}>
+        {workspace!.name}
+      </Link>
     </DashboardLayout>
   );
 };
