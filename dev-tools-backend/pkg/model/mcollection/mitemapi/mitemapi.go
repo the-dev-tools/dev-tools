@@ -16,20 +16,25 @@ type ItemApi struct {
 	Method       string
 	Headers      Headers
 	Body         []byte
-	QueryParams  QueryParams
+	Query        Query
 }
 
 type Headers struct {
 	HeaderMap map[string]string
 }
 
-type QueryParams struct {
+type Query struct {
 	QueryMap map[string]string
 }
 
 // Headers
 func (h Headers) Value() (driver.Value, error) {
 	return json.Marshal(h.HeaderMap)
+}
+
+func (h Headers) Bytes() []byte {
+	b, _ := json.Marshal(h.HeaderMap)
+	return b
 }
 
 func (h *Headers) Scan(value interface{}) error {
@@ -46,18 +51,23 @@ func (i *ItemApi) GetHeaders() map[string]string {
 }
 
 // QueryParams
-func (q QueryParams) Value() (driver.Value, error) {
+func (q Query) Value() (driver.Value, error) {
 	return json.Marshal(q.QueryMap)
 }
 
-func (q *QueryParams) Scan(value interface{}) error {
+func (q Query) Bytes() []byte {
+	b, _ := json.Marshal(q.QueryMap)
+	return b
+}
+
+func (q *Query) Scan(value interface{}) error {
 	return json.Unmarshal(value.([]byte), &q.QueryMap)
 }
 
 func (i *ItemApi) SetQueryParams(queryParams map[string]string) {
-	i.QueryParams.QueryMap = queryParams
+	i.Query.QueryMap = queryParams
 }
 
 func (i *ItemApi) GetQueryParams() map[string]string {
-	return i.QueryParams.QueryMap
+	return i.Query.QueryMap
 }

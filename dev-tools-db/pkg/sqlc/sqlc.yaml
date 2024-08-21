@@ -6,5 +6,5 @@ sql:
     gen:
       go:
         emit_prepared_queries: true
-        package: "usersdb"
-        out: "usersdb"
+        package: "gen"
+        out: "gen"

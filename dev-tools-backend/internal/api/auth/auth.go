@@ -15,7 +15,6 @@ import (
 	"dev-tools-services/gen/auth/v1/authv1connect"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -36,6 +35,8 @@ type AuthServer struct {
 	ClientAPI   *client.API
 	HmacSecret  []byte
 	userService suser.UserService
+	ws          sworkspace.WorkspaceService
+	wus         sworkspacesusers.WorkspaceUserService
 }
 
 func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
@@ -70,7 +71,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 				ID:   ulid.Make(),
 				Name: fmt.Sprintf("%s's org", email),
 			}
-			err = sworkspace.Create(org)
+			err = a.ws.Create(ctx, org)
 			if err != nil {
 				return nil, err
 			}
@@ -89,12 +90,12 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 			}
 
 			orgUser := &mworkspaceuser.WorkspaceUser{
-				ID:     ulid.Make(),
-				OrgID:  org.ID,
-				UserID: user.ID,
+				ID:          ulid.Make(),
+				WorkspaceID: org.ID,
+				UserID:      user.ID,
 			}
 
-			err = sworkspacesusers.CreateWorkspaceUser(orgUser)
+			err = a.wus.CreateWorkspaceUser(ctx, orgUser)
 			if err != nil {
 				return nil, err
 			}
@@ -174,7 +175,17 @@ func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 	ctx := context.Background()
 	userService, err := suser.New(ctx, db)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
+	}
+
+	ws, err := sworkspace.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	wus, err := sworkspacesusers.New(ctx, db)
+	if err != nil {
+		return nil, err
 	}
 
 	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
@@ -187,6 +198,8 @@ func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 		ClientAPI:   m,
 		HmacSecret:  secret,
 		userService: *userService,
+		ws:          *ws,
+		wus:         *wus,
 	}
 	path, handler := authv1connect.NewAuthServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil

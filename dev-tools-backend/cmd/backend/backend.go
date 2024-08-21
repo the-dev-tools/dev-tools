@@ -9,11 +9,7 @@ import (
 	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/db/turso"
-	"dev-tools-backend/pkg/service/scollection/sitemapi"
-	"dev-tools-backend/pkg/service/scollection/sitemfolder"
 	"dev-tools-backend/pkg/service/sresultapi"
-	"dev-tools-backend/pkg/service/sworkspace"
-	"dev-tools-backend/pkg/service/sworkspacesusers"
 	"errors"
 	"log"
 	"os"
@@ -104,7 +100,7 @@ func main() {
 	}
 	services = append(services, *collectionService)
 
-	rorgService, err := rworkspace.CreateService(hmacSecretBytes)
+	rorgService, err := rworkspace.CreateService(hmacSecretBytes, db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,59 +120,20 @@ func main() {
 }
 
 func PrepareTables(db *sql.DB) error {
-	// Tables
-	err := sitemapi.PrepareTables(db)
+	err := sresultapi.PrepareTables(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = sitemfolder.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sresultapi.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sworkspace.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sworkspacesusers.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
 	return nil
 }
 
 func PrepareStatements(db *sql.DB) error {
 	// Prepared statements
-	err := sitemapi.PrepareStatements(db)
+	err := sresultapi.PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = sitemfolder.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sresultapi.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sworkspace.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sworkspacesusers.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
 	return nil
 }

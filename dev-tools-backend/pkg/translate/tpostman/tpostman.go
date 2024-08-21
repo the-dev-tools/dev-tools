@@ -119,7 +119,7 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 			Name:         item.Name,
 			Url:          urlRaw,
 			Method:       item.Request.Method,
-			QueryParams: mitemapi.QueryParams{
+			Query: mitemapi.Query{
 				QueryMap: map[string]string{},
 			},
 			Headers: mitemapi.Headers{
@@ -147,7 +147,7 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 			Name:         item.Name,
 			Url:          urlObject.Raw,
 			Method:       item.Request.Method,
-			QueryParams: mitemapi.QueryParams{
+			Query: mitemapi.Query{
 				QueryMap: queryParams,
 			},
 			Headers: mitemapi.Headers{
@@ -172,7 +172,7 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 			Name:         item.Name,
 			Url:          url,
 			Method:       item.Request.Method,
-			QueryParams: mitemapi.QueryParams{
+			Query: mitemapi.Query{
 				QueryMap: make(map[string]string, 0),
 			},
 			Headers: mitemapi.Headers{

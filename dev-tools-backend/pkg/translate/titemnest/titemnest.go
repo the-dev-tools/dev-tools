@@ -45,7 +45,7 @@ func (c CollectionPair) GetItemFolders() []*collectionv1.Item {
 					Data: &nodedatav1.NodeApiCallData{
 						Url:         item.Url,
 						Method:      item.Method,
-						QueryParams: item.QueryParams.QueryMap,
+						QueryParams: item.Query.QueryMap,
 						Headers:     item.Headers.HeaderMap,
 					},
 				},
@@ -90,7 +90,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 							Data: &nodedatav1.NodeApiCallData{
 								Url:         api.Url,
 								Method:      api.Method,
-								QueryParams: api.QueryParams.QueryMap,
+								QueryParams: api.Query.QueryMap,
 								Headers:     api.Headers.HeaderMap,
 								Body:        api.Body,
 							},

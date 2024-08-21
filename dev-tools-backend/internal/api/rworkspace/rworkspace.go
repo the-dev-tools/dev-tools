@@ -17,9 +17,12 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type WorkspaceService struct{}
+type WorkspaceServiceRPC struct {
+	ws  sworkspace.WorkspaceService
+	wus sworkspacesusers.WorkspaceUserService
+}
 
-func (c *WorkspaceService) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
+func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
 	orgID, err := ulid.Parse(req.Msg.Id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -30,7 +33,7 @@ func (c *WorkspaceService) GetWorkspace(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	org, err := sworkspace.GetByIDandUserID(orgID, userID)
+	org, err := c.ws.GetByIDandUserID(ctx, orgID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -48,13 +51,13 @@ func (c *WorkspaceService) GetWorkspace(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceService) GetWorkspaces(ctx context.Context, req *connect.Request[workspacev1.GetWorkspacesRequest]) (*connect.Response[workspacev1.GetWorkspacesResponse], error) {
+func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Request[workspacev1.GetWorkspacesRequest]) (*connect.Response[workspacev1.GetWorkspacesResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	workspaces, err := sworkspace.GetMultiByUserID(userID)
+	workspaces, err := c.ws.GetMultiByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -75,7 +78,7 @@ func (c *WorkspaceService) GetWorkspaces(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceService) CreateWorkspace(ctx context.Context, req *connect.Request[workspacev1.CreateWorkspaceRequest]) (*connect.Response[workspacev1.CreateWorkspaceResponse], error) {
+func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.Request[workspacev1.CreateWorkspaceRequest]) (*connect.Response[workspacev1.CreateWorkspaceResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -89,18 +92,18 @@ func (c *WorkspaceService) CreateWorkspace(ctx context.Context, req *connect.Req
 	}
 
 	// TODO: add transaction
-	err = sworkspace.Create(org)
+	err = c.ws.Create(ctx, org)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	orgUser := &mworkspaceuser.WorkspaceUser{
-		ID:     ulid.Make(),
-		OrgID:  org.ID,
-		UserID: userID,
+		ID:          ulid.Make(),
+		WorkspaceID: org.ID,
+		UserID:      userID,
 	}
 
-	err = sworkspacesusers.CreateWorkspaceUser(orgUser)
+	err = c.wus.CreateWorkspaceUser(ctx, orgUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -114,7 +117,7 @@ func (c *WorkspaceService) CreateWorkspace(ctx context.Context, req *connect.Req
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceService) UpdateWorkspace(ctx context.Context, req *connect.Request[workspacev1.UpdateWorkspaceRequest]) (*connect.Response[workspacev1.UpdateWorkspaceResponse], error) {
+func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.Request[workspacev1.UpdateWorkspaceRequest]) (*connect.Response[workspacev1.UpdateWorkspaceResponse], error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -128,7 +131,7 @@ func (c *WorkspaceService) UpdateWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	org, err := sworkspace.GetByIDandUserID(orgUlid, userUlid)
+	org, err := c.ws.GetByIDandUserID(ctx, orgUlid, userUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
@@ -136,14 +139,14 @@ func (c *WorkspaceService) UpdateWorkspace(ctx context.Context, req *connect.Req
 	}
 
 	org.Name = req.Msg.Name
-	err = sworkspace.Update(org)
+	err = c.ws.Update(ctx, org)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&workspacev1.UpdateWorkspaceResponse{}), nil
 }
 
-func (c *WorkspaceService) DeleteWorkspace(ctx context.Context, req *connect.Request[workspacev1.DeleteWorkspaceRequest]) (*connect.Response[workspacev1.DeleteWorkspaceResponse], error) {
+func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.Request[workspacev1.DeleteWorkspaceRequest]) (*connect.Response[workspacev1.DeleteWorkspaceResponse], error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -154,14 +157,14 @@ func (c *WorkspaceService) DeleteWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	org, err := sworkspace.GetByIDandUserID(orgUlid, userUlid)
+	org, err := c.ws.GetByIDandUserID(ctx, orgUlid, userUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
 		}
 	}
 
-	err = sworkspace.Delete(org.ID)
+	err = c.ws.Delete(ctx, org.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -169,9 +172,22 @@ func (c *WorkspaceService) DeleteWorkspace(ctx context.Context, req *connect.Req
 	return connect.NewResponse(&workspacev1.DeleteWorkspaceResponse{}), nil
 }
 
-func CreateService(secret []byte) (*api.Service, error) {
+func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
+	ctx := context.Background()
+	ws, err := sworkspace.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	wus, err := sworkspacesusers.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
-	server := &WorkspaceService{}
+	server := &WorkspaceServiceRPC{
+		ws:  *ws,
+		wus: *wus,
+	}
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, connect.WithInterceptors(AuthInterceptorFunc))
 	return &api.Service{Path: path, Handler: handler}, nil
 }

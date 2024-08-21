@@ -1,204 +1,84 @@
 package sworkspacesusers
 
 import (
+	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
+	"dev-tools-db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"
 )
 
-var (
-	PreparedCreateOrgUser *sql.Stmt = nil
-	PreparedGetOrgUser    *sql.Stmt = nil
-	PreparedUpdateOrgUser *sql.Stmt = nil
-	PreparedDeleteOrgUser *sql.Stmt = nil
-
-	PreparedGetOrgUserByUserID *sql.Stmt = nil
-	PreparedGetOrgUserByOrgID  *sql.Stmt = nil
-)
-
-func PrepareTables(db *sql.DB) error {
-	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS workspaces_users (
-                        id TEXT PRIMARY KEY,
-
-                        workspace_id BLOB NOT NULL,
-                        user_id BLOB NOT NULL,
-
-                        UNIQUE(workspace_id, user_id),
-                        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-        `)
-	if err != nil {
-		return err
-	}
-	/*
-		        TODO: check if this is needed
-			row := db.QueryRow(`
-		                SELECT * FROM sqlite_master LIMIT 1
-		                WHERE type= 'index' and tbl_name = 'workspaces_users' and name = 'Idx1';
-		        `)
-			if row.Err() == sql.ErrNoRows {
-				_, err = db.Exec(`
-		                CREATE INDEX Idx1 ON item_api(workspace_id, user_id);
-		        `)
-			}
-	*/
-
-	return nil
+type WorkspaceUserService struct {
+	DB      *sql.DB
+	queries *gen.Queries
 }
 
-func PrepareStatements(db *sql.DB) error {
-	var err error
-	// Base Statements
-	err = PrepareCreateWorkspaceUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetWorkspaceUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareUpdateWorkspaceUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareDeleteWorkspaceUser(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetWorkspaceUserByUserID(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetWorkspaceUserByOrgID(db)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCreateWorkspaceUser(db *sql.DB) error {
-	var err error
-	PreparedCreateOrgUser, err = db.Prepare(`
-                INSERT INTO workspaces_users (id, workspace_id, user_id)
-                VALUES (?, ?, ?)
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetWorkspaceUser(db *sql.DB) error {
-	var err error
-	PreparedGetOrgUser, err = db.Prepare(`
-                SELECT id, workspace_id, user_id FROM workspaces_users
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareUpdateWorkspaceUser(db *sql.DB) error {
-	var err error
-	PreparedUpdateOrgUser, err = db.Prepare(`
-                UPDATE workspaces_users
-                SET workspace_id = ?, user_id = ?
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteWorkspaceUser(db *sql.DB) error {
-	var err error
-	PreparedDeleteOrgUser, err = db.Prepare(`
-                DELETE FROM workspaces_users
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetWorkspaceUserByUserID(db *sql.DB) error {
-	var err error
-	PreparedGetOrgUserByUserID, err = db.Prepare(`
-                SELECT id, workspace_id, user_id FROM workspaces_users
-                WHERE user_id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetWorkspaceUserByOrgID(db *sql.DB) error {
-	var err error
-	PreparedGetOrgUserByOrgID, err = db.Prepare(`
-                SELECT id, workspace_id, user_id FROM workspaces_users
-                WHERE workspace_id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func CreateWorkspaceUser(user *mworkspaceuser.WorkspaceUser) error {
-	_, err := PreparedCreateOrgUser.Exec(user.ID, user.OrgID, user.UserID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetWorkspaceUser(id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
-	var orgUser mworkspaceuser.WorkspaceUser
-	err := PreparedGetOrgUser.QueryRow(id).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
+func New(ctx context.Context, db *sql.DB) (*WorkspaceUserService, error) {
+	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	return &orgUser, nil
+	return &WorkspaceUserService{
+		DB:      db,
+		queries: queries,
+	}, nil
 }
 
-func UpdateWorkspaceUser(user *mworkspaceuser.WorkspaceUser) error {
-	_, err := PreparedUpdateOrgUser.Exec(user.OrgID, user.UserID, user.ID)
-	if err != nil {
-		return err
-	}
-	return nil
+func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error {
+	return wsu.queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          user.ID.Bytes(),
+		WorkspaceID: user.WorkspaceID.Bytes(),
+		UserID:      user.UserID.Bytes(),
+	})
 }
 
-func DeleteWorkspaceUser(id ulid.ULID) error {
-	_, err := PreparedDeleteOrgUser.Exec(id)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetWorkspaceUserByUserID(userID string) (*mworkspaceuser.WorkspaceUser, error) {
-	var orgUser mworkspaceuser.WorkspaceUser
-	err := PreparedGetOrgUserByUserID.QueryRow(userID).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
+func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+	wsuser, err := wsu.queries.GetWorkspaceUser(ctx, id.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	return &orgUser, nil
+
+	return &mworkspaceuser.WorkspaceUser{
+		ID:          ulid.MustParse(string(wsuser.ID)),
+		WorkspaceID: ulid.MustParse(string(wsuser.WorkspaceID)),
+		UserID:      ulid.MustParse(string(wsuser.UserID)),
+	}, nil
 }
 
-func GetWorkspaceUserByWorkspaceID(orgID string) (*mworkspaceuser.WorkspaceUser, error) {
-	var orgUser mworkspaceuser.WorkspaceUser
-	err := PreparedGetOrgUserByOrgID.QueryRow(orgID).Scan(&orgUser.ID, &orgUser.OrgID, &orgUser.UserID)
+func (wsu WorkspaceUserService) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspaceuser.WorkspaceUser) error {
+	return wsu.queries.UpdateWorkspaceUser(ctx, gen.UpdateWorkspaceUserParams{
+		ID:          wsuser.ID.Bytes(),
+		WorkspaceID: wsuser.WorkspaceID.Bytes(),
+		UserID:      wsuser.UserID.Bytes(),
+	})
+}
+
+func (wsu WorkspaceUserService) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
+	return wsu.queries.DeleteWorkspaceUser(ctx, id.Bytes())
+}
+
+func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+	wsUser, err := wsus.queries.GetWorkspaceUserByUserID(ctx, userID.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	return &orgUser, nil
+
+	return &mworkspaceuser.WorkspaceUser{
+		ID:          ulid.ULID(wsUser.ID),
+		WorkspaceID: ulid.ULID(wsUser.WorkspaceID),
+		UserID:      ulid.ULID(wsUser.UserID),
+	}, nil
+}
+
+func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(wsID ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+	wsu, err := wsus.queries.GetWorkspaceUserByWorkspaceID(context.Background(), wsID.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return &mworkspaceuser.WorkspaceUser{
+		ID:          ulid.ULID(wsu.ID),
+		WorkspaceID: ulid.ULID(wsu.WorkspaceID),
+		UserID:      ulid.ULID(wsu.UserID),
+	}, nil
 }

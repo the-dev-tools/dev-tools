@@ -1,245 +1,110 @@
 package sitemfolder
 
 import (
+	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"
 )
 
-var (
-	PreparedGetFoldersWithCollectionID *sql.Stmt = nil
-	PreparedCreateItemFolder           *sql.Stmt = nil
-	PreparedGetItemFolder              *sql.Stmt = nil
-	PreparedUpdateItemFolder           *sql.Stmt = nil
-	PreparedDeleteItemFolder           *sql.Stmt = nil
-
-	PreparedDeleteFoldersWithCollectionID *sql.Stmt = nil
-	PrepaerdCheckOwnerID                  *sql.Stmt
-)
-
-func PrepareTables(db *sql.DB) error {
-	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS item_folder (
-                        id TEXT PRIMARY KEY,
-                        name TEXT,
-                        parent_id TEXT,
-                        collection_id TEXT,
-                        FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
-                )
-        `)
-	if err != nil {
-		return err
-	}
-	row := db.QueryRow(`
-                SELECT * FROM sqlite_master LIMIT 1
-                WHERE type= 'index' and tbl_name = 'item_folder' and name = 'Idx1';
-        `)
-
-	if row.Err() == sql.ErrNoRows {
-		_, err = db.Exec(`
-                        CREATE INDEX Idx1 ON item_folder(collection_id);
-                `)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
+type ItemFolderService struct {
+	DB      *sql.DB
+	queries *gen.Queries
 }
 
-func PrepareStatements(db *sql.DB) error {
-	var err error
-	// Base Statements
-	err = PrepareCreateItemFolder(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetItemFolder(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareUpdateItemFolder(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareDeleteItemFolder(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareGetFoldersWithCollectionID(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareDeleteFoldersWithCollectionID(db)
-	if err != nil {
-		return err
-	}
-	err = PrepareCheckOwnerID(db)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCreateItemFolder(db *sql.DB) error {
-	var err error
-	PreparedCreateItemFolder, err = db.Prepare(`
-                INSERT INTO item_folder (id, name, parent_id, collection_id)
-                VALUES (?, ?, ?, ?)
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetItemFolder(db *sql.DB) error {
-	var err error
-	PreparedGetItemFolder, err = db.Prepare(`
-                SELECT id, name, parent_id, collection_id
-                FROM item_folder
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareUpdateItemFolder(db *sql.DB) error {
-	var err error
-	PreparedUpdateItemFolder, err = db.Prepare(`
-                UPDATE item_folder
-                SET name = ?
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteItemFolder(db *sql.DB) error {
-	var err error
-	PreparedDeleteItemFolder, err = db.Prepare(`
-                DELETE FROM item_folder
-                WHERE id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareGetFoldersWithCollectionID(db *sql.DB) error {
-	var err error
-	PreparedGetFoldersWithCollectionID, err = db.Prepare(`
-                SELECT id, name, parent_id, collection_id
-                FROM item_folder
-                WHERE collection_id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareDeleteFoldersWithCollectionID(db *sql.DB) error {
-	var err error
-	PreparedDeleteFoldersWithCollectionID, err = db.Prepare(`
-                DELETE FROM item_folder
-                WHERE collection_id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCheckOwnerID(db *sql.DB) error {
-	var err error
-
-	// check owner_id from collections table and collection_id from item
-	PrepaerdCheckOwnerID, err = db.Prepare(`
-                SELECT c.owner_id FROM collections c
-                JOIN item_folder i ON c.id = i.collection_id
-                WHERE i.id = ?
-        `)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetFoldersWithCollectionID(collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
-	rows, err := PreparedGetFoldersWithCollectionID.Query(collectionID)
+func New(ctx context.Context, db *sql.DB) (*ItemFolderService, error) {
+	q, err := gen.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
+	return &ItemFolderService{
+		DB:      db,
+		queries: q,
+	}, nil
+}
+
+func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
+	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID.Bytes())
+	if err != nil {
+		return nil, err
+	}
 	var folders []mitemfolder.ItemFolder
-	for rows.Next() {
-		folder := mitemfolder.ItemFolder{}
-		err := rows.Scan(&folder.ID, &folder.Name, &folder.ParentID, &folder.CollectionID)
-		if err != nil {
-			return nil, err
+	for _, rawFolder := range rawFolders {
+		var parentID *ulid.ULID = nil
+		// TODO: find a better way to check if rawFolder.Parent
+		if rawFolder.ParentID != nil && len(rawFolder.ParentID) > 0 {
+			tempParentID := ulid.ULID(rawFolder.ParentID)
+			parentID = &tempParentID
+		}
+
+		folder := mitemfolder.ItemFolder{
+			ID:           ulid.ULID(rawFolder.ID),
+			CollectionID: ulid.ULID(rawFolder.CollectionID),
+			ParentID:     parentID,
+			Name:         rawFolder.Name,
 		}
 		folders = append(folders, folder)
 	}
 	return folders, nil
 }
 
-func CreateItemFolder(folder *mitemfolder.ItemFolder) error {
-	_, err := PreparedCreateItemFolder.Exec(folder.ID, folder.Name, folder.ParentID, folder.CollectionID)
-	if err != nil {
-		return err
+func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
+	createParams := gen.CreateItemFolderParams{
+		ID:           folder.ID.Bytes(),
+		Name:         folder.Name,
+		CollectionID: folder.CollectionID.Bytes(),
 	}
-	return nil
+	if folder.ParentID != nil {
+		createParams.ParentID = folder.ParentID.Bytes()
+	}
+
+	return ifs.queries.CreateItemFolder(ctx, createParams)
 }
 
-func GetItemFolder(id ulid.ULID) (*mitemfolder.ItemFolder, error) {
-	folder := mitemfolder.ItemFolder{}
-	err := PreparedGetItemFolder.QueryRow(id).Scan(&folder.ID, &folder.Name, &folder.ParentID, &folder.CollectionID)
+func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*mitemfolder.ItemFolder, error) {
+	rawFolder, err := ifs.queries.GetItemFolder(ctx, id.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	return &folder, nil
-}
 
-func UpdateItemFolder(folder *mitemfolder.ItemFolder) error {
-	_, err := PreparedUpdateItemFolder.Exec(folder.Name, folder.ID)
-	if err != nil {
-		return err
+	var parentID *ulid.ULID = nil
+	if rawFolder.ParentID != nil && len(rawFolder.ParentID) > 0 {
+		tempParentID := ulid.ULID(rawFolder.ParentID)
+		parentID = &tempParentID
 	}
-	return nil
+
+	return &mitemfolder.ItemFolder{
+		ID:           ulid.ULID(rawFolder.ID),
+		CollectionID: ulid.ULID(rawFolder.CollectionID),
+		ParentID:     parentID,
+		Name:         rawFolder.Name,
+	}, nil
 }
 
-func DeleteItemFolder(id ulid.ULID) error {
-	_, err := PreparedDeleteItemFolder.Exec(id)
+func (ifs ItemFolderService) UpdateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
+	return ifs.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
+		ID:   folder.ID.Bytes(),
+		Name: folder.Name,
+	})
+}
+
+func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
+	return ifs.queries.DeleteItemFolder(ctx, id.Bytes())
+}
+
+func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID ulid.ULID) (ulid.ULID, error) {
+	ownerID, err := ifs.queries.GetItemFolderOwnerID(ctx, folderID.Bytes())
 	if err != nil {
-		return err
+		return ulid.ULID{}, err
 	}
-	return nil
+	return ulid.ULID(ownerID), err
 }
 
-func DeleteFoldersWithCollectionID(collectionID ulid.ULID) error {
-	_, err := PreparedDeleteFoldersWithCollectionID.Exec(collectionID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetOwnerID(folderID ulid.ULID) (ulid.ULID, error) {
-	var collectionOwnerID ulid.ULID
-	err := PrepaerdCheckOwnerID.QueryRow(folderID).Scan(&collectionOwnerID)
-	return collectionOwnerID, err
-}
-
-func CheckOwnerID(folderID ulid.ULID, ownerID ulid.ULID) (bool, error) {
-	CollectionOwnerID, err := GetOwnerID(folderID)
+func (ifs ItemFolderService) CheckOwnerID(ctx context.Context, folderID ulid.ULID, ownerID ulid.ULID) (bool, error) {
+	CollectionOwnerID, err := ifs.GetOwnerID(ctx, folderID)
 	if err != nil {
 		return false, err
 	}

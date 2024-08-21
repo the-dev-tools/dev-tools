@@ -150,7 +150,7 @@ func GetResultsApiWithTriggerBy(triggerBy ulid.ULID, triggerType mresultapi.Trig
 	return results, nil
 }
 
-func GetWorkspaceID(ctx context.Context, id ulid.ULID, collectionService scollection.CollectionService) (ulid.ULID, error) {
+func GetWorkspaceID(ctx context.Context, id ulid.ULID, cs scollection.CollectionService, ias sitemapi.ItemApiService) (ulid.ULID, error) {
 	var ownerID ulid.ULID
 	result, err := GetResultApi(id)
 	if err != nil {
@@ -158,11 +158,11 @@ func GetWorkspaceID(ctx context.Context, id ulid.ULID, collectionService scollec
 	}
 	switch result.TriggerType {
 	case mresultapi.TRIGGER_TYPE_COLLECTION:
-		collectionID, err := sitemapi.GetOwnerID(result.TriggerBy)
+		collectionID, err := ias.GetOwnerID(ctx, result.TriggerBy)
 		if err != nil {
 			return ownerID, err
 		}
-		return collectionService.GetOwner(ctx, collectionID)
+		return cs.GetOwner(ctx, collectionID)
 	default:
 		return ownerID, errors.New("unsupported trigger type")
 	}

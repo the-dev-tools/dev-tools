@@ -4,29 +4,29 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/mcollection"
-	"dev-tools-db/collectionsqlc/collectionsdb"
+	"dev-tools-db/pkg/sqlc/gen"
 	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
 
 type CollectionService struct {
-	DB            *sql.DB
-	collectionsdb *collectionsdb.Queries
+	DB      *sql.DB
+	queries *gen.Queries
 }
 
 func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
-	queries, err := collectionsdb.Prepare(ctx, db)
+	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	service := CollectionService{DB: db, collectionsdb: queries}
+	service := CollectionService{DB: db, queries: queries}
 	return &service, nil
 }
 
 func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.ULID) ([]mcollection.Collection, error) {
 	fmt.Println(ownerID, ctx)
-	rows, err := cs.collectionsdb.GetByOwnerID(ctx, ownerID.Bytes())
+	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.UL
 }
 
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
-	_, err := cs.collectionsdb.Create(ctx, collectionsdb.CreateParams{
+	_, err := cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
 		ID:      collection.ID.Bytes(),
 		OwnerID: collection.OwnerID.Bytes(),
 		Name:    collection.Name,
@@ -51,7 +51,7 @@ func (cs CollectionService) CreateCollection(ctx context.Context, collection *mc
 }
 
 func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*mcollection.Collection, error) {
-	collection, err := cs.collectionsdb.Get(ctx, id.Bytes())
+	collection, err := cs.queries.GetCollection(ctx, id.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*m
 }
 
 func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mcollection.Collection) error {
-	err := cs.collectionsdb.Update(ctx, collectionsdb.UpdateParams{
+	err := cs.queries.UpdateCollection(ctx, gen.UpdateCollectionParams{
 		ID:      collection.ID.Bytes(),
 		OwnerID: collection.OwnerID.Bytes(),
 		Name:    collection.Name,
@@ -73,11 +73,11 @@ func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mc
 }
 
 func (cs CollectionService) DeleteCollection(ctx context.Context, id ulid.ULID) error {
-	return cs.collectionsdb.Delete(ctx, id.Bytes())
+	return cs.queries.DeleteCollection(ctx, id.Bytes())
 }
 
 func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
-	ulidBytes, err := cs.collectionsdb.GetOwnerID(ctx, id.Bytes())
+	ulidBytes, err := cs.queries.GetCollectionOwnerID(ctx, id.Bytes())
 	if err != nil {
 		return ulid.ULID{}, err
 	}

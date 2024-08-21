@@ -4,28 +4,28 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/pkg/model/muser"
-	"dev-tools-db/userssqlc/usersdb"
+	"dev-tools-db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"
 )
 
 type UserService struct {
 	DB      *sql.DB
-	usersdb *usersdb.Queries
+	queries *gen.Queries
 }
 
 func New(ctx context.Context, db *sql.DB) (*UserService, error) {
-	queries, err := usersdb.Prepare(ctx, db)
+	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	userService := UserService{DB: db, usersdb: queries}
+	userService := UserService{DB: db, queries: queries}
 	return &userService, nil
 }
 
 // WARNING: this is also get user password hash do not use for public api
 func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, error) {
-	user, err := us.usersdb.Get(ctx, id.Bytes())
+	user, err := us.queries.GetUser(ctx, id.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, e
 }
 
 func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.User, error) {
-	newUser, err := us.usersdb.Create(ctx, usersdb.CreateParams{
+	newUser, err := us.queries.CreateUser(ctx, gen.CreateUserParams{
 		ID:           user.ID.Bytes(),
 		Email:        user.Email,
 		PasswordHash: user.Password,
@@ -65,7 +65,7 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 }
 
 func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
-	err := us.usersdb.Update(ctx, usersdb.UpdateParams{
+	err := us.queries.UpdateUser(ctx, gen.UpdateUserParams{
 		ID:           user.ID.Bytes(),
 		Email:        user.Email,
 		PasswordHash: user.Password,
@@ -74,12 +74,12 @@ func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
 }
 
 func (us UserService) DeleteUser(ctx context.Context, id ulid.ULID) error {
-	return us.usersdb.Delete(ctx, id.Bytes())
+	return us.queries.DeleteUser(ctx, id.Bytes())
 }
 
 // WARNING: this is also get user password hash do not use for public api
 func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID string, oauthType muser.OAuthType) (*muser.User, error) {
-	user, err := us.usersdb.GetByPlatformIDandType(ctx, usersdb.GetByPlatformIDandTypeParams{
+	user, err := us.queries.GetUserByPlatformIDandType(ctx, gen.GetUserByPlatformIDandTypeParams{
 		PlatformID: sql.NullString{
 			String: oauthID,
 			Valid:  true,
