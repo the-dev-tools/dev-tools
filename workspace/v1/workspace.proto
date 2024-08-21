@@ -10,6 +10,7 @@ service WorkspaceService {
   rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
   rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
   rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse);
+  rpc InviteUser(InviteUserRequest) returns (InviteUserResponse);
 }
 
 message Workspace {
@@ -53,4 +54,12 @@ message DeleteWorkspaceRequest {
 }
 
 message DeleteWorkspaceResponse {
+}
+
+message InviteUserRequest {
+  string workspace_id = 1;
+  string email = 2;
+}
+
+message InviteUserResponse {
 }
