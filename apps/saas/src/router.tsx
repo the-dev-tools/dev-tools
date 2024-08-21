@@ -10,6 +10,7 @@ import { getWorkspace } from '@the-dev-tools/protobuf/workspace/v1/workspace-Wor
 import { ApiCallPage, CollectionPage, CollectionsPage } from './collection';
 import { DashboardLayout } from './dashboard';
 import { LoginPage } from './login';
+import { MembersPage } from './members';
 import { queryClient, Runtime, transport } from './runtime';
 import { WorkspaceLayout, WorkspacesPage } from './workspace';
 
@@ -60,6 +61,12 @@ const workspace = createRoute({
   },
 });
 
+const members = createRoute({
+  getParentRoute: () => workspace,
+  path: '/members',
+  component: MembersPage,
+});
+
 const collections = createRoute({
   getParentRoute: () => workspace,
   path: '/',
@@ -86,7 +93,7 @@ const routeTree = root.addChildren([
   login,
   authorized.addChildren([
     dashboard.addChildren([workspaces]),
-    workspace.addChildren([collections, collection, apiCall]),
+    workspace.addChildren([members, collections, collection, apiCall]),
   ]),
 ]);
 
