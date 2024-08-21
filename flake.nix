@@ -14,9 +14,9 @@
       perSystem = {pkgs, ...}: {
         devShells.default = let
           goWrapper = pkgs.writeShellApplication {
-            name = "go";
+            name = "go run";
             runtimeInputs = with pkgs; [dotenvx go];
-            text = ''dotenvx run --convention=nextjs -- go "$@"'';
+            text = ''dotenvx run --convention=nextjs -- go run "$@"'';
           };
           pnpmWrapper = pkgs.writeShellApplication {
             name = "pnpm";
