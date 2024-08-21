@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.13.0
+
+### Minor Changes
+
+- [`eea7432`](https://github.com/the-dev-tools/dev-tools-proto/commit/eea74320041eda197507e1fe093649fe78ebea14) Thanks [@ElecTwix](https://github.com/ElecTwix)! - invite add to workspace
+
 ## 1.12.3
 
 ### Patch Changes
