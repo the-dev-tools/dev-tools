@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
+	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
 	workspacev1 "dev-tools-services/gen/workspace/v1"
@@ -18,8 +20,9 @@ import (
 )
 
 type WorkspaceServiceRPC struct {
-	ws  sworkspace.WorkspaceService
-	wus sworkspacesusers.WorkspaceUserService
+	sw  sworkspace.WorkspaceService
+	swu sworkspacesusers.WorkspaceUserService
+	su  suser.UserService
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
@@ -33,7 +36,7 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	org, err := c.ws.GetByIDandUserID(ctx, orgID, userID)
+	org, err := c.sw.GetByIDandUserID(ctx, orgID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -57,7 +60,7 @@ func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	workspaces, err := c.ws.GetMultiByUserID(ctx, userID)
+	workspaces, err := c.sw.GetMultiByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrOrgNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -92,7 +95,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	}
 
 	// TODO: add transaction
-	err = c.ws.Create(ctx, org)
+	err = c.sw.Create(ctx, org)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -103,7 +106,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		UserID:      userID,
 	}
 
-	err = c.wus.CreateWorkspaceUser(ctx, orgUser)
+	err = c.swu.CreateWorkspaceUser(ctx, orgUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -131,7 +134,7 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	org, err := c.ws.GetByIDandUserID(ctx, orgUlid, userUlid)
+	org, err := c.sw.GetByIDandUserID(ctx, orgUlid, userUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
@@ -139,7 +142,7 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 	}
 
 	org.Name = req.Msg.Name
-	err = c.ws.Update(ctx, org)
+	err = c.sw.Update(ctx, org)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -157,14 +160,14 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	org, err := c.ws.GetByIDandUserID(ctx, orgUlid, userUlid)
+	org, err := c.sw.GetByIDandUserID(ctx, orgUlid, userUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
 		}
 	}
 
-	err = c.ws.Delete(ctx, org.ID)
+	err = c.sw.Delete(ctx, org.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -172,21 +175,64 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 	return connect.NewResponse(&workspacev1.DeleteWorkspaceResponse{}), nil
 }
 
+func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Request[workspacev1.InviteUserRequest]) (*connect.Response[workspacev1.InviteUserResponse], error) {
+	wid, err := ulid.Parse(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	// check email
+	if req.Msg.Email == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
+	}
+	// TODO: add more validation for email
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+
+	// check if workspace has the user
+	_, err = c.sw.GetByIDandUserID(ctx, wid, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	UserUlid := ulid.Make()
+	c.su.CreateUser(ctx, &muser.User{
+		ID:           UserUlid,
+		Email:        req.Msg.Email,
+		Password:     nil,
+		ProviderType: muser.Unknown,
+		ProviderID:   nil,
+		Status:       muser.Pending,
+	})
+
+	return connect.NewResponse(&workspacev1.InviteUserResponse{}), nil
+}
+
 func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 	ctx := context.Background()
-	ws, err := sworkspace.New(ctx, db)
+	sw, err := sworkspace.New(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	wus, err := sworkspacesusers.New(ctx, db)
+	swu, err := sworkspacesusers.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	us, err := suser.New(ctx, db)
 	if err != nil {
 		return nil, err
 	}
 
 	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
 	server := &WorkspaceServiceRPC{
-		ws:  *ws,
-		wus: *wus,
+		sw:  *sw,
+		swu: *swu,
+		su:  *us,
 	}
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, connect.WithInterceptors(AuthInterceptorFunc))
 	return &api.Service{Path: path, Handler: handler}, nil

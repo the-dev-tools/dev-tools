@@ -75,23 +75,40 @@ SELECT
     id,
     email,
     password_hash,
-    platform_type,
-    platform_id
+    provider_type,
+    provider_id
 FROM users WHERE id = ? LIMIT 1;
 
-
--- name: GetUserByPlatformIDandType :one
+-- name: GetUserByEmail :one
 SELECT
     id,
     email,
     password_hash,
-    platform_type,
-    platform_id
-FROM users WHERE platform_id = ? AND platform_type = ? LIMIT 1;
+    provider_type,
+    provider_id
+FROM users WHERE email = ? LIMIT 1;
+
+-- name: GetUserByEmailAndProviderType :one
+SELECT
+        id,
+        email,
+        password_hash,
+        provider_type,
+        provider_id
+FROM users WHERE email = ? AND provider_type = ? LIMIT 1;
+
+-- name: GetUserByProviderIDandType :one
+SELECT
+    id,
+    email,
+    password_hash,
+    provider_type,
+    provider_id
+FROM users WHERE provider_id = ? AND provider_type = ? LIMIT 1;
 
 -- name: CreateUser :one
 INSERT INTO users 
-(id, email, password_hash, platform_type, platform_id)
+(id, email, password_hash, provider_type, provider_id)
 VALUES (?, ?, ?, ?, ?)
 RETURNING *;
 

@@ -93,8 +93,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserStmt, err = db.PrepareContext(ctx, getUser); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUser: %w", err)
 	}
-	if q.getUserByPlatformIDandTypeStmt, err = db.PrepareContext(ctx, getUserByPlatformIDandType); err != nil {
-		return nil, fmt.Errorf("error preparing query GetUserByPlatformIDandType: %w", err)
+	if q.getUserByEmailStmt, err = db.PrepareContext(ctx, getUserByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByEmail: %w", err)
+	}
+	if q.getUserByEmailAndProviderTypeStmt, err = db.PrepareContext(ctx, getUserByEmailAndProviderType); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByEmailAndProviderType: %w", err)
+	}
+	if q.getUserByProviderIDandTypeStmt, err = db.PrepareContext(ctx, getUserByProviderIDandType); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByProviderIDandType: %w", err)
 	}
 	if q.getWorkspaceStmt, err = db.PrepareContext(ctx, getWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspace: %w", err)
@@ -255,9 +261,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserStmt: %w", cerr)
 		}
 	}
-	if q.getUserByPlatformIDandTypeStmt != nil {
-		if cerr := q.getUserByPlatformIDandTypeStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getUserByPlatformIDandTypeStmt: %w", cerr)
+	if q.getUserByEmailStmt != nil {
+		if cerr := q.getUserByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByEmailStmt: %w", cerr)
+		}
+	}
+	if q.getUserByEmailAndProviderTypeStmt != nil {
+		if cerr := q.getUserByEmailAndProviderTypeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByEmailAndProviderTypeStmt: %w", cerr)
+		}
+	}
+	if q.getUserByProviderIDandTypeStmt != nil {
+		if cerr := q.getUserByProviderIDandTypeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByProviderIDandTypeStmt: %w", cerr)
 		}
 	}
 	if q.getWorkspaceStmt != nil {
@@ -387,7 +403,9 @@ type Queries struct {
 	getItemFolderOwnerIDStmt               *sql.Stmt
 	getItemsApiByCollectionIDStmt          *sql.Stmt
 	getUserStmt                            *sql.Stmt
-	getUserByPlatformIDandTypeStmt         *sql.Stmt
+	getUserByEmailStmt                     *sql.Stmt
+	getUserByEmailAndProviderTypeStmt      *sql.Stmt
+	getUserByProviderIDandTypeStmt         *sql.Stmt
 	getWorkspaceStmt                       *sql.Stmt
 	getWorkspaceByUserIDStmt               *sql.Stmt
 	getWorkspaceByUserIDandWorkspaceIDStmt *sql.Stmt
@@ -430,7 +448,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemFolderOwnerIDStmt:               q.getItemFolderOwnerIDStmt,
 		getItemsApiByCollectionIDStmt:          q.getItemsApiByCollectionIDStmt,
 		getUserStmt:                            q.getUserStmt,
-		getUserByPlatformIDandTypeStmt:         q.getUserByPlatformIDandTypeStmt,
+		getUserByEmailStmt:                     q.getUserByEmailStmt,
+		getUserByEmailAndProviderTypeStmt:      q.getUserByEmailAndProviderTypeStmt,
+		getUserByProviderIDandTypeStmt:         q.getUserByProviderIDandTypeStmt,
 		getWorkspaceStmt:                       q.getWorkspaceStmt,
 		getWorkspaceByUserIDStmt:               q.getWorkspaceByUserIDStmt,
 		getWorkspaceByUserIDandWorkspaceIDStmt: q.getWorkspaceByUserIDandWorkspaceIDStmt,

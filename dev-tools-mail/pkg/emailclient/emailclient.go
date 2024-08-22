@@ -46,7 +46,7 @@ func NewClient(accessKey, secretKey, session string) (*EmailClient, error) {
 	return emailClient, nil
 }
 
-func SendEmailText(client *EmailClient, subject, data, from string, recipients []string) (*sesv2.SendEmailOutput, error) {
+func SendEmailText(client EmailClient, subject, data, from string, recipients []string) (*sesv2.SendEmailOutput, error) {
 	// Text body or HTML body
 	body := &types.Content{
 		Data: &data,
@@ -56,6 +56,41 @@ func SendEmailText(client *EmailClient, subject, data, from string, recipients [
 	emailContent := &types.Message{
 		Body: &types.Body{
 			Text: body,
+		},
+		Subject: &types.Content{
+			Data: &subject,
+		},
+	}
+
+	// Send the email
+	emailInput := &sesv2.SendEmailInput{
+		FromEmailAddress: &from,
+		Destination: &types.Destination{
+			ToAddresses: recipients,
+		},
+		Content: &types.EmailContent{
+			Simple: emailContent,
+		},
+	}
+
+	output, err := client.sesClient.SendEmail(context.Background(), emailInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
+}
+
+func SendEmailHTML(client EmailClient, subject, data, from string, recipients []string) (*sesv2.SendEmailOutput, error) {
+	// Text body or HTML body
+	body := &types.Content{
+		Data: &data,
+	}
+
+	// Email content structure
+	emailContent := &types.Message{
+		Body: &types.Body{
+			Html: body,
 		},
 		Subject: &types.Content{
 			Data: &subject,

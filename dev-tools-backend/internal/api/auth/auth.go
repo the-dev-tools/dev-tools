@@ -65,51 +65,28 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 	email := userInfo.Email
 
 	user, err := a.userService.GetUserWithOAuthIDAndType(ctx, publicAddress, muser.MagicLink)
+	// TODO: make it simpler
 	if err != nil {
 		if err == sql.ErrNoRows {
-			org := &mworkspace.Workspace{
-				ID:   ulid.Make(),
-				Name: fmt.Sprintf("%s's org", email),
+			tempUser, err := a.GetPendingUserByEmail(ctx, email)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					a.handleUserNotFound(ctx, email, publicAddress, muser.MagicLink)
+				}
+				return nil, err
 			}
-			err = a.ws.Create(ctx, org)
+			tempUser.ProviderID = &publicAddress
+			tempUser.ProviderType = muser.MagicLink
+			err = a.userService.UpdateUser(ctx, tempUser)
 			if err != nil {
 				return nil, err
 			}
-
-			user = &muser.User{
-				ID:        ulid.Make(),
-				Email:     email,
-				Password:  nil,
-				OAuthType: muser.MagicLink,
-				OAuthID:   publicAddress,
-			}
-
-			_, err = a.userService.CreateUser(ctx, user)
-			if err != nil {
-				return nil, err
-			}
-
-			orgUser := &mworkspaceuser.WorkspaceUser{
-				ID:          ulid.Make(),
-				WorkspaceID: org.ID,
-				UserID:      user.ID,
-			}
-
-			err = a.wus.CreateWorkspaceUser(ctx, orgUser)
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = a.userService.GetUserWithOAuthIDAndType(ctx, publicAddress, muser.MagicLink)
-			if err != nil {
-				return nil, err
-			}
+			user = tempUser
 		} else {
 			return nil, err
 		}
+		return nil, err
 	}
-	fmt.Println(user.ID)
-	fmt.Println(user.Email)
 
 	jwtToken, err := stoken.NewJWT(user.ID, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
 	if err != nil {
@@ -203,4 +180,60 @@ func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 	}
 	path, handler := authv1connect.NewAuthServiceHandler(server)
 	return &api.Service{Path: path, Handler: handler}, nil
+}
+
+func (a *AuthServer) GetPendingUserByEmail(ctx context.Context, email string) (*muser.User, error) {
+	user, err := a.userService.GetUserWithOAuthIDAndType(ctx, email, muser.Unknown)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+	if user.Status == muser.Pending {
+		return nil, errors.New("user is pending")
+	}
+	return user, nil
+}
+
+func (a AuthServer) handleUserNotFound(ctx context.Context, email, ProviderID string, ProviderType muser.ProviderType) (*muser.User, error) {
+	org := &mworkspace.Workspace{
+		ID:   ulid.Make(),
+		Name: fmt.Sprintf("%s's org", email),
+	}
+	err := a.ws.Create(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &muser.User{
+		ID:           ulid.Make(),
+		Email:        email,
+		Password:     nil,
+		ProviderType: ProviderType,
+		ProviderID:   &ProviderID,
+	}
+
+	_, err = a.userService.CreateUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	orgUser := &mworkspaceuser.WorkspaceUser{
+		ID:          ulid.Make(),
+		WorkspaceID: org.ID,
+		UserID:      user.ID,
+	}
+
+	err = a.wus.CreateWorkspaceUser(ctx, orgUser)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = a.userService.GetUserWithOAuthIDAndType(ctx, ProviderID, muser.MagicLink)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }

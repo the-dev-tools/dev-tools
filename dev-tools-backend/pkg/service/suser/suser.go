@@ -29,38 +29,68 @@ func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, e
 	if err != nil {
 		return nil, err
 	}
+	var provider *string = nil
+	if user.ProviderID.Valid {
+		provider = &user.ProviderID.String
+	}
+
 	return &muser.User{
-		ID:        ulid.ULID(user.ID),
-		Email:     user.Email,
-		Password:  user.PasswordHash,
-		OAuthType: muser.OAuthType(user.PlatformType.Int64),
-		OAuthID:   user.PlatformID.String,
+		ID:           ulid.ULID(user.ID),
+		Email:        user.Email,
+		Password:     user.PasswordHash,
+		ProviderType: muser.ProviderType(user.ProviderType),
+		ProviderID:   provider,
+	}, nil
+}
+
+func (us UserService) GetUserByEmail(ctx context.Context, email string) (*muser.User, error) {
+	user, err := us.queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	var provider *string = nil
+	if user.ProviderID.Valid {
+		provider = &user.ProviderID.String
+	}
+	return &muser.User{
+		ID:           ulid.ULID(user.ID),
+		Email:        user.Email,
+		Password:     user.PasswordHash,
+		ProviderType: muser.ProviderType(user.ProviderType),
+		ProviderID:   provider,
 	}, nil
 }
 
 func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.User, error) {
+	var ProviderID sql.NullString
+	if user.ProviderID != nil {
+		ProviderID = sql.NullString{
+			String: *user.ProviderID,
+			Valid:  true,
+		}
+	} else {
+		ProviderID = sql.NullString{
+			String: "",
+			Valid:  false,
+		}
+	}
+
 	newUser, err := us.queries.CreateUser(ctx, gen.CreateUserParams{
 		ID:           user.ID.Bytes(),
 		Email:        user.Email,
 		PasswordHash: user.Password,
-		PlatformType: sql.NullInt64{
-			Int64: int64(user.OAuthType),
-			Valid: true,
-		},
-		PlatformID: sql.NullString{
-			String: user.OAuthID,
-			Valid:  true,
-		},
+		ProviderType: int64(user.ProviderType),
+		ProviderID:   ProviderID,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &muser.User{
-		ID:        ulid.ULID(newUser.ID),
-		Email:     newUser.Email,
-		Password:  newUser.PasswordHash,
-		OAuthType: muser.OAuthType(newUser.PlatformType.Int64),
-		OAuthID:   newUser.PlatformID.String,
+		ID:           ulid.ULID(newUser.ID),
+		Email:        newUser.Email,
+		Password:     newUser.PasswordHash,
+		ProviderType: muser.ProviderType(newUser.ProviderType),
+		ProviderID:   &newUser.ProviderID.String,
 	}, nil
 }
 
@@ -78,26 +108,23 @@ func (us UserService) DeleteUser(ctx context.Context, id ulid.ULID) error {
 }
 
 // WARNING: this is also get user password hash do not use for public api
-func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID string, oauthType muser.OAuthType) (*muser.User, error) {
-	user, err := us.queries.GetUserByPlatformIDandType(ctx, gen.GetUserByPlatformIDandTypeParams{
-		PlatformID: sql.NullString{
+func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID string, oauthType muser.ProviderType) (*muser.User, error) {
+	user, err := us.queries.GetUserByProviderIDandType(ctx, gen.GetUserByProviderIDandTypeParams{
+		ProviderID: sql.NullString{
 			String: oauthID,
 			Valid:  true,
 		},
-		PlatformType: sql.NullInt64{
-			Int64: int64(oauthType),
-			Valid: true,
-		},
+		ProviderType: int64(oauthType),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &muser.User{
-		ID:        ulid.ULID(user.ID),
-		Email:     user.Email,
-		Password:  user.PasswordHash,
-		OAuthType: oauthType,
-		OAuthID:   oauthID,
+		ID:           ulid.ULID(user.ID),
+		Email:        user.Email,
+		Password:     user.PasswordHash,
+		ProviderType: oauthType,
+		ProviderID:   &oauthID,
 	}, nil
 }

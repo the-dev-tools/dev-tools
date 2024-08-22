@@ -1,20 +1,31 @@
 package muser
 
-import "github.com/oklog/ulid/v2"
+import (
+	"github.com/oklog/ulid/v2"
+)
 
-type OAuthType int
+type ProviderType int
 
 var (
-	NoOauth   OAuthType = 0
-	MagicLink OAuthType = 1
-	Google    OAuthType = 2
+	Unknown    ProviderType = 0
+	NoProvider ProviderType = 1
+	MagicLink  ProviderType = 2
+	Google     ProviderType = 3
+)
+
+type UserStatus int
+
+var (
+	Active  UserStatus = 0
+	Pending UserStatus = 1
+	Blocked UserStatus = 2
 )
 
 type User struct {
-	ID        ulid.ULID
-	OrgID     ulid.ULID
-	Email     string
-	Password  []byte
-	OAuthType OAuthType
-	OAuthID   string
+	ID           ulid.ULID
+	Email        string
+	Password     []byte
+	ProviderType ProviderType
+	ProviderID   *string
+	Status       UserStatus
 }

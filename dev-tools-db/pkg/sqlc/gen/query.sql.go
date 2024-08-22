@@ -86,17 +86,17 @@ func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderPara
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users 
-(id, email, password_hash, platform_type, platform_id)
+(id, email, password_hash, provider_type, provider_id)
 VALUES (?, ?, ?, ?, ?)
-RETURNING id, email, password_hash, platform_type, platform_id
+RETURNING id, email, password_hash, provider_type, provider_id, status
 `
 
 type CreateUserParams struct {
 	ID           []byte
 	Email        string
 	PasswordHash []byte
-	PlatformType sql.NullInt64
-	PlatformID   sql.NullString
+	ProviderType int64
+	ProviderID   sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -104,16 +104,17 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.ID,
 		arg.Email,
 		arg.PasswordHash,
-		arg.PlatformType,
-		arg.PlatformID,
+		arg.ProviderType,
+		arg.ProviderID,
 	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.PlatformType,
-		&i.PlatformID,
+		&i.ProviderType,
+		&i.ProviderID,
+		&i.Status,
 	)
 	return i, err
 }
@@ -463,49 +464,132 @@ SELECT
     id,
     email,
     password_hash,
-    platform_type,
-    platform_id
+    provider_type,
+    provider_id
 FROM users WHERE id = ? LIMIT 1
 `
 
+type GetUserRow struct {
+	ID           []byte
+	Email        string
+	PasswordHash []byte
+	ProviderType int64
+	ProviderID   sql.NullString
+}
+
 // Users
-func (q *Queries) GetUser(ctx context.Context, id []byte) (User, error) {
+func (q *Queries) GetUser(ctx context.Context, id []byte) (GetUserRow, error) {
 	row := q.queryRow(ctx, q.getUserStmt, getUser, id)
-	var i User
+	var i GetUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.PlatformType,
-		&i.PlatformID,
+		&i.ProviderType,
+		&i.ProviderID,
 	)
 	return i, err
 }
 
-const getUserByPlatformIDandType = `-- name: GetUserByPlatformIDandType :one
+const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
     id,
     email,
     password_hash,
-    platform_type,
-    platform_id
-FROM users WHERE platform_id = ? AND platform_type = ? LIMIT 1
+    provider_type,
+    provider_id
+FROM users WHERE email = ? LIMIT 1
 `
 
-type GetUserByPlatformIDandTypeParams struct {
-	PlatformID   sql.NullString
-	PlatformType sql.NullInt64
+type GetUserByEmailRow struct {
+	ID           []byte
+	Email        string
+	PasswordHash []byte
+	ProviderType int64
+	ProviderID   sql.NullString
 }
 
-func (q *Queries) GetUserByPlatformIDandType(ctx context.Context, arg GetUserByPlatformIDandTypeParams) (User, error) {
-	row := q.queryRow(ctx, q.getUserByPlatformIDandTypeStmt, getUserByPlatformIDandType, arg.PlatformID, arg.PlatformType)
-	var i User
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+	row := q.queryRow(ctx, q.getUserByEmailStmt, getUserByEmail, email)
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.PlatformType,
-		&i.PlatformID,
+		&i.ProviderType,
+		&i.ProviderID,
+	)
+	return i, err
+}
+
+const getUserByEmailAndProviderType = `-- name: GetUserByEmailAndProviderType :one
+SELECT
+        id,
+        email,
+        password_hash,
+        provider_type,
+        provider_id
+FROM users WHERE email = ? AND provider_type = ? LIMIT 1
+`
+
+type GetUserByEmailAndProviderTypeParams struct {
+	Email        string
+	ProviderType int64
+}
+
+type GetUserByEmailAndProviderTypeRow struct {
+	ID           []byte
+	Email        string
+	PasswordHash []byte
+	ProviderType int64
+	ProviderID   sql.NullString
+}
+
+func (q *Queries) GetUserByEmailAndProviderType(ctx context.Context, arg GetUserByEmailAndProviderTypeParams) (GetUserByEmailAndProviderTypeRow, error) {
+	row := q.queryRow(ctx, q.getUserByEmailAndProviderTypeStmt, getUserByEmailAndProviderType, arg.Email, arg.ProviderType)
+	var i GetUserByEmailAndProviderTypeRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.ProviderType,
+		&i.ProviderID,
+	)
+	return i, err
+}
+
+const getUserByProviderIDandType = `-- name: GetUserByProviderIDandType :one
+SELECT
+    id,
+    email,
+    password_hash,
+    provider_type,
+    provider_id
+FROM users WHERE provider_id = ? AND provider_type = ? LIMIT 1
+`
+
+type GetUserByProviderIDandTypeParams struct {
+	ProviderID   sql.NullString
+	ProviderType int64
+}
+
+type GetUserByProviderIDandTypeRow struct {
+	ID           []byte
+	Email        string
+	PasswordHash []byte
+	ProviderType int64
+	ProviderID   sql.NullString
+}
+
+func (q *Queries) GetUserByProviderIDandType(ctx context.Context, arg GetUserByProviderIDandTypeParams) (GetUserByProviderIDandTypeRow, error) {
+	row := q.queryRow(ctx, q.getUserByProviderIDandTypeStmt, getUserByProviderIDandType, arg.ProviderID, arg.ProviderType)
+	var i GetUserByProviderIDandTypeRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.ProviderType,
+		&i.ProviderID,
 	)
 	return i, err
 }

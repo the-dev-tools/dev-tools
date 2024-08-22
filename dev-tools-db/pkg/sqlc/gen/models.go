@@ -37,8 +37,9 @@ type User struct {
 	ID           []byte
 	Email        string
 	PasswordHash []byte
-	PlatformType sql.NullInt64
-	PlatformID   sql.NullString
+	ProviderType int64
+	ProviderID   sql.NullString
+	Status       int64
 }
 
 type Workspace struct {

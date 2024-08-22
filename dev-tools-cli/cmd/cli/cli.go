@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"dev-tools-mail/pkg/emailclient"
+	"dev-tools-mail/pkg/emailinvite"
 	"dev-tools-nodes/pkg/model/medge"
 	"dev-tools-nodes/pkg/resolver"
 	authv1 "dev-tools-services/gen/auth/v1"
@@ -31,6 +33,7 @@ const (
 	PostmanImportFunc = "import"
 	CollectionFunc    = "collection"
 	RunApiFunc        = "runapi"
+	EmailFunc         = "email"
 )
 
 func main() {
@@ -50,6 +53,8 @@ func main() {
 		GetCollection()
 	case RunApiFunc:
 		RunApi()
+	case EmailFunc:
+		RunEmail()
 	default:
 		fmt.Println("Invalid function", cmd)
 	}
@@ -339,4 +344,25 @@ func RunApi() {
 	}
 
 	fmt.Println("Run Response: ", resp.Msg)
+}
+
+func RunEmail() {
+	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+	if AWS_ACCESS_KEY == "" {
+		log.Fatalf("AWS_ACCESS_KEY is empty")
+	}
+	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+	if AWS_SECRET_KEY == "" {
+		log.Fatalf("AWS_SECRET_KEY is empty")
+	}
+
+	client, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+	if err != nil {
+		log.Fatalf("failed to create email client: %v", err)
+	}
+
+	err = emailinvite.SendEmailInvite(context.Background(), *client, "ege@dev.tools", "http://localhost:8080")
+	if err != nil {
+		log.Fatalf("failed to send email: %v", err)
+	}
 }

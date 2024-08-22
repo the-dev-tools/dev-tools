@@ -48,6 +48,9 @@ const (
 	// WorkspaceServiceDeleteWorkspaceProcedure is the fully-qualified name of the WorkspaceService's
 	// DeleteWorkspace RPC.
 	WorkspaceServiceDeleteWorkspaceProcedure = "/workspace.v1.WorkspaceService/DeleteWorkspace"
+	// WorkspaceServiceInviteUserProcedure is the fully-qualified name of the WorkspaceService's
+	// InviteUser RPC.
+	WorkspaceServiceInviteUserProcedure = "/workspace.v1.WorkspaceService/InviteUser"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -58,6 +61,7 @@ var (
 	workspaceServiceCreateWorkspaceMethodDescriptor = workspaceServiceServiceDescriptor.Methods().ByName("CreateWorkspace")
 	workspaceServiceUpdateWorkspaceMethodDescriptor = workspaceServiceServiceDescriptor.Methods().ByName("UpdateWorkspace")
 	workspaceServiceDeleteWorkspaceMethodDescriptor = workspaceServiceServiceDescriptor.Methods().ByName("DeleteWorkspace")
+	workspaceServiceInviteUserMethodDescriptor      = workspaceServiceServiceDescriptor.Methods().ByName("InviteUser")
 )
 
 // WorkspaceServiceClient is a client for the workspace.v1.WorkspaceService service.
@@ -67,6 +71,7 @@ type WorkspaceServiceClient interface {
 	CreateWorkspace(context.Context, *connect.Request[v1.CreateWorkspaceRequest]) (*connect.Response[v1.CreateWorkspaceResponse], error)
 	UpdateWorkspace(context.Context, *connect.Request[v1.UpdateWorkspaceRequest]) (*connect.Response[v1.UpdateWorkspaceResponse], error)
 	DeleteWorkspace(context.Context, *connect.Request[v1.DeleteWorkspaceRequest]) (*connect.Response[v1.DeleteWorkspaceResponse], error)
+	InviteUser(context.Context, *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error)
 }
 
 // NewWorkspaceServiceClient constructs a client for the workspace.v1.WorkspaceService service. By
@@ -109,6 +114,12 @@ func NewWorkspaceServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(workspaceServiceDeleteWorkspaceMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		inviteUser: connect.NewClient[v1.InviteUserRequest, v1.InviteUserResponse](
+			httpClient,
+			baseURL+WorkspaceServiceInviteUserProcedure,
+			connect.WithSchema(workspaceServiceInviteUserMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -119,6 +130,7 @@ type workspaceServiceClient struct {
 	createWorkspace *connect.Client[v1.CreateWorkspaceRequest, v1.CreateWorkspaceResponse]
 	updateWorkspace *connect.Client[v1.UpdateWorkspaceRequest, v1.UpdateWorkspaceResponse]
 	deleteWorkspace *connect.Client[v1.DeleteWorkspaceRequest, v1.DeleteWorkspaceResponse]
+	inviteUser      *connect.Client[v1.InviteUserRequest, v1.InviteUserResponse]
 }
 
 // GetWorkspaces calls workspace.v1.WorkspaceService.GetWorkspaces.
@@ -146,6 +158,11 @@ func (c *workspaceServiceClient) DeleteWorkspace(ctx context.Context, req *conne
 	return c.deleteWorkspace.CallUnary(ctx, req)
 }
 
+// InviteUser calls workspace.v1.WorkspaceService.InviteUser.
+func (c *workspaceServiceClient) InviteUser(ctx context.Context, req *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error) {
+	return c.inviteUser.CallUnary(ctx, req)
+}
+
 // WorkspaceServiceHandler is an implementation of the workspace.v1.WorkspaceService service.
 type WorkspaceServiceHandler interface {
 	GetWorkspaces(context.Context, *connect.Request[v1.GetWorkspacesRequest]) (*connect.Response[v1.GetWorkspacesResponse], error)
@@ -153,6 +170,7 @@ type WorkspaceServiceHandler interface {
 	CreateWorkspace(context.Context, *connect.Request[v1.CreateWorkspaceRequest]) (*connect.Response[v1.CreateWorkspaceResponse], error)
 	UpdateWorkspace(context.Context, *connect.Request[v1.UpdateWorkspaceRequest]) (*connect.Response[v1.UpdateWorkspaceResponse], error)
 	DeleteWorkspace(context.Context, *connect.Request[v1.DeleteWorkspaceRequest]) (*connect.Response[v1.DeleteWorkspaceResponse], error)
+	InviteUser(context.Context, *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error)
 }
 
 // NewWorkspaceServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -191,6 +209,12 @@ func NewWorkspaceServiceHandler(svc WorkspaceServiceHandler, opts ...connect.Han
 		connect.WithSchema(workspaceServiceDeleteWorkspaceMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	workspaceServiceInviteUserHandler := connect.NewUnaryHandler(
+		WorkspaceServiceInviteUserProcedure,
+		svc.InviteUser,
+		connect.WithSchema(workspaceServiceInviteUserMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/workspace.v1.WorkspaceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WorkspaceServiceGetWorkspacesProcedure:
@@ -203,6 +227,8 @@ func NewWorkspaceServiceHandler(svc WorkspaceServiceHandler, opts ...connect.Han
 			workspaceServiceUpdateWorkspaceHandler.ServeHTTP(w, r)
 		case WorkspaceServiceDeleteWorkspaceProcedure:
 			workspaceServiceDeleteWorkspaceHandler.ServeHTTP(w, r)
+		case WorkspaceServiceInviteUserProcedure:
+			workspaceServiceInviteUserHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -230,4 +256,8 @@ func (UnimplementedWorkspaceServiceHandler) UpdateWorkspace(context.Context, *co
 
 func (UnimplementedWorkspaceServiceHandler) DeleteWorkspace(context.Context, *connect.Request[v1.DeleteWorkspaceRequest]) (*connect.Response[v1.DeleteWorkspaceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.DeleteWorkspace is not implemented"))
+}
+
+func (UnimplementedWorkspaceServiceHandler) InviteUser(context.Context, *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.InviteUser is not implemented"))
 }
