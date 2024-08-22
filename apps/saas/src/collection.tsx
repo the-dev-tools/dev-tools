@@ -31,7 +31,7 @@ import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collecti
 
 import { Runtime } from './runtime';
 
-const workspaceRoute = getRouteApi('/authorized/workspace/$workspaceId');
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceId');
 
 export const CollectionsPage = () => {
   const router = useRouter();
@@ -105,7 +105,7 @@ const ImportPostman = () => {
   );
 };
 
-const collectionRoute = getRouteApi('/authorized/workspace/$workspaceId/collection/$collectionId');
+const collectionRoute = getRouteApi('/_authorized/workspace/$workspaceId/collection/$collectionId');
 
 class CollectionForm extends Schema.Class<CollectionForm>('CollectionForm')({
   name: Schema.String,
@@ -323,7 +323,7 @@ const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
   );
 };
 
-const apiCallRoute = getRouteApi('/authorized/workspace/$workspaceId/api-call/$apiCallId');
+const apiCallRoute = getRouteApi('/_authorized/workspace/$workspaceId/api-call/$apiCallId');
 
 class ApiCallForm extends Schema.Class<ApiCallForm>('ApiCallForm')({
   name: Schema.String,

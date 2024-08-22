@@ -122,7 +122,7 @@ const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
   );
 };
 
-const workspaceRoute = getRouteApi('/authorized/workspace/$workspaceId');
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceId');
 
 export const WorkspaceLayout = () => {
   const { workspaceId } = workspaceRoute.useParams();

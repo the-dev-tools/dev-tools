@@ -6,7 +6,7 @@ import { Button } from '@the-dev-tools/ui/button';
 
 import { Runtime } from './runtime';
 
-const route = getRouteApi('/authorized');
+const route = getRouteApi('/_authorized');
 
 export interface DashboardLayoutProps {
   children?: React.ReactNode;

@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
+import { TanStackRouterRspack } from '@tanstack/router-plugin/rspack';
 import { Array, flow, pipe, Record, String } from 'effect';
 
 // Rsbuild throws warnings on unexpected environments
@@ -22,6 +23,16 @@ export default defineConfig({
         Record.set('NODE_ENV', NODE_ENV),
         JSON.stringify,
       ),
+    },
+  },
+  tools: {
+    rspack: {
+      plugins: [
+        TanStackRouterRspack({
+          generatedRouteTree: './src/routes/-generated-router-tree.tsx',
+          semicolons: true,
+        }),
+      ],
     },
   },
 });
