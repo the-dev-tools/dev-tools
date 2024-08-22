@@ -6,7 +6,9 @@ import { Button, Form, Input, Label, TextField } from 'react-aria-components';
 
 import { inviteUser } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 
-const membersRoute = getRouteApi('/authorized/workspace/$workspaceId/members');
+import { Runtime } from './runtime';
+
+const membersRoute = getRouteApi('/_authorized/workspace/$workspaceId/members');
 
 class InviteForm extends Schema.Class<InviteForm>('InviteForm')({
   email: Schema.String,
@@ -33,7 +35,7 @@ export const MembersPage = () => {
             );
 
             yield* Effect.tryPromise(() => inviteUserMutation.mutateAsync({ workspaceId, email }));
-          })
+          }).pipe(Runtime.runPromise)
         }
       >
         <TextField name='email' type='email' isRequired className='contents'>
