@@ -17,7 +17,7 @@ type EmailInviteTemplateData struct {
 	Username          string
 }
 
-func SendEmailInvite(ctx context.Context, client emailclient.EmailClient, to string, inviteLink string) error {
+func SendEmailInvite(ctx context.Context, client emailclient.EmailClient, to string, data *EmailInviteTemplateData) error {
 	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
 	if path == "" {
 		path = "emailinvite.html"
@@ -28,13 +28,6 @@ func SendEmailInvite(ctx context.Context, client emailclient.EmailClient, to str
 		return err
 	}
 	// INFO: place holder data for the email template
-	data := EmailInviteTemplateData{
-		WorkspaceName:     "DevTools",
-		InviteLink:        inviteLink,
-		InvitedByUsername: "Ege",
-		Username:          "Mustafa",
-	}
-
 	var buffer bytes.Buffer
 	writer := bufio.NewWriter(&buffer)
 	err = template.Execute(writer, data)

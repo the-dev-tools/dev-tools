@@ -11,6 +11,8 @@ import (
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
+	"dev-tools-mail/pkg/emailclient"
+	"dev-tools-mail/pkg/emailinvite"
 	workspacev1 "dev-tools-services/gen/workspace/v1"
 	"dev-tools-services/gen/workspace/v1/workspacev1connect"
 	"errors"
@@ -23,6 +25,7 @@ type WorkspaceServiceRPC struct {
 	sw  sworkspace.WorkspaceService
 	swu sworkspacesusers.WorkspaceUserService
 	su  suser.UserService
+	ec  emailclient.EmailClient
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
@@ -175,6 +178,8 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 	return connect.NewResponse(&workspacev1.DeleteWorkspaceResponse{}), nil
 }
 
+// TODO: I'm not sure this is the correct implementation of this function
+// Will talk with the team about this on the next meeting
 func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Request[workspacev1.InviteUserRequest]) (*connect.Response[workspacev1.InviteUserResponse], error) {
 	wid, err := ulid.Parse(req.Msg.WorkspaceId)
 	if err != nil {
@@ -199,15 +204,37 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	UserUlid := ulid.Make()
-	c.su.CreateUser(ctx, &muser.User{
-		ID:           UserUlid,
+	inviterUser, err := c.su.GetUser(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	invitedUserUlid := ulid.Make()
+	invitedUser, err := c.su.CreateUser(ctx, &muser.User{
+		ID:           invitedUserUlid,
 		Email:        req.Msg.Email,
 		Password:     nil,
 		ProviderType: muser.Unknown,
 		ProviderID:   nil,
 		Status:       muser.Pending,
 	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	workspace, err := c.sw.Get(ctx, wid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	EmailInviteTemplateData := &emailinvite.EmailInviteTemplateData{
+		WorkspaceName:     workspace.Name,
+		InviteLink:        "https://dev.tools",
+		InvitedByUsername: inviterUser.Email,
+		Username:          invitedUser.Email,
+	}
+
+	emailinvite.SendEmailInvite(ctx, c.ec, req.Msg.Email, EmailInviteTemplateData)
 
 	return connect.NewResponse(&workspacev1.InviteUserResponse{}), nil
 }
