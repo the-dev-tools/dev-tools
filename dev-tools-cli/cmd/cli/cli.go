@@ -361,7 +361,13 @@ func RunEmail() {
 		log.Fatalf("failed to create email client: %v", err)
 	}
 
-	err = emailinvite.SendEmailInvite(context.Background(), *client, "ege@dev.tools", "http://localhost:8080")
+	err = emailinvite.SendEmailInvite(context.Background(), *client, "ege@dev.tools",
+		&emailinvite.EmailInviteTemplateData{
+			WorkspaceName:     "ege@dev.tools",
+			InvitedByUsername: "tomas",
+			InviteLink:        "dev.tools",
+			Username:          "ege",
+		})
 	if err != nil {
 		log.Fatalf("failed to send email: %v", err)
 	}
