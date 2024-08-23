@@ -33,8 +33,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createItemApiStmt, err = db.PrepareContext(ctx, createItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemApi: %w", err)
 	}
+	if q.createItemApiBulkStmt, err = db.PrepareContext(ctx, createItemApiBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateItemApiBulk: %w", err)
+	}
 	if q.createItemFolderStmt, err = db.PrepareContext(ctx, createItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemFolder: %w", err)
+	}
+	if q.createItemFolderBulkStmt, err = db.PrepareContext(ctx, createItemFolderBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateItemFolderBulk: %w", err)
 	}
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
@@ -164,9 +170,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createItemApiStmt: %w", cerr)
 		}
 	}
+	if q.createItemApiBulkStmt != nil {
+		if cerr := q.createItemApiBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createItemApiBulkStmt: %w", cerr)
+		}
+	}
 	if q.createItemFolderStmt != nil {
 		if cerr := q.createItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.createItemFolderBulkStmt != nil {
+		if cerr := q.createItemFolderBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createItemFolderBulkStmt: %w", cerr)
 		}
 	}
 	if q.createUserStmt != nil {
@@ -391,7 +407,9 @@ type Queries struct {
 	checkIFWorkspaceUserExistsStmt         *sql.Stmt
 	createCollectionStmt                   *sql.Stmt
 	createItemApiStmt                      *sql.Stmt
+	createItemApiBulkStmt                  *sql.Stmt
 	createItemFolderStmt                   *sql.Stmt
+	createItemFolderBulkStmt               *sql.Stmt
 	createUserStmt                         *sql.Stmt
 	createWorkspaceStmt                    *sql.Stmt
 	createWorkspaceUserStmt                *sql.Stmt
@@ -437,7 +455,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		checkIFWorkspaceUserExistsStmt:         q.checkIFWorkspaceUserExistsStmt,
 		createCollectionStmt:                   q.createCollectionStmt,
 		createItemApiStmt:                      q.createItemApiStmt,
+		createItemApiBulkStmt:                  q.createItemApiBulkStmt,
 		createItemFolderStmt:                   q.createItemFolderStmt,
+		createItemFolderBulkStmt:               q.createItemFolderBulkStmt,
 		createUserStmt:                         q.createUserStmt,
 		createWorkspaceStmt:                    q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                q.createWorkspaceUserStmt,

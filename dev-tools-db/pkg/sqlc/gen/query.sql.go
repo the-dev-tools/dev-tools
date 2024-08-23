@@ -48,9 +48,9 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 	return i, err
 }
 
-const createItemApi = `-- name: CreateItemApi :one
+const createItemApi = `-- name: CreateItemApi :exec
 INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING NULL
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiParams struct {
@@ -65,8 +65,8 @@ type CreateItemApiParams struct {
 	Body         []byte
 }
 
-func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) (interface{}, error) {
-	row := q.queryRow(ctx, q.createItemApiStmt, createItemApi,
+func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) error {
+	_, err := q.exec(ctx, q.createItemApiStmt, createItemApi,
 		arg.ID,
 		arg.CollectionID,
 		arg.ParentID,
@@ -77,9 +77,75 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) (i
 		arg.Query,
 		arg.Body,
 	)
-	var column_1 interface{}
-	err := row.Scan(&column_1)
-	return column_1, err
+	return err
+}
+
+const createItemApiBulk = `-- name: CreateItemApiBulk :exec
+INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateItemApiBulkParams struct {
+	ID             ulid.ULID
+	CollectionID   ulid.ULID
+	ParentID       *ulid.ULID
+	Name           string
+	Url            string
+	Method         string
+	Headers        mitemapi.Headers
+	Query          mitemapi.Query
+	Body           []byte
+	ID_2           ulid.ULID
+	CollectionID_2 ulid.ULID
+	ParentID_2     *ulid.ULID
+	Name_2         string
+	Url_2          string
+	Method_2       string
+	Headers_2      mitemapi.Headers
+	Query_2        mitemapi.Query
+	Body_2         []byte
+	ID_3           ulid.ULID
+	CollectionID_3 ulid.ULID
+	ParentID_3     *ulid.ULID
+	Name_3         string
+	Url_3          string
+	Method_3       string
+	Headers_3      mitemapi.Headers
+	Query_3        mitemapi.Query
+	Body_3         []byte
+}
+
+func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
+	_, err := q.exec(ctx, q.createItemApiBulkStmt, createItemApiBulk,
+		arg.ID,
+		arg.CollectionID,
+		arg.ParentID,
+		arg.Name,
+		arg.Url,
+		arg.Method,
+		arg.Headers,
+		arg.Query,
+		arg.Body,
+		arg.ID_2,
+		arg.CollectionID_2,
+		arg.ParentID_2,
+		arg.Name_2,
+		arg.Url_2,
+		arg.Method_2,
+		arg.Headers_2,
+		arg.Query_2,
+		arg.Body_2,
+		arg.ID_3,
+		arg.CollectionID_3,
+		arg.ParentID_3,
+		arg.Name_3,
+		arg.Url_3,
+		arg.Method_3,
+		arg.Headers_3,
+		arg.Query_3,
+		arg.Body_3,
+	)
+	return err
 }
 
 const createItemFolder = `-- name: CreateItemFolder :exec
@@ -100,6 +166,44 @@ func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderPara
 		arg.Name,
 		arg.ParentID,
 		arg.CollectionID,
+	)
+	return err
+}
+
+const createItemFolderBulk = `-- name: CreateItemFolderBulk :exec
+INSERT INTO item_folder (id, name, parent_id, collection_id)
+VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)
+`
+
+type CreateItemFolderBulkParams struct {
+	ID             ulid.ULID
+	Name           string
+	ParentID       *ulid.ULID
+	CollectionID   ulid.ULID
+	ID_2           ulid.ULID
+	Name_2         string
+	ParentID_2     *ulid.ULID
+	CollectionID_2 ulid.ULID
+	ID_3           ulid.ULID
+	Name_3         string
+	ParentID_3     *ulid.ULID
+	CollectionID_3 ulid.ULID
+}
+
+func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolderBulkParams) error {
+	_, err := q.exec(ctx, q.createItemFolderBulkStmt, createItemFolderBulk,
+		arg.ID,
+		arg.Name,
+		arg.ParentID,
+		arg.CollectionID,
+		arg.ID_2,
+		arg.Name_2,
+		arg.ParentID_2,
+		arg.CollectionID_2,
+		arg.ID_3,
+		arg.Name_3,
+		arg.ParentID_3,
+		arg.CollectionID_3,
 	)
 	return err
 }

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-db/pkg/sqlc/gen"
-	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -25,7 +24,6 @@ func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
 }
 
 func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.ULID) ([]mcollection.Collection, error) {
-	fmt.Println(ownerID, ctx)
 	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID)
 	if err != nil {
 		return nil, err
@@ -33,8 +31,8 @@ func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.UL
 	var collections []mcollection.Collection
 	for _, row := range rows {
 		collections = append(collections, mcollection.Collection{
-			ID:      ulid.ULID(row.ID),
-			OwnerID: ulid.ULID(row.OwnerID),
+			ID:      row.ID,
+			OwnerID: row.OwnerID,
 			Name:    row.Name,
 		})
 	}

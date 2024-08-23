@@ -11,7 +11,6 @@ import (
 	nodeslavev1 "dev-tools-services/gen/nodeslave/v1"
 	"dev-tools-services/gen/nodeslave/v1/nodeslavev1connect"
 	nodestatusv1 "dev-tools-services/gen/nodestatus/v1"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -131,8 +130,6 @@ func (m MultiNodeRunner) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMa
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("NextNodeID: %s \n", nm.NextNodeID)
 
 	nm.CurrentNode = node
 

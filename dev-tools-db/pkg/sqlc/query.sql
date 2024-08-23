@@ -21,9 +21,14 @@ SELECT c.owner_id FROM collections c
 INNER JOIN item_api i ON c.id = i.collection_id
 WHERE i.id = ? LIMIT 1;
 
--- name: CreateItemApi :one
+-- name: CreateItemApi :exec
 INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING NULL; 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?); 
+
+-- name: CreateItemApiBulk :exec
+INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
 
 -- name: UpdateItemApi :exec
 UPDATE item_api
@@ -56,6 +61,10 @@ WHERE i.id = ? LIMIT 1;
 -- name: CreateItemFolder :exec
 INSERT INTO item_folder (id, name, parent_id, collection_id)
 VALUES (?, ?, ?, ?);
+
+-- name: CreateItemFolderBulk :exec
+INSERT INTO item_folder (id, name, parent_id, collection_id)
+VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?);
 
 -- name: UpdateItemFolder :exec
 UPDATE item_folder

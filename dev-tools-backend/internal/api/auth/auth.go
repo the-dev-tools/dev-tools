@@ -128,8 +128,6 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	fmt.Println(ulidID, claims.Email)
-
 	// generate new refresh token
 	newRefreshJWT, err := stoken.NewJWT(ulidID, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
 	if err != nil {

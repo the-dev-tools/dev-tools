@@ -55,6 +55,53 @@ func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitem
 	return ifs.queries.CreateItemFolder(ctx, createParams)
 }
 
+func (ifs ItemFolderService) CreateItemApiBulk(ctx context.Context, items []mitemfolder.ItemFolder) error {
+	itemLen := len(items)
+	sizeOfChunks := 3
+	index := 0
+
+	if itemLen > 2 {
+		for {
+
+			item1 := items[index]
+			item2 := items[index+1]
+			item3 := items[index+2]
+			params := gen.CreateItemFolderBulkParams{
+				ID:             item1.ID,
+				CollectionID:   item1.CollectionID,
+				ParentID:       item1.ParentID,
+				Name:           item1.Name,
+				ID_2:           item2.ID,
+				CollectionID_2: item2.CollectionID,
+				ParentID_2:     item2.ParentID,
+				Name_2:         item2.Name,
+				ID_3:           item3.ID,
+				CollectionID_3: item3.CollectionID,
+				ParentID_3:     item3.ParentID,
+				Name_3:         item3.Name,
+			}
+
+			if err := ifs.queries.CreateItemFolderBulk(ctx, params); err != nil {
+				return err
+			}
+
+			index += sizeOfChunks
+			if index >= itemLen {
+				break
+			}
+
+		}
+	}
+	for _, item := range items[index:] {
+		err := ifs.CreateItemFolder(ctx, &item)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
 func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*mitemfolder.ItemFolder, error) {
 	rawFolder, err := ifs.queries.GetItemFolder(ctx, id)
 	if err != nil {

@@ -7,7 +7,6 @@ import (
 	api "dev-tools-nodes/pkg/nodes/nodeapi"
 	"dev-tools-nodes/pkg/nodes/nodecondition"
 	"errors"
-	"fmt"
 )
 
 type ConditionDataRestStatus struct {
@@ -25,14 +24,10 @@ func ApiConditionRestStatus(mn *mnodemaster.NodeMaster) error {
 
 	mn.CurrentNode.Data = data.ApiData
 
-	fmt.Println("Sending Rest API Request")
-
 	err := api.SendRestApiRequest(mn)
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Calling ConditionRestStatus")
 
 	_, err = nodemaster.GetVar(mn, api.VarResponseKey)
 	if err != nil {

@@ -318,18 +318,14 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, folder := range items.Folder {
-		err = c.ifs.CreateItemFolder(ctx, &folder)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	err = c.ifs.CreateItemApiBulk(ctx, items.Folder)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, api := range items.Api {
-		err = c.ias.CreateItemApi(ctx, &api)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	err = c.ias.CreateItemApiBulk(ctx, items.Api)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	respRaw := &collectionv1.ImportPostmanResponse{

@@ -101,10 +101,9 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 
 	if item.Request.Header != nil {
 		for _, v := range item.Request.Header {
-			if v.Disabled {
-				continue
+			if !v.Disabled {
+				headers[v.Key] = v.Value
 			}
-			headers[v.Key] = v.Value
 		}
 	}
 
@@ -113,7 +112,7 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 
 	var bodyData []byte
 	if item.Request.Body == nil {
-		bodyData = []byte("")
+		bodyData = nil
 	} else {
 		bodyData = []byte(item.Request.Body.Raw)
 	}

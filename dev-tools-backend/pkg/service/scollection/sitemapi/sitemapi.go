@@ -46,7 +46,7 @@ func (ias ItemApiService) GetItemApi(ctx context.Context, id ulid.ULID) (*mitema
 }
 
 func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
-	_, err := ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{
+	return ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{
 		ID:           item.ID,
 		CollectionID: item.CollectionID,
 		ParentID:     item.ParentID,
@@ -57,7 +57,66 @@ func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.Item
 		Query:        item.Query,
 		Body:         item.Body,
 	})
-	return err
+}
+
+func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemapi.ItemApi) error {
+	itemLen := len(items)
+	sizeOfChunks := 3
+	index := 0
+	if itemLen > 2 {
+		for {
+			item1 := items[index]
+			item2 := items[index+1]
+			item3 := items[index+2]
+			params := gen.CreateItemApiBulkParams{
+				ID:             item1.ID,
+				CollectionID:   item1.CollectionID,
+				ParentID:       item1.ParentID,
+				Name:           item1.Name,
+				Url:            item1.Url,
+				Method:         item1.Method,
+				Headers:        item1.Headers,
+				Query:          item1.Query,
+				Body:           item1.Body,
+				ID_2:           item2.ID,
+				CollectionID_2: item2.CollectionID,
+				ParentID_2:     item2.ParentID,
+				Name_2:         item2.Name,
+				Url_2:          item2.Url,
+				Method_2:       item2.Method,
+				Headers_2:      item2.Headers,
+				Query_2:        item2.Query,
+				Body_2:         item2.Body,
+				ID_3:           item3.ID,
+				CollectionID_3: item3.CollectionID,
+				ParentID_3:     item3.ParentID,
+				Name_3:         item3.Name,
+				Url_3:          item3.Url,
+				Method_3:       item3.Method,
+				Headers_3:      item3.Headers,
+				Query_3:        item3.Query,
+				Body_3:         item3.Body,
+			}
+
+			if err := ias.queries.CreateItemApiBulk(ctx, params); err != nil {
+				return err
+			}
+
+			index += sizeOfChunks
+			if index >= itemLen {
+				break
+			}
+
+		}
+	}
+	for _, item := range items[index:] {
+		err := ias.CreateItemApi(ctx, &item)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
 func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
