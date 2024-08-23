@@ -4,7 +4,7 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type ProviderType int
+type ProviderType int8
 
 var (
 	Unknown    ProviderType = 0
@@ -13,7 +13,7 @@ var (
 	Google     ProviderType = 3
 )
 
-type UserStatus int
+type UserStatus int8
 
 var (
 	Active  UserStatus = 0

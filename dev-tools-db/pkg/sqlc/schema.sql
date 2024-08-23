@@ -2,9 +2,9 @@ CREATE TABLE users (
     id BLOB PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     password_hash BLOB,
-    provider_type TINYINT NOT NULL DEFAULT 0,
+    provider_type INT8 NOT NULL DEFAULT 0,
     provider_id TEXT,
-    status INTEGER NOT NULL DEFAULT 0,
+    status INT8 NOT NULL DEFAULT 0,
     CHECK( status IN (0,1,2,3) ),
     CHECK( provider_type IN (0,1,2,3) ),
     UNIQUE(provider_type, provider_id)
@@ -39,7 +39,8 @@ CREATE TABLE item_folder (
         collection_id BLOB NOT NULL,
         parent_id BLOB,
         name TEXT NOT NULL,
-        FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
+        FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
+        FOREIGN KEY (parent_id) REFERENCES item_folder(id) ON DELETE CASCADE
 );
 
 CREATE INDEX Idx3 ON item_folder(collection_id, parent_id);

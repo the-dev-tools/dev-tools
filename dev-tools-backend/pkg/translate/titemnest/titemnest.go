@@ -5,7 +5,7 @@ import (
 	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
 	collectionv1 "dev-tools-services/gen/collection/v1"
 	nodedatav1 "dev-tools-services/gen/nodedata/v1"
-	"log"
+	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -107,7 +107,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 
 // sort and create root fodler and check sub folder recoversive
 // also put api with parentID in the folder
-func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi) CollectionPair {
+func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi) (*CollectionPair, error) {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
 	sortedFolderIds := make([]ulid.ULID, len(sortedFolders))
@@ -129,7 +129,7 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 				folder.Children = append(folder.Children, api)
 				folderMap[*api.ParentID] = folder
 			} else {
-				log.Fatalf("Parent folder not found %s", folder.ParentID)
+				return nil, fmt.Errorf("Parent folder not found %s", api.ParentID)
 			}
 		} else {
 			collection.itemApis = append(collection.itemApis, api)
@@ -144,14 +144,14 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 				parentFolder.Children = append(parentFolder.Children, folder)
 				folderMap[*folder.ParentID] = parentFolder
 			} else {
-				log.Fatalf("Parent folder not found %s", folder.ParentID)
+				return nil, fmt.Errorf("Parent folder not found %s", folder.ParentID)
 			}
 		} else {
 			collection.itemFolders = append(collection.itemFolders, folder)
 		}
 	}
 
-	return collection
+	return &collection, nil
 }
 
 func SortFoldersByUlidTime(folders []mitemfolder.ItemFolder) []mitemfolder.ItemFolder {

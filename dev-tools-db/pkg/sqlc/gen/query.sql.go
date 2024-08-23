@@ -8,7 +8,27 @@ package gen
 import (
 	"context"
 	"database/sql"
+
+	mitemapi "dev-tools-backend/pkg/model/mcollection/mitemapi"
+	ulid "github.com/oklog/ulid/v2"
 )
+
+const checkIFWorkspaceUserExists = `-- name: CheckIFWorkspaceUserExists :one
+SELECT EXISTS(SELECT 1 FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1)
+`
+
+type CheckIFWorkspaceUserExistsParams struct {
+	WorkspaceID ulid.ULID
+	UserID      ulid.ULID
+}
+
+// WorkspaceUsers
+func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWorkspaceUserExistsParams) (int64, error) {
+	row := q.queryRow(ctx, q.checkIFWorkspaceUserExistsStmt, checkIFWorkspaceUserExists, arg.WorkspaceID, arg.UserID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
 
 const createCollection = `-- name: CreateCollection :one
 INSERT INTO collections (id, owner_id, name)
@@ -16,8 +36,8 @@ VALUES (?, ?, ?) RETURNING id, owner_id, name
 `
 
 type CreateCollectionParams struct {
-	ID      []byte
-	OwnerID []byte
+	ID      ulid.ULID
+	OwnerID ulid.ULID
 	Name    string
 }
 
@@ -34,14 +54,14 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING NULL
 `
 
 type CreateItemApiParams struct {
-	ID           []byte
-	CollectionID []byte
-	ParentID     []byte
+	ID           ulid.ULID
+	CollectionID ulid.ULID
+	ParentID     *ulid.ULID
 	Name         string
 	Url          string
 	Method       string
-	Headers      []byte
-	Query        []byte
+	Headers      mitemapi.Headers
+	Query        mitemapi.Query
 	Body         []byte
 }
 
@@ -68,10 +88,10 @@ VALUES (?, ?, ?, ?)
 `
 
 type CreateItemFolderParams struct {
-	ID           []byte
+	ID           ulid.ULID
 	Name         string
-	ParentID     []byte
-	CollectionID []byte
+	ParentID     *ulid.ULID
+	CollectionID ulid.ULID
 }
 
 func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderParams) error {
@@ -92,10 +112,10 @@ RETURNING id, email, password_hash, provider_type, provider_id, status
 `
 
 type CreateUserParams struct {
-	ID           []byte
+	ID           ulid.ULID
 	Email        string
 	PasswordHash []byte
-	ProviderType int64
+	ProviderType int8
 	ProviderID   sql.NullString
 }
 
@@ -125,7 +145,7 @@ VALUES (?, ?)
 `
 
 type CreateWorkspaceParams struct {
-	ID   []byte
+	ID   ulid.ULID
 	Name string
 }
 
@@ -140,9 +160,9 @@ VALUES (?, ?, ?)
 `
 
 type CreateWorkspaceUserParams struct {
-	ID          []byte
-	WorkspaceID []byte
-	UserID      []byte
+	ID          ulid.ULID
+	WorkspaceID ulid.ULID
+	UserID      ulid.ULID
 }
 
 func (q *Queries) CreateWorkspaceUser(ctx context.Context, arg CreateWorkspaceUserParams) error {
@@ -155,7 +175,7 @@ DELETE FROM collections
 WHERE id = ?
 `
 
-func (q *Queries) DeleteCollection(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteCollection(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteCollectionStmt, deleteCollection, id)
 	return err
 }
@@ -165,7 +185,7 @@ DELETE FROM item_api
 WHERE id = ?
 `
 
-func (q *Queries) DeleteItemApi(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteItemApiStmt, deleteItemApi, id)
 	return err
 }
@@ -175,7 +195,7 @@ DELETE FROM item_folder
 WHERE id = ?
 `
 
-func (q *Queries) DeleteItemFolder(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteItemFolderStmt, deleteItemFolder, id)
 	return err
 }
@@ -185,7 +205,7 @@ DELETE FROM users
 WHERE id = ?
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteUser(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteUserStmt, deleteUser, id)
 	return err
 }
@@ -195,7 +215,7 @@ DELETE FROM workspaces
 WHERE id = ?
 `
 
-func (q *Queries) DeleteWorkspace(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteWorkspace(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteWorkspaceStmt, deleteWorkspace, id)
 	return err
 }
@@ -205,7 +225,7 @@ DELETE FROM workspaces_users
 WHERE id = ?
 `
 
-func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteWorkspaceUserStmt, deleteWorkspaceUser, id)
 	return err
 }
@@ -219,7 +239,7 @@ LIMIT 1
 `
 
 // Collections
-func (q *Queries) GetCollection(ctx context.Context, id []byte) (Collection, error) {
+func (q *Queries) GetCollection(ctx context.Context, id ulid.ULID) (Collection, error) {
 	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
 	var i Collection
 	err := row.Scan(&i.ID, &i.OwnerID, &i.Name)
@@ -232,7 +252,7 @@ FROM collections
 WHERE owner_id = ?
 `
 
-func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID []byte) ([]Collection, error) {
+func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID) ([]Collection, error) {
 	rows, err := q.query(ctx, q.getCollectionByOwnerIDStmt, getCollectionByOwnerID, ownerID)
 	if err != nil {
 		return nil, err
@@ -261,7 +281,7 @@ FROM collections
 WHERE id = ?
 `
 
-func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id []byte) ([]Collection, error) {
+func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.ULID) ([]Collection, error) {
 	rows, err := q.query(ctx, q.getCollectionByPlatformIDandTypeStmt, getCollectionByPlatformIDandType, id)
 	if err != nil {
 		return nil, err
@@ -290,9 +310,9 @@ FROM collections
 WHERE id = ? LIMIT 1
 `
 
-func (q *Queries) GetCollectionOwnerID(ctx context.Context, id []byte) ([]byte, error) {
+func (q *Queries) GetCollectionOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
 	row := q.queryRow(ctx, q.getCollectionOwnerIDStmt, getCollectionOwnerID, id)
-	var owner_id []byte
+	var owner_id ulid.ULID
 	err := row.Scan(&owner_id)
 	return owner_id, err
 }
@@ -308,7 +328,7 @@ WHERE id = ? LIMIT 1
 // This file is the source of truth for saas application's schema
 //
 // ItemApi
-func (q *Queries) GetItemApi(ctx context.Context, id []byte) (ItemApi, error) {
+func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error) {
 	row := q.queryRow(ctx, q.getItemApiStmt, getItemApi, id)
 	var i ItemApi
 	err := row.Scan(
@@ -331,9 +351,9 @@ INNER JOIN item_api i ON c.id = i.collection_id
 WHERE i.id = ? LIMIT 1
 `
 
-func (q *Queries) GetItemApiOwnerID(ctx context.Context, id []byte) ([]byte, error) {
+func (q *Queries) GetItemApiOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
 	row := q.queryRow(ctx, q.getItemApiOwnerIDStmt, getItemApiOwnerID, id)
-	var owner_id []byte
+	var owner_id ulid.ULID
 	err := row.Scan(&owner_id)
 	return owner_id, err
 }
@@ -346,14 +366,14 @@ WHERE id = ? LIMIT 1
 `
 
 type GetItemFolderRow struct {
-	ID           []byte
+	ID           ulid.ULID
 	Name         string
-	ParentID     []byte
-	CollectionID []byte
+	ParentID     *ulid.ULID
+	CollectionID ulid.ULID
 }
 
 // ItemFolder
-func (q *Queries) GetItemFolder(ctx context.Context, id []byte) (GetItemFolderRow, error) {
+func (q *Queries) GetItemFolder(ctx context.Context, id ulid.ULID) (GetItemFolderRow, error) {
 	row := q.queryRow(ctx, q.getItemFolderStmt, getItemFolder, id)
 	var i GetItemFolderRow
 	err := row.Scan(
@@ -372,13 +392,13 @@ WHERE collection_id = ?
 `
 
 type GetItemFolderByCollectionIDRow struct {
-	ID           []byte
+	ID           ulid.ULID
 	Name         string
-	ParentID     []byte
-	CollectionID []byte
+	ParentID     *ulid.ULID
+	CollectionID ulid.ULID
 }
 
-func (q *Queries) GetItemFolderByCollectionID(ctx context.Context, collectionID []byte) ([]GetItemFolderByCollectionIDRow, error) {
+func (q *Queries) GetItemFolderByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]GetItemFolderByCollectionIDRow, error) {
 	rows, err := q.query(ctx, q.getItemFolderByCollectionIDStmt, getItemFolderByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
@@ -412,9 +432,9 @@ INNER JOIN item_folder i ON c.id = i.collection_id
 WHERE i.id = ? LIMIT 1
 `
 
-func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id []byte) ([]byte, error) {
+func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
 	row := q.queryRow(ctx, q.getItemFolderOwnerIDStmt, getItemFolderOwnerID, id)
-	var owner_id []byte
+	var owner_id ulid.ULID
 	err := row.Scan(&owner_id)
 	return owner_id, err
 }
@@ -425,7 +445,7 @@ FROM item_api
 WHERE collection_id = ?
 `
 
-func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID []byte) ([]ItemApi, error) {
+func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApi, error) {
 	rows, err := q.query(ctx, q.getItemsApiByCollectionIDStmt, getItemsApiByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
@@ -470,15 +490,15 @@ FROM users WHERE id = ? LIMIT 1
 `
 
 type GetUserRow struct {
-	ID           []byte
+	ID           ulid.ULID
 	Email        string
 	PasswordHash []byte
-	ProviderType int64
+	ProviderType int8
 	ProviderID   sql.NullString
 }
 
 // Users
-func (q *Queries) GetUser(ctx context.Context, id []byte) (GetUserRow, error) {
+func (q *Queries) GetUser(ctx context.Context, id ulid.ULID) (GetUserRow, error) {
 	row := q.queryRow(ctx, q.getUserStmt, getUser, id)
 	var i GetUserRow
 	err := row.Scan(
@@ -502,10 +522,10 @@ FROM users WHERE email = ? LIMIT 1
 `
 
 type GetUserByEmailRow struct {
-	ID           []byte
+	ID           ulid.ULID
 	Email        string
 	PasswordHash []byte
-	ProviderType int64
+	ProviderType int8
 	ProviderID   sql.NullString
 }
 
@@ -534,14 +554,14 @@ FROM users WHERE email = ? AND provider_type = ? LIMIT 1
 
 type GetUserByEmailAndProviderTypeParams struct {
 	Email        string
-	ProviderType int64
+	ProviderType int8
 }
 
 type GetUserByEmailAndProviderTypeRow struct {
-	ID           []byte
+	ID           ulid.ULID
 	Email        string
 	PasswordHash []byte
-	ProviderType int64
+	ProviderType int8
 	ProviderID   sql.NullString
 }
 
@@ -570,14 +590,14 @@ FROM users WHERE provider_id = ? AND provider_type = ? LIMIT 1
 
 type GetUserByProviderIDandTypeParams struct {
 	ProviderID   sql.NullString
-	ProviderType int64
+	ProviderType int8
 }
 
 type GetUserByProviderIDandTypeRow struct {
-	ID           []byte
+	ID           ulid.ULID
 	Email        string
 	PasswordHash []byte
-	ProviderType int64
+	ProviderType int8
 	ProviderID   sql.NullString
 }
 
@@ -602,7 +622,7 @@ WHERE id = ? LIMIT 1
 `
 
 // Workspaces
-func (q *Queries) GetWorkspace(ctx context.Context, id []byte) (Workspace, error) {
+func (q *Queries) GetWorkspace(ctx context.Context, id ulid.ULID) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceStmt, getWorkspace, id)
 	var i Workspace
 	err := row.Scan(&i.ID, &i.Name)
@@ -613,7 +633,7 @@ const getWorkspaceByUserID = `-- name: GetWorkspaceByUserID :one
 SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1
 `
 
-func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID []byte) (Workspace, error) {
+func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID ulid.ULID) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDStmt, getWorkspaceByUserID, userID)
 	var i Workspace
 	err := row.Scan(&i.ID, &i.Name)
@@ -625,8 +645,8 @@ SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_
 `
 
 type GetWorkspaceByUserIDandWorkspaceIDParams struct {
-	WorkspaceID []byte
-	UserID      []byte
+	WorkspaceID ulid.ULID
+	UserID      ulid.ULID
 }
 
 func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg GetWorkspaceByUserIDandWorkspaceIDParams) (Workspace, error) {
@@ -637,13 +657,11 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 }
 
 const getWorkspaceUser = `-- name: GetWorkspaceUser :one
-
 SELECT id, workspace_id, user_id FROM workspaces_users
 WHERE id = ? LIMIT 1
 `
 
-// WorkspaceUsers
-func (q *Queries) GetWorkspaceUser(ctx context.Context, id []byte) (WorkspacesUser, error) {
+func (q *Queries) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (WorkspacesUser, error) {
 	row := q.queryRow(ctx, q.getWorkspaceUserStmt, getWorkspaceUser, id)
 	var i WorkspacesUser
 	err := row.Scan(&i.ID, &i.WorkspaceID, &i.UserID)
@@ -655,7 +673,7 @@ SELECT id, workspace_id, user_id FROM workspaces_users
 WHERE user_id = ? LIMIT 1
 `
 
-func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID []byte) (WorkspacesUser, error) {
+func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) (WorkspacesUser, error) {
 	row := q.queryRow(ctx, q.getWorkspaceUserByUserIDStmt, getWorkspaceUserByUserID, userID)
 	var i WorkspacesUser
 	err := row.Scan(&i.ID, &i.WorkspaceID, &i.UserID)
@@ -667,7 +685,7 @@ SELECT id, workspace_id, user_id FROM workspaces_users
 WHERE workspace_id = ? LIMIT 1
 `
 
-func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID []byte) (WorkspacesUser, error) {
+func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID ulid.ULID) (WorkspacesUser, error) {
 	row := q.queryRow(ctx, q.getWorkspaceUserByWorkspaceIDStmt, getWorkspaceUserByWorkspaceID, workspaceID)
 	var i WorkspacesUser
 	err := row.Scan(&i.ID, &i.WorkspaceID, &i.UserID)
@@ -678,7 +696,7 @@ const getWorkspacesByUserID = `-- name: GetWorkspacesByUserID :many
 SELECT id, name FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?)
 `
 
-func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID []byte) ([]Workspace, error) {
+func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) ([]Workspace, error) {
 	rows, err := q.query(ctx, q.getWorkspacesByUserIDStmt, getWorkspacesByUserID, userID)
 	if err != nil {
 		return nil, err
@@ -708,9 +726,9 @@ WHERE id = ?
 `
 
 type UpdateCollectionParams struct {
-	OwnerID []byte
+	OwnerID ulid.ULID
 	Name    string
-	ID      []byte
+	ID      ulid.ULID
 }
 
 func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
@@ -725,15 +743,15 @@ WHERE id = ?
 `
 
 type UpdateItemApiParams struct {
-	CollectionID []byte
-	ParentID     []byte
+	CollectionID ulid.ULID
+	ParentID     *ulid.ULID
 	Name         string
 	Url          string
 	Method       string
-	Headers      []byte
-	Query        []byte
+	Headers      mitemapi.Headers
+	Query        mitemapi.Query
 	Body         []byte
-	ID           []byte
+	ID           ulid.ULID
 }
 
 func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) error {
@@ -759,7 +777,7 @@ WHERE id = ?
 
 type UpdateItemFolderParams struct {
 	Name string
-	ID   []byte
+	ID   ulid.ULID
 }
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
@@ -777,7 +795,7 @@ WHERE id = ?
 type UpdateUserParams struct {
 	Email        string
 	PasswordHash []byte
-	ID           []byte
+	ID           ulid.ULID
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
@@ -793,7 +811,7 @@ WHERE id = ?
 
 type UpdateWorkspaceParams struct {
 	Name string
-	ID   []byte
+	ID   ulid.ULID
 }
 
 func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) error {
@@ -808,9 +826,9 @@ WHERE id = ?
 `
 
 type UpdateWorkspaceUserParams struct {
-	WorkspaceID []byte
-	UserID      []byte
-	ID          []byte
+	WorkspaceID ulid.ULID
+	UserID      ulid.ULID
+	ID          ulid.ULID
 }
 
 func (q *Queries) UpdateWorkspaceUser(ctx context.Context, arg UpdateWorkspaceUserParams) error {

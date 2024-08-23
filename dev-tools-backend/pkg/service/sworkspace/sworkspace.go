@@ -30,14 +30,14 @@ func New(ctx context.Context, db *sql.DB) (*WorkspaceService, error) {
 
 func (ws WorkspaceService) Create(ctx context.Context, org *mworkspace.Workspace) error {
 	err := ws.queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams{
-		ID:   org.ID.Bytes(),
+		ID:   org.ID,
 		Name: org.Name,
 	})
 	return err
 }
 
 func (ws WorkspaceService) Get(ctx context.Context, id ulid.ULID) (*mworkspace.Workspace, error) {
-	workspace, err := ws.queries.GetWorkspace(ctx, id.Bytes())
+	workspace, err := ws.queries.GetWorkspace(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -50,18 +50,18 @@ func (ws WorkspaceService) Get(ctx context.Context, id ulid.ULID) (*mworkspace.W
 
 func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace) error {
 	return ws.queries.UpdateWorkspace(ctx, gen.UpdateWorkspaceParams{
-		ID:   org.ID.Bytes(),
+		ID:   org.ID,
 		Name: org.Name,
 	})
 }
 
 func (ws WorkspaceService) Delete(ctx context.Context, id ulid.ULID) error {
-	return ws.queries.DeleteWorkspace(ctx, id.Bytes())
+	return ws.queries.DeleteWorkspace(ctx, id)
 }
 
 // TODO: this cannot be one to many should be many to many when queries
 func (ws WorkspaceService) GetByUserID(ctx context.Context, userID ulid.ULID) (*mworkspace.Workspace, error) {
-	workspace, err := ws.queries.GetWorkspaceByUserID(ctx, userID.Bytes())
+	workspace, err := ws.queries.GetWorkspaceByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (ws WorkspaceService) GetByUserID(ctx context.Context, userID ulid.ULID) (*
 }
 
 func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID ulid.ULID) ([]mworkspace.Workspace, error) {
-	rawWorkspaces, err := ws.queries.GetWorkspacesByUserID(ctx, userID.Bytes())
+	rawWorkspaces, err := ws.queries.GetWorkspacesByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +91,8 @@ func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID ulid.ULI
 
 func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID ulid.ULID) (*mworkspace.Workspace, error) {
 	workspace, err := ws.queries.GetWorkspaceByUserIDandWorkspaceID(ctx, gen.GetWorkspaceByUserIDandWorkspaceIDParams{
-		UserID:      userID.Bytes(),
-		WorkspaceID: orgID.Bytes(),
+		UserID:      userID,
+		WorkspaceID: orgID,
 	})
 	if err != nil {
 		return nil, err

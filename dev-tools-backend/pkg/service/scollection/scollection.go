@@ -26,7 +26,7 @@ func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
 
 func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.ULID) ([]mcollection.Collection, error) {
 	fmt.Println(ownerID, ctx)
-	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID.Bytes())
+	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -43,15 +43,15 @@ func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.UL
 
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
 	_, err := cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
-		ID:      collection.ID.Bytes(),
-		OwnerID: collection.OwnerID.Bytes(),
+		ID:      collection.ID,
+		OwnerID: collection.OwnerID,
 		Name:    collection.Name,
 	})
 	return err
 }
 
 func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*mcollection.Collection, error) {
-	collection, err := cs.queries.GetCollection(ctx, id.Bytes())
+	collection, err := cs.queries.GetCollection(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -65,19 +65,19 @@ func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*m
 
 func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mcollection.Collection) error {
 	err := cs.queries.UpdateCollection(ctx, gen.UpdateCollectionParams{
-		ID:      collection.ID.Bytes(),
-		OwnerID: collection.OwnerID.Bytes(),
+		ID:      collection.ID,
+		OwnerID: collection.OwnerID,
 		Name:    collection.Name,
 	})
 	return err
 }
 
 func (cs CollectionService) DeleteCollection(ctx context.Context, id ulid.ULID) error {
-	return cs.queries.DeleteCollection(ctx, id.Bytes())
+	return cs.queries.DeleteCollection(ctx, id)
 }
 
 func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
-	ulidBytes, err := cs.queries.GetCollectionOwnerID(ctx, id.Bytes())
+	ulidBytes, err := cs.queries.GetCollectionOwnerID(ctx, id)
 	if err != nil {
 		return ulid.ULID{}, err
 	}

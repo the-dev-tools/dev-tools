@@ -27,42 +27,34 @@ func New(ctx context.Context, db *sql.DB) (*ItemApiService, error) {
 }
 
 func (ias ItemApiService) GetItemApi(ctx context.Context, id ulid.ULID) (*mitemapi.ItemApi, error) {
-	itemApi, err := ias.queries.GetItemApi(ctx, id.Bytes())
+	itemApi, err := ias.queries.GetItemApi(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	ParentID := ulid.ULID(itemApi.ParentID)
-	var h mitemapi.Headers
-	h.HeaderMap = make(map[string]string)
-	h.Scan(itemApi.Headers)
-
-	var q mitemapi.Query
-	q.QueryMap = make(map[string]string)
-	q.Scan(itemApi.Query)
 
 	return &mitemapi.ItemApi{
-		ID:           ulid.ULID(itemApi.ID),
-		CollectionID: ulid.ULID(itemApi.CollectionID),
-		ParentID:     &ParentID,
+		ID:           itemApi.ID,
+		CollectionID: itemApi.CollectionID,
+		ParentID:     itemApi.ParentID,
 		Name:         itemApi.Name,
 		Url:          itemApi.Url,
 		Method:       itemApi.Method,
-		Headers:      h,
-		Query:        q,
+		Headers:      itemApi.Headers,
+		Query:        itemApi.Query,
 		Body:         itemApi.Body,
 	}, nil
 }
 
 func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
 	_, err := ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{
-		ID:           item.ID.Bytes(),
-		CollectionID: item.CollectionID.Bytes(),
-		ParentID:     item.ParentID.Bytes(),
+		ID:           item.ID,
+		CollectionID: item.CollectionID,
+		ParentID:     item.ParentID,
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
-		Headers:      item.Headers.Bytes(),
-		Query:        item.Query.Bytes(),
+		Headers:      item.Headers,
+		Query:        item.Query,
 		Body:         item.Body,
 	})
 	return err
@@ -70,53 +62,39 @@ func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.Item
 
 func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
 	return ias.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
-		ID:           item.ID.Bytes(),
-		CollectionID: item.CollectionID.Bytes(),
-		ParentID:     item.ParentID.Bytes(),
+		ID:           item.ID,
+		CollectionID: item.CollectionID,
+		ParentID:     item.ParentID,
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
-		Headers:      item.Headers.Bytes(),
-		Query:        item.Query.Bytes(),
+		Headers:      item.Headers,
+		Query:        item.Query,
 		Body:         item.Body,
 	})
 }
 
 func (ias ItemApiService) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
-	return ias.queries.DeleteItemApi(ctx, id.Bytes())
+	return ias.queries.DeleteItemApi(ctx, id)
 }
 
 func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemapi.ItemApi, error) {
-	itemApis, err := ias.queries.GetItemsApiByCollectionID(ctx, collectionID.Bytes())
+	itemApis, err := ias.queries.GetItemsApiByCollectionID(ctx, collectionID)
 	if err != nil {
 		return nil, err
 	}
 
 	items := []mitemapi.ItemApi{}
 	for _, itemApi := range itemApis {
-		ParentID := ulid.ULID(itemApi.ParentID)
-		var h mitemapi.Headers
-		h.HeaderMap = make(map[string]string)
-		err = h.Scan(itemApi.Headers)
-		if err != nil {
-			return nil, err
-		}
-		q := mitemapi.Query{}
-		q.QueryMap = make(map[string]string)
-		err = q.Scan(itemApi.Query)
-		if err != nil {
-			return nil, err
-		}
-
 		items = append(items, mitemapi.ItemApi{
 			ID:           ulid.ULID(itemApi.ID),
 			CollectionID: ulid.ULID(itemApi.CollectionID),
-			ParentID:     &ParentID,
+			ParentID:     itemApi.ParentID,
 			Name:         itemApi.Name,
 			Url:          itemApi.Url,
 			Method:       itemApi.Method,
-			Headers:      h,
-			Query:        q,
+			Headers:      itemApi.Headers,
+			Query:        itemApi.Query,
 			Body:         itemApi.Body,
 		})
 	}
@@ -124,7 +102,7 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 }
 
 func (ias ItemApiService) GetOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
-	rawUlid, err := ias.queries.GetItemApiOwnerID(ctx, id.Bytes())
+	rawUlid, err := ias.queries.GetItemApiOwnerID(ctx, id)
 	if err != nil {
 		return ulid.ULID{}, err
 	}

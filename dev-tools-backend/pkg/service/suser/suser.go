@@ -25,7 +25,7 @@ func New(ctx context.Context, db *sql.DB) (*UserService, error) {
 
 // WARNING: this is also get user password hash do not use for public api
 func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, error) {
-	user, err := us.queries.GetUser(ctx, id.Bytes())
+	user, err := us.queries.GetUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -76,10 +76,10 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 	}
 
 	newUser, err := us.queries.CreateUser(ctx, gen.CreateUserParams{
-		ID:           user.ID.Bytes(),
+		ID:           user.ID,
 		Email:        user.Email,
 		PasswordHash: user.Password,
-		ProviderType: int64(user.ProviderType),
+		ProviderType: int8(user.ProviderType),
 		ProviderID:   ProviderID,
 	})
 	if err != nil {
@@ -96,7 +96,7 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 
 func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
 	err := us.queries.UpdateUser(ctx, gen.UpdateUserParams{
-		ID:           user.ID.Bytes(),
+		ID:           user.ID,
 		Email:        user.Email,
 		PasswordHash: user.Password,
 	})
@@ -104,7 +104,7 @@ func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
 }
 
 func (us UserService) DeleteUser(ctx context.Context, id ulid.ULID) error {
-	return us.queries.DeleteUser(ctx, id.Bytes())
+	return us.queries.DeleteUser(ctx, id)
 }
 
 // WARNING: this is also get user password hash do not use for public api
@@ -114,7 +114,7 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 			String: oauthID,
 			Valid:  true,
 		},
-		ProviderType: int64(oauthType),
+		ProviderType: int8(oauthType),
 	})
 	if err != nil {
 		return nil, err
@@ -127,4 +127,19 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 		ProviderType: oauthType,
 		ProviderID:   &oauthID,
 	}, nil
+}
+
+func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID ulid.ULID, workspaceID ulid.ULID) (bool, error) {
+	// TODO: should be int8 instead of int64
+	a, err := us.queries.CheckIFWorkspaceUserExists(ctx, gen.CheckIFWorkspaceUserExistsParams{
+		UserID:      userID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		return false, err
+	}
+	if a == 0 {
+		return false, nil
+	}
+	return true, nil
 }

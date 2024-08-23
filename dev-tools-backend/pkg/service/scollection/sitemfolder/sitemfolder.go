@@ -27,23 +27,17 @@ func New(ctx context.Context, db *sql.DB) (*ItemFolderService, error) {
 }
 
 func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
-	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID.Bytes())
+	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID)
 	if err != nil {
 		return nil, err
 	}
 	var folders []mitemfolder.ItemFolder
 	for _, rawFolder := range rawFolders {
-		var parentID *ulid.ULID = nil
-		// TODO: find a better way to check if rawFolder.Parent
-		if rawFolder.ParentID != nil && len(rawFolder.ParentID) > 0 {
-			tempParentID := ulid.ULID(rawFolder.ParentID)
-			parentID = &tempParentID
-		}
 
 		folder := mitemfolder.ItemFolder{
-			ID:           ulid.ULID(rawFolder.ID),
-			CollectionID: ulid.ULID(rawFolder.CollectionID),
-			ParentID:     parentID,
+			ID:           rawFolder.ID,
+			CollectionID: rawFolder.CollectionID,
+			ParentID:     rawFolder.ParentID,
 			Name:         rawFolder.Name,
 		}
 		folders = append(folders, folder)
@@ -53,50 +47,41 @@ func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, col
 
 func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
 	createParams := gen.CreateItemFolderParams{
-		ID:           folder.ID.Bytes(),
+		ID:           folder.ID,
 		Name:         folder.Name,
-		CollectionID: folder.CollectionID.Bytes(),
+		CollectionID: folder.CollectionID,
+		ParentID:     folder.ParentID,
 	}
-	if folder.ParentID != nil {
-		createParams.ParentID = folder.ParentID.Bytes()
-	}
-
 	return ifs.queries.CreateItemFolder(ctx, createParams)
 }
 
 func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*mitemfolder.ItemFolder, error) {
-	rawFolder, err := ifs.queries.GetItemFolder(ctx, id.Bytes())
+	rawFolder, err := ifs.queries.GetItemFolder(ctx, id)
 	if err != nil {
 		return nil, err
-	}
-
-	var parentID *ulid.ULID = nil
-	if rawFolder.ParentID != nil && len(rawFolder.ParentID) > 0 {
-		tempParentID := ulid.ULID(rawFolder.ParentID)
-		parentID = &tempParentID
 	}
 
 	return &mitemfolder.ItemFolder{
 		ID:           ulid.ULID(rawFolder.ID),
 		CollectionID: ulid.ULID(rawFolder.CollectionID),
-		ParentID:     parentID,
+		ParentID:     rawFolder.ParentID,
 		Name:         rawFolder.Name,
 	}, nil
 }
 
 func (ifs ItemFolderService) UpdateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
 	return ifs.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
-		ID:   folder.ID.Bytes(),
+		ID:   folder.ID,
 		Name: folder.Name,
 	})
 }
 
 func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
-	return ifs.queries.DeleteItemFolder(ctx, id.Bytes())
+	return ifs.queries.DeleteItemFolder(ctx, id)
 }
 
 func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID ulid.ULID) (ulid.ULID, error) {
-	ownerID, err := ifs.queries.GetItemFolderOwnerID(ctx, folderID.Bytes())
+	ownerID, err := ifs.queries.GetItemFolderOwnerID(ctx, folderID)
 	if err != nil {
 		return ulid.ULID{}, err
 	}

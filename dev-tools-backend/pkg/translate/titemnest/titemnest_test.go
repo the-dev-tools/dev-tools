@@ -64,7 +64,11 @@ func TestTranslateItemFolderNested(t *testing.T) {
 	//
 	//
 
-	collectionPair := titemnest.TranslateItemFolderNested(folders, apis)
+	collectionPair, err := titemnest.TranslateItemFolderNested(folders, apis)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
 	items := collectionPair.GetItemFolders()
 	if len(items) != 2 {
 		for _, item := range items {

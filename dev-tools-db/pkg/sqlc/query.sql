@@ -199,6 +199,8 @@ WHERE id = ?;
 -- 
 -- WorkspaceUsers
 --
+-- name: CheckIFWorkspaceUserExists :one
+SELECT EXISTS(SELECT 1 FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1);
 
 -- name: GetWorkspaceUser :one
 SELECT id, workspace_id, user_id FROM workspaces_users

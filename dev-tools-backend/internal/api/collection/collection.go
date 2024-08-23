@@ -13,6 +13,7 @@ import (
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
 	"dev-tools-backend/pkg/service/scollection/sitemfolder"
 	"dev-tools-backend/pkg/service/sresultapi"
+	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/stoken"
 	"dev-tools-backend/pkg/translate/titemnest"
@@ -40,6 +41,7 @@ type CollectionServiceRPC struct {
 	DB     *sql.DB
 	cs     scollection.CollectionService
 	ws     sworkspace.WorkspaceService
+	us     suser.UserService
 	ias    sitemapi.ItemApiService
 	ifs    sitemfolder.ItemFolderService
 	secret []byte
@@ -199,7 +201,10 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	pair := titemnest.TranslateItemFolderNested(folderItems, apiItems)
+	pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	items := pair.GetItemFolders()
 
 	respRaw := &collectionv1.GetCollectionResponse{
@@ -342,6 +347,14 @@ func (c *CollectionServiceRPC) CreateFolder(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	ok, err := c.CheckOwnerCollection(ctx, collectionUlidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	}
+
 	// TODO: parentID
 	folder := mitemfolder.ItemFolder{
 		ID:           ulidID,
@@ -367,6 +380,14 @@ func (c *CollectionServiceRPC) CreateApiCall(ctx context.Context, req *connect.R
 	collectionUlidID, err := ulid.Parse(req.Msg.CollectionId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	ok, err := c.CheckOwnerCollection(ctx, collectionUlidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
 	apiCall := &mitemapi.ItemApi{
@@ -753,6 +774,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &CollectionServiceRPC{
@@ -762,6 +788,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		ias:    *ias,
 		ifs:    *ifs,
 		ws:     *ws,
+		us:     *us,
 	}
 
 	path, handler := collectionv1connect.NewCollectionServiceHandler(server, interceptors)
@@ -773,15 +800,17 @@ func (c *CollectionServiceRPC) CheckOwnerWorkspace(ctx context.Context, workspac
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
-	_, err = c.ws.GetByIDandUserID(ctx, workspaceID, userUlid)
+
+	ok, err := c.us.CheckUserBelongsToWorkspace(ctx, userUlid, workspaceID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// INFO: this mean that workspace not belong to user
 			// So for avoid information leakage, we should return not found
 			return false, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
 		}
+		return false, err
 	}
-	return true, nil
+	return ok, nil
 }
 
 func (c *CollectionServiceRPC) CheckOwnerCollection(ctx context.Context, collectionID ulid.ULID) (bool, error) {
@@ -796,12 +825,12 @@ func (c *CollectionServiceRPC) CheckOwnerCollection(ctx context.Context, collect
 func (c *CollectionServiceRPC) CheckOwnerFolder(ctx context.Context, folderID ulid.ULID) (bool, error) {
 	folder, err := c.ifs.GetItemFolder(ctx, folderID)
 	if err != nil {
-		return false, connect.NewError(connect.CodeInternal, err)
+		return false, err
 	}
 
 	isOwner, err := c.CheckOwnerCollection(ctx, folder.CollectionID)
 	if err != nil {
-		return false, connect.NewError(connect.CodeInternal, err)
+		return false, err
 	}
 	return isOwner, nil
 }
@@ -809,11 +838,11 @@ func (c *CollectionServiceRPC) CheckOwnerFolder(ctx context.Context, folderID ul
 func (c *CollectionServiceRPC) CheckOwnerApi(ctx context.Context, apiID ulid.ULID) (bool, error) {
 	api, err := c.ias.GetItemApi(ctx, apiID)
 	if err != nil {
-		return false, connect.NewError(connect.CodeInternal, err)
+		return false, err
 	}
 	isOwner, err := c.CheckOwnerCollection(ctx, api.CollectionID)
 	if err != nil {
-		return false, connect.NewError(connect.CodeInternal, err)
+		return false, err
 	}
 	return isOwner, nil
 }

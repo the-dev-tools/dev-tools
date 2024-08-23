@@ -6,49 +6,52 @@ package gen
 
 import (
 	"database/sql"
+
+	mitemapi "dev-tools-backend/pkg/model/mcollection/mitemapi"
+	ulid "github.com/oklog/ulid/v2"
 )
 
 type Collection struct {
-	ID      []byte
-	OwnerID []byte
+	ID      ulid.ULID
+	OwnerID ulid.ULID
 	Name    string
 }
 
 type ItemApi struct {
-	ID           []byte
-	CollectionID []byte
-	ParentID     []byte
+	ID           ulid.ULID
+	CollectionID ulid.ULID
+	ParentID     *ulid.ULID
 	Name         string
 	Url          string
 	Method       string
-	Headers      []byte
-	Query        []byte
+	Headers      mitemapi.Headers
+	Query        mitemapi.Query
 	Body         []byte
 }
 
 type ItemFolder struct {
-	ID           []byte
-	CollectionID []byte
-	ParentID     []byte
+	ID           ulid.ULID
+	CollectionID ulid.ULID
+	ParentID     *ulid.ULID
 	Name         string
 }
 
 type User struct {
-	ID           []byte
+	ID           ulid.ULID
 	Email        string
 	PasswordHash []byte
-	ProviderType int64
+	ProviderType int8
 	ProviderID   sql.NullString
-	Status       int64
+	Status       int8
 }
 
 type Workspace struct {
-	ID   []byte
+	ID   ulid.ULID
 	Name string
 }
 
 type WorkspacesUser struct {
-	ID          []byte
-	WorkspaceID []byte
-	UserID      []byte
+	ID          ulid.ULID
+	WorkspaceID ulid.ULID
+	UserID      ulid.ULID
 }

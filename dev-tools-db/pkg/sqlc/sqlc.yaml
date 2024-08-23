@@ -8,3 +8,108 @@ sql:
         emit_prepared_queries: true
         package: "gen"
         out: "gen"
+        overrides:
+          - db_type: "INT8"
+            go_type: "int8"
+          - db_type: "INT"
+            go_type: "int32"
+          - db_type: "BIGINT"
+            go_type: "int64"
+          ## user
+          - column: "users.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ## collections
+          ### id
+          - column: "collections.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### owner_id
+          - column: "collections.owner_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ## item_api
+          ### id
+          - column: "item_api.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### collection_id
+          - column: "item_api.collection_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### parent_id
+          - column: "item_api.parent_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              pointer: true
+              type: "ULID"
+
+          ### headers
+          - column: "item_api.headers"
+            go_type:
+              import: "dev-tools-backend/pkg/model/mcollection/mitemapi"
+              package: "mitemapi"
+              type: "Headers"
+          ### query
+          - column: "item_api.query"
+            go_type:
+              import: "dev-tools-backend/pkg/model/mcollection/mitemapi"
+              package: "mitemapi"
+              type: "Query"
+          ## item_folder
+          ### id
+          - column: "item_folder.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ## collection_id
+          - column: "item_folder.collection_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### parent_id
+          - column: "item_folder.parent_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              pointer: true
+              type: "ULID"
+          ## workspace
+          ### id
+          - column: "workspaces.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ## workspaces_users
+          ### id
+          - column: "workspaces_users.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### workspace_id
+          - column: "workspaces_users.workspace_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### user_id
+          - column: "workspaces_users.user_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"

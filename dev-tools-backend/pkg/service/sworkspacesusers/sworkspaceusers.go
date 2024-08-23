@@ -27,39 +27,39 @@ func New(ctx context.Context, db *sql.DB) (*WorkspaceUserService, error) {
 
 func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error {
 	return wsu.queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
-		ID:          user.ID.Bytes(),
-		WorkspaceID: user.WorkspaceID.Bytes(),
-		UserID:      user.UserID.Bytes(),
+		ID:          user.ID,
+		WorkspaceID: user.WorkspaceID,
+		UserID:      user.UserID,
 	})
 }
 
 func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
-	wsuser, err := wsu.queries.GetWorkspaceUser(ctx, id.Bytes())
+	wsuser, err := wsu.queries.GetWorkspaceUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	return &mworkspaceuser.WorkspaceUser{
-		ID:          ulid.MustParse(string(wsuser.ID)),
-		WorkspaceID: ulid.MustParse(string(wsuser.WorkspaceID)),
-		UserID:      ulid.MustParse(string(wsuser.UserID)),
+		ID:          wsuser.ID,
+		WorkspaceID: wsuser.WorkspaceID,
+		UserID:      wsuser.UserID,
 	}, nil
 }
 
 func (wsu WorkspaceUserService) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspaceuser.WorkspaceUser) error {
 	return wsu.queries.UpdateWorkspaceUser(ctx, gen.UpdateWorkspaceUserParams{
-		ID:          wsuser.ID.Bytes(),
-		WorkspaceID: wsuser.WorkspaceID.Bytes(),
-		UserID:      wsuser.UserID.Bytes(),
+		ID:          wsuser.ID,
+		WorkspaceID: wsuser.WorkspaceID,
+		UserID:      wsuser.UserID,
 	})
 }
 
 func (wsu WorkspaceUserService) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
-	return wsu.queries.DeleteWorkspaceUser(ctx, id.Bytes())
+	return wsu.queries.DeleteWorkspaceUser(ctx, id)
 }
 
 func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
-	wsUser, err := wsus.queries.GetWorkspaceUserByUserID(ctx, userID.Bytes())
+	wsUser, err := wsus.queries.GetWorkspaceUserByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, u
 }
 
 func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(wsID ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
-	wsu, err := wsus.queries.GetWorkspaceUserByWorkspaceID(context.Background(), wsID.Bytes())
+	wsu, err := wsus.queries.GetWorkspaceUserByWorkspaceID(context.Background(), wsID)
 	if err != nil {
 		return nil, err
 	}
