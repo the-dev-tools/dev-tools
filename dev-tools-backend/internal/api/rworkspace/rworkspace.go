@@ -16,6 +16,7 @@ import (
 	workspacev1 "dev-tools-services/gen/workspace/v1"
 	"dev-tools-services/gen/workspace/v1/workspacev1connect"
 	"errors"
+	"log"
 	"os"
 
 	"connectrpc.com/connect"
@@ -227,6 +228,12 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		return nil, err
 	}
 
+	err = c.swu.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+		ID:          ulid.Make(),
+		WorkspaceID: wid,
+		UserID:      invitedUser.ID,
+		Role:        mworkspaceuser.RoleUser,
+	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -244,7 +251,7 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 	}
 
 	// TODO: add limit for sending email
-	err = c.eim.SendEmailInvite(ctx, c.ec, req.Msg.Email, EmailInviteTemplateData)
+	err = c.eim.SendEmailInvite(ctx, req.Msg.Email, EmailInviteTemplateData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -253,6 +260,15 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 }
 
 func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
+	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+	if AWS_ACCESS_KEY == "" {
+		log.Fatalf("AWS_ACCESS_KEY is empty")
+	}
+	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+	if AWS_SECRET_KEY == "" {
+		log.Fatalf("AWS_SECRET_KEY is empty")
+	}
+
 	ctx := context.Background()
 	sw, err := sworkspace.New(ctx, db)
 	if err != nil {
@@ -268,11 +284,16 @@ func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 		return nil, err
 	}
 
+	client, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+	if err != nil {
+		log.Fatalf("failed to create email client: %v", err)
+	}
+
 	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
 	if path == "" {
 		return nil, errors.New("EMAIL_INVITE_TEMPLATE_PATH env var is required")
 	}
-	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path)
+	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, client)
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +303,7 @@ func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 		sw:  *sw,
 		swu: *swu,
 		su:  *us,
+		ec:  *client,
 		eim: emailInviteManager,
 	}
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, connect.WithInterceptors(AuthInterceptorFunc))

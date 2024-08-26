@@ -82,7 +82,7 @@ func SendEmailText(client EmailClient, subject, data, from string, recipients []
 	return output, nil
 }
 
-func SendEmailHTML(client EmailClient, subject string, data *bytes.Buffer, from string, recipients []string) (*sesv2.SendEmailOutput, error) {
+func SendEmailHTML(client *EmailClient, subject string, data *bytes.Buffer, from string, recipients []string) (*sesv2.SendEmailOutput, error) {
 	htmlBody := data.String()
 
 	// Text body or HTML body

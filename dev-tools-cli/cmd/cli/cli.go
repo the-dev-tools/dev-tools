@@ -361,12 +361,12 @@ func RunEmail() {
 		log.Fatalf("failed to create email client: %v", err)
 	}
 
-	emailInviteManager, err := emailinvite.NewEmailTemplateFile("emailinvite.html")
+	emailInviteManager, err := emailinvite.NewEmailTemplateFile("emailinvite.html", client)
 	if err != nil {
 		log.Fatalf("failed to create email invite manager: %v", err)
 	}
 
-	err = emailInviteManager.SendEmailInvite(context.Background(), *client, "ege+test@dev.tools ",
+	err = emailInviteManager.SendEmailInvite(context.Background(), "ege+test@dev.tools ",
 		&emailinvite.EmailInviteTemplateData{
 			WorkspaceName:     "ege@dev.tools",
 			InvitedByUsername: "ege",
