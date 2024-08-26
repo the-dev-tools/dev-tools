@@ -18,15 +18,8 @@ jobs:
           app_name=$(echo "${tag_name}" | cut -d '/' -f 1)
           echo "tag_name=${tag_name}" >> $GITHUB_ENV
           echo "app_name=${app_name}" >> $GITHUB_ENV
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-      - run: curl -sfS https://dotenvx.sh/install.sh | sh
-      - name: Run pnpm install
-        run: dotenvx run --convention=nextjs -- pnpm install
-        env:
-          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Fetch specific submodule
         run: git submodule update --init --recursive fly-go
