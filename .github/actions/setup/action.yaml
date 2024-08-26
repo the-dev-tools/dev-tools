@@ -19,3 +19,5 @@ runs:
     - name: Install PNPM dependencies
       shell: bash
       run: pnpm install
+      env:
+        DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
