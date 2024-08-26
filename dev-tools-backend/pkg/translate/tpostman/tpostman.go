@@ -6,9 +6,10 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
-	"encoding/json"
 	"errors"
 	"sync"
+
+	"github.com/goccy/go-json"
 
 	"github.com/oklog/ulid/v2"
 )

@@ -2,9 +2,10 @@ package mresultapi
 
 import (
 	"database/sql/driver"
-	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/goccy/go-json"
 
 	"github.com/oklog/ulid/v2"
 )

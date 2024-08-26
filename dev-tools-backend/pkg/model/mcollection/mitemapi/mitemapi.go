@@ -2,7 +2,8 @@ package mitemapi
 
 import (
 	"database/sql/driver"
-	"encoding/json"
+
+	"github.com/goccy/go-json"
 
 	"github.com/oklog/ulid/v2"
 )
