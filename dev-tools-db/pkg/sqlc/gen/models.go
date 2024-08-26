@@ -6,8 +6,10 @@ package gen
 
 import (
 	"database/sql"
+	"time"
 
 	mitemapi "dev-tools-backend/pkg/model/mcollection/mitemapi"
+	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 	ulid "github.com/oklog/ulid/v2"
 )
 
@@ -34,6 +36,17 @@ type ItemFolder struct {
 	CollectionID ulid.ULID
 	ParentID     *ulid.ULID
 	Name         string
+}
+
+type ResultApi struct {
+	ID          ulid.ULID
+	TriggerType mresultapi.TriggerType
+	TriggerBy   ulid.ULID
+	Name        string
+	Status      string
+	Time        time.Time
+	Duration    int64
+	HttpResp    mresultapi.HttpResp
 }
 
 type User struct {

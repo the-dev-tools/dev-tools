@@ -20,19 +20,20 @@ import (
 )
 
 type ResultService struct {
-	DB                *sql.DB
-	collectionService scollection.CollectionService
-	ias               sitemapi.ItemApiService
-	ws                sworkspace.WorkspaceService
+	DB  *sql.DB
+	cs  scollection.CollectionService
+	ias sitemapi.ItemApiService
+	ws  sworkspace.WorkspaceService
+	ras sresultapi.ResultApiService
 }
 
 func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv1.GetRequest]) (*connect.Response[apiresultv1.GetResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	workspaceID, err := sresultapi.GetWorkspaceID(ctx, ulidID, c.collectionService, c.ias)
+	workspaceID, err := c.ras.GetWorkspaceID(ctx, ulidID, c.cs, c.ias)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -46,7 +47,7 @@ func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
 	}
 
-	result, err := sresultapi.GetResultApi(ulidID)
+	result, err := c.ras.GetResultApi(ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -61,13 +62,13 @@ func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv
 }
 
 func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[apiresultv1.GetResultsRequest]) (*connect.Response[apiresultv1.GetResultsResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.TriggerBy)
+	ulidID, err := ulid.Parse(req.Msg.GetTriggerBy())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	triggerType := mresultapi.TriggerType(req.Msg.TriggerType)
-	workspaceID, err := sresultapi.GetWorkspaceID(ctx, ulidID, c.collectionService, c.ias)
+	triggerType := mresultapi.TriggerType(req.Msg.GetTriggerType())
+	workspaceID, err := c.ras.GetWorkspaceID(ctx, ulidID, c.cs, c.ias)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -81,21 +82,44 @@ func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
 	}
 
-	results, err := sresultapi.GetResultsApiWithTriggerBy(ulidID, triggerType)
+	results, err := c.ras.GetResultsApiWithTriggerBy(ctx, ulidID, triggerType)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	resultsProto := make([]*apiresultv1.Result, len(results))
 	for i, result := range results {
-		resultsProto[i] = convertResultToProto(result)
+		resultsProto[i] = convertResultToProto(&result)
 	}
 	return connect.NewResponse(&apiresultv1.GetResultsResponse{Results: resultsProto}), nil
 }
 
-func CreateService() (*api.Service, error) {
-	// TODO: add implementation for ias and collectionService
-	service := &ResultService{}
+func CreateService(db *sql.DB) (*api.Service, error) {
+	ctx := context.Background()
+	ras, err := sresultapi.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	cs, err := scollection.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	ias, err := sitemapi.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	ws, err := sworkspace.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	service := &ResultService{
+		DB:  db,
+		ras: *ras,
+		ias: *ias,
+		ws:  *ws,
+		cs:  *cs,
+	}
 	path, handler := apiresultv1connect.NewApiResultServiceHandler(service)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
@@ -142,7 +166,7 @@ func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID uli
 }
 
 func (c *ResultService) CheckOwnerCollection(ctx context.Context, collectionID ulid.ULID) (bool, error) {
-	workspaceID, err := c.collectionService.GetOwner(ctx, collectionID)
+	workspaceID, err := c.cs.GetOwner(ctx, collectionID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
 	}

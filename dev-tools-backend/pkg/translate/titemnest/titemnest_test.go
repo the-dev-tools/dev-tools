@@ -77,11 +77,11 @@ func TestTranslateItemFolderNested(t *testing.T) {
 		t.Errorf("expected 2 items, got %d", len(items))
 	}
 
-	if items[0].GetData().(*collectionv1.Item_Folder).Folder.Meta.Id != folders[0].ID.String() {
-		t.Errorf("expected %s, got %s", folders[0].ID.String(), items[0].GetData().(*collectionv1.Item_Folder).Folder.Meta.Id)
+	if items[0].GetData().(*collectionv1.Item_Folder).Folder.GetMeta().GetId() != folders[0].ID.String() {
+		t.Errorf("expected %s, got %s", folders[0].ID.String(), items[0].GetData().(*collectionv1.Item_Folder).Folder.GetMeta().GetId())
 	}
 
-	newItems := items[0].GetData().(*collectionv1.Item_Folder).Folder.Items
+	newItems := items[0].GetData().(*collectionv1.Item_Folder).Folder.GetItems()
 	if len(newItems) != 3 {
 		t.Errorf("expected 3 sub item, got %d", len(newItems))
 		for _, item := range newItems {

@@ -51,7 +51,7 @@ func TestRefreshToken(t *testing.T) {
 		return // need this cuz golint cannot understand that t.Fatal will stop the function
 	}
 
-	if resp.Msg.AccessToken == "" {
+	if resp.Msg.GetAccessToken() == "" {
 		t.Fatal("access token is empty")
 	}
 }

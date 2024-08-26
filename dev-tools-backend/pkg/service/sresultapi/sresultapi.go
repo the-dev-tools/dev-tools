@@ -6,153 +6,92 @@ import (
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/scollection/sitemapi"
+	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
 
-var (
-	// base statements
-	PreparedCreateResultAPI *sql.Stmt
-	PreparedGetResultAPI    *sql.Stmt
-	PreparedUpdateResultAPI *sql.Stmt
-	PreparedDeleteResultAPI *sql.Stmt
-
-	PreparedGetResultsAPIWithReqID *sql.Stmt
-)
-
-func PrepareTables(db *sql.DB) error {
-	_, err := db.Exec(`
-                CREATE TABLE IF NOT EXISTS result_api (
-                        id TEXT PRIMARY KEY,
-                        trigger_type INT,
-                        trigger_by TEXT,
-                        name TEXT,
-                        status TEXT,
-                        time TIMESTAMP,
-                        duration BIGINT,
-                        http_resp BLOB 
-                )
-        `)
-	return err
+type ResultApiService struct {
+	db      *sql.DB
+	queries *gen.Queries
 }
 
-func PrepareStatements(db *sql.DB) error {
-	// PrepareCreateResultAPI prepares the create statement for the result_api table
-	err := PrepareCreateResultAPI(db)
-	if err != nil {
-		return err
-	}
-	// PrepareGetResultAPI prepares the get statement for the result_api table
-	err = PrepareGetResultAPI(db)
-	if err != nil {
-		return err
-	}
-	// PrepareUpdateResultAPI prepares the update statement for the result_api table
-	err = PrepareUpdateResultAPI(db)
-	if err != nil {
-		return err
-	}
-	// PrepareDeleteResultAPI prepares the delete statement for the result_api table
-	err = PrepareDeleteResultAPI(db)
-	if err != nil {
-		return err
-	}
-	// PrepareGetResultsAPIWithReqID prepares the get statement for the result_api table with req_id
-	err = PrepareGetResultsAPIWithReqID(db)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func PrepareCreateResultAPI(db *sql.DB) error {
-	var err error
-	PreparedCreateResultAPI, err = db.Prepare(`
-                INSERT INTO result_api (id, trigger_type, trigger_by, name, time, duration, http_resp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-        `)
-	return err
-}
-
-func PrepareGetResultAPI(db *sql.DB) error {
-	var err error
-	PreparedGetResultAPI, err = db.Prepare(`
-                SELECT * FROM result_api WHERE id = ?
-        `)
-	return err
-}
-
-func PrepareUpdateResultAPI(db *sql.DB) error {
-	var err error
-	PreparedUpdateResultAPI, err = db.Prepare(`
-                UPDATE result_api SET name = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
-        `)
-	return err
-}
-
-func PrepareDeleteResultAPI(db *sql.DB) error {
-	var err error
-	PreparedDeleteResultAPI, err = db.Prepare(`
-                DELETE FROM result_api WHERE id = ?
-        `)
-	return err
-}
-
-func PrepareGetResultsAPIWithReqID(db *sql.DB) error {
-	var err error
-	PreparedGetResultsAPIWithReqID, err = db.Prepare(`
-                SELECT * FROM result_api WHERE trigger_by = ?, trigger_type = ?
-        `)
-	return err
-}
-
-func CreateResultApi(result *mresultapi.MResultAPI) error {
-	_, err := PreparedCreateResultAPI.Exec(result.ID, result.TriggerType,
-		result.TriggerBy, result.Name, result.Time, result.Duration, result.HttpResp)
-	return err
-}
-
-func GetResultApi(id ulid.ULID) (*mresultapi.MResultAPI, error) {
-	result := &mresultapi.MResultAPI{}
-	err := PreparedGetResultAPI.QueryRow(id).Scan(&result.ID, &result.TriggerType,
-		&result.TriggerBy, &result.Name, &result.Time, &result.Duration, &result.HttpResp)
-	return result, err
-}
-
-func UpdateResultApi(result *mresultapi.MResultAPI) error {
-	_, err := PreparedUpdateResultAPI.Exec(result.Name, result.Time, result.Duration,
-		result.HttpResp, result.ID)
-	return err
-}
-
-func DeleteResultApi(id ulid.ULID) error {
-	_, err := PreparedDeleteResultAPI.Exec(id)
-	return err
-}
-
-func GetResultsApiWithTriggerBy(triggerBy ulid.ULID, triggerType mresultapi.TriggerType) ([]*mresultapi.MResultAPI, error) {
-	rows, err := PreparedGetResultsAPIWithReqID.Query(triggerBy, triggerType)
+func New(ctx context.Context, db *sql.DB) (*ResultApiService, error) {
+	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	results := make([]*mresultapi.MResultAPI, 0)
-	for rows.Next() {
-		result := &mresultapi.MResultAPI{}
-		err = rows.Scan(&result.ID, &result.TriggerType, &result.TriggerBy, &result.Name,
-			&result.Time, &result.Duration, &result.HttpResp)
-		if err != nil {
-			return nil, err
+	resultApiService := ResultApiService{db, queries}
+	return &resultApiService, nil
+}
+
+func (ras ResultApiService) CreateResultApi(ctx context.Context, result *mresultapi.MResultAPI) error {
+	return ras.queries.CreateResultApi(ctx, gen.CreateResultApiParams{
+		ID:          result.ID,
+		TriggerType: result.TriggerType,
+		TriggerBy:   result.TriggerBy,
+		Name:        result.Name,
+		Time:        result.Time,
+		Duration:    result.Duration.Nanoseconds(),
+		HttpResp:    result.HttpResp,
+	})
+}
+
+func (ras ResultApiService) GetResultApi(id ulid.ULID) (*mresultapi.MResultAPI, error) {
+	result, err := ras.queries.GetResultApi(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+	return &mresultapi.MResultAPI{
+		ID:          result.ID,
+		TriggerType: result.TriggerType,
+		TriggerBy:   result.TriggerBy,
+		Name:        result.Name,
+		Time:        result.Time,
+		Duration:    time.Duration(result.Duration),
+		HttpResp:    result.HttpResp,
+	}, nil
+}
+
+func (ras ResultApiService) UpdateResultApi(ctx context.Context, result *mresultapi.MResultAPI) error {
+	return ras.queries.UpdateResultApi(ctx, gen.UpdateResultApiParams{
+		ID:       result.ID,
+		Name:     result.Name,
+		Time:     result.Time,
+		Duration: result.Duration.Nanoseconds(),
+		HttpResp: result.HttpResp,
+	})
+}
+
+func (ras ResultApiService) DeleteResultApi(ctx context.Context, id ulid.ULID) error {
+	return ras.queries.DeleteResultApi(ctx, id)
+}
+
+func (ras ResultApiService) GetResultsApiWithTriggerBy(ctx context.Context, triggerBy ulid.ULID, triggerType mresultapi.TriggerType) ([]mresultapi.MResultAPI, error) {
+	resultsRaw, err := ras.queries.GetResultApiByTriggerBy(ctx, triggerBy)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]mresultapi.MResultAPI, len(resultsRaw))
+	for i, result := range results {
+		results[i] = mresultapi.MResultAPI{
+			ID:          result.ID,
+			TriggerType: result.TriggerType,
+			TriggerBy:   result.TriggerBy,
+			Name:        result.Name,
+			Time:        result.Time,
+			Duration:    time.Duration(result.Duration),
+			HttpResp:    result.HttpResp,
 		}
-		results = append(results, result)
 	}
 	return results, nil
 }
 
-func GetWorkspaceID(ctx context.Context, id ulid.ULID, cs scollection.CollectionService, ias sitemapi.ItemApiService) (ulid.ULID, error) {
+func (ras ResultApiService) GetWorkspaceID(ctx context.Context, id ulid.ULID, cs scollection.CollectionService, ias sitemapi.ItemApiService) (ulid.ULID, error) {
 	var ownerID ulid.ULID
-	result, err := GetResultApi(id)
+	result, err := ras.GetResultApi(id)
 	if err != nil {
 		return ownerID, err
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type TriggerType int32
+type TriggerType int16
 
 var (
 	TRIGGER_TYPE_UNSPECIFIED TriggerType = 0

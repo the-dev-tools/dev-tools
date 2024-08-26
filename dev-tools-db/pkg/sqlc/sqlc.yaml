@@ -11,6 +11,8 @@ sql:
         overrides:
           - db_type: "INT8"
             go_type: "int8"
+          - db_type: "TINYINT"
+            go_type: "int16"
           - db_type: "INT"
             go_type: "int32"
           - db_type: "BIGINT"
@@ -113,3 +115,28 @@ sql:
               import: "github.com/oklog/ulid/v2"
               package: "ulid"
               type: "ULID"
+          ## result_api
+          ### id
+          - column: "result_api.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### trigger_type
+          - column: "result_api.trigger_type"
+            go_type:
+              import: "dev-tools-backend/pkg/model/result/mresultapi"
+              package: "mresultapi"
+              type: "TriggerType"
+          ### trigger_by
+          - column: "result_api.trigger_by"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### trigger_by
+          - column: "result_api.http_resp"
+            go_type:
+              import: "dev-tools-backend/pkg/model/result/mresultapi"
+              package: "mresultapi"
+              type: "HttpResp"

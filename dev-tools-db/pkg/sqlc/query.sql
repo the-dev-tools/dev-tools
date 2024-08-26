@@ -235,3 +235,26 @@ WHERE id = ?;
 -- name: DeleteWorkspaceUser :exec
 DELETE FROM workspaces_users
 WHERE id = ?;
+
+--
+-- ResultAPI
+--
+
+-- name: GetResultApi :one
+SELECT * FROM result_api WHERE id = ? LIMIT 1;
+
+-- name: GetResultApiByTriggerBy :many
+SELECT * FROM result_api WHERE trigger_by = ?;
+
+-- name: GetResultApiByTriggerByAndTriggerType :many
+SELECT * FROM result_api WHERE trigger_by = ? AND trigger_type = ?;
+
+-- name: CreateResultApi :exec
+INSERT INTO result_api (id, trigger_type, trigger_by, name, status, time, duration, http_resp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateResultApi :exec
+UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?;
+
+-- name: DeleteResultApi :exec
+DELETE FROM result_api WHERE id = ?;

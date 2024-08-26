@@ -32,7 +32,7 @@ type WorkspaceServiceRPC struct {
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
-	orgID, err := ulid.Parse(req.Msg.Id)
+	orgID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -97,7 +97,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 
 	org := &mworkspace.Workspace{
 		ID:   ulidID,
-		Name: req.Msg.Name,
+		Name: req.Msg.GetName(),
 	}
 
 	// TODO: add transaction
@@ -132,11 +132,11 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	orgUlid, err := ulid.Parse(req.Msg.Id)
+	orgUlid, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	if req.Msg.Name == "" {
+	if req.Msg.GetName() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
@@ -147,7 +147,7 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		}
 	}
 
-	org.Name = req.Msg.Name
+	org.Name = req.Msg.GetName()
 	err = c.sw.Update(ctx, org)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -161,7 +161,7 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	orgUlid, err := ulid.Parse(req.Msg.Id)
+	orgUlid, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -184,12 +184,12 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 // TODO: I'm not sure this is the correct implementation of this function
 // Will talk with the team about this on the next meeting
 func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Request[workspacev1.InviteUserRequest]) (*connect.Response[workspacev1.InviteUserResponse], error) {
-	wid, err := ulid.Parse(req.Msg.WorkspaceId)
+	wid, err := ulid.Parse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	// check email
-	if req.Msg.Email == "" {
+	if req.Msg.GetEmail() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
 	}
 	// TODO: add more validation for email
@@ -212,13 +212,13 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	invitedUser, err := c.su.GetUserByEmail(ctx, req.Msg.Email)
+	invitedUser, err := c.su.GetUserByEmail(ctx, req.Msg.GetEmail())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			invitedUserUlid := ulid.Make()
 			invitedUser, err = c.su.CreateUser(ctx, &muser.User{
 				ID:           invitedUserUlid,
-				Email:        req.Msg.Email,
+				Email:        req.Msg.GetEmail(),
 				Password:     nil,
 				ProviderType: muser.Unknown,
 				ProviderID:   nil,
@@ -251,7 +251,7 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 	}
 
 	// TODO: add limit for sending email
-	err = c.eim.SendEmailInvite(ctx, req.Msg.Email, EmailInviteTemplateData)
+	err = c.eim.SendEmailInvite(ctx, req.Msg.GetEmail(), EmailInviteTemplateData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

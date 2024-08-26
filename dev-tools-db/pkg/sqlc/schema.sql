@@ -58,3 +58,19 @@ CREATE TABLE IF NOT EXISTS workspaces_users (
         FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )
+
+CREATE TABLE IF NOT EXISTS result_api (
+        id BLOB PRIMARY KEY,
+        trigger_type TINYINT,
+        trigger_by BLOB,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        duration BIGINT NOT NULL,
+        http_resp BLOB
+);
+
+CREATE INDEX Idx4 ON result_api(trigger_by, trigger_type);
+
+INSERT INTO result_api (id, trigger_type, trigger_by, name, time, duration, http_resp)
+VALUES (?, ?, ?, ?, ?, ?, ?);

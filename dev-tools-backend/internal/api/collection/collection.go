@@ -44,6 +44,7 @@ type CollectionServiceRPC struct {
 	us     suser.UserService
 	ias    sitemapi.ItemApiService
 	ifs    sitemfolder.ItemFolderService
+	ras    sresultapi.ResultApiService
 	secret []byte
 }
 
@@ -98,7 +99,7 @@ func (c CollectionServiceRPC) NewAuthInterceptor() connect.UnaryInterceptorFunc 
 
 // ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	workspaceUlid, err := ulid.Parse(req.Msg.WorkspaceId)
+	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -137,7 +138,7 @@ func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect
 
 // CreateCollection calls collection.v1.CollectionService.CreateCollection.
 func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
-	workspaceUlid, err := ulid.Parse(req.Msg.WorkspaceId)
+	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -155,7 +156,7 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 	collection := mcollection.Collection{
 		ID:      ulidID,
 		OwnerID: workspaceUlid,
-		Name:    req.Msg.Name,
+		Name:    req.Msg.GetName(),
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
 	if err != nil {
@@ -163,14 +164,14 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 	}
 	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
 		Id:    ulidID.String(),
-		Name:  req.Msg.Name,
+		Name:  req.Msg.GetName(),
 		Items: []*collectionv1.Item{},
 	}), nil
 }
 
 // GetCollection calls collection.v1.CollectionService.GetCollection.
 func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.Request[collectionv1.GetCollectionRequest]) (*connect.Response[collectionv1.GetCollectionResponse], error) {
-	id := req.Msg.Id
+	id := req.Msg.GetId()
 	// convert id to ulid
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
@@ -218,7 +219,7 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 
 // UpdateCollection calls collection.v1.CollectionService.UpdateCollection.
 func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connect.Request[collectionv1.UpdateCollectionRequest]) (*connect.Response[collectionv1.UpdateCollectionResponse], error) {
-	id := req.Msg.Id
+	id := req.Msg.GetId()
 	// convert id to ulid
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
@@ -241,7 +242,7 @@ func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connec
 
 	collection := mcollection.Collection{
 		ID:      ulidID,
-		Name:    req.Msg.Name,
+		Name:    req.Msg.GetName(),
 		OwnerID: collectionOld.OwnerID,
 	}
 	err = c.cs.UpdateCollection(ctx, &collection)
@@ -254,7 +255,7 @@ func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connec
 
 // DeleteCollection calls collection.v1.CollectionService.DeleteCollection.
 func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connect.Request[collectionv1.DeleteCollectionRequest]) (*connect.Response[collectionv1.DeleteCollectionResponse], error) {
-	id := req.Msg.Id
+	id := req.Msg.GetId()
 	// convert id
 	ulidID, err := ulid.Parse(id)
 	if err != nil {
@@ -278,7 +279,7 @@ func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connec
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
-	orgUlid, err := ulid.Parse(req.Msg.WorkspaceId)
+	orgUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -295,7 +296,7 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	postmanCollection, err := tpostman.ParsePostmanCollection(req.Msg.Data)
+	postmanCollection, err := tpostman.ParsePostmanCollection(req.Msg.GetData())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -304,7 +305,7 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 
 	collection := mcollection.Collection{
 		ID:      ulidID,
-		Name:    req.Msg.Name,
+		Name:    req.Msg.GetName(),
 		OwnerID: org.ID,
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
@@ -338,7 +339,7 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 // CreateFolder calls collection.v1.CollectionService.CreateFolder.
 func (c *CollectionServiceRPC) CreateFolder(ctx context.Context, req *connect.Request[collectionv1.CreateFolderRequest]) (*connect.Response[collectionv1.CreateFolderResponse], error) {
 	ulidID := ulid.Make()
-	collectionUlidID, err := ulid.Parse(req.Msg.CollectionId)
+	collectionUlidID, err := ulid.Parse(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -355,7 +356,7 @@ func (c *CollectionServiceRPC) CreateFolder(ctx context.Context, req *connect.Re
 	folder := mitemfolder.ItemFolder{
 		ID:           ulidID,
 		CollectionID: collectionUlidID,
-		Name:         req.Msg.Name,
+		Name:         req.Msg.GetName(),
 	}
 	err = c.ifs.CreateItemFolder(ctx, &folder)
 	if err != nil {
@@ -364,7 +365,7 @@ func (c *CollectionServiceRPC) CreateFolder(ctx context.Context, req *connect.Re
 
 	respRaw := &collectionv1.CreateFolderResponse{
 		Id:   ulidID.String(),
-		Name: req.Msg.Name,
+		Name: req.Msg.GetName(),
 	}
 	resp := connect.NewResponse(respRaw)
 	return resp, nil
@@ -373,7 +374,7 @@ func (c *CollectionServiceRPC) CreateFolder(ctx context.Context, req *connect.Re
 // CreateApiCall calls collection.v1.CollectionService.CreateApiCall.
 func (c *CollectionServiceRPC) CreateApiCall(ctx context.Context, req *connect.Request[collectionv1.CreateApiCallRequest]) (*connect.Response[collectionv1.CreateApiCallResponse], error) {
 	ulidID := ulid.Make()
-	collectionUlidID, err := ulid.Parse(req.Msg.CollectionId)
+	collectionUlidID, err := ulid.Parse(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -389,7 +390,7 @@ func (c *CollectionServiceRPC) CreateApiCall(ctx context.Context, req *connect.R
 	apiCall := &mitemapi.ItemApi{
 		ID:           ulidID,
 		CollectionID: collectionUlidID,
-		Name:         req.Msg.Name,
+		Name:         req.Msg.GetName(),
 		// TODO: ParentID:
 	}
 	err = c.ias.CreateItemApi(ctx, apiCall)
@@ -406,7 +407,7 @@ func (c *CollectionServiceRPC) CreateApiCall(ctx context.Context, req *connect.R
 
 // GetFolder calls collection.v1.CollectionService.GetFolder.
 func (c *CollectionServiceRPC) GetFolder(ctx context.Context, req *connect.Request[collectionv1.GetFolderRequest]) (*connect.Response[collectionv1.GetFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -439,7 +440,7 @@ func (c *CollectionServiceRPC) GetFolder(ctx context.Context, req *connect.Reque
 
 // GetApiCall calls collection.v1.CollectionService.GetApiCall.
 func (c *CollectionServiceRPC) GetApiCall(ctx context.Context, req *connect.Request[collectionv1.GetApiCallRequest]) (*connect.Response[collectionv1.GetApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -485,11 +486,11 @@ func (c *CollectionServiceRPC) GetApiCall(ctx context.Context, req *connect.Requ
 
 // UpdateFolder calls collection.v1.CollectionService.UpdateFolder.
 func (c *CollectionServiceRPC) UpdateFolder(ctx context.Context, req *connect.Request[collectionv1.UpdateFolderRequest]) (*connect.Response[collectionv1.UpdateFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Folder.Meta.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetFolder().GetMeta().GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collectionID, err := ulid.Parse(req.Msg.Folder.CollectionId)
+	collectionID, err := ulid.Parse(req.Msg.GetFolder().GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -503,8 +504,8 @@ func (c *CollectionServiceRPC) UpdateFolder(ctx context.Context, req *connect.Re
 	}
 
 	var parentUlidIDPtr *ulid.ULID = nil
-	if req.Msg.Folder.ParentId != "" {
-		parentUlidID, err := ulid.Parse(req.Msg.Folder.ParentId)
+	if req.Msg.GetFolder().GetParentId() != "" {
+		parentUlidID, err := ulid.Parse(req.Msg.GetFolder().GetParentId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -521,7 +522,7 @@ func (c *CollectionServiceRPC) UpdateFolder(ctx context.Context, req *connect.Re
 	folder := mitemfolder.ItemFolder{
 		ID:           ulidID,
 		CollectionID: collectionID,
-		Name:         req.Msg.Folder.Meta.Name,
+		Name:         req.Msg.GetFolder().GetMeta().GetName(),
 		ParentID:     parentUlidIDPtr,
 	}
 
@@ -535,12 +536,12 @@ func (c *CollectionServiceRPC) UpdateFolder(ctx context.Context, req *connect.Re
 
 // UpdateApiCall calls collection.v1.CollectionService.UpdateApiCall.
 func (c *CollectionServiceRPC) UpdateApiCall(ctx context.Context, req *connect.Request[collectionv1.UpdateApiCallRequest]) (*connect.Response[collectionv1.UpdateApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.ApiCall.Meta.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetApiCall().GetMeta().GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	CollectionID, err := ulid.Parse(req.Msg.ApiCall.CollectionId)
+	CollectionID, err := ulid.Parse(req.Msg.GetApiCall().GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -562,8 +563,8 @@ func (c *CollectionServiceRPC) UpdateApiCall(ctx context.Context, req *connect.R
 	}
 
 	var parentUlidIDPtr *ulid.ULID = nil
-	if req.Msg.ApiCall.ParentId != "" {
-		parentUlidID, err := ulid.Parse(req.Msg.ApiCall.ParentId)
+	if req.Msg.GetApiCall().GetParentId() != "" {
+		parentUlidID, err := ulid.Parse(req.Msg.GetApiCall().GetParentId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -581,12 +582,12 @@ func (c *CollectionServiceRPC) UpdateApiCall(ctx context.Context, req *connect.R
 		ID:           ulidID,
 		CollectionID: CollectionID,
 		ParentID:     parentUlidIDPtr,
-		Name:         req.Msg.ApiCall.Meta.Name,
-		Url:          req.Msg.ApiCall.Data.Url,
-		Method:       req.Msg.ApiCall.Data.Method,
-		Headers:      mitemapi.Headers{HeaderMap: req.Msg.ApiCall.Data.Headers},
-		Query:        mitemapi.Query{QueryMap: req.Msg.ApiCall.Data.QueryParams},
-		Body:         req.Msg.ApiCall.Data.Body,
+		Name:         req.Msg.GetApiCall().GetMeta().GetName(),
+		Url:          req.Msg.GetApiCall().GetData().GetUrl(),
+		Method:       req.Msg.GetApiCall().GetData().GetMethod(),
+		Headers:      mitemapi.Headers{HeaderMap: req.Msg.GetApiCall().GetData().GetHeaders()},
+		Query:        mitemapi.Query{QueryMap: req.Msg.GetApiCall().GetData().GetQueryParams()},
+		Body:         req.Msg.GetApiCall().GetData().GetBody(),
 	}
 
 	err = c.ias.UpdateItemApi(ctx, itemApi)
@@ -599,7 +600,7 @@ func (c *CollectionServiceRPC) UpdateApiCall(ctx context.Context, req *connect.R
 
 // DeleteFolder calls collection.v1.CollectionService.DeleteFolder.
 func (c *CollectionServiceRPC) DeleteFolder(ctx context.Context, req *connect.Request[collectionv1.DeleteFolderRequest]) (*connect.Response[collectionv1.DeleteFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -622,7 +623,7 @@ func (c *CollectionServiceRPC) DeleteFolder(ctx context.Context, req *connect.Re
 
 // DeleteApiCall calls collection.v1.CollectionService.DeleteApiCall.
 func (c *CollectionServiceRPC) DeleteApiCall(ctx context.Context, req *connect.Request[collectionv1.DeleteApiCallRequest]) (*connect.Response[collectionv1.DeleteApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -646,7 +647,7 @@ func (c *CollectionServiceRPC) DeleteApiCall(ctx context.Context, req *connect.R
 
 // RunApiCall calls collection.v1.CollectionService.RunApiCall.
 func (c *CollectionServiceRPC) RunApiCall(ctx context.Context, req *connect.Request[collectionv1.RunApiCallRequest]) (*connect.Response[collectionv1.RunApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.Id)
+	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -719,7 +720,7 @@ func (c *CollectionServiceRPC) RunApiCall(ctx context.Context, req *connect.Requ
 		},
 	}
 
-	err = sresultapi.CreateResultApi(result)
+	err = c.ras.CreateResultApi(ctx, result)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -775,6 +776,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	ras, err := sresultapi.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &CollectionServiceRPC{
@@ -785,6 +791,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		ifs:    *ifs,
 		ws:     *ws,
 		us:     *us,
+		ras:    *ras,
 	}
 
 	path, handler := collectionv1connect.NewCollectionServiceHandler(server, interceptors)

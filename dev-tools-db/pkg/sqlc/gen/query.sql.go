@@ -8,8 +8,10 @@ package gen
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	mitemapi "dev-tools-backend/pkg/model/mcollection/mitemapi"
+	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 	ulid "github.com/oklog/ulid/v2"
 )
 
@@ -208,6 +210,36 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 	return err
 }
 
+const createResultApi = `-- name: CreateResultApi :exec
+INSERT INTO result_api (id, trigger_type, trigger_by, name, status, time, duration, http_resp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateResultApiParams struct {
+	ID          ulid.ULID
+	TriggerType mresultapi.TriggerType
+	TriggerBy   ulid.ULID
+	Name        string
+	Status      string
+	Time        time.Time
+	Duration    int64
+	HttpResp    mresultapi.HttpResp
+}
+
+func (q *Queries) CreateResultApi(ctx context.Context, arg CreateResultApiParams) error {
+	_, err := q.exec(ctx, q.createResultApiStmt, createResultApi,
+		arg.ID,
+		arg.TriggerType,
+		arg.TriggerBy,
+		arg.Name,
+		arg.Status,
+		arg.Time,
+		arg.Duration,
+		arg.HttpResp,
+	)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users 
 (id, email, password_hash, provider_type, provider_id)
@@ -301,6 +333,15 @@ WHERE id = ?
 
 func (q *Queries) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteItemFolderStmt, deleteItemFolder, id)
+	return err
+}
+
+const deleteResultApi = `-- name: DeleteResultApi :exec
+DELETE FROM result_api WHERE id = ?
+`
+
+func (q *Queries) DeleteResultApi(ctx context.Context, id ulid.ULID) error {
+	_, err := q.exec(ctx, q.deleteResultApiStmt, deleteResultApi, id)
 	return err
 }
 
@@ -568,6 +609,105 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 			&i.Headers,
 			&i.Query,
 			&i.Body,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResultApi = `-- name: GetResultApi :one
+
+SELECT id, trigger_type, trigger_by, name, status, time, duration, http_resp FROM result_api WHERE id = ? LIMIT 1
+`
+
+// ResultAPI
+func (q *Queries) GetResultApi(ctx context.Context, id ulid.ULID) (ResultApi, error) {
+	row := q.queryRow(ctx, q.getResultApiStmt, getResultApi, id)
+	var i ResultApi
+	err := row.Scan(
+		&i.ID,
+		&i.TriggerType,
+		&i.TriggerBy,
+		&i.Name,
+		&i.Status,
+		&i.Time,
+		&i.Duration,
+		&i.HttpResp,
+	)
+	return i, err
+}
+
+const getResultApiByTriggerBy = `-- name: GetResultApiByTriggerBy :many
+SELECT id, trigger_type, trigger_by, name, status, time, duration, http_resp FROM result_api WHERE trigger_by = ?
+`
+
+func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy ulid.ULID) ([]ResultApi, error) {
+	rows, err := q.query(ctx, q.getResultApiByTriggerByStmt, getResultApiByTriggerBy, triggerBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ResultApi
+	for rows.Next() {
+		var i ResultApi
+		if err := rows.Scan(
+			&i.ID,
+			&i.TriggerType,
+			&i.TriggerBy,
+			&i.Name,
+			&i.Status,
+			&i.Time,
+			&i.Duration,
+			&i.HttpResp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResultApiByTriggerByAndTriggerType = `-- name: GetResultApiByTriggerByAndTriggerType :many
+SELECT id, trigger_type, trigger_by, name, status, time, duration, http_resp FROM result_api WHERE trigger_by = ? AND trigger_type = ?
+`
+
+type GetResultApiByTriggerByAndTriggerTypeParams struct {
+	TriggerBy   ulid.ULID
+	TriggerType mresultapi.TriggerType
+}
+
+func (q *Queries) GetResultApiByTriggerByAndTriggerType(ctx context.Context, arg GetResultApiByTriggerByAndTriggerTypeParams) ([]ResultApi, error) {
+	rows, err := q.query(ctx, q.getResultApiByTriggerByAndTriggerTypeStmt, getResultApiByTriggerByAndTriggerType, arg.TriggerBy, arg.TriggerType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ResultApi
+	for rows.Next() {
+		var i ResultApi
+		if err := rows.Scan(
+			&i.ID,
+			&i.TriggerType,
+			&i.TriggerBy,
+			&i.Name,
+			&i.Status,
+			&i.Time,
+			&i.Duration,
+			&i.HttpResp,
 		); err != nil {
 			return nil, err
 		}
@@ -886,6 +1026,31 @@ type UpdateItemFolderParams struct {
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
 	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ID)
+	return err
+}
+
+const updateResultApi = `-- name: UpdateResultApi :exec
+UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
+`
+
+type UpdateResultApiParams struct {
+	Name     string
+	Status   string
+	Time     time.Time
+	Duration int64
+	HttpResp mresultapi.HttpResp
+	ID       ulid.ULID
+}
+
+func (q *Queries) UpdateResultApi(ctx context.Context, arg UpdateResultApiParams) error {
+	_, err := q.exec(ctx, q.updateResultApiStmt, updateResultApi,
+		arg.Name,
+		arg.Status,
+		arg.Time,
+		arg.Duration,
+		arg.HttpResp,
+		arg.ID,
+	)
 	return err
 }
 

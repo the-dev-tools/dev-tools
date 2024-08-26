@@ -40,10 +40,10 @@ type AuthServer struct {
 }
 
 func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
-	if req.Msg.DidToken == "" {
+	if req.Msg.GetDidToken() == "" {
 		return nil, errors.New("did token is required")
 	}
-	tk, err := token.NewToken(req.Msg.DidToken)
+	tk, err := token.NewToken(req.Msg.GetDidToken())
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +112,12 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 }
 
 func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[authv1.AuthServiceRefreshTokenRequest]) (*connect.Response[authv1.AuthServiceRefreshTokenResponse], error) {
-	if req.Msg.RefreshToken == "" {
+	if req.Msg.GetRefreshToken() == "" {
 		// connect invalid token error
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
 	}
 
-	jwtToken, err := stoken.ValidateJWT(req.Msg.RefreshToken, stoken.RefreshToken, a.HmacSecret)
+	jwtToken, err := stoken.ValidateJWT(req.Msg.GetRefreshToken(), stoken.RefreshToken, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

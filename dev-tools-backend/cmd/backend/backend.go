@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/db/turso"
-	"dev-tools-backend/pkg/service/sresultapi"
 	"errors"
 	"log"
 	"os"
@@ -55,16 +53,6 @@ func main() {
 	hmacSecretBytes := []byte(hmacSecret)
 
 	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// PrepareTables and PrepareStatements are functions that create tables and prepared statements in the database
-	err = PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = PrepareStatements(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,23 +105,4 @@ func main() {
 	// Wait for signal
 	<-sc
 	cancel()
-}
-
-func PrepareTables(db *sql.DB) error {
-	err := sresultapi.PrepareTables(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return nil
-}
-
-func PrepareStatements(db *sql.DB) error {
-	// Prepared statements
-	err := sresultapi.PrepareStatements(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return nil
 }
