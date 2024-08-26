@@ -10,12 +10,21 @@ service WorkspaceService {
   rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
   rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
   rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
   rpc InviteUser(InviteUserRequest) returns (InviteUserResponse);
+  rpc RemoveUser(RemoveUserRequest) returns (RemoveUserResponse);
+  rpc UpdateUserRole(UpdateUserRoleRequest) returns (UpdateUserRoleResponse);
 }
 
 message Workspace {
   string id = 1;
   string name = 2;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string role = 3;
 }
 
 message GetWorkspacesRequest {
@@ -56,10 +65,36 @@ message DeleteWorkspaceRequest {
 message DeleteWorkspaceResponse {
 }
 
+message ListUsersRequest {
+  string workspace_id = 1;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
 message InviteUserRequest {
   string workspace_id = 1;
   string email = 2;
 }
 
 message InviteUserResponse {
+  string user_id = 1;
+}
+
+message RemoveUserRequest {
+  string workspace_id = 1;
+  string user_id = 2;
+}
+
+message RemoveUserResponse {
+}
+
+message UpdateUserRoleRequest {
+  string workspace_id = 1;
+  string user_id = 2;
+  string role = 3;
+}
+
+message UpdateUserRoleResponse {
 }

@@ -116,6 +116,7 @@ message RunApiCallResponse {
 message CreateFolderRequest {
   string name = 1;
   string collection_id = 2;
+  string parent_id = 3;
 }
 
 message CreateFolderResponse {
