@@ -1,37 +1,52 @@
-import { getRouteApi, Link, Outlet } from '@tanstack/react-router';
+import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect } from 'effect';
+import { Button, Link, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';
-import { Button } from '@the-dev-tools/ui/button';
+import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Runtime } from './runtime';
 
 const route = getRouteApi('/_authorized');
 
-export interface DashboardLayoutProps {
-  children?: React.ReactNode;
-}
+export interface DashboardLayoutProps
+  extends MixinProps<'left', React.ComponentProps<'div'>>,
+    MixinProps<'right', React.ComponentProps<'div'>> {}
 
-export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+export const DashboardLayout = (mixProps: DashboardLayoutProps) => {
+  const props = splitProps(mixProps, 'left', 'right');
   const { email } = route.useRouteContext();
-
   return (
-    <div className='flex h-full'>
-      <div className='flex h-full w-80 flex-col gap-2 overflow-auto border-r-4 border-black p-2'>
-        <h1 className='text-center text-2xl font-extrabold'>The Dev Tools</h1>
-        <Link to='/'>Home</Link>
-        <div className='flex-1' />
-        {children}
-        <div>User: {email}</div>
-        <Button
-          onPress={async () => {
-            await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
-            queueMicrotask(() => void location.reload());
-          }}
-          variant='secondary gray'
+    <div className='flex h-full flex-col'>
+      <div className='flex items-center gap-2 bg-black p-2 text-white'>
+        <Link
+          className='flex h-8 select-none items-center justify-center rounded-full bg-white px-4 text-black'
+          href={{ to: '/' }}
         >
-          Log out
-        </Button>
+          DevTools
+        </Link>
+        {props.left.children && <div {...props.left}>{props.left.children}</div>}
+        <div className='flex-1' />
+        {props.right.children && <div {...props.right}>{props.right.children}</div>}
+        <MenuTrigger>
+          <Button className='flex size-8 items-center justify-center rounded-full bg-white uppercase text-black'>
+            {email[0]}
+          </Button>
+          <Popover>
+            <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
+              <MenuItem isDisabled>User: {email}</MenuItem>
+              <MenuItem
+                onAction={async () => {
+                  await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
+                  queueMicrotask(() => void location.reload());
+                }}
+                className='cursor-pointer'
+              >
+                Log out
+              </MenuItem>
+            </Menu>
+          </Popover>
+        </MenuTrigger>
       </div>
       <div className='h-full flex-1 overflow-auto p-2'>
         <Outlet />
@@ -39,3 +54,5 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     </div>
   );
 };
+
+export const DashboardRootLayout = () => <DashboardLayout leftChildren='Home' />;

@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Button, Form, Input, TextField } from 'react-aria-components';
+import { Button, Form, Input, Menu, MenuItem, MenuTrigger, Popover, TextField } from 'react-aria-components';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
 import {
@@ -132,13 +132,18 @@ export const WorkspaceLayout = () => {
   const { workspace } = query.data;
 
   return (
-    <DashboardLayout>
-      <Link to='/workspace/$workspaceId/members' params={{ workspaceId }}>
-        Manage members
-      </Link>
-      <Link to='/workspace/$workspaceId' params={{ workspaceId }}>
-        {workspace!.name}
-      </Link>
-    </DashboardLayout>
+    <DashboardLayout
+      leftChildren={
+        <MenuTrigger>
+          <Button>{workspace!.name}</Button>
+          <Popover>
+            <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
+              <MenuItem href={{ to: '/workspace/$workspaceId', params: { workspaceId } }}>Home</MenuItem>
+              <MenuItem href={{ to: '/workspace/$workspaceId/members', params: { workspaceId } }}>Members</MenuItem>
+            </Menu>
+          </Popover>
+        </MenuTrigger>
+      }
+    />
   );
 };

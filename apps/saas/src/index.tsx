@@ -1,7 +1,8 @@
 import { TransportProvider } from '@connectrpc/connect-query';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { createRouter, NavigateOptions, RouterProvider, ToOptions } from '@tanstack/react-router';
 import { StrictMode } from 'react';
+import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
 import { routeTree } from './routes/-generated-router-tree';
@@ -18,6 +19,13 @@ declare module '@tanstack/react-router' {
   }
 }
 
+declare module 'react-aria-components' {
+  interface RouterConfig {
+    href: ToOptions;
+    routerOptions: Omit<NavigateOptions, keyof ToOptions>;
+  }
+}
+
 const rootEl = document.getElementById('root');
 if (rootEl) {
   const root = createRoot(rootEl);
@@ -25,7 +33,12 @@ if (rootEl) {
     <StrictMode>
       <TransportProvider transport={transport}>
         <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
+          <AriaRouterProvider
+            navigate={(to, options) => router.navigate({ ...to, ...options })}
+            useHref={(to) => router.buildLocation(to).href}
+          >
+            <RouterProvider router={router} />
+          </AriaRouterProvider>
         </QueryClientProvider>
       </TransportProvider>
     </StrictMode>,
