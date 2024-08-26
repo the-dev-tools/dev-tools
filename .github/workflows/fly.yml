@@ -11,6 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: deploy-group # ensure only one action runs at a time
     steps:
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+      - name: Run pnpm install
+        run: dotenvx run --convention=nextjs -- pnpm install
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - uses: actions/checkout@v4
       - name: Extract application name
         run: |
