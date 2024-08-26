@@ -12,10 +12,13 @@ jobs:
     concurrency: deploy-group # ensure only one action runs at a time
     steps:
       - uses: pnpm/action-setup@v4
-        name: Install pnpm
         with:
           version: 9
-          run_install: false
+          run_install: |
+            - recursive: true
+              args: [--frozen-lockfile, --strict-peer-dependencies]
+            - args: [--global, gulp, prettier, typescript]
+      - run: curl -sfS https://dotenvx.sh/install.sh | sh
       - name: Run pnpm install
         run: dotenvx run --convention=nextjs -- pnpm install
         env:
