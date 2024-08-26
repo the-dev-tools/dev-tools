@@ -16,6 +16,7 @@ import (
 	workspacev1 "dev-tools-services/gen/workspace/v1"
 	"dev-tools-services/gen/workspace/v1/workspacev1connect"
 	"errors"
+	"os"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -26,6 +27,7 @@ type WorkspaceServiceRPC struct {
 	swu sworkspacesusers.WorkspaceUserService
 	su  suser.UserService
 	ec  emailclient.EmailClient
+	eim *emailinvite.EmailTemplateManager
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
@@ -209,15 +211,22 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	invitedUserUlid := ulid.Make()
-	invitedUser, err := c.su.CreateUser(ctx, &muser.User{
-		ID:           invitedUserUlid,
-		Email:        req.Msg.Email,
-		Password:     nil,
-		ProviderType: muser.Unknown,
-		ProviderID:   nil,
-		Status:       muser.Pending,
-	})
+	invitedUser, err := c.su.GetUserByEmail(ctx, req.Msg.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			invitedUserUlid := ulid.Make()
+			invitedUser, err = c.su.CreateUser(ctx, &muser.User{
+				ID:           invitedUserUlid,
+				Email:        req.Msg.Email,
+				Password:     nil,
+				ProviderType: muser.Unknown,
+				ProviderID:   nil,
+				Status:       muser.Pending,
+			})
+		}
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -234,7 +243,8 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		Username:          invitedUser.Email,
 	}
 
-	err = emailinvite.SendEmailInvite(ctx, c.ec, req.Msg.Email, EmailInviteTemplateData)
+	// TODO: add limit for sending email
+	err = c.eim.SendEmailInvite(ctx, c.ec, req.Msg.Email, EmailInviteTemplateData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -258,11 +268,21 @@ func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 		return nil, err
 	}
 
+	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
+	if path == "" {
+		return nil, errors.New("EMAIL_INVITE_TEMPLATE_PATH env var is required")
+	}
+	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path)
+	if err != nil {
+		return nil, err
+	}
+
 	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
 	server := &WorkspaceServiceRPC{
 		sw:  *sw,
 		swu: *swu,
 		su:  *us,
+		eim: emailInviteManager,
 	}
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, connect.WithInterceptors(AuthInterceptorFunc))
 	return &api.Service{Path: path, Handler: handler}, nil

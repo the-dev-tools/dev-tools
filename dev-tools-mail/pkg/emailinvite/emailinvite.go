@@ -16,20 +16,29 @@ type EmailInviteTemplateData struct {
 	Username          string
 }
 
-func SendEmailInvite(ctx context.Context, client emailclient.EmailClient, to string, data *EmailInviteTemplateData) error {
-	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
-	if path == "" {
-		path = "emailinvite.html"
-	}
+type EmailTemplateManager struct {
+	template *template.Template
+}
 
-	template, err := template.ParseFiles(path)
+func NewEmailTemplateFile(path string) (*EmailTemplateManager, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	str := string(data)
+
+	tmpl, err := template.New("emailinvite").Parse(str)
+	if err != nil {
+		return nil, err
 	}
 
+	return &EmailTemplateManager{template: tmpl}, nil
+}
+
+func (f EmailTemplateManager) SendEmailInvite(ctx context.Context, client emailclient.EmailClient, to string, data *EmailInviteTemplateData) error {
 	// INFO: place holder data for the email template
 	buf := new(bytes.Buffer)
-	err = template.Execute(buf, data)
+	err := f.template.Execute(buf, data)
 	if err != nil {
 		return err
 	}
