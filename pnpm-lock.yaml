@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@the-dev-tools/email':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.1.1
+        version: 0.1.1
 
 packages:
 
-  '@the-dev-tools/email@0.1.0':
-    resolution: {integrity: sha512-Ryn5kgHkiakQqpx1jPMAuiANYaTJrvrwijx7n7hulc41CGCgV6XYT9LJO1CVDAu7NeghDXQA9+tQPHEi1/gf9A==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/email/0.1.0/69ecf63c36d67e66347dda8a30f5636cbaf54357}
+  '@the-dev-tools/email@0.1.1':
+    resolution: {integrity: sha512-/pNEfTd8Jqq5SYkFcnY0tPQFfmJ5/cj1I0quzyR8buVqeoTmUEP/DhRaga2+iQtJ7eQlBEjLWgJ4CVoHo+Py6g==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/email/0.1.1/a344de538f74ac50e35ccd287e87cad436604f24}
 
 snapshots:
 
-  '@the-dev-tools/email@0.1.0': {}
+  '@the-dev-tools/email@0.1.1': {}

@@ -234,7 +234,10 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		Username:          invitedUser.Email,
 	}
 
-	emailinvite.SendEmailInvite(ctx, c.ec, req.Msg.Email, EmailInviteTemplateData)
+	err = emailinvite.SendEmailInvite(ctx, c.ec, req.Msg.Email, EmailInviteTemplateData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	return connect.NewResponse(&workspacev1.InviteUserResponse{}), nil
 }

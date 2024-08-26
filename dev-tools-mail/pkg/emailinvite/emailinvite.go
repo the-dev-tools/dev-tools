@@ -1,7 +1,6 @@
 package emailinvite
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"dev-tools-mail/pkg/emailclient"
@@ -27,15 +26,15 @@ func SendEmailInvite(ctx context.Context, client emailclient.EmailClient, to str
 	if err != nil {
 		return err
 	}
+
 	// INFO: place holder data for the email template
-	var buffer bytes.Buffer
-	writer := bufio.NewWriter(&buffer)
-	err = template.Execute(writer, data)
+	buf := new(bytes.Buffer)
+	err = template.Execute(buf, data)
 	if err != nil {
 		return err
 	}
 
-	output, err := emailclient.SendEmailHTML(client, "Invitation to DevTools", buffer.String(), emailclient.DefaultEmailFrom, []string{to})
+	output, err := emailclient.SendEmailHTML(client, "Invitation to DevTools", buf, emailclient.DefaultEmailFrom, []string{to})
 	if err != nil {
 		return err
 	}

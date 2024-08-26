@@ -1,5 +1,5 @@
 {
-  "dependencies": {
-    "@the-dev-tools/email": "^0.1.0"
-  }
+        "dependencies": {
+                "@the-dev-tools/email": "^0.1.1"
+        }
 }
