@@ -71,10 +71,15 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 			tempUser, err := a.GetPendingUserByEmail(ctx, email)
 			if err != nil {
 				if err == sql.ErrNoRows {
-					a.handleUserNotFound(ctx, email, publicAddress, muser.MagicLink)
+					tempUser, err = a.handleUserNotFound(ctx, email, publicAddress, muser.MagicLink)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					return nil, err
 				}
-				return nil, err
 			}
+			fmt.Println("pk", publicAddress)
 			tempUser.ProviderID = &publicAddress
 			tempUser.ProviderType = muser.MagicLink
 			err = a.userService.UpdateUser(ctx, tempUser)
@@ -85,7 +90,6 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		} else {
 			return nil, err
 		}
-		return nil, err
 	}
 
 	jwtToken, err := stoken.NewJWT(user.ID, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
@@ -181,7 +185,7 @@ func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
 }
 
 func (a *AuthServer) GetPendingUserByEmail(ctx context.Context, email string) (*muser.User, error) {
-	user, err := a.userService.GetUserWithOAuthIDAndType(ctx, email, muser.Unknown)
+	user, err := a.userService.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
