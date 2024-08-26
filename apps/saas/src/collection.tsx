@@ -1,5 +1,4 @@
 import {
-  createConnectQueryKey,
   createProtobufSafeUpdater,
   createQueryOptions,
   useQuery as useConnectQuery,
@@ -33,45 +32,44 @@ import { Runtime } from './runtime';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceId');
 
-export const CollectionsPage = () => {
-  const router = useRouter();
-
+export const CollectionsWidget = () => {
   const { workspaceId } = workspaceRoute.useParams();
+
+  const transport = useTransport();
+  const queryClient = useQueryClient();
 
   const createCollectionMutation = useMutation(CollectionQuery.createCollection);
   const collectionsQuery = useConnectQuery(CollectionQuery.listCollections, { workspaceId });
+
+  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
 
   if (!collectionsQuery.isSuccess) return null;
   const collections = collectionsQuery.data.metaCollections;
 
   return (
     <>
-      <h2 className='text-center text-2xl font-extrabold'>Collections</h2>
-      <div className='flex justify-between'>
-        <ImportPostman />
-        <button
-          onClick={async () => {
-            const response = await createCollectionMutation.mutateAsync({ workspaceId, name: 'New collection' });
-            await router.navigate({
-              to: '/workspace/$workspaceId/collection/$collectionId',
-              params: { workspaceId, collectionId: response.id },
-            });
+      <h3 className='uppercase'>Collections</h3>
+      <div className='flex justify-between gap-2'>
+        <Button
+          onPress={async () => {
+            await createCollectionMutation.mutateAsync({ workspaceId, name: 'New collection' });
+            await queryClient.invalidateQueries(listQueryOptions);
           }}
+          className='flex-1 rounded bg-black text-white'
         >
-          Create collection
-        </button>
+          New
+        </Button>
+        <ImportPostman />
       </div>
-      <div className='mt-4 flex flex-col'>
-        {collections.map((_) => (
-          <Link
-            key={_.id}
-            to='/workspace/$workspaceId/collection/$collectionId'
-            params={{ workspaceId, collectionId: _.id }}
-          >
-            {_.name}
-          </Link>
-        ))}
-      </div>
+      {collections.map((_) => (
+        <Link
+          key={_.id}
+          to='/workspace/$workspaceId/collection/$collectionId'
+          params={{ workspaceId, collectionId: _.id }}
+        >
+          {_.name}
+        </Link>
+      ))}
     </>
   );
 };
@@ -79,29 +77,28 @@ export const CollectionsPage = () => {
 const ImportPostman = () => {
   const { workspaceId } = workspaceRoute.useParams();
 
+  const transport = useTransport();
   const queryClient = useQueryClient();
+
   const createMutation = useMutation(CollectionQuery.importPostman);
 
+  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
+
   return (
-    <div>
-      <span>Import Postman collection: </span>
-      <FileTrigger
-        onSelect={async (_) => {
-          const file = _?.item(0);
-          if (!file) return;
-          await createMutation.mutateAsync({
-            workspaceId,
-            name: file.name,
-            data: new Uint8Array(await file.arrayBuffer()),
-          });
-          await queryClient.invalidateQueries({
-            queryKey: createConnectQueryKey(CollectionQuery.listCollections, { workspaceId }),
-          });
-        }}
-      >
-        <Button>Select a file</Button>
-      </FileTrigger>
-    </div>
+    <FileTrigger
+      onSelect={async (_) => {
+        const file = _?.item(0);
+        if (!file) return;
+        await createMutation.mutateAsync({
+          workspaceId,
+          name: file.name,
+          data: new Uint8Array(await file.arrayBuffer()),
+        });
+        await queryClient.invalidateQueries(listQueryOptions);
+      }}
+    >
+      <Button className='flex-1 rounded bg-black text-white'>Import</Button>
+    </FileTrigger>
   );
 };
 
@@ -122,6 +119,8 @@ export const CollectionPage = () => {
   const updateMutation = useMutation(CollectionQuery.updateCollection);
   const createFolderMutation = useMutation(CollectionQuery.createFolder);
 
+  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
+
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
 
@@ -133,6 +132,7 @@ export const CollectionPage = () => {
       <h2 className='text-center text-2xl font-extrabold'>{data.name}</h2>
 
       <Form
+        key={data.id}
         className='my-2 border-y border-black py-2'
         onSubmit={(event) =>
           Effect.gen(function* () {
@@ -155,6 +155,8 @@ export const CollectionPage = () => {
                 }),
               ),
             );
+
+            yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
           }).pipe(Runtime.runPromise)
         }
       >
@@ -171,6 +173,7 @@ export const CollectionPage = () => {
               await deleteMutation.mutateAsync({ id: collectionId });
               await router.navigate({ to: '/workspace/$workspaceId', params: { workspaceId } });
               await queryClient.invalidateQueries(queryOptions);
+              await queryClient.invalidateQueries(listQueryOptions);
             }}
           >
             Delete

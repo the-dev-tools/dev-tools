@@ -6,7 +6,7 @@ import {
 } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { getRouteApi, Link, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
 import { Button, Form, Input, Menu, MenuItem, MenuTrigger, Popover, TextField } from 'react-aria-components';
@@ -20,6 +20,7 @@ import {
   updateWorkspace,
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 
+import { CollectionsWidget } from './collection';
 import { DashboardLayout } from './dashboard';
 import { Runtime } from './runtime';
 
@@ -144,6 +145,16 @@ export const WorkspaceLayout = () => {
           </Popover>
         </MenuTrigger>
       }
-    />
+    >
+      <div className='flex h-full'>
+        <div className='flex w-1/5 flex-col gap-2 border-r-2 border-black p-2'>
+          <h2 className='uppercase'>Overview</h2>
+          <CollectionsWidget />
+        </div>
+        <div className='flex-1 overflow-auto p-2'>
+          <Outlet />
+        </div>
+      </div>
+    </DashboardLayout>
   );
 };

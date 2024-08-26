@@ -11,9 +11,11 @@ const route = getRouteApi('/_authorized');
 
 export interface DashboardLayoutProps
   extends MixinProps<'left', React.ComponentProps<'div'>>,
-    MixinProps<'right', React.ComponentProps<'div'>> {}
+    MixinProps<'right', React.ComponentProps<'div'>> {
+  children?: React.ReactNode;
+}
 
-export const DashboardLayout = (mixProps: DashboardLayoutProps) => {
+export const DashboardLayout = ({ children, ...mixProps }: DashboardLayoutProps) => {
   const props = splitProps(mixProps, 'left', 'right');
   const { email } = route.useRouteContext();
   return (
@@ -48,9 +50,13 @@ export const DashboardLayout = (mixProps: DashboardLayoutProps) => {
           </Popover>
         </MenuTrigger>
       </div>
-      <div className='h-full flex-1 overflow-auto p-2'>
-        <Outlet />
-      </div>
+      {children ? (
+        children
+      ) : (
+        <div className='h-full flex-1 overflow-auto p-2'>
+          <Outlet />
+        </div>
+      )}
     </div>
   );
 };
