@@ -20,6 +20,8 @@ jobs:
           echo "app_name=${app_name}" >> $GITHUB_ENV
       - name: Setup runner environment
         uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Fetch specific submodule
         run: git submodule update --init --recursive fly-go
