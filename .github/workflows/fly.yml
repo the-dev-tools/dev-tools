@@ -14,10 +14,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9
-          run_install: |
-            - recursive: true
-              args: [--frozen-lockfile, --strict-peer-dependencies]
-            - args: [--global, gulp, prettier, typescript]
+          run_install: false
       - run: curl -sfS https://dotenvx.sh/install.sh | sh
       - name: Run pnpm install
         run: dotenvx run --convention=nextjs -- pnpm install
