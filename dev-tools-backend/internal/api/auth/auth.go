@@ -79,7 +79,6 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 					return nil, err
 				}
 			}
-			fmt.Println("pk", publicAddress)
 			tempUser.ProviderID = &publicAddress
 			tempUser.ProviderType = muser.MagicLink
 			err = a.userService.UpdateUser(ctx, tempUser)
@@ -145,13 +144,12 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 	return connect.NewResponse(&authv1.AuthServiceRefreshTokenResponse{RefreshToken: newRefreshJWT, AccessToken: newAccessJWT}), nil
 }
 
-func CreateService(db *sql.DB, secret []byte) (*api.Service, error) {
+func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
 	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
 	if magicLinkSecret == "" {
 		return nil, errors.New("MAGIC_LINK_SECRET env var is required")
 	}
 
-	ctx := context.Background()
 	userService, err := suser.New(ctx, db)
 	if err != nil {
 		return nil, err
@@ -225,6 +223,7 @@ func (a AuthServer) handleUserNotFound(ctx context.Context, email, ProviderID st
 		ID:          ulid.Make(),
 		WorkspaceID: org.ID,
 		UserID:      user.ID,
+		Role:        mworkspaceuser.RoleOwner,
 	}
 
 	err = a.wus.CreateWorkspaceUser(ctx, orgUser)

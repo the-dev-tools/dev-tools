@@ -5,9 +5,10 @@ import "github.com/oklog/ulid/v2"
 type Role uint16
 
 const (
-	RoleOwner Role = 1
-	RoleAdmin Role = 2
-	RoleUser  Role = 3
+	RoleUnknown Role = 0
+	RoleUser    Role = 1
+	RoleAdmin   Role = 2
+	RoleOwner   Role = 3
 )
 
 type WorkspaceUser struct {

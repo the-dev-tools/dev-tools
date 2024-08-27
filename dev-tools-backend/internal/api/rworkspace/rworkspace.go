@@ -23,6 +23,8 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+var ErrWorkspaceNotFound = errors.New("workspace not found")
+
 type WorkspaceServiceRPC struct {
 	sw  sworkspace.WorkspaceService
 	swu sworkspacesusers.WorkspaceUserService
@@ -110,6 +112,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		ID:          ulid.Make(),
 		WorkspaceID: org.ID,
 		UserID:      userID,
+		Role:        mworkspaceuser.RoleOwner,
 	}
 
 	err = c.swu.CreateWorkspaceUser(ctx, orgUser)
@@ -132,7 +135,7 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	orgUlid, err := ulid.Parse(req.Msg.GetId())
+	workspaceUlid, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -140,15 +143,26 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	org, err := c.sw.GetByIDandUserID(ctx, orgUlid, userUlid)
+	wsUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceUlid, userUlid)
+	if err != nil {
+		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
+		}
+	}
+
+	if wsUser.Role < mworkspaceuser.RoleAdmin {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+
+	ws, err := c.sw.Get(ctx, workspaceUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
 		}
 	}
 
-	org.Name = req.Msg.GetName()
-	err = c.sw.Update(ctx, org)
+	ws.Name = req.Msg.GetName()
+	err = c.sw.Update(ctx, ws)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -161,19 +175,23 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	orgUlid, err := ulid.Parse(req.Msg.GetId())
+	workspaceUlid, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	org, err := c.sw.GetByIDandUserID(ctx, orgUlid, userUlid)
+	wsUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceUlid, userUlid)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("organization not found"))
+		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
 		}
 	}
 
-	err = c.sw.Delete(ctx, org.ID)
+	if wsUser.Role != mworkspaceuser.RoleOwner {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+
+	err = c.sw.Delete(ctx, workspaceUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -201,11 +219,18 @@ func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	rpcUser := make([]*workspacev1.User, len(wsUsers))
 	for i, wsUser := range wsUsers {
+		user, err := c.su.GetUser(ctx, wsUser.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		rpcUser[i] = &workspacev1.User{
-			Id:   wsUser.UserID.String(),
-			Role: workspacev1.Role(wsUser.Role),
+			Id:    wsUser.UserID.String(),
+			Email: user.Email,
+			Role:  workspacev1.Role(wsUser.Role),
 		}
 	}
 
@@ -372,7 +397,7 @@ func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.R
 	return connect.NewResponse(&workspacev1.UpdateUserRoleResponse{}), nil
 }
 
-func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
+func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service, error) {
 	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
 	if AWS_ACCESS_KEY == "" {
 		log.Fatalf("AWS_ACCESS_KEY is empty")
@@ -382,7 +407,6 @@ func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 		log.Fatalf("AWS_SECRET_KEY is empty")
 	}
 
-	ctx := context.Background()
 	sw, err := sworkspace.New(ctx, db)
 	if err != nil {
 		return nil, err
@@ -412,6 +436,8 @@ func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 	}
 
 	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
+	CrashInterceptorFunc := mwauth.NewCrashInterceptor()
+	Interceptors := connect.WithInterceptors(AuthInterceptorFunc, CrashInterceptorFunc)
 	server := &WorkspaceServiceRPC{
 		sw:  *sw,
 		swu: *swu,
@@ -419,6 +445,6 @@ func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {
 		ec:  *client,
 		eim: emailInviteManager,
 	}
-	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, connect.WithInterceptors(AuthInterceptorFunc))
+	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, Interceptors)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

@@ -10,6 +10,8 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+var ErrWorkspaceUserNotFound = errors.New("workspace user not found")
+
 type WorkspaceUserService struct {
 	DB      *sql.DB
 	queries *gen.Queries
@@ -31,6 +33,7 @@ func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *m
 		ID:          user.ID,
 		WorkspaceID: user.WorkspaceID,
 		UserID:      user.UserID,
+		Role:        int8(user.Role),
 	})
 }
 
@@ -44,6 +47,7 @@ func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id ulid.UL
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
+		Role:        mworkspaceuser.Role(wsuser.Role),
 	}, nil
 }
 
@@ -70,6 +74,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, u
 			ID:          ulid.ULID(rawWsUser.ID),
 			WorkspaceID: ulid.ULID(rawWsUser.WorkspaceID),
 			UserID:      ulid.ULID(rawWsUser.UserID),
+			Role:        mworkspaceuser.Role(rawWsUser.Role),
 		}
 	}
 	return wsUsers, nil
@@ -103,6 +108,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx con
 		ID:          ulid.ULID(wsu.ID),
 		WorkspaceID: ulid.ULID(wsu.WorkspaceID),
 		UserID:      ulid.ULID(wsu.UserID),
+		Role:        mworkspaceuser.Role(wsu.Role),
 	}, nil
 }
 

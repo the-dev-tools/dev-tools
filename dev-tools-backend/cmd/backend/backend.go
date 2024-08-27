@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
@@ -33,78 +34,31 @@ func main() {
 		port = "8080"
 	}
 
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		log.Fatal(errors.New("DB_NAME env var is required"))
-	}
-
-	dbToken := os.Getenv("DB_TOKEN")
-	if dbToken == "" {
-		log.Fatal(errors.New("DB_TOKEN env var is required"))
-	}
-
-	dbUsername := os.Getenv("DB_USERNAME")
-	if dbUsername == "" {
-		log.Fatal(errors.New("DB_USERNAME env var is required"))
-	}
-
 	hmacSecret := os.Getenv("HMAC_SECRET")
 	if hmacSecret == "" {
 		log.Fatal(errors.New("HMAC_SECRET env var is required"))
 	}
 	hmacSecretBytes := []byte(hmacSecret)
 
-	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
+	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	defer client.Close()
+
+	db, err := GetDB()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Services Connect RPC
-	var services []api.Service
-	authService, err := auth.CreateService(db, hmacSecretBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *authService)
-
-	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
-	defer client.Close()
-
-	nodeService, err := node.CreateService(client)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *nodeService)
-
-	/*
-		flowService, err := flow.CreateService(hmacSecretBytes)
-		if err != nil {
-			log.Fatal(err)
-		}
-		services = append(services, *flowService)
-	*/
-
-	collectionService, err := collection.CreateService(ctx, db, hmacSecretBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *collectionService)
-
-	rorgService, err := rworkspace.CreateService(hmacSecretBytes, db)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *rorgService)
-
-	rResultService, err := resultapi.CreateService(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-	services = append(services, *rResultService)
+	newServiceManager := NewServiceManager(5)
+	newServiceManager.AddService(auth.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(collection.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(node.CreateService(client))
+	newServiceManager.AddService(resultapi.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(rworkspace.CreateService(ctx, hmacSecretBytes, db))
 
 	// Start services
 	go func() {
-		err := api.ListenServices(services, port)
+		err := api.ListenServices(newServiceManager.GetServices(), port)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -112,4 +66,49 @@ func main() {
 
 	// Wait for signal
 	<-sc
+}
+
+type ServiceManager struct {
+	s []api.Service
+}
+
+// size is not max size, but initial allocation size for the slice
+func NewServiceManager(size int) *ServiceManager {
+	return &ServiceManager{
+		s: make([]api.Service, 0, size),
+	}
+}
+
+func (sm *ServiceManager) AddService(s *api.Service, e error) {
+	sm.s = append(sm.s, *s)
+	if e != nil {
+		log.Fatal(e)
+	}
+}
+
+func (sm *ServiceManager) GetServices() []api.Service {
+	return sm.s
+}
+
+func GetDB() (*sql.DB, error) {
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		return nil, errors.New("DB_NAME env var is required")
+	}
+
+	dbToken := os.Getenv("DB_TOKEN")
+	if dbToken == "" {
+		return nil, errors.New("DB_TOKEN env var is required")
+	}
+
+	dbUsername := os.Getenv("DB_USERNAME")
+	if dbUsername == "" {
+		return nil, errors.New("DB_USERNAME env var is required")
+	}
+
+	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }

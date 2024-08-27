@@ -94,8 +94,7 @@ func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[api
 	return connect.NewResponse(&apiresultv1.GetResultsResponse{Results: resultsProto}), nil
 }
 
-func CreateService(db *sql.DB) (*api.Service, error) {
-	ctx := context.Background()
+func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
 	ras, err := sresultapi.New(ctx, db)
 	if err != nil {
 		return nil, err
@@ -112,6 +111,7 @@ func CreateService(db *sql.DB) (*api.Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
 
 	service := &ResultService{
 		DB:  db,
@@ -120,7 +120,7 @@ func CreateService(db *sql.DB) (*api.Service, error) {
 		ws:  *ws,
 		cs:  *cs,
 	}
-	path, handler := apiresultv1connect.NewApiResultServiceHandler(service)
+	path, handler := apiresultv1connect.NewApiResultServiceHandler(service, connect.WithInterceptors(AuthInterceptorFunc))
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

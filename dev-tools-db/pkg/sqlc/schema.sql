@@ -50,7 +50,7 @@ CREATE TABLE workspaces (
         name TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS workspaces_users (
+CREATE TABLE workspaces_users (
         id BLOB PRIMARY KEY,
         workspace_id BLOB NOT NULL,
         user_id BLOB NOT NULL,
@@ -59,9 +59,9 @@ CREATE TABLE IF NOT EXISTS workspaces_users (
         UNIQUE(workspace_id, user_id),
         FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
+);
 
-CREATE TABLE IF NOT EXISTS result_api (
+CREATE TABLE result_api (
         id BLOB PRIMARY KEY,
         trigger_type TINYINT,
         trigger_by BLOB,
@@ -73,6 +73,3 @@ CREATE TABLE IF NOT EXISTS result_api (
 );
 
 CREATE INDEX Idx4 ON result_api(trigger_by, trigger_type);
-
-INSERT INTO result_api (id, trigger_type, trigger_by, name, time, duration, http_resp)
-VALUES (?, ?, ?, ?, ?, ?, ?);
