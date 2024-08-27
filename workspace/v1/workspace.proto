@@ -23,9 +23,9 @@ message Workspace {
 
 enum Role {
   ROLE_UNSPECIFIED = 0;
-  ROLE_OWNER = 1;
+  ROLE_MEMBER = 1;
   ROLE_ADMIN = 2;
-  ROLE_MEMBER = 3;
+  ROLE_OWNER = 3;
 }
 
 message User {
@@ -100,7 +100,7 @@ message RemoveUserResponse {
 message UpdateUserRoleRequest {
   string workspace_id = 1;
   string user_id = 2;
-  string role = 3;
+  Role role = 3;
 }
 
 message UpdateUserRoleResponse {
