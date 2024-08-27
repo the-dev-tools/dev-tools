@@ -49,4 +49,5 @@ jobs:
           projectName: ${{ steps.build.outputs.NAME }}
           directory: ${{ steps.build.outputs.DIST }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.NODE_ENV }}
           wranglerVersion: '3'
