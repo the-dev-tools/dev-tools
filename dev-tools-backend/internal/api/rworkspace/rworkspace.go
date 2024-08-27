@@ -436,8 +436,7 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 	}
 
 	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
-	CrashInterceptorFunc := mwauth.NewCrashInterceptor()
-	Interceptors := connect.WithInterceptors(AuthInterceptorFunc, CrashInterceptorFunc)
+	Interceptors := connect.WithInterceptors(AuthInterceptorFunc)
 	server := &WorkspaceServiceRPC{
 		sw:  *sw,
 		swu: *swu,

@@ -91,7 +91,6 @@ func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.
 	defer func() {
 		// recover from panic if one occurred and return an error
 		if r := recover(); r != nil {
-			err := errors.New("Internal Server Error")
 			err = connect.NewError(connect.CodeInternal, err)
 			resp = nil
 		}
