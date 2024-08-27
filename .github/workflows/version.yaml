@@ -44,7 +44,11 @@ jobs:
         with:
           script: |
             const workflows = {
+              // Apps
               '@the-dev-tools/api-recorder-extension': 'deploy-api-recorder-extension.yaml',
+              '@the-dev-tools/saas': 'deploy-cloudflare-pages.yaml',
+
+              // Packages
               '@the-dev-tools/email': 'deploy-github-npm.yaml',
             };
 

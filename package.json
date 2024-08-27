@@ -24,6 +24,7 @@
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "prettier": "^3.3.2",
     "turbo": "^2.0.13",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "wrangler": "^3.72.2"
   }
 }

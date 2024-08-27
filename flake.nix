@@ -25,7 +25,12 @@
           pnpm = pkgs.writeShellApplication {
             name = "pnpm";
             runtimeInputs = with pkgs; [dotenvx pnpm_9];
-            text = ''dotenvx run --convention=nextjs -- pnpm "$@"'';
+            text = ''
+              dotenvx run \
+                --log-level "''${DOTENV_LOG_LEVEL:-info}" \
+                --convention=nextjs \
+                -- pnpm "$@"
+            '';
           };
         in
           pkgs.mkShell {

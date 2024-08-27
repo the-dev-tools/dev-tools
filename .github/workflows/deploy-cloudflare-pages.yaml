@@ -1,0 +1,52 @@
+name: Deploy / Cloudflare Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.package }}-${{ github.ref }}
+
+env:
+  DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+  DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
+  NODE_ENV: development # TODO: setup production
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - id: build
+        name: Build
+        run: |
+          PKG_ROOT=$(DOTENV_LOG_LEVEL=error pnpm --filter=${{ inputs.package }} exec pwd)
+          NAME=$(cut --delimiter=/ --fields=2 <<< ${{ inputs.package }})
+
+          echo "DIST=$PKG_ROOT/dist" >> "$GITHUB_OUTPUT"
+          echo "NAME=$NAME" >> "$GITHUB_OUTPUT"
+
+          pnpm build --filter=${{ inputs.package }}
+
+      - name: Publish
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ steps.build.outputs.NAME }}
+          directory: ${{ steps.build.outputs.DIST }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
