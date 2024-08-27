@@ -187,6 +187,8 @@ func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	if err != nil {
+	}
 	ok, err := c.su.CheckUserBelongsToWorkspace(ctx, actionUserUlid, workspaceUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -196,6 +198,9 @@ func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
 	wsUsers, err := c.swu.GetWorkspaceUserByWorkspaceID(ctx, workspaceUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	rpcUser := make([]*workspacev1.User, len(wsUsers))
 	for i, wsUser := range wsUsers {
 		rpcUser[i] = &workspacev1.User{
