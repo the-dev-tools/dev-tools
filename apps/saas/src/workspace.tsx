@@ -10,6 +10,7 @@ import { getRouteApi, Link, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
 import { Button, Form, Input, Menu, MenuItem, MenuTrigger, Popover, TextField } from 'react-aria-components';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
 import {
@@ -146,15 +147,16 @@ export const WorkspaceLayout = () => {
         </MenuTrigger>
       }
     >
-      <div className='flex h-full'>
-        <div className='flex w-1/5 flex-col gap-2 border-r-2 border-black p-2'>
+      <PanelGroup direction='horizontal'>
+        <Panel className='flex flex-col gap-2 p-2' defaultSize={20} minSize={10} maxSize={40}>
           <h2 className='uppercase'>Overview</h2>
           <CollectionsWidget />
-        </div>
-        <div className='flex-1 overflow-auto p-2'>
+        </Panel>
+        <PanelResizeHandle className='w-px cursor-col-resize bg-black' />
+        <Panel className='overflow-auto p-2'>
           <Outlet />
-        </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </DashboardLayout>
   );
 };
