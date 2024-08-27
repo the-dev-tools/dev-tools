@@ -8,7 +8,7 @@ const NODE_ENV = process.env['NODE_ENV'];
 const mode = NODE_ENV === 'production' ? 'production' : 'development';
 process.env['NODE_ENV'] = mode;
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [pluginReact()],
   html: {
     title: 'The Dev Tools',
@@ -28,11 +28,12 @@ export default defineConfig({
   tools: {
     rspack: {
       plugins: [
-        TanStackRouterRspack({
-          generatedRouteTree: './src/routes/-generated-router-tree.tsx',
-          semicolons: true,
-        }),
+        command === 'dev' &&
+          TanStackRouterRspack({
+            generatedRouteTree: './src/routes/-generated-router-tree.tsx',
+            semicolons: true,
+          }),
       ],
     },
   },
-});
+}));
