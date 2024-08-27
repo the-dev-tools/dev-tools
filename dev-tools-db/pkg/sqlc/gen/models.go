@@ -67,4 +67,5 @@ type WorkspacesUser struct {
 	ID          ulid.ULID
 	WorkspaceID ulid.ULID
 	UserID      ulid.ULID
+	Role        int8
 }

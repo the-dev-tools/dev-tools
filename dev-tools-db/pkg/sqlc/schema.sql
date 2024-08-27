@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS workspaces_users (
         id BLOB PRIMARY KEY,
         workspace_id BLOB NOT NULL,
         user_id BLOB NOT NULL,
+        role INT8 NOT NULL DEFAULT 1,
+        CHECK( role IN (1,2,3) ),
         UNIQUE(workspace_id, user_id),
         FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

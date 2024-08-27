@@ -212,24 +212,27 @@ WHERE id = ?;
 SELECT EXISTS(SELECT 1 FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1);
 
 -- name: GetWorkspaceUser :one
-SELECT id, workspace_id, user_id FROM workspaces_users
+SELECT id, workspace_id, user_id, role FROM workspaces_users
 WHERE id = ? LIMIT 1;
 
--- name: GetWorkspaceUserByUserID :one
-SELECT id, workspace_id, user_id FROM workspaces_users
-WHERE user_id = ? LIMIT 1;
+-- name: GetWorkspaceUserByUserID :many
+SELECT id, workspace_id, user_id, role FROM workspaces_users
+WHERE user_id = ?;
 
--- name: GetWorkspaceUserByWorkspaceID :one
-SELECT id, workspace_id, user_id FROM workspaces_users
-WHERE workspace_id = ? LIMIT 1;
+-- name: GetWorkspaceUserByWorkspaceID :many
+SELECT id, workspace_id, user_id, role FROM workspaces_users
+WHERE workspace_id = ?;
+
+-- name: GetWorkspaceUserByWorkspaceIDAndUserID :one
+SELECT id, workspace_id, user_id, role FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1;
 
 -- name: CreateWorkspaceUser :exec
-INSERT INTO workspaces_users (id, workspace_id, user_id)
-VALUES (?, ?, ?);
+INSERT INTO workspaces_users (id, workspace_id, user_id, role)
+VALUES (?, ?, ?, ?);
 
 -- name: UpdateWorkspaceUser :exec
 UPDATE workspaces_users
-SET workspace_id = ?, user_id = ?
+SET workspace_id = ?, user_id = ?, role = ?
 WHERE id = ?;
 
 -- name: DeleteWorkspaceUser :exec

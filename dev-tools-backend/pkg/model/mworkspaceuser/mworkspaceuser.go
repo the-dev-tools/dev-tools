@@ -2,7 +2,7 @@ package mworkspaceuser
 
 import "github.com/oklog/ulid/v2"
 
-type Role int32
+type Role uint16
 
 const (
 	RoleOwner Role = 1

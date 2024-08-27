@@ -181,6 +181,32 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 	return connect.NewResponse(&workspacev1.DeleteWorkspaceResponse{}), nil
 }
 
+func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Request[workspacev1.ListUsersRequest]) (*connect.Response[workspacev1.ListUsersResponse], error) {
+	actionUserUlid, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	ok, err := c.su.CheckUserBelongsToWorkspace(ctx, actionUserUlid, workspaceUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		// TODO: remove perm error for information leak
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+	wsUsers, err := c.swu.GetWorkspaceUserByWorkspaceID(ctx, workspaceUlid)
+	rpcUser := make([]*workspacev1.User, len(wsUsers))
+	for i, wsUser := range wsUsers {
+		rpcUser[i] = &workspacev1.User{
+			Id:   wsUser.UserID.String(),
+			Role: workspacev1.Role(wsUser.Role),
+		}
+	}
+
+	return connect.NewResponse(&workspacev1.ListUsersResponse{Users: rpcUser}), nil
+}
+
 // TODO: I'm not sure this is the correct implementation of this function
 // Will talk with the team about this on the next meeting
 func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Request[workspacev1.InviteUserRequest]) (*connect.Response[workspacev1.InviteUserResponse], error) {
@@ -256,7 +282,89 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&workspacev1.InviteUserResponse{}), nil
+	return connect.NewResponse(&workspacev1.InviteUserResponse{
+		UserId: invitedUser.ID.String(),
+	}), nil
+}
+
+func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Request[workspacev1.RemoveUserRequest]) (*connect.Response[workspacev1.RemoveUserResponse], error) {
+	workspaceULID, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	actionUserUlid, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+	targetUserUlid, err := ulid.Parse(req.Msg.GetUserId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+
+	ActionUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceULID, actionUserUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	TargetUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceULID, targetUserUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	ok, err := sworkspacesusers.IsPermGreater(ActionUser, TargetUser)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+	err = c.swu.DeleteWorkspaceUser(ctx, targetUserUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&workspacev1.RemoveUserResponse{}), nil
+}
+
+func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.Request[workspacev1.UpdateUserRoleRequest]) (*connect.Response[workspacev1.UpdateUserRoleResponse], error) {
+	workspaceULID, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	actionUserUlid, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+	targetUserUlid, err := ulid.Parse(req.Msg.GetUserId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+
+	ActionUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceULID, actionUserUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	TargetUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceULID, targetUserUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	ok, err := sworkspacesusers.IsPermGreater(ActionUser, TargetUser)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+	TargetUser.Role = mworkspaceuser.Role(req.Msg.GetRole())
+
+	// TODO: add check for user role such bigger then enum etc
+	err = c.swu.UpdateWorkspaceUser(ctx, TargetUser)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&workspacev1.UpdateUserRoleResponse{}), nil
 }
 
 func CreateService(secret []byte, db *sql.DB) (*api.Service, error) {

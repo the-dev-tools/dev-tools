@@ -6,6 +6,7 @@ import (
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/node"
+	"dev-tools-backend/internal/api/resultapi"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/db/turso"
 	"errors"
@@ -24,6 +25,7 @@ func main() {
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Environment variables
 	port := os.Getenv("PORT")
@@ -94,6 +96,12 @@ func main() {
 	}
 	services = append(services, *rorgService)
 
+	rResultService, err := resultapi.CreateService(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	services = append(services, *rResultService)
+
 	// Start services
 	go func() {
 		err := api.ListenServices(services, port)
@@ -104,5 +112,4 @@ func main() {
 
 	// Wait for signal
 	<-sc
-	cancel()
 }

@@ -291,18 +291,24 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 }
 
 const createWorkspaceUser = `-- name: CreateWorkspaceUser :exec
-INSERT INTO workspaces_users (id, workspace_id, user_id)
-VALUES (?, ?, ?)
+INSERT INTO workspaces_users (id, workspace_id, user_id, role)
+VALUES (?, ?, ?, ?)
 `
 
 type CreateWorkspaceUserParams struct {
 	ID          ulid.ULID
 	WorkspaceID ulid.ULID
 	UserID      ulid.ULID
+	Role        int8
 }
 
 func (q *Queries) CreateWorkspaceUser(ctx context.Context, arg CreateWorkspaceUserParams) error {
-	_, err := q.exec(ctx, q.createWorkspaceUserStmt, createWorkspaceUser, arg.ID, arg.WorkspaceID, arg.UserID)
+	_, err := q.exec(ctx, q.createWorkspaceUserStmt, createWorkspaceUser,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.UserID,
+		arg.Role,
+	)
 	return err
 }
 
@@ -901,38 +907,106 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 }
 
 const getWorkspaceUser = `-- name: GetWorkspaceUser :one
-SELECT id, workspace_id, user_id FROM workspaces_users
+SELECT id, workspace_id, user_id, role FROM workspaces_users
 WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (WorkspacesUser, error) {
 	row := q.queryRow(ctx, q.getWorkspaceUserStmt, getWorkspaceUser, id)
 	var i WorkspacesUser
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.UserID)
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Role,
+	)
 	return i, err
 }
 
-const getWorkspaceUserByUserID = `-- name: GetWorkspaceUserByUserID :one
-SELECT id, workspace_id, user_id FROM workspaces_users
-WHERE user_id = ? LIMIT 1
+const getWorkspaceUserByUserID = `-- name: GetWorkspaceUserByUserID :many
+SELECT id, workspace_id, user_id, role FROM workspaces_users
+WHERE user_id = ?
 `
 
-func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) (WorkspacesUser, error) {
-	row := q.queryRow(ctx, q.getWorkspaceUserByUserIDStmt, getWorkspaceUserByUserID, userID)
-	var i WorkspacesUser
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.UserID)
-	return i, err
+func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) ([]WorkspacesUser, error) {
+	rows, err := q.query(ctx, q.getWorkspaceUserByUserIDStmt, getWorkspaceUserByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkspacesUser
+	for rows.Next() {
+		var i WorkspacesUser
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const getWorkspaceUserByWorkspaceID = `-- name: GetWorkspaceUserByWorkspaceID :one
-SELECT id, workspace_id, user_id FROM workspaces_users
-WHERE workspace_id = ? LIMIT 1
+const getWorkspaceUserByWorkspaceID = `-- name: GetWorkspaceUserByWorkspaceID :many
+SELECT id, workspace_id, user_id, role FROM workspaces_users
+WHERE workspace_id = ?
 `
 
-func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID ulid.ULID) (WorkspacesUser, error) {
-	row := q.queryRow(ctx, q.getWorkspaceUserByWorkspaceIDStmt, getWorkspaceUserByWorkspaceID, workspaceID)
+func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID ulid.ULID) ([]WorkspacesUser, error) {
+	rows, err := q.query(ctx, q.getWorkspaceUserByWorkspaceIDStmt, getWorkspaceUserByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkspacesUser
+	for rows.Next() {
+		var i WorkspacesUser
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWorkspaceUserByWorkspaceIDAndUserID = `-- name: GetWorkspaceUserByWorkspaceIDAndUserID :one
+SELECT id, workspace_id, user_id, role FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1
+`
+
+type GetWorkspaceUserByWorkspaceIDAndUserIDParams struct {
+	WorkspaceID ulid.ULID
+	UserID      ulid.ULID
+}
+
+func (q *Queries) GetWorkspaceUserByWorkspaceIDAndUserID(ctx context.Context, arg GetWorkspaceUserByWorkspaceIDAndUserIDParams) (WorkspacesUser, error) {
+	row := q.queryRow(ctx, q.getWorkspaceUserByWorkspaceIDAndUserIDStmt, getWorkspaceUserByWorkspaceIDAndUserID, arg.WorkspaceID, arg.UserID)
 	var i WorkspacesUser
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.UserID)
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Role,
+	)
 	return i, err
 }
 
@@ -1090,17 +1164,23 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 
 const updateWorkspaceUser = `-- name: UpdateWorkspaceUser :exec
 UPDATE workspaces_users
-SET workspace_id = ?, user_id = ?
+SET workspace_id = ?, user_id = ?, role = ?
 WHERE id = ?
 `
 
 type UpdateWorkspaceUserParams struct {
 	WorkspaceID ulid.ULID
 	UserID      ulid.ULID
+	Role        int8
 	ID          ulid.ULID
 }
 
 func (q *Queries) UpdateWorkspaceUser(ctx context.Context, arg UpdateWorkspaceUserParams) error {
-	_, err := q.exec(ctx, q.updateWorkspaceUserStmt, updateWorkspaceUser, arg.WorkspaceID, arg.UserID, arg.ID)
+	_, err := q.exec(ctx, q.updateWorkspaceUserStmt, updateWorkspaceUser,
+		arg.WorkspaceID,
+		arg.UserID,
+		arg.Role,
+		arg.ID,
+	)
 	return err
 }

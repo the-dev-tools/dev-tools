@@ -144,6 +144,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getWorkspaceUserByWorkspaceIDStmt, err = db.PrepareContext(ctx, getWorkspaceUserByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspaceUserByWorkspaceID: %w", err)
 	}
+	if q.getWorkspaceUserByWorkspaceIDAndUserIDStmt, err = db.PrepareContext(ctx, getWorkspaceUserByWorkspaceIDAndUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWorkspaceUserByWorkspaceIDAndUserID: %w", err)
+	}
 	if q.getWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspacesByUserID: %w", err)
 	}
@@ -373,6 +376,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getWorkspaceUserByWorkspaceIDStmt: %w", cerr)
 		}
 	}
+	if q.getWorkspaceUserByWorkspaceIDAndUserIDStmt != nil {
+		if cerr := q.getWorkspaceUserByWorkspaceIDAndUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWorkspaceUserByWorkspaceIDAndUserIDStmt: %w", cerr)
+		}
+	}
 	if q.getWorkspacesByUserIDStmt != nil {
 		if cerr := q.getWorkspacesByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWorkspacesByUserIDStmt: %w", cerr)
@@ -450,109 +458,111 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                        DBTX
-	tx                                        *sql.Tx
-	checkIFWorkspaceUserExistsStmt            *sql.Stmt
-	createCollectionStmt                      *sql.Stmt
-	createItemApiStmt                         *sql.Stmt
-	createItemApiBulkStmt                     *sql.Stmt
-	createItemFolderStmt                      *sql.Stmt
-	createItemFolderBulkStmt                  *sql.Stmt
-	createResultApiStmt                       *sql.Stmt
-	createUserStmt                            *sql.Stmt
-	createWorkspaceStmt                       *sql.Stmt
-	createWorkspaceUserStmt                   *sql.Stmt
-	deleteCollectionStmt                      *sql.Stmt
-	deleteItemApiStmt                         *sql.Stmt
-	deleteItemFolderStmt                      *sql.Stmt
-	deleteResultApiStmt                       *sql.Stmt
-	deleteUserStmt                            *sql.Stmt
-	deleteWorkspaceStmt                       *sql.Stmt
-	deleteWorkspaceUserStmt                   *sql.Stmt
-	getCollectionStmt                         *sql.Stmt
-	getCollectionByOwnerIDStmt                *sql.Stmt
-	getCollectionByPlatformIDandTypeStmt      *sql.Stmt
-	getCollectionOwnerIDStmt                  *sql.Stmt
-	getItemApiStmt                            *sql.Stmt
-	getItemApiOwnerIDStmt                     *sql.Stmt
-	getItemFolderStmt                         *sql.Stmt
-	getItemFolderByCollectionIDStmt           *sql.Stmt
-	getItemFolderOwnerIDStmt                  *sql.Stmt
-	getItemsApiByCollectionIDStmt             *sql.Stmt
-	getResultApiStmt                          *sql.Stmt
-	getResultApiByTriggerByStmt               *sql.Stmt
-	getResultApiByTriggerByAndTriggerTypeStmt *sql.Stmt
-	getUserStmt                               *sql.Stmt
-	getUserByEmailStmt                        *sql.Stmt
-	getUserByEmailAndProviderTypeStmt         *sql.Stmt
-	getUserByProviderIDandTypeStmt            *sql.Stmt
-	getWorkspaceStmt                          *sql.Stmt
-	getWorkspaceByUserIDStmt                  *sql.Stmt
-	getWorkspaceByUserIDandWorkspaceIDStmt    *sql.Stmt
-	getWorkspaceUserStmt                      *sql.Stmt
-	getWorkspaceUserByUserIDStmt              *sql.Stmt
-	getWorkspaceUserByWorkspaceIDStmt         *sql.Stmt
-	getWorkspacesByUserIDStmt                 *sql.Stmt
-	updateCollectionStmt                      *sql.Stmt
-	updateItemApiStmt                         *sql.Stmt
-	updateItemFolderStmt                      *sql.Stmt
-	updateResultApiStmt                       *sql.Stmt
-	updateUserStmt                            *sql.Stmt
-	updateWorkspaceStmt                       *sql.Stmt
-	updateWorkspaceUserStmt                   *sql.Stmt
+	db                                         DBTX
+	tx                                         *sql.Tx
+	checkIFWorkspaceUserExistsStmt             *sql.Stmt
+	createCollectionStmt                       *sql.Stmt
+	createItemApiStmt                          *sql.Stmt
+	createItemApiBulkStmt                      *sql.Stmt
+	createItemFolderStmt                       *sql.Stmt
+	createItemFolderBulkStmt                   *sql.Stmt
+	createResultApiStmt                        *sql.Stmt
+	createUserStmt                             *sql.Stmt
+	createWorkspaceStmt                        *sql.Stmt
+	createWorkspaceUserStmt                    *sql.Stmt
+	deleteCollectionStmt                       *sql.Stmt
+	deleteItemApiStmt                          *sql.Stmt
+	deleteItemFolderStmt                       *sql.Stmt
+	deleteResultApiStmt                        *sql.Stmt
+	deleteUserStmt                             *sql.Stmt
+	deleteWorkspaceStmt                        *sql.Stmt
+	deleteWorkspaceUserStmt                    *sql.Stmt
+	getCollectionStmt                          *sql.Stmt
+	getCollectionByOwnerIDStmt                 *sql.Stmt
+	getCollectionByPlatformIDandTypeStmt       *sql.Stmt
+	getCollectionOwnerIDStmt                   *sql.Stmt
+	getItemApiStmt                             *sql.Stmt
+	getItemApiOwnerIDStmt                      *sql.Stmt
+	getItemFolderStmt                          *sql.Stmt
+	getItemFolderByCollectionIDStmt            *sql.Stmt
+	getItemFolderOwnerIDStmt                   *sql.Stmt
+	getItemsApiByCollectionIDStmt              *sql.Stmt
+	getResultApiStmt                           *sql.Stmt
+	getResultApiByTriggerByStmt                *sql.Stmt
+	getResultApiByTriggerByAndTriggerTypeStmt  *sql.Stmt
+	getUserStmt                                *sql.Stmt
+	getUserByEmailStmt                         *sql.Stmt
+	getUserByEmailAndProviderTypeStmt          *sql.Stmt
+	getUserByProviderIDandTypeStmt             *sql.Stmt
+	getWorkspaceStmt                           *sql.Stmt
+	getWorkspaceByUserIDStmt                   *sql.Stmt
+	getWorkspaceByUserIDandWorkspaceIDStmt     *sql.Stmt
+	getWorkspaceUserStmt                       *sql.Stmt
+	getWorkspaceUserByUserIDStmt               *sql.Stmt
+	getWorkspaceUserByWorkspaceIDStmt          *sql.Stmt
+	getWorkspaceUserByWorkspaceIDAndUserIDStmt *sql.Stmt
+	getWorkspacesByUserIDStmt                  *sql.Stmt
+	updateCollectionStmt                       *sql.Stmt
+	updateItemApiStmt                          *sql.Stmt
+	updateItemFolderStmt                       *sql.Stmt
+	updateResultApiStmt                        *sql.Stmt
+	updateUserStmt                             *sql.Stmt
+	updateWorkspaceStmt                        *sql.Stmt
+	updateWorkspaceUserStmt                    *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                        tx,
-		tx:                                        tx,
-		checkIFWorkspaceUserExistsStmt:            q.checkIFWorkspaceUserExistsStmt,
-		createCollectionStmt:                      q.createCollectionStmt,
-		createItemApiStmt:                         q.createItemApiStmt,
-		createItemApiBulkStmt:                     q.createItemApiBulkStmt,
-		createItemFolderStmt:                      q.createItemFolderStmt,
-		createItemFolderBulkStmt:                  q.createItemFolderBulkStmt,
-		createResultApiStmt:                       q.createResultApiStmt,
-		createUserStmt:                            q.createUserStmt,
-		createWorkspaceStmt:                       q.createWorkspaceStmt,
-		createWorkspaceUserStmt:                   q.createWorkspaceUserStmt,
-		deleteCollectionStmt:                      q.deleteCollectionStmt,
-		deleteItemApiStmt:                         q.deleteItemApiStmt,
-		deleteItemFolderStmt:                      q.deleteItemFolderStmt,
-		deleteResultApiStmt:                       q.deleteResultApiStmt,
-		deleteUserStmt:                            q.deleteUserStmt,
-		deleteWorkspaceStmt:                       q.deleteWorkspaceStmt,
-		deleteWorkspaceUserStmt:                   q.deleteWorkspaceUserStmt,
-		getCollectionStmt:                         q.getCollectionStmt,
-		getCollectionByOwnerIDStmt:                q.getCollectionByOwnerIDStmt,
-		getCollectionByPlatformIDandTypeStmt:      q.getCollectionByPlatformIDandTypeStmt,
-		getCollectionOwnerIDStmt:                  q.getCollectionOwnerIDStmt,
-		getItemApiStmt:                            q.getItemApiStmt,
-		getItemApiOwnerIDStmt:                     q.getItemApiOwnerIDStmt,
-		getItemFolderStmt:                         q.getItemFolderStmt,
-		getItemFolderByCollectionIDStmt:           q.getItemFolderByCollectionIDStmt,
-		getItemFolderOwnerIDStmt:                  q.getItemFolderOwnerIDStmt,
-		getItemsApiByCollectionIDStmt:             q.getItemsApiByCollectionIDStmt,
-		getResultApiStmt:                          q.getResultApiStmt,
-		getResultApiByTriggerByStmt:               q.getResultApiByTriggerByStmt,
-		getResultApiByTriggerByAndTriggerTypeStmt: q.getResultApiByTriggerByAndTriggerTypeStmt,
-		getUserStmt:                               q.getUserStmt,
-		getUserByEmailStmt:                        q.getUserByEmailStmt,
-		getUserByEmailAndProviderTypeStmt:         q.getUserByEmailAndProviderTypeStmt,
-		getUserByProviderIDandTypeStmt:            q.getUserByProviderIDandTypeStmt,
-		getWorkspaceStmt:                          q.getWorkspaceStmt,
-		getWorkspaceByUserIDStmt:                  q.getWorkspaceByUserIDStmt,
-		getWorkspaceByUserIDandWorkspaceIDStmt:    q.getWorkspaceByUserIDandWorkspaceIDStmt,
-		getWorkspaceUserStmt:                      q.getWorkspaceUserStmt,
-		getWorkspaceUserByUserIDStmt:              q.getWorkspaceUserByUserIDStmt,
-		getWorkspaceUserByWorkspaceIDStmt:         q.getWorkspaceUserByWorkspaceIDStmt,
-		getWorkspacesByUserIDStmt:                 q.getWorkspacesByUserIDStmt,
-		updateCollectionStmt:                      q.updateCollectionStmt,
-		updateItemApiStmt:                         q.updateItemApiStmt,
-		updateItemFolderStmt:                      q.updateItemFolderStmt,
-		updateResultApiStmt:                       q.updateResultApiStmt,
-		updateUserStmt:                            q.updateUserStmt,
-		updateWorkspaceStmt:                       q.updateWorkspaceStmt,
-		updateWorkspaceUserStmt:                   q.updateWorkspaceUserStmt,
+		db:                                         tx,
+		tx:                                         tx,
+		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
+		createCollectionStmt:                       q.createCollectionStmt,
+		createItemApiStmt:                          q.createItemApiStmt,
+		createItemApiBulkStmt:                      q.createItemApiBulkStmt,
+		createItemFolderStmt:                       q.createItemFolderStmt,
+		createItemFolderBulkStmt:                   q.createItemFolderBulkStmt,
+		createResultApiStmt:                        q.createResultApiStmt,
+		createUserStmt:                             q.createUserStmt,
+		createWorkspaceStmt:                        q.createWorkspaceStmt,
+		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
+		deleteCollectionStmt:                       q.deleteCollectionStmt,
+		deleteItemApiStmt:                          q.deleteItemApiStmt,
+		deleteItemFolderStmt:                       q.deleteItemFolderStmt,
+		deleteResultApiStmt:                        q.deleteResultApiStmt,
+		deleteUserStmt:                             q.deleteUserStmt,
+		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
+		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
+		getCollectionStmt:                          q.getCollectionStmt,
+		getCollectionByOwnerIDStmt:                 q.getCollectionByOwnerIDStmt,
+		getCollectionByPlatformIDandTypeStmt:       q.getCollectionByPlatformIDandTypeStmt,
+		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
+		getItemApiStmt:                             q.getItemApiStmt,
+		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,
+		getItemFolderStmt:                          q.getItemFolderStmt,
+		getItemFolderByCollectionIDStmt:            q.getItemFolderByCollectionIDStmt,
+		getItemFolderOwnerIDStmt:                   q.getItemFolderOwnerIDStmt,
+		getItemsApiByCollectionIDStmt:              q.getItemsApiByCollectionIDStmt,
+		getResultApiStmt:                           q.getResultApiStmt,
+		getResultApiByTriggerByStmt:                q.getResultApiByTriggerByStmt,
+		getResultApiByTriggerByAndTriggerTypeStmt:  q.getResultApiByTriggerByAndTriggerTypeStmt,
+		getUserStmt:                                q.getUserStmt,
+		getUserByEmailStmt:                         q.getUserByEmailStmt,
+		getUserByEmailAndProviderTypeStmt:          q.getUserByEmailAndProviderTypeStmt,
+		getUserByProviderIDandTypeStmt:             q.getUserByProviderIDandTypeStmt,
+		getWorkspaceStmt:                           q.getWorkspaceStmt,
+		getWorkspaceByUserIDStmt:                   q.getWorkspaceByUserIDStmt,
+		getWorkspaceByUserIDandWorkspaceIDStmt:     q.getWorkspaceByUserIDandWorkspaceIDStmt,
+		getWorkspaceUserStmt:                       q.getWorkspaceUserStmt,
+		getWorkspaceUserByUserIDStmt:               q.getWorkspaceUserByUserIDStmt,
+		getWorkspaceUserByWorkspaceIDStmt:          q.getWorkspaceUserByWorkspaceIDStmt,
+		getWorkspaceUserByWorkspaceIDAndUserIDStmt: q.getWorkspaceUserByWorkspaceIDAndUserIDStmt,
+		getWorkspacesByUserIDStmt:                  q.getWorkspacesByUserIDStmt,
+		updateCollectionStmt:                       q.updateCollectionStmt,
+		updateItemApiStmt:                          q.updateItemApiStmt,
+		updateItemFolderStmt:                       q.updateItemFolderStmt,
+		updateResultApiStmt:                        q.updateResultApiStmt,
+		updateUserStmt:                             q.updateUserStmt,
+		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
+		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
 	}
 }

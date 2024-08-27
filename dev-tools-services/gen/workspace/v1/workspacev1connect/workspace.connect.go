@@ -48,9 +48,18 @@ const (
 	// WorkspaceServiceDeleteWorkspaceProcedure is the fully-qualified name of the WorkspaceService's
 	// DeleteWorkspace RPC.
 	WorkspaceServiceDeleteWorkspaceProcedure = "/workspace.v1.WorkspaceService/DeleteWorkspace"
+	// WorkspaceServiceListUsersProcedure is the fully-qualified name of the WorkspaceService's
+	// ListUsers RPC.
+	WorkspaceServiceListUsersProcedure = "/workspace.v1.WorkspaceService/ListUsers"
 	// WorkspaceServiceInviteUserProcedure is the fully-qualified name of the WorkspaceService's
 	// InviteUser RPC.
 	WorkspaceServiceInviteUserProcedure = "/workspace.v1.WorkspaceService/InviteUser"
+	// WorkspaceServiceRemoveUserProcedure is the fully-qualified name of the WorkspaceService's
+	// RemoveUser RPC.
+	WorkspaceServiceRemoveUserProcedure = "/workspace.v1.WorkspaceService/RemoveUser"
+	// WorkspaceServiceUpdateUserRoleProcedure is the fully-qualified name of the WorkspaceService's
+	// UpdateUserRole RPC.
+	WorkspaceServiceUpdateUserRoleProcedure = "/workspace.v1.WorkspaceService/UpdateUserRole"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -61,7 +70,10 @@ var (
 	workspaceServiceCreateWorkspaceMethodDescriptor = workspaceServiceServiceDescriptor.Methods().ByName("CreateWorkspace")
 	workspaceServiceUpdateWorkspaceMethodDescriptor = workspaceServiceServiceDescriptor.Methods().ByName("UpdateWorkspace")
 	workspaceServiceDeleteWorkspaceMethodDescriptor = workspaceServiceServiceDescriptor.Methods().ByName("DeleteWorkspace")
+	workspaceServiceListUsersMethodDescriptor       = workspaceServiceServiceDescriptor.Methods().ByName("ListUsers")
 	workspaceServiceInviteUserMethodDescriptor      = workspaceServiceServiceDescriptor.Methods().ByName("InviteUser")
+	workspaceServiceRemoveUserMethodDescriptor      = workspaceServiceServiceDescriptor.Methods().ByName("RemoveUser")
+	workspaceServiceUpdateUserRoleMethodDescriptor  = workspaceServiceServiceDescriptor.Methods().ByName("UpdateUserRole")
 )
 
 // WorkspaceServiceClient is a client for the workspace.v1.WorkspaceService service.
@@ -71,7 +83,10 @@ type WorkspaceServiceClient interface {
 	CreateWorkspace(context.Context, *connect.Request[v1.CreateWorkspaceRequest]) (*connect.Response[v1.CreateWorkspaceResponse], error)
 	UpdateWorkspace(context.Context, *connect.Request[v1.UpdateWorkspaceRequest]) (*connect.Response[v1.UpdateWorkspaceResponse], error)
 	DeleteWorkspace(context.Context, *connect.Request[v1.DeleteWorkspaceRequest]) (*connect.Response[v1.DeleteWorkspaceResponse], error)
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
 	InviteUser(context.Context, *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error)
+	RemoveUser(context.Context, *connect.Request[v1.RemoveUserRequest]) (*connect.Response[v1.RemoveUserResponse], error)
+	UpdateUserRole(context.Context, *connect.Request[v1.UpdateUserRoleRequest]) (*connect.Response[v1.UpdateUserRoleResponse], error)
 }
 
 // NewWorkspaceServiceClient constructs a client for the workspace.v1.WorkspaceService service. By
@@ -114,10 +129,28 @@ func NewWorkspaceServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(workspaceServiceDeleteWorkspaceMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
+			httpClient,
+			baseURL+WorkspaceServiceListUsersProcedure,
+			connect.WithSchema(workspaceServiceListUsersMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		inviteUser: connect.NewClient[v1.InviteUserRequest, v1.InviteUserResponse](
 			httpClient,
 			baseURL+WorkspaceServiceInviteUserProcedure,
 			connect.WithSchema(workspaceServiceInviteUserMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		removeUser: connect.NewClient[v1.RemoveUserRequest, v1.RemoveUserResponse](
+			httpClient,
+			baseURL+WorkspaceServiceRemoveUserProcedure,
+			connect.WithSchema(workspaceServiceRemoveUserMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateUserRole: connect.NewClient[v1.UpdateUserRoleRequest, v1.UpdateUserRoleResponse](
+			httpClient,
+			baseURL+WorkspaceServiceUpdateUserRoleProcedure,
+			connect.WithSchema(workspaceServiceUpdateUserRoleMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -130,7 +163,10 @@ type workspaceServiceClient struct {
 	createWorkspace *connect.Client[v1.CreateWorkspaceRequest, v1.CreateWorkspaceResponse]
 	updateWorkspace *connect.Client[v1.UpdateWorkspaceRequest, v1.UpdateWorkspaceResponse]
 	deleteWorkspace *connect.Client[v1.DeleteWorkspaceRequest, v1.DeleteWorkspaceResponse]
+	listUsers       *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
 	inviteUser      *connect.Client[v1.InviteUserRequest, v1.InviteUserResponse]
+	removeUser      *connect.Client[v1.RemoveUserRequest, v1.RemoveUserResponse]
+	updateUserRole  *connect.Client[v1.UpdateUserRoleRequest, v1.UpdateUserRoleResponse]
 }
 
 // GetWorkspaces calls workspace.v1.WorkspaceService.GetWorkspaces.
@@ -158,9 +194,24 @@ func (c *workspaceServiceClient) DeleteWorkspace(ctx context.Context, req *conne
 	return c.deleteWorkspace.CallUnary(ctx, req)
 }
 
+// ListUsers calls workspace.v1.WorkspaceService.ListUsers.
+func (c *workspaceServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return c.listUsers.CallUnary(ctx, req)
+}
+
 // InviteUser calls workspace.v1.WorkspaceService.InviteUser.
 func (c *workspaceServiceClient) InviteUser(ctx context.Context, req *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error) {
 	return c.inviteUser.CallUnary(ctx, req)
+}
+
+// RemoveUser calls workspace.v1.WorkspaceService.RemoveUser.
+func (c *workspaceServiceClient) RemoveUser(ctx context.Context, req *connect.Request[v1.RemoveUserRequest]) (*connect.Response[v1.RemoveUserResponse], error) {
+	return c.removeUser.CallUnary(ctx, req)
+}
+
+// UpdateUserRole calls workspace.v1.WorkspaceService.UpdateUserRole.
+func (c *workspaceServiceClient) UpdateUserRole(ctx context.Context, req *connect.Request[v1.UpdateUserRoleRequest]) (*connect.Response[v1.UpdateUserRoleResponse], error) {
+	return c.updateUserRole.CallUnary(ctx, req)
 }
 
 // WorkspaceServiceHandler is an implementation of the workspace.v1.WorkspaceService service.
@@ -170,7 +221,10 @@ type WorkspaceServiceHandler interface {
 	CreateWorkspace(context.Context, *connect.Request[v1.CreateWorkspaceRequest]) (*connect.Response[v1.CreateWorkspaceResponse], error)
 	UpdateWorkspace(context.Context, *connect.Request[v1.UpdateWorkspaceRequest]) (*connect.Response[v1.UpdateWorkspaceResponse], error)
 	DeleteWorkspace(context.Context, *connect.Request[v1.DeleteWorkspaceRequest]) (*connect.Response[v1.DeleteWorkspaceResponse], error)
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
 	InviteUser(context.Context, *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error)
+	RemoveUser(context.Context, *connect.Request[v1.RemoveUserRequest]) (*connect.Response[v1.RemoveUserResponse], error)
+	UpdateUserRole(context.Context, *connect.Request[v1.UpdateUserRoleRequest]) (*connect.Response[v1.UpdateUserRoleResponse], error)
 }
 
 // NewWorkspaceServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -209,10 +263,28 @@ func NewWorkspaceServiceHandler(svc WorkspaceServiceHandler, opts ...connect.Han
 		connect.WithSchema(workspaceServiceDeleteWorkspaceMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	workspaceServiceListUsersHandler := connect.NewUnaryHandler(
+		WorkspaceServiceListUsersProcedure,
+		svc.ListUsers,
+		connect.WithSchema(workspaceServiceListUsersMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	workspaceServiceInviteUserHandler := connect.NewUnaryHandler(
 		WorkspaceServiceInviteUserProcedure,
 		svc.InviteUser,
 		connect.WithSchema(workspaceServiceInviteUserMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	workspaceServiceRemoveUserHandler := connect.NewUnaryHandler(
+		WorkspaceServiceRemoveUserProcedure,
+		svc.RemoveUser,
+		connect.WithSchema(workspaceServiceRemoveUserMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	workspaceServiceUpdateUserRoleHandler := connect.NewUnaryHandler(
+		WorkspaceServiceUpdateUserRoleProcedure,
+		svc.UpdateUserRole,
+		connect.WithSchema(workspaceServiceUpdateUserRoleMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/workspace.v1.WorkspaceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -227,8 +299,14 @@ func NewWorkspaceServiceHandler(svc WorkspaceServiceHandler, opts ...connect.Han
 			workspaceServiceUpdateWorkspaceHandler.ServeHTTP(w, r)
 		case WorkspaceServiceDeleteWorkspaceProcedure:
 			workspaceServiceDeleteWorkspaceHandler.ServeHTTP(w, r)
+		case WorkspaceServiceListUsersProcedure:
+			workspaceServiceListUsersHandler.ServeHTTP(w, r)
 		case WorkspaceServiceInviteUserProcedure:
 			workspaceServiceInviteUserHandler.ServeHTTP(w, r)
+		case WorkspaceServiceRemoveUserProcedure:
+			workspaceServiceRemoveUserHandler.ServeHTTP(w, r)
+		case WorkspaceServiceUpdateUserRoleProcedure:
+			workspaceServiceUpdateUserRoleHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -258,6 +336,18 @@ func (UnimplementedWorkspaceServiceHandler) DeleteWorkspace(context.Context, *co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.DeleteWorkspace is not implemented"))
 }
 
+func (UnimplementedWorkspaceServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.ListUsers is not implemented"))
+}
+
 func (UnimplementedWorkspaceServiceHandler) InviteUser(context.Context, *connect.Request[v1.InviteUserRequest]) (*connect.Response[v1.InviteUserResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.InviteUser is not implemented"))
+}
+
+func (UnimplementedWorkspaceServiceHandler) RemoveUser(context.Context, *connect.Request[v1.RemoveUserRequest]) (*connect.Response[v1.RemoveUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.RemoveUser is not implemented"))
+}
+
+func (UnimplementedWorkspaceServiceHandler) UpdateUserRole(context.Context, *connect.Request[v1.UpdateUserRoleRequest]) (*connect.Response[v1.UpdateUserRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workspace.v1.WorkspaceService.UpdateUserRole is not implemented"))
 }
