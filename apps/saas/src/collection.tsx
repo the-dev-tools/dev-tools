@@ -21,11 +21,15 @@ import {
   Popover,
   Select,
   SelectValue,
+  Text,
   TextArea,
   TextField,
+  UNSTABLE_Tree,
+  UNSTABLE_TreeItem,
+  UNSTABLE_TreeItemContent,
 } from 'react-aria-components';
 
-import { ApiCall, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { ApiCall, CollectionMeta, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 
 import { Runtime } from './runtime';
@@ -44,7 +48,7 @@ export const CollectionsWidget = () => {
   const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
 
   if (!collectionsQuery.isSuccess) return null;
-  const collections = collectionsQuery.data.metaCollections;
+  const metaCollections = collectionsQuery.data.metaCollections;
 
   return (
     <>
@@ -61,7 +65,7 @@ export const CollectionsWidget = () => {
         </Button>
         <ImportPostman />
       </div>
-      {collections.map((_) => (
+      {metaCollections.map((_) => (
         <Link
           key={_.id}
           to='/workspace/$workspaceId/collection/$collectionId'
@@ -70,6 +74,8 @@ export const CollectionsWidget = () => {
           {_.name}
         </Link>
       ))}
+      <div>Tree</div>
+      <UNSTABLE_Tree items={metaCollections}>{(meta) => <CollectionTreeItem meta={meta} />}</UNSTABLE_Tree>
     </>
   );
 };
@@ -99,6 +105,20 @@ const ImportPostman = () => {
     >
       <Button className='flex-1 rounded bg-black text-white'>Import</Button>
     </FileTrigger>
+  );
+};
+
+interface CollectionTreeItemProps {
+  meta: CollectionMeta;
+}
+
+const CollectionTreeItem = ({ meta }: CollectionTreeItemProps) => {
+  return (
+    <UNSTABLE_TreeItem textValue={meta.name}>
+      <UNSTABLE_TreeItemContent>
+        <Text>{meta.name}</Text>
+      </UNSTABLE_TreeItemContent>
+    </UNSTABLE_TreeItem>
   );
 };
 
