@@ -69,7 +69,7 @@ message GetCollectionResponse {
   string name = 2;
   google.protobuf.Timestamp created = 3;
   google.protobuf.Timestamp updated = 4;
-  repeated Item items = 3;
+  repeated Item items = 5;
 }
 
 // // Update
