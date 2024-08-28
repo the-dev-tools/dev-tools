@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/model/mcollection/mitemapi"
 	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
@@ -151,12 +152,18 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 		// INFO: don't send leaked information to the client
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("no workspace found"))
 	}
-
+	name := req.Msg.GetName()
+	if name == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is empty"))
+	}
 	ulidID := ulid.Make()
+	dbTimeNow := dbtime.DBNow()
 	collection := mcollection.Collection{
 		ID:      ulidID,
 		OwnerID: workspaceUlid,
-		Name:    req.Msg.GetName(),
+		Name:    name,
+		Created: dbTimeNow,
+		Updated: dbTimeNow,
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
 	if err != nil {
@@ -164,7 +171,7 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 	}
 	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
 		Id:    ulidID.String(),
-		Name:  req.Msg.GetName(),
+		Name:  name,
 		Items: []*collectionv1.Item{},
 	}), nil
 }

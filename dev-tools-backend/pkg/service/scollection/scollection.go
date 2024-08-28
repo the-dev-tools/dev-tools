@@ -9,6 +9,8 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+var ErrNoCollectionFound = sql.ErrNoRows
+
 type CollectionService struct {
 	DB      *sql.DB
 	queries *gen.Queries
@@ -26,37 +28,46 @@ func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
 func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.ULID) ([]mcollection.Collection, error) {
 	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoCollectionFound
+		}
 		return nil, err
 	}
-	var collections []mcollection.Collection
-	for _, row := range rows {
-		collections = append(collections, mcollection.Collection{
+	collections := make([]mcollection.Collection, len(rows))
+	for i, row := range rows {
+		collections[i] = mcollection.Collection{
 			ID:      row.ID,
 			OwnerID: row.OwnerID,
 			Name:    row.Name,
-		})
+		}
 	}
 	return collections, nil
 }
 
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
-	_, err := cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
+	return cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
 		ID:      collection.ID,
 		OwnerID: collection.OwnerID,
 		Name:    collection.Name,
+		Created: collection.Created,
+		Updated: collection.Updated,
 	})
-	return err
 }
 
 func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*mcollection.Collection, error) {
 	collection, err := cs.queries.GetCollection(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoCollectionFound
+		}
 		return nil, err
 	}
 	c := mcollection.Collection{
 		ID:      ulid.ULID(collection.ID),
 		OwnerID: ulid.ULID(collection.OwnerID),
 		Name:    collection.Name,
+		Created: collection.Created,
+		Updated: collection.Updated,
 	}
 	return &c, nil
 }
@@ -77,6 +88,9 @@ func (cs CollectionService) DeleteCollection(ctx context.Context, id ulid.ULID) 
 func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
 	ulidBytes, err := cs.queries.GetCollectionOwnerID(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return ulid.ULID{}, ErrNoCollectionFound
+		}
 		return ulid.ULID{}, err
 	}
 	return ulid.ULID(ulidBytes), nil
@@ -85,6 +99,9 @@ func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.UL
 func (cs CollectionService) CheckOwner(ctx context.Context, id ulid.ULID, ownerID ulid.ULID) (bool, error) {
 	CollectionOwnerID, err := cs.GetOwner(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, ErrNoCollectionFound
+		}
 		return false, err
 	}
 	return ownerID.Compare(CollectionOwnerID) == 0, nil

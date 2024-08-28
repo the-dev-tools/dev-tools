@@ -10,13 +10,38 @@ CREATE TABLE users (
     UNIQUE(provider_type, provider_id)
 );
 
+-- COLLECTIONS
+
 CREATE TABLE collections (
     id BLOB PRIMARY KEY,
     owner_id BLOB NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
 
 CREATE INDEX Idx1 ON collections(owner_id);
+
+CREATE TRIGGER insert_collections
+AFTER INSERT ON collections 
+BEGIN
+        UPDATE workspaces SET updated = datetime('now') WHERE id = NEW.owner_id;
+END;
+
+CREATE TRIGGER update_collections
+AFTER UPDATE ON collections
+BEGIN
+        UPDATE workspaces SET updated = datetime('now') WHERE id = NEW.owner_id;
+END;
+
+CREATE TRIGGER delete_collections
+AFTER DELETE ON collections
+BEGIN
+        UPDATE workspaces SET updated = datetime('now') WHERE id = NEW.owner_id;
+END;
+
+-- ITEM API
 
 CREATE TABLE item_api (
         id BLOB PRIMARY KEY,
@@ -34,6 +59,26 @@ CREATE TABLE item_api (
 
 CREATE INDEX Idx2 ON item_api(collection_id, parent_id);
 
+CREATE TRIGGER insert_item_api
+AFTER INSERT ON item_api
+BEGIN
+        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
+CREATE TRIGGER update_item_api
+AFTER UPDATE ON item_api
+BEGIN
+        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
+CREATE TRIGGER delete_item_api
+AFTER DELETE ON item_api
+BEGIN
+        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
+-- ITEM FOLDER
+
 CREATE TABLE item_folder (
         id BLOB PRIMARY KEY,
         collection_id BLOB NOT NULL,
@@ -43,11 +88,31 @@ CREATE TABLE item_folder (
         FOREIGN KEY (parent_id) REFERENCES item_folder(id) ON DELETE CASCADE
 );
 
+CREATE TRIGGER insert_item_folder
+AFTER INSERT ON item_folder
+BEGIN
+        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
+CREATE TRIGGER update_item_folder
+AFTER UPDATE ON item_folder
+BEGIN
+        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
+CREATE TRIGGER delete_item_folder
+AFTER DELETE ON item_folder
+BEGIN
+        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
 CREATE INDEX Idx3 ON item_folder(collection_id, parent_id);
 
 CREATE TABLE workspaces (
         id BLOB PRIMARY KEY,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE workspaces_users (

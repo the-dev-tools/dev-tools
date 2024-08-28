@@ -137,14 +137,14 @@ WHERE id = ?;
 --
 
 -- name: GetCollection :one
-SELECT id, owner_id, name
+SELECT id, owner_id, name, created, updated
 FROM collections
 WHERE id = ?
 LIMIT 1;
 
 
 -- name: GetCollectionByPlatformIDandType :many
-SELECT id, owner_id, name
+SELECT id, owner_id, name, created, updated
 FROM collections
 WHERE id = ?;
 
@@ -155,14 +155,14 @@ FROM collections
 WHERE id = ? LIMIT 1;
 
 -- name: GetCollectionByOwnerID :many
-SELECT id, owner_id, name
+SELECT id, owner_id, name, created, updated
 FROM collections
 WHERE owner_id = ?;
 
 
--- name: CreateCollection :one
-INSERT INTO collections (id, owner_id, name)
-VALUES (?, ?, ?) RETURNING id, owner_id, name;
+-- name: CreateCollection :exec
+INSERT INTO collections (id, owner_id, name, created, updated)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: UpdateCollection :exec
 UPDATE collections 
@@ -179,22 +179,22 @@ WHERE id = ?;
 --
 
 -- name: GetWorkspace :one
-SELECT id, name
+SELECT id, name, created, updated
 FROM workspaces
 WHERE id = ? LIMIT 1;
 
 -- name: GetWorkspaceByUserID :one
-SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1;
+SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1;
 
 -- name: GetWorkspacesByUserID :many
-SELECT id, name FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?);
+SELECT id, name, created, updated FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?);
 
 -- name: GetWorkspaceByUserIDandWorkspaceID :one
-SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1) LIMIT 1;
+SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1) LIMIT 1;
 
 -- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name)
-VALUES (?, ?);
+INSERT INTO workspaces (id, name, created, updated)
+VALUES (?, ?, ? , ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces

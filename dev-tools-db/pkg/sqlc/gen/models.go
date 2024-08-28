@@ -17,6 +17,8 @@ type Collection struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
+	Created time.Time
+	Updated time.Time
 }
 
 type ItemApi struct {
@@ -59,8 +61,10 @@ type User struct {
 }
 
 type Workspace struct {
-	ID   ulid.ULID
-	Name string
+	ID      ulid.ULID
+	Name    string
+	Created time.Time
+	Updated time.Time
 }
 
 type WorkspacesUser struct {

@@ -2,6 +2,7 @@ package mcollection
 
 import (
 	"dev-tools-nodes/pkg/model/mnodedata"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -16,6 +17,8 @@ type Collection struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
+	Created time.Time
+	Updated time.Time
 }
 
 type MetaCollection struct {

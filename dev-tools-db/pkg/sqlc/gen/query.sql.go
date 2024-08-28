@@ -32,22 +32,28 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 	return column_1, err
 }
 
-const createCollection = `-- name: CreateCollection :one
-INSERT INTO collections (id, owner_id, name)
-VALUES (?, ?, ?) RETURNING id, owner_id, name
+const createCollection = `-- name: CreateCollection :exec
+INSERT INTO collections (id, owner_id, name, created, updated)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateCollectionParams struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
+	Created time.Time
+	Updated time.Time
 }
 
-func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) (Collection, error) {
-	row := q.queryRow(ctx, q.createCollectionStmt, createCollection, arg.ID, arg.OwnerID, arg.Name)
-	var i Collection
-	err := row.Scan(&i.ID, &i.OwnerID, &i.Name)
-	return i, err
+func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) error {
+	_, err := q.exec(ctx, q.createCollectionStmt, createCollection,
+		arg.ID,
+		arg.OwnerID,
+		arg.Name,
+		arg.Created,
+		arg.Updated,
+	)
+	return err
 }
 
 const createItemApi = `-- name: CreateItemApi :exec
@@ -276,17 +282,24 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const createWorkspace = `-- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name)
-VALUES (?, ?)
+INSERT INTO workspaces (id, name, created, updated)
+VALUES (?, ?, ? , ?)
 `
 
 type CreateWorkspaceParams struct {
-	ID   ulid.ULID
-	Name string
+	ID      ulid.ULID
+	Name    string
+	Created time.Time
+	Updated time.Time
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
-	_, err := q.exec(ctx, q.createWorkspaceStmt, createWorkspace, arg.ID, arg.Name)
+	_, err := q.exec(ctx, q.createWorkspaceStmt, createWorkspace,
+		arg.ID,
+		arg.Name,
+		arg.Created,
+		arg.Updated,
+	)
 	return err
 }
 
@@ -383,7 +396,7 @@ func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
 
 const getCollection = `-- name: GetCollection :one
 
-SELECT id, owner_id, name
+SELECT id, owner_id, name, created, updated
 FROM collections
 WHERE id = ?
 LIMIT 1
@@ -393,12 +406,18 @@ LIMIT 1
 func (q *Queries) GetCollection(ctx context.Context, id ulid.ULID) (Collection, error) {
 	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
 	var i Collection
-	err := row.Scan(&i.ID, &i.OwnerID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Name,
+		&i.Created,
+		&i.Updated,
+	)
 	return i, err
 }
 
 const getCollectionByOwnerID = `-- name: GetCollectionByOwnerID :many
-SELECT id, owner_id, name
+SELECT id, owner_id, name, created, updated
 FROM collections
 WHERE owner_id = ?
 `
@@ -412,7 +431,13 @@ func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID)
 	var items []Collection
 	for rows.Next() {
 		var i Collection
-		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -427,7 +452,7 @@ func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID)
 }
 
 const getCollectionByPlatformIDandType = `-- name: GetCollectionByPlatformIDandType :many
-SELECT id, owner_id, name
+SELECT id, owner_id, name, created, updated
 FROM collections
 WHERE id = ?
 `
@@ -441,7 +466,13 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.
 	var items []Collection
 	for rows.Next() {
 		var i Collection
-		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -866,7 +897,7 @@ func (q *Queries) GetUserByProviderIDandType(ctx context.Context, arg GetUserByP
 
 const getWorkspace = `-- name: GetWorkspace :one
 
-SELECT id, name
+SELECT id, name, created, updated
 FROM workspaces
 WHERE id = ? LIMIT 1
 `
@@ -875,23 +906,33 @@ WHERE id = ? LIMIT 1
 func (q *Queries) GetWorkspace(ctx context.Context, id ulid.ULID) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceStmt, getWorkspace, id)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Created,
+		&i.Updated,
+	)
 	return i, err
 }
 
 const getWorkspaceByUserID = `-- name: GetWorkspaceByUserID :one
-SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1
+SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1
 `
 
 func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID ulid.ULID) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDStmt, getWorkspaceByUserID, userID)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Created,
+		&i.Updated,
+	)
 	return i, err
 }
 
 const getWorkspaceByUserIDandWorkspaceID = `-- name: GetWorkspaceByUserIDandWorkspaceID :one
-SELECT id, name FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1) LIMIT 1
+SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1) LIMIT 1
 `
 
 type GetWorkspaceByUserIDandWorkspaceIDParams struct {
@@ -902,7 +943,12 @@ type GetWorkspaceByUserIDandWorkspaceIDParams struct {
 func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg GetWorkspaceByUserIDandWorkspaceIDParams) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDandWorkspaceIDStmt, getWorkspaceByUserIDandWorkspaceID, arg.WorkspaceID, arg.UserID)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Created,
+		&i.Updated,
+	)
 	return i, err
 }
 
@@ -1011,7 +1057,7 @@ func (q *Queries) GetWorkspaceUserByWorkspaceIDAndUserID(ctx context.Context, ar
 }
 
 const getWorkspacesByUserID = `-- name: GetWorkspacesByUserID :many
-SELECT id, name FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?)
+SELECT id, name, created, updated FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?)
 `
 
 func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) ([]Workspace, error) {
@@ -1023,7 +1069,12 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) (
 	var items []Workspace
 	for rows.Next() {
 		var i Workspace
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

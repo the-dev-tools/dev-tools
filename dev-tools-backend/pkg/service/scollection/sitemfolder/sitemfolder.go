@@ -14,6 +14,8 @@ type ItemFolderService struct {
 	queries *gen.Queries
 }
 
+var ErrNoItemFolderFound = sql.ErrNoRows
+
 func New(ctx context.Context, db *sql.DB) (*ItemFolderService, error) {
 	q, err := gen.Prepare(ctx, db)
 	if err != nil {
@@ -29,18 +31,19 @@ func New(ctx context.Context, db *sql.DB) (*ItemFolderService, error) {
 func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
 	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemFolderFound
+		}
 		return nil, err
 	}
-	var folders []mitemfolder.ItemFolder
-	for _, rawFolder := range rawFolders {
-
-		folder := mitemfolder.ItemFolder{
+	folders := make([]mitemfolder.ItemFolder, len(rawFolders))
+	for i, rawFolder := range rawFolders {
+		folders[i] = mitemfolder.ItemFolder{
 			ID:           rawFolder.ID,
 			CollectionID: rawFolder.CollectionID,
 			ParentID:     rawFolder.ParentID,
 			Name:         rawFolder.Name,
 		}
-		folders = append(folders, folder)
 	}
 	return folders, nil
 }
@@ -105,6 +108,9 @@ func (ifs ItemFolderService) CreateItemApiBulk(ctx context.Context, items []mite
 func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*mitemfolder.ItemFolder, error) {
 	rawFolder, err := ifs.queries.GetItemFolder(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemFolderFound
+		}
 		return nil, err
 	}
 
@@ -117,19 +123,30 @@ func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*
 }
 
 func (ifs ItemFolderService) UpdateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
-	return ifs.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
+	err := ifs.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
 		ID:   folder.ID,
 		Name: folder.Name,
 	})
+	if err == sql.ErrNoRows {
+		return ErrNoItemFolderFound
+	}
+	return err
 }
 
 func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
-	return ifs.queries.DeleteItemFolder(ctx, id)
+	err := ifs.queries.DeleteItemFolder(ctx, id)
+	if err == sql.ErrNoRows {
+		return ErrNoItemFolderFound
+	}
+	return err
 }
 
 func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID ulid.ULID) (ulid.ULID, error) {
 	ownerID, err := ifs.queries.GetItemFolderOwnerID(ctx, folderID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return ulid.ULID{}, ErrNoItemFolderFound
+		}
 		return ulid.ULID{}, err
 	}
 	return ulid.ULID(ownerID), err
@@ -138,6 +155,9 @@ func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID ulid.ULID)
 func (ifs ItemFolderService) CheckOwnerID(ctx context.Context, folderID ulid.ULID, ownerID ulid.ULID) (bool, error) {
 	CollectionOwnerID, err := ifs.GetOwnerID(ctx, folderID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, ErrNoItemFolderFound
+		}
 		return false, err
 	}
 	return folderID.Compare(CollectionOwnerID) == 0, nil

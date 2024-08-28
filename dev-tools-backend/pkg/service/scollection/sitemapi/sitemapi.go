@@ -14,9 +14,14 @@ type ItemApiService struct {
 	queries *gen.Queries
 }
 
+var ErrNoItemApiFound = sql.ErrNoRows
+
 func New(ctx context.Context, db *sql.DB) (*ItemApiService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemApiFound
+		}
 		return nil, err
 	}
 
@@ -29,6 +34,9 @@ func New(ctx context.Context, db *sql.DB) (*ItemApiService, error) {
 func (ias ItemApiService) GetItemApi(ctx context.Context, id ulid.ULID) (*mitemapi.ItemApi, error) {
 	itemApi, err := ias.queries.GetItemApi(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemApiFound
+		}
 		return nil, err
 	}
 
@@ -120,7 +128,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 }
 
 func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
-	return ias.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
+	err := ias.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
 		ID:           item.ID,
 		CollectionID: item.CollectionID,
 		ParentID:     item.ParentID,
@@ -131,6 +139,10 @@ func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.Item
 		Query:        item.Query,
 		Body:         item.Body,
 	})
+	if err == sql.ErrNoRows {
+		return ErrNoItemApiFound
+	}
+	return err
 }
 
 func (ias ItemApiService) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
@@ -140,12 +152,15 @@ func (ias ItemApiService) DeleteItemApi(ctx context.Context, id ulid.ULID) error
 func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemapi.ItemApi, error) {
 	itemApis, err := ias.queries.GetItemsApiByCollectionID(ctx, collectionID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemApiFound
+		}
 		return nil, err
 	}
 
-	items := []mitemapi.ItemApi{}
-	for _, itemApi := range itemApis {
-		items = append(items, mitemapi.ItemApi{
+	items := make([]mitemapi.ItemApi, len(itemApis))
+	for i, itemApi := range itemApis {
+		items[i] = mitemapi.ItemApi{
 			ID:           ulid.ULID(itemApi.ID),
 			CollectionID: ulid.ULID(itemApi.CollectionID),
 			ParentID:     itemApi.ParentID,
@@ -155,7 +170,7 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 			Headers:      itemApi.Headers,
 			Query:        itemApi.Query,
 			Body:         itemApi.Body,
-		})
+		}
 	}
 	return items, nil
 }
@@ -163,6 +178,9 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 func (ias ItemApiService) GetOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
 	rawUlid, err := ias.queries.GetItemApiOwnerID(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return ulid.ULID{}, ErrNoItemApiFound
+		}
 		return ulid.ULID{}, err
 	}
 	ownerID := ulid.ULID(rawUlid)
@@ -172,6 +190,9 @@ func (ias ItemApiService) GetOwnerID(ctx context.Context, id ulid.ULID) (ulid.UL
 func (ias ItemApiService) CheckOwnerID(ctx context.Context, id ulid.ULID, ownerID ulid.ULID) (bool, error) {
 	collectionOwnerID, err := ias.GetOwnerID(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, ErrNoItemApiFound
+		}
 		return false, err
 	}
 	return ownerID.Compare(collectionOwnerID) == 0, nil
