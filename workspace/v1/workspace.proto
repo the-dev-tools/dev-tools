@@ -3,6 +3,7 @@ syntax = "proto3";
 package workspace.v1;
 option go_package = "dev-tools-services/gen/workspace/v1;workspacev1";
 
+import "google/protobuf/timestamp.proto";
 
 service WorkspaceService {
   rpc GetWorkspaces(GetWorkspacesRequest) returns (GetWorkspacesResponse);
@@ -19,6 +20,8 @@ service WorkspaceService {
 message Workspace {
   string id = 1;
   string name = 2;
+  google.protobuf.Timestamp created = 3;
+  google.protobuf.Timestamp updated = 4;
 }
 
 enum Role {

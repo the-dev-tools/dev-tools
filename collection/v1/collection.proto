@@ -67,6 +67,8 @@ message GetCollectionRequest { string id = 1; }
 message GetCollectionResponse {
   string id = 1;
   string name = 2;
+  google.protobuf.Timestamp created = 3;
+  google.protobuf.Timestamp updated = 4;
   repeated Item items = 3;
 }
 
@@ -93,7 +95,7 @@ message ImportPostmanRequest {
 
 message ImportPostmanResponse { string id = 1; }
 
-// //  Node Operations Request and Response
+// //  Item Operations Request and Response
 
 message ListItemsRequest {
   string collection_id = 1; // collection id
