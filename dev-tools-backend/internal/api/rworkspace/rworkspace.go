@@ -23,6 +23,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var ErrWorkspaceNotFound = errors.New("workspace not found")
@@ -57,8 +58,10 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 
 	resp := &workspacev1.GetWorkspaceResponse{
 		Workspace: &workspacev1.Workspace{
-			Id:   org.ID.String(),
-			Name: org.Name,
+			Id:      org.ID.String(),
+			Name:    org.Name,
+			Created: timestamppb.New(org.Created),
+			Updated: timestamppb.New(org.Updated),
 		},
 	}
 
@@ -79,10 +82,12 @@ func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	respOrgs := make([]*workspacev1.Workspace, len(workspaces))
-	for i, org := range workspaces {
+	for i, ws := range workspaces {
 		respOrgs[i] = &workspacev1.Workspace{
-			Id:   org.ID.String(),
-			Name: org.Name,
+			Id:      ws.ID.String(),
+			Name:    ws.Name,
+			Created: timestamppb.New(ws.Created),
+			Updated: timestamppb.New(ws.Updated),
 		}
 	}
 

@@ -36,6 +36,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type CollectionServiceRPC struct {
@@ -216,9 +217,11 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 	items := pair.GetItemFolders()
 
 	respRaw := &collectionv1.GetCollectionResponse{
-		Id:    collection.ID.String(),
-		Name:  collection.Name,
-		Items: items,
+		Id:      collection.ID.String(),
+		Name:    collection.Name,
+		Items:   items,
+		Created: timestamppb.New(collection.Created),
+		Updated: timestamppb.New(collection.Updated),
 	}
 
 	return connect.NewResponse(respRaw), nil

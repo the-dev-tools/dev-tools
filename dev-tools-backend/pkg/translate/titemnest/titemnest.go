@@ -15,8 +15,9 @@ type CollectionPair struct {
 	itemApis    []mitemapi.ItemApi
 }
 
+// TODO: can be more efficient by MultiThreading
 func (c CollectionPair) GetItemFolders() []*collectionv1.Item {
-	var items []*collectionv1.Item
+	items := make([]*collectionv1.Item, 0, len(c.itemApis)+len(c.itemFolders))
 
 	for _, item := range c.itemFolders {
 		folderItem := &collectionv1.Item{
