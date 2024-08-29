@@ -10,7 +10,7 @@ import { CollectionProps } from '@react-aria/collections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
 import { Array, Boolean, Effect, Match, pipe, Struct } from 'effect';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   UNSTABLE_TreeItem as AriaTreeItem,
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
@@ -19,6 +19,7 @@ import {
   Button,
   Collection,
   composeRenderProps,
+  Dialog,
   FileTrigger,
   Form,
   Input,
@@ -160,8 +161,13 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation(CollectionQuery.deleteFolder);
+  const updateMutation = useMutation(CollectionQuery.updateFolder);
 
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
+
+  const triggerRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
 
   return (
     <TreeItem
@@ -170,7 +176,10 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
       childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={collectionId} />}
     >
       <div>FOLDER</div>
-      <Text className='flex-1 truncate'>{folder.meta!.name}</Text>
+      <Text ref={triggerRef} className='flex-1 truncate'>
+        {folder.meta!.name}
+      </Text>
+      <Button onPress={() => void setIsRenaming(true)}>Rename</Button>
       <Button
         onPress={async () => {
           await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
@@ -179,6 +188,53 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
       >
         Delete
       </Button>
+
+      <Popover
+        triggerRef={triggerRef}
+        isOpen={isRenaming}
+        onOpenChange={setIsRenaming}
+        className='rounded border border-black bg-white p-2'
+      >
+        <Dialog aria-label='Rename folder'>
+          <Form
+            className='flex flex-1 gap-2'
+            onSubmit={(event) =>
+              Effect.gen(function* () {
+                event.preventDefault();
+
+                const { name } = yield* pipe(
+                  new FormData(event.currentTarget),
+                  Object.fromEntries,
+                  Schema.decode(FolderForm),
+                );
+
+                yield* Effect.tryPromise(() =>
+                  updateMutation.mutateAsync({
+                    folder: {
+                      ...Struct.evolve(folder, {
+                        meta: Struct.evolve({ name: () => name }),
+                      }),
+                      collectionId,
+                    },
+                  }),
+                );
+
+                yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
+
+                setIsRenaming(false);
+              }).pipe(Runtime.runPromise)
+            }
+          >
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
+            <TextField name='name' defaultValue={folder.meta!.name} autoFocus className='contents'>
+              <Label className='text-nowrap'>New name:</Label>
+              <Input className='w-full bg-transparent' />
+            </TextField>
+
+            <Button type='submit'>Save</Button>
+          </Form>
+        </Dialog>
+      </Popover>
     </TreeItem>
   );
 };
