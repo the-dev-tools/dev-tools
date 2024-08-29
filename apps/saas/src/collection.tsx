@@ -34,7 +34,8 @@ import {
   TextField,
   UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
-import { twMerge } from 'tailwind-merge';
+import { LuChevronRight, LuFolder } from 'react-icons/lu';
+import { twJoin, twMerge } from 'tailwind-merge';
 
 import { ApiCall, CollectionMeta, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
@@ -100,9 +101,15 @@ const TreeItem = <T extends object>({ children, className, childItem, ...mixProp
           <div
             {...props.wrapper}
             style={{ marginInlineStart: (level - 1).toString() + 'rem', ...props.wrapper.style }}
-            className={twMerge(tw`flex gap-2`, props.wrapper.className)}
+            className={twMerge(tw`flex items-center gap-2`, props.wrapper.className)}
           >
-            {hasChildRows && <Button slot='chevron'>{isExpanded ? '⏷' : '⏵'}</Button>}
+            {hasChildRows && (
+              <Button slot='chevron'>
+                <LuChevronRight
+                  className={twJoin(tw`transition-transform`, !isExpanded ? tw`rotate-0` : tw`rotate-90`)}
+                />
+              </Button>
+            )}
             {!hasChildRows && level > 1 && <div />}
             {children}
           </div>
@@ -143,7 +150,9 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
       childItems={query.data?.items ?? []}
       childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={meta.id} />}
     >
-      <Text ref={triggerRef} className='flex-1 truncate'>{meta.name}</Text>
+      <Text ref={triggerRef} className='flex-1 truncate'>
+        {meta.name}
+      </Text>
 
       <Button onPress={() => void setIsRenaming(true)}>Rename</Button>
 
@@ -257,7 +266,7 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
       childItems={folder.items}
       childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={collectionId} />}
     >
-      <div>FOLDER</div>
+      <LuFolder />
       <Text ref={triggerRef} className='flex-1 truncate'>
         {folder.meta!.name}
       </Text>
@@ -342,7 +351,7 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
       textValue={apiCall.meta!.name}
       href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: apiCall.meta!.id } }}
     >
-      <div>{apiCall.data!.method}</div>
+      <div className='text-sm font-bold'>{apiCall.data!.method}</div>
       <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
       {runNodeMutation.isSuccess && <div>Duration: {runNodeMutation.data.result!.duration.toString()} ms</div>}
       <Button
