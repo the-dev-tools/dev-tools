@@ -113,7 +113,6 @@ const TreeItem = <T extends object>({ children, className, childItem, ...mixProp
                 />
               </Button>
             )}
-            {!hasChildRows && level > 1 && <div />}
             {children}
           </div>
         ))}
@@ -384,6 +383,8 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
       textValue={apiCall.meta!.name}
       href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: apiCall.meta!.id } }}
     >
+      <div />
+
       <div className='text-sm font-bold'>{apiCall.data!.method}</div>
 
       <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
