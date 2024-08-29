@@ -22,7 +22,7 @@ jobs:
         run: git submodule update --init --recursive fly-go
       - uses: actions/setup-go@v5
         with:
-          cache-dependency-path: "*/go.sum"
+          cache-dependency-path: "**/go.sum"
           go-version: ${{ env.GO_VERSION }}
       - id: set-modules
         ## ignore fly-go
@@ -39,7 +39,7 @@ jobs:
         run: git submodule update --init --recursive fly-go
       - uses: actions/setup-go@v5
         with:
-          cache-dependency-path: ${{ matrix.modules }}/go.sum
+          cache-dependency-path: "**/go.sum"
           go-version: ${{ env.GO_VERSION }}
       - name: Unit Test
         run: go test -v ./...
@@ -56,7 +56,7 @@ jobs:
         run: git submodule update --init --recursive fly-go
       - uses: actions/setup-go@v5
         with:
-          cache-dependency-path: ${{ matrix.modules }}/go.sum
+          cache-dependency-path: "**/go.sum"
           go-version: ${{ env.GO_VERSION }}
       - name: golangci-lint ${{ matrix.module }}
         uses: golangci/golangci-lint-action@v6
