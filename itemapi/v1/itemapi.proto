@@ -3,6 +3,7 @@ syntax = "proto3";
 package itemapi.v1;
 import "nodedata/v1/nodedata.proto";
 import "apiresult/v1/apiresult.proto";
+option go_package = "dev-tools-services/gen/itemapi/v1;itemapiv1";
 
 service ItemApiService {
   rpc GetApiCall(GetApiCallRequest) returns (GetApiCallResponse);

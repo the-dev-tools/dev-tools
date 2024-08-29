@@ -3,6 +3,7 @@ syntax = "proto3";
 package itemapiexample.v1;
 
 import "google/protobuf/timestamp.proto";
+option go_package = "dev-tools-services/gen/itemapiexample/v1;itemapiexamplev1";
 
 service ItemApiExampleService {
   rpc GetExamples(GetExamplesRequest) returns (GetExamplesResponse);

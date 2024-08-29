@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package itemfolder.v1;
 import "itemapi/v1/itemapi.proto";
+option go_package = "dev-tools-services/gen/itemfolder/v1;itemfolderv1";
 
 service ItemFolderService {
 
