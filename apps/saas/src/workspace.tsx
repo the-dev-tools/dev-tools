@@ -148,7 +148,13 @@ export const WorkspaceLayout = () => {
       }
     >
       <PanelGroup direction='horizontal'>
-        <Panel className='flex flex-col gap-2 p-2' defaultSize={20} minSize={10} maxSize={40}>
+        <Panel
+          className='flex flex-col gap-2 p-2'
+          style={{ overflowY: 'auto' }}
+          defaultSize={20}
+          minSize={10}
+          maxSize={40}
+        >
           <h2 className='uppercase'>Overview</h2>
           <CollectionsWidget />
         </Panel>

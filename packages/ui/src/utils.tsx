@@ -1,4 +1,5 @@
 import { composeRenderProps } from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 
 export const composeRenderPropsTV = <T, K>(
   className: string | ((renderProps: T) => string) | undefined,
@@ -12,3 +13,6 @@ export const composeRenderPropsTV = <T, K>(
       className,
     }),
   );
+
+export const composeRenderPropsTW = <T,>(className: string | ((renderProps: T) => string) | undefined, tw: string) =>
+  composeRenderProps(className, (className) => twMerge(tw, className));

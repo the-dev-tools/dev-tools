@@ -6,12 +6,19 @@ import {
   useTransport,
 } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
+import { CollectionProps } from '@react-aria/collections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
 import { Array, Boolean, Effect, Match, pipe, Struct } from 'effect';
 import { useState } from 'react';
 import {
+  UNSTABLE_TreeItem as AriaTreeItem,
+  UNSTABLE_TreeItemContent as AriaTreeItemContent,
+  TreeItemContentProps as AriaTreeItemContentProps,
+  TreeItemProps as AriaTreeItemProps,
   Button,
+  Collection,
+  composeRenderProps,
   FileTrigger,
   Form,
   Input,
@@ -24,13 +31,15 @@ import {
   Text,
   TextArea,
   TextField,
-  UNSTABLE_Tree,
-  UNSTABLE_TreeItem,
-  UNSTABLE_TreeItemContent,
+  UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 
 import { ApiCall, CollectionMeta, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
+import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Runtime } from './runtime';
 
@@ -65,18 +74,149 @@ export const CollectionsWidget = () => {
         </Button>
         <ImportPostman />
       </div>
-      {metaCollections.map((_) => (
-        <Link
-          key={_.id}
-          to='/workspace/$workspaceId/collection/$collectionId'
-          params={{ workspaceId, collectionId: _.id }}
-        >
-          {_.name}
-        </Link>
-      ))}
-      <div>Tree</div>
-      <UNSTABLE_Tree items={metaCollections}>{(meta) => <CollectionTreeItem meta={meta} />}</UNSTABLE_Tree>
+      <Tree aria-label='Collections' items={metaCollections} className='flex flex-col gap-2'>
+        {(_) => <CollectionTreeWidget id={_.id} meta={_} />}
+      </Tree>
     </>
+  );
+};
+
+interface TreeItemProps<T extends object>
+  extends Omit<AriaTreeItemProps, 'children'>,
+    MixinProps<'content', Omit<AriaTreeItemContentProps, 'children'>>,
+    MixinProps<'wrapper', Omit<React.ComponentProps<'div'>, 'children'>>,
+    MixinProps<'child', Omit<CollectionProps<T>, 'children'>> {
+  children?: AriaTreeItemContentProps['children'];
+  childItem?: CollectionProps<T>['children'];
+}
+
+const TreeItem = <T extends object>({ children, className, childItem, ...mixProps }: TreeItemProps<T>) => {
+  const props = splitProps(mixProps, 'content', 'wrapper', 'child');
+  return (
+    <AriaTreeItem {...props.rest} className={composeRenderPropsTW(className, tw`cursor-pointer select-none`)}>
+      <AriaTreeItemContent {...props.content}>
+        {composeRenderProps(children, (children, { hasChildRows, isExpanded, level }) => (
+          <div
+            {...props.wrapper}
+            style={{ marginInlineStart: (level - 1).toString() + 'rem', ...props.wrapper.style }}
+            className={twMerge(tw`flex gap-2`, props.wrapper.className)}
+          >
+            {hasChildRows && <Button slot='chevron'>{isExpanded ? '⏷' : '⏵'}</Button>}
+            {!hasChildRows && level > 1 && <div />}
+            {children}
+          </div>
+        ))}
+      </AriaTreeItemContent>
+      {!!childItem && <Collection {...props.child}>{childItem}</Collection>}
+    </AriaTreeItem>
+  );
+};
+
+interface CollectionWidgetProps {
+  id: string;
+  meta: CollectionMeta;
+}
+
+const CollectionTreeWidget = ({ meta }: CollectionWidgetProps) => {
+  const transport = useTransport();
+
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: meta.id }, { transport });
+  const query = useQuery({ ...queryOptions, enabled: true });
+
+  return (
+    <TreeItem
+      textValue={meta.name}
+      childItems={query.data?.items ?? []}
+      childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={meta.id} />}
+    >
+      <Text>{meta.name}</Text>
+    </TreeItem>
+  );
+};
+
+interface ItemWidgetProps {
+  id: string;
+  item: Item;
+  collectionId: string;
+}
+
+const ItemWidget = ({ item, collectionId }: ItemWidgetProps) =>
+  pipe(
+    item,
+    Struct.get('data'),
+    Match.value,
+    Match.when({ case: 'folder' }, (_) => <FolderWidget folder={_.value} collectionId={collectionId} />),
+    Match.when({ case: 'apiCall' }, (_) => <ApiCallWidget apiCall={_.value} collectionId={collectionId} />),
+    Match.orElse(() => null),
+  );
+
+interface FolderWidgetProps {
+  folder: Folder;
+  collectionId: string;
+}
+
+const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation(CollectionQuery.deleteFolder);
+
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
+
+  return (
+    <TreeItem
+      textValue={folder.meta!.name}
+      childItems={folder.items}
+      childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={collectionId} />}
+    >
+      <div>FOLDER</div>
+      <Text className='flex-1 truncate'>{folder.meta!.name}</Text>
+      <Button
+        onPress={async () => {
+          await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
+          await queryClient.invalidateQueries(queryOptions);
+        }}
+      >
+        Delete
+      </Button>
+    </TreeItem>
+  );
+};
+
+interface ApiCallWidgetProps {
+  apiCall: ApiCall;
+  collectionId: string;
+}
+
+const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  const { workspaceId } = workspaceRoute.useParams();
+
+  const runNodeMutation = useMutation(CollectionQuery.runApiCall);
+  const deleteMutation = useMutation(CollectionQuery.deleteApiCall);
+
+  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
+
+  return (
+    <TreeItem
+      textValue={apiCall.meta!.name}
+      href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: apiCall.meta!.id } }}
+    >
+      <div>{apiCall.data!.method}</div>
+      <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
+      {runNodeMutation.isSuccess && <div>Duration: {runNodeMutation.data.result!.duration.toString()} ms</div>}
+      <Button
+        onPress={async () => {
+          await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });
+          await queryClient.invalidateQueries(queryOptions);
+        }}
+      >
+        Delete
+      </Button>
+      <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta!.id })}>Run</Button>
+    </TreeItem>
   );
 };
 
@@ -105,20 +245,6 @@ const ImportPostman = () => {
     >
       <Button className='flex-1 rounded bg-black text-white'>Import</Button>
     </FileTrigger>
-  );
-};
-
-interface CollectionTreeItemProps {
-  meta: CollectionMeta;
-}
-
-const CollectionTreeItem = ({ meta }: CollectionTreeItemProps) => {
-  return (
-    <UNSTABLE_TreeItem textValue={meta.name}>
-      <UNSTABLE_TreeItemContent>
-        <Text>{meta.name}</Text>
-      </UNSTABLE_TreeItemContent>
-    </UNSTABLE_TreeItem>
   );
 };
 
