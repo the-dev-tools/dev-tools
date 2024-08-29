@@ -56,7 +56,7 @@ SELECT
         updated 
 FROM item_api_example WHERE id = ? LIMIT 1;
 
--- GetItemApiExampleByItemApiID :many
+-- name: GetItemApiExamples :many
 SELECT 
         id, 
         item_api_id, 

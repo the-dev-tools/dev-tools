@@ -8,6 +8,9 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/resultapi"
+	"dev-tools-backend/internal/api/ritemapi"
+	"dev-tools-backend/internal/api/ritemapiexample"
+	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/db/turso"
 	"errors"
@@ -49,12 +52,15 @@ func main() {
 	}
 
 	// Services Connect RPC
-	newServiceManager := NewServiceManager(5)
+	newServiceManager := NewServiceManager(10)
 	newServiceManager.AddService(auth.CreateService(ctx, db, hmacSecretBytes))
 	newServiceManager.AddService(collection.CreateService(ctx, db, hmacSecretBytes))
 	newServiceManager.AddService(node.CreateService(client))
 	newServiceManager.AddService(resultapi.CreateService(ctx, db, hmacSecretBytes))
 	newServiceManager.AddService(rworkspace.CreateService(ctx, hmacSecretBytes, db))
+	newServiceManager.AddService(ritemapi.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(ritemfolder.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(ritemapiexample.CreateService(ctx, db, hmacSecretBytes))
 
 	// Start services
 	go func() {

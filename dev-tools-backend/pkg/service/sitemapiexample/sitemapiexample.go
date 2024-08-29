@@ -14,16 +14,46 @@ type ItemApiExampleService struct {
 	Queries *gen.Queries
 }
 
-func New(db *sql.DB) *ItemApiExampleService {
-	return &ItemApiExampleService{
-		DB:      db,
-		Queries: gen.New(db),
-	}
-}
-
 var ErrNoItemApiExampleFound = sql.ErrNoRows
 
-func (iaes ItemApiExampleService) GetItemApiExample(ctx context.Context, id ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
+func New(ctx context.Context, db *sql.DB) (*ItemApiExampleService, error) {
+	queries, err := gen.Prepare(ctx, db)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemApiExampleFound
+		}
+		return nil, err
+	}
+
+	return &ItemApiExampleService{
+		DB:      db,
+		Queries: queries,
+	}, nil
+}
+
+func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ulid.ULID) ([]mitemapiexample.ItemApiExample, error) {
+	itemApiExamples, err := iaes.Queries.GetItemApiExamples(ctx, apiUlid)
+	if err != nil {
+		return nil, err
+	}
+	itemApiExamplesList := make([]mitemapiexample.ItemApiExample, len(itemApiExamples))
+	for _, itemApiExample := range itemApiExamples {
+		itemApiExamplesList = append(itemApiExamplesList, mitemapiexample.ItemApiExample{
+			ID:           itemApiExample.ID,
+			ItemApiID:    itemApiExample.ItemApiID,
+			CollectionID: itemApiExample.CollectionID,
+			Name:         itemApiExample.Name,
+			Headers:      itemApiExample.Headers,
+			Query:        itemApiExample.Query,
+			Body:         itemApiExample.Body,
+			Created:      itemApiExample.Created,
+			Updated:      itemApiExample.Updated,
+		})
+	}
+	return itemApiExamplesList, nil
+}
+
+func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
 	itemApiExample, err := iaes.Queries.GetItemApiExample(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -44,7 +74,7 @@ func (iaes ItemApiExampleService) GetItemApiExample(ctx context.Context, id ulid
 	}, nil
 }
 
-func (iaes ItemApiExampleService) CreateItemApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
+func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
 	return iaes.Queries.CreateItemApiExample(ctx, gen.CreateItemApiExampleParams{
 		ID:           item.ID,
 		ItemApiID:    item.ItemApiID,
@@ -66,6 +96,6 @@ func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item
 	})
 }
 
-func (iaes ItemApiExampleService) DeleteItemApiExample(ctx context.Context, id ulid.ULID) error {
+func (iaes ItemApiExampleService) DeleteApiExample(ctx context.Context, id ulid.ULID) error {
 	return iaes.Queries.DeleteItemApiExample(ctx, id)
 }

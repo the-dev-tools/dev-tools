@@ -99,6 +99,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
 	}
+	if q.getItemApiExamplesStmt, err = db.PrepareContext(ctx, getItemApiExamples); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiExamples: %w", err)
+	}
 	if q.getItemApiOwnerIDStmt, err = db.PrepareContext(ctx, getItemApiOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiOwnerID: %w", err)
 	}
@@ -313,6 +316,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemApiExampleStmt: %w", cerr)
 		}
 	}
+	if q.getItemApiExamplesStmt != nil {
+		if cerr := q.getItemApiExamplesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiExamplesStmt: %w", cerr)
+		}
+	}
 	if q.getItemApiOwnerIDStmt != nil {
 		if cerr := q.getItemApiOwnerIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiOwnerIDStmt: %w", cerr)
@@ -517,6 +525,7 @@ type Queries struct {
 	getCollectionOwnerIDStmt                   *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
 	getItemApiExampleStmt                      *sql.Stmt
+	getItemApiExamplesStmt                     *sql.Stmt
 	getItemApiOwnerIDStmt                      *sql.Stmt
 	getItemFolderStmt                          *sql.Stmt
 	getItemFolderByCollectionIDStmt            *sql.Stmt
@@ -576,6 +585,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
 		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
+		getItemApiExamplesStmt:                     q.getItemApiExamplesStmt,
 		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,
 		getItemFolderStmt:                          q.getItemFolderStmt,
 		getItemFolderByCollectionIDStmt:            q.getItemFolderByCollectionIDStmt,

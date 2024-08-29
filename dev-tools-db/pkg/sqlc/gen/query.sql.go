@@ -581,6 +581,53 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 	return i, err
 }
 
+const getItemApiExamples = `-- name: GetItemApiExamples :many
+SELECT 
+        id, 
+        item_api_id, 
+        collection_id, 
+        name, 
+        headers, 
+        query, 
+        body, 
+        created, 
+        updated 
+FROM item_api_example WHERE item_api_id = ?
+`
+
+func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) ([]ItemApiExample, error) {
+	rows, err := q.query(ctx, q.getItemApiExamplesStmt, getItemApiExamples, itemApiID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemApiExample
+	for rows.Next() {
+		var i ItemApiExample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.Name,
+			&i.Headers,
+			&i.Query,
+			&i.Body,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getItemApiOwnerID = `-- name: GetItemApiOwnerID :one
 SELECT c.owner_id FROM collections c
 INNER JOIN item_api i ON c.id = i.collection_id
