@@ -18,7 +18,6 @@ import { Route as AuthorizedDashboardIndexImport } from './_authorized/_dashboar
 import { Route as AuthorizedWorkspaceWorkspaceIdRouteImport } from './_authorized/workspace.$workspaceId/route';
 import { Route as AuthorizedWorkspaceWorkspaceIdIndexImport } from './_authorized/workspace.$workspaceId/index';
 import { Route as AuthorizedWorkspaceWorkspaceIdMembersImport } from './_authorized/workspace.$workspaceId/members';
-import { Route as AuthorizedWorkspaceWorkspaceIdCollectionCollectionIdImport } from './_authorized/workspace.$workspaceId/collection.$collectionId';
 import { Route as AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdImport } from './_authorized/workspace.$workspaceId/api-call.$apiCallId';
 
 // Create/Update Routes
@@ -58,12 +57,6 @@ const AuthorizedWorkspaceWorkspaceIdIndexRoute =
 const AuthorizedWorkspaceWorkspaceIdMembersRoute =
   AuthorizedWorkspaceWorkspaceIdMembersImport.update({
     path: '/members',
-    getParentRoute: () => AuthorizedWorkspaceWorkspaceIdRouteRoute,
-  } as any);
-
-const AuthorizedWorkspaceWorkspaceIdCollectionCollectionIdRoute =
-  AuthorizedWorkspaceWorkspaceIdCollectionCollectionIdImport.update({
-    path: '/collection/$collectionId',
     getParentRoute: () => AuthorizedWorkspaceWorkspaceIdRouteRoute,
   } as any);
 
@@ -133,13 +126,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdImport;
       parentRoute: typeof AuthorizedWorkspaceWorkspaceIdRouteImport;
     };
-    '/_authorized/workspace/$workspaceId/collection/$collectionId': {
-      id: '/_authorized/workspace/$workspaceId/collection/$collectionId';
-      path: '/collection/$collectionId';
-      fullPath: '/workspace/$workspaceId/collection/$collectionId';
-      preLoaderRoute: typeof AuthorizedWorkspaceWorkspaceIdCollectionCollectionIdImport;
-      parentRoute: typeof AuthorizedWorkspaceWorkspaceIdRouteImport;
-    };
   }
 }
 
@@ -155,7 +141,6 @@ export const routeTree = rootRoute.addChildren({
         AuthorizedWorkspaceWorkspaceIdMembersRoute,
         AuthorizedWorkspaceWorkspaceIdIndexRoute,
         AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRoute,
-        AuthorizedWorkspaceWorkspaceIdCollectionCollectionIdRoute,
       }),
   }),
   LoginRoute,
@@ -196,8 +181,7 @@ export const routeTree = rootRoute.addChildren({
       "children": [
         "/_authorized/workspace/$workspaceId/members",
         "/_authorized/workspace/$workspaceId/",
-        "/_authorized/workspace/$workspaceId/api-call/$apiCallId",
-        "/_authorized/workspace/$workspaceId/collection/$collectionId"
+        "/_authorized/workspace/$workspaceId/api-call/$apiCallId"
       ]
     },
     "/_authorized/_dashboard/": {
@@ -214,10 +198,6 @@ export const routeTree = rootRoute.addChildren({
     },
     "/_authorized/workspace/$workspaceId/api-call/$apiCallId": {
       "filePath": "_authorized/workspace.$workspaceId/api-call.$apiCallId.tsx",
-      "parent": "/_authorized/workspace/$workspaceId"
-    },
-    "/_authorized/workspace/$workspaceId/collection/$collectionId": {
-      "filePath": "_authorized/workspace.$workspaceId/collection.$collectionId.tsx",
       "parent": "/_authorized/workspace/$workspaceId"
     }
   }

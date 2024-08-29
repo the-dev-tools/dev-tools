@@ -8,8 +8,8 @@ import {
 import { Schema } from '@effect/schema';
 import { CollectionProps } from '@react-aria/collections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, Link, useRouter } from '@tanstack/react-router';
-import { Array, Boolean, Effect, Match, pipe, Struct } from 'effect';
+import { getRouteApi } from '@tanstack/react-router';
+import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import {
   UNSTABLE_TreeItem as AriaTreeItem,
@@ -76,7 +76,7 @@ export const CollectionsWidget = () => {
         <ImportPostman />
       </div>
       <Tree aria-label='Collections' items={metaCollections} className='flex flex-col gap-2'>
-        {(_) => <CollectionTreeWidget id={_.id} meta={_} />}
+        {(_) => <CollectionWidget id={_.id} meta={_} />}
       </Tree>
     </>
   );
@@ -118,11 +118,24 @@ interface CollectionWidgetProps {
   meta: CollectionMeta;
 }
 
-const CollectionTreeWidget = ({ meta }: CollectionWidgetProps) => {
+const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
+  const { workspaceId } = workspaceRoute.useParams();
+
   const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation(CollectionQuery.deleteCollection);
+  const updateMutation = useMutation(CollectionQuery.updateCollection);
+  const createFolderMutation = useMutation(CollectionQuery.createFolder);
+
+  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
 
   const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: meta.id }, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
+
+  const triggerRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
 
   return (
     <TreeItem
@@ -130,7 +143,76 @@ const CollectionTreeWidget = ({ meta }: CollectionWidgetProps) => {
       childItems={query.data?.items ?? []}
       childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={meta.id} />}
     >
-      <Text>{meta.name}</Text>
+      <Text ref={triggerRef} className='flex-1 truncate'>{meta.name}</Text>
+
+      <Button onPress={() => void setIsRenaming(true)}>Rename</Button>
+
+      <Button
+        onPress={async () => {
+          await deleteMutation.mutateAsync({ id: meta.id });
+          await queryClient.invalidateQueries(queryOptions);
+          await queryClient.invalidateQueries(listQueryOptions);
+        }}
+      >
+        Delete
+      </Button>
+
+      <Button
+        onPress={async () => {
+          await createFolderMutation.mutateAsync({ collectionId: meta.id, name: 'New folder' });
+          await queryClient.invalidateQueries(queryOptions);
+        }}
+      >
+        Create folder
+      </Button>
+
+      <Popover
+        triggerRef={triggerRef}
+        isOpen={isRenaming}
+        onOpenChange={setIsRenaming}
+        className='rounded border border-black bg-white p-2'
+      >
+        <Dialog aria-label='Rename collection'>
+          <Form
+            className='flex flex-1 gap-2'
+            onSubmit={(event) =>
+              Effect.gen(function* () {
+                event.preventDefault();
+
+                const { name } = yield* pipe(
+                  new FormData(event.currentTarget),
+                  Object.fromEntries,
+                  Schema.decode(Schema.Struct({ name: Schema.String })),
+                );
+
+                yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: meta.id, name }));
+
+                queryClient.setQueriesData(
+                  queryOptions,
+                  createProtobufSafeUpdater(
+                    CollectionQuery.getCollection,
+                    Struct.evolve({
+                      name: () => name,
+                    }),
+                  ),
+                );
+
+                yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
+
+                setIsRenaming(false);
+              }).pipe(Runtime.runPromise)
+            }
+          >
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
+            <TextField name='name' defaultValue={meta.name} autoFocus className='contents'>
+              <Label className='text-nowrap'>New name:</Label>
+              <Input className='w-full bg-transparent' />
+            </TextField>
+
+            <Button type='submit'>Save</Button>
+          </Form>
+        </Dialog>
+      </Popover>
     </TreeItem>
   );
 };
@@ -205,7 +287,7 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
                 const { name } = yield* pipe(
                   new FormData(event.currentTarget),
                   Object.fromEntries,
-                  Schema.decode(FolderForm),
+                  Schema.decode(Schema.Struct({ name: Schema.String })),
                 );
 
                 yield* Effect.tryPromise(() =>
@@ -301,230 +383,6 @@ const ImportPostman = () => {
     >
       <Button className='flex-1 rounded bg-black text-white'>Import</Button>
     </FileTrigger>
-  );
-};
-
-const collectionRoute = getRouteApi('/_authorized/workspace/$workspaceId/collection/$collectionId');
-
-class CollectionForm extends Schema.Class<CollectionForm>('CollectionForm')({
-  name: Schema.String,
-}) {}
-
-export const CollectionPage = () => {
-  const { workspaceId, collectionId } = collectionRoute.useParams();
-
-  const router = useRouter();
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation(CollectionQuery.deleteCollection);
-  const updateMutation = useMutation(CollectionQuery.updateCollection);
-  const createFolderMutation = useMutation(CollectionQuery.createFolder);
-
-  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
-
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
-  const query = useQuery({ ...queryOptions, enabled: true });
-
-  if (!query.isSuccess) return null;
-  const { data } = query;
-
-  return (
-    <>
-      <h2 className='text-center text-2xl font-extrabold'>{data.name}</h2>
-
-      <Form
-        key={data.id}
-        className='my-2 border-y border-black py-2'
-        onSubmit={(event) =>
-          Effect.gen(function* () {
-            event.preventDefault();
-
-            const { name } = yield* pipe(
-              new FormData(event.currentTarget),
-              Object.fromEntries,
-              Schema.decode(CollectionForm),
-            );
-
-            yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: collectionId, name }));
-
-            queryClient.setQueriesData(
-              queryOptions,
-              createProtobufSafeUpdater(
-                CollectionQuery.getCollection,
-                Struct.evolve({
-                  name: () => name,
-                }),
-              ),
-            );
-
-            yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
-          }).pipe(Runtime.runPromise)
-        }
-      >
-        <TextField defaultValue={data.name} name='name' className='flex gap-2'>
-          <Label>Name:</Label>
-          <Input />
-        </TextField>
-
-        <div className='flex gap-2'>
-          <Button type='submit'>Save</Button>
-
-          <Button
-            onPress={async () => {
-              await deleteMutation.mutateAsync({ id: collectionId });
-              await router.navigate({ to: '/workspace/$workspaceId', params: { workspaceId } });
-              await queryClient.invalidateQueries(queryOptions);
-              await queryClient.invalidateQueries(listQueryOptions);
-            }}
-          >
-            Delete
-          </Button>
-
-          <Button
-            onPress={async () => {
-              await createFolderMutation.mutateAsync({ collectionId, name: 'New folder' });
-              await queryClient.invalidateQueries(queryOptions);
-            }}
-          >
-            Create folder
-          </Button>
-        </div>
-      </Form>
-
-      {data.items.map((_) => (
-        <ItemRow key={_.data.value!.meta!.id} item={_} />
-      ))}
-    </>
-  );
-};
-
-interface ItemRowProps {
-  item: Item;
-}
-
-const ItemRow = ({ item }: ItemRowProps) =>
-  pipe(
-    item,
-    Struct.get('data'),
-    Match.value,
-    Match.when({ case: 'apiCall' }, (_) => <ApiCallRow apiCall={_.value} />),
-    Match.when({ case: 'folder' }, (_) => <FolderRow folder={_.value} />),
-    Match.orElse(() => null),
-  );
-
-class FolderForm extends Schema.Class<FolderForm>('FolderForm')({
-  name: Schema.String,
-}) {}
-
-interface FolderRowProps {
-  folder: Folder;
-}
-
-const FolderRow = ({ folder }: FolderRowProps) => {
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation(CollectionQuery.deleteFolder);
-  const updateMutation = useMutation(CollectionQuery.updateFolder);
-
-  const { collectionId } = collectionRoute.useParams();
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
-
-  const [open, setOpen] = useState(false);
-
-  const row = (
-    <div className='flex gap-2'>
-      <div>FOLDER</div>
-      <Form
-        className='flex-1'
-        onSubmit={(event) =>
-          Effect.gen(function* () {
-            event.preventDefault();
-
-            const { name } = yield* pipe(
-              new FormData(event.currentTarget),
-              Object.fromEntries,
-              Schema.decode(FolderForm),
-            );
-
-            yield* Effect.tryPromise(() =>
-              updateMutation.mutateAsync({
-                folder: {
-                  ...Struct.evolve(folder, {
-                    meta: Struct.evolve({ name: () => name }),
-                  }),
-                  collectionId,
-                },
-              }),
-            );
-
-            yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
-          }).pipe(Runtime.runPromise)
-        }
-      >
-        <TextField name='name' aria-label='Folder name' defaultValue={folder.meta!.name}>
-          <Input className='w-full bg-transparent' />
-        </TextField>
-      </Form>
-      <Button
-        onPress={async () => {
-          await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
-          await queryClient.invalidateQueries(queryOptions);
-        }}
-      >
-        Delete
-      </Button>
-      <Button onPress={() => void setOpen(Boolean.not)}>{open ? 'Close' : 'Open'}</Button>
-    </div>
-  );
-
-  if (!open) return row;
-
-  return (
-    <>
-      {row}
-      <div className='border-l-2 border-black pl-2'>
-        {folder.items.map((_) => (
-          <ItemRow key={_.data.value!.meta!.id} item={_} />
-        ))}
-      </div>
-    </>
-  );
-};
-
-interface ApiCallRowProps {
-  apiCall: ApiCall;
-}
-
-const ApiCallRow = ({ apiCall }: ApiCallRowProps) => {
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const runNodeMutation = useMutation(CollectionQuery.runApiCall);
-  const deleteMutation = useMutation(CollectionQuery.deleteApiCall);
-
-  const { workspaceId, collectionId } = collectionRoute.useParams();
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
-
-  return (
-    <div className='flex gap-2'>
-      <div>{apiCall.data!.method}</div>
-      <div className='flex-1 truncate'>{apiCall.meta!.name}</div>
-      {runNodeMutation.isSuccess && <div>Duration: {runNodeMutation.data.result!.duration.toString()} ms</div>}
-      <Button
-        onPress={async () => {
-          await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });
-          await queryClient.invalidateQueries(queryOptions);
-        }}
-      >
-        Delete
-      </Button>
-      <Link to='/workspace/$workspaceId/api-call/$apiCallId' params={{ workspaceId, apiCallId: apiCall.meta!.id }}>
-        Edit
-      </Link>
-      <Button onPress={() => void runNodeMutation.mutate({ id: apiCall.meta!.id })}>Run</Button>
-    </div>
   );
 };
 
