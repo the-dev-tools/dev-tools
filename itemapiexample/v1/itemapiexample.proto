@@ -2,8 +2,10 @@ syntax = "proto3";
 
 package itemapiexample.v1;
 
-import "google/protobuf/timestamp.proto";
 option go_package = "dev-tools-services/gen/itemapiexample/v1;itemapiexamplev1";
+
+import "google/protobuf/timestamp.proto";
+import "apiresult/v1/apiresult.proto";
 
 service ItemApiExampleService {
   rpc GetExamples(GetExamplesRequest) returns (GetExamplesResponse);
@@ -11,6 +13,8 @@ service ItemApiExampleService {
   rpc CreateExample(CreateExampleRequest) returns (CreateExampleResponse);
   rpc UpdateExample(UpdateExampleRequest) returns (UpdateExampleResponse);
   rpc DeleteExample(DeleteExampleRequest) returns (DeleteExampleResponse);
+
+  rpc RunExample(RunExampleRequest) returns (RunExampleResponse);
 }
 
 message ApiExampleMeta {
@@ -75,5 +79,12 @@ message DeleteExampleRequest {
 message DeleteExampleResponse {
 }
 
+message RunExampleRequest {
+  string id = 1;
+}
+
+message RunExampleResponse {
+  apiresult.v1.Result result = 1;
+}
 
 

@@ -31,6 +31,14 @@ message Item {
   }
 }
 
+message ItemMeta {
+  oneof meta {
+    itemfolder.v1.FolderMeta folder_meta = 1;
+    itemapi.v1.ApiCallMeta api_call_meta = 2;
+  }
+}
+
+
 message CreateFolderRequest {
   string name = 1;
   string collection_id = 2;

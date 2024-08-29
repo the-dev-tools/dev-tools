@@ -1,8 +1,6 @@
 syntax = "proto3";
 
 package itemapi.v1;
-import "nodedata/v1/nodedata.proto";
-import "apiresult/v1/apiresult.proto";
 option go_package = "dev-tools-services/gen/itemapi/v1;itemapiv1";
 
 service ItemApiService {
@@ -28,7 +26,7 @@ message ApiCall {
 message CreateApiCallRequest {
   string collection_id = 1;
   string name = 2;
-  nodedata.v1.NodeApiCallData data = 3;
+  ApiCall data = 3;
 }
 
 message CreateApiCallResponse {
