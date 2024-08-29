@@ -51,33 +51,6 @@ const (
 	// CollectionServiceImportPostmanProcedure is the fully-qualified name of the CollectionService's
 	// ImportPostman RPC.
 	CollectionServiceImportPostmanProcedure = "/collection.v1.CollectionService/ImportPostman"
-	// CollectionServiceCreateFolderProcedure is the fully-qualified name of the CollectionService's
-	// CreateFolder RPC.
-	CollectionServiceCreateFolderProcedure = "/collection.v1.CollectionService/CreateFolder"
-	// CollectionServiceCreateApiCallProcedure is the fully-qualified name of the CollectionService's
-	// CreateApiCall RPC.
-	CollectionServiceCreateApiCallProcedure = "/collection.v1.CollectionService/CreateApiCall"
-	// CollectionServiceGetFolderProcedure is the fully-qualified name of the CollectionService's
-	// GetFolder RPC.
-	CollectionServiceGetFolderProcedure = "/collection.v1.CollectionService/GetFolder"
-	// CollectionServiceGetApiCallProcedure is the fully-qualified name of the CollectionService's
-	// GetApiCall RPC.
-	CollectionServiceGetApiCallProcedure = "/collection.v1.CollectionService/GetApiCall"
-	// CollectionServiceUpdateFolderProcedure is the fully-qualified name of the CollectionService's
-	// UpdateFolder RPC.
-	CollectionServiceUpdateFolderProcedure = "/collection.v1.CollectionService/UpdateFolder"
-	// CollectionServiceUpdateApiCallProcedure is the fully-qualified name of the CollectionService's
-	// UpdateApiCall RPC.
-	CollectionServiceUpdateApiCallProcedure = "/collection.v1.CollectionService/UpdateApiCall"
-	// CollectionServiceDeleteFolderProcedure is the fully-qualified name of the CollectionService's
-	// DeleteFolder RPC.
-	CollectionServiceDeleteFolderProcedure = "/collection.v1.CollectionService/DeleteFolder"
-	// CollectionServiceDeleteApiCallProcedure is the fully-qualified name of the CollectionService's
-	// DeleteApiCall RPC.
-	CollectionServiceDeleteApiCallProcedure = "/collection.v1.CollectionService/DeleteApiCall"
-	// CollectionServiceRunApiCallProcedure is the fully-qualified name of the CollectionService's
-	// RunApiCall RPC.
-	CollectionServiceRunApiCallProcedure = "/collection.v1.CollectionService/RunApiCall"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -89,15 +62,6 @@ var (
 	collectionServiceUpdateCollectionMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("UpdateCollection")
 	collectionServiceDeleteCollectionMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("DeleteCollection")
 	collectionServiceImportPostmanMethodDescriptor    = collectionServiceServiceDescriptor.Methods().ByName("ImportPostman")
-	collectionServiceCreateFolderMethodDescriptor     = collectionServiceServiceDescriptor.Methods().ByName("CreateFolder")
-	collectionServiceCreateApiCallMethodDescriptor    = collectionServiceServiceDescriptor.Methods().ByName("CreateApiCall")
-	collectionServiceGetFolderMethodDescriptor        = collectionServiceServiceDescriptor.Methods().ByName("GetFolder")
-	collectionServiceGetApiCallMethodDescriptor       = collectionServiceServiceDescriptor.Methods().ByName("GetApiCall")
-	collectionServiceUpdateFolderMethodDescriptor     = collectionServiceServiceDescriptor.Methods().ByName("UpdateFolder")
-	collectionServiceUpdateApiCallMethodDescriptor    = collectionServiceServiceDescriptor.Methods().ByName("UpdateApiCall")
-	collectionServiceDeleteFolderMethodDescriptor     = collectionServiceServiceDescriptor.Methods().ByName("DeleteFolder")
-	collectionServiceDeleteApiCallMethodDescriptor    = collectionServiceServiceDescriptor.Methods().ByName("DeleteApiCall")
-	collectionServiceRunApiCallMethodDescriptor       = collectionServiceServiceDescriptor.Methods().ByName("RunApiCall")
 )
 
 // CollectionServiceClient is a client for the collection.v1.CollectionService service.
@@ -111,21 +75,6 @@ type CollectionServiceClient interface {
 	// Helper rpcs
 	// // Postman
 	ImportPostman(context.Context, *connect.Request[v1.ImportPostmanRequest]) (*connect.Response[v1.ImportPostmanResponse], error)
-	// Specific operations per Item Type
-	// // Create
-	CreateFolder(context.Context, *connect.Request[v1.CreateFolderRequest]) (*connect.Response[v1.CreateFolderResponse], error)
-	CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error)
-	// // Get
-	GetFolder(context.Context, *connect.Request[v1.GetFolderRequest]) (*connect.Response[v1.GetFolderResponse], error)
-	GetApiCall(context.Context, *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error)
-	// // Update
-	UpdateFolder(context.Context, *connect.Request[v1.UpdateFolderRequest]) (*connect.Response[v1.UpdateFolderResponse], error)
-	UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error)
-	// // Delete
-	DeleteFolder(context.Context, *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error)
-	DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error)
-	// // Run
-	RunApiCall(context.Context, *connect.Request[v1.RunApiCallRequest]) (*connect.Response[v1.RunApiCallResponse], error)
 }
 
 // NewCollectionServiceClient constructs a client for the collection.v1.CollectionService service.
@@ -174,60 +123,6 @@ func NewCollectionServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(collectionServiceImportPostmanMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
-		createFolder: connect.NewClient[v1.CreateFolderRequest, v1.CreateFolderResponse](
-			httpClient,
-			baseURL+CollectionServiceCreateFolderProcedure,
-			connect.WithSchema(collectionServiceCreateFolderMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		createApiCall: connect.NewClient[v1.CreateApiCallRequest, v1.CreateApiCallResponse](
-			httpClient,
-			baseURL+CollectionServiceCreateApiCallProcedure,
-			connect.WithSchema(collectionServiceCreateApiCallMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		getFolder: connect.NewClient[v1.GetFolderRequest, v1.GetFolderResponse](
-			httpClient,
-			baseURL+CollectionServiceGetFolderProcedure,
-			connect.WithSchema(collectionServiceGetFolderMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		getApiCall: connect.NewClient[v1.GetApiCallRequest, v1.GetApiCallResponse](
-			httpClient,
-			baseURL+CollectionServiceGetApiCallProcedure,
-			connect.WithSchema(collectionServiceGetApiCallMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		updateFolder: connect.NewClient[v1.UpdateFolderRequest, v1.UpdateFolderResponse](
-			httpClient,
-			baseURL+CollectionServiceUpdateFolderProcedure,
-			connect.WithSchema(collectionServiceUpdateFolderMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		updateApiCall: connect.NewClient[v1.UpdateApiCallRequest, v1.UpdateApiCallResponse](
-			httpClient,
-			baseURL+CollectionServiceUpdateApiCallProcedure,
-			connect.WithSchema(collectionServiceUpdateApiCallMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		deleteFolder: connect.NewClient[v1.DeleteFolderRequest, v1.DeleteFolderResponse](
-			httpClient,
-			baseURL+CollectionServiceDeleteFolderProcedure,
-			connect.WithSchema(collectionServiceDeleteFolderMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		deleteApiCall: connect.NewClient[v1.DeleteApiCallRequest, v1.DeleteApiCallResponse](
-			httpClient,
-			baseURL+CollectionServiceDeleteApiCallProcedure,
-			connect.WithSchema(collectionServiceDeleteApiCallMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
-		runApiCall: connect.NewClient[v1.RunApiCallRequest, v1.RunApiCallResponse](
-			httpClient,
-			baseURL+CollectionServiceRunApiCallProcedure,
-			connect.WithSchema(collectionServiceRunApiCallMethodDescriptor),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
@@ -239,15 +134,6 @@ type collectionServiceClient struct {
 	updateCollection *connect.Client[v1.UpdateCollectionRequest, v1.UpdateCollectionResponse]
 	deleteCollection *connect.Client[v1.DeleteCollectionRequest, v1.DeleteCollectionResponse]
 	importPostman    *connect.Client[v1.ImportPostmanRequest, v1.ImportPostmanResponse]
-	createFolder     *connect.Client[v1.CreateFolderRequest, v1.CreateFolderResponse]
-	createApiCall    *connect.Client[v1.CreateApiCallRequest, v1.CreateApiCallResponse]
-	getFolder        *connect.Client[v1.GetFolderRequest, v1.GetFolderResponse]
-	getApiCall       *connect.Client[v1.GetApiCallRequest, v1.GetApiCallResponse]
-	updateFolder     *connect.Client[v1.UpdateFolderRequest, v1.UpdateFolderResponse]
-	updateApiCall    *connect.Client[v1.UpdateApiCallRequest, v1.UpdateApiCallResponse]
-	deleteFolder     *connect.Client[v1.DeleteFolderRequest, v1.DeleteFolderResponse]
-	deleteApiCall    *connect.Client[v1.DeleteApiCallRequest, v1.DeleteApiCallResponse]
-	runApiCall       *connect.Client[v1.RunApiCallRequest, v1.RunApiCallResponse]
 }
 
 // ListCollections calls collection.v1.CollectionService.ListCollections.
@@ -280,51 +166,6 @@ func (c *collectionServiceClient) ImportPostman(ctx context.Context, req *connec
 	return c.importPostman.CallUnary(ctx, req)
 }
 
-// CreateFolder calls collection.v1.CollectionService.CreateFolder.
-func (c *collectionServiceClient) CreateFolder(ctx context.Context, req *connect.Request[v1.CreateFolderRequest]) (*connect.Response[v1.CreateFolderResponse], error) {
-	return c.createFolder.CallUnary(ctx, req)
-}
-
-// CreateApiCall calls collection.v1.CollectionService.CreateApiCall.
-func (c *collectionServiceClient) CreateApiCall(ctx context.Context, req *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error) {
-	return c.createApiCall.CallUnary(ctx, req)
-}
-
-// GetFolder calls collection.v1.CollectionService.GetFolder.
-func (c *collectionServiceClient) GetFolder(ctx context.Context, req *connect.Request[v1.GetFolderRequest]) (*connect.Response[v1.GetFolderResponse], error) {
-	return c.getFolder.CallUnary(ctx, req)
-}
-
-// GetApiCall calls collection.v1.CollectionService.GetApiCall.
-func (c *collectionServiceClient) GetApiCall(ctx context.Context, req *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error) {
-	return c.getApiCall.CallUnary(ctx, req)
-}
-
-// UpdateFolder calls collection.v1.CollectionService.UpdateFolder.
-func (c *collectionServiceClient) UpdateFolder(ctx context.Context, req *connect.Request[v1.UpdateFolderRequest]) (*connect.Response[v1.UpdateFolderResponse], error) {
-	return c.updateFolder.CallUnary(ctx, req)
-}
-
-// UpdateApiCall calls collection.v1.CollectionService.UpdateApiCall.
-func (c *collectionServiceClient) UpdateApiCall(ctx context.Context, req *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error) {
-	return c.updateApiCall.CallUnary(ctx, req)
-}
-
-// DeleteFolder calls collection.v1.CollectionService.DeleteFolder.
-func (c *collectionServiceClient) DeleteFolder(ctx context.Context, req *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error) {
-	return c.deleteFolder.CallUnary(ctx, req)
-}
-
-// DeleteApiCall calls collection.v1.CollectionService.DeleteApiCall.
-func (c *collectionServiceClient) DeleteApiCall(ctx context.Context, req *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error) {
-	return c.deleteApiCall.CallUnary(ctx, req)
-}
-
-// RunApiCall calls collection.v1.CollectionService.RunApiCall.
-func (c *collectionServiceClient) RunApiCall(ctx context.Context, req *connect.Request[v1.RunApiCallRequest]) (*connect.Response[v1.RunApiCallResponse], error) {
-	return c.runApiCall.CallUnary(ctx, req)
-}
-
 // CollectionServiceHandler is an implementation of the collection.v1.CollectionService service.
 type CollectionServiceHandler interface {
 	// Collection operations
@@ -336,21 +177,6 @@ type CollectionServiceHandler interface {
 	// Helper rpcs
 	// // Postman
 	ImportPostman(context.Context, *connect.Request[v1.ImportPostmanRequest]) (*connect.Response[v1.ImportPostmanResponse], error)
-	// Specific operations per Item Type
-	// // Create
-	CreateFolder(context.Context, *connect.Request[v1.CreateFolderRequest]) (*connect.Response[v1.CreateFolderResponse], error)
-	CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error)
-	// // Get
-	GetFolder(context.Context, *connect.Request[v1.GetFolderRequest]) (*connect.Response[v1.GetFolderResponse], error)
-	GetApiCall(context.Context, *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error)
-	// // Update
-	UpdateFolder(context.Context, *connect.Request[v1.UpdateFolderRequest]) (*connect.Response[v1.UpdateFolderResponse], error)
-	UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error)
-	// // Delete
-	DeleteFolder(context.Context, *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error)
-	DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error)
-	// // Run
-	RunApiCall(context.Context, *connect.Request[v1.RunApiCallRequest]) (*connect.Response[v1.RunApiCallResponse], error)
 }
 
 // NewCollectionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -395,60 +221,6 @@ func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.H
 		connect.WithSchema(collectionServiceImportPostmanMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	collectionServiceCreateFolderHandler := connect.NewUnaryHandler(
-		CollectionServiceCreateFolderProcedure,
-		svc.CreateFolder,
-		connect.WithSchema(collectionServiceCreateFolderMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceCreateApiCallHandler := connect.NewUnaryHandler(
-		CollectionServiceCreateApiCallProcedure,
-		svc.CreateApiCall,
-		connect.WithSchema(collectionServiceCreateApiCallMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceGetFolderHandler := connect.NewUnaryHandler(
-		CollectionServiceGetFolderProcedure,
-		svc.GetFolder,
-		connect.WithSchema(collectionServiceGetFolderMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceGetApiCallHandler := connect.NewUnaryHandler(
-		CollectionServiceGetApiCallProcedure,
-		svc.GetApiCall,
-		connect.WithSchema(collectionServiceGetApiCallMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceUpdateFolderHandler := connect.NewUnaryHandler(
-		CollectionServiceUpdateFolderProcedure,
-		svc.UpdateFolder,
-		connect.WithSchema(collectionServiceUpdateFolderMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceUpdateApiCallHandler := connect.NewUnaryHandler(
-		CollectionServiceUpdateApiCallProcedure,
-		svc.UpdateApiCall,
-		connect.WithSchema(collectionServiceUpdateApiCallMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceDeleteFolderHandler := connect.NewUnaryHandler(
-		CollectionServiceDeleteFolderProcedure,
-		svc.DeleteFolder,
-		connect.WithSchema(collectionServiceDeleteFolderMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceDeleteApiCallHandler := connect.NewUnaryHandler(
-		CollectionServiceDeleteApiCallProcedure,
-		svc.DeleteApiCall,
-		connect.WithSchema(collectionServiceDeleteApiCallMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceRunApiCallHandler := connect.NewUnaryHandler(
-		CollectionServiceRunApiCallProcedure,
-		svc.RunApiCall,
-		connect.WithSchema(collectionServiceRunApiCallMethodDescriptor),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/collection.v1.CollectionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CollectionServiceListCollectionsProcedure:
@@ -463,24 +235,6 @@ func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.H
 			collectionServiceDeleteCollectionHandler.ServeHTTP(w, r)
 		case CollectionServiceImportPostmanProcedure:
 			collectionServiceImportPostmanHandler.ServeHTTP(w, r)
-		case CollectionServiceCreateFolderProcedure:
-			collectionServiceCreateFolderHandler.ServeHTTP(w, r)
-		case CollectionServiceCreateApiCallProcedure:
-			collectionServiceCreateApiCallHandler.ServeHTTP(w, r)
-		case CollectionServiceGetFolderProcedure:
-			collectionServiceGetFolderHandler.ServeHTTP(w, r)
-		case CollectionServiceGetApiCallProcedure:
-			collectionServiceGetApiCallHandler.ServeHTTP(w, r)
-		case CollectionServiceUpdateFolderProcedure:
-			collectionServiceUpdateFolderHandler.ServeHTTP(w, r)
-		case CollectionServiceUpdateApiCallProcedure:
-			collectionServiceUpdateApiCallHandler.ServeHTTP(w, r)
-		case CollectionServiceDeleteFolderProcedure:
-			collectionServiceDeleteFolderHandler.ServeHTTP(w, r)
-		case CollectionServiceDeleteApiCallProcedure:
-			collectionServiceDeleteApiCallHandler.ServeHTTP(w, r)
-		case CollectionServiceRunApiCallProcedure:
-			collectionServiceRunApiCallHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -512,40 +266,4 @@ func (UnimplementedCollectionServiceHandler) DeleteCollection(context.Context, *
 
 func (UnimplementedCollectionServiceHandler) ImportPostman(context.Context, *connect.Request[v1.ImportPostmanRequest]) (*connect.Response[v1.ImportPostmanResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.ImportPostman is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) CreateFolder(context.Context, *connect.Request[v1.CreateFolderRequest]) (*connect.Response[v1.CreateFolderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CreateFolder is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CreateApiCall is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) GetFolder(context.Context, *connect.Request[v1.GetFolderRequest]) (*connect.Response[v1.GetFolderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.GetFolder is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) GetApiCall(context.Context, *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.GetApiCall is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) UpdateFolder(context.Context, *connect.Request[v1.UpdateFolderRequest]) (*connect.Response[v1.UpdateFolderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.UpdateFolder is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.UpdateApiCall is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) DeleteFolder(context.Context, *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.DeleteFolder is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.DeleteApiCall is not implemented"))
-}
-
-func (UnimplementedCollectionServiceHandler) RunApiCall(context.Context, *connect.Request[v1.RunApiCallRequest]) (*connect.Response[v1.RunApiCallResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.RunApiCall is not implemented"))
 }

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/scollection/sitemapi"
+	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
 	"time"

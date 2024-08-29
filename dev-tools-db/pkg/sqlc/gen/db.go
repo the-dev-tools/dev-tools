@@ -36,6 +36,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createItemApiBulkStmt, err = db.PrepareContext(ctx, createItemApiBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemApiBulk: %w", err)
 	}
+	if q.createItemApiExampleStmt, err = db.PrepareContext(ctx, createItemApiExample); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateItemApiExample: %w", err)
+	}
 	if q.createItemFolderStmt, err = db.PrepareContext(ctx, createItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemFolder: %w", err)
 	}
@@ -59,6 +62,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteItemApiStmt, err = db.PrepareContext(ctx, deleteItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteItemApi: %w", err)
+	}
+	if q.deleteItemApiExampleStmt, err = db.PrepareContext(ctx, deleteItemApiExample); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteItemApiExample: %w", err)
 	}
 	if q.deleteItemFolderStmt, err = db.PrepareContext(ctx, deleteItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteItemFolder: %w", err)
@@ -89,6 +95,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getItemApiStmt, err = db.PrepareContext(ctx, getItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApi: %w", err)
+	}
+	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
 	}
 	if q.getItemApiOwnerIDStmt, err = db.PrepareContext(ctx, getItemApiOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiOwnerID: %w", err)
@@ -156,6 +165,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateItemApiStmt, err = db.PrepareContext(ctx, updateItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApi: %w", err)
 	}
+	if q.updateItemApiExampleStmt, err = db.PrepareContext(ctx, updateItemApiExample); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateItemApiExample: %w", err)
+	}
 	if q.updateItemFolderStmt, err = db.PrepareContext(ctx, updateItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolder: %w", err)
 	}
@@ -196,6 +208,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createItemApiBulkStmt: %w", cerr)
 		}
 	}
+	if q.createItemApiExampleStmt != nil {
+		if cerr := q.createItemApiExampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createItemApiExampleStmt: %w", cerr)
+		}
+	}
 	if q.createItemFolderStmt != nil {
 		if cerr := q.createItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createItemFolderStmt: %w", cerr)
@@ -234,6 +251,11 @@ func (q *Queries) Close() error {
 	if q.deleteItemApiStmt != nil {
 		if cerr := q.deleteItemApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteItemApiStmt: %w", cerr)
+		}
+	}
+	if q.deleteItemApiExampleStmt != nil {
+		if cerr := q.deleteItemApiExampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteItemApiExampleStmt: %w", cerr)
 		}
 	}
 	if q.deleteItemFolderStmt != nil {
@@ -284,6 +306,11 @@ func (q *Queries) Close() error {
 	if q.getItemApiStmt != nil {
 		if cerr := q.getItemApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiStmt: %w", cerr)
+		}
+	}
+	if q.getItemApiExampleStmt != nil {
+		if cerr := q.getItemApiExampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiExampleStmt: %w", cerr)
 		}
 	}
 	if q.getItemApiOwnerIDStmt != nil {
@@ -396,6 +423,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateItemApiStmt: %w", cerr)
 		}
 	}
+	if q.updateItemApiExampleStmt != nil {
+		if cerr := q.updateItemApiExampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateItemApiExampleStmt: %w", cerr)
+		}
+	}
 	if q.updateItemFolderStmt != nil {
 		if cerr := q.updateItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemFolderStmt: %w", cerr)
@@ -464,6 +496,7 @@ type Queries struct {
 	createCollectionStmt                       *sql.Stmt
 	createItemApiStmt                          *sql.Stmt
 	createItemApiBulkStmt                      *sql.Stmt
+	createItemApiExampleStmt                   *sql.Stmt
 	createItemFolderStmt                       *sql.Stmt
 	createItemFolderBulkStmt                   *sql.Stmt
 	createResultApiStmt                        *sql.Stmt
@@ -472,6 +505,7 @@ type Queries struct {
 	createWorkspaceUserStmt                    *sql.Stmt
 	deleteCollectionStmt                       *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
+	deleteItemApiExampleStmt                   *sql.Stmt
 	deleteItemFolderStmt                       *sql.Stmt
 	deleteResultApiStmt                        *sql.Stmt
 	deleteUserStmt                             *sql.Stmt
@@ -482,6 +516,7 @@ type Queries struct {
 	getCollectionByPlatformIDandTypeStmt       *sql.Stmt
 	getCollectionOwnerIDStmt                   *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
+	getItemApiExampleStmt                      *sql.Stmt
 	getItemApiOwnerIDStmt                      *sql.Stmt
 	getItemFolderStmt                          *sql.Stmt
 	getItemFolderByCollectionIDStmt            *sql.Stmt
@@ -504,6 +539,7 @@ type Queries struct {
 	getWorkspacesByUserIDStmt                  *sql.Stmt
 	updateCollectionStmt                       *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
+	updateItemApiExampleStmt                   *sql.Stmt
 	updateItemFolderStmt                       *sql.Stmt
 	updateResultApiStmt                        *sql.Stmt
 	updateUserStmt                             *sql.Stmt
@@ -519,6 +555,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createCollectionStmt:                       q.createCollectionStmt,
 		createItemApiStmt:                          q.createItemApiStmt,
 		createItemApiBulkStmt:                      q.createItemApiBulkStmt,
+		createItemApiExampleStmt:                   q.createItemApiExampleStmt,
 		createItemFolderStmt:                       q.createItemFolderStmt,
 		createItemFolderBulkStmt:                   q.createItemFolderBulkStmt,
 		createResultApiStmt:                        q.createResultApiStmt,
@@ -527,6 +564,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
 		deleteCollectionStmt:                       q.deleteCollectionStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
+		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
 		deleteItemFolderStmt:                       q.deleteItemFolderStmt,
 		deleteResultApiStmt:                        q.deleteResultApiStmt,
 		deleteUserStmt:                             q.deleteUserStmt,
@@ -537,6 +575,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionByPlatformIDandTypeStmt:       q.getCollectionByPlatformIDandTypeStmt,
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
+		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
 		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,
 		getItemFolderStmt:                          q.getItemFolderStmt,
 		getItemFolderByCollectionIDStmt:            q.getItemFolderByCollectionIDStmt,
@@ -559,6 +598,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getWorkspacesByUserIDStmt:                  q.getWorkspacesByUserIDStmt,
 		updateCollectionStmt:                       q.updateCollectionStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,
+		updateItemApiExampleStmt:                   q.updateItemApiExampleStmt,
 		updateItemFolderStmt:                       q.updateItemFolderStmt,
 		updateResultApiStmt:                        q.updateResultApiStmt,
 		updateUserStmt:                             q.updateUserStmt,

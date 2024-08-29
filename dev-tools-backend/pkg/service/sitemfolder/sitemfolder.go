@@ -3,7 +3,7 @@ package sitemfolder
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"

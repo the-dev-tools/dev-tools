@@ -10,6 +10,7 @@ import (
 	"dev-tools-services/gen/auth/v1/authv1connect"
 	collectionv1 "dev-tools-services/gen/collection/v1"
 	"dev-tools-services/gen/collection/v1/collectionv1connect"
+	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	nodedatav1 "dev-tools-services/gen/nodedata/v1"
 	nodemasterv1 "dev-tools-services/gen/nodemaster/v1"
 	"dev-tools-services/gen/nodemaster/v1/nodemasterv1connect"
@@ -52,7 +53,7 @@ func main() {
 	case CollectionFunc:
 		GetCollection()
 	case RunApiFunc:
-		RunApi()
+		// RunApi()
 	case EmailFunc:
 		RunEmail()
 	default:
@@ -303,12 +304,12 @@ func GetCollection() {
 }
 
 // recursive print
-func RecursivePrint(item *collectionv1.Item) {
+func RecursivePrint(item *itemfolderv1.Item) {
 	// Get The childs
 	api := item.GetApiCall()
 	if api != nil {
 		fmt.Println(api.ParentId)
-		fmt.Println(api.Meta.Id, api.Meta.Name, api.Data.Url)
+		fmt.Println(api.Meta.Id, api.Meta.Name, api.Url)
 	}
 	folder := item.GetFolder()
 	if folder != nil {
@@ -325,6 +326,7 @@ func RecursivePrint(item *collectionv1.Item) {
 	}
 }
 
+/*
 func RunApi() {
 	addr := flag.String("addr", "", "address of the node master service")
 	flag.Parse()
@@ -345,6 +347,7 @@ func RunApi() {
 
 	fmt.Println("Run Response: ", resp.Msg)
 }
+*/
 
 func RunEmail() {
 	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")

@@ -10,7 +10,7 @@ import (
 	"database/sql"
 	"time"
 
-	mitemapi "dev-tools-backend/pkg/model/mcollection/mitemapi"
+	mitemapiexample "dev-tools-backend/pkg/model/mitemapiexample"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 	ulid "github.com/oklog/ulid/v2"
 )
@@ -57,8 +57,8 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 }
 
 const createItemApi = `-- name: CreateItemApi :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiParams struct {
@@ -68,9 +68,6 @@ type CreateItemApiParams struct {
 	Name         string
 	Url          string
 	Method       string
-	Headers      mitemapi.Headers
-	Query        mitemapi.Query
-	Body         []byte
 }
 
 func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) error {
@@ -81,16 +78,13 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 		arg.Name,
 		arg.Url,
 		arg.Method,
-		arg.Headers,
-		arg.Query,
-		arg.Body,
 	)
 	return err
 }
 
 const createItemApiBulk = `-- name: CreateItemApiBulk :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
+VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiBulkParams struct {
@@ -100,27 +94,18 @@ type CreateItemApiBulkParams struct {
 	Name           string
 	Url            string
 	Method         string
-	Headers        mitemapi.Headers
-	Query          mitemapi.Query
-	Body           []byte
 	ID_2           ulid.ULID
 	CollectionID_2 ulid.ULID
 	ParentID_2     *ulid.ULID
 	Name_2         string
 	Url_2          string
 	Method_2       string
-	Headers_2      mitemapi.Headers
-	Query_2        mitemapi.Query
-	Body_2         []byte
 	ID_3           ulid.ULID
 	CollectionID_3 ulid.ULID
 	ParentID_3     *ulid.ULID
 	Name_3         string
 	Url_3          string
 	Method_3       string
-	Headers_3      mitemapi.Headers
-	Query_3        mitemapi.Query
-	Body_3         []byte
 }
 
 func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
@@ -131,27 +116,47 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name,
 		arg.Url,
 		arg.Method,
-		arg.Headers,
-		arg.Query,
-		arg.Body,
 		arg.ID_2,
 		arg.CollectionID_2,
 		arg.ParentID_2,
 		arg.Name_2,
 		arg.Url_2,
 		arg.Method_2,
-		arg.Headers_2,
-		arg.Query_2,
-		arg.Body_2,
 		arg.ID_3,
 		arg.CollectionID_3,
 		arg.ParentID_3,
 		arg.Name_3,
 		arg.Url_3,
 		arg.Method_3,
-		arg.Headers_3,
-		arg.Query_3,
-		arg.Body_3,
+	)
+	return err
+}
+
+const createItemApiExample = `-- name: CreateItemApiExample :exec
+INSERT INTO item_api_example 
+        (id, item_api_id, collection_id, name, headers, query, body)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateItemApiExampleParams struct {
+	ID           ulid.ULID
+	ItemApiID    ulid.ULID
+	CollectionID ulid.ULID
+	Name         string
+	Headers      mitemapiexample.Headers
+	Query        mitemapiexample.Query
+	Body         []byte
+}
+
+func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExampleParams) error {
+	_, err := q.exec(ctx, q.createItemApiExampleStmt, createItemApiExample,
+		arg.ID,
+		arg.ItemApiID,
+		arg.CollectionID,
+		arg.Name,
+		arg.Headers,
+		arg.Query,
+		arg.Body,
 	)
 	return err
 }
@@ -345,6 +350,16 @@ func (q *Queries) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
 	return err
 }
 
+const deleteItemApiExample = `-- name: DeleteItemApiExample :exec
+DELETE FROM item_api_example
+WHERE id = ?
+`
+
+func (q *Queries) DeleteItemApiExample(ctx context.Context, id ulid.ULID) error {
+	_, err := q.exec(ctx, q.deleteItemApiExampleStmt, deleteItemApiExample, id)
+	return err
+}
+
 const deleteItemFolder = `-- name: DeleteItemFolder :exec
 DELETE FROM item_folder
 WHERE id = ?
@@ -502,17 +517,26 @@ func (q *Queries) GetCollectionOwnerID(ctx context.Context, id ulid.ULID) (ulid.
 const getItemApi = `-- name: GetItemApi :one
 
 
-SELECT id, collection_id, parent_id, name, url, method, headers, query, body
+SELECT id, collection_id, parent_id, name, url, method
 FROM item_api
 WHERE id = ? LIMIT 1
 `
 
+type GetItemApiRow struct {
+	ID           ulid.ULID
+	CollectionID ulid.ULID
+	ParentID     *ulid.ULID
+	Name         string
+	Url          string
+	Method       string
+}
+
 // This file is the source of truth for saas application's schema
 //
 // ItemApi
-func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error) {
+func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (GetItemApiRow, error) {
 	row := q.queryRow(ctx, q.getItemApiStmt, getItemApi, id)
-	var i ItemApi
+	var i GetItemApiRow
 	err := row.Scan(
 		&i.ID,
 		&i.CollectionID,
@@ -520,9 +544,39 @@ func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error)
 		&i.Name,
 		&i.Url,
 		&i.Method,
+	)
+	return i, err
+}
+
+const getItemApiExample = `-- name: GetItemApiExample :one
+
+SELECT 
+        id, 
+        item_api_id, 
+        collection_id, 
+        name, 
+        headers, 
+        query, 
+        body, 
+        created, 
+        updated 
+FROM item_api_example WHERE id = ? LIMIT 1
+`
+
+// Item Api Example
+func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiExample, error) {
+	row := q.queryRow(ctx, q.getItemApiExampleStmt, getItemApiExample, id)
+	var i ItemApiExample
+	err := row.Scan(
+		&i.ID,
+		&i.ItemApiID,
+		&i.CollectionID,
+		&i.Name,
 		&i.Headers,
 		&i.Query,
 		&i.Body,
+		&i.Created,
+		&i.Updated,
 	)
 	return i, err
 }
@@ -622,20 +676,29 @@ func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id ulid.ULID) (ulid.
 }
 
 const getItemsApiByCollectionID = `-- name: GetItemsApiByCollectionID :many
-SELECT id, collection_id, parent_id, name, url, method, headers, query, body
+SELECT id, collection_id, parent_id, name, url, method
 FROM item_api
 WHERE collection_id = ?
 `
 
-func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApi, error) {
+type GetItemsApiByCollectionIDRow struct {
+	ID           ulid.ULID
+	CollectionID ulid.ULID
+	ParentID     *ulid.ULID
+	Name         string
+	Url          string
+	Method       string
+}
+
+func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]GetItemsApiByCollectionIDRow, error) {
 	rows, err := q.query(ctx, q.getItemsApiByCollectionIDStmt, getItemsApiByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ItemApi
+	var items []GetItemsApiByCollectionIDRow
 	for rows.Next() {
-		var i ItemApi
+		var i GetItemsApiByCollectionIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CollectionID,
@@ -643,9 +706,6 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 			&i.Name,
 			&i.Url,
 			&i.Method,
-			&i.Headers,
-			&i.Query,
-			&i.Body,
 		); err != nil {
 			return nil, err
 		}
@@ -1107,7 +1167,7 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 
 const updateItemApi = `-- name: UpdateItemApi :exec
 UPDATE item_api
-SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?, headers = ?, query = ?, body = ?
+SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?
 WHERE id = ?
 `
 
@@ -1117,9 +1177,6 @@ type UpdateItemApiParams struct {
 	Name         string
 	Url          string
 	Method       string
-	Headers      mitemapi.Headers
-	Query        mitemapi.Query
-	Body         []byte
 	ID           ulid.ULID
 }
 
@@ -1130,6 +1187,28 @@ func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) er
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.ID,
+	)
+	return err
+}
+
+const updateItemApiExample = `-- name: UpdateItemApiExample :exec
+UPDATE item_api_example SET
+name = ?, headers = ?, query = ?, body = ?
+WHERE id = ?
+`
+
+type UpdateItemApiExampleParams struct {
+	Name    string
+	Headers mitemapiexample.Headers
+	Query   mitemapiexample.Query
+	Body    []byte
+	ID      ulid.ULID
+}
+
+func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
+	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample,
+		arg.Name,
 		arg.Headers,
 		arg.Query,
 		arg.Body,

@@ -7,7 +7,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/scollection/sitemapi"
+	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/sworkspace"
 	apiresultv1 "dev-tools-services/gen/apiresult/v1"

@@ -57,17 +57,36 @@ sql:
               pointer: true
               type: "ULID"
 
-          ### headers
-          - column: "item_api.headers"
+          ## item_api_example
+          ### id
+          - column: "item_api_example.id"
             go_type:
-              import: "dev-tools-backend/pkg/model/mcollection/mitemapi"
-              package: "mitemapi"
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### api_id
+          - column: "item_api_example.item_api_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### collection_id
+          - column: "item_api_example.collection_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### headers
+          - column: "item_api_example.headers"
+            go_type:
+              import: "dev-tools-backend/pkg/model/mitemapiexample"
+              package: "mitemapiexample"
               type: "Headers"
           ### query
-          - column: "item_api.query"
+          - column: "item_api_example.query"
             go_type:
-              import: "dev-tools-backend/pkg/model/mcollection/mitemapi"
-              package: "mitemapi"
+              import: "dev-tools-backend/pkg/model/mitemapiexample"
+              package: "mitemapiexample"
               type: "Query"
           ## item_folder
           ### id

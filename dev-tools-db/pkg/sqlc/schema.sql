@@ -1,3 +1,5 @@
+-- USERS 
+
 CREATE TABLE users (
     id BLOB PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -50,9 +52,8 @@ CREATE TABLE item_api (
         name TEXT NOT NULL,
         url TEXT NOT NULL,
         method TEXT NOT NULL,
-        headers BLOB NOT NULL,
-        query BLOB NOT NULL,
-        body BLOB NOT NULL,
+        created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
         FOREIGN KEY (parent_id) REFERENCES item_folder(id) ON DELETE CASCADE
 );
@@ -69,12 +70,48 @@ CREATE TRIGGER update_item_api
 AFTER UPDATE ON item_api
 BEGIN
         UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+        UPDATE item_api SET updated = datetime('now') WHERE id = NEW.id;
 END;
 
 CREATE TRIGGER delete_item_api
 AFTER DELETE ON item_api
 BEGIN
         UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+END;
+
+-- ITEM API EXAMPLE
+
+CREATE TABLE item_api_example (
+        id BLOB PRIMARY KEY,
+        item_api_id BLOB NOT NULL,
+        collection_id BLOB NOT NULL,
+        name TEXT NOT NULL,
+        headers BLOB NOT NULL,
+        query BLOB NOT NULL,
+        body BLOB NOT NULL,
+        created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (item_api_id) REFERENCES item_api(id) ON DELETE CASCADE,
+        FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+);
+
+CREATE TRIGGER insert_item_api_example
+AFTER INSERT ON item_api_example
+BEGIN
+        UPDATE item_api SET updated = datetime('now') WHERE id = NEW.item_api_id;
+END;
+
+CREATE TRIGGER update_item_api_example
+AFTER UPDATE ON item_api_example
+BEGIN
+        UPDATE item_api SET updated = datetime('now') WHERE id = NEW.item_api_id;
+        UPDATE item_api_example SET updated = datetime('now') WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER delete_item_api_example
+AFTER DELETE ON item_api_example
+BEGIN
+        UPDATE item_api SET updated = datetime('now') WHERE id = NEW.item_api_id;
 END;
 
 -- ITEM FOLDER
@@ -108,12 +145,16 @@ END;
 
 CREATE INDEX Idx3 ON item_folder(collection_id, parent_id);
 
+-- WORK SPACES 
+
 CREATE TABLE workspaces (
         id BLOB PRIMARY KEY,
         name TEXT NOT NULL,
         created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- WORKSPACE USERS
 
 CREATE TABLE workspaces_users (
         id BLOB PRIMARY KEY,
@@ -125,6 +166,8 @@ CREATE TABLE workspaces_users (
         FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- RESULT API
 
 CREATE TABLE result_api (
         id BLOB PRIMARY KEY,

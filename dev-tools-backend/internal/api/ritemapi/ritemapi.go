@@ -1,0 +1,235 @@
+package ritemapi
+
+import (
+	"context"
+	"database/sql"
+	"dev-tools-backend/internal/api"
+	"dev-tools-backend/internal/api/collection"
+	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/sitemapi"
+	"dev-tools-backend/pkg/service/sitemfolder"
+	"dev-tools-backend/pkg/service/suser"
+	itemapiv1 "dev-tools-services/gen/itemapi/v1"
+	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
+	"errors"
+
+	"connectrpc.com/connect"
+	"github.com/oklog/ulid/v2"
+)
+
+type ItemApiRPC struct {
+	DB  *sql.DB
+	ias *sitemapi.ItemApiService
+	ifs *sitemfolder.ItemFolderService
+	cs  *scollection.CollectionService
+	us  *suser.UserService
+}
+
+func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
+	ias, err := sitemapi.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	ifs, err := sitemfolder.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := scollection.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	authInterceptor := mwauth.NewAuthInterceptor(secret)
+	interceptors := connect.WithInterceptors(authInterceptor)
+	server := &ItemApiRPC{
+		DB:  db,
+		ias: ias,
+		ifs: ifs,
+		cs:  cs,
+		us:  us,
+	}
+
+	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, interceptors)
+	return &api.Service{Path: path, Handler: handler}, nil
+}
+
+func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[itemapiv1.CreateApiCallRequest]) (*connect.Response[itemapiv1.CreateApiCallResponse], error) {
+	ulidID := ulid.Make()
+	collectionUlidID, err := ulid.Parse(req.Msg.GetCollectionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	ok, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, collectionUlidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	}
+
+	// TODO: add parent id
+	apiCall := &mitemapi.ItemApi{
+		ID:           ulidID,
+		CollectionID: collectionUlidID,
+		Name:         req.Msg.GetName(),
+	}
+	err = c.ias.CreateItemApi(ctx, apiCall)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	respRaw := &itemapiv1.CreateApiCallResponse{
+		Id:   ulidID.String(),
+		Name: req.Msg.GetName(),
+	}
+	return connect.NewResponse(respRaw), nil
+}
+
+func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemapiv1.GetApiCallRequest]) (*connect.Response[itemapiv1.GetApiCallResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	item, err := c.ias.GetItemApi(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isOwner {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	}
+
+	var parentID string
+	if item.ParentID == nil {
+		parentID = ""
+	} else {
+		parentID = item.ParentID.String()
+	}
+
+	respRaw := &itemapiv1.GetApiCallResponse{
+		ApiCall: &itemapiv1.ApiCall{
+			Meta: &itemapiv1.ApiCallMeta{
+				Id:   item.ID.String(),
+				Name: item.Name,
+			},
+			CollectionId: item.CollectionID.String(),
+			ParentId:     parentID,
+			Url:          item.Url,
+			Method:       item.Method,
+		},
+	}
+
+	return connect.NewResponse(respRaw), nil
+}
+
+func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[itemapiv1.UpdateApiCallRequest]) (*connect.Response[itemapiv1.UpdateApiCallResponse], error) {
+	// TODO: add more rail guards
+	apiCall := req.Msg.GetApiCall()
+	meta := apiCall.GetMeta()
+	ulidID, err := ulid.Parse(meta.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	CollectionID, err := ulid.Parse(apiCall.GetCollectionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isOwner {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	}
+
+	checkOwner, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, CollectionID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !checkOwner {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	}
+
+	var parentUlidIDPtr *ulid.ULID = nil
+	if apiCall.GetParentId() != "" {
+		parentUlidID, err := ulid.Parse(req.Msg.GetApiCall().GetParentId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		checkfolder, err := c.ifs.GetItemFolder(ctx, parentUlidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if checkfolder.CollectionID != CollectionID {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+		}
+		parentUlidIDPtr = &parentUlidID
+	}
+
+	itemApi := &mitemapi.ItemApi{
+		ID:           ulidID,
+		CollectionID: CollectionID,
+		ParentID:     parentUlidIDPtr,
+		Name:         meta.GetName(),
+		Url:          apiCall.GetUrl(),
+		Method:       apiCall.GetMethod(),
+	}
+
+	err = c.ias.UpdateItemApi(ctx, itemApi)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiv1.UpdateApiCallResponse{}), nil
+}
+
+// DeleteApiCall calls collection.v1.CollectionService.DeleteApiCall.
+func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[itemapiv1.DeleteApiCallRequest]) (*connect.Response[itemapiv1.DeleteApiCallResponse], error) {
+	ulidID, err := ulid.Parse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isOwner {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	}
+
+	// TODO: need a check for ownerID
+	err = c.ias.DeleteItemApi(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiv1.DeleteApiCallResponse{}), nil
+}
+
+func (c *ItemApiRPC) CheckOwnerApi(ctx context.Context, apiID ulid.ULID) (bool, error) {
+	api, err := c.ias.GetItemApi(ctx, apiID)
+	if err != nil {
+		return false, err
+	}
+	isOwner, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, api.CollectionID)
+	if err != nil {
+		return false, err
+	}
+	return isOwner, nil
+}

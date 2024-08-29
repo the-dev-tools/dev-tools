@@ -1,10 +1,10 @@
 package titemnest
 
 import (
-	"dev-tools-backend/pkg/model/mcollection/mitemapi"
-	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
-	collectionv1 "dev-tools-services/gen/collection/v1"
-	nodedatav1 "dev-tools-services/gen/nodedata/v1"
+	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/model/mitemfolder"
+	itemapiv1 "dev-tools-services/gen/itemapi/v1"
+	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"fmt"
 
 	"github.com/oklog/ulid/v2"
@@ -16,14 +16,14 @@ type CollectionPair struct {
 }
 
 // TODO: can be more efficient by MultiThreading
-func (c CollectionPair) GetItemFolders() []*collectionv1.Item {
-	items := make([]*collectionv1.Item, 0, len(c.itemApis)+len(c.itemFolders))
+func (c CollectionPair) GetItemFolders() []*itemfolderv1.Item {
+	items := make([]*itemfolderv1.Item, 0, len(c.itemApis)+len(c.itemFolders))
 
 	for _, item := range c.itemFolders {
-		folderItem := &collectionv1.Item{
-			Data: &collectionv1.Item_Folder{
-				Folder: &collectionv1.Folder{
-					Meta: &collectionv1.FolderMeta{
+		folderItem := &itemfolderv1.Item{
+			Data: &itemfolderv1.Item_Folder{
+				Folder: &itemfolderv1.Folder{
+					Meta: &itemfolderv1.FolderMeta{
 						Id:   item.ID.String(),
 						Name: item.Name,
 					},
@@ -35,20 +35,16 @@ func (c CollectionPair) GetItemFolders() []*collectionv1.Item {
 	}
 
 	for _, item := range c.itemApis {
-		apiItem := &collectionv1.Item{
-			Data: &collectionv1.Item_ApiCall{
-				ApiCall: &collectionv1.ApiCall{
-					Meta: &collectionv1.ApiCallMeta{
+		apiItem := &itemfolderv1.Item{
+			Data: &itemfolderv1.Item_ApiCall{
+				ApiCall: &itemapiv1.ApiCall{
+					Meta: &itemapiv1.ApiCallMeta{
 						Name: item.Name,
 						Id:   item.ID.String(),
 					},
 					CollectionId: item.CollectionID.String(),
-					Data: &nodedatav1.NodeApiCallData{
-						Url:         item.Url,
-						Method:      item.Method,
-						QueryParams: item.Query.QueryMap,
-						Headers:     item.Headers.HeaderMap,
-					},
+					Url:          item.Url,
+					Method:       item.Method,
 				},
 			},
 		}
@@ -58,15 +54,15 @@ func (c CollectionPair) GetItemFolders() []*collectionv1.Item {
 	return items
 }
 
-func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item {
-	var items []*collectionv1.Item
+func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item {
+	var items []*itemfolderv1.Item
 	for _, child := range item.Children {
 		folder, ok := child.(mitemfolder.ItemFolderNested)
 		if ok {
-			folderCollection := &collectionv1.Item{
-				Data: &collectionv1.Item_Folder{
-					Folder: &collectionv1.Folder{
-						Meta: &collectionv1.FolderMeta{
+			folderCollection := &itemfolderv1.Item{
+				Data: &itemfolderv1.Item_Folder{
+					Folder: &itemfolderv1.Folder{
+						Meta: &itemfolderv1.FolderMeta{
 							Id:   folder.ID.String(),
 							Name: folder.Name,
 						},
@@ -80,21 +76,16 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*collectionv1.Item 
 		} else {
 			api, ok := child.(mitemapi.ItemApi)
 			if ok {
-				item := &collectionv1.Item{
-					Data: &collectionv1.Item_ApiCall{
-						ApiCall: &collectionv1.ApiCall{
-							Meta: &collectionv1.ApiCallMeta{
+				item := &itemfolderv1.Item{
+					Data: &itemfolderv1.Item_ApiCall{
+						ApiCall: &itemapiv1.ApiCall{
+							Meta: &itemapiv1.ApiCallMeta{
 								Name: api.Name,
 								Id:   api.ID.String(),
 							},
 							ParentId: api.ParentID.String(),
-							Data: &nodedatav1.NodeApiCallData{
-								Url:         api.Url,
-								Method:      api.Method,
-								QueryParams: api.Query.QueryMap,
-								Headers:     api.Headers.HeaderMap,
-								Body:        api.Body,
-							},
+							Url:      api.Url,
+							Method:   api.Method,
 						},
 					},
 				}

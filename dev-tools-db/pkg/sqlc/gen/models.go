@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"time"
 
-	mitemapi "dev-tools-backend/pkg/model/mcollection/mitemapi"
+	mitemapiexample "dev-tools-backend/pkg/model/mitemapiexample"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 	ulid "github.com/oklog/ulid/v2"
 )
@@ -28,9 +28,20 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
-	Headers      mitemapi.Headers
-	Query        mitemapi.Query
+	Created      time.Time
+	Updated      time.Time
+}
+
+type ItemApiExample struct {
+	ID           ulid.ULID
+	ItemApiID    ulid.ULID
+	CollectionID ulid.ULID
+	Name         string
+	Headers      mitemapiexample.Headers
+	Query        mitemapiexample.Query
 	Body         []byte
+	Created      time.Time
+	Updated      time.Time
 }
 
 type ItemFolder struct {

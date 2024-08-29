@@ -3,7 +3,7 @@ package sitemapi
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/model/mcollection/mitemapi"
+	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"
@@ -47,9 +47,6 @@ func (ias ItemApiService) GetItemApi(ctx context.Context, id ulid.ULID) (*mitema
 		Name:         itemApi.Name,
 		Url:          itemApi.Url,
 		Method:       itemApi.Method,
-		Headers:      itemApi.Headers,
-		Query:        itemApi.Query,
-		Body:         itemApi.Body,
 	}, nil
 }
 
@@ -61,9 +58,6 @@ func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.Item
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
-		Headers:      item.Headers,
-		Query:        item.Query,
-		Body:         item.Body,
 	})
 }
 
@@ -83,27 +77,18 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 				Name:           item1.Name,
 				Url:            item1.Url,
 				Method:         item1.Method,
-				Headers:        item1.Headers,
-				Query:          item1.Query,
-				Body:           item1.Body,
 				ID_2:           item2.ID,
 				CollectionID_2: item2.CollectionID,
 				ParentID_2:     item2.ParentID,
 				Name_2:         item2.Name,
 				Url_2:          item2.Url,
 				Method_2:       item2.Method,
-				Headers_2:      item2.Headers,
-				Query_2:        item2.Query,
-				Body_2:         item2.Body,
 				ID_3:           item3.ID,
 				CollectionID_3: item3.CollectionID,
 				ParentID_3:     item3.ParentID,
 				Name_3:         item3.Name,
 				Url_3:          item3.Url,
 				Method_3:       item3.Method,
-				Headers_3:      item3.Headers,
-				Query_3:        item3.Query,
-				Body_3:         item3.Body,
 			}
 
 			if err := ias.queries.CreateItemApiBulk(ctx, params); err != nil {
@@ -135,9 +120,6 @@ func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.Item
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
-		Headers:      item.Headers,
-		Query:        item.Query,
-		Body:         item.Body,
 	})
 	if err == sql.ErrNoRows {
 		return ErrNoItemApiFound
@@ -167,9 +149,6 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 			Name:         itemApi.Name,
 			Url:          itemApi.Url,
 			Method:       itemApi.Method,
-			Headers:      itemApi.Headers,
-			Query:        itemApi.Query,
-			Body:         itemApi.Body,
 		}
 	}
 	return items, nil

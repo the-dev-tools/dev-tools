@@ -1,10 +1,10 @@
 package titemnest_test
 
 import (
-	"dev-tools-backend/pkg/model/mcollection/mitemapi"
-	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/translate/titemnest"
-	collectionv1 "dev-tools-services/gen/collection/v1"
+	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"fmt"
 	"testing"
 	"time"
@@ -77,11 +77,11 @@ func TestTranslateItemFolderNested(t *testing.T) {
 		t.Errorf("expected 2 items, got %d", len(items))
 	}
 
-	if items[0].GetData().(*collectionv1.Item_Folder).Folder.GetMeta().GetId() != folders[0].ID.String() {
-		t.Errorf("expected %s, got %s", folders[0].ID.String(), items[0].GetData().(*collectionv1.Item_Folder).Folder.GetMeta().GetId())
+	if items[0].GetData().(*itemfolderv1.Item_Folder).Folder.GetMeta().GetId() != folders[0].ID.String() {
+		t.Errorf("expected %s, got %s", folders[0].ID.String(), items[0].GetData().(*itemfolderv1.Item_Folder).Folder.GetMeta().GetId())
 	}
 
-	newItems := items[0].GetData().(*collectionv1.Item_Folder).Folder.GetItems()
+	newItems := items[0].GetData().(*itemfolderv1.Item_Folder).Folder.GetItems()
 	if len(newItems) != 3 {
 		t.Errorf("expected 3 sub item, got %d", len(newItems))
 		for _, item := range newItems {

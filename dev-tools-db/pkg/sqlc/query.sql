@@ -7,12 +7,12 @@
 --
 
 -- name: GetItemApi :one
-SELECT id, collection_id, parent_id, name, url, method, headers, query, body
+SELECT id, collection_id, parent_id, name, url, method
 FROM item_api
 WHERE id = ? LIMIT 1;
 
 -- name: GetItemsApiByCollectionID :many
-SELECT id, collection_id, parent_id, name, url, method, headers, query, body
+SELECT id, collection_id, parent_id, name, url, method
 FROM item_api
 WHERE collection_id = ?;
 
@@ -22,21 +22,65 @@ INNER JOIN item_api i ON c.id = i.collection_id
 WHERE i.id = ? LIMIT 1;
 
 -- name: CreateItemApi :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?); 
+INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
+VALUES (?, ?, ?, ?, ?, ?); 
 
 -- name: CreateItemApiBulk :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
+VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?);
 
 
 -- name: UpdateItemApi :exec
 UPDATE item_api
-SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?, headers = ?, query = ?, body = ?
+SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?
 WHERE id = ?;
 
 -- name: DeleteItemApi :exec
 DELETE FROM item_api
+WHERE id = ?;
+
+--
+-- Item Api Example
+--
+
+-- name: GetItemApiExample :one
+SELECT 
+        id, 
+        item_api_id, 
+        collection_id, 
+        name, 
+        headers, 
+        query, 
+        body, 
+        created, 
+        updated 
+FROM item_api_example WHERE id = ? LIMIT 1;
+
+-- GetItemApiExampleByItemApiID :many
+SELECT 
+        id, 
+        item_api_id, 
+        collection_id, 
+        name, 
+        headers, 
+        query, 
+        body, 
+        created, 
+        updated 
+FROM item_api_example WHERE item_api_id = ?;
+
+-- name: CreateItemApiExample :exec
+INSERT INTO item_api_example 
+        (id, item_api_id, collection_id, name, headers, query, body)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateItemApiExample :exec
+UPDATE item_api_example SET
+name = ?, headers = ?, query = ?, body = ?
+WHERE id = ?;
+
+-- name: DeleteItemApiExample :exec
+DELETE FROM item_api_example
 WHERE id = ?;
 
 --

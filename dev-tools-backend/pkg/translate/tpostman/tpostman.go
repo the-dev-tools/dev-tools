@@ -1,12 +1,15 @@
 package tpostman
 
 import (
-	"dev-tools-backend/pkg/model/mcollection/mitemapi"
-	"dev-tools-backend/pkg/model/mcollection/mitemfolder"
+	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
+	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"errors"
+	"net/url"
 	"sync"
 
 	"github.com/goccy/go-json"
@@ -25,9 +28,19 @@ func ParsePostmanCollection(data []byte) (mpostmancollection.Collection, error) 
 }
 
 type ItemsPair struct {
-	mx     *sync.Mutex
-	Api    []mitemapi.ItemApi
-	Folder []mitemfolder.ItemFolder
+	mx         *sync.Mutex
+	ApiExample []mitemapiexample.ItemApiExample
+	Api        []mitemapi.ItemApi
+	Folder     []mitemfolder.ItemFolder
+}
+
+type ItemChannels struct {
+	ApiExample chan mitemapiexample.ItemApiExample
+	Api        chan mitemapi.ItemApi
+	Folder     chan mitemfolder.ItemFolder
+	Wg         *sync.WaitGroup
+	Err        chan error
+	Done       chan struct{}
 }
 
 func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID) (*ItemsPair, error) {
@@ -37,12 +50,21 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 		Folder: make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
 	}
 
+	const ChanSize = 10
+
 	var wg sync.WaitGroup
-	var errChan chan error
-	waitCh := make(chan struct{})
+	ItemChannels := ItemChannels{
+		ApiExample: make(chan mitemapiexample.ItemApiExample, ChanSize),
+		Api:        make(chan mitemapi.ItemApi, ChanSize),
+		Folder:     make(chan mitemfolder.ItemFolder, ChanSize),
+		Wg:         &wg,
+		Done:       make(chan struct{}),
+		Err:        make(chan error),
+	}
 
 	go func() {
-		for _, item := range collection.Items {
+		wg.Add(len(collection.Items))
+		for i, item := range collection.Items {
 			// means it is a folder
 			if item.Request == nil {
 				rootFolder := mitemfolder.ItemFolder{
@@ -51,28 +73,37 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 					ParentID:     nil,
 					CollectionID: collectionID,
 				}
-				pair.Folder = append(pair.Folder, rootFolder)
-				wg.Add(1)
-				go GetRecursiveFolders(item, &rootFolder.ID, collectionID, &pair, &wg, errChan)
+				ItemChannels.Folder <- rootFolder
+				go GetRecursiveFolders(item, &rootFolder.ID, collectionID, ItemChannels)
+				collection.Items = RemoveItem(collection.Items, i)
 			} else {
-				wg.Add(1)
-				go GetRequest(item, nil, collectionID, &pair, &wg, errChan)
+				go GetRequest(item, nil, collectionID, ItemChannels)
+				collection.Items = RemoveItem(collection.Items, i)
 			}
 		}
 		wg.Wait()
-		close(waitCh)
+		close(ItemChannels.Done)
 	}()
 
-	select {
-	case err := <-errChan:
-		return nil, err
-	case <-waitCh:
-		return &pair, nil
+	for {
+		select {
+		case err := <-ItemChannels.Err:
+			return nil, err
+		case folder := <-ItemChannels.Folder:
+			pair.Folder = append(pair.Folder, folder)
+		case api := <-ItemChannels.Api:
+			pair.Api = append(pair.Api, api)
+		case apiExample := <-ItemChannels.ApiExample:
+			pair.ApiExample = append(pair.ApiExample, apiExample)
+		case <-ItemChannels.Done:
+			return &pair, nil
+		}
 	}
 }
 
-func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, pair *ItemsPair, wg *sync.WaitGroup, errChan chan error) {
-	for _, item := range item.Items {
+func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels ItemChannels) {
+	channels.Wg.Add(len(item.Items))
+	for i, item := range item.Items {
 		if item.Request == nil {
 			folder := mitemfolder.ItemFolder{
 				ID:           ulid.Make(),
@@ -80,24 +111,23 @@ func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ul
 				ParentID:     parentID,
 				CollectionID: collectionID,
 			}
-			pair.mx.Lock()
-			pair.Folder = append(pair.Folder, folder)
-			pair.mx.Unlock()
-			wg.Add(1)
-			go GetRecursiveFolders(item, &folder.ID, collectionID, pair, wg, errChan)
+			channels.Folder <- folder
+			go GetRecursiveFolders(item, &folder.ID, collectionID, channels)
+			RemoveItem(item.Items, i)
 		} else {
-			wg.Add(1)
-			go GetRequest(item, parentID, collectionID, pair, wg, errChan)
+			go GetRequest(item, parentID, collectionID, channels)
+			RemoveItem(item.Items, i)
 		}
 	}
-	wg.Done()
+	channels.Wg.Done()
 }
 
-func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, pair *ItemsPair, wg *sync.WaitGroup, errChan chan error) {
+func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels ItemChannels) {
 	headers := make(map[string]string)
 
 	if item.Request == nil {
-		errChan <- errors.New("item is not an api")
+		channels.Err <- errors.New("item is not an api")
+		return
 	}
 
 	if item.Request.Header != nil {
@@ -109,98 +139,83 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 	}
 
 	ulidID := ulid.Make()
-	urlRaw, ok := item.Request.URL.(string)
-
-	var bodyData []byte
-	if item.Request.Body == nil {
-		bodyData = nil
-	} else {
+	queryParams := make(map[string]string)
+	var rawURL string
+	switch item.Request.URL.(type) {
+	case string:
+		rawURL = item.Request.URL.(string)
+	case murl.URL:
+		url := item.Request.URL.(murl.URL)
+		rawURL = url.Raw
+		for _, v := range url.Query {
+			queryParams[v.Key] = v.Value
+		}
+	default:
+		channels.Err <- errors.New("url is not a string or murl.URL")
+		return
+	}
+	var bodyData []byte = nil
+	if item.Request.Body != nil {
 		bodyData = []byte(item.Request.Body.Raw)
 	}
 
-	if ok {
-		api := mitemapi.ItemApi{
-			ID:           ulidID,
-			CollectionID: collectionID,
-			ParentID:     parentID,
-			Name:         item.Name,
-			Url:          urlRaw,
-			Method:       item.Request.Method,
-			Query: mitemapi.Query{
-				QueryMap: map[string]string{},
-			},
-			Headers: mitemapi.Headers{
-				HeaderMap: headers,
-			},
-			Body: bodyData,
-		}
-
-		pair.mx.Lock()
-		pair.Api = append(pair.Api, api)
-		pair.mx.Unlock()
-		wg.Done()
-		return
+	api := mitemapi.ItemApi{
+		ID:           ulidID,
+		CollectionID: collectionID,
+		ParentID:     parentID,
+		Name:         item.Name,
+		Url:          rawURL,
+		Method:       item.Request.Method,
 	}
 
-	urlObject, ok := item.Request.URL.(murl.URL)
-	if ok {
+	channels.Api <- api
 
-		queryParams := make(map[string]string)
-
-		for _, v := range urlObject.Query {
-			queryParams[v.Key] = v.Value
-		}
-
-		api := mitemapi.ItemApi{
-			ID:           ulidID,
-			CollectionID: collectionID,
-			ParentID:     parentID,
-			Name:         item.Name,
-			Url:          urlObject.Raw,
-			Method:       item.Request.Method,
-			Query: mitemapi.Query{
-				QueryMap: queryParams,
-			},
-			Headers: mitemapi.Headers{
-				HeaderMap: headers,
-			},
-			Body: bodyData,
-		}
-		pair.mx.Lock()
-		pair.Api = append(pair.Api, api)
-		pair.mx.Unlock()
-
-		wg.Done()
-		return
+	channels.Wg.Add(len(item.Responses))
+	for _, v := range item.Responses {
+		go GetResponse(v, bodyData, queryParams, ulidID, collectionID, channels)
 	}
 
-	mapObject, ok := item.Request.URL.(map[string]interface{})
-	if ok {
-		url, ok := mapObject["raw"].(string)
-		if !ok {
-			errChan <- errors.New("url is not a string")
-		}
-		api := mitemapi.ItemApi{
-			ID:           ulidID,
-			CollectionID: collectionID,
-			ParentID:     parentID,
-			Name:         item.Name,
-			Url:          url,
-			Method:       item.Request.Method,
-			Query: mitemapi.Query{
-				QueryMap: make(map[string]string, 0),
-			},
-			Headers: mitemapi.Headers{
-				HeaderMap: headers,
-			},
-			Body: bodyData,
-		}
-		pair.mx.Lock()
-		pair.Api = append(pair.Api, api)
-		pair.mx.Unlock()
-		wg.Done()
-		return
+	channels.Wg.Done()
+	return
+}
+
+func GetResponse(item *mresponse.Response, body []byte, queryParams map[string]string, apiID, collectionID ulid.ULID, channels ItemChannels) {
+	headers := make(map[string]string)
+	for _, v := range item.Headers {
+		headers[v.Key] = v.Value
 	}
 
-	errChan <- errors.New("url is not a string or object")
+	cookies := make(map[string]string)
+	for _, v := range item.Cookies {
+		cookies[v.Name] = v.Value
+	}
+
+	apiExample := mitemapiexample.ItemApiExample{
+		ID:           ulid.Make(),
+		ItemApiID:    apiID,
+		CollectionID: collectionID,
+		Name:         item.Name,
+		Headers:      *mitemapiexample.NewHeaders(headers),
+		Cookies:      *mitemapiexample.NewCookies(cookies),
+		Query:        *mitemapiexample.NewQuery(queryParams),
+		Body:         body,
+	}
+
+	channels.ApiExample <- apiExample
+}
+
+func RemoveItem[I any](slice []I, s int) []I {
+	return append(slice[:s], slice[s+1:]...)
+}
+
+func GetQueryParams(urlStr string) (map[string]string, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	queryParams := make(map[string]string)
+	for k, v := range u.Query() {
+		queryParams[k] = v[0]
+	}
+	return queryParams, nil
 }
