@@ -3,7 +3,6 @@ syntax = "proto3";
 package nodedata.v1;
 option go_package = "dev-tools-services/gen/nodedata/v1;nodedatav1";
 
-
 message NodeApiCallData {
 	string url = 1;
 	string method = 2;

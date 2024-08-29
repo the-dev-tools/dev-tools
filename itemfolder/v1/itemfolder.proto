@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package itemfolder.v1;
+import "itemapi/v1/itemapi.proto";
+
+service ItemFolderService {
+
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResponse);
+  rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
+  rpc UpdateFolder(UpdateFolderRequest) returns (UpdateFolderResponse);
+  rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse);
+}
+
+message FolderMeta {
+  string id = 1;
+  string name = 2;
+}
+
+message Folder {
+  FolderMeta meta = 1;
+  string parent_id = 2;
+  string collection_id = 3;
+  repeated Item items = 4;
+}
+
+message Item {
+  oneof data {
+    itemfolder.v1.Folder folder = 1;
+    itemapi.v1.ApiCall api_call = 2;
+  }
+}
+
+message CreateFolderRequest {
+  string name = 1;
+  string collection_id = 2;
+  string parent_id = 3;
+}
+
+message CreateFolderResponse {
+  string id = 1;
+  string name = 2;
+}
+
+message GetFolderRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message GetFolderResponse { Folder folder = 1; }
+
+message UpdateFolderRequest { Folder folder = 1; }
+
+message UpdateFolderResponse {}
+
+message DeleteFolderRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message DeleteFolderResponse {}

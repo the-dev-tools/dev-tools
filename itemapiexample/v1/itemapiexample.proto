@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package itemapiexample.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service ItemApiExampleService {
+  rpc GetExamples(GetExamplesRequest) returns (GetExamplesResponse);
+  rpc GetExample(GetExampleRequest) returns (GetExampleResponse);
+  rpc CreateExample(CreateExampleRequest) returns (CreateExampleResponse);
+  rpc UpdateExample(UpdateExampleRequest) returns (UpdateExampleResponse);
+  rpc DeleteExample(DeleteExampleRequest) returns (DeleteExampleResponse);
+}
+
+message ApiExampleMeta {
+  string id = 1;
+  string name = 2;
+}
+
+message ApiExample {
+  ApiExampleMeta meta = 1;
+  map<string, string> query = 2;
+  map<string, string> headers = 3;
+  map<string, string> cookies = 4;
+  bytes body = 5;
+  google.protobuf.Timestamp created = 6;
+  google.protobuf.Timestamp updated = 7;
+}
+
+message GetExamplesRequest {
+  string item_api_id = 1;
+}
+
+message GetExamplesResponse {
+  repeated ApiExample examples = 1;
+}
+
+message GetExampleRequest {
+  string id = 1;
+}
+
+message GetExampleResponse {
+  ApiExample example = 1;
+}
+
+message CreateExampleRequest {
+  string item_api_id = 1;
+  string name = 2;
+  map<string, string> query = 3;
+  map<string, string> headers = 4;
+  map<string, string> cookies = 5;
+  bytes body = 6;
+}
+
+message CreateExampleResponse {
+}
+
+message UpdateExampleRequest {
+  string id = 1;
+  string name = 2;
+  map<string, string> query = 3;
+  map<string, string> headers = 4;
+  map<string, string> cookies = 5;
+  bytes body = 6;
+}
+
+message UpdateExampleResponse {
+}
+
+message DeleteExampleRequest {
+  string id = 1;
+}
+
+message DeleteExampleResponse {
+}
+
+
+

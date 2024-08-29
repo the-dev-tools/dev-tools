@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package itemapi.v1;
+import "nodedata/v1/nodedata.proto";
+import "apiresult/v1/apiresult.proto";
+
+service ItemApiService {
+  rpc GetApiCall(GetApiCallRequest) returns (GetApiCallResponse);
+  rpc CreateApiCall(CreateApiCallRequest) returns (CreateApiCallResponse);
+  rpc UpdateApiCall(UpdateApiCallRequest) returns (UpdateApiCallResponse);
+  rpc DeleteApiCall(DeleteApiCallRequest) returns (DeleteApiCallResponse);
+}
+
+message ApiCallMeta {
+  string id = 1;
+  string name = 2;
+}
+
+message ApiCall {
+  ApiCallMeta meta = 1;
+  string parent_id = 2;
+  string collection_id = 3;
+	string url = 4;
+	string method = 5;
+}
+
+message CreateApiCallRequest {
+  string collection_id = 1;
+  string name = 2;
+  nodedata.v1.NodeApiCallData data = 3;
+}
+
+message CreateApiCallResponse {
+  string id = 1;
+  string name = 2;
+}
+
+message GetApiCallRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message UpdateApiCallRequest { ApiCall api_call = 1; }
+
+message UpdateApiCallResponse {}
+
+message DeleteApiCallRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message DeleteApiCallResponse {}
+
+message GetApiCallResponse { ApiCall api_call = 1; }
