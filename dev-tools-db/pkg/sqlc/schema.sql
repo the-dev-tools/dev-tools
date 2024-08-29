@@ -40,7 +40,7 @@ END;
 CREATE TRIGGER delete_collections
 AFTER DELETE ON collections
 BEGIN
-        UPDATE workspaces SET updated = datetime('now') WHERE id = NEW.owner_id;
+        UPDATE workspaces SET updated = datetime('now') WHERE id = OLD.owner_id;
 END;
 
 -- ITEM API
@@ -76,7 +76,7 @@ END;
 CREATE TRIGGER delete_item_api
 AFTER DELETE ON item_api
 BEGIN
-        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+        UPDATE collections SET updated = datetime('now') WHERE id = OLD.collection_id;
 END;
 
 -- ITEM API EXAMPLE
@@ -111,7 +111,7 @@ END;
 CREATE TRIGGER delete_item_api_example
 AFTER DELETE ON item_api_example
 BEGIN
-        UPDATE item_api SET updated = datetime('now') WHERE id = NEW.item_api_id;
+        UPDATE item_api SET updated = datetime('now') WHERE id = OLD.item_api_id;
 END;
 
 -- ITEM FOLDER
@@ -140,7 +140,7 @@ END;
 CREATE TRIGGER delete_item_folder
 AFTER DELETE ON item_folder
 BEGIN
-        UPDATE collections SET updated = datetime('now') WHERE id = NEW.collection_id;
+        UPDATE collections SET updated = datetime('now') WHERE id = OLD.collection_id;
 END;
 
 CREATE INDEX Idx3 ON item_folder(collection_id, parent_id);
