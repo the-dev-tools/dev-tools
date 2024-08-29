@@ -8,7 +8,7 @@ import {
 import { Schema } from '@effect/schema';
 import { CollectionProps } from '@react-aria/collections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
+import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import {
@@ -98,13 +98,19 @@ interface TreeItemProps<T extends object>
 const TreeItem = <T extends object>({ children, className, childItem, ...mixProps }: TreeItemProps<T>) => {
   const props = splitProps(mixProps, 'content', 'wrapper', 'child');
   return (
-    <AriaTreeItem {...props.rest} className={composeRenderPropsTW(className, tw`cursor-pointer select-none`)}>
+    <AriaTreeItem
+      {...props.rest}
+      className={composeRenderPropsTW(className, tw`group cursor-pointer select-none outline-none`)}
+    >
       <AriaTreeItemContent {...props.content}>
         {composeRenderProps(children, (children, { hasChildRows, isExpanded, level }) => (
           <div
             {...props.wrapper}
             style={{ marginInlineStart: (level - 1).toString() + 'rem', ...props.wrapper.style }}
-            className={twMerge(tw`flex items-center gap-2`, props.wrapper.className)}
+            className={twMerge(
+              tw`flex items-center gap-2 p-1 outline outline-0 group-rac-focus-visible:outline-2`,
+              props.wrapper.className,
+            )}
           >
             {hasChildRows && (
               <Button slot='chevron'>
@@ -371,6 +377,8 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
+  const match = useMatch({ strict: false });
+
   const { workspaceId } = workspaceRoute.useParams();
 
   const runNodeMutation = useMutation(CollectionQuery.runApiCall);
@@ -382,6 +390,7 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
     <TreeItem
       textValue={apiCall.meta!.name}
       href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: apiCall.meta!.id } }}
+      wrapperClassName={twJoin(match.params.apiCallId === apiCall.meta!.id && tw`bg-black text-white`)}
     >
       <div />
 
