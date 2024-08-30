@@ -28,4 +28,4 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Lint
-        run: pnpm lint
+        run: turbo lint

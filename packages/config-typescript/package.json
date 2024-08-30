@@ -2,6 +2,6 @@
   "name": "@the-dev-tools/config-typescript",
   "version": "0.1.1",
   "devDependencies": {
-    "@tsconfig/strictest": "^2.0.5"
+    "@tsconfig/strictest": "~2.0.5"
   }
 }

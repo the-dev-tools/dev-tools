@@ -8,12 +8,12 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "effect": "^3.7.0"
+    "effect": "3.7.0"
   },
   "devDependencies": {
-    "@faker-js/faker": "^8.4.1",
+    "@faker-js/faker": "~8.4.1",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "typescript": "^5.5.4"
+    "typescript": "~5.5.4"
   }
 }

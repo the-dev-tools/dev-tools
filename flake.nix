@@ -22,29 +22,34 @@
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
 
         devShells.runner = let
-          pnpm = pkgs.writeShellApplication {
-            name = "pnpm";
-            runtimeInputs = with pkgs; [dotenvx pnpm_9];
-            text = ''
-              dotenvx run \
-                --log-level "''${DOTENV_LOG_LEVEL:-info}" \
-                --convention=nextjs \
-                -- pnpm "$@"
-            '';
-          };
+          dotenvx-wrapper = pkg:
+            pkgs.writeShellApplication {
+              name = pkg.pname;
+              runtimeInputs = [pkgs.dotenvx pkg];
+              text = ''
+                dotenvx run \
+                  --log-level "''${DOTENV_LOG_LEVEL:-info}" \
+                  --convention=nextjs \
+                  -- ${pkg.pname} "$@"
+              '';
+            };
         in
           pkgs.mkShell {
             nativeBuildInputs =
-              [pnpm]
+              [
+                (dotenvx-wrapper (pkgs.pnpm_9))
+                (dotenvx-wrapper (pkgs.turbo))
+              ]
               ++ (with pkgs; [
                 dotenvx
                 nodejs_latest
-                turbo
               ]);
           };
 
         devShells.default = pkgs.mkShell {
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
+          TURBO_UI = true;
+
           nativeBuildInputs =
             self'.devShells.runner.nativeBuildInputs
             ++ (with pkgs; [

@@ -31,7 +31,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build
-        run: pnpm build --filter=${{ inputs.package }}
+        run: turbo build --filter=${{ inputs.package }}
 
       - name: Publish
         run: |
