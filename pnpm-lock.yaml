@@ -293,6 +293,12 @@ importers:
       '@types/eslint-config-prettier':
         specifier: ~6.11.3
         version: 6.11.3
+      '@types/eslint-plugin-jsx-a11y':
+        specifier: ~6.9.0
+        version: 6.9.0
+      '@types/eslint-plugin-tailwindcss':
+        specifier: ~3.17.0
+        version: 3.17.0
       '@types/eslint__eslintrc':
         specifier: ~2.1.2
         version: 2.1.2
@@ -3455,6 +3461,12 @@ packages:
 
   '@types/eslint-config-prettier@6.11.3':
     resolution: {integrity: sha512-3wXCiM8croUnhg9LdtZUJQwNcQYGWxxdOWDjPe1ykCqJFPVpzAKfs/2dgSoCtAvdPeaponcWPI7mPcGGp9dkKQ==}
+
+  '@types/eslint-plugin-jsx-a11y@6.9.0':
+    resolution: {integrity: sha512-5nw0sPyYGCsFibwjOXftxends8Nrh/JLgDtBWj6aJVcN14kHwy1yIy0o1MGLKfCcR27pvUFGgYG+hX2HSX16uA==}
+
+  '@types/eslint-plugin-tailwindcss@3.17.0':
+    resolution: {integrity: sha512-ucQGf2YIdTcndYcxRU3UdZgmhUHsOlbIF4BaRtl0op+7k2JmqM2i3aXZ6XIcfZgVq1ZKov7VM5c/BR81ukmkyg==}
 
   '@types/eslint@9.6.0':
     resolution: {integrity: sha512-gi6WQJ7cHRgZxtkQEoyHMppPjq9Kxo5Tjn2prSKDSmZrCz8TZ3jSRCeTJm+WoM+oB0WG37bRqLzaaU3q7JypGg==}
@@ -10929,6 +10941,14 @@ snapshots:
       '@types/node': 22.5.1
 
   '@types/eslint-config-prettier@6.11.3': {}
+
+  '@types/eslint-plugin-jsx-a11y@6.9.0':
+    dependencies:
+      '@types/eslint': 9.6.0
+
+  '@types/eslint-plugin-tailwindcss@3.17.0':
+    dependencies:
+      '@types/eslint': 9.6.0
 
   '@types/eslint@9.6.0':
     dependencies:
