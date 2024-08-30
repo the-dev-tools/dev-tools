@@ -1,6 +1,13 @@
-name: Deploy / API Recorder Extension
+name: Deploy / Chrome Extension
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        type: choice
+        required: true
+        options:
+          - '@the-dev-tools/api-recorder-extension'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,16 +26,19 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
-      - name: Build
-        run: pnpm build --filter=@the-dev-tools/api-recorder-extension
+      - id: build
+        name: Build
+        run: |
+          echo "PKG_ROOT=$(DOTENV_LOG_LEVEL=error pnpm --filter=${{ inputs.package }} exec pwd)" >> "$GITHUB_OUTPUT"
+          pnpm build --filter=${{ inputs.package }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: build
-          path: apps/api-recorder-extension/dist/*.zip
+          path: ${{ steps.build.outputs.PKG_ROOT }}/dist/*.zip
           if-no-files-found: error
 
-  publish-chrome:
+  publish:
     name: Publish to Chrome Webstore
     needs: build
     runs-on: ubuntu-latest
