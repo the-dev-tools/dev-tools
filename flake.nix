@@ -38,7 +38,7 @@
               [pnpm]
               ++ (with pkgs; [
                 dotenvx
-                nodejs
+                nodejs_latest
                 turbo
               ]);
           };
