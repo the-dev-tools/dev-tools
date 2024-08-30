@@ -33,15 +33,33 @@ import {
   Select,
   SelectValue,
   Text,
-  TextArea,
   TextField,
   UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
 import { LuChevronRight, LuFolder, LuMoreHorizontal } from 'react-icons/lu';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { ApiCall, CollectionMeta, Folder, Item } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
-import * as CollectionQuery from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import {
+  createCollection,
+  deleteCollection,
+  getCollection,
+  importPostman,
+  listCollections,
+  updateCollection,
+} from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
+import { ApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
+import {
+  deleteApiCall,
+  getApiCall,
+  updateApiCall,
+} from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import { Folder, Item } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
+import {
+  createFolder,
+  deleteFolder,
+  updateFolder,
+} from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
@@ -56,10 +74,10 @@ export const CollectionsWidget = () => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const createCollectionMutation = useMutation(CollectionQuery.createCollection);
-  const collectionsQuery = useConnectQuery(CollectionQuery.listCollections, { workspaceId });
+  const createCollectionMutation = useMutation(createCollection);
+  const collectionsQuery = useConnectQuery(listCollections, { workspaceId });
 
-  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
   if (!collectionsQuery.isSuccess) return null;
   const metaCollections = collectionsQuery.data.metaCollections;
@@ -108,7 +126,7 @@ const TreeItem = <T extends object>({ children, className, childItem, ...mixProp
             {...props.wrapper}
             style={{ marginInlineStart: (level - 1).toString() + 'rem', ...props.wrapper.style }}
             className={twMerge(
-              tw`flex items-center gap-2 p-1 outline outline-0 group-rac-focus-visible:outline-2`,
+              tw`group-rac-focus-visible:outline-2 flex items-center gap-2 p-1 outline outline-0`,
               props.wrapper.className,
             )}
           >
@@ -139,13 +157,13 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const deleteMutation = useMutation(CollectionQuery.deleteCollection);
-  const updateMutation = useMutation(CollectionQuery.updateCollection);
-  const createFolderMutation = useMutation(CollectionQuery.createFolder);
+  const deleteMutation = useMutation(deleteCollection);
+  const updateMutation = useMutation(updateCollection);
+  const createFolderMutation = useMutation(createFolder);
 
-  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: meta.id }, { transport });
+  const queryOptions = createQueryOptions(getCollection, { id: meta.id }, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
 
   const triggerRef = useRef(null);
@@ -221,7 +239,7 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
                 queryClient.setQueriesData(
                   queryOptions,
                   createProtobufSafeUpdater(
-                    CollectionQuery.getCollection,
+                    getCollection,
                     Struct.evolve({
                       name: () => name,
                     }),
@@ -273,10 +291,10 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const deleteMutation = useMutation(CollectionQuery.deleteFolder);
-  const updateMutation = useMutation(CollectionQuery.updateFolder);
+  const deleteMutation = useMutation(deleteFolder);
+  const updateMutation = useMutation(updateFolder);
 
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
+  const queryOptions = createQueryOptions(getCollection, { id: collectionId }, { transport });
 
   const triggerRef = useRef(null);
 
@@ -381,10 +399,9 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
 
   const { workspaceId } = workspaceRoute.useParams();
 
-  const runNodeMutation = useMutation(CollectionQuery.runApiCall);
-  const deleteMutation = useMutation(CollectionQuery.deleteApiCall);
+  const deleteMutation = useMutation(deleteApiCall);
 
-  const queryOptions = createQueryOptions(CollectionQuery.getCollection, { id: collectionId }, { transport });
+  const queryOptions = createQueryOptions(getCollection, { id: collectionId }, { transport });
 
   return (
     <TreeItem
@@ -394,11 +411,9 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
     >
       <div />
 
-      <div className='text-sm font-bold'>{apiCall.data!.method}</div>
+      <div className='text-sm font-bold'>{apiCall.method}</div>
 
       <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
-
-      {runNodeMutation.isSuccess && <div>({runNodeMutation.data.result!.duration.toString()} ms)</div>}
 
       <MenuTrigger>
         <Button>
@@ -416,13 +431,6 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
             >
               Delete
             </MenuItem>
-
-            <MenuItem
-              className='cursor-pointer select-none'
-              onAction={() => void runNodeMutation.mutate({ id: apiCall.meta!.id })}
-            >
-              Run
-            </MenuItem>
           </Menu>
         </Popover>
       </MenuTrigger>
@@ -436,9 +444,9 @@ const ImportPostman = () => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation(CollectionQuery.importPostman);
+  const createMutation = useMutation(importPostman);
 
-  const listQueryOptions = createQueryOptions(CollectionQuery.listCollections, { workspaceId }, { transport });
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
   return (
     <FileTrigger
@@ -470,13 +478,11 @@ class ApiCallForm extends Schema.Class<ApiCallForm>('ApiCallForm')({
 export const ApiCallPage = () => {
   const { apiCallId } = apiCallRoute.useParams();
 
-  const updateMutation = useMutation(CollectionQuery.updateApiCall);
+  const updateMutation = useMutation(updateApiCall);
 
-  const query = useConnectQuery(CollectionQuery.getApiCall, { id: apiCallId });
+  const query = useConnectQuery(getApiCall, { id: apiCallId });
   if (!query.isSuccess) return null;
   const { data } = query;
-
-  const body = new TextDecoder().decode(data.apiCall!.data!.body);
 
   return (
     <>
@@ -489,7 +495,7 @@ export const ApiCallPage = () => {
           Effect.gen(function* () {
             event.preventDefault();
 
-            const { name, method, url, body } = yield* pipe(
+            const { name, method, url } = yield* pipe(
               new FormData(event.currentTarget),
               Object.fromEntries,
               Schema.decode(ApiCallForm),
@@ -497,12 +503,8 @@ export const ApiCallPage = () => {
 
             const newApiCall = Struct.evolve(data.apiCall!, {
               meta: (_) => Struct.evolve(_!, { name: () => name }),
-              data: (_) =>
-                Struct.evolve(_!, {
-                  method: () => method,
-                  url: () => url,
-                  body: () => new TextEncoder().encode(body),
-                }),
+              method: () => method,
+              url: () => url,
             });
 
             yield* Effect.tryPromise(() => updateMutation.mutateAsync({ apiCall: newApiCall }));
@@ -514,7 +516,7 @@ export const ApiCallPage = () => {
           <Input className='flex-1' />
         </TextField>
 
-        <Select name='method' defaultSelectedKey={data.apiCall!.data!.method} className='flex gap-2'>
+        <Select name='method' defaultSelectedKey={data.apiCall!.method} className='flex gap-2'>
           <Label>Method:</Label>
           <Button>
             <SelectValue />
@@ -530,14 +532,9 @@ export const ApiCallPage = () => {
           </Popover>
         </Select>
 
-        <TextField name='url' defaultValue={data.apiCall!.data!.url} className='flex gap-2'>
+        <TextField name='url' defaultValue={data.apiCall!.url} className='flex gap-2'>
           <Label>URL:</Label>
           <Input className='flex-1' />
-        </TextField>
-
-        <TextField name='body' defaultValue={body} className='flex gap-2'>
-          <Label>Body:</Label>
-          <TextArea className='flex-1' />
         </TextField>
 
         <Button type='submit'>Save</Button>

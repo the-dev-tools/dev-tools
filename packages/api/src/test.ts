@@ -8,15 +8,12 @@ import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
 import { AuthServiceDIDResponse } from '@the-dev-tools/protobuf/auth/v1/auth_pb';
 import { CollectionService } from '@the-dev-tools/protobuf/collection/v1/collection_connect';
 import {
-  ApiCall,
-  Folder,
   GetCollectionRequest,
   GetCollectionResponse,
-  Item,
   ListCollectionsResponse,
-  RunApiCallRequest,
-  RunApiCallResponse,
 } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { ApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
+import { Folder, Item } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import { WorkspaceService } from '@the-dev-tools/protobuf/workspace/v1/workspace_connect';
 import {
   GetWorkspaceRequest,
@@ -82,7 +79,7 @@ const ApiTransportTest = Layer.effect(
         router.service(CollectionService, {
           listCollections: flow(listCollections, Runtime.runPromise(runtime)),
           getCollection: flow(getCollection, Runtime.runPromise(runtime)),
-          runApiCall: flow(runApiCall, Runtime.runPromise(runtime)),
+          // runApiCall: flow(runApiCall, Runtime.runPromise(runtime)),
         });
 
         router.service(WorkspaceService, {
@@ -162,22 +159,6 @@ const getCollection = (request: GetCollectionRequest) =>
     });
   });
 
-const runApiCall = (request: RunApiCallRequest) =>
-  Effect.gen(function* () {
-    const faker = yield* Faker;
-    return new RunApiCallResponse({
-      result: {
-        id: request.id,
-        name: faker.internet.url(),
-        duration: faker.number.bigInt(),
-        response: {
-          case: 'httpResponse',
-          value: { statusCode: faker.internet.httpStatusCode() },
-        },
-      },
-    });
-  });
-
 const meta = (id?: string) =>
   Effect.gen(function* () {
     const faker = yield* Faker;
@@ -217,10 +198,8 @@ const apiCall = Effect.gen(function* () {
     meta: yield* meta(),
     collectionId: '',
     parentId: '',
-    data: {
-      url: faker.internet.url(),
-      method: faker.internet.httpMethod(),
-    },
+    method: faker.internet.httpMethod(),
+    url: faker.internet.url(),
   });
 });
 
