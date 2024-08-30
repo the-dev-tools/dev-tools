@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "daemon": false,
+  "dangerouslyDisablePackageManagerCheck": true,
   "globalEnv": ["PUBLIC_API_URL", "PUBLIC_MAGIC_KEY", "NODE_ENV"],
   "tasks": {
     "dev": {

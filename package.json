@@ -1,7 +1,6 @@
 {
   "name": "the-dev-tools",
   "private": true,
-  "packageManager": "pnpm@9.4.0",
   "scripts": {
     "dev": "turbo dev --ui=tui",
     "build": "turbo build",
