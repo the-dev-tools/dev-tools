@@ -1,5 +1,31 @@
 # @the-dev-tools/protobuf
 
+## 1.14.0
+
+### Minor Changes
+
+- [`1328b90`](https://github.com/the-dev-tools/dev-tools-proto/commit/1328b90f555b7fa29e7bd8a0320429e5d4a7122f) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add go package paths
+
+- [`669df42`](https://github.com/the-dev-tools/dev-tools-proto/commit/669df42ada7c401d23deb6f5c080be1181a0f579) Thanks [@ElecTwix](https://github.com/ElecTwix)! - added timestamps to workspace and collection
+
+- [`cd02ca6`](https://github.com/the-dev-tools/dev-tools-proto/commit/cd02ca6291df9e830a69c198ffadc9d9ed6d0e12) Thanks [@ElecTwix](https://github.com/ElecTwix)! - separate the item services
+
+- [`804a0d7`](https://github.com/the-dev-tools/dev-tools-proto/commit/804a0d72b5f2bb838494acaa28b589a3af12418e) Thanks [@ElecTwix](https://github.com/ElecTwix)! - refactor items
+
+- [`20675d2`](https://github.com/the-dev-tools/dev-tools-proto/commit/20675d2b62507442c34933ca639b3fb576d05ed4) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add enum to workspace/user/role
+
+- [`64d2060`](https://github.com/the-dev-tools/dev-tools-proto/commit/64d2060ea8a527ee980dadb9acd86b6370df72fb) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add user management to workspace
+
+- [`0f7d4f3`](https://github.com/the-dev-tools/dev-tools-proto/commit/0f7d4f36e317898693ab42c1541caaabae331dba) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add parent_id to some collection calls
+
+### Patch Changes
+
+- [`d489f44`](https://github.com/the-dev-tools/dev-tools-proto/commit/d489f44c1bb343194dbb54bf81d7e7fafcc1b61a) Thanks [@ElecTwix](https://github.com/ElecTwix)! - fix order of getCollection
+
+- [`202d1f4`](https://github.com/the-dev-tools/dev-tools-proto/commit/202d1f4bb86588a6c7be2b22fe50b9579a04b91c) Thanks [@ElecTwix](https://github.com/ElecTwix)! - update role type and enum
+
+- [`7115cd4`](https://github.com/the-dev-tools/dev-tools-proto/commit/7115cd412e7a662e4a9493725963186b69fee547) Thanks [@ElecTwix](https://github.com/ElecTwix)! - fix non-imported timestamp
+
 ## 1.13.0
 
 ### Minor Changes
