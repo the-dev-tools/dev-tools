@@ -33,6 +33,8 @@
   "devDependencies": {
     "@rsbuild/core": "1.0.1-rc.0",
     "@rsbuild/plugin-react": "1.0.1-rc.0",
+    "@tanstack/react-query-devtools": "^5.53.1",
+    "@tanstack/router-devtools": "^1.51.6",
     "@tanstack/router-plugin": "^1.51.6",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",

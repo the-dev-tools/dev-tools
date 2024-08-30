@@ -1,3 +1,31 @@
-import { createRootRoute } from '@tanstack/react-router';
+import { createRootRoute, Outlet } from '@tanstack/react-router';
+import React, { ComponentType, Suspense } from 'react';
 
-export const Route = createRootRoute();
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+
+const makeLazyDevtools = <Component extends ComponentType>(lazyComponent: () => Promise<Component>) =>
+  process.env['NODE_ENV'] !== 'development'
+    ? // Render nothing in production
+      () => null
+    : // Lazy load in development
+      React.lazy(() => lazyComponent().then((_) => ({ default: _ })));
+
+const TanStackRouterDevtools = makeLazyDevtools(() =>
+  import('@tanstack/router-devtools').then((_) => _.TanStackRouterDevtools),
+);
+
+const ReactQueryDevtools = makeLazyDevtools(() =>
+  import('@tanstack/react-query-devtools').then((_) => _.ReactQueryDevtools),
+);
+
+export const Route = createRootRoute({
+  component: () => (
+    <>
+      <Outlet />
+      <Suspense>
+        <TanStackRouterDevtools position='bottom-right' toggleButtonProps={{ className: tw`!bottom-3 !right-16` }} />
+        <ReactQueryDevtools buttonPosition='bottom-right' />
+      </Suspense>
+    </>
+  ),
+});
