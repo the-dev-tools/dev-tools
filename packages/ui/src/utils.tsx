@@ -3,12 +3,12 @@ import { twMerge } from 'tailwind-merge';
 
 export const composeRenderPropsTV = <T, K>(
   className: string | ((renderProps: T) => string) | undefined,
-  tv: (variant: T & { className: string | undefined }) => string,
-  props?: K,
+  tv: (variant: T & K) => string,
+  props: K = {} as K,
 ) =>
   composeRenderProps(className, (className, renderProps) =>
     tv({
-      ...(props ?? {}),
+      ...props,
       ...renderProps,
       className,
     }),

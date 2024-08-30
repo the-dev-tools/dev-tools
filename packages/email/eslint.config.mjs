@@ -1,3 +1,3 @@
-import { makeConfigReact } from '@the-dev-tools/config-eslint';
+import { eslintReactConfig } from '@the-dev-tools/config-eslint';
 
-export default makeConfigReact(import.meta.url);
+export default eslintReactConfig;

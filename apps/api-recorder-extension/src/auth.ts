@@ -37,7 +37,7 @@ export const loginInit = (email: string) =>
 
 export const loginConfirm = (token: string) =>
   Effect.gen(function* () {
-    const result = yield* Effect.promise(() => magicLink.auth.loginWithCredential(token));
+    const result = yield* Effect.promise(() => magicLink.auth.loginWithCredential({ credentialOrQueryString: token }));
     if (result === null) return false;
     yield* setLoggedIn(true);
     return true;

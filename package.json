@@ -11,7 +11,7 @@
     "peerDependencyRules": {
       "allowedVersions": {
         "svgo": "^2.8.0",
-        "eslint": "^9.6.0"
+        "eslint": "^9.9.1"
       }
     },
     "overrides": {

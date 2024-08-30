@@ -1,3 +1,3 @@
-import { makeConfig } from './src/config.mjs';
+import { eslintBaseConfig } from './config.mjs';
 
-export default makeConfig(import.meta.url);
+export default eslintBaseConfig;

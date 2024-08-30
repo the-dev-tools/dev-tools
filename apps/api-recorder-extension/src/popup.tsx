@@ -199,6 +199,7 @@ const RecorderPage = () => {
       readonly item?: Option.Option<SelectedItem>[];
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
     const emptySelectedItems = <T extends Pick<Postman.Item, 'item'>>(item: T) =>
       Struct.evolve(item, {
         item: (): Option.Option<SelectedItem>[] => Array.makeBy(item.item?.length ?? 0, () => Option.none()),
