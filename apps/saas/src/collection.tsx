@@ -195,8 +195,8 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
               className='cursor-pointer select-none'
               onAction={async () => {
                 await deleteMutation.mutateAsync({ id: meta.id });
-                await queryClient.invalidateQueries(queryOptions);
                 await queryClient.invalidateQueries(listQueryOptions);
+                await queryClient.invalidateQueries(queryOptions);
               }}
             >
               Delete
