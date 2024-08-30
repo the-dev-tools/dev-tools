@@ -126,7 +126,7 @@ const TreeItem = <T extends object>({ children, className, childItem, ...mixProp
             {...props.wrapper}
             style={{ marginInlineStart: (level - 1).toString() + 'rem', ...props.wrapper.style }}
             className={twMerge(
-              tw`group-rac-focus-visible:outline-2 flex items-center gap-2 p-1 outline outline-0`,
+              tw`flex items-center gap-2 p-1 outline outline-0 group-rac-focus-visible:outline-2`,
               props.wrapper.className,
             )}
           >

@@ -15,7 +15,7 @@
       }
     },
     "overrides": {
-      "sharp": "^0.33.4"
+      "sharp": "^0.33.5"
     }
   },
   "devDependencies": {
@@ -23,8 +23,8 @@
     "@changesets/cli": "^2.27.7",
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "prettier": "^3.3.2",
-    "turbo": "^2.0.13",
+    "turbo": "^2.1.0",
     "typescript": "^5.5.4",
-    "wrangler": "^3.72.2"
+    "wrangler": "^3.72.3"
   }
 }
