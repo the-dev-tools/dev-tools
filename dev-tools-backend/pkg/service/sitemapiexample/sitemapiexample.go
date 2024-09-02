@@ -42,6 +42,7 @@ func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ul
 			ID:           itemApiExample.ID,
 			ItemApiID:    itemApiExample.ItemApiID,
 			CollectionID: itemApiExample.CollectionID,
+			Default:      itemApiExample.Default,
 			Name:         itemApiExample.Name,
 			Headers:      itemApiExample.Headers,
 			Query:        itemApiExample.Query,
@@ -51,6 +52,28 @@ func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ul
 		})
 	}
 	return itemApiExamplesList, nil
+}
+
+func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiUlid ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
+	itemApiExample, err := iaes.Queries.GetItemApiExampleDefault(ctx, apiUlid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemApiExampleFound
+		}
+		return nil, err
+	}
+	return &mitemapiexample.ItemApiExample{
+		ID:           itemApiExample.ID,
+		ItemApiID:    itemApiExample.ItemApiID,
+		CollectionID: itemApiExample.CollectionID,
+		Default:      itemApiExample.Default,
+		Name:         itemApiExample.Name,
+		Headers:      itemApiExample.Headers,
+		Query:        itemApiExample.Query,
+		Body:         itemApiExample.Body,
+		Created:      itemApiExample.Created,
+		Updated:      itemApiExample.Updated,
+	}, nil
 }
 
 func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULID) (*mitemapiexample.ItemApiExample, error) {

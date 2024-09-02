@@ -99,6 +99,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
 	}
+	if q.getItemApiExampleDefaultStmt, err = db.PrepareContext(ctx, getItemApiExampleDefault); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiExampleDefault: %w", err)
+	}
 	if q.getItemApiExamplesStmt, err = db.PrepareContext(ctx, getItemApiExamples); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExamples: %w", err)
 	}
@@ -316,6 +319,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemApiExampleStmt: %w", cerr)
 		}
 	}
+	if q.getItemApiExampleDefaultStmt != nil {
+		if cerr := q.getItemApiExampleDefaultStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiExampleDefaultStmt: %w", cerr)
+		}
+	}
 	if q.getItemApiExamplesStmt != nil {
 		if cerr := q.getItemApiExamplesStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiExamplesStmt: %w", cerr)
@@ -525,6 +533,7 @@ type Queries struct {
 	getCollectionOwnerIDStmt                   *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
 	getItemApiExampleStmt                      *sql.Stmt
+	getItemApiExampleDefaultStmt               *sql.Stmt
 	getItemApiExamplesStmt                     *sql.Stmt
 	getItemApiOwnerIDStmt                      *sql.Stmt
 	getItemFolderStmt                          *sql.Stmt
@@ -585,6 +594,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
 		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
+		getItemApiExampleDefaultStmt:               q.getItemApiExampleDefaultStmt,
 		getItemApiExamplesStmt:                     q.getItemApiExamplesStmt,
 		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,
 		getItemFolderStmt:                          q.getItemFolderStmt,

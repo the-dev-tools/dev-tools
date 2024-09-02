@@ -7,16 +7,20 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
+	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
+	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"errors"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ItemApiRPC struct {
@@ -25,6 +29,7 @@ type ItemApiRPC struct {
 	ifs *sitemfolder.ItemFolderService
 	cs  *scollection.CollectionService
 	us  *suser.UserService
+	axs *sitemapiexample.ItemApiExampleService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -88,6 +93,21 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	example := &mitemapiexample.ItemApiExample{
+		ID:           ulid.Make(),
+		ItemApiID:    ulidID,
+		CollectionID: collectionUlidID,
+		Default:      true,
+		Name:         "Default",
+		Headers:      *mitemapiexample.NewHeadersDefault(),
+		Query:        *mitemapiexample.NewQueryDefault(),
+		Body:         []byte{},
+	}
+	err = c.axs.CreateApiExample(ctx, example)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	respRaw := &itemapiv1.CreateApiCallResponse{
 		Id:   ulidID.String(),
 		Name: req.Msg.GetName(),
@@ -113,11 +133,33 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
+	defultApiExample, err := c.axs.GetDefaultApiExample(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	var parentID string
 	if item.ParentID == nil {
 		parentID = ""
 	} else {
 		parentID = item.ParentID.String()
+	}
+
+	examples, err := c.axs.GetApiExamples(ctx, ulidID)
+	if err != nil {
+		if err == sitemapiexample.ErrNoItemApiExampleFound {
+			examples = []mitemapiexample.ItemApiExample{}
+		} else {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))
+	for i, example := range examples {
+		metaExamplesRPC[i] = &itemapiexamplev1.ApiExampleMeta{
+			Id:   example.ID.String(),
+			Name: example.Name,
+		}
 	}
 
 	respRaw := &itemapiv1.GetApiCallResponse{
@@ -130,6 +172,19 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			ParentId:     parentID,
 			Url:          item.Url,
 			Method:       item.Method,
+			DefaultExample: &itemapiexamplev1.ApiExample{
+				Meta: &itemapiexamplev1.ApiExampleMeta{
+					Id:   defultApiExample.ID.String(),
+					Name: defultApiExample.Name,
+				},
+				Query:   defultApiExample.Query.QueryMap,
+				Headers: defultApiExample.Headers.HeaderMap,
+				Cookies: defultApiExample.Cookies.CookieMap,
+				Body:    defultApiExample.Body,
+				Created: timestamppb.New(defultApiExample.Created),
+				Updated: timestamppb.New(defultApiExample.Updated),
+			},
+			Examples: metaExamplesRPC,
 		},
 	}
 

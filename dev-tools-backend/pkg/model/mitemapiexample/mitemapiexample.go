@@ -12,6 +12,7 @@ type ItemApiExample struct {
 	ID           ulid.ULID
 	ItemApiID    ulid.ULID
 	CollectionID ulid.ULID
+	Default      bool
 	Name         string
 	Headers      Headers
 	Cookies      Cookies
@@ -21,11 +22,12 @@ type ItemApiExample struct {
 	Updated      time.Time
 }
 
-func NewItemApiExample(id, itemApiID, collectionID ulid.ULID, name string, headers Headers, query Query, body []byte) *ItemApiExample {
+func NewItemApiExample(id, itemApiID, collectionID ulid.ULID, isDefault bool, name string, headers Headers, query Query, body []byte) *ItemApiExample {
 	return &ItemApiExample{
 		ID:           id,
 		ItemApiID:    itemApiID,
 		CollectionID: collectionID,
+		Default:      isDefault,
 		Name:         name,
 		Headers:      headers,
 		Query:        query,

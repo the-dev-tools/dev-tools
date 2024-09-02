@@ -48,6 +48,7 @@ SELECT
         id, 
         item_api_id, 
         collection_id, 
+        default, 
         name, 
         headers, 
         query, 
@@ -56,23 +57,39 @@ SELECT
         updated 
 FROM item_api_example WHERE id = ? LIMIT 1;
 
+
 -- name: GetItemApiExamples :many
 SELECT 
         id, 
         item_api_id, 
         collection_id, 
+        default, 
         name, 
         headers, 
         query, 
         body, 
         created, 
         updated 
-FROM item_api_example WHERE item_api_id = ?;
+FROM item_api_example WHERE item_api_id = ? AND default = false;
+
+-- name: GetItemApiExampleDefault :one
+SELECT 
+        id, 
+        item_api_id, 
+        collection_id, 
+        default, 
+        name, 
+        headers, 
+        query, 
+        body, 
+        created, 
+        updated 
+FROM item_api_example WHERE item_api_id = ? AND default = true LIMIT 1;
 
 -- name: CreateItemApiExample :exec
 INSERT INTO item_api_example 
-        (id, item_api_id, collection_id, name, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+        (id, item_api_id, collection_id, default, name, headers, query, body)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example SET
