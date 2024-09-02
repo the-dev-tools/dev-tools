@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Form, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
+import { Form, MenuTrigger } from 'react-aria-components';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
@@ -21,6 +21,7 @@ import {
   updateWorkspace,
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { CollectionsWidget } from './collection';
@@ -152,12 +153,10 @@ export const WorkspaceLayout = () => {
           <Button kind='placeholder' className='bg-transparent text-white' variant='placeholder'>
             {workspace!.name}
           </Button>
-          <Popover>
-            <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
-              <MenuItem href={{ to: '/workspace/$workspaceId', params: { workspaceId } }}>Home</MenuItem>
-              <MenuItem href={{ to: '/workspace/$workspaceId/members', params: { workspaceId } }}>Members</MenuItem>
-            </Menu>
-          </Popover>
+          <Menu>
+            <MenuItem href={{ to: '/workspace/$workspaceId', params: { workspaceId } }}>Home</MenuItem>
+            <MenuItem href={{ to: '/workspace/$workspaceId/members', params: { workspaceId } }}>Members</MenuItem>
+          </Menu>
         </MenuTrigger>
       }
     >

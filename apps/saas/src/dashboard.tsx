@@ -1,9 +1,10 @@
 import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
+import { MenuTrigger } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Runtime } from './runtime';
@@ -32,20 +33,17 @@ export const DashboardLayout = ({ children, ...mixProps }: DashboardLayoutProps)
           <Button kind='placeholder' variant='placeholder' className='size-8 rounded-full uppercase'>
             {email[0]}
           </Button>
-          <Popover>
-            <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
-              <MenuItem isDisabled>User: {email}</MenuItem>
-              <MenuItem
-                onAction={async () => {
-                  await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
-                  queueMicrotask(() => void location.reload());
-                }}
-                className='cursor-pointer'
-              >
-                Log out
-              </MenuItem>
-            </Menu>
-          </Popover>
+          <Menu>
+            <MenuItem isDisabled>User: {email}</MenuItem>
+            <MenuItem
+              onAction={async () => {
+                await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
+                queueMicrotask(() => void location.reload());
+              }}
+            >
+              Log out
+            </MenuItem>
+          </Menu>
         </MenuTrigger>
       </div>
       {children ? (

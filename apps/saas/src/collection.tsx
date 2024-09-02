@@ -24,8 +24,6 @@ import {
   Form,
   ListBox,
   ListBoxItem,
-  Menu,
-  MenuItem,
   MenuTrigger,
   Popover,
   Select,
@@ -58,6 +56,7 @@ import {
   updateFolder,
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
@@ -187,34 +186,28 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
           <LuMoreHorizontal />
         </Button>
 
-        <Popover>
-          <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
-            <MenuItem className='cursor-pointer select-none' onAction={() => void setIsRenaming(true)}>
-              Rename
-            </MenuItem>
+        <Menu>
+          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-            <MenuItem
-              className='cursor-pointer select-none'
-              onAction={async () => {
-                await deleteMutation.mutateAsync({ id: meta.id });
-                await queryClient.invalidateQueries(listQueryOptions);
-                await queryClient.invalidateQueries(queryOptions);
-              }}
-            >
-              Delete
-            </MenuItem>
+          <MenuItem
+            onAction={async () => {
+              await deleteMutation.mutateAsync({ id: meta.id });
+              await queryClient.invalidateQueries(listQueryOptions);
+              await queryClient.invalidateQueries(queryOptions);
+            }}
+          >
+            Delete
+          </MenuItem>
 
-            <MenuItem
-              className='cursor-pointer select-none'
-              onAction={async () => {
-                await createFolderMutation.mutateAsync({ collectionId: meta.id, name: 'New folder' });
-                await queryClient.invalidateQueries(queryOptions);
-              }}
-            >
-              Create folder
-            </MenuItem>
-          </Menu>
-        </Popover>
+          <MenuItem
+            onAction={async () => {
+              await createFolderMutation.mutateAsync({ collectionId: meta.id, name: 'New folder' });
+              await queryClient.invalidateQueries(queryOptions);
+            }}
+          >
+            Create folder
+          </MenuItem>
+        </Menu>
       </MenuTrigger>
 
       <Popover
@@ -326,23 +319,18 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
           <LuMoreHorizontal />
         </Button>
 
-        <Popover>
-          <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
-            <MenuItem className='cursor-pointer select-none' onAction={() => void setIsRenaming(true)}>
-              Rename
-            </MenuItem>
+        <Menu>
+          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-            <MenuItem
-              className='cursor-pointer select-none'
-              onAction={async () => {
-                await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
-                await queryClient.invalidateQueries(queryOptions);
-              }}
-            >
-              Delete
-            </MenuItem>
-          </Menu>
-        </Popover>
+          <MenuItem
+            onAction={async () => {
+              await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
+              await queryClient.invalidateQueries(queryOptions);
+            }}
+          >
+            Delete
+          </MenuItem>
+        </Menu>
       </MenuTrigger>
 
       <Popover
@@ -436,19 +424,16 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
           <LuMoreHorizontal />
         </Button>
 
-        <Popover>
-          <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
-            <MenuItem
-              className='cursor-pointer select-none'
-              onAction={async () => {
-                await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });
-                await queryClient.invalidateQueries(queryOptions);
-              }}
-            >
-              Delete
-            </MenuItem>
-          </Menu>
-        </Popover>
+        <Menu>
+          <MenuItem
+            onAction={async () => {
+              await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });
+              await queryClient.invalidateQueries(queryOptions);
+            }}
+          >
+            Delete
+          </MenuItem>
+        </Menu>
       </MenuTrigger>
     </TreeItem>
   );
