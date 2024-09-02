@@ -1,4 +1,5 @@
-import { Button as RACButton, type ButtonProps as RACButtonProps } from 'react-aria-components';
+import { Struct } from 'effect';
+import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components';
 import { tv, type VariantProps } from 'tailwind-variants';
 
 import { focusRingStyles } from './focus-ring';
@@ -7,21 +8,29 @@ import { composeRenderPropsTV } from './utils';
 
 export const buttonStyles = tv({
   extend: focusRingStyles,
-  base: tw`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
+  base: tw`flex cursor-pointer items-center justify-center`,
   variants: {
+    kind: {
+      default: tw`gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
+      placeholder: tw`gap-0.5 rounded border border-black bg-neutral-200 px-3 py-2 text-sm leading-none text-black rac-hover:bg-neutral-400`,
+    },
     variant: {
       primary: tw`bg-indigo-600 text-white`,
       'secondary gray': tw`border border-slate-200 bg-white text-black`,
       'secondary color': tw`border border-indigo-200 bg-indigo-50 text-indigo-700`,
+      placeholder: null,
     },
   },
   defaultVariants: {
+    kind: 'default',
     variant: 'primary',
   },
 });
 
-export interface ButtonProps extends RACButtonProps, VariantProps<typeof buttonStyles> {}
+export interface ButtonProps extends AriaButtonProps, VariantProps<typeof buttonStyles> {}
 
-export const Button = ({ className, variant, ...props }: ButtonProps) => (
-  <RACButton {...props} className={composeRenderPropsTV(className, buttonStyles, { variant })} />
-);
+export const Button = ({ className, ...props }: ButtonProps) => {
+  const forwardedProps = Struct.omit(props, ...buttonStyles.variantKeys);
+  const variantProps = Struct.pick(props, ...buttonStyles.variantKeys);
+  return <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
+};

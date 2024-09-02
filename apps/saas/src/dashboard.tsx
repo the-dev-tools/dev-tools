@@ -1,8 +1,9 @@
 import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import { Button, Link, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
+import { Link, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';
+import { Button } from '@the-dev-tools/ui/button';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Runtime } from './runtime';
@@ -31,7 +32,7 @@ export const DashboardLayout = ({ children, ...mixProps }: DashboardLayoutProps)
         <div className='flex-1' />
         {props.right.children && <div {...props.right}>{props.right.children}</div>}
         <MenuTrigger>
-          <Button className='flex size-8 items-center justify-center rounded-full bg-white uppercase text-black'>
+          <Button kind='placeholder' variant='placeholder' className='size-8 rounded-full uppercase'>
             {email[0]}
           </Button>
           <Popover>

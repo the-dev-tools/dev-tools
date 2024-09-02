@@ -2,9 +2,10 @@ import { useMutation as useConnectMutation } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe } from 'effect';
-import { Button, Form, Input, Label, TextField } from 'react-aria-components';
+import { Form, Input, Label, TextField } from 'react-aria-components';
 
 import { inviteUser } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
+import { Button } from '@the-dev-tools/ui/button';
 
 import { Runtime } from './runtime';
 
@@ -42,7 +43,9 @@ export const MembersPage = () => {
           <Label>Invite new member:</Label>
           <Input placeholder='Email' />
         </TextField>
-        <Button type='submit'>Send invite</Button>
+        <Button kind='placeholder' variant='placeholder' type='submit'>
+          Send invite
+        </Button>
       </Form>
     </>
   );

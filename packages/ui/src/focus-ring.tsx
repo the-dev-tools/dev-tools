@@ -7,7 +7,7 @@ const isFocusedStyles = {
 };
 
 export const focusRingStyles = tv({
-  base: tw`relative z-0 border-transparent outline outline-0 outline-transparent transition-[border-color,outline-color,outline-width]`,
+  base: tw`relative z-0 border-transparent outline outline-0 outline-transparent transition-[border-color,outline-color,outline-width,background-color]`,
   variants: {
     isFocused: isFocusedStyles,
     isFocusWithin: isFocusedStyles,

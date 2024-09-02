@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Button, Form, Input, Menu, MenuItem, MenuTrigger, Popover, TextField } from 'react-aria-components';
+import { Form, Input, Menu, MenuItem, MenuTrigger, Popover, TextField } from 'react-aria-components';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
@@ -20,6 +20,7 @@ import {
   getWorkspaces,
   updateWorkspace,
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
+import { Button } from '@the-dev-tools/ui/button';
 
 import { CollectionsWidget } from './collection';
 import { DashboardLayout } from './dashboard';
@@ -44,6 +45,8 @@ export const WorkspacesPage = () => {
     <div className='flex size-full flex-col items-center justify-center gap-4'>
       <div>
         <Button
+          kind='placeholder'
+          variant='placeholder'
           onPress={async () => {
             await createMutation.mutateAsync({ name: 'New workspace' });
             await queryClient.invalidateQueries(queryOptions);
@@ -102,17 +105,23 @@ const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
           <TextField aria-label='Workspace name' name='name' defaultValue={workspace.name} autoFocus>
             <Input />
           </TextField>
-          <Button type='submit'>Save</Button>
+          <Button kind='placeholder' variant='placeholder' type='submit'>
+            Save
+          </Button>
         </Form>
       ) : (
         <>
           <Link to='/workspace/$workspaceId' params={{ workspaceId: workspace.id }}>
             {workspace.name}
           </Link>
-          <Button onPress={() => void setRenaming(true)}>Rename</Button>
+          <Button kind='placeholder' variant='placeholder' onPress={() => void setRenaming(true)}>
+            Rename
+          </Button>
         </>
       )}
       <Button
+        kind='placeholder'
+        variant='placeholder'
         onPress={async () => {
           await deleteMutation.mutateAsync({ id: workspace.id });
           await queryClient.invalidateQueries(queryOptions);
@@ -137,7 +146,9 @@ export const WorkspaceLayout = () => {
     <DashboardLayout
       leftChildren={
         <MenuTrigger>
-          <Button>{workspace!.name}</Button>
+          <Button kind='placeholder' className='bg-transparent text-white' variant='placeholder'>
+            {workspace!.name}
+          </Button>
           <Popover>
             <Menu className='flex flex-col gap-2 rounded border-2 border-black bg-white p-2'>
               <MenuItem href={{ to: '/workspace/$workspaceId', params: { workspaceId } }}>Home</MenuItem>

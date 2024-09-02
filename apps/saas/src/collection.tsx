@@ -16,7 +16,6 @@ import {
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
   TreeItemContentProps as AriaTreeItemContentProps,
   TreeItemProps as AriaTreeItemProps,
-  Button,
   Collection,
   composeRenderProps,
   Dialog,
@@ -36,7 +35,7 @@ import {
   TextField,
   UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
-import { LuChevronRight, LuFolder, LuMoreHorizontal } from 'react-icons/lu';
+import { LuChevronRight, LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
 import { twJoin, twMerge } from 'tailwind-merge';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
@@ -60,6 +59,7 @@ import {
   deleteFolder,
   updateFolder,
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
+import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
@@ -87,12 +87,15 @@ export const CollectionsWidget = () => {
       <h3 className='uppercase'>Collections</h3>
       <div className='flex justify-between gap-2'>
         <Button
+          kind='placeholder'
+          variant='placeholder'
           onPress={async () => {
             await createCollectionMutation.mutateAsync({ workspaceId, name: 'New collection' });
             await queryClient.invalidateQueries(listQueryOptions);
           }}
-          className='flex-1 rounded bg-black text-white'
+          className='flex-1 font-medium'
         >
+          <LuPlus />
           New
         </Button>
         <ImportPostman />
@@ -131,7 +134,7 @@ const TreeItem = <T extends object>({ children, className, childItem, ...mixProp
             )}
           >
             {hasChildRows && (
-              <Button slot='chevron'>
+              <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1' slot='chevron'>
                 <LuChevronRight
                   className={twJoin(tw`transition-transform`, !isExpanded ? tw`rotate-0` : tw`rotate-90`)}
                 />
@@ -181,7 +184,7 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
       </Text>
 
       <MenuTrigger>
-        <Button>
+        <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1'>
           <LuMoreHorizontal />
         </Button>
 
@@ -258,7 +261,9 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
               <Input className='w-full bg-transparent' />
             </TextField>
 
-            <Button type='submit'>Save</Button>
+            <Button kind='placeholder' variant='placeholder' type='submit'>
+              Save
+            </Button>
           </Form>
         </Dialog>
       </Popover>
@@ -313,7 +318,7 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
       </Text>
 
       <MenuTrigger>
-        <Button>
+        <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1'>
           <LuMoreHorizontal />
         </Button>
 
@@ -378,7 +383,9 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
               <Input className='w-full bg-transparent' />
             </TextField>
 
-            <Button type='submit'>Save</Button>
+            <Button kind='placeholder' variant='placeholder' type='submit'>
+              Save
+            </Button>
           </Form>
         </Dialog>
       </Popover>
@@ -416,7 +423,7 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
       <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
 
       <MenuTrigger>
-        <Button>
+        <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1'>
           <LuMoreHorizontal />
         </Button>
 
@@ -461,7 +468,10 @@ const ImportPostman = () => {
         await queryClient.invalidateQueries(listQueryOptions);
       }}
     >
-      <Button className='flex-1 rounded bg-black text-white'>Import</Button>
+      <Button kind='placeholder' variant='placeholder' className='flex-1 font-medium'>
+        <LuImport />
+        Import
+      </Button>
     </FileTrigger>
   );
 };
@@ -518,7 +528,7 @@ export const ApiCallPage = () => {
 
         <Select name='method' defaultSelectedKey={data.apiCall!.method} className='flex gap-2'>
           <Label>Method:</Label>
-          <Button>
+          <Button kind='placeholder' variant='placeholder'>
             <SelectValue />
           </Button>
           <Popover className='bg-white'>
@@ -537,7 +547,9 @@ export const ApiCallPage = () => {
           <Input className='flex-1' />
         </TextField>
 
-        <Button type='submit'>Save</Button>
+        <Button kind='placeholder' variant='placeholder' type='submit'>
+          Save
+        </Button>
       </Form>
     </>
   );
