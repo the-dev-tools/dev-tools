@@ -85,6 +85,7 @@ CREATE TABLE item_api_example (
         id BLOB PRIMARY KEY,
         item_api_id BLOB NOT NULL,
         collection_id BLOB NOT NULL,
+        default BOOLEAN NOT NULL DEFAULT FALSE,
         name TEXT NOT NULL,
         headers BLOB NOT NULL,
         query BLOB NOT NULL,
@@ -98,12 +99,14 @@ CREATE TABLE item_api_example (
 CREATE TRIGGER insert_item_api_example
 AFTER INSERT ON item_api_example
 BEGIN
+        SELECT RAISE(ABORT, 'Default item_api_example already exists') WHERE NEW.default = TRUE AND EXISTS (SELECT 1 FROM item_api_example WHERE item_api_id = NEW.item_api_id AND default = TRUE);
         UPDATE item_api SET updated = datetime('now') WHERE id = NEW.item_api_id;
 END;
 
 CREATE TRIGGER update_item_api_example
 AFTER UPDATE ON item_api_example
 BEGIN
+        SELECT RAISE(ABORT, 'Default item_api_example already exists') WHERE NEW.default = TRUE AND EXISTS (SELECT 1 FROM item_api_example WHERE item_api_id = NEW.item_api_id AND default = TRUE);
         UPDATE item_api SET updated = datetime('now') WHERE id = NEW.item_api_id;
         UPDATE item_api_example SET updated = datetime('now') WHERE id = NEW.id;
 END;

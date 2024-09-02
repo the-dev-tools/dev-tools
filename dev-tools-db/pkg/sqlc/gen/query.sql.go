@@ -563,10 +563,22 @@ SELECT
 FROM item_api_example WHERE id = ? LIMIT 1
 `
 
+type GetItemApiExampleRow struct {
+	ID           ulid.ULID
+	ItemApiID    ulid.ULID
+	CollectionID ulid.ULID
+	Name         string
+	Headers      mitemapiexample.Headers
+	Query        mitemapiexample.Query
+	Body         []byte
+	Created      time.Time
+	Updated      time.Time
+}
+
 // Item Api Example
-func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiExample, error) {
+func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (GetItemApiExampleRow, error) {
 	row := q.queryRow(ctx, q.getItemApiExampleStmt, getItemApiExample, id)
-	var i ItemApiExample
+	var i GetItemApiExampleRow
 	err := row.Scan(
 		&i.ID,
 		&i.ItemApiID,
@@ -595,15 +607,27 @@ SELECT
 FROM item_api_example WHERE item_api_id = ?
 `
 
-func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) ([]ItemApiExample, error) {
+type GetItemApiExamplesRow struct {
+	ID           ulid.ULID
+	ItemApiID    ulid.ULID
+	CollectionID ulid.ULID
+	Name         string
+	Headers      mitemapiexample.Headers
+	Query        mitemapiexample.Query
+	Body         []byte
+	Created      time.Time
+	Updated      time.Time
+}
+
+func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) ([]GetItemApiExamplesRow, error) {
 	rows, err := q.query(ctx, q.getItemApiExamplesStmt, getItemApiExamples, itemApiID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ItemApiExample
+	var items []GetItemApiExamplesRow
 	for rows.Next() {
-		var i ItemApiExample
+		var i GetItemApiExamplesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
