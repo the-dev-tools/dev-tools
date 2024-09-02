@@ -63,8 +63,8 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 	}
 
 	go func() {
-		wg.Add(len(collection.Items))
 		for i, item := range collection.Items {
+			wg.Add(1)
 			// means it is a folder
 			if item.Request == nil {
 				rootFolder := mitemfolder.ItemFolder{
@@ -75,10 +75,14 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 				}
 				ItemChannels.Folder <- rootFolder
 				go GetRecursiveFolders(item, &rootFolder.ID, collectionID, ItemChannels)
-				collection.Items = RemoveItem(collection.Items, i)
+				if len(collection.Items) > 1 {
+					collection.Items = RemoveItem(collection.Items, i)
+				}
 			} else {
 				go GetRequest(item, nil, collectionID, ItemChannels)
-				collection.Items = RemoveItem(collection.Items, i)
+				if len(collection.Items) > 1 {
+					collection.Items = RemoveItem(collection.Items, i)
+				}
 			}
 		}
 		wg.Wait()
@@ -102,8 +106,9 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 }
 
 func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels ItemChannels) {
-	channels.Wg.Add(len(item.Items))
+	defer channels.Wg.Done()
 	for i, item := range item.Items {
+		channels.Wg.Add(1)
 		if item.Request == nil {
 			folder := mitemfolder.ItemFolder{
 				ID:           ulid.Make(),
@@ -119,10 +124,10 @@ func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ul
 			RemoveItem(item.Items, i)
 		}
 	}
-	channels.Wg.Done()
 }
 
 func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels ItemChannels) {
+	defer channels.Wg.Done()
 	headers := make(map[string]string)
 
 	if item.Request == nil {
@@ -170,16 +175,16 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 
 	channels.Api <- api
 
-	channels.Wg.Add(len(item.Responses))
 	for _, v := range item.Responses {
+		channels.Wg.Add(1)
 		go GetResponse(v, bodyData, queryParams, ulidID, collectionID, channels)
 	}
 
-	channels.Wg.Done()
 	return
 }
 
 func GetResponse(item *mresponse.Response, body []byte, queryParams map[string]string, apiID, collectionID ulid.ULID, channels ItemChannels) {
+	defer channels.Wg.Done()
 	headers := make(map[string]string)
 	for _, v := range item.Headers {
 		headers[v.Key] = v.Value
@@ -205,6 +210,9 @@ func GetResponse(item *mresponse.Response, body []byte, queryParams map[string]s
 }
 
 func RemoveItem[I any](slice []I, s int) []I {
+	if s >= len(slice) {
+		return slice
+	}
 	return append(slice[:s], slice[s+1:]...)
 }
 
