@@ -1,6 +1,8 @@
 package mitemapi
 
 import (
+	"dev-tools-backend/pkg/model/mitemapiexample"
+
 	"github.com/oklog/ulid/v2"
 )
 
@@ -11,4 +13,11 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
+}
+
+type ItemApiWithExamples struct {
+	ItemApi
+
+	DefaultExample mitemapiexample.ItemApiExample
+	Examples       []mitemapiexample.ItemApiExampleMeta
 }

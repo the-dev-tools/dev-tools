@@ -9,6 +9,7 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"errors"
+	"fmt"
 	"net/url"
 	"sync"
 
@@ -174,16 +175,21 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 	}
 
 	channels.Api <- api
+	channels.ApiExample <- *mitemapiexample.NewItemApiExample(ulidID, ulidID, collectionID, true, item.Name, *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), bodyData)
 
 	for _, v := range item.Responses {
 		channels.Wg.Add(1)
-		go GetResponse(v, bodyData, queryParams, ulidID, collectionID, channels)
+		name := v.Name
+		if name == "" {
+			name = fmt.Sprintf("Example %d of %s", v.Code, api.Name)
+		}
+		go GetResponse(v, bodyData, name, queryParams, ulidID, collectionID, channels)
 	}
 
 	return
 }
 
-func GetResponse(item *mresponse.Response, body []byte, queryParams map[string]string, apiID, collectionID ulid.ULID, channels ItemChannels) {
+func GetResponse(item *mresponse.Response, body []byte, name string, queryParams map[string]string, apiID, collectionID ulid.ULID, channels ItemChannels) {
 	defer channels.Wg.Done()
 	headers := make(map[string]string)
 	for _, v := range item.Headers {
@@ -199,7 +205,8 @@ func GetResponse(item *mresponse.Response, body []byte, queryParams map[string]s
 		ID:           ulid.Make(),
 		ItemApiID:    apiID,
 		CollectionID: collectionID,
-		Name:         item.Name,
+		Name:         name,
+		Default:      false,
 		Headers:      *mitemapiexample.NewHeaders(headers),
 		Cookies:      *mitemapiexample.NewCookies(cookies),
 		Query:        *mitemapiexample.NewQuery(queryParams),

@@ -109,6 +109,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 		}
 
 	}
+
 	return nil
 }
 

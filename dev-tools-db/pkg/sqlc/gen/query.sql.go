@@ -134,7 +134,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 
 const createItemApiExample = `-- name: CreateItemApiExample :exec
 INSERT INTO item_api_example 
-        (id, item_api_id, collection_id, default, name, headers, query, body)
+        (id, item_api_id, collection_id, is_default, name, headers, query, body)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
@@ -142,7 +142,7 @@ type CreateItemApiExampleParams struct {
 	ID           ulid.ULID
 	ItemApiID    ulid.ULID
 	CollectionID ulid.ULID
-	Default      bool
+	IsDefault    bool
 	Name         string
 	Headers      mitemapiexample.Headers
 	Query        mitemapiexample.Query
@@ -154,11 +154,74 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.ID,
 		arg.ItemApiID,
 		arg.CollectionID,
-		arg.Default,
+		arg.IsDefault,
 		arg.Name,
 		arg.Headers,
 		arg.Query,
 		arg.Body,
+	)
+	return err
+}
+
+const createItemApiExampleBulk = `-- name: CreateItemApiExampleBulk :exec
+INSERT INTO item_api_example 
+        (id, item_api_id, collection_id, is_default, name, headers, query, body)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateItemApiExampleBulkParams struct {
+	ID             ulid.ULID
+	ItemApiID      ulid.ULID
+	CollectionID   ulid.ULID
+	IsDefault      bool
+	Name           string
+	Headers        mitemapiexample.Headers
+	Query          mitemapiexample.Query
+	Body           []byte
+	ID_2           ulid.ULID
+	ItemApiID_2    ulid.ULID
+	CollectionID_2 ulid.ULID
+	IsDefault_2    bool
+	Name_2         string
+	Headers_2      mitemapiexample.Headers
+	Query_2        mitemapiexample.Query
+	Body_2         []byte
+	ID_3           ulid.ULID
+	ItemApiID_3    ulid.ULID
+	CollectionID_3 ulid.ULID
+	IsDefault_3    bool
+	Name_3         string
+	Headers_3      mitemapiexample.Headers
+	Query_3        mitemapiexample.Query
+	Body_3         []byte
+}
+
+func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
+	_, err := q.exec(ctx, q.createItemApiExampleBulkStmt, createItemApiExampleBulk,
+		arg.ID,
+		arg.ItemApiID,
+		arg.CollectionID,
+		arg.IsDefault,
+		arg.Name,
+		arg.Headers,
+		arg.Query,
+		arg.Body,
+		arg.ID_2,
+		arg.ItemApiID_2,
+		arg.CollectionID_2,
+		arg.IsDefault_2,
+		arg.Name_2,
+		arg.Headers_2,
+		arg.Query_2,
+		arg.Body_2,
+		arg.ID_3,
+		arg.ItemApiID_3,
+		arg.CollectionID_3,
+		arg.IsDefault_3,
+		arg.Name_3,
+		arg.Headers_3,
+		arg.Query_3,
+		arg.Body_3,
 	)
 	return err
 }
@@ -556,7 +619,7 @@ SELECT
         id, 
         item_api_id, 
         collection_id, 
-        default, 
+        is_default,
         name, 
         headers, 
         query, 
@@ -574,7 +637,7 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 		&i.ID,
 		&i.ItemApiID,
 		&i.CollectionID,
-		&i.Default,
+		&i.IsDefault,
 		&i.Name,
 		&i.Headers,
 		&i.Query,
@@ -585,19 +648,68 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 	return i, err
 }
 
+const getItemApiExampleByCollectionID = `-- name: GetItemApiExampleByCollectionID :many
+SELECT 
+        id, 
+        item_api_id, 
+        collection_id, 
+        is_default, 
+        name, 
+        headers, 
+        query, 
+        body, 
+        created, 
+        updated
+FROM item_api_example WHERE collection_id = ?
+`
+
+func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApiExample, error) {
+	rows, err := q.query(ctx, q.getItemApiExampleByCollectionIDStmt, getItemApiExampleByCollectionID, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemApiExample
+	for rows.Next() {
+		var i ItemApiExample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.IsDefault,
+			&i.Name,
+			&i.Headers,
+			&i.Query,
+			&i.Body,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getItemApiExampleDefault = `-- name: GetItemApiExampleDefault :one
 SELECT 
         id, 
         item_api_id, 
         collection_id, 
-        default, 
+        is_default, 
         name, 
         headers, 
         query, 
         body, 
         created, 
         updated 
-FROM item_api_example WHERE item_api_id = ? AND default = true LIMIT 1
+FROM item_api_example WHERE item_api_id = ? AND is_default = true LIMIT 1
 `
 
 func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.ULID) (ItemApiExample, error) {
@@ -607,7 +719,7 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.U
 		&i.ID,
 		&i.ItemApiID,
 		&i.CollectionID,
-		&i.Default,
+		&i.IsDefault,
 		&i.Name,
 		&i.Headers,
 		&i.Query,
@@ -623,14 +735,14 @@ SELECT
         id, 
         item_api_id, 
         collection_id, 
-        default, 
+        is_default, 
         name, 
         headers, 
         query, 
         body, 
         created, 
         updated 
-FROM item_api_example WHERE item_api_id = ? AND default = false
+FROM item_api_example WHERE item_api_id = ? AND is_default = false
 `
 
 func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) ([]ItemApiExample, error) {
@@ -646,7 +758,7 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) (
 			&i.ID,
 			&i.ItemApiID,
 			&i.CollectionID,
-			&i.Default,
+			&i.IsDefault,
 			&i.Name,
 			&i.Headers,
 			&i.Query,

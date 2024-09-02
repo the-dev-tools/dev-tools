@@ -36,7 +36,7 @@ type ItemApiExample struct {
 	ID           ulid.ULID
 	ItemApiID    ulid.ULID
 	CollectionID ulid.ULID
-	Default      bool
+	IsDefault    bool
 	Name         string
 	Headers      mitemapiexample.Headers
 	Query        mitemapiexample.Query

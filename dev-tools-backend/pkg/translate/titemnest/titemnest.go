@@ -2,17 +2,20 @@ package titemnest
 
 import (
 	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
+	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"fmt"
 
 	"github.com/oklog/ulid/v2"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type CollectionPair struct {
 	itemFolders []mitemfolder.ItemFolderNested
-	itemApis    []mitemapi.ItemApi
+	itemApis    []mitemapi.ItemApiWithExamples
 }
 
 // TODO: can be more efficient by MultiThreading
@@ -57,8 +60,9 @@ func (c CollectionPair) GetItemFolders() []*itemfolderv1.Item {
 func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item {
 	var items []*itemfolderv1.Item
 	for _, child := range item.Children {
-		folder, ok := child.(mitemfolder.ItemFolderNested)
-		if ok {
+		switch child.(type) {
+		case mitemfolder.ItemFolderNested:
+			folder := child.(mitemfolder.ItemFolderNested)
 			folderCollection := &itemfolderv1.Item{
 				Data: &itemfolderv1.Item_Folder{
 					Folder: &itemfolderv1.Folder{
@@ -73,24 +77,45 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item 
 				},
 			}
 			items = append(items, folderCollection)
-		} else {
-			api, ok := child.(mitemapi.ItemApi)
-			if ok {
-				item := &itemfolderv1.Item{
-					Data: &itemfolderv1.Item_ApiCall{
-						ApiCall: &itemapiv1.ApiCall{
-							Meta: &itemapiv1.ApiCallMeta{
-								Name: api.Name,
-								Id:   api.ID.String(),
-							},
-							ParentId: api.ParentID.String(),
-							Url:      api.Url,
-							Method:   api.Method,
-						},
-					},
+		case mitemapi.ItemApiWithExamples:
+			api := child.(mitemapi.ItemApiWithExamples)
+			rpcExamples := make([]*itemapiexamplev1.ApiExampleMeta, len(api.Examples))
+			for i, example := range api.Examples {
+				rpcExamples[i] = &itemapiexamplev1.ApiExampleMeta{
+					Id:   example.ID.String(),
+					Name: example.Name,
 				}
-				items = append(items, item)
 			}
+
+			item := &itemfolderv1.Item{
+				Data: &itemfolderv1.Item_ApiCall{
+					ApiCall: &itemapiv1.ApiCall{
+						Meta: &itemapiv1.ApiCallMeta{
+							Name: api.Name,
+							Id:   api.ID.String(),
+						},
+						ParentId: api.ParentID.String(),
+						Url:      api.Url,
+						Method:   api.Method,
+						DefaultExample: &itemapiexamplev1.ApiExample{
+							Meta: &itemapiexamplev1.ApiExampleMeta{
+								Id:   api.DefaultExample.ID.String(),
+								Name: api.DefaultExample.Name,
+							},
+							Query:   api.DefaultExample.GetQueryParams(),
+							Headers: api.DefaultExample.GetHeaders(),
+							Cookies: api.DefaultExample.GetCookies(),
+							Body:    api.DefaultExample.Body,
+							Created: timestamppb.New(api.DefaultExample.Created),
+							Updated: timestamppb.New(api.DefaultExample.Updated),
+						},
+						Examples: rpcExamples,
+					},
+				},
+			}
+			items = append(items, item)
+		default:
+			return nil
 		}
 	}
 
@@ -99,7 +124,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item 
 
 // sort and create root fodler and check sub folder recoversive
 // also put api with parentID in the folder
-func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi) (*CollectionPair, error) {
+func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi, examples []mitemapiexample.ItemApiExample) (*CollectionPair, error) {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
 	sortedFolderIds := make([]ulid.ULID, len(sortedFolders))
@@ -114,7 +139,31 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 		}
 	}
 
-	for _, api := range apis {
+	apiMap := make(map[ulid.ULID]mitemapi.ItemApiWithExamples, len(apis))
+	for _, item := range apis {
+		apiMap[item.ID] = mitemapi.ItemApiWithExamples{
+			ItemApi:        item,
+			DefaultExample: mitemapiexample.ItemApiExample{},
+			Examples:       []mitemapiexample.ItemApiExampleMeta{},
+		}
+	}
+
+	for _, example := range examples {
+		api, ok := apiMap[example.ItemApiID]
+		if ok {
+			if example.Default {
+				api.DefaultExample = example
+			} else {
+				meta := mitemapiexample.ItemApiExampleMeta{
+					ID:   example.ID,
+					Name: example.Name,
+				}
+				api.Examples = append(api.Examples, meta)
+			}
+		}
+	}
+
+	for _, api := range apiMap {
 		if api.ParentID != nil {
 			folder, ok := folderMap[*api.ParentID]
 			if ok {

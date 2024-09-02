@@ -9,6 +9,7 @@ import (
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
+	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
@@ -36,6 +37,7 @@ type CollectionServiceRPC struct {
 	ias    sitemapi.ItemApiService
 	ifs    sitemfolder.ItemFolderService
 	ras    sresultapi.ResultApiService
+	iaes   sitemapiexample.ItemApiExampleService
 	secret []byte
 }
 
@@ -199,7 +201,12 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems)
+	apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems, apiExampleItems)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -324,6 +331,11 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	}
 
 	err = c.ias.CreateItemApiBulk(ctx, items.Api)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = c.iaes.CreateApiExampleBulk(ctx, items.ApiExample)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -470,6 +482,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	iaes, err := sitemapiexample.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &CollectionServiceRPC{
@@ -481,6 +498,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		ws:     *ws,
 		us:     *us,
 		ras:    *ras,
+		iaes:   *iaes,
 	}
 
 	path, handler := collectionv1connect.NewCollectionServiceHandler(server, interceptors)

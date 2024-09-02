@@ -8,6 +8,11 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+type ItemApiExampleMeta struct {
+	ID   ulid.ULID
+	Name string
+}
+
 type ItemApiExample struct {
 	ID           ulid.ULID
 	ItemApiID    ulid.ULID
@@ -64,6 +69,14 @@ func (c Cookies) Bytes() []byte {
 
 func (c *Cookies) Scan(value interface{}) error {
 	return json.Unmarshal(value.([]byte), &c.CookieMap)
+}
+
+func (i *ItemApiExample) SetCookies(cookies map[string]string) {
+	i.Cookies.CookieMap = cookies
+}
+
+func (i *ItemApiExample) GetCookies() map[string]string {
+	return i.Cookies.CookieMap
 }
 
 type Headers struct {

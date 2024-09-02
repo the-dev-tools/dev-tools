@@ -39,6 +39,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createItemApiExampleStmt, err = db.PrepareContext(ctx, createItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemApiExample: %w", err)
 	}
+	if q.createItemApiExampleBulkStmt, err = db.PrepareContext(ctx, createItemApiExampleBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateItemApiExampleBulk: %w", err)
+	}
 	if q.createItemFolderStmt, err = db.PrepareContext(ctx, createItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemFolder: %w", err)
 	}
@@ -98,6 +101,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
+	}
+	if q.getItemApiExampleByCollectionIDStmt, err = db.PrepareContext(ctx, getItemApiExampleByCollectionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiExampleByCollectionID: %w", err)
 	}
 	if q.getItemApiExampleDefaultStmt, err = db.PrepareContext(ctx, getItemApiExampleDefault); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExampleDefault: %w", err)
@@ -219,6 +225,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createItemApiExampleStmt: %w", cerr)
 		}
 	}
+	if q.createItemApiExampleBulkStmt != nil {
+		if cerr := q.createItemApiExampleBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createItemApiExampleBulkStmt: %w", cerr)
+		}
+	}
 	if q.createItemFolderStmt != nil {
 		if cerr := q.createItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createItemFolderStmt: %w", cerr)
@@ -317,6 +328,11 @@ func (q *Queries) Close() error {
 	if q.getItemApiExampleStmt != nil {
 		if cerr := q.getItemApiExampleStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiExampleStmt: %w", cerr)
+		}
+	}
+	if q.getItemApiExampleByCollectionIDStmt != nil {
+		if cerr := q.getItemApiExampleByCollectionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiExampleByCollectionIDStmt: %w", cerr)
 		}
 	}
 	if q.getItemApiExampleDefaultStmt != nil {
@@ -513,6 +529,7 @@ type Queries struct {
 	createItemApiStmt                          *sql.Stmt
 	createItemApiBulkStmt                      *sql.Stmt
 	createItemApiExampleStmt                   *sql.Stmt
+	createItemApiExampleBulkStmt               *sql.Stmt
 	createItemFolderStmt                       *sql.Stmt
 	createItemFolderBulkStmt                   *sql.Stmt
 	createResultApiStmt                        *sql.Stmt
@@ -533,6 +550,7 @@ type Queries struct {
 	getCollectionOwnerIDStmt                   *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
 	getItemApiExampleStmt                      *sql.Stmt
+	getItemApiExampleByCollectionIDStmt        *sql.Stmt
 	getItemApiExampleDefaultStmt               *sql.Stmt
 	getItemApiExamplesStmt                     *sql.Stmt
 	getItemApiOwnerIDStmt                      *sql.Stmt
@@ -574,6 +592,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createItemApiStmt:                          q.createItemApiStmt,
 		createItemApiBulkStmt:                      q.createItemApiBulkStmt,
 		createItemApiExampleStmt:                   q.createItemApiExampleStmt,
+		createItemApiExampleBulkStmt:               q.createItemApiExampleBulkStmt,
 		createItemFolderStmt:                       q.createItemFolderStmt,
 		createItemFolderBulkStmt:                   q.createItemFolderBulkStmt,
 		createResultApiStmt:                        q.createResultApiStmt,
@@ -594,6 +613,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
 		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
+		getItemApiExampleByCollectionIDStmt:        q.getItemApiExampleByCollectionIDStmt,
 		getItemApiExampleDefaultStmt:               q.getItemApiExampleDefaultStmt,
 		getItemApiExamplesStmt:                     q.getItemApiExamplesStmt,
 		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,

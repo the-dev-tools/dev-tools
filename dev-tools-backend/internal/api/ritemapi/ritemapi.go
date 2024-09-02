@@ -24,12 +24,12 @@ import (
 )
 
 type ItemApiRPC struct {
-	DB  *sql.DB
-	ias *sitemapi.ItemApiService
-	ifs *sitemfolder.ItemFolderService
-	cs  *scollection.CollectionService
-	us  *suser.UserService
-	axs *sitemapiexample.ItemApiExampleService
+	DB   *sql.DB
+	ias  *sitemapi.ItemApiService
+	ifs  *sitemfolder.ItemFolderService
+	cs   *scollection.CollectionService
+	us   *suser.UserService
+	iaes *sitemapiexample.ItemApiExampleService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -53,14 +53,20 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	iaes, err := sitemapiexample.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &ItemApiRPC{
-		DB:  db,
-		ias: ias,
-		ifs: ifs,
-		cs:  cs,
-		us:  us,
+		DB:   db,
+		ias:  ias,
+		ifs:  ifs,
+		cs:   cs,
+		us:   us,
+		iaes: iaes,
 	}
 
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, interceptors)
@@ -103,7 +109,7 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		Query:        *mitemapiexample.NewQueryDefault(),
 		Body:         []byte{},
 	}
-	err = c.axs.CreateApiExample(ctx, example)
+	err = c.iaes.CreateApiExample(ctx, example)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -133,7 +139,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	defultApiExample, err := c.axs.GetDefaultApiExample(ctx, ulidID)
+	defultApiExample, err := c.iaes.GetDefaultApiExample(ctx, ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -145,7 +151,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		parentID = item.ParentID.String()
 	}
 
-	examples, err := c.axs.GetApiExamples(ctx, ulidID)
+	examples, err := c.iaes.GetApiExamples(ctx, ulidID)
 	if err != nil {
 		if err == sitemapiexample.ErrNoItemApiExampleFound {
 			examples = []mitemapiexample.ItemApiExample{}
