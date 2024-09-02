@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Form, Input, Menu, MenuItem, MenuTrigger, Popover, TextField } from 'react-aria-components';
+import { Form, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
@@ -21,6 +21,7 @@ import {
   updateWorkspace,
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { CollectionsWidget } from './collection';
 import { DashboardLayout } from './dashboard';
@@ -102,9 +103,7 @@ const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
           }
         >
           {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
-          <TextField aria-label='Workspace name' name='name' defaultValue={workspace.name} autoFocus>
-            <Input />
-          </TextField>
+          <TextField aria-label='Workspace name' name='name' defaultValue={workspace.name} autoFocus />
           <Button kind='placeholder' variant='placeholder' type='submit'>
             Save
           </Button>

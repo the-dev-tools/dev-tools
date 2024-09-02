@@ -12,6 +12,7 @@ import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import {
+  Label as AriaLabel,
   UNSTABLE_TreeItem as AriaTreeItem,
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
   TreeItemContentProps as AriaTreeItemContentProps,
@@ -21,8 +22,6 @@ import {
   Dialog,
   FileTrigger,
   Form,
-  Input,
-  Label,
   ListBox,
   ListBoxItem,
   Menu,
@@ -32,7 +31,6 @@ import {
   Select,
   SelectValue,
   Text,
-  TextField,
   UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
 import { LuChevronRight, LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
@@ -61,6 +59,7 @@ import {
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextField } from '@the-dev-tools/ui/text-field';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
@@ -226,7 +225,7 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
       >
         <Dialog aria-label='Rename collection'>
           <Form
-            className='flex flex-1 gap-2'
+            className='flex flex-1 items-center gap-2'
             onSubmit={(event) =>
               Effect.gen(function* () {
                 event.preventDefault();
@@ -255,11 +254,16 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
               }).pipe(Runtime.runPromise)
             }
           >
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
-            <TextField name='name' defaultValue={meta.name} autoFocus className='contents'>
-              <Label className='text-nowrap'>New name:</Label>
-              <Input className='w-full bg-transparent' />
-            </TextField>
+            <TextField
+              name='name'
+              defaultValue={meta.name}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              label='New name:'
+              className={tw`contents`}
+              labelClassName={tw`text-nowrap`}
+              inputClassName={tw`w-full bg-transparent`}
+            />
 
             <Button kind='placeholder' variant='placeholder' type='submit'>
               Save
@@ -349,7 +353,7 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
       >
         <Dialog aria-label='Rename folder'>
           <Form
-            className='flex flex-1 gap-2'
+            className='flex flex-1 items-center gap-2'
             onSubmit={(event) =>
               Effect.gen(function* () {
                 event.preventDefault();
@@ -377,11 +381,16 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
               }).pipe(Runtime.runPromise)
             }
           >
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
-            <TextField name='name' defaultValue={folder.meta!.name} autoFocus className='contents'>
-              <Label className='text-nowrap'>New name:</Label>
-              <Input className='w-full bg-transparent' />
-            </TextField>
+            <TextField
+              name='name'
+              defaultValue={folder.meta!.name}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              label='New name:'
+              className={tw`contents`}
+              labelClassName={tw`text-nowrap`}
+              inputClassName={tw`w-full bg-transparent`}
+            />
 
             <Button kind='placeholder' variant='placeholder' type='submit'>
               Save
@@ -521,13 +530,16 @@ export const ApiCallPage = () => {
           }).pipe(Runtime.runPromise)
         }
       >
-        <TextField name='name' defaultValue={data.apiCall!.meta!.name} className='flex gap-2'>
-          <Label>Name:</Label>
-          <Input className='flex-1' />
-        </TextField>
+        <TextField
+          name='name'
+          defaultValue={data.apiCall!.meta!.name}
+          label='Name:'
+          className={tw`flex gap-2`}
+          inputClassName={tw`flex-1`}
+        />
 
         <Select name='method' defaultSelectedKey={data.apiCall!.method} className='flex gap-2'>
-          <Label>Method:</Label>
+          <AriaLabel>Method:</AriaLabel>
           <Button kind='placeholder' variant='placeholder'>
             <SelectValue />
           </Button>
@@ -542,10 +554,13 @@ export const ApiCallPage = () => {
           </Popover>
         </Select>
 
-        <TextField name='url' defaultValue={data.apiCall!.url} className='flex gap-2'>
-          <Label>URL:</Label>
-          <Input className='flex-1' />
-        </TextField>
+        <TextField
+          name='url'
+          defaultValue={data.apiCall!.url}
+          label='URL:'
+          className={tw`flex gap-2`}
+          inputClassName={tw`flex-1`}
+        />
 
         <Button kind='placeholder' variant='placeholder' type='submit'>
           Save

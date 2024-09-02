@@ -428,6 +428,9 @@ importers:
       '@fontsource-variable/lexend-deca':
         specifier: 5.0.14
         version: 5.0.14
+      '@the-dev-tools/utils':
+        specifier: workspace:^
+        version: link:../utils
       effect:
         specifier: 3.7.0
         version: 3.7.0
