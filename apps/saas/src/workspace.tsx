@@ -6,7 +6,7 @@ import {
 } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, Link, Outlet } from '@tanstack/react-router';
+import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
 import { Form, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
@@ -20,7 +20,7 @@ import {
   getWorkspaces,
   updateWorkspace,
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
-import { Button } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { CollectionsWidget } from './collection';
@@ -110,9 +110,13 @@ const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
         </Form>
       ) : (
         <>
-          <Link to='/workspace/$workspaceId' params={{ workspaceId: workspace.id }}>
+          <ButtonAsLink
+            kind='placeholder'
+            variant='placeholder'
+            href={{ to: '/workspace/$workspaceId', params: { workspaceId: workspace.id } }}
+          >
             {workspace.name}
-          </Link>
+          </ButtonAsLink>
           <Button kind='placeholder' variant='placeholder' onPress={() => void setRenaming(true)}>
             Rename
           </Button>

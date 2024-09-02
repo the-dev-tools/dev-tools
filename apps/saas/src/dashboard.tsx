@@ -1,9 +1,9 @@
 import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import { Link, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
+import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';
-import { Button } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Runtime } from './runtime';
@@ -22,12 +22,9 @@ export const DashboardLayout = ({ children, ...mixProps }: DashboardLayoutProps)
   return (
     <div className='flex h-full flex-col'>
       <div className='flex items-center gap-2 bg-black p-2 text-white'>
-        <Link
-          className='flex h-8 select-none items-center justify-center rounded-full bg-white px-4 text-black'
-          href={{ to: '/' }}
-        >
+        <ButtonAsLink kind='placeholder' variant='placeholder' className='rounded-full' href={{ to: '/' }}>
           DevTools
-        </Link>
+        </ButtonAsLink>
         {props.left.children && <div {...props.left}>{props.left.children}</div>}
         <div className='flex-1' />
         {props.right.children && <div {...props.right}>{props.right.children}</div>}

@@ -1,14 +1,21 @@
 import { Struct } from 'effect';
-import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components';
+import {
+  Button as AriaButton,
+  Link as AriaLink,
+  type ButtonProps as AriaButtonProps,
+  type LinkProps as AriaLinkProps,
+} from 'react-aria-components';
 import { tv, type VariantProps } from 'tailwind-variants';
 
 import { focusRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
+// Button
+
 export const buttonStyles = tv({
   extend: focusRingStyles,
-  base: tw`flex cursor-pointer items-center justify-center`,
+  base: tw`flex cursor-pointer select-none items-center justify-center`,
   variants: {
     kind: {
       default: tw`gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
@@ -33,4 +40,14 @@ export const Button = ({ className, ...props }: ButtonProps) => {
   const forwardedProps = Struct.omit(props, ...buttonStyles.variantKeys);
   const variantProps = Struct.pick(props, ...buttonStyles.variantKeys);
   return <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
+};
+
+// Button as link
+
+export interface ButtonAsLinkProps extends AriaLinkProps, VariantProps<typeof buttonStyles> {}
+
+export const ButtonAsLink = ({ className, ...props }: ButtonAsLinkProps) => {
+  const forwardedProps = Struct.omit(props, ...buttonStyles.variantKeys);
+  const variantProps = Struct.pick(props, ...buttonStyles.variantKeys);
+  return <AriaLink {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
 };
