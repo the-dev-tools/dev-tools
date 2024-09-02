@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package itemapi.v1;
 option go_package = "dev-tools-services/gen/itemapi/v1;itemapiv1";
+import "itemapiexample/v1/itemapiexample.proto";
 
 service ItemApiService {
   rpc GetApiCall(GetApiCallRequest) returns (GetApiCallResponse);
@@ -21,6 +22,8 @@ message ApiCall {
   string collection_id = 3;
 	string url = 4;
 	string method = 5;
+  itemapiexample.v1.ApiExample defaultExample = 6;
+  repeated itemapiexample.v1.ApiExampleMeta examples = 7;
 }
 
 message CreateApiCallRequest {
