@@ -68,7 +68,7 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 			Headers: example.Headers.HeaderMap,
 			Query:   example.Query.QueryMap,
 			Body:    example.Body,
-			Created: timestamppb.New(example.Created),
+			Created: timestamppb.New(example.GetCreatedTime()),
 			Updated: timestamppb.New(example.Updated),
 		}
 	}
@@ -97,7 +97,7 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		Headers: example.Headers.HeaderMap,
 		Query:   example.Query.QueryMap,
 		Body:    example.Body,
-		Created: timestamppb.New(example.Created),
+		Created: timestamppb.New(example.GetCreatedTime()),
 		Updated: timestamppb.New(example.Updated),
 	}
 	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{

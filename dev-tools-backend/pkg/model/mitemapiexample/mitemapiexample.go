@@ -14,32 +14,38 @@ type ItemApiExampleMeta struct {
 }
 
 type ItemApiExample struct {
-	ID           ulid.ULID
-	ItemApiID    ulid.ULID
-	CollectionID ulid.ULID
-	Default      bool
-	Name         string
-	Headers      Headers
-	Cookies      Cookies
-	Body         []byte
-	Query        Query
-	Created      time.Time
-	Updated      time.Time
+	ID              ulid.ULID
+	ItemApiID       ulid.ULID
+	ParentExampleID *ulid.ULID
+	CollectionID    ulid.ULID
+	IsDefault       bool
+	Name            string
+	Headers         Headers
+	Cookies         Cookies
+	Compressed      bool
+	Body            []byte
+	Query           Query
+	Updated         time.Time
 }
 
-func NewItemApiExample(id, itemApiID, collectionID ulid.ULID, isDefault bool, name string, headers Headers, query Query, body []byte) *ItemApiExample {
+func NewItemApiExample(id ulid.ULID, itemApiID, collectionID ulid.ULID, parentExampleId *ulid.ULID, isDefault bool, name string, headers Headers, query Query, compressed bool, body []byte) *ItemApiExample {
 	return &ItemApiExample{
-		ID:           id,
-		ItemApiID:    itemApiID,
-		CollectionID: collectionID,
-		Default:      isDefault,
-		Name:         name,
-		Headers:      headers,
-		Query:        query,
-		Body:         body,
-		Created:      time.Now(),
-		Updated:      time.Now(),
+		ID:              id,
+		ItemApiID:       itemApiID,
+		ParentExampleID: parentExampleId,
+		CollectionID:    collectionID,
+		IsDefault:       isDefault,
+		Name:            name,
+		Headers:         headers,
+		Query:           query,
+		Compressed:      compressed,
+		Body:            body,
+		Updated:         time.Now(),
 	}
+}
+
+func (i ItemApiExample) GetCreatedTime() time.Time {
+	return time.UnixMilli(int64(i.ID.Time()))
 }
 
 type Cookies struct {

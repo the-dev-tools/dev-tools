@@ -154,7 +154,6 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 		ID:      ulidID,
 		OwnerID: workspaceUlid,
 		Name:    name,
-		Created: dbTimeNow,
 		Updated: dbTimeNow,
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
@@ -216,7 +215,7 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 		Id:      collection.ID.String(),
 		Name:    collection.Name,
 		Items:   items,
-		Created: timestamppb.New(collection.Created),
+		Created: timestamppb.New(collection.GetCreatedTime()),
 		Updated: timestamppb.New(collection.Updated),
 	}
 

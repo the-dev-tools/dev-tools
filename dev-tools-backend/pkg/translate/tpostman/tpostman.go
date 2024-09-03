@@ -1,6 +1,8 @@
 package tpostman
 
 import (
+	"bytes"
+	"compress/gzip"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
@@ -160,9 +162,16 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 		channels.Err <- errors.New("url is not a string or murl.URL")
 		return
 	}
-	var bodyData []byte = nil
+	var bodyBuff bytes.Buffer
+	compresed := false
 	if item.Request.Body != nil {
-		bodyData = []byte(item.Request.Body.Raw)
+		if len(item.Request.Body.Raw) > 1000 {
+			compresed = true
+			w := gzip.NewWriter(&bodyBuff)
+			w.Write([]byte(item.Request.Body.Raw))
+		} else {
+			bodyBuff.Write([]byte(item.Request.Body.Raw))
+		}
 	}
 
 	api := mitemapi.ItemApi{
@@ -175,7 +184,11 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 	}
 
 	channels.Api <- api
-	channels.ApiExample <- *mitemapiexample.NewItemApiExample(ulidID, ulidID, collectionID, true, item.Name, *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), bodyData)
+
+	buffBytes := bodyBuff.Bytes()
+	example := mitemapiexample.NewItemApiExample(ulid.Make(), ulidID, collectionID, nil, true,
+		item.Name, *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), compresed, buffBytes)
+	channels.ApiExample <- *example
 
 	for _, v := range item.Responses {
 		channels.Wg.Add(1)
@@ -183,7 +196,7 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 		if name == "" {
 			name = fmt.Sprintf("Example %d of %s", v.Code, api.Name)
 		}
-		go GetResponse(v, bodyData, name, queryParams, ulidID, collectionID, channels)
+		go GetResponse(v, buffBytes, name, queryParams, ulidID, collectionID, channels)
 	}
 
 	return
@@ -206,7 +219,7 @@ func GetResponse(item *mresponse.Response, body []byte, name string, queryParams
 		ItemApiID:    apiID,
 		CollectionID: collectionID,
 		Name:         name,
-		Default:      false,
+		IsDefault:    false,
 		Headers:      *mitemapiexample.NewHeaders(headers),
 		Cookies:      *mitemapiexample.NewCookies(cookies),
 		Query:        *mitemapiexample.NewQuery(queryParams),

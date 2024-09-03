@@ -39,16 +39,17 @@ func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ul
 	itemApiExamplesList := make([]mitemapiexample.ItemApiExample, len(itemApiExamples))
 	for i, itemApiExample := range itemApiExamples {
 		itemApiExamplesList[i] = mitemapiexample.ItemApiExample{
-			ID:           itemApiExample.ID,
-			ItemApiID:    itemApiExample.ItemApiID,
-			CollectionID: itemApiExample.CollectionID,
-			Default:      itemApiExample.IsDefault,
-			Name:         itemApiExample.Name,
-			Headers:      itemApiExample.Headers,
-			Query:        itemApiExample.Query,
-			Body:         itemApiExample.Body,
-			Created:      itemApiExample.Created,
-			Updated:      itemApiExample.Updated,
+			ID:              itemApiExample.ID,
+			ItemApiID:       itemApiExample.ItemApiID,
+			CollectionID:    itemApiExample.CollectionID,
+			ParentExampleID: itemApiExample.ParentExampleID,
+			IsDefault:       itemApiExample.IsDefault,
+			Name:            itemApiExample.Name,
+			Headers:         itemApiExample.Headers,
+			Query:           itemApiExample.Query,
+			Compressed:      itemApiExample.Compressed,
+			Body:            itemApiExample.Body,
+			Updated:         itemApiExample.Updated,
 		}
 	}
 	return itemApiExamplesList, nil
@@ -63,16 +64,17 @@ func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiU
 		return nil, err
 	}
 	return &mitemapiexample.ItemApiExample{
-		ID:           itemApiExample.ID,
-		ItemApiID:    itemApiExample.ItemApiID,
-		CollectionID: itemApiExample.CollectionID,
-		Default:      itemApiExample.IsDefault,
-		Name:         itemApiExample.Name,
-		Headers:      itemApiExample.Headers,
-		Query:        itemApiExample.Query,
-		Body:         itemApiExample.Body,
-		Created:      itemApiExample.Created,
-		Updated:      itemApiExample.Updated,
+		ID:              itemApiExample.ID,
+		ItemApiID:       itemApiExample.ItemApiID,
+		CollectionID:    itemApiExample.CollectionID,
+		ParentExampleID: itemApiExample.ParentExampleID,
+		IsDefault:       itemApiExample.IsDefault,
+		Name:            itemApiExample.Name,
+		Headers:         itemApiExample.Headers,
+		Query:           itemApiExample.Query,
+		Compressed:      itemApiExample.Compressed,
+		Body:            itemApiExample.Body,
+		Updated:         itemApiExample.Updated,
 	}, nil
 }
 
@@ -85,16 +87,17 @@ func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULI
 		return nil, err
 	}
 	return &mitemapiexample.ItemApiExample{
-		ID:           itemApiExample.ID,
-		ItemApiID:    itemApiExample.ItemApiID,
-		CollectionID: itemApiExample.CollectionID,
-		Default:      itemApiExample.IsDefault,
-		Name:         itemApiExample.Name,
-		Headers:      itemApiExample.Headers,
-		Query:        itemApiExample.Query,
-		Body:         itemApiExample.Body,
-		Created:      itemApiExample.Created,
-		Updated:      itemApiExample.Updated,
+		ID:              itemApiExample.ID,
+		ItemApiID:       itemApiExample.ItemApiID,
+		CollectionID:    itemApiExample.CollectionID,
+		ParentExampleID: itemApiExample.ParentExampleID,
+		IsDefault:       itemApiExample.IsDefault,
+		Name:            itemApiExample.Name,
+		Headers:         itemApiExample.Headers,
+		Query:           itemApiExample.Query,
+		Compressed:      itemApiExample.Compressed,
+		Body:            itemApiExample.Body,
+		Updated:         itemApiExample.Updated,
 	}, nil
 }
 
@@ -107,18 +110,20 @@ func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context,
 		return nil, err
 	}
 	itemApiExamplesList := make([]mitemapiexample.ItemApiExample, len(itemApiExamples))
+
 	for i, itemApiExample := range itemApiExamples {
 		itemApiExamplesList[i] = mitemapiexample.ItemApiExample{
-			ID:           itemApiExample.ID,
-			ItemApiID:    itemApiExample.ItemApiID,
-			CollectionID: itemApiExample.CollectionID,
-			Default:      itemApiExample.IsDefault,
-			Name:         itemApiExample.Name,
-			Headers:      itemApiExample.Headers,
-			Query:        itemApiExample.Query,
-			Body:         itemApiExample.Body,
-			Created:      itemApiExample.Created,
-			Updated:      itemApiExample.Updated,
+			ID:              itemApiExample.ID,
+			ItemApiID:       itemApiExample.ItemApiID,
+			CollectionID:    itemApiExample.CollectionID,
+			ParentExampleID: itemApiExample.ParentExampleID,
+			IsDefault:       itemApiExample.IsDefault,
+			Name:            itemApiExample.Name,
+			Headers:         itemApiExample.Headers,
+			Query:           itemApiExample.Query,
+			Compressed:      itemApiExample.Compressed,
+			Body:            itemApiExample.Body,
+			Updated:         itemApiExample.Updated,
 		}
 	}
 	return itemApiExamplesList, nil
@@ -126,14 +131,16 @@ func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context,
 
 func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
 	return iaes.Queries.CreateItemApiExample(ctx, gen.CreateItemApiExampleParams{
-		ID:           item.ID,
-		ItemApiID:    item.ItemApiID,
-		IsDefault:    item.Default,
-		CollectionID: item.CollectionID,
-		Name:         item.Name,
-		Headers:      item.Headers,
-		Query:        item.Query,
-		Body:         item.Body,
+		ID:              item.ID,
+		ItemApiID:       item.ItemApiID,
+		CollectionID:    item.CollectionID,
+		IsDefault:       item.IsDefault,
+		ParentExampleID: item.ParentExampleID,
+		Name:            item.Name,
+		Headers:         item.Headers,
+		Query:           item.Query,
+		Compressed:      item.Compressed,
+		Body:            item.Body,
 	})
 }
 
@@ -148,30 +155,39 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 		item3 := item[i+2]
 
 		err := iaes.Queries.CreateItemApiExampleBulk(ctx, gen.CreateItemApiExampleBulkParams{
-			ID:             item1.ID,
-			ItemApiID:      item1.ItemApiID,
-			CollectionID:   item1.CollectionID,
-			IsDefault:      item1.Default,
-			Name:           item1.Name,
-			Headers:        item1.Headers,
-			Query:          item1.Query,
-			Body:           item1.Body,
-			ID_2:           item2.ID,
-			ItemApiID_2:    item2.ItemApiID,
-			CollectionID_2: item2.CollectionID,
-			IsDefault_2:    item2.Default,
-			Name_2:         item2.Name,
-			Headers_2:      item2.Headers,
-			Query_2:        item2.Query,
-			Body_2:         item2.Body,
-			ID_3:           item3.ID,
-			ItemApiID_3:    item3.ItemApiID,
-			CollectionID_3: item3.CollectionID,
-			IsDefault_3:    item3.Default,
-			Name_3:         item3.Name,
-			Headers_3:      item3.Headers,
-			Query_3:        item3.Query,
-			Body_3:         item3.Body,
+			// Item 1
+			ID:              item1.ID,
+			ItemApiID:       item1.ItemApiID,
+			CollectionID:    item1.CollectionID,
+			ParentExampleID: item1.ParentExampleID,
+			IsDefault:       item1.IsDefault,
+			Name:            item1.Name,
+			Headers:         item1.Headers,
+			Query:           item1.Query,
+			Compressed:      item1.Compressed,
+			Body:            item1.Body,
+			// Item 2
+			ID_2:              item2.ID,
+			ItemApiID_2:       item2.ItemApiID,
+			CollectionID_2:    item2.CollectionID,
+			ParentExampleID_2: item2.ParentExampleID,
+			IsDefault_2:       item2.IsDefault,
+			Name_2:            item2.Name,
+			Headers_2:         item2.Headers,
+			Query_2:           item2.Query,
+			Compressed_2:      item2.Compressed,
+			Body_2:            item2.Body,
+			// Item 3
+			ID_3:              item3.ID,
+			ItemApiID_3:       item3.ItemApiID,
+			CollectionID_3:    item3.CollectionID,
+			ParentExampleID_3: item3.ParentExampleID,
+			IsDefault_3:       item3.IsDefault,
+			Name_3:            item3.Name,
+			Headers_3:         item3.Headers,
+			Query_3:           item3.Query,
+			Compressed_3:      item3.Compressed,
+			Body_3:            item3.Body,
 		})
 		if err != nil {
 			return err
@@ -192,11 +208,12 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 
 func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
 	return iaes.Queries.UpdateItemApiExample(ctx, gen.UpdateItemApiExampleParams{
-		ID:      item.ID,
-		Name:    item.Name,
-		Headers: item.Headers,
-		Query:   item.Query,
-		Body:    item.Body,
+		ID:         item.ID,
+		Name:       item.Name,
+		Headers:    item.Headers,
+		Query:      item.Query,
+		Compressed: item.Compressed,
+		Body:       item.Body,
 	})
 }
 

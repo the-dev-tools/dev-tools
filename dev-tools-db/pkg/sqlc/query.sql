@@ -1,343 +1,670 @@
 --
 -- This file is the source of truth for saas application's schema
 --
-
 -- 
 -- ItemApi 
 --
-
 -- name: GetItemApi :one
-SELECT id, collection_id, parent_id, name, url, method
-FROM item_api
-WHERE id = ? LIMIT 1;
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  url,
+  method,
+  updated
+FROM
+  item_api
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetItemsApiByCollectionID :many
-SELECT id, collection_id, parent_id, name, url, method
-FROM item_api
-WHERE collection_id = ?;
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  url,
+  method,
+  updated
+FROM
+  item_api
+WHERE
+  collection_id = ?;
 
 -- name: GetItemApiOwnerID :one
-SELECT c.owner_id FROM collections c
-INNER JOIN item_api i ON c.id = i.collection_id
-WHERE i.id = ? LIMIT 1;
+SELECT
+  c.owner_id
+FROM
+  collections c
+  INNER JOIN item_api i ON c.id = i.collection_id
+WHERE
+  i.id = ?
+LIMIT
+  1;
 
 -- name: CreateItemApi :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
-VALUES (?, ?, ?, ?, ?, ?); 
+INSERT INTO
+  item_api (id, collection_id, parent_id, name, url, method)
+VALUES
+  (?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiBulk :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
-VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?);
-
+INSERT INTO
+  item_api (id, collection_id, parent_id, name, url, method)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApi :exec
 UPDATE item_api
-SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?
-WHERE id = ?;
+SET
+  collection_id = ?,
+  parent_id = ?,
+  name = ?,
+  url = ?,
+  method = ?
+WHERE
+  id = ?;
 
 -- name: DeleteItemApi :exec
 DELETE FROM item_api
-WHERE id = ?;
+WHERE
+  id = ?;
 
 --
 -- Item Api Example
 --
-
 -- name: GetItemApiExample :one
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default,
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated 
-FROM item_api_example WHERE id = ? LIMIT 1;
-
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetItemApiExamples :many
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default, 
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated 
-FROM item_api_example WHERE item_api_id = ? AND is_default = false;
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  item_api_id = ?
+  AND is_default = false;
 
 -- name: GetItemApiExampleDefault :one
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default, 
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated 
-FROM item_api_example WHERE item_api_id = ? AND is_default = true LIMIT 1;
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  item_api_id = ?
+  AND is_default = true
+LIMIT
+  1;
 
 -- name: GetItemApiExampleByCollectionID :many
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default, 
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated
-FROM item_api_example WHERE collection_id = ?;
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  collection_id = ?;
 
 -- name: CreateItemApiExample :exec
-INSERT INTO item_api_example 
-        (id, item_api_id, collection_id, is_default, name, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO
+  item_api_example (
+    id,
+    item_api_id,
+    collection_id,
+    parent_example_id,
+    is_default,
+    name,
+    headers,
+    query,
+    compressed,
+    body
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
-INSERT INTO item_api_example 
-        (id, item_api_id, collection_id, is_default, name, headers, query, body)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO
+  item_api_example (
+    id,
+    item_api_id,
+    collection_id,
+    parent_example_id,
+    is_default,
+    name,
+    headers,
+    query,
+    compressed,
+    body
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
-UPDATE item_api_example SET
-name = ?, headers = ?, query = ?, body = ?
-WHERE id = ?;
+UPDATE item_api_example
+SET
+  name = ?,
+  headers = ?,
+  query = ?,
+  compressed = ?,
+  body = ?
+WHERE
+  id = ?;
 
 -- name: DeleteItemApiExample :exec
 DELETE FROM item_api_example
-WHERE id = ?;
+WHERE
+  id = ?;
 
 --
 -- ItemFolder
 --
-
 -- name: GetItemFolder :one
-SELECT id, name, parent_id, collection_id
-FROM item_folder
-WHERE id = ? LIMIT 1;
+SELECT
+  id,
+  name,
+  parent_id,
+  collection_id
+FROM
+  item_folder
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetItemFolderByCollectionID :many
-SELECT id, name, parent_id, collection_id
-FROM item_folder
-WHERE collection_id = ?;
+SELECT
+  id,
+  name,
+  parent_id,
+  collection_id
+FROM
+  item_folder
+WHERE
+  collection_id = ?;
 
 -- name: GetItemFolderOwnerID :one
-SELECT c.owner_id FROM collections c
-INNER JOIN item_folder i ON c.id = i.collection_id
-WHERE i.id = ? LIMIT 1;
+SELECT
+  c.owner_id
+FROM
+  collections c
+  INNER JOIN item_folder i ON c.id = i.collection_id
+WHERE
+  i.id = ?
+LIMIT
+  1;
 
 -- name: CreateItemFolder :exec
-INSERT INTO item_folder (id, name, parent_id, collection_id)
-VALUES (?, ?, ?, ?);
+INSERT INTO
+  item_folder (id, name, parent_id, collection_id)
+VALUES
+  (?, ?, ?, ?);
 
 -- name: CreateItemFolderBulk :exec
-INSERT INTO item_folder (id, name, parent_id, collection_id)
-VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?);
+INSERT INTO
+  item_folder (id, name, parent_id, collection_id)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?);
 
 -- name: UpdateItemFolder :exec
 UPDATE item_folder
-SET name = ?
-WHERE id = ?;
+SET
+  name = ?
+WHERE
+  id = ?;
 
 -- name: DeleteItemFolder :exec
 DELETE FROM item_folder
-WHERE id = ?;
+WHERE
+  id = ?;
 
 -- 
 -- Users
 --
-
 -- name: GetUser :one
 SELECT
-    id,
-    email,
-    password_hash,
-    provider_type,
-    provider_id
-FROM users WHERE id = ? LIMIT 1;
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetUserByEmail :one
 SELECT
-    id,
-    email,
-    password_hash,
-    provider_type,
-    provider_id
-FROM users WHERE email = ? LIMIT 1;
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  email = ?
+LIMIT
+  1;
 
 -- name: GetUserByEmailAndProviderType :one
 SELECT
-        id,
-        email,
-        password_hash,
-        provider_type,
-        provider_id
-FROM users WHERE email = ? AND provider_type = ? LIMIT 1;
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  email = ?
+  AND provider_type = ?
+LIMIT
+  1;
 
 -- name: GetUserByProviderIDandType :one
 SELECT
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  provider_id = ?
+  AND provider_type = ?
+LIMIT
+  1;
+
+-- name: CreateUser :one
+INSERT INTO
+  users (
     id,
     email,
     password_hash,
     provider_type,
     provider_id
-FROM users WHERE provider_id = ? AND provider_type = ? LIMIT 1;
-
--- name: CreateUser :one
-INSERT INTO users 
-(id, email, password_hash, provider_type, provider_id)
-VALUES (?, ?, ?, ?, ?)
-RETURNING *;
+  )
+VALUES
+  (?, ?, ?, ?, ?) RETURNING *;
 
 -- name: UpdateUser :exec
-UPDATE users 
-SET email = ?,
-password_hash = ?
-WHERE id = ?;
+UPDATE users
+SET
+  email = ?,
+  password_hash = ?
+WHERE
+  id = ?;
 
 -- name: DeleteUser :exec
-DELETE FROM users 
-WHERE id = ?;
-
+DELETE FROM users
+WHERE
+  id = ?;
 
 -- 
 -- Collections
 --
-
 -- name: GetCollection :one
-SELECT id, owner_id, name, created, updated
-FROM collections
-WHERE id = ?
-LIMIT 1;
-
+SELECT
+  id,
+  owner_id,
+  name,
+  updated
+FROM
+  collections
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetCollectionByPlatformIDandType :many
-SELECT id, owner_id, name, created, updated
-FROM collections
-WHERE id = ?;
-
+SELECT
+  id,
+  owner_id,
+  name,
+  updated
+FROM
+  collections
+WHERE
+  id = ?;
 
 -- name: GetCollectionOwnerID :one
-SELECT owner_id
-FROM collections
-WHERE id = ? LIMIT 1;
+SELECT
+  owner_id
+FROM
+  collections
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetCollectionByOwnerID :many
-SELECT id, owner_id, name, created, updated
-FROM collections
-WHERE owner_id = ?;
-
+SELECT
+  id,
+  owner_id,
+  name,
+  updated
+FROM
+  collections
+WHERE
+  owner_id = ?;
 
 -- name: CreateCollection :exec
-INSERT INTO collections (id, owner_id, name, created, updated)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO
+  collections (id, owner_id, name, updated)
+VALUES
+  (?, ?, ?, ?);
 
 -- name: UpdateCollection :exec
-UPDATE collections 
-SET owner_id = ?, name = ?
-WHERE id = ?;
+UPDATE collections
+SET
+  owner_id = ?,
+  name = ?
+WHERE
+  id = ?;
 
 -- name: DeleteCollection :exec
-DELETE FROM collections 
-WHERE id = ?;
-
+DELETE FROM collections
+WHERE
+  id = ?;
 
 --
 -- Workspaces
 --
-
 -- name: GetWorkspace :one
-SELECT id, name, created, updated
-FROM workspaces
-WHERE id = ? LIMIT 1;
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetWorkspaceByUserID :one
-SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1;
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id = (
+    SELECT
+      workspace_id
+    FROM
+      workspaces_users
+    WHERE
+      user_id = ?
+    LIMIT
+      1
+  )
+LIMIT
+  1;
 
 -- name: GetWorkspacesByUserID :many
-SELECT id, name, created, updated FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?);
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id IN (
+    SELECT
+      workspace_id
+    FROM
+      workspaces_users
+    WHERE
+      user_id = ?
+  );
 
 -- name: GetWorkspaceByUserIDandWorkspaceID :one
-SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1) LIMIT 1;
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id = (
+    SELECT
+      workspace_id
+    FROM
+      workspaces_users
+    WHERE
+      workspace_id = ?
+      AND user_id = ?
+    LIMIT
+      1
+  )
+LIMIT
+  1;
 
 -- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name, created, updated)
-VALUES (?, ?, ? , ?);
+INSERT INTO
+  workspaces (id, name, created, updated)
+VALUES
+  (?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
-SET name = ?
-WHERE id = ?;
+SET
+  name = ?
+WHERE
+  id = ?;
 
 -- name: DeleteWorkspace :exec
 DELETE FROM workspaces
-WHERE id = ?;
+WHERE
+  id = ?;
 
 -- 
 -- WorkspaceUsers
 --
 -- name: CheckIFWorkspaceUserExists :one
-SELECT EXISTS(SELECT 1 FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1);
+SELECT
+  EXISTS (
+    SELECT
+      1
+    FROM
+      workspaces_users
+    WHERE
+      workspace_id = ?
+      AND user_id = ?
+    LIMIT
+      1
+  );
 
 -- name: GetWorkspaceUser :one
-SELECT id, workspace_id, user_id, role FROM workspaces_users
-WHERE id = ? LIMIT 1;
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetWorkspaceUserByUserID :many
-SELECT id, workspace_id, user_id, role FROM workspaces_users
-WHERE user_id = ?;
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  user_id = ?;
 
 -- name: GetWorkspaceUserByWorkspaceID :many
-SELECT id, workspace_id, user_id, role FROM workspaces_users
-WHERE workspace_id = ?;
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  workspace_id = ?;
 
 -- name: GetWorkspaceUserByWorkspaceIDAndUserID :one
-SELECT id, workspace_id, user_id, role FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1;
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  workspace_id = ?
+  AND user_id = ?
+LIMIT
+  1;
 
 -- name: CreateWorkspaceUser :exec
-INSERT INTO workspaces_users (id, workspace_id, user_id, role)
-VALUES (?, ?, ?, ?);
+INSERT INTO
+  workspaces_users (id, workspace_id, user_id, role)
+VALUES
+  (?, ?, ?, ?);
 
 -- name: UpdateWorkspaceUser :exec
 UPDATE workspaces_users
-SET workspace_id = ?, user_id = ?, role = ?
-WHERE id = ?;
+SET
+  workspace_id = ?,
+  user_id = ?,
+  role = ?
+WHERE
+  id = ?;
 
 -- name: DeleteWorkspaceUser :exec
 DELETE FROM workspaces_users
-WHERE id = ?;
+WHERE
+  id = ?;
 
 --
 -- ResultAPI
 --
-
 -- name: GetResultApi :one
-SELECT * FROM result_api WHERE id = ? LIMIT 1;
+SELECT
+  *
+FROM
+  result_api
+WHERE
+  id = ?
+LIMIT
+  1;
 
 -- name: GetResultApiByTriggerBy :many
-SELECT * FROM result_api WHERE trigger_by = ?;
+SELECT
+  *
+FROM
+  result_api
+WHERE
+  trigger_by = ?;
 
 -- name: GetResultApiByTriggerByAndTriggerType :many
-SELECT * FROM result_api WHERE trigger_by = ? AND trigger_type = ?;
+SELECT
+  *
+FROM
+  result_api
+WHERE
+  trigger_by = ?
+  AND trigger_type = ?;
 
 -- name: CreateResultApi :exec
-INSERT INTO result_api (id, trigger_type, trigger_by, name, status, time, duration, http_resp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO
+  result_api (
+    id,
+    trigger_type,
+    trigger_by,
+    name,
+    status,
+    time,
+    duration,
+    http_resp
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateResultApi :exec
-UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?;
+UPDATE result_api
+SET
+  name = ?,
+  status = ?,
+  time = ?,
+  duration = ?,
+  http_resp = ?
+WHERE
+  id = ?;
 
 -- name: DeleteResultApi :exec
-DELETE FROM result_api WHERE id = ?;
+DELETE FROM result_api
+WHERE
+  id = ?;

@@ -106,7 +106,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item 
 							Headers: api.DefaultExample.GetHeaders(),
 							Cookies: api.DefaultExample.GetCookies(),
 							Body:    api.DefaultExample.Body,
-							Created: timestamppb.New(api.DefaultExample.Created),
+							Created: timestamppb.New(api.DefaultExample.GetCreatedTime()),
 							Updated: timestamppb.New(api.DefaultExample.Updated),
 						},
 						Examples: rpcExamples,
@@ -151,7 +151,7 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 	for _, example := range examples {
 		api, ok := apiMap[example.ItemApiID]
 		if ok {
-			if example.Default {
+			if example.IsDefault {
 				api.DefaultExample = example
 			} else {
 				meta := mitemapiexample.ItemApiExampleMeta{

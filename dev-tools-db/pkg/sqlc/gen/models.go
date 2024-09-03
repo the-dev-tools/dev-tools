@@ -17,7 +17,6 @@ type Collection struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
-	Created time.Time
 	Updated time.Time
 }
 
@@ -28,21 +27,21 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
-	Created      time.Time
 	Updated      time.Time
 }
 
 type ItemApiExample struct {
-	ID           ulid.ULID
-	ItemApiID    ulid.ULID
-	CollectionID ulid.ULID
-	IsDefault    bool
-	Name         string
-	Headers      mitemapiexample.Headers
-	Query        mitemapiexample.Query
-	Body         []byte
-	Created      time.Time
-	Updated      time.Time
+	ID              ulid.ULID
+	ItemApiID       ulid.ULID
+	CollectionID    ulid.ULID
+	ParentExampleID *ulid.ULID
+	IsDefault       bool
+	Name            string
+	Headers         mitemapiexample.Headers
+	Query           mitemapiexample.Query
+	Compressed      bool
+	Body            []byte
+	Updated         time.Time
 }
 
 type ItemFolder struct {

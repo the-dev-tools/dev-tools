@@ -76,6 +76,13 @@ sql:
               import: "github.com/oklog/ulid/v2"
               package: "ulid"
               type: "ULID"
+          ### parent_example_id
+          - column: "item_api_example.parent_example_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
+              package: "ulid"
+              type: "ULID"
           ### headers
           - column: "item_api_example.headers"
             go_type:

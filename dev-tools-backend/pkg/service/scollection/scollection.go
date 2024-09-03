@@ -49,7 +49,6 @@ func (cs CollectionService) CreateCollection(ctx context.Context, collection *mc
 		ID:      collection.ID,
 		OwnerID: collection.OwnerID,
 		Name:    collection.Name,
-		Created: collection.Created,
 		Updated: collection.Updated,
 	})
 }
@@ -66,7 +65,6 @@ func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*m
 		ID:      ulid.ULID(collection.ID),
 		OwnerID: ulid.ULID(collection.OwnerID),
 		Name:    collection.Name,
-		Created: collection.Created,
 		Updated: collection.Updated,
 	}
 	return &c, nil

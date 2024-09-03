@@ -16,7 +16,18 @@ import (
 )
 
 const checkIFWorkspaceUserExists = `-- name: CheckIFWorkspaceUserExists :one
-SELECT EXISTS(SELECT 1 FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1)
+SELECT
+  EXISTS (
+    SELECT
+      1
+    FROM
+      workspaces_users
+    WHERE
+      workspace_id = ?
+      AND user_id = ?
+    LIMIT
+      1
+  )
 `
 
 type CheckIFWorkspaceUserExistsParams struct {
@@ -33,15 +44,16 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 }
 
 const createCollection = `-- name: CreateCollection :exec
-INSERT INTO collections (id, owner_id, name, created, updated)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO
+  collections (id, owner_id, name, updated)
+VALUES
+  (?, ?, ?, ?)
 `
 
 type CreateCollectionParams struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
-	Created time.Time
 	Updated time.Time
 }
 
@@ -50,15 +62,16 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 		arg.ID,
 		arg.OwnerID,
 		arg.Name,
-		arg.Created,
 		arg.Updated,
 	)
 	return err
 }
 
 const createItemApi = `-- name: CreateItemApi :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO
+  item_api (id, collection_id, parent_id, name, url, method)
+VALUES
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiParams struct {
@@ -83,8 +96,12 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 }
 
 const createItemApiBulk = `-- name: CreateItemApiBulk :exec
-INSERT INTO item_api (id, collection_id, parent_id, name, url, method)
-VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)
+INSERT INTO
+  item_api (id, collection_id, parent_id, name, url, method)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiBulkParams struct {
@@ -133,20 +150,34 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 }
 
 const createItemApiExample = `-- name: CreateItemApiExample :exec
-INSERT INTO item_api_example 
-        (id, item_api_id, collection_id, is_default, name, headers, query, body)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO
+  item_api_example (
+    id,
+    item_api_id,
+    collection_id,
+    parent_example_id,
+    is_default,
+    name,
+    headers,
+    query,
+    compressed,
+    body
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
-	ID           ulid.ULID
-	ItemApiID    ulid.ULID
-	CollectionID ulid.ULID
-	IsDefault    bool
-	Name         string
-	Headers      mitemapiexample.Headers
-	Query        mitemapiexample.Query
-	Body         []byte
+	ID              ulid.ULID
+	ItemApiID       ulid.ULID
+	CollectionID    ulid.ULID
+	ParentExampleID *ulid.ULID
+	IsDefault       bool
+	Name            string
+	Headers         mitemapiexample.Headers
+	Query           mitemapiexample.Query
+	Compressed      bool
+	Body            []byte
 }
 
 func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExampleParams) error {
@@ -154,46 +185,68 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.ID,
 		arg.ItemApiID,
 		arg.CollectionID,
+		arg.ParentExampleID,
 		arg.IsDefault,
 		arg.Name,
 		arg.Headers,
 		arg.Query,
+		arg.Compressed,
 		arg.Body,
 	)
 	return err
 }
 
 const createItemApiExampleBulk = `-- name: CreateItemApiExampleBulk :exec
-INSERT INTO item_api_example 
-        (id, item_api_id, collection_id, is_default, name, headers, query, body)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO
+  item_api_example (
+    id,
+    item_api_id,
+    collection_id,
+    parent_example_id,
+    is_default,
+    name,
+    headers,
+    query,
+    compressed,
+    body
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
-	ID             ulid.ULID
-	ItemApiID      ulid.ULID
-	CollectionID   ulid.ULID
-	IsDefault      bool
-	Name           string
-	Headers        mitemapiexample.Headers
-	Query          mitemapiexample.Query
-	Body           []byte
-	ID_2           ulid.ULID
-	ItemApiID_2    ulid.ULID
-	CollectionID_2 ulid.ULID
-	IsDefault_2    bool
-	Name_2         string
-	Headers_2      mitemapiexample.Headers
-	Query_2        mitemapiexample.Query
-	Body_2         []byte
-	ID_3           ulid.ULID
-	ItemApiID_3    ulid.ULID
-	CollectionID_3 ulid.ULID
-	IsDefault_3    bool
-	Name_3         string
-	Headers_3      mitemapiexample.Headers
-	Query_3        mitemapiexample.Query
-	Body_3         []byte
+	ID                ulid.ULID
+	ItemApiID         ulid.ULID
+	CollectionID      ulid.ULID
+	ParentExampleID   *ulid.ULID
+	IsDefault         bool
+	Name              string
+	Headers           mitemapiexample.Headers
+	Query             mitemapiexample.Query
+	Compressed        bool
+	Body              []byte
+	ID_2              ulid.ULID
+	ItemApiID_2       ulid.ULID
+	CollectionID_2    ulid.ULID
+	ParentExampleID_2 *ulid.ULID
+	IsDefault_2       bool
+	Name_2            string
+	Headers_2         mitemapiexample.Headers
+	Query_2           mitemapiexample.Query
+	Compressed_2      bool
+	Body_2            []byte
+	ID_3              ulid.ULID
+	ItemApiID_3       ulid.ULID
+	CollectionID_3    ulid.ULID
+	ParentExampleID_3 *ulid.ULID
+	IsDefault_3       bool
+	Name_3            string
+	Headers_3         mitemapiexample.Headers
+	Query_3           mitemapiexample.Query
+	Compressed_3      bool
+	Body_3            []byte
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -201,34 +254,42 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID,
 		arg.ItemApiID,
 		arg.CollectionID,
+		arg.ParentExampleID,
 		arg.IsDefault,
 		arg.Name,
 		arg.Headers,
 		arg.Query,
+		arg.Compressed,
 		arg.Body,
 		arg.ID_2,
 		arg.ItemApiID_2,
 		arg.CollectionID_2,
+		arg.ParentExampleID_2,
 		arg.IsDefault_2,
 		arg.Name_2,
 		arg.Headers_2,
 		arg.Query_2,
+		arg.Compressed_2,
 		arg.Body_2,
 		arg.ID_3,
 		arg.ItemApiID_3,
 		arg.CollectionID_3,
+		arg.ParentExampleID_3,
 		arg.IsDefault_3,
 		arg.Name_3,
 		arg.Headers_3,
 		arg.Query_3,
+		arg.Compressed_3,
 		arg.Body_3,
 	)
 	return err
 }
 
 const createItemFolder = `-- name: CreateItemFolder :exec
-INSERT INTO item_folder (id, name, parent_id, collection_id)
-VALUES (?, ?, ?, ?)
+INSERT INTO
+  item_folder (id, name, parent_id, collection_id)
+VALUES
+  (?, ?, ?, ?)
 `
 
 type CreateItemFolderParams struct {
@@ -249,8 +310,12 @@ func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderPara
 }
 
 const createItemFolderBulk = `-- name: CreateItemFolderBulk :exec
-INSERT INTO item_folder (id, name, parent_id, collection_id)
-VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)
+INSERT INTO
+  item_folder (id, name, parent_id, collection_id)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?)
 `
 
 type CreateItemFolderBulkParams struct {
@@ -287,8 +352,19 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 }
 
 const createResultApi = `-- name: CreateResultApi :exec
-INSERT INTO result_api (id, trigger_type, trigger_by, name, status, time, duration, http_resp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO
+  result_api (
+    id,
+    trigger_type,
+    trigger_by,
+    name,
+    status,
+    time,
+    duration,
+    http_resp
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateResultApiParams struct {
@@ -317,10 +393,16 @@ func (q *Queries) CreateResultApi(ctx context.Context, arg CreateResultApiParams
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users 
-(id, email, password_hash, provider_type, provider_id)
-VALUES (?, ?, ?, ?, ?)
-RETURNING id, email, password_hash, provider_type, provider_id, status
+INSERT INTO
+  users (
+    id,
+    email,
+    password_hash,
+    provider_type,
+    provider_id
+  )
+VALUES
+  (?, ?, ?, ?, ?) RETURNING id, email, password_hash, provider_type, provider_id, status
 `
 
 type CreateUserParams struct {
@@ -352,8 +434,10 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const createWorkspace = `-- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name, created, updated)
-VALUES (?, ?, ? , ?)
+INSERT INTO
+  workspaces (id, name, created, updated)
+VALUES
+  (?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
@@ -374,8 +458,10 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 }
 
 const createWorkspaceUser = `-- name: CreateWorkspaceUser :exec
-INSERT INTO workspaces_users (id, workspace_id, user_id, role)
-VALUES (?, ?, ?, ?)
+INSERT INTO
+  workspaces_users (id, workspace_id, user_id, role)
+VALUES
+  (?, ?, ?, ?)
 `
 
 type CreateWorkspaceUserParams struct {
@@ -396,8 +482,9 @@ func (q *Queries) CreateWorkspaceUser(ctx context.Context, arg CreateWorkspaceUs
 }
 
 const deleteCollection = `-- name: DeleteCollection :exec
-DELETE FROM collections 
-WHERE id = ?
+DELETE FROM collections
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteCollection(ctx context.Context, id ulid.ULID) error {
@@ -407,7 +494,8 @@ func (q *Queries) DeleteCollection(ctx context.Context, id ulid.ULID) error {
 
 const deleteItemApi = `-- name: DeleteItemApi :exec
 DELETE FROM item_api
-WHERE id = ?
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
@@ -417,7 +505,8 @@ func (q *Queries) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
 
 const deleteItemApiExample = `-- name: DeleteItemApiExample :exec
 DELETE FROM item_api_example
-WHERE id = ?
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteItemApiExample(ctx context.Context, id ulid.ULID) error {
@@ -427,7 +516,8 @@ func (q *Queries) DeleteItemApiExample(ctx context.Context, id ulid.ULID) error 
 
 const deleteItemFolder = `-- name: DeleteItemFolder :exec
 DELETE FROM item_folder
-WHERE id = ?
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
@@ -436,7 +526,9 @@ func (q *Queries) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
 }
 
 const deleteResultApi = `-- name: DeleteResultApi :exec
-DELETE FROM result_api WHERE id = ?
+DELETE FROM result_api
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteResultApi(ctx context.Context, id ulid.ULID) error {
@@ -445,8 +537,9 @@ func (q *Queries) DeleteResultApi(ctx context.Context, id ulid.ULID) error {
 }
 
 const deleteUser = `-- name: DeleteUser :exec
-DELETE FROM users 
-WHERE id = ?
+DELETE FROM users
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteUser(ctx context.Context, id ulid.ULID) error {
@@ -456,7 +549,8 @@ func (q *Queries) DeleteUser(ctx context.Context, id ulid.ULID) error {
 
 const deleteWorkspace = `-- name: DeleteWorkspace :exec
 DELETE FROM workspaces
-WHERE id = ?
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteWorkspace(ctx context.Context, id ulid.ULID) error {
@@ -466,7 +560,8 @@ func (q *Queries) DeleteWorkspace(ctx context.Context, id ulid.ULID) error {
 
 const deleteWorkspaceUser = `-- name: DeleteWorkspaceUser :exec
 DELETE FROM workspaces_users
-WHERE id = ?
+WHERE
+  id = ?
 `
 
 func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
@@ -475,11 +570,17 @@ func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
 }
 
 const getCollection = `-- name: GetCollection :one
-
-SELECT id, owner_id, name, created, updated
-FROM collections
-WHERE id = ?
-LIMIT 1
+SELECT
+  id,
+  owner_id,
+  name,
+  updated
+FROM
+  collections
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 // Collections
@@ -490,16 +591,21 @@ func (q *Queries) GetCollection(ctx context.Context, id ulid.ULID) (Collection, 
 		&i.ID,
 		&i.OwnerID,
 		&i.Name,
-		&i.Created,
 		&i.Updated,
 	)
 	return i, err
 }
 
 const getCollectionByOwnerID = `-- name: GetCollectionByOwnerID :many
-SELECT id, owner_id, name, created, updated
-FROM collections
-WHERE owner_id = ?
+SELECT
+  id,
+  owner_id,
+  name,
+  updated
+FROM
+  collections
+WHERE
+  owner_id = ?
 `
 
 func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID) ([]Collection, error) {
@@ -515,7 +621,6 @@ func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID)
 			&i.ID,
 			&i.OwnerID,
 			&i.Name,
-			&i.Created,
 			&i.Updated,
 		); err != nil {
 			return nil, err
@@ -532,9 +637,15 @@ func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID)
 }
 
 const getCollectionByPlatformIDandType = `-- name: GetCollectionByPlatformIDandType :many
-SELECT id, owner_id, name, created, updated
-FROM collections
-WHERE id = ?
+SELECT
+  id,
+  owner_id,
+  name,
+  updated
+FROM
+  collections
+WHERE
+  id = ?
 `
 
 func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.ULID) ([]Collection, error) {
@@ -550,7 +661,6 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.
 			&i.ID,
 			&i.OwnerID,
 			&i.Name,
-			&i.Created,
 			&i.Updated,
 		); err != nil {
 			return nil, err
@@ -567,9 +677,14 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.
 }
 
 const getCollectionOwnerID = `-- name: GetCollectionOwnerID :one
-SELECT owner_id
-FROM collections
-WHERE id = ? LIMIT 1
+SELECT
+  owner_id
+FROM
+  collections
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 func (q *Queries) GetCollectionOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
@@ -580,28 +695,28 @@ func (q *Queries) GetCollectionOwnerID(ctx context.Context, id ulid.ULID) (ulid.
 }
 
 const getItemApi = `-- name: GetItemApi :one
-
-
-SELECT id, collection_id, parent_id, name, url, method
-FROM item_api
-WHERE id = ? LIMIT 1
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  url,
+  method,
+  updated
+FROM
+  item_api
+WHERE
+  id = ?
+LIMIT
+  1
 `
-
-type GetItemApiRow struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
-	Name         string
-	Url          string
-	Method       string
-}
 
 // This file is the source of truth for saas application's schema
 //
 // ItemApi
-func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (GetItemApiRow, error) {
+func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error) {
 	row := q.queryRow(ctx, q.getItemApiStmt, getItemApi, id)
-	var i GetItemApiRow
+	var i ItemApi
 	err := row.Scan(
 		&i.ID,
 		&i.CollectionID,
@@ -609,24 +724,30 @@ func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (GetItemApiRow, 
 		&i.Name,
 		&i.Url,
 		&i.Method,
+		&i.Updated,
 	)
 	return i, err
 }
 
 const getItemApiExample = `-- name: GetItemApiExample :one
-
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default,
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated 
-FROM item_api_example WHERE id = ? LIMIT 1
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 // Item Api Example
@@ -637,30 +758,35 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 		&i.ID,
 		&i.ItemApiID,
 		&i.CollectionID,
+		&i.ParentExampleID,
 		&i.IsDefault,
 		&i.Name,
 		&i.Headers,
 		&i.Query,
+		&i.Compressed,
 		&i.Body,
-		&i.Created,
 		&i.Updated,
 	)
 	return i, err
 }
 
 const getItemApiExampleByCollectionID = `-- name: GetItemApiExampleByCollectionID :many
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default, 
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated
-FROM item_api_example WHERE collection_id = ?
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  collection_id = ?
 `
 
 func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApiExample, error) {
@@ -676,12 +802,13 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.ID,
 			&i.ItemApiID,
 			&i.CollectionID,
+			&i.ParentExampleID,
 			&i.IsDefault,
 			&i.Name,
 			&i.Headers,
 			&i.Query,
+			&i.Compressed,
 			&i.Body,
-			&i.Created,
 			&i.Updated,
 		); err != nil {
 			return nil, err
@@ -698,18 +825,25 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 }
 
 const getItemApiExampleDefault = `-- name: GetItemApiExampleDefault :one
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default, 
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated 
-FROM item_api_example WHERE item_api_id = ? AND is_default = true LIMIT 1
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  item_api_id = ?
+  AND is_default = true
+LIMIT
+  1
 `
 
 func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.ULID) (ItemApiExample, error) {
@@ -719,30 +853,36 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.U
 		&i.ID,
 		&i.ItemApiID,
 		&i.CollectionID,
+		&i.ParentExampleID,
 		&i.IsDefault,
 		&i.Name,
 		&i.Headers,
 		&i.Query,
+		&i.Compressed,
 		&i.Body,
-		&i.Created,
 		&i.Updated,
 	)
 	return i, err
 }
 
 const getItemApiExamples = `-- name: GetItemApiExamples :many
-SELECT 
-        id, 
-        item_api_id, 
-        collection_id, 
-        is_default, 
-        name, 
-        headers, 
-        query, 
-        body, 
-        created, 
-        updated 
-FROM item_api_example WHERE item_api_id = ? AND is_default = false
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  parent_example_id,
+  is_default,
+  name,
+  headers,
+  query,
+  compressed,
+  body,
+  updated
+FROM
+  item_api_example
+WHERE
+  item_api_id = ?
+  AND is_default = false
 `
 
 func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) ([]ItemApiExample, error) {
@@ -758,12 +898,13 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) (
 			&i.ID,
 			&i.ItemApiID,
 			&i.CollectionID,
+			&i.ParentExampleID,
 			&i.IsDefault,
 			&i.Name,
 			&i.Headers,
 			&i.Query,
+			&i.Compressed,
 			&i.Body,
-			&i.Created,
 			&i.Updated,
 		); err != nil {
 			return nil, err
@@ -780,9 +921,15 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) (
 }
 
 const getItemApiOwnerID = `-- name: GetItemApiOwnerID :one
-SELECT c.owner_id FROM collections c
-INNER JOIN item_api i ON c.id = i.collection_id
-WHERE i.id = ? LIMIT 1
+SELECT
+  c.owner_id
+FROM
+  collections c
+  INNER JOIN item_api i ON c.id = i.collection_id
+WHERE
+  i.id = ?
+LIMIT
+  1
 `
 
 func (q *Queries) GetItemApiOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
@@ -793,10 +940,17 @@ func (q *Queries) GetItemApiOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULI
 }
 
 const getItemFolder = `-- name: GetItemFolder :one
-
-SELECT id, name, parent_id, collection_id
-FROM item_folder
-WHERE id = ? LIMIT 1
+SELECT
+  id,
+  name,
+  parent_id,
+  collection_id
+FROM
+  item_folder
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 type GetItemFolderRow struct {
@@ -820,9 +974,15 @@ func (q *Queries) GetItemFolder(ctx context.Context, id ulid.ULID) (GetItemFolde
 }
 
 const getItemFolderByCollectionID = `-- name: GetItemFolderByCollectionID :many
-SELECT id, name, parent_id, collection_id
-FROM item_folder
-WHERE collection_id = ?
+SELECT
+  id,
+  name,
+  parent_id,
+  collection_id
+FROM
+  item_folder
+WHERE
+  collection_id = ?
 `
 
 type GetItemFolderByCollectionIDRow struct {
@@ -861,9 +1021,15 @@ func (q *Queries) GetItemFolderByCollectionID(ctx context.Context, collectionID 
 }
 
 const getItemFolderOwnerID = `-- name: GetItemFolderOwnerID :one
-SELECT c.owner_id FROM collections c
-INNER JOIN item_folder i ON c.id = i.collection_id
-WHERE i.id = ? LIMIT 1
+SELECT
+  c.owner_id
+FROM
+  collections c
+  INNER JOIN item_folder i ON c.id = i.collection_id
+WHERE
+  i.id = ?
+LIMIT
+  1
 `
 
 func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
@@ -874,29 +1040,29 @@ func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id ulid.ULID) (ulid.
 }
 
 const getItemsApiByCollectionID = `-- name: GetItemsApiByCollectionID :many
-SELECT id, collection_id, parent_id, name, url, method
-FROM item_api
-WHERE collection_id = ?
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  url,
+  method,
+  updated
+FROM
+  item_api
+WHERE
+  collection_id = ?
 `
 
-type GetItemsApiByCollectionIDRow struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
-	Name         string
-	Url          string
-	Method       string
-}
-
-func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]GetItemsApiByCollectionIDRow, error) {
+func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApi, error) {
 	rows, err := q.query(ctx, q.getItemsApiByCollectionIDStmt, getItemsApiByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetItemsApiByCollectionIDRow
+	var items []ItemApi
 	for rows.Next() {
-		var i GetItemsApiByCollectionIDRow
+		var i ItemApi
 		if err := rows.Scan(
 			&i.ID,
 			&i.CollectionID,
@@ -904,6 +1070,7 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.Updated,
 		); err != nil {
 			return nil, err
 		}
@@ -919,8 +1086,14 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 }
 
 const getResultApi = `-- name: GetResultApi :one
-
-SELECT id, trigger_type, trigger_by, name, status, time, duration, http_resp FROM result_api WHERE id = ? LIMIT 1
+SELECT
+  id, trigger_type, trigger_by, name, status, time, duration, http_resp
+FROM
+  result_api
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 // ResultAPI
@@ -941,7 +1114,12 @@ func (q *Queries) GetResultApi(ctx context.Context, id ulid.ULID) (ResultApi, er
 }
 
 const getResultApiByTriggerBy = `-- name: GetResultApiByTriggerBy :many
-SELECT id, trigger_type, trigger_by, name, status, time, duration, http_resp FROM result_api WHERE trigger_by = ?
+SELECT
+  id, trigger_type, trigger_by, name, status, time, duration, http_resp
+FROM
+  result_api
+WHERE
+  trigger_by = ?
 `
 
 func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy ulid.ULID) ([]ResultApi, error) {
@@ -977,7 +1155,13 @@ func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy ulid.UL
 }
 
 const getResultApiByTriggerByAndTriggerType = `-- name: GetResultApiByTriggerByAndTriggerType :many
-SELECT id, trigger_type, trigger_by, name, status, time, duration, http_resp FROM result_api WHERE trigger_by = ? AND trigger_type = ?
+SELECT
+  id, trigger_type, trigger_by, name, status, time, duration, http_resp
+FROM
+  result_api
+WHERE
+  trigger_by = ?
+  AND trigger_type = ?
 `
 
 type GetResultApiByTriggerByAndTriggerTypeParams struct {
@@ -1018,14 +1202,18 @@ func (q *Queries) GetResultApiByTriggerByAndTriggerType(ctx context.Context, arg
 }
 
 const getUser = `-- name: GetUser :one
-
 SELECT
-    id,
-    email,
-    password_hash,
-    provider_type,
-    provider_id
-FROM users WHERE id = ? LIMIT 1
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 type GetUserRow struct {
@@ -1052,12 +1240,17 @@ func (q *Queries) GetUser(ctx context.Context, id ulid.ULID) (GetUserRow, error)
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-    id,
-    email,
-    password_hash,
-    provider_type,
-    provider_id
-FROM users WHERE email = ? LIMIT 1
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  email = ?
+LIMIT
+  1
 `
 
 type GetUserByEmailRow struct {
@@ -1083,12 +1276,18 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 
 const getUserByEmailAndProviderType = `-- name: GetUserByEmailAndProviderType :one
 SELECT
-        id,
-        email,
-        password_hash,
-        provider_type,
-        provider_id
-FROM users WHERE email = ? AND provider_type = ? LIMIT 1
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  email = ?
+  AND provider_type = ?
+LIMIT
+  1
 `
 
 type GetUserByEmailAndProviderTypeParams struct {
@@ -1119,12 +1318,18 @@ func (q *Queries) GetUserByEmailAndProviderType(ctx context.Context, arg GetUser
 
 const getUserByProviderIDandType = `-- name: GetUserByProviderIDandType :one
 SELECT
-    id,
-    email,
-    password_hash,
-    provider_type,
-    provider_id
-FROM users WHERE provider_id = ? AND provider_type = ? LIMIT 1
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id
+FROM
+  users
+WHERE
+  provider_id = ?
+  AND provider_type = ?
+LIMIT
+  1
 `
 
 type GetUserByProviderIDandTypeParams struct {
@@ -1154,10 +1359,17 @@ func (q *Queries) GetUserByProviderIDandType(ctx context.Context, arg GetUserByP
 }
 
 const getWorkspace = `-- name: GetWorkspace :one
-
-SELECT id, name, created, updated
-FROM workspaces
-WHERE id = ? LIMIT 1
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 // Workspaces
@@ -1174,7 +1386,26 @@ func (q *Queries) GetWorkspace(ctx context.Context, id ulid.ULID) (Workspace, er
 }
 
 const getWorkspaceByUserID = `-- name: GetWorkspaceByUserID :one
-SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE user_id = ? LIMIT 1) LIMIT 1
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id = (
+    SELECT
+      workspace_id
+    FROM
+      workspaces_users
+    WHERE
+      user_id = ?
+    LIMIT
+      1
+  )
+LIMIT
+  1
 `
 
 func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID ulid.ULID) (Workspace, error) {
@@ -1190,7 +1421,27 @@ func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID ulid.ULID) (W
 }
 
 const getWorkspaceByUserIDandWorkspaceID = `-- name: GetWorkspaceByUserIDandWorkspaceID :one
-SELECT id, name, created, updated FROM workspaces WHERE id = (SELECT workspace_id FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1) LIMIT 1
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id = (
+    SELECT
+      workspace_id
+    FROM
+      workspaces_users
+    WHERE
+      workspace_id = ?
+      AND user_id = ?
+    LIMIT
+      1
+  )
+LIMIT
+  1
 `
 
 type GetWorkspaceByUserIDandWorkspaceIDParams struct {
@@ -1211,8 +1462,17 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 }
 
 const getWorkspaceUser = `-- name: GetWorkspaceUser :one
-SELECT id, workspace_id, user_id, role FROM workspaces_users
-WHERE id = ? LIMIT 1
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  id = ?
+LIMIT
+  1
 `
 
 func (q *Queries) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (WorkspacesUser, error) {
@@ -1228,8 +1488,15 @@ func (q *Queries) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (Workspace
 }
 
 const getWorkspaceUserByUserID = `-- name: GetWorkspaceUserByUserID :many
-SELECT id, workspace_id, user_id, role FROM workspaces_users
-WHERE user_id = ?
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  user_id = ?
 `
 
 func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) ([]WorkspacesUser, error) {
@@ -1261,8 +1528,15 @@ func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID
 }
 
 const getWorkspaceUserByWorkspaceID = `-- name: GetWorkspaceUserByWorkspaceID :many
-SELECT id, workspace_id, user_id, role FROM workspaces_users
-WHERE workspace_id = ?
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  workspace_id = ?
 `
 
 func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID ulid.ULID) ([]WorkspacesUser, error) {
@@ -1294,7 +1568,18 @@ func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID
 }
 
 const getWorkspaceUserByWorkspaceIDAndUserID = `-- name: GetWorkspaceUserByWorkspaceIDAndUserID :one
-SELECT id, workspace_id, user_id, role FROM workspaces_users WHERE workspace_id = ? AND user_id = ? LIMIT 1
+SELECT
+  id,
+  workspace_id,
+  user_id,
+  role
+FROM
+  workspaces_users
+WHERE
+  workspace_id = ?
+  AND user_id = ?
+LIMIT
+  1
 `
 
 type GetWorkspaceUserByWorkspaceIDAndUserIDParams struct {
@@ -1315,7 +1600,22 @@ func (q *Queries) GetWorkspaceUserByWorkspaceIDAndUserID(ctx context.Context, ar
 }
 
 const getWorkspacesByUserID = `-- name: GetWorkspacesByUserID :many
-SELECT id, name, created, updated FROM workspaces WHERE id IN (SELECT workspace_id FROM workspaces_users WHERE user_id = ?)
+SELECT
+  id,
+  name,
+  created,
+  updated
+FROM
+  workspaces
+WHERE
+  id IN (
+    SELECT
+      workspace_id
+    FROM
+      workspaces_users
+    WHERE
+      user_id = ?
+  )
 `
 
 func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) ([]Workspace, error) {
@@ -1347,9 +1647,12 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) (
 }
 
 const updateCollection = `-- name: UpdateCollection :exec
-UPDATE collections 
-SET owner_id = ?, name = ?
-WHERE id = ?
+UPDATE collections
+SET
+  owner_id = ?,
+  name = ?
+WHERE
+  id = ?
 `
 
 type UpdateCollectionParams struct {
@@ -1365,8 +1668,14 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 
 const updateItemApi = `-- name: UpdateItemApi :exec
 UPDATE item_api
-SET collection_id = ?, parent_id = ?, name = ?, url = ?, method = ?
-WHERE id = ?
+SET
+  collection_id = ?,
+  parent_id = ?,
+  name = ?,
+  url = ?,
+  method = ?
+WHERE
+  id = ?
 `
 
 type UpdateItemApiParams struct {
@@ -1391,17 +1700,24 @@ func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) er
 }
 
 const updateItemApiExample = `-- name: UpdateItemApiExample :exec
-UPDATE item_api_example SET
-name = ?, headers = ?, query = ?, body = ?
-WHERE id = ?
+UPDATE item_api_example
+SET
+  name = ?,
+  headers = ?,
+  query = ?,
+  compressed = ?,
+  body = ?
+WHERE
+  id = ?
 `
 
 type UpdateItemApiExampleParams struct {
-	Name    string
-	Headers mitemapiexample.Headers
-	Query   mitemapiexample.Query
-	Body    []byte
-	ID      ulid.ULID
+	Name       string
+	Headers    mitemapiexample.Headers
+	Query      mitemapiexample.Query
+	Compressed bool
+	Body       []byte
+	ID         ulid.ULID
 }
 
 func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
@@ -1409,6 +1725,7 @@ func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExa
 		arg.Name,
 		arg.Headers,
 		arg.Query,
+		arg.Compressed,
 		arg.Body,
 		arg.ID,
 	)
@@ -1417,8 +1734,10 @@ func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExa
 
 const updateItemFolder = `-- name: UpdateItemFolder :exec
 UPDATE item_folder
-SET name = ?
-WHERE id = ?
+SET
+  name = ?
+WHERE
+  id = ?
 `
 
 type UpdateItemFolderParams struct {
@@ -1432,7 +1751,15 @@ func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderPara
 }
 
 const updateResultApi = `-- name: UpdateResultApi :exec
-UPDATE result_api SET name = ?, status = ?, time = ?, duration = ?, http_resp = ? WHERE id = ?
+UPDATE result_api
+SET
+  name = ?,
+  status = ?,
+  time = ?,
+  duration = ?,
+  http_resp = ?
+WHERE
+  id = ?
 `
 
 type UpdateResultApiParams struct {
@@ -1457,10 +1784,12 @@ func (q *Queries) UpdateResultApi(ctx context.Context, arg UpdateResultApiParams
 }
 
 const updateUser = `-- name: UpdateUser :exec
-UPDATE users 
-SET email = ?,
-password_hash = ?
-WHERE id = ?
+UPDATE users
+SET
+  email = ?,
+  password_hash = ?
+WHERE
+  id = ?
 `
 
 type UpdateUserParams struct {
@@ -1476,8 +1805,10 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 
 const updateWorkspace = `-- name: UpdateWorkspace :exec
 UPDATE workspaces
-SET name = ?
-WHERE id = ?
+SET
+  name = ?
+WHERE
+  id = ?
 `
 
 type UpdateWorkspaceParams struct {
@@ -1492,8 +1823,12 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 
 const updateWorkspaceUser = `-- name: UpdateWorkspaceUser :exec
 UPDATE workspaces_users
-SET workspace_id = ?, user_id = ?, role = ?
-WHERE id = ?
+SET
+  workspace_id = ?,
+  user_id = ?,
+  role = ?
+WHERE
+  id = ?
 `
 
 type UpdateWorkspaceUserParams struct {

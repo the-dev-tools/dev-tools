@@ -63,14 +63,14 @@ func TestTranslateItemFolderNested(t *testing.T) {
 			Name:         "test example #1",
 			ItemApiID:    apis[0].ID,
 			CollectionID: collectionUlid,
-			Default:      true,
+			IsDefault:    true,
 		},
 		{
 			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Millisecond*1)), ulid.DefaultEntropy()),
 			Name:         "test example #2",
 			ItemApiID:    apis[0].ID,
 			CollectionID: collectionUlid,
-			Default:      false,
+			IsDefault:    false,
 		},
 	}
 

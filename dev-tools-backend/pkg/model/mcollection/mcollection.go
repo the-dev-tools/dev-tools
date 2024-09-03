@@ -17,13 +17,20 @@ type Collection struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
-	Created time.Time
 	Updated time.Time
+}
+
+func (c Collection) GetCreatedTime() time.Time {
+	return time.UnixMilli(int64(c.ID.Time()))
 }
 
 type MetaCollection struct {
 	ID   ulid.ULID
 	Name string
+}
+
+func (mc MetaCollection) GetCreatedTime() time.Time {
+	return time.UnixMilli(int64(mc.ID.Time()))
 }
 
 /*
