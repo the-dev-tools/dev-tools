@@ -12,7 +12,6 @@ import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import {
-  Label as AriaLabel,
   UNSTABLE_TreeItem as AriaTreeItem,
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
   TreeItemContentProps as AriaTreeItemContentProps,
@@ -22,12 +21,8 @@ import {
   Dialog,
   FileTrigger,
   Form,
-  ListBox,
-  ListBoxItem,
   MenuTrigger,
   Popover,
-  Select,
-  SelectValue,
   Text,
   UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
@@ -56,7 +51,9 @@ import {
   updateFolder,
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
@@ -495,6 +492,7 @@ export const ApiCallPage = () => {
       <div className='my-2 h-px bg-black' />
 
       <Form
+        className='flex flex-col items-start gap-4'
         onSubmit={(event) =>
           Effect.gen(function* () {
             event.preventDefault();
@@ -523,20 +521,12 @@ export const ApiCallPage = () => {
           inputClassName={tw`flex-1`}
         />
 
-        <Select name='method' defaultSelectedKey={data.apiCall!.method} className='flex gap-2'>
-          <AriaLabel>Method:</AriaLabel>
-          <Button kind='placeholder' variant='placeholder'>
-            <SelectValue />
-          </Button>
-          <Popover className='bg-white'>
-            <ListBox>
-              {Array.map(ApiCallForm.fields.method.literals, (_) => (
-                <ListBoxItem key={_} id={_} className='cursor-pointer'>
-                  {_}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
+        <Select name='method' defaultSelectedKey={data.apiCall!.method} className='flex gap-2' label='Method:'>
+          {Array.map(ApiCallForm.fields.method.literals, (_) => (
+            <DropdownItem key={_} id={_} className='cursor-pointer'>
+              {_}
+            </DropdownItem>
+          ))}
         </Select>
 
         <TextField
