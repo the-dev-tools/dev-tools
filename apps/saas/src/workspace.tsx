@@ -10,7 +10,7 @@ import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
 import { Form, MenuTrigger } from 'react-aria-components';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
 import {
@@ -22,6 +22,7 @@ import {
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { CollectionsWidget } from './collection';
@@ -171,7 +172,7 @@ export const WorkspaceLayout = () => {
           <h2 className='uppercase'>Overview</h2>
           <CollectionsWidget />
         </Panel>
-        <PanelResizeHandle className='w-px cursor-col-resize bg-black' />
+        <PanelResizeHandle direction='horizontal' />
         <Panel className='overflow-auto p-2'>
           <Outlet />
         </Panel>
