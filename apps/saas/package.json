@@ -1,6 +1,6 @@
 {
   "name": "@the-dev-tools/saas",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "scripts": {
     "build": "rsbuild build",
     "dev": "rsbuild dev",
