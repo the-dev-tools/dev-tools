@@ -331,7 +331,6 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
         triggerRef={triggerRef}
         isOpen={isRenaming}
         onOpenChange={setIsRenaming}
-        className='rounded border border-black bg-white p-2'
         dialogAria-label='Rename folder'
       >
         <Form
