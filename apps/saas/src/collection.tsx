@@ -18,11 +18,9 @@ import {
   TreeItemProps as AriaTreeItemProps,
   Collection,
   composeRenderProps,
-  Dialog,
   FileTrigger,
   Form,
   MenuTrigger,
-  Popover,
   Text,
   UNSTABLE_Tree as Tree,
 } from 'react-aria-components';
@@ -53,6 +51,7 @@ import {
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Popover } from '@the-dev-tools/ui/popover';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
@@ -211,55 +210,53 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
         triggerRef={triggerRef}
         isOpen={isRenaming}
         onOpenChange={setIsRenaming}
-        className='rounded border border-black bg-white p-2'
+        dialogAria-label='Rename collection'
       >
-        <Dialog aria-label='Rename collection'>
-          <Form
-            className='flex flex-1 items-center gap-2'
-            onSubmit={(event) =>
-              Effect.gen(function* () {
-                event.preventDefault();
+        <Form
+          className='flex flex-1 items-center gap-2'
+          onSubmit={(event) =>
+            Effect.gen(function* () {
+              event.preventDefault();
 
-                const { name } = yield* pipe(
-                  new FormData(event.currentTarget),
-                  Object.fromEntries,
-                  Schema.decode(Schema.Struct({ name: Schema.String })),
-                );
+              const { name } = yield* pipe(
+                new FormData(event.currentTarget),
+                Object.fromEntries,
+                Schema.decode(Schema.Struct({ name: Schema.String })),
+              );
 
-                yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: meta.id, name }));
+              yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: meta.id, name }));
 
-                queryClient.setQueriesData(
-                  queryOptions,
-                  createProtobufSafeUpdater(
-                    getCollection,
-                    Struct.evolve({
-                      name: () => name,
-                    }),
-                  ),
-                );
+              queryClient.setQueriesData(
+                queryOptions,
+                createProtobufSafeUpdater(
+                  getCollection,
+                  Struct.evolve({
+                    name: () => name,
+                  }),
+                ),
+              );
 
-                yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
+              yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
 
-                setIsRenaming(false);
-              }).pipe(Runtime.runPromise)
-            }
-          >
-            <TextField
-              name='name'
-              defaultValue={meta.name}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
-              label='New name:'
-              className={tw`contents`}
-              labelClassName={tw`text-nowrap`}
-              inputClassName={tw`w-full bg-transparent`}
-            />
+              setIsRenaming(false);
+            }).pipe(Runtime.runPromise)
+          }
+        >
+          <TextField
+            name='name'
+            defaultValue={meta.name}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            label='New name:'
+            className={tw`contents`}
+            labelClassName={tw`text-nowrap`}
+            inputClassName={tw`w-full bg-transparent`}
+          />
 
-            <Button kind='placeholder' variant='placeholder' type='submit'>
-              Save
-            </Button>
-          </Form>
-        </Dialog>
+          <Button kind='placeholder' variant='placeholder' type='submit'>
+            Save
+          </Button>
+        </Form>
       </Popover>
     </TreeItem>
   );
@@ -335,53 +332,52 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
         isOpen={isRenaming}
         onOpenChange={setIsRenaming}
         className='rounded border border-black bg-white p-2'
+        dialogAria-label='Rename folder'
       >
-        <Dialog aria-label='Rename folder'>
-          <Form
-            className='flex flex-1 items-center gap-2'
-            onSubmit={(event) =>
-              Effect.gen(function* () {
-                event.preventDefault();
+        <Form
+          className='flex flex-1 items-center gap-2'
+          onSubmit={(event) =>
+            Effect.gen(function* () {
+              event.preventDefault();
 
-                const { name } = yield* pipe(
-                  new FormData(event.currentTarget),
-                  Object.fromEntries,
-                  Schema.decode(Schema.Struct({ name: Schema.String })),
-                );
+              const { name } = yield* pipe(
+                new FormData(event.currentTarget),
+                Object.fromEntries,
+                Schema.decode(Schema.Struct({ name: Schema.String })),
+              );
 
-                yield* Effect.tryPromise(() =>
-                  updateMutation.mutateAsync({
-                    folder: {
-                      ...Struct.evolve(folder, {
-                        meta: Struct.evolve({ name: () => name }),
-                      }),
-                      collectionId,
-                    },
-                  }),
-                );
+              yield* Effect.tryPromise(() =>
+                updateMutation.mutateAsync({
+                  folder: {
+                    ...Struct.evolve(folder, {
+                      meta: Struct.evolve({ name: () => name }),
+                    }),
+                    collectionId,
+                  },
+                }),
+              );
 
-                yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
+              yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
 
-                setIsRenaming(false);
-              }).pipe(Runtime.runPromise)
-            }
-          >
-            <TextField
-              name='name'
-              defaultValue={folder.meta!.name}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
-              label='New name:'
-              className={tw`contents`}
-              labelClassName={tw`text-nowrap`}
-              inputClassName={tw`w-full bg-transparent`}
-            />
+              setIsRenaming(false);
+            }).pipe(Runtime.runPromise)
+          }
+        >
+          <TextField
+            name='name'
+            defaultValue={folder.meta!.name}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            label='New name:'
+            className={tw`contents`}
+            labelClassName={tw`text-nowrap`}
+            inputClassName={tw`w-full bg-transparent`}
+          />
 
-            <Button kind='placeholder' variant='placeholder' type='submit'>
-              Save
-            </Button>
-          </Form>
-        </Dialog>
+          <Button kind='placeholder' variant='placeholder' type='submit'>
+            Save
+          </Button>
+        </Form>
       </Popover>
     </TreeItem>
   );
