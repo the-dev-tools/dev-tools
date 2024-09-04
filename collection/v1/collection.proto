@@ -26,6 +26,7 @@ service CollectionService {
 message CollectionMeta {
   string id = 1;
   string name = 2;
+  repeated itemfolder.v1.ItemMeta items = 3;
 }
 
 // Collection Operations Request and Response
