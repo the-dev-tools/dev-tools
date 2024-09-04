@@ -20,10 +20,6 @@ import { FieldError, FieldLabel, type FieldErrorProps, type FieldLabelProps } fr
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
-// -----------------------------------------------------------------------------
-// Compound Components
-// -----------------------------------------------------------------------------
-
 // Root
 
 export interface SelectRootProps<T extends object> extends AriaSelectProps<T> {}
@@ -52,12 +48,6 @@ export const SelectTrigger = ({ className, ...props }: SelectTriggerProps) => {
   );
 };
 
-// Value
-
-export interface SelectValueProps<T extends object> extends AriaSelectValueProps<T> {}
-
-export const SelectValue = <T extends object>(props: SelectValueProps<T>) => <AriaSelectValue {...props} />;
-
 // Indicator
 
 export interface SelectIndicatorProps extends IconBaseProps {
@@ -68,15 +58,13 @@ export const SelectIndicator = ({ isOpen, ...props }: SelectIndicatorProps) => (
   <LuChevronDown {...props} className={twJoin(tw`size-4 transition-transform`, isOpen && tw`rotate-180`)} />
 );
 
-// -----------------------------------------------------------------------------
-// Mix Components
-// -----------------------------------------------------------------------------
+// Mix
 
 export interface SelectProps<T extends object>
   extends Omit<SelectRootProps<T>, 'children'>,
     MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'trigger', Omit<SelectTriggerProps, 'children'>>,
-    MixinProps<'value', Omit<SelectValueProps<T>, 'children'>>,
+    MixinProps<'value', Omit<AriaSelectValueProps<T>, 'children'>>,
     MixinProps<'indicator', Omit<SelectIndicatorProps, 'children' | 'isOpen'>>,
     MixinProps<'error', Omit<FieldErrorProps, 'children'>>,
     MixinProps<'popover', Omit<DropdownPopoverProps, 'children'>>,
@@ -94,7 +82,7 @@ export const Select = <T extends object>({ children, label, error, ...props }: S
         <>
           {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}
           <SelectTrigger {...forwardedProps.trigger}>
-            <SelectValue {...forwardedProps.value} />
+            <AriaSelectValue {...forwardedProps.value} />
             <SelectIndicator {...forwardedProps.indicator} isOpen={isOpen} />
           </SelectTrigger>
           <FieldError {...forwardedProps.error}>{error}</FieldError>

@@ -6,10 +6,6 @@ import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { dropdownListBoxStyles, DropdownPopover, DropdownPopoverProps } from './dropdown';
 
-// -----------------------------------------------------------------------------
-// Compound Components
-// -----------------------------------------------------------------------------
-
 // Dialog
 
 export interface PopoverDialogProps extends AriaDialogProps, VariantProps<typeof dropdownListBoxStyles> {}
@@ -20,9 +16,7 @@ export const PopoverDialog = ({ className, ...props }: PopoverDialogProps) => {
   return <AriaDialog {...forwardedProps} className={dropdownListBoxStyles({ ...variantProps, className })} />;
 };
 
-// -----------------------------------------------------------------------------
-// Mix Components
-// -----------------------------------------------------------------------------
+// Mix
 
 export interface PopoverProps
   extends Omit<DropdownPopoverProps, 'children'>,

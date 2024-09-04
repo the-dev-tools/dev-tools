@@ -14,10 +14,6 @@ import { focusRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
-// -----------------------------------------------------------------------------
-// Compound Components
-// -----------------------------------------------------------------------------
-
 // Root
 
 export interface TextFieldRootProps extends AriaTextFieldProps {}
@@ -43,9 +39,7 @@ export const TextFieldInput = ({ className, ...props }: TextFieldInputProps) => 
   );
 };
 
-// -----------------------------------------------------------------------------
-// Mix Components
-// -----------------------------------------------------------------------------
+// Mix
 
 export interface TextFieldProps
   extends Omit<TextFieldRootProps, 'children'>,

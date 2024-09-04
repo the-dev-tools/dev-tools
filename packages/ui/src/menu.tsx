@@ -12,10 +12,6 @@ import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 import { dropdownItemStyles, dropdownListBoxStyles, DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { composeRenderPropsTV } from './utils';
 
-// -----------------------------------------------------------------------------
-// Compound Components
-// -----------------------------------------------------------------------------
-
 // Root
 
 export interface MenuRootProps<T extends object> extends AriaMenuProps<T>, VariantProps<typeof dropdownListBoxStyles> {}
@@ -24,6 +20,23 @@ export const MenuRoot = <T extends object>({ className, ...props }: MenuRootProp
   const forwardedProps = Struct.omit(props, ...dropdownListBoxStyles.variantKeys);
   const variantProps = Struct.pick(props, ...dropdownListBoxStyles.variantKeys);
   return <AriaMenu {...forwardedProps} className={dropdownListBoxStyles({ ...variantProps, className })} />;
+};
+
+// Root mix
+
+export interface MenuProps<T extends object>
+  extends Omit<DropdownPopoverProps, 'children'>,
+    MixinProps<'root', Omit<MenuRootProps<T>, 'children'>> {
+  children?: MenuRootProps<T>['children'];
+}
+
+export const Menu = <T extends object>({ children, ...props }: MenuProps<T>) => {
+  const forwardedProps = splitProps(props, 'root');
+  return (
+    <DropdownPopover {...forwardedProps.rest}>
+      <MenuRoot {...forwardedProps.root}>{children}</MenuRoot>
+    </DropdownPopover>
+  );
 };
 
 // Item
@@ -39,24 +52,5 @@ export const MenuItem = ({ className, ...props }: MenuItemProps) => {
       isDisabled={props.isDisabled ?? false}
       className={composeRenderPropsTV(className, dropdownItemStyles, variantProps)}
     />
-  );
-};
-
-// -----------------------------------------------------------------------------
-// Mix Components
-// -----------------------------------------------------------------------------
-
-export interface MenuProps<T extends object>
-  extends Omit<DropdownPopoverProps, 'children'>,
-    MixinProps<'root', Omit<MenuRootProps<T>, 'children'>> {
-  children?: MenuRootProps<T>['children'];
-}
-
-export const Menu = <T extends object>({ children, ...props }: MenuProps<T>) => {
-  const forwardedProps = splitProps(props, 'root');
-  return (
-    <DropdownPopover {...forwardedProps.rest}>
-      <MenuRoot {...forwardedProps.root}>{children}</MenuRoot>
-    </DropdownPopover>
   );
 };
