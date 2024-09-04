@@ -88,15 +88,15 @@ export const TreeItem = <T extends object>({ children, childItem, ...mixProps }:
   return (
     <TreeItemRoot {...props.rest}>
       <AriaTreeItemContent {...props.content}>
-        {composeRenderProps(children, (children, renderProps) => (
-          <TreeItemWrapper {...renderProps} {...props.wrapper}>
-            {renderProps.hasChildRows && (
+        {composeRenderProps(children, (children, { level, isSelected, hasChildRows, isExpanded }) => (
+          <TreeItemWrapper level={level} isSelected={isSelected} {...props.wrapper}>
+            {hasChildRows && (
               <Button kind='placeholder' variant='placeholder ghost' slot='chevron' {...props.expandButton}>
                 <LuChevronRight
                   {...props.expandIndicator}
                   className={twJoin(
                     tw`transition-transform`,
-                    !renderProps.isExpanded ? tw`rotate-0` : tw`rotate-90`,
+                    !isExpanded ? tw`rotate-0` : tw`rotate-90`,
                     props.expandIndicator.className,
                   )}
                 />
