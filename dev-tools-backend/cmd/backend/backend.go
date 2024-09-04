@@ -12,7 +12,7 @@ import (
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/internal/api/rworkspace"
-	"dev-tools-backend/pkg/db/turso"
+	"dev-tools-db/pkg/tursoembedded"
 	"errors"
 	"log"
 	"os"
@@ -46,21 +46,22 @@ func main() {
 	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	defer client.Close()
 
-	db, err := GetDB()
+	dbEmbedded, dbCloseFunc, err := GetDBEmbedded()
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer dbCloseFunc()
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(10)
-	newServiceManager.AddService(auth.CreateService(ctx, db, hmacSecretBytes))
-	newServiceManager.AddService(collection.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(auth.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(collection.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 	newServiceManager.AddService(node.CreateService(client))
-	newServiceManager.AddService(resultapi.CreateService(ctx, db, hmacSecretBytes))
-	newServiceManager.AddService(rworkspace.CreateService(ctx, hmacSecretBytes, db))
-	newServiceManager.AddService(ritemapi.CreateService(ctx, db, hmacSecretBytes))
-	newServiceManager.AddService(ritemfolder.CreateService(ctx, db, hmacSecretBytes))
-	newServiceManager.AddService(ritemapiexample.CreateService(ctx, db, hmacSecretBytes))
+	newServiceManager.AddService(resultapi.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(rworkspace.CreateService(ctx, hmacSecretBytes, dbEmbedded))
+	newServiceManager.AddService(ritemapi.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(ritemfolder.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(ritemapiexample.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 
 	// Start services
 	go func() {
@@ -96,6 +97,7 @@ func (sm *ServiceManager) GetServices() []api.Service {
 	return sm.s
 }
 
+/*
 func GetDB() (*sql.DB, error) {
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
@@ -112,9 +114,40 @@ func GetDB() (*sql.DB, error) {
 		return nil, errors.New("DB_USERNAME env var is required")
 	}
 
-	db, err := turso.NewTurso(dbName, dbUsername, dbToken)
+	db, err := tursoclient.NewTurso(dbName, dbUsername, dbToken)
 	if err != nil {
 		return nil, err
 	}
 	return db, nil
+}
+*/
+
+func GetDBEmbedded() (*sql.DB, func(), error) {
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		return nil, nil, errors.New("DB_NAME env var is required")
+	}
+	dbToken := os.Getenv("DB_TOKEN")
+	if dbToken == "" {
+		return nil, nil, errors.New("DB_TOKEN env var is required")
+	}
+	dbUsername := os.Getenv("DB_USERNAME")
+	if dbUsername == "" {
+		return nil, nil, errors.New("DB_USERNAME env var is required")
+	}
+	dbVolumePath := os.Getenv("DB_VOLUME_PATH")
+	if dbVolumePath == "" {
+		return nil, nil, errors.New("DB_VOLUME_PATH env var is required")
+	}
+
+	encryptKey := os.Getenv("DB_ENCRYPTION_KEY")
+	if encryptKey == "" {
+		return nil, nil, errors.New("DB_ENCRYPT_KEY env var is required")
+	}
+
+	db, a, err := tursoembedded.NewTursoEmbeded(dbName, dbUsername, dbToken, dbVolumePath, encryptKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return db, a, nil
 }

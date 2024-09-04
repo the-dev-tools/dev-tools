@@ -1,10 +1,11 @@
-package turso
+package tursoclient
 
+/*
 import (
 	"database/sql"
 	"fmt"
 
-	"github.com/tursodatabase/libsql-client-go/libsql"
+	libsqlClient "github.com/tursodatabase/libsql-client-go/libsql"
 )
 
 var (
@@ -27,7 +28,7 @@ func NewTurso(dbName, username, token string) (*sql.DB, error) {
 	}
 
 	url := fmt.Sprintf("libsql://%s-%s.turso.io", dbName, username)
-	connector, err := libsql.NewConnector(url, libsql.WithAuthToken(token))
+	connector, err := libsqlClient.NewConnector(url, libsqlClient.WithAuthToken(token))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connector: %w", err)
 	}
@@ -40,3 +41,4 @@ func NewTurso(dbName, username, token string) (*sql.DB, error) {
 
 	return db, nil
 }
+*/
