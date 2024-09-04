@@ -173,7 +173,7 @@ export const WorkspaceLayout = () => {
           <CollectionsWidget />
         </Panel>
         <PanelResizeHandle direction='horizontal' />
-        <Panel className='overflow-auto p-2'>
+        <Panel className='overflow-auto'>
           <Outlet />
         </Panel>
       </PanelGroup>

@@ -11,7 +11,7 @@ import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
-import { LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
+import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal } from 'react-icons/lu';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import {
@@ -408,10 +408,8 @@ const ImportPostman = () => {
 const apiCallRoute = getRouteApi('/_authorized/workspace/$workspaceId/api-call/$apiCallId');
 
 class ApiCallForm extends Schema.Class<ApiCallForm>('ApiCallForm')({
-  name: Schema.String,
   method: Schema.Literal('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'),
   url: Schema.String,
-  body: Schema.String,
 }) {}
 
 export const ApiCallPage = () => {
@@ -424,42 +422,41 @@ export const ApiCallPage = () => {
   const { data } = query;
 
   return (
-    <>
-      <h2 className='truncate text-center text-2xl font-extrabold'>{data.apiCall!.meta!.name}</h2>
+    <Form
+      onSubmit={(event) =>
+        Effect.gen(function* () {
+          event.preventDefault();
 
-      <div className='my-2 h-px bg-black' />
+          const { method, url } = yield* pipe(
+            new FormData(event.currentTarget),
+            Object.fromEntries,
+            Schema.decode(ApiCallForm),
+          );
 
-      <Form
-        className='flex flex-col items-start gap-4'
-        onSubmit={(event) =>
-          Effect.gen(function* () {
-            event.preventDefault();
+          const newApiCall = Struct.evolve(data.apiCall!, {
+            method: () => method,
+            url: () => url,
+          });
 
-            const { name, method, url } = yield* pipe(
-              new FormData(event.currentTarget),
-              Object.fromEntries,
-              Schema.decode(ApiCallForm),
-            );
+          yield* Effect.tryPromise(() => updateMutation.mutateAsync({ apiCall: newApiCall }));
+        }).pipe(Runtime.runPromise)
+      }
+    >
+      <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
+        <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
 
-            const newApiCall = Struct.evolve(data.apiCall!, {
-              meta: (_) => Struct.evolve(_!, { name: () => name }),
-              method: () => method,
-              url: () => url,
-            });
+        <Button kind='placeholder' variant='placeholder' type='submit'>
+          <LuSave /> Save
+        </Button>
+      </div>
 
-            yield* Effect.tryPromise(() => updateMutation.mutateAsync({ apiCall: newApiCall }));
-          }).pipe(Runtime.runPromise)
-        }
-      >
-        <TextField
-          name='name'
-          defaultValue={data.apiCall!.meta!.name}
-          label='Name:'
-          className={tw`flex gap-2`}
-          inputClassName={tw`flex-1`}
-        />
-
-        <Select name='method' defaultSelectedKey={data.apiCall!.method} className='flex gap-2' label='Method:'>
+      <div className='flex p-4'>
+        <Select
+          name='method'
+          defaultSelectedKey={data.apiCall!.method}
+          aria-label='Method'
+          triggerClassName={tw`rounded-r-none border-r-0`}
+        >
           {Array.map(ApiCallForm.fields.method.literals, (_) => (
             <DropdownItem key={_} id={_} className='cursor-pointer'>
               {_}
@@ -470,15 +467,16 @@ export const ApiCallPage = () => {
         <TextField
           name='url'
           defaultValue={data.apiCall!.url}
-          label='URL:'
-          className={tw`flex gap-2`}
-          inputClassName={tw`flex-1`}
+          aria-label='URL'
+          className={tw`flex-1`}
+          inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
         />
 
-        <Button kind='placeholder' variant='placeholder' type='submit'>
-          Save
+        {/* TODO: implement */}
+        <Button kind='placeholder' variant='placeholder' className='rounded-l-none border-l-0 bg-black text-white'>
+          Send <LuSendHorizonal />
         </Button>
-      </Form>
-    </>
+      </div>
+    </Form>
   );
 };
