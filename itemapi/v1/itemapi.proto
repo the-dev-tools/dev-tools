@@ -14,6 +14,7 @@ service ItemApiService {
 message ApiCallMeta {
   string id = 1;
   string name = 2;
+  repeated itemapiexample.v1.ApiExampleMeta examples = 3;
 }
 
 message ApiCall {
@@ -22,8 +23,6 @@ message ApiCall {
   string collection_id = 3;
 	string url = 4;
 	string method = 5;
-  itemapiexample.v1.ApiExample defaultExample = 6;
-  repeated itemapiexample.v1.ApiExampleMeta examples = 7;
 }
 
 message CreateApiCallRequest {
@@ -39,7 +38,12 @@ message CreateApiCallResponse {
 
 message GetApiCallRequest {
   string id = 1;
-  string collection_id = 2;
+  optional string example_id = 2;
+}
+
+message GetApiCallResponse {
+  ApiCall api_call = 1;
+  itemapiexample.v1.ApiExample example = 2;
 }
 
 message UpdateApiCallRequest { ApiCall api_call = 1; }
@@ -53,4 +57,3 @@ message DeleteApiCallRequest {
 
 message DeleteApiCallResponse {}
 
-message GetApiCallResponse { ApiCall api_call = 1; }
