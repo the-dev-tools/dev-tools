@@ -1,5 +1,13 @@
 # @the-dev-tools/protobuf
 
+## 1.15.0
+
+### Minor Changes
+
+- [`898c0b0`](https://github.com/the-dev-tools/dev-tools-proto/commit/898c0b09522d2726d9291071d2fef6cca8cacb67) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add examples to apiCall
+
+- [`314acb4`](https://github.com/the-dev-tools/dev-tools-proto/commit/314acb470e5aab836ed29c19e6f936544235a56e) Thanks [@ElecTwix](https://github.com/ElecTwix)! - update apiCall to add metaExamples and remove full examples while providing apiCall itself
+
 ## 1.14.0
 
 ### Minor Changes
