@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fontsource-variable/lexend-deca": "5.0.14",
+    "@react-aria/collections": "3.0.0-alpha.4",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.7.0",
     "react": "18.3.1",

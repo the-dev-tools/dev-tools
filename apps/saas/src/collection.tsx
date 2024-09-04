@@ -6,26 +6,12 @@ import {
   useTransport,
 } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
-import { CollectionProps } from '@react-aria/collections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
-import {
-  UNSTABLE_TreeItem as AriaTreeItem,
-  UNSTABLE_TreeItemContent as AriaTreeItemContent,
-  TreeItemContentProps as AriaTreeItemContentProps,
-  TreeItemProps as AriaTreeItemProps,
-  Collection,
-  composeRenderProps,
-  FileTrigger,
-  Form,
-  MenuTrigger,
-  Text,
-  UNSTABLE_Tree as Tree,
-} from 'react-aria-components';
-import { LuChevronRight, LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
-import { twJoin, twMerge } from 'tailwind-merge';
+import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
+import { LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import {
@@ -55,8 +41,7 @@ import { Popover } from '@the-dev-tools/ui/popover';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
-import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
+import { Tree, TreeItem } from '@the-dev-tools/ui/tree';
 
 import { Runtime } from './runtime';
 
@@ -94,52 +79,10 @@ export const CollectionsWidget = () => {
         </Button>
         <ImportPostman />
       </div>
-      <Tree aria-label='Collections' items={metaCollections} className='flex flex-col gap-2'>
+      <Tree aria-label='Collections' items={metaCollections}>
         {(_) => <CollectionWidget id={_.id} meta={_} />}
       </Tree>
     </>
-  );
-};
-
-interface TreeItemProps<T extends object>
-  extends Omit<AriaTreeItemProps, 'children'>,
-    MixinProps<'content', Omit<AriaTreeItemContentProps, 'children'>>,
-    MixinProps<'wrapper', Omit<React.ComponentProps<'div'>, 'children'>>,
-    MixinProps<'child', Omit<CollectionProps<T>, 'children'>> {
-  children?: AriaTreeItemContentProps['children'];
-  childItem?: CollectionProps<T>['children'];
-}
-
-const TreeItem = <T extends object>({ children, className, childItem, ...mixProps }: TreeItemProps<T>) => {
-  const props = splitProps(mixProps, 'content', 'wrapper', 'child');
-  return (
-    <AriaTreeItem
-      {...props.rest}
-      className={composeRenderPropsTW(className, tw`group cursor-pointer select-none outline-none`)}
-    >
-      <AriaTreeItemContent {...props.content}>
-        {composeRenderProps(children, (children, { hasChildRows, isExpanded, level }) => (
-          <div
-            {...props.wrapper}
-            style={{ marginInlineStart: (level - 1).toString() + 'rem', ...props.wrapper.style }}
-            className={twMerge(
-              tw`flex items-center gap-2 p-1 outline outline-0 group-rac-focus-visible:outline-2`,
-              props.wrapper.className,
-            )}
-          >
-            {hasChildRows && (
-              <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1' slot='chevron'>
-                <LuChevronRight
-                  className={twJoin(tw`transition-transform`, !isExpanded ? tw`rotate-0` : tw`rotate-90`)}
-                />
-              </Button>
-            )}
-            {children}
-          </div>
-        ))}
-      </AriaTreeItemContent>
-      {!!childItem && <Collection {...props.child}>{childItem}</Collection>}
-    </AriaTreeItem>
   );
 };
 
@@ -178,7 +121,7 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
       </Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1'>
+        <Button kind='placeholder' variant='placeholder ghost'>
           <LuMoreHorizontal />
         </Button>
 
@@ -309,7 +252,7 @@ const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
       </Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1'>
+        <Button kind='placeholder' variant='placeholder ghost'>
           <LuMoreHorizontal />
         </Button>
 
@@ -403,7 +346,7 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
     <TreeItem
       textValue={apiCall.meta!.name}
       href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: apiCall.meta!.id } }}
-      wrapperClassName={twJoin(match.params.apiCallId === apiCall.meta!.id && tw`bg-black text-white`)}
+      wrapperIsSelected={match.params.apiCallId === apiCall.meta!.id}
     >
       <div />
 
@@ -412,7 +355,7 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
       <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder' className='bg-transparent p-1'>
+        <Button kind='placeholder' variant='placeholder ghost'>
           <LuMoreHorizontal />
         </Button>
 
