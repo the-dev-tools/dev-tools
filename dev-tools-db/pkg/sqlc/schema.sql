@@ -16,7 +16,7 @@ CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,
   owner_id BLOB NOT NULL,
   name TEXT NOT NULL,
-  updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
   FOREIGN KEY (owner_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
@@ -25,7 +25,7 @@ CREATE INDEX Idx1 ON collections (owner_id);
 CREATE TRIGGER insert_collections AFTER INSERT ON collections BEGIN
 UPDATE workspaces
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = NEW.owner_id;
 
@@ -35,7 +35,7 @@ CREATE TRIGGER update_collections AFTER
 UPDATE ON collections BEGIN
 UPDATE workspaces
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = NEW.owner_id;
 
@@ -44,7 +44,7 @@ END;
 CREATE TRIGGER delete_collections AFTER DELETE ON collections BEGIN
 UPDATE workspaces
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = OLD.owner_id;
 
@@ -58,33 +58,24 @@ CREATE TABLE item_api (
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   method TEXT NOT NULL,
-  updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
 
 CREATE INDEX Idx2 ON item_api (collection_id, parent_id);
 
-CREATE TRIGGER insert_item_api AFTER INSERT ON item_api BEGIN
-UPDATE collections
-SET
-  updated = datetime ('now')
-WHERE
-  id = NEW.collection_id;
-
-END;
-
 CREATE TRIGGER update_item_api AFTER
 UPDATE ON item_api BEGIN
 UPDATE collections
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = NEW.collection_id;
 
 UPDATE item_api
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = NEW.id;
 
@@ -93,7 +84,7 @@ END;
 CREATE TRIGGER delete_item_api AFTER DELETE ON item_api BEGIN
 UPDATE collections
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = OLD.collection_id;
 
@@ -111,7 +102,7 @@ CREATE TABLE item_api_example (
   query BLOB NOT NULL,
   compressed BOOLEAN NOT NULL DEFAULT FALSE,
   body BLOB NOT NULL,
-  updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
   FOREIGN KEY (parent_example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
@@ -124,35 +115,26 @@ CREATE INDEX item_api_example_idx1 ON item_api_example (
   parent_example_id
 );
 
-CREATE TRIGGER insert_item_api_example AFTER INSERT ON item_api_example BEGIN
-UPDATE item_api
-SET
-  updated = datetime ('now')
-WHERE
-  id = NEW.item_api_id;
-
-END;
-
 CREATE TRIGGER update_item_api_example AFTER
 UPDATE ON item_api_example BEGIN
 UPDATE item_api
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = NEW.item_api_id;
 
 UPDATE item_api_example
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
-  id = NEW.id;
+  rowid = NEW.rowid;
 
 END;
 
 CREATE TRIGGER delete_item_api_example AFTER DELETE ON item_api_example BEGIN
 UPDATE item_api
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = OLD.item_api_id;
 
@@ -168,20 +150,11 @@ CREATE TABLE item_folder (
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
 
-CREATE TRIGGER insert_item_folder AFTER INSERT ON item_folder BEGIN
-UPDATE collections
-SET
-  updated = datetime ('now')
-WHERE
-  id = NEW.collection_id;
-
-END;
-
 CREATE TRIGGER update_item_folder AFTER
 UPDATE ON item_folder BEGIN
 UPDATE collections
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = NEW.collection_id;
 
@@ -190,7 +163,7 @@ END;
 CREATE TRIGGER delete_item_folder AFTER DELETE ON item_folder BEGIN
 UPDATE collections
 SET
-  updated = datetime ('now')
+  updated = unixepoch ()
 WHERE
   id = OLD.collection_id;
 
@@ -202,8 +175,7 @@ CREATE INDEX Idx3 ON item_folder (collection_id, parent_id);
 CREATE TABLE workspaces (
   id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
-  created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated TIMESTAMP NOT NULL DEFAULT (unixepoch ())
 );
 
 -- WORKSPACE USERS
@@ -225,7 +197,7 @@ CREATE TABLE result_api (
   trigger_by BLOB,
   name TEXT NOT NULL,
   status TEXT NOT NULL,
-  time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  time TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
   duration BIGINT NOT NULL,
   http_resp BLOB
 );

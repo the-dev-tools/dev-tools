@@ -17,6 +17,8 @@ sql:
             go_type: "int32"
           - db_type: "BIGINT"
             go_type: "int64"
+          - db_type: TIMESTAMP
+            go_type: "int64"
           ## user
           - column: "users.id"
             go_type:
@@ -56,7 +58,6 @@ sql:
               package: "ulid"
               pointer: true
               type: "ULID"
-
           ## item_api_example
           ### id
           - column: "item_api_example.id"

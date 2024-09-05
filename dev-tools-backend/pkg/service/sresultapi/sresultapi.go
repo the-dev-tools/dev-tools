@@ -18,6 +18,38 @@ type ResultApiService struct {
 	queries *gen.Queries
 }
 
+func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = *convFunc(v)
+	}
+	return arr
+}
+
+func ConvertToDBResultApi(result mresultapi.MResultAPI) gen.ResultApi {
+	return gen.ResultApi{
+		ID:          result.ID,
+		TriggerType: result.TriggerType,
+		TriggerBy:   result.TriggerBy,
+		Name:        result.Name,
+		Time:        result.Time.Unix(),
+		Duration:    result.Duration.Milliseconds(),
+		HttpResp:    result.HttpResp,
+	}
+}
+
+func ConvertToModelResultApi(result gen.ResultApi) *mresultapi.MResultAPI {
+	return &mresultapi.MResultAPI{
+		ID:          result.ID,
+		TriggerType: result.TriggerType,
+		TriggerBy:   result.TriggerBy,
+		Name:        result.Name,
+		Time:        time.Unix(result.Time, 0),
+		Duration:    time.Duration(result.Duration),
+		HttpResp:    result.HttpResp,
+	}
+}
+
 func New(ctx context.Context, db *sql.DB) (*ResultApiService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
@@ -28,14 +60,16 @@ func New(ctx context.Context, db *sql.DB) (*ResultApiService, error) {
 }
 
 func (ras ResultApiService) CreateResultApi(ctx context.Context, result *mresultapi.MResultAPI) error {
+	res := ConvertToDBResultApi(*result)
+
 	return ras.queries.CreateResultApi(ctx, gen.CreateResultApiParams{
-		ID:          result.ID,
-		TriggerType: result.TriggerType,
-		TriggerBy:   result.TriggerBy,
-		Name:        result.Name,
-		Time:        result.Time,
-		Duration:    result.Duration.Nanoseconds(),
-		HttpResp:    result.HttpResp,
+		ID:          res.ID,
+		TriggerType: res.TriggerType,
+		TriggerBy:   res.TriggerBy,
+		Name:        res.Name,
+		Time:        res.Time,
+		Duration:    res.Duration,
+		HttpResp:    res.HttpResp,
 	})
 }
 
@@ -44,24 +78,18 @@ func (ras ResultApiService) GetResultApi(id ulid.ULID) (*mresultapi.MResultAPI, 
 	if err != nil {
 		return nil, err
 	}
-	return &mresultapi.MResultAPI{
-		ID:          result.ID,
-		TriggerType: result.TriggerType,
-		TriggerBy:   result.TriggerBy,
-		Name:        result.Name,
-		Time:        result.Time,
-		Duration:    time.Duration(result.Duration),
-		HttpResp:    result.HttpResp,
-	}, nil
+	return ConvertToModelResultApi(result), nil
 }
 
 func (ras ResultApiService) UpdateResultApi(ctx context.Context, result *mresultapi.MResultAPI) error {
+	res := ConvertToDBResultApi(*result)
+
 	return ras.queries.UpdateResultApi(ctx, gen.UpdateResultApiParams{
-		ID:       result.ID,
-		Name:     result.Name,
-		Time:     result.Time,
-		Duration: result.Duration.Nanoseconds(),
-		HttpResp: result.HttpResp,
+		ID:       res.ID,
+		Name:     res.Name,
+		Time:     res.Time,
+		Duration: res.Duration,
+		HttpResp: res.HttpResp,
 	})
 }
 
@@ -74,19 +102,7 @@ func (ras ResultApiService) GetResultsApiWithTriggerBy(ctx context.Context, trig
 	if err != nil {
 		return nil, err
 	}
-	results := make([]mresultapi.MResultAPI, len(resultsRaw))
-	for i, result := range results {
-		results[i] = mresultapi.MResultAPI{
-			ID:          result.ID,
-			TriggerType: result.TriggerType,
-			TriggerBy:   result.TriggerBy,
-			Name:        result.Name,
-			Time:        result.Time,
-			Duration:    time.Duration(result.Duration),
-			HttpResp:    result.HttpResp,
-		}
-	}
-	return results, nil
+	return MassConvert(resultsRaw, ConvertToModelResultApi), nil
 }
 
 func (ras ResultApiService) GetWorkspaceID(ctx context.Context, id ulid.ULID, cs scollection.CollectionService, ias sitemapi.ItemApiService) (ulid.ULID, error) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-db/pkg/sqlc/gen"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -14,6 +15,32 @@ var ErrNoCollectionFound = sql.ErrNoRows
 type CollectionService struct {
 	DB      *sql.DB
 	queries *gen.Queries
+}
+
+func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = *convFunc(v)
+	}
+	return arr
+}
+
+func ConvertToDBCollection(collection mcollection.Collection) gen.Collection {
+	return gen.Collection{
+		ID:      collection.ID,
+		OwnerID: collection.OwnerID,
+		Name:    collection.Name,
+		Updated: collection.Updated.Unix(),
+	}
+}
+
+func ConvertToModelCollection(collection gen.Collection) *mcollection.Collection {
+	return &mcollection.Collection{
+		ID:      collection.ID,
+		OwnerID: collection.OwnerID,
+		Name:    collection.Name,
+		Updated: time.Unix(collection.Updated, 0),
+	}
 }
 
 func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
@@ -33,23 +60,15 @@ func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.UL
 		}
 		return nil, err
 	}
-	collections := make([]mcollection.Collection, len(rows))
-	for i, row := range rows {
-		collections[i] = mcollection.Collection{
-			ID:      row.ID,
-			OwnerID: row.OwnerID,
-			Name:    row.Name,
-		}
-	}
-	return collections, nil
+	return MassConvert(rows, ConvertToModelCollection), nil
 }
 
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
+	col := ConvertToDBCollection(*collection)
 	return cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
-		ID:      collection.ID,
-		OwnerID: collection.OwnerID,
-		Name:    collection.Name,
-		Updated: collection.Updated,
+		ID:      col.ID,
+		OwnerID: col.OwnerID,
+		Name:    col.Name,
 	})
 }
 
@@ -61,13 +80,7 @@ func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*m
 		}
 		return nil, err
 	}
-	c := mcollection.Collection{
-		ID:      ulid.ULID(collection.ID),
-		OwnerID: ulid.ULID(collection.OwnerID),
-		Name:    collection.Name,
-		Updated: collection.Updated,
-	}
-	return &c, nil
+	return ConvertToModelCollection(collection), nil
 }
 
 func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mcollection.Collection) error {
@@ -84,14 +97,14 @@ func (cs CollectionService) DeleteCollection(ctx context.Context, id ulid.ULID) 
 }
 
 func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
-	ulidBytes, err := cs.queries.GetCollectionOwnerID(ctx, id)
+	ulidData, err := cs.queries.GetCollectionOwnerID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ulid.ULID{}, ErrNoCollectionFound
 		}
 		return ulid.ULID{}, err
 	}
-	return ulid.ULID(ulidBytes), nil
+	return ulidData, nil
 }
 
 func (cs CollectionService) CheckOwner(ctx context.Context, id ulid.ULID, ownerID ulid.ULID) (bool, error) {

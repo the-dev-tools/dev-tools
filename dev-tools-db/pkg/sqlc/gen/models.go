@@ -6,7 +6,6 @@ package gen
 
 import (
 	"database/sql"
-	"time"
 
 	mitemapiexample "dev-tools-backend/pkg/model/mitemapiexample"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
@@ -17,7 +16,7 @@ type Collection struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
-	Updated time.Time
+	Updated int64
 }
 
 type ItemApi struct {
@@ -27,7 +26,7 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
-	Updated      time.Time
+	Updated      int64
 }
 
 type ItemApiExample struct {
@@ -41,7 +40,7 @@ type ItemApiExample struct {
 	Query           mitemapiexample.Query
 	Compressed      bool
 	Body            []byte
-	Updated         time.Time
+	Updated         int64
 }
 
 type ItemFolder struct {
@@ -57,7 +56,7 @@ type ResultApi struct {
 	TriggerBy   ulid.ULID
 	Name        string
 	Status      string
-	Time        time.Time
+	Time        int64
 	Duration    int64
 	HttpResp    mresultapi.HttpResp
 }
@@ -74,8 +73,7 @@ type User struct {
 type Workspace struct {
 	ID      ulid.ULID
 	Name    string
-	Created time.Time
-	Updated time.Time
+	Updated int64
 }
 
 type WorkspacesUser struct {

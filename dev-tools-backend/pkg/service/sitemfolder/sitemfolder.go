@@ -16,6 +16,32 @@ type ItemFolderService struct {
 
 var ErrNoItemFolderFound = sql.ErrNoRows
 
+func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = *convFunc(v)
+	}
+	return arr
+}
+
+func ConvertToDBItemFolder(folder mitemfolder.ItemFolder) gen.ItemFolder {
+	return gen.ItemFolder{
+		ID:           folder.ID,
+		CollectionID: folder.CollectionID,
+		ParentID:     folder.ParentID,
+		Name:         folder.Name,
+	}
+}
+
+func ConvertToModelItemFolder(folder gen.ItemFolder) *mitemfolder.ItemFolder {
+	return &mitemfolder.ItemFolder{
+		ID:           folder.ID,
+		CollectionID: folder.CollectionID,
+		ParentID:     folder.ParentID,
+		Name:         folder.Name,
+	}
+}
+
 func New(ctx context.Context, db *sql.DB) (*ItemFolderService, error) {
 	q, err := gen.Prepare(ctx, db)
 	if err != nil {

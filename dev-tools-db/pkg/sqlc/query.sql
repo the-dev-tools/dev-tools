@@ -408,9 +408,9 @@ WHERE
 
 -- name: CreateCollection :exec
 INSERT INTO
-  collections (id, owner_id, name, updated)
+  collections (id, owner_id, name)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateCollection :exec
 UPDATE collections
@@ -432,7 +432,6 @@ WHERE
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -445,7 +444,6 @@ LIMIT
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -467,7 +465,6 @@ LIMIT
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -485,7 +482,6 @@ WHERE
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -506,9 +502,9 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, created, updated)
+  workspaces (id, name, updated)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces

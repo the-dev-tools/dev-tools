@@ -8,7 +8,6 @@ package gen
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	mitemapiexample "dev-tools-backend/pkg/model/mitemapiexample"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
@@ -45,25 +44,19 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 
 const createCollection = `-- name: CreateCollection :exec
 INSERT INTO
-  collections (id, owner_id, name, updated)
+  collections (id, owner_id, name)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?)
 `
 
 type CreateCollectionParams struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
-	Updated time.Time
 }
 
 func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) error {
-	_, err := q.exec(ctx, q.createCollectionStmt, createCollection,
-		arg.ID,
-		arg.OwnerID,
-		arg.Name,
-		arg.Updated,
-	)
+	_, err := q.exec(ctx, q.createCollectionStmt, createCollection, arg.ID, arg.OwnerID, arg.Name)
 	return err
 }
 
@@ -373,7 +366,7 @@ type CreateResultApiParams struct {
 	TriggerBy   ulid.ULID
 	Name        string
 	Status      string
-	Time        time.Time
+	Time        int64
 	Duration    int64
 	HttpResp    mresultapi.HttpResp
 }
@@ -435,25 +428,19 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, created, updated)
+  workspaces (id, name, updated)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
 	ID      ulid.ULID
 	Name    string
-	Created time.Time
-	Updated time.Time
+	Updated int64
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
-	_, err := q.exec(ctx, q.createWorkspaceStmt, createWorkspace,
-		arg.ID,
-		arg.Name,
-		arg.Created,
-		arg.Updated,
-	)
+	_, err := q.exec(ctx, q.createWorkspaceStmt, createWorkspace, arg.ID, arg.Name, arg.Updated)
 	return err
 }
 
@@ -1362,7 +1349,6 @@ const getWorkspace = `-- name: GetWorkspace :one
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -1376,12 +1362,7 @@ LIMIT
 func (q *Queries) GetWorkspace(ctx context.Context, id ulid.ULID) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceStmt, getWorkspace, id)
 	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Created,
-		&i.Updated,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.Updated)
 	return i, err
 }
 
@@ -1389,7 +1370,6 @@ const getWorkspaceByUserID = `-- name: GetWorkspaceByUserID :one
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -1411,12 +1391,7 @@ LIMIT
 func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID ulid.ULID) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDStmt, getWorkspaceByUserID, userID)
 	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Created,
-		&i.Updated,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.Updated)
 	return i, err
 }
 
@@ -1424,7 +1399,6 @@ const getWorkspaceByUserIDandWorkspaceID = `-- name: GetWorkspaceByUserIDandWork
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -1452,12 +1426,7 @@ type GetWorkspaceByUserIDandWorkspaceIDParams struct {
 func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg GetWorkspaceByUserIDandWorkspaceIDParams) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDandWorkspaceIDStmt, getWorkspaceByUserIDandWorkspaceID, arg.WorkspaceID, arg.UserID)
 	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Created,
-		&i.Updated,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.Updated)
 	return i, err
 }
 
@@ -1603,7 +1572,6 @@ const getWorkspacesByUserID = `-- name: GetWorkspacesByUserID :many
 SELECT
   id,
   name,
-  created,
   updated
 FROM
   workspaces
@@ -1627,12 +1595,7 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) (
 	var items []Workspace
 	for rows.Next() {
 		var i Workspace
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Created,
-			&i.Updated,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Updated); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1765,7 +1728,7 @@ WHERE
 type UpdateResultApiParams struct {
 	Name     string
 	Status   string
-	Time     time.Time
+	Time     int64
 	Duration int64
 	HttpResp mresultapi.HttpResp
 	ID       ulid.ULID

@@ -9,6 +9,9 @@ import (
 type Workspace struct {
 	ID      ulid.ULID
 	Name    string
-	Created time.Time
 	Updated time.Time
+}
+
+func (w Workspace) GetCreatedTime() time.Time {
+	return time.UnixMilli(int64(w.ID.Time()))
 }

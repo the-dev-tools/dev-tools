@@ -5,15 +5,40 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-db/pkg/sqlc/gen"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
 
 var ErrNoWorkspaceFound = sql.ErrNoRows
 
+func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = *convFunc(v)
+	}
+	return arr
+}
+
 type WorkspaceService struct {
 	DB      *sql.DB
 	queries *gen.Queries
+}
+
+func ConvertToDBWorkspace(workspace mworkspace.Workspace) gen.Workspace {
+	return gen.Workspace{
+		ID:      workspace.ID,
+		Name:    workspace.Name,
+		Updated: workspace.Updated.Unix(),
+	}
+}
+
+func ConvertToModelWorkspace(workspace gen.Workspace) *mworkspace.Workspace {
+	return &mworkspace.Workspace{
+		ID:      workspace.ID,
+		Name:    workspace.Name,
+		Updated: time.Unix(workspace.Updated, 0),
+	}
 }
 
 func New(ctx context.Context, db *sql.DB) (*WorkspaceService, error) {
@@ -31,12 +56,12 @@ func New(ctx context.Context, db *sql.DB) (*WorkspaceService, error) {
 	}, nil
 }
 
-func (ws WorkspaceService) Create(ctx context.Context, org *mworkspace.Workspace) error {
+func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) error {
+	dbWorkspace := ConvertToDBWorkspace(*w)
 	return ws.queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams{
-		ID:      org.ID,
-		Name:    org.Name,
-		Created: org.Created,
-		Updated: org.Updated,
+		ID:      dbWorkspace.ID,
+		Name:    dbWorkspace.Name,
+		Updated: dbWorkspace.Updated,
 	})
 }
 
@@ -49,12 +74,7 @@ func (ws WorkspaceService) Get(ctx context.Context, id ulid.ULID) (*mworkspace.W
 		return nil, err
 	}
 
-	return &mworkspace.Workspace{
-		ID:      ulid.ULID(workspace.ID),
-		Name:    workspace.Name,
-		Created: workspace.Created,
-		Updated: workspace.Updated,
-	}, nil
+	return ConvertToModelWorkspace(workspace), nil
 }
 
 func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace) error {
@@ -86,10 +106,7 @@ func (ws WorkspaceService) GetByUserID(ctx context.Context, userID ulid.ULID) (*
 		return nil, err
 	}
 
-	return &mworkspace.Workspace{
-		ID:   ulid.ULID(workspace.ID),
-		Name: workspace.Name,
-	}, nil
+	return ConvertToModelWorkspace(workspace), nil
 }
 
 func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID ulid.ULID) ([]mworkspace.Workspace, error) {
@@ -101,15 +118,7 @@ func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID ulid.ULI
 		return nil, err
 	}
 
-	var workspaces []mworkspace.Workspace
-	for _, rawWorkspace := range rawWorkspaces {
-		workspaces = append(workspaces, mworkspace.Workspace{
-			ID:   ulid.ULID(rawWorkspace.ID),
-			Name: rawWorkspace.Name,
-		})
-	}
-
-	return workspaces, nil
+	return MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
 }
 
 func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID ulid.ULID) (*mworkspace.Workspace, error) {
@@ -123,8 +132,5 @@ func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID u
 		}
 		return nil, err
 	}
-	return &mworkspace.Workspace{
-		ID:   ulid.ULID(workspace.ID),
-		Name: workspace.Name,
-	}, nil
+	return ConvertToModelWorkspace(workspace), nil
 }

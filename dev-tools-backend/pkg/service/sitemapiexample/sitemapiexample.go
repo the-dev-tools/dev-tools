@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-db/pkg/sqlc/gen"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -31,28 +32,52 @@ func New(ctx context.Context, db *sql.DB) (*ItemApiExampleService, error) {
 	}, nil
 }
 
+func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = *convFunc(v)
+	}
+	return arr
+}
+
+func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
+	return gen.ItemApiExample{
+		ID:              item.ID,
+		ItemApiID:       item.ItemApiID,
+		CollectionID:    item.CollectionID,
+		ParentExampleID: item.ParentExampleID,
+		IsDefault:       item.IsDefault,
+		Name:            item.Name,
+		Headers:         item.Headers,
+		Query:           item.Query,
+		Compressed:      item.Compressed,
+		Body:            item.Body,
+		Updated:         item.Updated.Unix(),
+	}
+}
+
+func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample {
+	return &mitemapiexample.ItemApiExample{
+		ID:              item.ID,
+		ItemApiID:       item.ItemApiID,
+		CollectionID:    item.CollectionID,
+		ParentExampleID: item.ParentExampleID,
+		IsDefault:       item.IsDefault,
+		Name:            item.Name,
+		Headers:         item.Headers,
+		Query:           item.Query,
+		Compressed:      item.Compressed,
+		Body:            item.Body,
+		Updated:         time.Unix(item.Updated, 0),
+	}
+}
+
 func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ulid.ULID) ([]mitemapiexample.ItemApiExample, error) {
 	itemApiExamples, err := iaes.Queries.GetItemApiExamples(ctx, apiUlid)
 	if err != nil {
 		return nil, err
 	}
-	itemApiExamplesList := make([]mitemapiexample.ItemApiExample, len(itemApiExamples))
-	for i, itemApiExample := range itemApiExamples {
-		itemApiExamplesList[i] = mitemapiexample.ItemApiExample{
-			ID:              itemApiExample.ID,
-			ItemApiID:       itemApiExample.ItemApiID,
-			CollectionID:    itemApiExample.CollectionID,
-			ParentExampleID: itemApiExample.ParentExampleID,
-			IsDefault:       itemApiExample.IsDefault,
-			Name:            itemApiExample.Name,
-			Headers:         itemApiExample.Headers,
-			Query:           itemApiExample.Query,
-			Compressed:      itemApiExample.Compressed,
-			Body:            itemApiExample.Body,
-			Updated:         itemApiExample.Updated,
-		}
-	}
-	return itemApiExamplesList, nil
+	return MassConvert(itemApiExamples, ConvertToModelItem), nil
 }
 
 func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiUlid ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
@@ -63,19 +88,8 @@ func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiU
 		}
 		return nil, err
 	}
-	return &mitemapiexample.ItemApiExample{
-		ID:              itemApiExample.ID,
-		ItemApiID:       itemApiExample.ItemApiID,
-		CollectionID:    itemApiExample.CollectionID,
-		ParentExampleID: itemApiExample.ParentExampleID,
-		IsDefault:       itemApiExample.IsDefault,
-		Name:            itemApiExample.Name,
-		Headers:         itemApiExample.Headers,
-		Query:           itemApiExample.Query,
-		Compressed:      itemApiExample.Compressed,
-		Body:            itemApiExample.Body,
-		Updated:         itemApiExample.Updated,
-	}, nil
+
+	return ConvertToModelItem(itemApiExample), nil
 }
 
 func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
@@ -86,19 +100,7 @@ func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULI
 		}
 		return nil, err
 	}
-	return &mitemapiexample.ItemApiExample{
-		ID:              itemApiExample.ID,
-		ItemApiID:       itemApiExample.ItemApiID,
-		CollectionID:    itemApiExample.CollectionID,
-		ParentExampleID: itemApiExample.ParentExampleID,
-		IsDefault:       itemApiExample.IsDefault,
-		Name:            itemApiExample.Name,
-		Headers:         itemApiExample.Headers,
-		Query:           itemApiExample.Query,
-		Compressed:      itemApiExample.Compressed,
-		Body:            itemApiExample.Body,
-		Updated:         itemApiExample.Updated,
-	}, nil
+	return ConvertToModelItem(itemApiExample), nil
 }
 
 func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context, collectionID ulid.ULID) ([]mitemapiexample.ItemApiExample, error) {
@@ -109,24 +111,7 @@ func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context,
 		}
 		return nil, err
 	}
-	itemApiExamplesList := make([]mitemapiexample.ItemApiExample, len(itemApiExamples))
-
-	for i, itemApiExample := range itemApiExamples {
-		itemApiExamplesList[i] = mitemapiexample.ItemApiExample{
-			ID:              itemApiExample.ID,
-			ItemApiID:       itemApiExample.ItemApiID,
-			CollectionID:    itemApiExample.CollectionID,
-			ParentExampleID: itemApiExample.ParentExampleID,
-			IsDefault:       itemApiExample.IsDefault,
-			Name:            itemApiExample.Name,
-			Headers:         itemApiExample.Headers,
-			Query:           itemApiExample.Query,
-			Compressed:      itemApiExample.Compressed,
-			Body:            itemApiExample.Body,
-			Updated:         itemApiExample.Updated,
-		}
-	}
-	return itemApiExamplesList, nil
+	return MassConvert(itemApiExamples, ConvertToModelItem), nil
 }
 
 func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {

@@ -14,7 +14,6 @@ import (
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
-	"dev-tools-backend/pkg/stoken"
 	"dev-tools-backend/pkg/translate/titemnest"
 	"dev-tools-backend/pkg/translate/tpostman"
 	collectionv1 "dev-tools-services/gen/collection/v1"
@@ -22,7 +21,6 @@ import (
 	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"errors"
 	"log"
-	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -46,49 +44,6 @@ type ContextKeyStr string
 const (
 	UserIDKeyCtx ContextKeyStr = "auth"
 )
-
-func (c CollectionServiceRPC) NewAuthInterceptor() connect.UnaryInterceptorFunc {
-	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
-		return connect.UnaryFunc(func(
-			ctx context.Context,
-			req connect.AnyRequest,
-		) (connect.AnyResponse, error) {
-			headerValue := req.Header().Get(stoken.TokenHeaderKey)
-			if headerValue == "" {
-				// Check token in handlers.
-				return nil, connect.NewError(
-					connect.CodeUnauthenticated,
-					errors.New("no token provided"),
-				)
-			}
-
-			tokenRaw := strings.Split(headerValue, "Bearer ")
-			if len(tokenRaw) != 2 {
-				return nil, connect.NewError(
-					connect.CodeUnauthenticated, errors.New("invalid token"))
-			}
-
-			token, err := stoken.ValidateJWT(tokenRaw[1], stoken.AccessToken, c.secret)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeUnauthenticated, err)
-			}
-			claims, err := stoken.GetClaims(token)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeUnauthenticated, err)
-			}
-
-			ulidID, err := ulid.Parse(claims.Subject)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, err)
-			}
-
-			CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ulidID)
-
-			return next(CtxWithValue, req)
-		})
-	}
-	return connect.UnaryInterceptorFunc(interceptor)
-}
 
 // ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
