@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/oklog/ulid/v2"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type CollectionPair struct {
@@ -19,7 +18,7 @@ type CollectionPair struct {
 }
 
 // TODO: can be more efficient by MultiThreading
-func (c CollectionPair) GetItemFolders() []*itemfolderv1.Item {
+func (c CollectionPair) GetItemsFull() []*itemfolderv1.Item {
 	items := make([]*itemfolderv1.Item, 0, len(c.itemApis)+len(c.itemFolders))
 
 	for _, item := range c.itemFolders {
@@ -30,7 +29,7 @@ func (c CollectionPair) GetItemFolders() []*itemfolderv1.Item {
 						Id:   item.ID.String(),
 						Name: item.Name,
 					},
-					Items: RecursiveTranslate(item),
+					Items: RecursiveTranslateFull(item),
 				},
 			},
 		}
@@ -57,7 +56,38 @@ func (c CollectionPair) GetItemFolders() []*itemfolderv1.Item {
 	return items
 }
 
-func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item {
+func (c CollectionPair) GetItemsMeta() []*itemfolderv1.ItemMeta {
+	items := make([]*itemfolderv1.ItemMeta, 0, len(c.itemApis)+len(c.itemFolders))
+
+	for _, item := range c.itemFolders {
+		folderItem := &itemfolderv1.ItemMeta{
+			Meta: &itemfolderv1.ItemMeta_FolderMeta{
+				FolderMeta: &itemfolderv1.FolderMeta{
+					Id:    item.ID.String(),
+					Name:  item.Name,
+					Items: RecursiveTranslateMeta(item),
+				},
+			},
+		}
+		items = append(items, folderItem)
+	}
+
+	for _, item := range c.itemApis {
+		apiItem := &itemfolderv1.ItemMeta{
+			Meta: &itemfolderv1.ItemMeta_ApiCallMeta{
+				ApiCallMeta: &itemapiv1.ApiCallMeta{
+					Name: item.Name,
+					Id:   item.ID.String(),
+				},
+			},
+		}
+		items = append(items, apiItem)
+	}
+
+	return items
+}
+
+func RecursiveTranslateFull(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item {
 	var items []*itemfolderv1.Item
 	for _, child := range item.Children {
 		switch child.(type) {
@@ -72,7 +102,7 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item 
 						},
 
 						ParentId: folder.ParentID.String(),
-						Items:    RecursiveTranslate(folder),
+						Items:    RecursiveTranslateFull(folder),
 					},
 				},
 			}
@@ -91,24 +121,55 @@ func RecursiveTranslate(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item 
 				Data: &itemfolderv1.Item_ApiCall{
 					ApiCall: &itemapiv1.ApiCall{
 						Meta: &itemapiv1.ApiCallMeta{
-							Name: api.Name,
-							Id:   api.ID.String(),
+							Name:     api.Name,
+							Id:       api.ID.String(),
+							Examples: rpcExamples,
 						},
 						ParentId: api.ParentID.String(),
 						Url:      api.Url,
 						Method:   api.Method,
-						DefaultExample: &itemapiexamplev1.ApiExample{
-							Meta: &itemapiexamplev1.ApiExampleMeta{
-								Id:   api.DefaultExample.ID.String(),
-								Name: api.DefaultExample.Name,
-							},
-							Query:   api.DefaultExample.GetQueryParams(),
-							Headers: api.DefaultExample.GetHeaders(),
-							Cookies: api.DefaultExample.GetCookies(),
-							Body:    api.DefaultExample.Body,
-							Created: timestamppb.New(api.DefaultExample.GetCreatedTime()),
-							Updated: timestamppb.New(api.DefaultExample.Updated),
-						},
+					},
+				},
+			}
+			items = append(items, item)
+		default:
+			return nil
+		}
+	}
+
+	return items
+}
+
+func RecursiveTranslateMeta(item mitemfolder.ItemFolderNested) []*itemfolderv1.ItemMeta {
+	var items []*itemfolderv1.ItemMeta
+	for _, child := range item.Children {
+		switch child.(type) {
+		case mitemfolder.ItemFolderNested:
+			folder := child.(mitemfolder.ItemFolderNested)
+			folderCollection := &itemfolderv1.ItemMeta{
+				Meta: &itemfolderv1.ItemMeta_FolderMeta{
+					FolderMeta: &itemfolderv1.FolderMeta{
+						Id:   folder.ID.String(),
+						Name: folder.Name,
+					},
+				},
+			}
+			items = append(items, folderCollection)
+		case mitemapi.ItemApiWithExamples:
+			api := child.(mitemapi.ItemApiWithExamples)
+			rpcExamples := make([]*itemapiexamplev1.ApiExampleMeta, len(api.Examples))
+			for i, example := range api.Examples {
+				rpcExamples[i] = &itemapiexamplev1.ApiExampleMeta{
+					Id:   example.ID.String(),
+					Name: example.Name,
+				}
+			}
+
+			item := &itemfolderv1.ItemMeta{
+				Meta: &itemfolderv1.ItemMeta_ApiCallMeta{
+					ApiCallMeta: &itemapiv1.ApiCallMeta{
+						Name:     api.Name,
+						Id:       api.ID.String(),
 						Examples: rpcExamples,
 					},
 				},

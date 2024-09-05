@@ -126,6 +126,23 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	isDefaultExample := false
+	var exampleIDPtr *ulid.ULID = nil
+	rawExampleID := req.Msg.GetExampleId()
+	if rawExampleID == "" {
+		isDefaultExample = true
+	} else {
+		exampleID, err := ulid.Parse(req.Msg.GetExampleId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		exampleIDPtr = &exampleID
+	}
+
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	item, err := c.ias.GetItemApi(ctx, ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -139,9 +156,17 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	defultApiExample, err := c.iaes.GetDefaultApiExample(ctx, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	var examplePtr *mitemapiexample.ItemApiExample = nil
+	if isDefaultExample {
+		examplePtr, err = c.iaes.GetDefaultApiExample(ctx, ulidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		examplePtr, err = c.iaes.GetApiExample(ctx, *exampleIDPtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	var parentID string
@@ -171,26 +196,26 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	respRaw := &itemapiv1.GetApiCallResponse{
 		ApiCall: &itemapiv1.ApiCall{
 			Meta: &itemapiv1.ApiCallMeta{
-				Id:   item.ID.String(),
-				Name: item.Name,
+				Id:       item.ID.String(),
+				Name:     item.Name,
+				Examples: metaExamplesRPC,
 			},
 			CollectionId: item.CollectionID.String(),
 			ParentId:     parentID,
 			Url:          item.Url,
 			Method:       item.Method,
-			DefaultExample: &itemapiexamplev1.ApiExample{
-				Meta: &itemapiexamplev1.ApiExampleMeta{
-					Id:   defultApiExample.ID.String(),
-					Name: defultApiExample.Name,
-				},
-				Query:   defultApiExample.Query.QueryMap,
-				Headers: defultApiExample.Headers.HeaderMap,
-				Cookies: defultApiExample.Cookies.CookieMap,
-				Body:    defultApiExample.Body,
-				Created: timestamppb.New(defultApiExample.GetCreatedTime()),
-				Updated: timestamppb.New(defultApiExample.Updated),
+		},
+		Example: &itemapiexamplev1.ApiExample{
+			Meta: &itemapiexamplev1.ApiExampleMeta{
+				Id:   examplePtr.ID.String(),
+				Name: examplePtr.Name,
 			},
-			Examples: metaExamplesRPC,
+			Headers: examplePtr.GetHeaders(),
+			Cookies: examplePtr.GetCookies(),
+			Query:   examplePtr.GetQueryParams(),
+			Body:    examplePtr.Body,
+			Updated: timestamppb.New(examplePtr.Updated),
+			Created: timestamppb.New(examplePtr.GetCreatedTime()),
 		},
 	}
 

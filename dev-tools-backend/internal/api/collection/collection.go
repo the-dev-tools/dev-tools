@@ -117,9 +117,32 @@ func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect
 
 	metaCollections := make([]*collectionv1.CollectionMeta, 0, len(simpleCollections))
 	for _, collection := range simpleCollections {
+		ulidID := collection.ID
+		folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, ulidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		apiItems, err := c.ias.GetApisWithCollectionID(ctx, ulidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, ulidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems, apiExampleItems)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		items := pair.GetItemsMeta()
+
 		metaCollections = append(metaCollections, &collectionv1.CollectionMeta{
-			Id:   collection.ID.String(),
-			Name: collection.Name,
+			Id:    collection.ID.String(),
+			Name:  collection.Name,
+			Items: items,
 		})
 	}
 
@@ -209,7 +232,7 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	items := pair.GetItemFolders()
+	items := pair.GetItemsFull()
 
 	respRaw := &collectionv1.GetCollectionResponse{
 		Id:      collection.ID.String(),

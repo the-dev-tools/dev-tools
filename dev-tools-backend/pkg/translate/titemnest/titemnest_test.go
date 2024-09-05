@@ -87,7 +87,7 @@ func TestTranslateItemFolderNested(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	items := collectionPair.GetItemFolders()
+	items := collectionPair.GetItemsFull()
 	if len(items) != 2 {
 		for _, item := range items {
 			fmt.Println("Item", item)
