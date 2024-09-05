@@ -57,9 +57,9 @@ func (c CollectionPair) GetItemsFull() []*itemfolderv1.Item {
 }
 
 func (c CollectionPair) GetItemsMeta() []*itemfolderv1.ItemMeta {
-	items := make([]*itemfolderv1.ItemMeta, 0, len(c.itemApis)+len(c.itemFolders))
+	items := make([]*itemfolderv1.ItemMeta, len(c.itemApis)+len(c.itemFolders))
 
-	for _, item := range c.itemFolders {
+	for i, item := range c.itemFolders {
 		folderItem := &itemfolderv1.ItemMeta{
 			Meta: &itemfolderv1.ItemMeta_FolderMeta{
 				FolderMeta: &itemfolderv1.FolderMeta{
@@ -69,10 +69,12 @@ func (c CollectionPair) GetItemsMeta() []*itemfolderv1.ItemMeta {
 				},
 			},
 		}
-		items = append(items, folderItem)
+		items[i] = folderItem
 	}
 
-	for _, item := range c.itemApis {
+	index := len(c.itemFolders)
+
+	for i, item := range c.itemApis {
 		apiItem := &itemfolderv1.ItemMeta{
 			Meta: &itemfolderv1.ItemMeta_ApiCallMeta{
 				ApiCallMeta: &itemapiv1.ApiCallMeta{
@@ -81,7 +83,7 @@ func (c CollectionPair) GetItemsMeta() []*itemfolderv1.ItemMeta {
 				},
 			},
 		}
-		items = append(items, apiItem)
+		items[index+i] = apiItem
 	}
 
 	return items
@@ -141,20 +143,21 @@ func RecursiveTranslateFull(item mitemfolder.ItemFolderNested) []*itemfolderv1.I
 }
 
 func RecursiveTranslateMeta(item mitemfolder.ItemFolderNested) []*itemfolderv1.ItemMeta {
-	var items []*itemfolderv1.ItemMeta
-	for _, child := range item.Children {
+	items := make([]*itemfolderv1.ItemMeta, len(item.Children))
+	for i, child := range item.Children {
 		switch child.(type) {
 		case mitemfolder.ItemFolderNested:
 			folder := child.(mitemfolder.ItemFolderNested)
 			folderCollection := &itemfolderv1.ItemMeta{
 				Meta: &itemfolderv1.ItemMeta_FolderMeta{
 					FolderMeta: &itemfolderv1.FolderMeta{
-						Id:   folder.ID.String(),
-						Name: folder.Name,
+						Id:    folder.ID.String(),
+						Name:  folder.Name,
+						Items: RecursiveTranslateMeta(folder),
 					},
 				},
 			}
-			items = append(items, folderCollection)
+			items[i] = folderCollection
 		case mitemapi.ItemApiWithExamples:
 			api := child.(mitemapi.ItemApiWithExamples)
 			rpcExamples := make([]*itemapiexamplev1.ApiExampleMeta, len(api.Examples))
@@ -174,7 +177,7 @@ func RecursiveTranslateMeta(item mitemfolder.ItemFolderNested) []*itemfolderv1.I
 					},
 				},
 			}
-			items = append(items, item)
+			items[i] = item
 		default:
 			return nil
 		}
