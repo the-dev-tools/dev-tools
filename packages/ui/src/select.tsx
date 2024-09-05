@@ -1,4 +1,5 @@
 import { Struct } from 'effect';
+import React, { forwardRef } from 'react';
 import {
   Button as AriaButton,
   Select as AriaSelect,
@@ -7,6 +8,7 @@ import {
   type SelectProps as AriaSelectProps,
   type SelectValueProps as AriaSelectValueProps,
 } from 'react-aria-components';
+import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { IconBaseProps } from 'react-icons';
 import { LuChevronDown } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
@@ -17,6 +19,7 @@ import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 import { buttonStyles } from './button';
 import { DropdownListBox, DropdownListBoxProps, DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { FieldError, FieldLabel, type FieldErrorProps, type FieldLabelProps } from './field';
+import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
@@ -40,13 +43,20 @@ export const selectTriggerStyles = tv({
 
 export interface SelectTriggerProps extends AriaButtonProps, VariantProps<typeof selectTriggerStyles> {}
 
-export const SelectTrigger = ({ className, ...props }: SelectTriggerProps) => {
-  const forwardedProps = Struct.omit(props, ...selectTriggerStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...selectTriggerStyles.variantKeys);
-  return (
-    <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, selectTriggerStyles, variantProps)} />
-  );
-};
+export const SelectTrigger = forwardRef(
+  ({ className, ...props }: SelectTriggerProps, ref: React.ForwardedRef<HTMLButtonElement>) => {
+    const forwardedProps = Struct.omit(props, ...selectTriggerStyles.variantKeys);
+    const variantProps = Struct.pick(props, ...selectTriggerStyles.variantKeys);
+    return (
+      <AriaButton
+        {...forwardedProps}
+        ref={ref}
+        className={composeRenderPropsTV(className, selectTriggerStyles, variantProps)}
+      />
+    );
+  },
+);
+SelectTrigger.displayName = 'SelectTrigger';
 
 // Indicator
 
@@ -62,6 +72,7 @@ export const SelectIndicator = ({ isOpen, ...props }: SelectIndicatorProps) => (
 
 export interface SelectProps<T extends object>
   extends Omit<SelectRootProps<T>, 'children'>,
+    React.RefAttributes<HTMLButtonElement>,
     MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'trigger', Omit<SelectTriggerProps, 'children'>>,
     MixinProps<'value', Omit<AriaSelectValueProps<T>, 'children'>>,
@@ -74,14 +85,18 @@ export interface SelectProps<T extends object>
   error?: FieldErrorProps['children'];
 }
 
-export const Select = <T extends object>({ children, label, error, ...props }: SelectProps<T>) => {
+interface Select extends React.FC<SelectProps<object>> {
+  <T extends object>(props: SelectProps<T>): ReturnType<React.FC<SelectProps<T>>>;
+}
+
+export const Select: Select = forwardRef(({ children, label, error, ...props }, ref) => {
   const forwardedProps = splitProps(props, 'label', 'trigger', 'value', 'indicator', 'error', 'popover', 'listBox');
   return (
     <SelectRoot {...forwardedProps.rest}>
       {({ isOpen }) => (
         <>
           {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}
-          <SelectTrigger {...forwardedProps.trigger}>
+          <SelectTrigger {...forwardedProps.trigger} ref={ref}>
             <AriaSelectValue {...forwardedProps.value} />
             <SelectIndicator {...forwardedProps.indicator} isOpen={isOpen} />
           </SelectTrigger>
@@ -92,5 +107,50 @@ export const Select = <T extends object>({ children, label, error, ...props }: S
         </>
       )}
     </SelectRoot>
+  );
+});
+Select.displayName = 'Select';
+
+// RHF wrapper mix
+
+export interface SelectRHFProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> extends Omit<
+      SelectProps<TFieldValues>,
+      | ControllerPropKeys
+      | 'name'
+      | 'selectedKey'
+      | 'onSelectionChange'
+      | 'onBlur'
+      | 'isDisabled'
+      | 'validationBehavior'
+      | 'isInvalid'
+      | 'error'
+    >,
+    UseControllerProps<TFieldValues, TName> {}
+
+export const SelectRHF = <
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>(
+  props: SelectRHFProps<TFieldValues, TName>,
+) => {
+  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
+  const controllerProps = Struct.pick(props, ...controllerPropKeys);
+  const { field, fieldState } = useController(controllerProps);
+  return (
+    <Select
+      {...forwardedProps}
+      ref={field.ref}
+      name={field.name}
+      selectedKey={field.value}
+      onSelectionChange={field.onChange}
+      onBlur={field.onBlur}
+      isDisabled={field.disabled ?? false}
+      validationBehavior='aria'
+      isInvalid={fieldState.invalid}
+      error={fieldState.error?.message}
+    />
   );
 };
