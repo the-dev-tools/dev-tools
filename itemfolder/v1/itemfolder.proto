@@ -15,6 +15,7 @@ service ItemFolderService {
 message FolderMeta {
   string id = 1;
   string name = 2;
+  repeated ItemMeta items = 4;
 }
 
 message Folder {
