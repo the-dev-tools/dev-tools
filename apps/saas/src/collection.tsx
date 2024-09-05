@@ -6,11 +6,13 @@ import {
   useTransport,
 } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
+import { useForm } from 'react-hook-form';
 import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal } from 'react-icons/lu';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
@@ -38,9 +40,9 @@ import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
-import { Select } from '@the-dev-tools/ui/select';
+import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField } from '@the-dev-tools/ui/text-field';
+import { TextField, TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { Tree, TreeItem } from '@the-dev-tools/ui/tree';
 
 import { Runtime } from './runtime';
@@ -407,66 +409,72 @@ const ImportPostman = () => {
 
 const apiCallRoute = getRouteApi('/_authorized/workspace/$workspaceId/api-call/$apiCallId');
 
-class ApiCallForm extends Schema.Class<ApiCallForm>('ApiCallForm')({
-  method: Schema.Literal('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'),
-  url: Schema.String,
-}) {}
-
 export const ApiCallPage = () => {
   const { apiCallId } = apiCallRoute.useParams();
 
-  const updateMutation = useMutation(updateApiCall);
-
   const query = useConnectQuery(getApiCall, { id: apiCallId });
+
   if (!query.isSuccess) return null;
   const { data } = query;
 
+  return <ApiCallForm data={data.apiCall!} />;
+};
+
+const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
+
+class ApiCallFormData extends Schema.Class<ApiCallFormData>('ApiCallFormData')({
+  method: Schema.String.pipe(Schema.filter((_) => Array.contains(methods, _) || 'Method is not valid')),
+  url: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'URL must not be empty' })),
+}) {}
+
+interface ApiCallFormProps {
+  data: ApiCall;
+}
+
+const ApiCallForm = ({ data }: ApiCallFormProps) => {
+  const updateMutation = useMutation(updateApiCall);
+
+  const form = useForm({
+    resolver: effectTsResolver(ApiCallFormData),
+    defaultValues: data,
+  });
+
   return (
     <Form
-      onSubmit={(event) =>
-        Effect.gen(function* () {
-          event.preventDefault();
+      onSubmit={form.handleSubmit((formData) => {
+        const newApiCall = Struct.evolve(data, {
+          method: () => formData.method,
+          url: () => formData.url,
+        });
 
-          const { method, url } = yield* pipe(
-            new FormData(event.currentTarget),
-            Object.fromEntries,
-            Schema.decode(ApiCallForm),
-          );
-
-          const newApiCall = Struct.evolve(data.apiCall!, {
-            method: () => method,
-            url: () => url,
-          });
-
-          yield* Effect.tryPromise(() => updateMutation.mutateAsync({ apiCall: newApiCall }));
-        }).pipe(Runtime.runPromise)
-      }
+        updateMutation.mutate({ apiCall: newApiCall });
+      })}
     >
       <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
-        <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
+        <h2 className='flex-1 truncate text-sm font-bold'>{data.meta!.name}</h2>
 
         <Button kind='placeholder' variant='placeholder' type='submit'>
           <LuSave /> Save
         </Button>
       </div>
 
-      <div className='flex p-4'>
-        <Select
+      <div className='flex items-start p-4'>
+        <SelectRHF
+          control={form.control}
           name='method'
-          defaultSelectedKey={data.apiCall!.method}
           aria-label='Method'
           triggerClassName={tw`rounded-r-none border-r-0`}
         >
-          {Array.map(ApiCallForm.fields.method.literals, (_) => (
-            <DropdownItem key={_} id={_} className='cursor-pointer'>
+          {methods.map((_) => (
+            <DropdownItem key={_} id={_}>
               {_}
             </DropdownItem>
           ))}
-        </Select>
+        </SelectRHF>
 
-        <TextField
+        <TextFieldRHF
+          control={form.control}
           name='url'
-          defaultValue={data.apiCall!.url}
           aria-label='URL'
           className={tw`flex-1`}
           inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
@@ -474,7 +482,7 @@ export const ApiCallPage = () => {
 
         {/* TODO: implement */}
         <Button kind='placeholder' variant='placeholder' className='rounded-l-none border-l-0 bg-black text-white'>
-          Send <LuSendHorizonal />
+          Send <LuSendHorizonal className='size-4' />
         </Button>
       </div>
     </Form>
