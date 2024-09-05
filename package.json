@@ -1,6 +1,6 @@
 {
   "name": "@the-dev-tools/protobuf",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/the-dev-tools/dev-tools-proto.git"

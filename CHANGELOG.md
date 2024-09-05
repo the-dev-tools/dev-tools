@@ -1,5 +1,13 @@
 # @the-dev-tools/protobuf
 
+## 1.16.0
+
+### Minor Changes
+
+- [`b58cf68`](https://github.com/the-dev-tools/dev-tools-proto/commit/b58cf68fb646e49ab7331dca4249c68ef96262c9) Thanks [@ElecTwix](https://github.com/ElecTwix)! - added MetaItems to MetaFolder
+
+- [`d1822af`](https://github.com/the-dev-tools/dev-tools-proto/commit/d1822af8fcbc18692e640034043d0cd08ccdc527) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add metaItems to CollectionMeta
+
 ## 1.15.0
 
 ### Minor Changes
