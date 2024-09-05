@@ -14,7 +14,8 @@ service ItemApiService {
 message ApiCallMeta {
   string id = 1;
   string name = 2;
-  repeated itemapiexample.v1.ApiExampleMeta examples = 3;
+	string method = 3;
+  repeated itemapiexample.v1.ApiExampleMeta examples = 4;
 }
 
 message ApiCall {
@@ -22,7 +23,6 @@ message ApiCall {
   string parent_id = 2;
   string collection_id = 3;
 	string url = 4;
-	string method = 5;
 }
 
 message CreateApiCallRequest {
