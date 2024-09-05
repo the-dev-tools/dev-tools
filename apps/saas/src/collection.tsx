@@ -1,13 +1,7 @@
-import {
-  createProtobufSafeUpdater,
-  createQueryOptions,
-  useQuery as useConnectQuery,
-  useMutation,
-  useTransport,
-} from '@connectrpc/connect-query';
+import { createQueryOptions, useQuery as useConnectQuery, useMutation, useTransport } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
@@ -19,18 +13,17 @@ import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection
 import {
   createCollection,
   deleteCollection,
-  getCollection,
   importPostman,
   listCollections,
   updateCollection,
 } from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
-import { ApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
+import { ApiCall, ApiCallMeta } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import {
   deleteApiCall,
   getApiCall,
   updateApiCall,
 } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
-import { Folder, Item } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
+import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
   createFolder,
   deleteFolder,
@@ -49,7 +42,7 @@ import { Runtime } from './runtime';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceId');
 
-export const CollectionsWidget = () => {
+export const CollectionsTree = () => {
   const { workspaceId } = workspaceRoute.useParams();
 
   const transport = useTransport();
@@ -82,18 +75,18 @@ export const CollectionsWidget = () => {
         <ImportPostman />
       </div>
       <Tree aria-label='Collections' items={metaCollections}>
-        {(_) => <CollectionWidget id={_.id} meta={_} />}
+        {(_) => <CollectionTree id={_.id} meta={_} />}
       </Tree>
     </>
   );
 };
 
-interface CollectionWidgetProps {
+interface CollectionTreeProps {
   id: string;
   meta: CollectionMeta;
 }
 
-const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
+const CollectionTree = ({ meta }: CollectionTreeProps) => {
   const { workspaceId } = workspaceRoute.useParams();
 
   const transport = useTransport();
@@ -105,9 +98,6 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
-  const queryOptions = createQueryOptions(getCollection, { id: meta.id }, { transport });
-  const query = useQuery({ ...queryOptions, enabled: true });
-
   const triggerRef = useRef(null);
 
   const [isRenaming, setIsRenaming] = useState(false);
@@ -115,8 +105,8 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
   return (
     <TreeItem
       textValue={meta.name}
-      childItems={query.data?.items ?? []}
-      childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={meta.id} />}
+      childItems={meta.items}
+      childItem={(_) => <FolderItemTree id={_.meta.value!.id} item={_} />}
     >
       <Text ref={triggerRef} className='flex-1 truncate'>
         {meta.name}
@@ -134,7 +124,6 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
             onAction={async () => {
               await deleteMutation.mutateAsync({ id: meta.id });
               await queryClient.invalidateQueries(listQueryOptions);
-              await queryClient.invalidateQueries(queryOptions);
             }}
           >
             Delete
@@ -143,7 +132,7 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
           <MenuItem
             onAction={async () => {
               await createFolderMutation.mutateAsync({ collectionId: meta.id, name: 'New folder' });
-              await queryClient.invalidateQueries(queryOptions);
+              await queryClient.invalidateQueries(listQueryOptions);
             }}
           >
             Create folder
@@ -171,14 +160,118 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
 
               yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: meta.id, name }));
 
-              queryClient.setQueriesData(
-                queryOptions,
-                createProtobufSafeUpdater(
-                  getCollection,
-                  Struct.evolve({
-                    name: () => name,
-                  }),
-                ),
+              yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
+
+              setIsRenaming(false);
+            }).pipe(Runtime.runPromise)
+          }
+        >
+          <TextField
+            name='name'
+            defaultValue={meta.name}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            label='New name:'
+            className={tw`contents`}
+            labelClassName={tw`text-nowrap`}
+            inputClassName={tw`w-full bg-transparent`}
+          />
+
+          <Button kind='placeholder' variant='placeholder' type='submit'>
+            Save
+          </Button>
+        </Form>
+      </Popover>
+    </TreeItem>
+  );
+};
+
+interface FolderItemTreeProps {
+  id: string;
+  item: ItemMeta;
+}
+
+const FolderItemTree = ({ item }: FolderItemTreeProps) =>
+  pipe(
+    item.meta,
+    Match.value,
+    Match.when({ case: 'folderMeta' }, (_) => <FolderTree meta={_.value} />),
+    Match.when({ case: 'apiCallMeta' }, (_) => <ApiCallTree meta={_.value} />),
+    Match.orElse(() => null),
+  );
+
+interface FolderTreeProps {
+  meta: FolderMeta;
+}
+
+const FolderTree = ({ meta }: FolderTreeProps) => {
+  const { workspaceId } = workspaceRoute.useParams();
+
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation(deleteFolder);
+  const updateMutation = useMutation(updateFolder);
+
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+
+  const triggerRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  return (
+    <TreeItem
+      textValue={meta.name}
+      childItems={meta.items}
+      childItem={(_) => <FolderItemTree id={_.meta.value!.id} item={_} />}
+    >
+      <LuFolder />
+
+      <Text ref={triggerRef} className='flex-1 truncate'>
+        {meta.name}
+      </Text>
+
+      <MenuTrigger>
+        <Button kind='placeholder' variant='placeholder ghost'>
+          <LuMoreHorizontal />
+        </Button>
+
+        <Menu>
+          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+
+          <MenuItem
+            onAction={async () => {
+              await deleteMutation.mutateAsync({ id: meta.id });
+              await queryClient.invalidateQueries(listQueryOptions);
+            }}
+          >
+            Delete
+          </MenuItem>
+        </Menu>
+      </MenuTrigger>
+
+      <Popover
+        triggerRef={triggerRef}
+        isOpen={isRenaming}
+        onOpenChange={setIsRenaming}
+        dialogAria-label='Rename folder'
+      >
+        <Form
+          className='flex flex-1 items-center gap-2'
+          onSubmit={(event) =>
+            Effect.gen(function* () {
+              event.preventDefault();
+
+              const { name } = yield* pipe(
+                new FormData(event.currentTarget),
+                Object.fromEntries,
+                Schema.decode(Schema.Struct({ name: Schema.String })),
+              );
+
+              yield* Effect.tryPromise(() =>
+                updateMutation.mutateAsync({
+                  folder: { meta: Struct.evolve(meta, { name: () => name }) },
+                }),
               );
 
               yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
@@ -207,132 +300,11 @@ const CollectionWidget = ({ meta }: CollectionWidgetProps) => {
   );
 };
 
-interface ItemWidgetProps {
-  id: string;
-  item: Item;
-  collectionId: string;
+interface ApiCallTreeProps {
+  meta: ApiCallMeta;
 }
 
-const ItemWidget = ({ item, collectionId }: ItemWidgetProps) =>
-  pipe(
-    item,
-    Struct.get('data'),
-    Match.value,
-    Match.when({ case: 'folder' }, (_) => <FolderWidget folder={_.value} collectionId={collectionId} />),
-    Match.when({ case: 'apiCall' }, (_) => <ApiCallWidget apiCall={_.value} collectionId={collectionId} />),
-    Match.orElse(() => null),
-  );
-
-interface FolderWidgetProps {
-  folder: Folder;
-  collectionId: string;
-}
-
-const FolderWidget = ({ folder, collectionId }: FolderWidgetProps) => {
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation(deleteFolder);
-  const updateMutation = useMutation(updateFolder);
-
-  const queryOptions = createQueryOptions(getCollection, { id: collectionId }, { transport });
-
-  const triggerRef = useRef(null);
-
-  const [isRenaming, setIsRenaming] = useState(false);
-
-  return (
-    <TreeItem
-      textValue={folder.meta!.name}
-      childItems={folder.items}
-      childItem={(_) => <ItemWidget id={_.data.value!.meta!.id} item={_} collectionId={collectionId} />}
-    >
-      <LuFolder />
-
-      <Text ref={triggerRef} className='flex-1 truncate'>
-        {folder.meta!.name}
-      </Text>
-
-      <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder ghost'>
-          <LuMoreHorizontal />
-        </Button>
-
-        <Menu>
-          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
-
-          <MenuItem
-            onAction={async () => {
-              await deleteMutation.mutateAsync({ collectionId, id: folder.meta!.id });
-              await queryClient.invalidateQueries(queryOptions);
-            }}
-          >
-            Delete
-          </MenuItem>
-        </Menu>
-      </MenuTrigger>
-
-      <Popover
-        triggerRef={triggerRef}
-        isOpen={isRenaming}
-        onOpenChange={setIsRenaming}
-        dialogAria-label='Rename folder'
-      >
-        <Form
-          className='flex flex-1 items-center gap-2'
-          onSubmit={(event) =>
-            Effect.gen(function* () {
-              event.preventDefault();
-
-              const { name } = yield* pipe(
-                new FormData(event.currentTarget),
-                Object.fromEntries,
-                Schema.decode(Schema.Struct({ name: Schema.String })),
-              );
-
-              yield* Effect.tryPromise(() =>
-                updateMutation.mutateAsync({
-                  folder: {
-                    ...Struct.evolve(folder, {
-                      meta: Struct.evolve({ name: () => name }),
-                    }),
-                    collectionId,
-                  },
-                }),
-              );
-
-              yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
-
-              setIsRenaming(false);
-            }).pipe(Runtime.runPromise)
-          }
-        >
-          <TextField
-            name='name'
-            defaultValue={folder.meta!.name}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            label='New name:'
-            className={tw`contents`}
-            labelClassName={tw`text-nowrap`}
-            inputClassName={tw`w-full bg-transparent`}
-          />
-
-          <Button kind='placeholder' variant='placeholder' type='submit'>
-            Save
-          </Button>
-        </Form>
-      </Popover>
-    </TreeItem>
-  );
-};
-
-interface ApiCallWidgetProps {
-  apiCall: ApiCall;
-  collectionId: string;
-}
-
-const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
+const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
@@ -342,19 +314,20 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
 
   const deleteMutation = useMutation(deleteApiCall);
 
-  const queryOptions = createQueryOptions(getCollection, { id: collectionId }, { transport });
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
   return (
     <TreeItem
-      textValue={apiCall.meta!.name}
-      href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: apiCall.meta!.id } }}
-      wrapperIsSelected={match.params.apiCallId === apiCall.meta!.id}
+      textValue={meta.name}
+      href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: meta.id } }}
+      wrapperIsSelected={match.params.apiCallId === meta.id}
     >
       <div />
 
-      <div className='text-sm font-bold'>{apiCall.method}</div>
+      {/* TODO: re-implement once it's added to api call meta protobuf */}
+      {/* <div className='text-sm font-bold'>{apiCall.method}</div> */}
 
-      <Text className='flex-1 truncate'>{apiCall.meta!.name}</Text>
+      <Text className='flex-1 truncate'>{meta.name}</Text>
 
       <MenuTrigger>
         <Button kind='placeholder' variant='placeholder ghost'>
@@ -364,8 +337,8 @@ const ApiCallWidget = ({ apiCall, collectionId }: ApiCallWidgetProps) => {
         <Menu>
           <MenuItem
             onAction={async () => {
-              await deleteMutation.mutateAsync({ collectionId, id: apiCall.meta!.id });
-              await queryClient.invalidateQueries(queryOptions);
+              await deleteMutation.mutateAsync({ id: meta.id });
+              await queryClient.invalidateQueries(listQueryOptions);
             }}
           >
             Delete

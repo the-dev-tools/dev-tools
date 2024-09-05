@@ -25,7 +25,7 @@ import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
-import { CollectionsWidget } from './collection';
+import { CollectionsTree } from './collection';
 import { DashboardLayout } from './dashboard';
 import { Runtime } from './runtime';
 
@@ -170,7 +170,7 @@ export const WorkspaceLayout = () => {
           maxSize={40}
         >
           <h2 className='uppercase'>Overview</h2>
-          <CollectionsWidget />
+          <CollectionsTree />
         </Panel>
         <PanelResizeHandle direction='horizontal' />
         <Panel className='overflow-auto'>
