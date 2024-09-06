@@ -16,7 +16,6 @@ type Collection struct {
 	ID      ulid.ULID
 	OwnerID ulid.ULID
 	Name    string
-	Updated int64
 }
 
 type ItemApi struct {
@@ -26,7 +25,6 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
-	Updated      int64
 }
 
 type ItemApiExample struct {
@@ -40,7 +38,6 @@ type ItemApiExample struct {
 	Query           mitemapiexample.Query
 	Compressed      bool
 	Body            []byte
-	Updated         int64
 }
 
 type ItemFolder struct {

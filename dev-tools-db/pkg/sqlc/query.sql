@@ -87,8 +87,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -107,8 +106,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -126,8 +124,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -147,8 +144,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -364,8 +360,7 @@ WHERE
 SELECT
   id,
   owner_id,
-  name,
-  updated
+  name
 FROM
   collections
 WHERE
@@ -377,8 +372,7 @@ LIMIT
 SELECT
   id,
   owner_id,
-  name,
-  updated
+  name
 FROM
   collections
 WHERE
@@ -398,8 +392,7 @@ LIMIT
 SELECT
   id,
   owner_id,
-  name,
-  updated
+  name
 FROM
   collections
 WHERE

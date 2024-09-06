@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-db/pkg/sqlc/gen"
-	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -52,7 +51,6 @@ func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
 		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
-		Updated:         item.Updated.Unix(),
 	}
 }
 
@@ -68,7 +66,6 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
-		Updated:         time.Unix(item.Updated, 0),
 	}
 }
 

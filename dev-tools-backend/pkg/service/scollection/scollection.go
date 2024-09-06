@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-db/pkg/sqlc/gen"
-	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -30,7 +29,6 @@ func ConvertToDBCollection(collection mcollection.Collection) gen.Collection {
 		ID:      collection.ID,
 		OwnerID: collection.OwnerID,
 		Name:    collection.Name,
-		Updated: collection.Updated.Unix(),
 	}
 }
 
@@ -39,7 +37,6 @@ func ConvertToModelCollection(collection gen.Collection) *mcollection.Collection
 		ID:      collection.ID,
 		OwnerID: collection.OwnerID,
 		Name:    collection.Name,
-		Updated: time.Unix(collection.Updated, 0),
 	}
 }
 

@@ -2,7 +2,6 @@ package mitemapi
 
 import (
 	"dev-tools-backend/pkg/model/mitemapiexample"
-	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -14,7 +13,6 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
-	Updated      time.Time
 }
 
 type ItemApiWithExamples struct {

@@ -560,8 +560,7 @@ const getCollection = `-- name: GetCollection :one
 SELECT
   id,
   owner_id,
-  name,
-  updated
+  name
 FROM
   collections
 WHERE
@@ -574,12 +573,7 @@ LIMIT
 func (q *Queries) GetCollection(ctx context.Context, id ulid.ULID) (Collection, error) {
 	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
 	var i Collection
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Name,
-		&i.Updated,
-	)
+	err := row.Scan(&i.ID, &i.OwnerID, &i.Name)
 	return i, err
 }
 
@@ -587,8 +581,7 @@ const getCollectionByOwnerID = `-- name: GetCollectionByOwnerID :many
 SELECT
   id,
   owner_id,
-  name,
-  updated
+  name
 FROM
   collections
 WHERE
@@ -604,12 +597,7 @@ func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID)
 	var items []Collection
 	for rows.Next() {
 		var i Collection
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Name,
-			&i.Updated,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -627,8 +615,7 @@ const getCollectionByPlatformIDandType = `-- name: GetCollectionByPlatformIDandT
 SELECT
   id,
   owner_id,
-  name,
-  updated
+  name
 FROM
   collections
 WHERE
@@ -644,12 +631,7 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.
 	var items []Collection
 	for rows.Next() {
 		var i Collection
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Name,
-			&i.Updated,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -688,8 +670,7 @@ SELECT
   parent_id,
   name,
   url,
-  method,
-  updated
+  method
 FROM
   item_api
 WHERE
@@ -711,7 +692,6 @@ func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error)
 		&i.Name,
 		&i.Url,
 		&i.Method,
-		&i.Updated,
 	)
 	return i, err
 }
@@ -727,8 +707,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -752,7 +731,6 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 		&i.Query,
 		&i.Compressed,
 		&i.Body,
-		&i.Updated,
 	)
 	return i, err
 }
@@ -768,8 +746,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -796,7 +773,6 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.Query,
 			&i.Compressed,
 			&i.Body,
-			&i.Updated,
 		); err != nil {
 			return nil, err
 		}
@@ -822,8 +798,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -847,7 +822,6 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.U
 		&i.Query,
 		&i.Compressed,
 		&i.Body,
-		&i.Updated,
 	)
 	return i, err
 }
@@ -863,8 +837,7 @@ SELECT
   headers,
   query,
   compressed,
-  body,
-  updated
+  body
 FROM
   item_api_example
 WHERE
@@ -892,7 +865,6 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) (
 			&i.Query,
 			&i.Compressed,
 			&i.Body,
-			&i.Updated,
 		); err != nil {
 			return nil, err
 		}
@@ -1033,8 +1005,7 @@ SELECT
   parent_id,
   name,
   url,
-  method,
-  updated
+  method
 FROM
   item_api
 WHERE
@@ -1057,7 +1028,6 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 			&i.Name,
 			&i.Url,
 			&i.Method,
-			&i.Updated,
 		); err != nil {
 			return nil, err
 		}
@@ -1698,18 +1668,20 @@ func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExa
 const updateItemFolder = `-- name: UpdateItemFolder :exec
 UPDATE item_folder
 SET
-  name = ?
+  name = ?,
+  parent_id = ?
 WHERE
   id = ?
 `
 
 type UpdateItemFolderParams struct {
-	Name string
-	ID   ulid.ULID
+	Name     string
+	ParentID *ulid.ULID
+	ID       ulid.ULID
 }
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
-	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ID)
+	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ParentID, arg.ID)
 	return err
 }
 

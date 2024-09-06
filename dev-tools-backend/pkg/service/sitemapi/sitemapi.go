@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-db/pkg/sqlc/gen"
-	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -31,7 +30,6 @@ func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
-		Updated:      item.Updated.Unix(),
 	}
 }
 
@@ -43,7 +41,6 @@ func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
-		Updated:      time.Unix(item.Updated, 0),
 	}
 }
 
