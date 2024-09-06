@@ -19,15 +19,18 @@ service ItemApiExampleService {
 
   // Headers
   rpc CreateHeader(CreateHeaderRequest) returns (CreateHeaderResponse);
-  rpc GetHeader(GetHeaderRequest) returns (GetHeaderResponse);
   rpc UpdateHeader(UpdateHeaderRequest) returns (UpdateHeaderResponse);
   rpc DeleteHeader(DeleteHeaderRequest) returns (DeleteHeaderResponse);
 
   // Query
   rpc CreateQuery(CreateQueryRequest) returns (CreateQueryResponse);
-  rpc GetQuery(GetQueryRequest) returns (GetQueryResponse);
   rpc UpdateQuery(UpdateQueryRequest) returns (UpdateQueryResponse);
   rpc DeleteQuery(DeleteQueryRequest) returns (DeleteQueryResponse);
+
+  // Body
+  rpc CreateBodyForm(CreateBodyFormRequest) returns (CreateBodyFormResponse);
+  rpc UpdateBodyForm(UpdateBodyFormRequest) returns (UpdateBodyFormResponse);
+  rpc DeleteBodyForm(DeleteBodyFormRequest) returns (DeleteBodyFormResponse);
 }
 
 message Header {
@@ -46,6 +49,25 @@ message Query {
   string description = 5;
 }
 
+message BodyForm {
+  string id = 1;
+  string key = 2;
+  bool enabled = 3;
+  string value = 4;
+  string description = 5;
+}
+
+enum BodyType {
+  BODY_TYPE_UNSPECIFIED = 0;
+  BODY_TYPE_NONE = 1;
+  BODY_TYPE_FORM = 2;
+  BODY_TYPE_RAW = 3;
+}
+
+message BodyFormWrapper {
+  repeated BodyForm body_form = 1;
+}
+
 message ApiExampleMeta {
   string id = 1;
   string name = 2;
@@ -55,8 +77,12 @@ message ApiExample {
   ApiExampleMeta meta = 1;
   repeated Query query = 2;
   repeated Header header = 3;
-  google.protobuf.Timestamp updated = 4;
-  bytes body = 5;
+  BodyType body_type = 4;
+  google.protobuf.Timestamp updated = 5;
+  oneof body {
+    BodyFormWrapper body_form = 6;
+    bytes body_bytes = 7;
+  }
 }
 
 message GetExamplesRequest {
@@ -122,25 +148,12 @@ message CreateHeaderResponse {
   Header header = 1;
 }
 
-// // GET
-message GetHeaderRequest {
-  string id = 1;
-}
-
-message GetHeaderResponse {
-  Header header = 1;
-}
-
 // // UPDATE
 message UpdateHeaderRequest {
-  string id = 1;
-  string key = 2;
-  string value = 3;
-  bool enabled = 4;
+  Header header = 1;
 }
 
 message UpdateHeaderResponse {
-  Header header = 1;
 }
 
 // // DELETE
@@ -163,21 +176,12 @@ message CreateQueryResponse {
   Query query = 1;
 }
 
-// // GET
-message GetQueryRequest {
-  string id = 1;
-}
-
-message GetQueryResponse {
-  Query query = 1;
-}
-
 // // UPDATE
 message UpdateQueryRequest {
+  Query query = 1;
 }
 
 message UpdateQueryResponse {
-  Query query = 1;
 }
 
 // // DELETE
@@ -188,4 +192,30 @@ message DeleteQueryRequest {
 message DeleteQueryResponse {
 }
 
+// BODY FORM
+// // CREATE
+message CreateBodyFormRequest {
+  string key = 1;
+  string value = 2;
+  bool enabled = 3;
+}
 
+message CreateBodyFormResponse {
+  BodyForm body_form = 1;
+}
+
+// // UPDATE
+message UpdateBodyFormRequest {
+  BodyForm body_form = 1;
+}
+
+message UpdateBodyFormResponse {
+}
+
+// // DELETE
+message DeleteBodyFormRequest {
+  string id = 1;
+}
+
+message DeleteBodyFormResponse {
+}
