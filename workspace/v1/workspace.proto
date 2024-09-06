@@ -20,8 +20,7 @@ service WorkspaceService {
 message Workspace {
   string id = 1;
   string name = 2;
-  google.protobuf.Timestamp created = 3;
-  google.protobuf.Timestamp updated = 4;
+  google.protobuf.Timestamp updated = 3;
 }
 
 enum Role {

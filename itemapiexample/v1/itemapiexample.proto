@@ -8,6 +8,7 @@ import "google/protobuf/timestamp.proto";
 import "apiresult/v1/apiresult.proto";
 
 service ItemApiExampleService {
+  // Examples
   rpc GetExamples(GetExamplesRequest) returns (GetExamplesResponse);
   rpc GetExample(GetExampleRequest) returns (GetExampleResponse);
   rpc CreateExample(CreateExampleRequest) returns (CreateExampleResponse);
@@ -15,6 +16,34 @@ service ItemApiExampleService {
   rpc DeleteExample(DeleteExampleRequest) returns (DeleteExampleResponse);
 
   rpc RunExample(RunExampleRequest) returns (RunExampleResponse);
+
+  // Headers
+  rpc CreateHeader(CreateHeaderRequest) returns (CreateHeaderResponse);
+  rpc GetHeader(GetHeaderRequest) returns (GetHeaderResponse);
+  rpc UpdateHeader(UpdateHeaderRequest) returns (UpdateHeaderResponse);
+  rpc DeleteHeader(DeleteHeaderRequest) returns (DeleteHeaderResponse);
+
+  // Query
+  rpc CreateQuery(CreateQueryRequest) returns (CreateQueryResponse);
+  rpc GetQuery(GetQueryRequest) returns (GetQueryResponse);
+  rpc UpdateQuery(UpdateQueryRequest) returns (UpdateQueryResponse);
+  rpc DeleteQuery(DeleteQueryRequest) returns (DeleteQueryResponse);
+}
+
+message Header {
+  string id = 1;
+  string key = 2;
+  bool enabled = 3;
+  string value = 4;
+  string description = 5;
+}
+
+message Query {
+  string id = 1;
+  string key = 2;
+  bool enabled = 3;
+  string value = 4;
+  string description = 5;
 }
 
 message ApiExampleMeta {
@@ -24,12 +53,10 @@ message ApiExampleMeta {
 
 message ApiExample {
   ApiExampleMeta meta = 1;
-  map<string, string> query = 2;
-  map<string, string> headers = 3;
-  map<string, string> cookies = 4;
+  repeated Query query = 2;
+  repeated Header header = 3;
+  google.protobuf.Timestamp updated = 4;
   bytes body = 5;
-  google.protobuf.Timestamp created = 6;
-  google.protobuf.Timestamp updated = 7;
 }
 
 message GetExamplesRequest {
@@ -51,10 +78,9 @@ message GetExampleResponse {
 message CreateExampleRequest {
   string item_api_id = 1;
   string name = 2;
-  map<string, string> query = 3;
-  map<string, string> headers = 4;
-  map<string, string> cookies = 5;
-  bytes body = 6;
+  repeated Query query = 3;
+  repeated Header header = 4;
+  bytes body = 5;
 }
 
 message CreateExampleResponse {
@@ -63,9 +89,6 @@ message CreateExampleResponse {
 message UpdateExampleRequest {
   string id = 1;
   string name = 2;
-  map<string, string> query = 3;
-  map<string, string> headers = 4;
-  map<string, string> cookies = 5;
   bytes body = 6;
 }
 
@@ -85,6 +108,84 @@ message RunExampleRequest {
 
 message RunExampleResponse {
   apiresult.v1.Result result = 1;
+}
+
+// Headers
+// // CREATE
+message CreateHeaderRequest {
+  string key = 1;
+  string value = 2;
+  bool enabled = 3;
+}
+
+message CreateHeaderResponse {
+  Header header = 1;
+}
+
+// // GET
+message GetHeaderRequest {
+  string id = 1;
+}
+
+message GetHeaderResponse {
+  Header header = 1;
+}
+
+// // UPDATE
+message UpdateHeaderRequest {
+  string id = 1;
+  string key = 2;
+  string value = 3;
+  bool enabled = 4;
+}
+
+message UpdateHeaderResponse {
+  Header header = 1;
+}
+
+// // DELETE
+message DeleteHeaderRequest {
+  string id = 1;
+}
+
+message DeleteHeaderResponse {
+}
+
+// Query
+// // CREATE
+message CreateQueryRequest {
+  string key = 1;
+  string value = 2;
+  bool enabled = 3;
+}
+
+message CreateQueryResponse {
+  Query query = 1;
+}
+
+// // GET
+message GetQueryRequest {
+  string id = 1;
+}
+
+message GetQueryResponse {
+  Query query = 1;
+}
+
+// // UPDATE
+message UpdateQueryRequest {
+}
+
+message UpdateQueryResponse {
+  Query query = 1;
+}
+
+// // DELETE
+message DeleteQueryRequest {
+  string id = 1;
+}
+
+message DeleteQueryResponse {
 }
 
 
