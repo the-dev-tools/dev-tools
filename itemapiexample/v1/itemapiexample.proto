@@ -102,11 +102,8 @@ message GetExampleResponse {
 }
 
 message CreateExampleRequest {
-  string item_api_id = 1;
-  string name = 2;
-  repeated Query query = 3;
-  repeated Header header = 4;
-  bytes body = 5;
+  ApiExample example = 1;
+  string item_api_id = 2;
 }
 
 message CreateExampleResponse {
@@ -139,9 +136,7 @@ message RunExampleResponse {
 // Headers
 // // CREATE
 message CreateHeaderRequest {
-  string key = 1;
-  string value = 2;
-  bool enabled = 3;
+  Header header = 1;
 }
 
 message CreateHeaderResponse {
@@ -167,9 +162,7 @@ message DeleteHeaderResponse {
 // Query
 // // CREATE
 message CreateQueryRequest {
-  string key = 1;
-  string value = 2;
-  bool enabled = 3;
+  Query query = 1;
 }
 
 message CreateQueryResponse {
@@ -195,9 +188,7 @@ message DeleteQueryResponse {
 // BODY FORM
 // // CREATE
 message CreateBodyFormRequest {
-  string key = 1;
-  string value = 2;
-  bool enabled = 3;
+  BodyForm body_form = 1;
 }
 
 message CreateBodyFormResponse {
