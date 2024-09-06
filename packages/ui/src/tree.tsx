@@ -21,6 +21,9 @@ import { Button, ButtonProps, buttonStyles } from './button';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTW } from './utils';
 
+// TODO: Implement drag and drop for re-ordering. Either wait for React Aria to
+// potentially implement it, or switch to React Arborist
+
 // Root
 
 export interface TreeProps<T extends object> extends AriaTreeProps<T> {}
