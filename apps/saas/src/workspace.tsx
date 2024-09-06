@@ -173,7 +173,7 @@ export const WorkspaceLayout = () => {
           <CollectionsTree />
         </Panel>
         <PanelResizeHandle direction='horizontal' />
-        <Panel className='overflow-auto'>
+        <Panel className='h-full !overflow-auto'>
           <Outlet />
         </Panel>
       </PanelGroup>

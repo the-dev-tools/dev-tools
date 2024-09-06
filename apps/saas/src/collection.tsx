@@ -3,8 +3,10 @@ import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
-import { Array, Effect, Match, pipe, Struct } from 'effect';
-import { useRef, useState } from 'react';
+import { ColDef } from 'ag-grid-community';
+import { AgGridReact, CustomHeaderProps } from 'ag-grid-react';
+import { Array, Effect, Match, pipe, Record, Struct } from 'effect';
+import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal } from 'react-icons/lu';
@@ -17,7 +19,7 @@ import {
   listCollections,
   updateCollection,
 } from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
-import { ApiCall, ApiCallMeta } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
+import { ApiCallMeta, GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import {
   deleteApiCall,
   getApiCall,
@@ -390,7 +392,7 @@ export const ApiCallPage = () => {
   if (!query.isSuccess) return null;
   const { data } = query;
 
-  return <ApiCallForm data={data.apiCall!} />;
+  return <ApiCallForm data={data} />;
 };
 
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
@@ -400,8 +402,24 @@ class ApiCallFormData extends Schema.Class<ApiCallFormData>('ApiCallFormData')({
   url: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'URL must not be empty' })),
 }) {}
 
+interface Header {
+  key: string;
+  value: string;
+}
+
+const headerColDefs: ColDef<Header>[] = [
+  { field: 'key', editable: true },
+  { field: 'value', editable: true, resizable: false },
+];
+
+const defaultColDef: ColDef = { sortable: false, suppressMovable: true, flex: 1 };
+
+const AgColumnHeader = ({ displayName }: CustomHeaderProps) => <div>{displayName}</div>;
+
+const agComponents = { agColumnHeader: AgColumnHeader };
+
 interface ApiCallFormProps {
-  data: ApiCall;
+  data: GetApiCallResponse;
 }
 
 const ApiCallForm = ({ data }: ApiCallFormProps) => {
@@ -409,13 +427,24 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
 
   const form = useForm({
     resolver: effectTsResolver(ApiCallFormData),
-    defaultValues: data,
+    defaultValues: data.apiCall!,
   });
+
+  const headerRowData = useMemo(
+    () =>
+      pipe(
+        data.example!.headers,
+        Record.toEntries,
+        Array.map(([key, value]) => ({ key, value })),
+      ),
+    [data.example],
+  );
 
   return (
     <Form
+      className='flex h-full flex-col'
       onSubmit={form.handleSubmit((formData) => {
-        const newApiCall = Struct.evolve(data, {
+        const newApiCall = Struct.evolve(data.apiCall!, {
           method: () => formData.method,
           url: () => formData.url,
         });
@@ -424,39 +453,51 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
       })}
     >
       <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
-        <h2 className='flex-1 truncate text-sm font-bold'>{data.meta!.name}</h2>
+        <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
 
         <Button kind='placeholder' variant='placeholder' type='submit'>
           <LuSave /> Save
         </Button>
       </div>
 
-      <div className='flex items-start p-4'>
-        <SelectRHF
-          control={form.control}
-          name='method'
-          aria-label='Method'
-          triggerClassName={tw`rounded-r-none border-r-0`}
-        >
-          {methods.map((_) => (
-            <DropdownItem key={_} id={_}>
-              {_}
-            </DropdownItem>
-          ))}
-        </SelectRHF>
+      <div className='flex flex-1 flex-col gap-4 p-4'>
+        <div className='flex items-start'>
+          <SelectRHF
+            control={form.control}
+            name='method'
+            aria-label='Method'
+            triggerClassName={tw`rounded-r-none border-r-0`}
+          >
+            {methods.map((_) => (
+              <DropdownItem key={_} id={_}>
+                {_}
+              </DropdownItem>
+            ))}
+          </SelectRHF>
 
-        <TextFieldRHF
-          control={form.control}
-          name='url'
-          aria-label='URL'
-          className={tw`flex-1`}
-          inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
-        />
+          <TextFieldRHF
+            control={form.control}
+            name='url'
+            aria-label='URL'
+            className={tw`flex-1`}
+            inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
+          />
 
-        {/* TODO: implement */}
-        <Button kind='placeholder' variant='placeholder' className='rounded-l-none border-l-0 bg-black text-white'>
-          Send <LuSendHorizonal className='size-4' />
-        </Button>
+          {/* TODO: implement */}
+          <Button kind='placeholder' variant='placeholder' className='rounded-l-none border-l-0 bg-black text-white'>
+            Send <LuSendHorizonal className='size-4' />
+          </Button>
+        </div>
+
+        {/* eslint-disable-next-line tailwindcss/no-custom-classname */}
+        <div className='ag-theme-quartz flex-1'>
+          <AgGridReact
+            defaultColDef={defaultColDef}
+            columnDefs={headerColDefs}
+            rowData={headerRowData}
+            components={agComponents}
+          />
+        </div>
       </div>
     </Form>
   );
