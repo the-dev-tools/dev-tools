@@ -1,4 +1,11 @@
-import { createQueryOptions, useQuery as useConnectQuery, useMutation, useTransport } from '@connectrpc/connect-query';
+import {
+  createConnectQueryKey,
+  createProtobufSafeUpdater,
+  createQueryOptions,
+  useQuery as useConnectQuery,
+  useMutation,
+  useTransport,
+} from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
@@ -402,12 +409,12 @@ class ApiCallFormData extends Schema.Class<ApiCallFormData>('ApiCallFormData')({
   url: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'URL must not be empty' })),
 }) {}
 
-interface Header {
+interface ApiHeader {
   key: string;
   value: string;
 }
 
-const headerColDefs: ColDef<Header>[] = [
+const headerColDefs: ColDef<ApiHeader>[] = [
   { field: 'key', editable: true },
   { field: 'value', editable: true, resizable: false },
 ];
@@ -423,6 +430,8 @@ interface ApiCallFormProps {
 }
 
 const ApiCallForm = ({ data }: ApiCallFormProps) => {
+  const queryClient = useQueryClient();
+
   const updateMutation = useMutation(updateApiCall);
 
   const form = useForm({
@@ -491,11 +500,27 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
 
         {/* eslint-disable-next-line tailwindcss/no-custom-classname */}
         <div className='ag-theme-quartz flex-1'>
-          <AgGridReact
+          <AgGridReact<ApiHeader>
             defaultColDef={defaultColDef}
             columnDefs={headerColDefs}
             rowData={headerRowData}
             components={agComponents}
+            onCellValueChanged={(e) => {
+              // TODO: send row update request
+              queryClient.setQueryData(
+                createConnectQueryKey(getApiCall, { id: data.apiCall!.meta!.id }),
+                createProtobufSafeUpdater(getApiCall, (apiCall) => {
+                  if (!apiCall) return apiCall;
+                  const headers = pipe(
+                    apiCall.example!.headers,
+                    Record.toEntries,
+                    Array.replace(e.rowIndex!, Record.values(e.data) as [string, string]),
+                    Record.fromEntries,
+                  );
+                  return { ...apiCall, example: { ...apiCall.example!, headers } };
+                }),
+              );
+            }}
           />
         </div>
       </div>
