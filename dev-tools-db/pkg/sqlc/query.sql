@@ -11,8 +11,7 @@ SELECT
   parent_id,
   name,
   url,
-  method,
-  updated
+  method
 FROM
   item_api
 WHERE
@@ -27,8 +26,7 @@ SELECT
   parent_id,
   name,
   url,
-  method,
-  updated
+  method
 FROM
   item_api
 WHERE
@@ -263,7 +261,8 @@ VALUES
 -- name: UpdateItemFolder :exec
 UPDATE item_folder
 SET
-  name = ?
+  name = ?,
+  parent_id = ?
 WHERE
   id = ?;
 
