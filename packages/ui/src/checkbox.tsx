@@ -27,7 +27,7 @@ export const CheckboxRoot = ({ className, ...props }: CheckboxRootProps) => (
 
 export const checkboxBoxStyles = tv({
   extend: isFocusedRingStyles,
-  base: tw`flex size-5 flex-none items-center justify-center rounded border-2 border-black`,
+  base: tw`flex size-5 flex-none cursor-pointer items-center justify-center rounded border-2 border-black`,
 });
 
 export interface CheckboxBoxProps extends React.ComponentProps<'div'>, VariantProps<typeof checkboxBoxStyles> {}
