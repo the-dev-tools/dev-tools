@@ -137,7 +137,7 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	newAccessJWT, err := stoken.NewJWT(ulidID, claims.Email, stoken.RefreshToken, time.Hour*24*2, a.HmacSecret)
+	newAccessJWT, err := stoken.NewJWT(ulidID, claims.Email, stoken.AccessToken, time.Hour*24*2, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

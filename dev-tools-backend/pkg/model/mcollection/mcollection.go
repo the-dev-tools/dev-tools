@@ -33,14 +33,6 @@ func (mc MetaCollection) GetCreatedTime() time.Time {
 	return time.UnixMilli(int64(mc.ID.Time()))
 }
 
-/*
-   string id = 1;
-   string name = 2;
-   string type = 3; // such as "request", "folder"
-   optional string parent_id = 4; // INFO: optional
-   optional nodedata.v1.NodeApiCallData data = 5; // INFO: optional
-*/
-
 type CollectionNode struct {
 	ID           ulid.ULID
 	CollectionID ulid.ULID
