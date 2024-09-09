@@ -11,7 +11,6 @@ import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { ColDef } from 'ag-grid-community';
-import { AgGridReact, CustomHeaderProps } from 'ag-grid-react';
 import { Array, Effect, Match, pipe, Record, Struct } from 'effect';
 import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
@@ -38,6 +37,7 @@ import {
   deleteFolder,
   updateFolder,
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
+import { AgGridBasic } from '@the-dev-tools/ui/ag-grid';
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
@@ -419,12 +419,6 @@ const headerColDefs: ColDef<ApiHeader>[] = [
   { field: 'value', editable: true, resizable: false },
 ];
 
-const defaultColDef: ColDef = { sortable: false, suppressMovable: true, flex: 1 };
-
-const AgColumnHeader = ({ displayName }: CustomHeaderProps) => <div>{displayName}</div>;
-
-const agComponents = { agColumnHeader: AgColumnHeader };
-
 interface ApiCallFormProps {
   data: GetApiCallResponse;
 }
@@ -498,31 +492,27 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
           </Button>
         </div>
 
-        {/* eslint-disable-next-line tailwindcss/no-custom-classname */}
-        <div className='ag-theme-quartz flex-1'>
-          <AgGridReact<ApiHeader>
-            defaultColDef={defaultColDef}
-            columnDefs={headerColDefs}
-            rowData={headerRowData}
-            components={agComponents}
-            onCellValueChanged={(e) => {
-              // TODO: send row update request
-              queryClient.setQueryData(
-                createConnectQueryKey(getApiCall, { id: data.apiCall!.meta!.id }),
-                createProtobufSafeUpdater(getApiCall, (apiCall) => {
-                  if (!apiCall) return apiCall;
-                  const headers = pipe(
-                    apiCall.example!.headers,
-                    Record.toEntries,
-                    Array.replace(e.rowIndex!, Record.values(e.data) as [string, string]),
-                    Record.fromEntries,
-                  );
-                  return { ...apiCall, example: { ...apiCall.example!, headers } };
-                }),
-              );
-            }}
-          />
-        </div>
+        <AgGridBasic<ApiHeader>
+          wrapperClassName={tw`flex-1`}
+          columnDefs={headerColDefs}
+          rowData={headerRowData}
+          onCellValueChanged={(e) => {
+            // TODO: send row update request
+            queryClient.setQueryData(
+              createConnectQueryKey(getApiCall, { id: data.apiCall!.meta!.id }),
+              createProtobufSafeUpdater(getApiCall, (apiCall) => {
+                if (!apiCall) return apiCall;
+                const headers = pipe(
+                  apiCall.example!.headers,
+                  Record.toEntries,
+                  Array.replace(e.rowIndex!, Record.values(e.data) as [string, string]),
+                  Record.fromEntries,
+                );
+                return { ...apiCall, example: { ...apiCall.example!, headers } };
+              }),
+            );
+          }}
+        />
       </div>
     </Form>
   );

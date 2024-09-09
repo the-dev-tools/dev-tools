@@ -10,7 +10,6 @@ import { queryClient, transport } from './runtime';
 
 import '@the-dev-tools/ui/fonts';
 import './styles.css';
-import 'ag-grid-community/styles/ag-grid.css';
 
 const router = createRouter({ routeTree });
 
