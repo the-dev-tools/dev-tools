@@ -11,7 +11,6 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"errors"
-	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -20,6 +19,18 @@ import (
 
 	"github.com/oklog/ulid/v2"
 )
+
+func SendAllToChannel[I any](items []I, ch chan I) {
+	for _, item := range items {
+		ch <- item
+	}
+}
+
+func SendAllToChannelPtr[I any](items []*I, ch chan I) {
+	for _, item := range items {
+		ch <- *item
+	}
+}
 
 func ParsePostmanCollection(data []byte) (mpostmancollection.Collection, error) {
 	var collection mpostmancollection.Collection
@@ -64,24 +75,8 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 
 	afterTime := time.After(2 * time.Minute)
 
-	for _, item := range collection.Items {
-		wg.Add(1)
-		go func() {
-			// means it is a folder
-			if item.Request == nil {
-				rootFolder := mitemfolder.ItemFolder{
-					ID:           ulid.Make(),
-					Name:         item.Name,
-					ParentID:     nil,
-					CollectionID: collectionID,
-				}
-				ItemChannels.Folder <- rootFolder
-				go GetRecursiveFolders(item, &rootFolder.ID, collectionID, &ItemChannels)
-			} else {
-				go GetRequest(item, nil, collectionID, &ItemChannels)
-			}
-		}()
-	}
+	wg.Add(1)
+	go GetRecursiveRoots(collection.Items, collectionID, &ItemChannels)
 
 	go func() {
 		wg.Wait()
@@ -106,125 +101,163 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 	}
 }
 
-func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+func GetRecursiveRoots(items []mitem.Items, collectionID ulid.ULID, channels *ItemChannels) {
+	go GetRecursiveFolders(items, nil, collectionID, channels)
+}
+
+func GetRecursiveFolders(items []mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
 	defer channels.Wg.Done()
-	for _, item := range item.Items {
-		channels.Wg.Add(1)
+	var folderPrev *mitemfolder.ItemFolder
+	var folderArr []*mitemfolder.ItemFolder
+	var apiArrRaw []*mitem.Items
+
+	for _, item := range items {
 		if item.Request == nil {
-			folder := mitemfolder.ItemFolder{
+			folder := &mitemfolder.ItemFolder{
 				ID:           ulid.Make(),
 				Name:         item.Name,
 				ParentID:     parentID,
 				CollectionID: collectionID,
 			}
-			channels.Folder <- folder
-			go GetRecursiveFolders(item, &folder.ID, collectionID, channels)
+
+			if folderPrev != nil {
+				folderPrev.Next = &folder.ID
+				folder.Prev = &folder.ID
+			}
+
+			folderPrev = folder
+			folderArr = append(folderArr, folderPrev)
+
+			channels.Wg.Add(1)
+			go GetRecursiveFolders(item.Items, &folder.ID, collectionID, channels)
 		} else {
-			go GetRequest(item, parentID, collectionID, channels)
+			apiArrRaw = append(apiArrRaw, &item)
 		}
 	}
+
+	channels.Wg.Add(1)
+	go GetRequest(apiArrRaw, parentID, collectionID, channels)
+	SendAllToChannelPtr(folderArr, channels.Folder)
 }
 
-func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
 	defer channels.Wg.Done()
-	headers := make(map[string]string)
-
-	if item.Request == nil {
-		channels.Err <- errors.New("item is not an api")
-		return
-	}
-
-	if item.Request.Header != nil {
-		for _, v := range item.Request.Header {
-			if !v.Disabled {
-				headers[v.Key] = v.Value
+	var apiPrev *mitemapi.ItemApi
+	var apiArr []*mitemapi.ItemApi
+	for _, item := range items {
+		headers := make(map[string]string)
+		if item.Request == nil {
+			channels.Err <- errors.New("item is not an api")
+			return
+		}
+		if item.Request.Header != nil {
+			for _, v := range item.Request.Header {
+				if !v.Disabled {
+					headers[v.Key] = v.Value
+				}
 			}
 		}
-	}
-
-	ulidID := ulid.Make()
-	queryParams := make(map[string]string)
-	var rawURL string
-	switch item.Request.URL.(type) {
-	case string:
-		rawURL = item.Request.URL.(string)
-	case murl.URL:
-		url := item.Request.URL.(murl.URL)
-		rawURL = url.Raw
-		for _, v := range url.Query {
-			queryParams[v.Key] = v.Value
+		ulidID := ulid.Make()
+		queryParams := make(map[string]string)
+		var rawURL string
+		switch item.Request.URL.(type) {
+		case string:
+			rawURL = item.Request.URL.(string)
+		case murl.URL:
+			url := item.Request.URL.(murl.URL)
+			rawURL = url.Raw
+			for _, v := range url.Query {
+				queryParams[v.Key] = v.Value
+			}
+		default:
+			channels.Err <- errors.New("url is not a string or murl.URL")
+			return
 		}
-	default:
-		channels.Err <- errors.New("url is not a string or murl.URL")
-		return
-	}
-	var bodyBuff bytes.Buffer
-	compresed := false
-	if item.Request.Body != nil {
-		if len(item.Request.Body.Raw) > 1000 {
-			compresed = true
-			w := gzip.NewWriter(&bodyBuff)
-			w.Write([]byte(item.Request.Body.Raw))
-		} else {
-			bodyBuff.Write([]byte(item.Request.Body.Raw))
+		var bodyBuff bytes.Buffer
+		compresed := false
+		if item.Request.Body != nil {
+			if len(item.Request.Body.Raw) > 1000 {
+				compresed = true
+				w := gzip.NewWriter(&bodyBuff)
+				w.Write([]byte(item.Request.Body.Raw))
+			} else {
+				bodyBuff.Write([]byte(item.Request.Body.Raw))
+			}
 		}
-	}
 
-	api := mitemapi.ItemApi{
-		ID:           ulidID,
-		CollectionID: collectionID,
-		ParentID:     parentID,
-		Name:         item.Name,
-		Url:          rawURL,
-		Method:       item.Request.Method,
-	}
-
-	channels.Api <- api
-
-	buffBytes := bodyBuff.Bytes()
-	example := mitemapiexample.NewItemApiExample(ulid.Make(), ulidID, collectionID, nil, true,
-		"Default Example", *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), compresed, buffBytes)
-	channels.ApiExample <- *example
-
-	for _, v := range item.Responses {
-		name := v.Name
-		if name == "" {
-			name = fmt.Sprintf("Example %d of %s", v.Code, api.Name)
+		api := &mitemapi.ItemApi{
+			ID:           ulidID,
+			CollectionID: collectionID,
+			ParentID:     parentID,
+			Name:         item.Name,
+			Url:          rawURL,
+			Method:       item.Request.Method,
 		}
+
+		if apiPrev != nil {
+			apiPrev.Next = &api.ID
+			api.Prev = &apiPrev.ID
+		}
+
+		apiPrev = api
+		apiArr = append(apiArr, apiPrev)
+
+		buffBytes := bodyBuff.Bytes()
+		example := mitemapiexample.NewItemApiExample(ulid.Make(), ulidID, collectionID, nil, true,
+			"Default Example", *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), compresed, buffBytes)
+
+		channels.ApiExample <- *example
+
 		channels.Wg.Add(1)
-		go GetResponse(v, buffBytes, name, queryParams, ulidID, collectionID, channels)
+		go GetResponse(item.Responses, buffBytes, queryParams, ulidID, collectionID, channels)
 	}
 
-	return
+	SendAllToChannelPtr(apiArr, channels.Api)
 }
 
-func GetResponse(item *mresponse.Response, body []byte, name string, queryParams map[string]string,
+func GetResponse(items []mresponse.Response, body []byte, queryParams map[string]string,
 	apiID, collectionID ulid.ULID, channels *ItemChannels,
 ) {
 	defer channels.Wg.Done()
-	headers := make(map[string]string)
-	for _, v := range item.Headers {
-		headers[v.Key] = v.Value
+	var prevExample *mitemapiexample.ItemApiExample
+	var examples []*mitemapiexample.ItemApiExample
+
+	for _, item := range items {
+		headers := make(map[string]string)
+		for _, v := range item.Headers {
+			headers[v.Key] = v.Value
+		}
+
+		cookies := make(map[string]string)
+		for _, v := range item.Cookies {
+			cookies[v.Name] = v.Value
+		}
+		if item.Name == "" {
+			item.Name = "Untitled"
+		}
+
+		apiExample := mitemapiexample.ItemApiExample{
+			ID:           ulid.Make(),
+			ItemApiID:    apiID,
+			CollectionID: collectionID,
+			Name:         item.Name,
+			IsDefault:    false,
+			Headers:      *mitemapiexample.NewHeaders(headers),
+			Cookies:      *mitemapiexample.NewCookies(cookies),
+			Query:        *mitemapiexample.NewQuery(queryParams),
+			Body:         body,
+		}
+
+		if prevExample != nil {
+			prevExample.Next = &apiExample.ID
+			apiExample.Prev = &prevExample.ID
+		}
+
+		prevExample = &apiExample
+		examples = append(examples, prevExample)
 	}
 
-	cookies := make(map[string]string)
-	for _, v := range item.Cookies {
-		cookies[v.Name] = v.Value
-	}
-
-	apiExample := mitemapiexample.ItemApiExample{
-		ID:           ulid.Make(),
-		ItemApiID:    apiID,
-		CollectionID: collectionID,
-		Name:         name,
-		IsDefault:    false,
-		Headers:      *mitemapiexample.NewHeaders(headers),
-		Cookies:      *mitemapiexample.NewCookies(cookies),
-		Query:        *mitemapiexample.NewQuery(queryParams),
-		Body:         body,
-	}
-
-	channels.ApiExample <- apiExample
+	SendAllToChannelPtr(examples, channels.ApiExample)
 }
 
 func RemoveItem[I any](slice []I, s int) []I {

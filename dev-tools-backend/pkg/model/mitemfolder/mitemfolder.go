@@ -7,6 +7,8 @@ type ItemFolder struct {
 	CollectionID ulid.ULID
 	Name         string
 	ParentID     *ulid.ULID
+	Prev         *ulid.ULID
+	Next         *ulid.ULID
 }
 
 type ItemFolderNested struct {

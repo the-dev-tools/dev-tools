@@ -1,4 +1,4 @@
--- USERS 
+-- USERS
 CREATE TABLE users (
   id BLOB NOT NULL PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -32,6 +32,8 @@ CREATE TABLE item_folder (
   collection_id BLOB NOT NULL,
   parent_id BLOB,
   name TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
@@ -52,6 +54,8 @@ CREATE TABLE item_api (
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   method TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
@@ -75,6 +79,8 @@ CREATE TABLE item_api_example (
   query BLOB NOT NULL,
   compressed BOOLEAN NOT NULL DEFAULT FALSE,
   body BLOB NOT NULL,
+  prev BLOB,
+  next BLOB,
   FOREIGN KEY (parent_example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE

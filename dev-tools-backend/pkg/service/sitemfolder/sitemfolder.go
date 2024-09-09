@@ -104,18 +104,27 @@ func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []m
 			item2 := items[index+1]
 			item3 := items[index+2]
 			params := gen.CreateItemFolderBulkParams{
-				ID:             item1.ID,
-				CollectionID:   item1.CollectionID,
-				ParentID:       item1.ParentID,
-				Name:           item1.Name,
+				// Item 1
+				ID:           item1.ID,
+				CollectionID: item1.CollectionID,
+				ParentID:     item1.ParentID,
+				Name:         item1.Name,
+				Prev:         item1.Prev,
+				Next:         item1.Next,
+				// Item 2
 				ID_2:           item2.ID,
 				CollectionID_2: item2.CollectionID,
 				ParentID_2:     item2.ParentID,
 				Name_2:         item2.Name,
+				Prev_2:         item2.Prev,
+				Next_2:         item2.Next,
+				// Item 3
 				ID_3:           item3.ID,
 				CollectionID_3: item3.CollectionID,
 				ParentID_3:     item3.ParentID,
 				Name_3:         item3.Name,
+				Prev_3:         item3.Prev,
+				Next_3:         item3.Next,
 			}
 
 			if err := ifs.queries.CreateItemFolderBulk(ctx, params); err != nil {

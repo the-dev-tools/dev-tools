@@ -188,7 +188,9 @@ func RecursiveTranslateMeta(item mitemfolder.ItemFolderNested) []*itemfolderv1.I
 
 // sort and create root fodler and check sub folder recoversive
 // also put api with parentID in the folder
-func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi, examples []mitemapiexample.ItemApiExample) (*CollectionPair, error) {
+func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi.ItemApi,
+	examples []mitemapiexample.ItemApiExample,
+) (*CollectionPair, error) {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
 	sortedFolderIds := make([]ulid.ULID, len(sortedFolders))
@@ -212,47 +214,85 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 		}
 	}
 
+	exampleMap := make(map[ulid.ULID]mitemapiexample.ItemApiExample, len(examples))
+	for _, item := range examples {
+		exampleMap[item.ID] = item
+	}
+
 	for _, example := range examples {
-		api, ok := apiMap[example.ItemApiID]
-		if ok {
-			if example.IsDefault {
-				api.DefaultExample = example
-			} else {
-				meta := mitemapiexample.ItemApiExampleMeta{
-					ID:   example.ID,
-					Name: example.Name,
-				}
-				api.Examples = append(api.Examples, meta)
+		if example.IsDefault {
+			api, ok := apiMap[example.ItemApiID]
+			if !ok {
+				return nil, fmt.Errorf("Parent Api not found for example %s", api.ParentID)
 			}
+			api.DefaultExample = example
+			continue
 		}
+		if example.Prev != nil {
+			continue
+		}
+		api, ok := apiMap[example.ItemApiID]
+		if !ok {
+			return nil, fmt.Errorf("Parent Api not found for example %s", api.ParentID)
+		}
+		for {
+			meta := mitemapiexample.ItemApiExampleMeta{
+				ID:   example.ID,
+				Name: example.Name,
+			}
+			api.Examples = append(api.Examples, meta)
+			if example.Next == nil {
+				break
+			}
+			example = exampleMap[*example.Next]
+		}
+		apiMap[api.ID] = api
 	}
 
 	for _, api := range apiMap {
-		if api.ParentID != nil {
-			folder, ok := folderMap[*api.ParentID]
-			if ok {
-				folder.Children = append(folder.Children, api)
-				folderMap[*api.ParentID] = folder
-			} else {
-				return nil, fmt.Errorf("Parent folder not found %s", api.ParentID)
-			}
-		} else {
+		if api.ParentID == nil {
 			collection.itemApis = append(collection.itemApis, api)
+			continue
 		}
+		if api.Prev != nil {
+			continue
+		}
+		folder, ok := folderMap[*api.ParentID]
+		if !ok {
+			return nil, fmt.Errorf("Parent folder not found %s", api.ParentID)
+		}
+		for {
+			folder.Children = append(folder.Children, api)
+			if api.Next == nil {
+				break
+			}
+			api = apiMap[*api.Next]
+		}
+		folderMap[folder.ID] = folder
 	}
 
 	for _, folder := range sortedFolderIds {
 		folder := folderMap[folder]
-		if folder.ParentID != nil {
-			parentFolder, ok := folderMap[*folder.ParentID]
-			if ok {
-				parentFolder.Children = append(parentFolder.Children, folder)
-				folderMap[*folder.ParentID] = parentFolder
-			} else {
-				return nil, fmt.Errorf("Parent folder not found %s", folder.ParentID)
-			}
-		} else {
+		if folder.ParentID == nil {
 			collection.itemFolders = append(collection.itemFolders, folder)
+			continue
+		}
+		if folder.Prev != nil {
+			continue
+		}
+
+		parentFolder, ok := folderMap[*folder.ParentID]
+		if !ok {
+			return nil, fmt.Errorf("Parent folder not found for folder %s", folder.ParentID)
+		}
+
+		for {
+			parentFolder.Children = append(parentFolder.Children, folder)
+			folderMap[*folder.ParentID] = parentFolder
+			if folder.Next == nil {
+				break
+			}
+			folder = folderMap[*folder.Next]
 		}
 	}
 

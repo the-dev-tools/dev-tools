@@ -30,6 +30,8 @@ func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
+		Prev:         item.Prev,
+		Next:         item.Next,
 	}
 }
 
@@ -41,6 +43,8 @@ func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
+		Prev:         item.Prev,
+		Next:         item.Next,
 	}
 }
 
@@ -93,6 +97,8 @@ func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.Item
 		Name:         itemConverted.Name,
 		Url:          itemConverted.Url,
 		Method:       itemConverted.Method,
+		Prev:         itemConverted.Prev,
+		Next:         itemConverted.Next,
 	})
 }
 
@@ -108,24 +114,33 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			item2 := convertedItems[index+1]
 			item3 := convertedItems[index+2]
 			params := gen.CreateItemApiBulkParams{
-				ID:             item1.ID,
-				CollectionID:   item1.CollectionID,
-				ParentID:       item1.ParentID,
-				Name:           item1.Name,
-				Url:            item1.Url,
-				Method:         item1.Method,
+				// 1
+				ID:           item1.ID,
+				CollectionID: item1.CollectionID,
+				ParentID:     item1.ParentID,
+				Name:         item1.Name,
+				Url:          item1.Url,
+				Method:       item1.Method,
+				Prev:         item1.Prev,
+				Next:         item1.Next,
+				// 2
 				ID_2:           item2.ID,
 				CollectionID_2: item2.CollectionID,
 				ParentID_2:     item2.ParentID,
 				Name_2:         item2.Name,
 				Url_2:          item2.Url,
 				Method_2:       item2.Method,
+				Prev_2:         item2.Prev,
+				Next_2:         item2.Next,
+				// 3
 				ID_3:           item3.ID,
 				CollectionID_3: item3.CollectionID,
 				ParentID_3:     item3.ParentID,
 				Name_3:         item3.Name,
 				Url_3:          item3.Url,
 				Method_3:       item3.Method,
+				Prev_3:         item3.Prev,
+				Next_3:         item3.Next,
 			}
 
 			if err := ias.queries.CreateItemApiBulk(ctx, params); err != nil {

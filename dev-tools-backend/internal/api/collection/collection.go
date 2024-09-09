@@ -303,23 +303,34 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	}
 
 	tx, err := c.DB.Begin()
+	defer tx.Rollback()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	err = txItemFolderService.CreateItemFolderBulk(ctx, items.Folder)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	err = txItemApiService.CreateItemApiBulk(ctx, items.Api)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExample)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

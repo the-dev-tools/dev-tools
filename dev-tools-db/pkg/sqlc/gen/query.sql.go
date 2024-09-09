@@ -62,9 +62,9 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createItemApi = `-- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method)
+  item_api (id, collection_id, parent_id, name, url, method, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiParams struct {
@@ -74,6 +74,8 @@ type CreateItemApiParams struct {
 	Name         string
 	Url          string
 	Method       string
+	Prev         *ulid.ULID
+	Next         *ulid.ULID
 }
 
 func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) error {
@@ -84,17 +86,19 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
 
 const createItemApiBulk = `-- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method)
+  item_api (id, collection_id, parent_id, name, url, method, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiBulkParams struct {
@@ -104,18 +108,24 @@ type CreateItemApiBulkParams struct {
 	Name           string
 	Url            string
 	Method         string
+	Prev           *ulid.ULID
+	Next           *ulid.ULID
 	ID_2           ulid.ULID
 	CollectionID_2 ulid.ULID
 	ParentID_2     *ulid.ULID
 	Name_2         string
 	Url_2          string
 	Method_2       string
+	Prev_2         *ulid.ULID
+	Next_2         *ulid.ULID
 	ID_3           ulid.ULID
 	CollectionID_3 ulid.ULID
 	ParentID_3     *ulid.ULID
 	Name_3         string
 	Url_3          string
 	Method_3       string
+	Prev_3         *ulid.ULID
+	Next_3         *ulid.ULID
 }
 
 func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
@@ -126,18 +136,24 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.Prev,
+		arg.Next,
 		arg.ID_2,
 		arg.CollectionID_2,
 		arg.ParentID_2,
 		arg.Name_2,
 		arg.Url_2,
 		arg.Method_2,
+		arg.Prev_2,
+		arg.Next_2,
 		arg.ID_3,
 		arg.CollectionID_3,
 		arg.ParentID_3,
 		arg.Name_3,
 		arg.Url_3,
 		arg.Method_3,
+		arg.Prev_3,
+		arg.Next_3,
 	)
 	return err
 }
@@ -154,10 +170,12 @@ INSERT INTO
     headers,
     query,
     compressed,
-    body
+    body,
+    prev,
+    next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
@@ -171,6 +189,8 @@ type CreateItemApiExampleParams struct {
 	Query           mitemapiexample.Query
 	Compressed      bool
 	Body            []byte
+	Prev            *ulid.ULID
+	Next            *ulid.ULID
 }
 
 func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExampleParams) error {
@@ -185,6 +205,8 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.Query,
 		arg.Compressed,
 		arg.Body,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
@@ -201,12 +223,14 @@ INSERT INTO
     headers,
     query,
     compressed,
-    body
+    body,
+    prev,
+    next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
@@ -220,6 +244,8 @@ type CreateItemApiExampleBulkParams struct {
 	Query             mitemapiexample.Query
 	Compressed        bool
 	Body              []byte
+	Prev              *ulid.ULID
+	Next              *ulid.ULID
 	ID_2              ulid.ULID
 	ItemApiID_2       ulid.ULID
 	CollectionID_2    ulid.ULID
@@ -230,6 +256,8 @@ type CreateItemApiExampleBulkParams struct {
 	Query_2           mitemapiexample.Query
 	Compressed_2      bool
 	Body_2            []byte
+	Prev_2            *ulid.ULID
+	Next_2            *ulid.ULID
 	ID_3              ulid.ULID
 	ItemApiID_3       ulid.ULID
 	CollectionID_3    ulid.ULID
@@ -240,6 +268,8 @@ type CreateItemApiExampleBulkParams struct {
 	Query_3           mitemapiexample.Query
 	Compressed_3      bool
 	Body_3            []byte
+	Prev_3            *ulid.ULID
+	Next_3            *ulid.ULID
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -254,6 +284,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Query,
 		arg.Compressed,
 		arg.Body,
+		arg.Prev,
+		arg.Next,
 		arg.ID_2,
 		arg.ItemApiID_2,
 		arg.CollectionID_2,
@@ -264,6 +296,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Query_2,
 		arg.Compressed_2,
 		arg.Body_2,
+		arg.Prev_2,
+		arg.Next_2,
 		arg.ID_3,
 		arg.ItemApiID_3,
 		arg.CollectionID_3,
@@ -274,15 +308,17 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Query_3,
 		arg.Compressed_3,
 		arg.Body_3,
+		arg.Prev_3,
+		arg.Next_3,
 	)
 	return err
 }
 
 const createItemFolder = `-- name: CreateItemFolder :exec
 INSERT INTO
-  item_folder (id, name, parent_id, collection_id)
+    item_folder (id, name, parent_id, collection_id, prev, next)
 VALUES
-  (?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemFolderParams struct {
@@ -290,6 +326,8 @@ type CreateItemFolderParams struct {
 	Name         string
 	ParentID     *ulid.ULID
 	CollectionID ulid.ULID
+	Prev         *ulid.ULID
+	Next         *ulid.ULID
 }
 
 func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderParams) error {
@@ -298,17 +336,19 @@ func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderPara
 		arg.Name,
 		arg.ParentID,
 		arg.CollectionID,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
 
 const createItemFolderBulk = `-- name: CreateItemFolderBulk :exec
 INSERT INTO
-  item_folder (id, name, parent_id, collection_id)
+    item_folder (id, name, parent_id, collection_id, prev, next)
 VALUES
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemFolderBulkParams struct {
@@ -316,14 +356,20 @@ type CreateItemFolderBulkParams struct {
 	Name           string
 	ParentID       *ulid.ULID
 	CollectionID   ulid.ULID
+	Prev           *ulid.ULID
+	Next           *ulid.ULID
 	ID_2           ulid.ULID
 	Name_2         string
 	ParentID_2     *ulid.ULID
 	CollectionID_2 ulid.ULID
+	Prev_2         *ulid.ULID
+	Next_2         *ulid.ULID
 	ID_3           ulid.ULID
 	Name_3         string
 	ParentID_3     *ulid.ULID
 	CollectionID_3 ulid.ULID
+	Prev_3         *ulid.ULID
+	Next_3         *ulid.ULID
 }
 
 func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolderBulkParams) error {
@@ -332,14 +378,20 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 		arg.Name,
 		arg.ParentID,
 		arg.CollectionID,
+		arg.Prev,
+		arg.Next,
 		arg.ID_2,
 		arg.Name_2,
 		arg.ParentID_2,
 		arg.CollectionID_2,
+		arg.Prev_2,
+		arg.Next_2,
 		arg.ID_3,
 		arg.Name_3,
 		arg.ParentID_3,
 		arg.CollectionID_3,
+		arg.Prev_3,
+		arg.Next_3,
 	)
 	return err
 }
@@ -670,7 +722,9 @@ SELECT
   parent_id,
   name,
   url,
-  method
+  method,
+  prev,
+  next
 FROM
   item_api
 WHERE
@@ -692,6 +746,8 @@ func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error)
 		&i.Name,
 		&i.Url,
 		&i.Method,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
 }
@@ -707,7 +763,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -731,6 +789,8 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 		&i.Query,
 		&i.Compressed,
 		&i.Body,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
 }
@@ -746,7 +806,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -773,6 +835,8 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.Query,
 			&i.Compressed,
 			&i.Body,
+			&i.Prev,
+			&i.Next,
 		); err != nil {
 			return nil, err
 		}
@@ -798,7 +862,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -822,6 +888,8 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.U
 		&i.Query,
 		&i.Compressed,
 		&i.Body,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
 }
@@ -837,7 +905,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -865,6 +935,8 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) (
 			&i.Query,
 			&i.Compressed,
 			&i.Body,
+			&i.Prev,
+			&i.Next,
 		); err != nil {
 			return nil, err
 		}
@@ -1005,7 +1077,9 @@ SELECT
   parent_id,
   name,
   url,
-  method
+  method,
+  prev,
+  next
 FROM
   item_api
 WHERE
@@ -1028,6 +1102,8 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.Prev,
+			&i.Next,
 		); err != nil {
 			return nil, err
 		}

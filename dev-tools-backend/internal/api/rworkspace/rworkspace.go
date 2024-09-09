@@ -17,7 +17,6 @@ import (
 	workspacev1 "dev-tools-services/gen/workspace/v1"
 	"dev-tools-services/gen/workspace/v1/workspacev1connect"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -126,10 +125,6 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		Role:        mworkspaceuser.RoleOwner,
 	}
 
-	// hash md5 sum of workspace name and user id
-	fmt.Println("workspaceUlid", workspaceUlid.String())
-	fmt.Println("userID", userID.String())
-
 	tx, err := c.DB.Begin()
 	defer tx.Rollback()
 	if err != nil {
@@ -150,13 +145,11 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	}
 	err = workspaceUserServiceTX.CreateWorkspaceUser(ctx, orgUser)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

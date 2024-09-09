@@ -25,6 +25,8 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
+	Prev         *ulid.ULID
+	Next         *ulid.ULID
 }
 
 type ItemApiExample struct {
@@ -38,6 +40,8 @@ type ItemApiExample struct {
 	Query           mitemapiexample.Query
 	Compressed      bool
 	Body            []byte
+	Prev            *ulid.ULID
+	Next            *ulid.ULID
 }
 
 type ItemFolder struct {
@@ -45,6 +49,8 @@ type ItemFolder struct {
 	CollectionID ulid.ULID
 	ParentID     *ulid.ULID
 	Name         string
+	Prev         *ulid.ULID
+	Next         *ulid.ULID
 }
 
 type ResultApi struct {

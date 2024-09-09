@@ -26,6 +26,8 @@ type ItemApiExample struct {
 	Body            []byte
 	Query           Query
 	Updated         time.Time
+	Prev            *ulid.ULID
+	Next            *ulid.ULID
 }
 
 func NewItemApiExample(id ulid.ULID, itemApiID, collectionID ulid.ULID, parentExampleId *ulid.ULID, isDefault bool, name string, headers Headers, query Query, compressed bool, body []byte) *ItemApiExample {

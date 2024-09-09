@@ -14,13 +14,13 @@ type Items struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	// Variables can be generic for single or group items | []*mvariable.Variable
-	Variables               interface{}           `json:"variable,omitempty"`
-	Events                  []*mevent.Event       `json:"event,omitempty"`
-	ProtocolProfileBehavior interface{}           `json:"protocolProfileBehavior,omitempty"`
-	Request                 *mrequest.Request     `json:"request,omitempty"`
-	Responses               []*mresponse.Response `json:"response,omitempty"`
-	Items                   []*Items              `json:"item"`
-	Auth                    *mauth.Auth           `json:"auth,omitempty"`
+	Variables               interface{}          `json:"variable,omitempty"`
+	Events                  []*mevent.Event      `json:"event,omitempty"`
+	ProtocolProfileBehavior interface{}          `json:"protocolProfileBehavior,omitempty"`
+	Request                 *mrequest.Request    `json:"request,omitempty"`
+	Responses               []mresponse.Response `json:"response,omitempty"`
+	Items                   []Items              `json:"item"`
+	Auth                    *mauth.Auth          `json:"auth,omitempty"`
 }
 
 type Item struct {

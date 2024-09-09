@@ -11,7 +11,9 @@ SELECT
   parent_id,
   name,
   url,
-  method
+  method,
+  prev,
+  next
 FROM
   item_api
 WHERE
@@ -26,7 +28,9 @@ SELECT
   parent_id,
   name,
   url,
-  method
+  method,
+  prev,
+  next
 FROM
   item_api
 WHERE
@@ -45,17 +49,17 @@ LIMIT
 
 -- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method)
+  item_api (id, collection_id, parent_id, name, url, method, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method)
+  item_api (id, collection_id, parent_id, name, url, method, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApi :exec
 UPDATE item_api
@@ -87,7 +91,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -106,7 +112,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -124,7 +132,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -144,7 +154,9 @@ SELECT
   headers,
   query,
   compressed,
-  body
+  body,
+  prev,
+  next
 FROM
   item_api_example
 WHERE
@@ -162,10 +174,12 @@ INSERT INTO
     headers,
     query,
     compressed,
-    body
+    body,
+    prev,
+    next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
 INSERT INTO
@@ -179,12 +193,14 @@ INSERT INTO
     headers,
     query,
     compressed,
-    body
+    body,
+    prev,
+    next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
@@ -242,17 +258,17 @@ LIMIT
 
 -- name: CreateItemFolder :exec
 INSERT INTO
-  item_folder (id, name, parent_id, collection_id)
+    item_folder (id, name, parent_id, collection_id, prev, next)
 VALUES
-  (?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemFolderBulk :exec
 INSERT INTO
-  item_folder (id, name, parent_id, collection_id)
+    item_folder (id, name, parent_id, collection_id, prev, next)
 VALUES
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemFolder :exec
 UPDATE item_folder

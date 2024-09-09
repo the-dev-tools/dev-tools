@@ -56,6 +56,8 @@ func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
 		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	}
 }
 
@@ -71,6 +73,8 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	}
 }
 
@@ -131,6 +135,8 @@ func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mi
 		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	})
 }
 
@@ -156,6 +162,8 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			Query:           item1.Query,
 			Compressed:      item1.Compressed,
 			Body:            item1.Body,
+			Prev:            item1.Prev,
+			Next:            item1.Next,
 			// Item 2
 			ID_2:              item2.ID,
 			ItemApiID_2:       item2.ItemApiID,
@@ -167,6 +175,8 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			Query_2:           item2.Query,
 			Compressed_2:      item2.Compressed,
 			Body_2:            item2.Body,
+			Prev_2:            item2.Prev,
+			Next_2:            item2.Next,
 			// Item 3
 			ID_3:              item3.ID,
 			ItemApiID_3:       item3.ItemApiID,
@@ -178,6 +188,8 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			Query_3:           item3.Query,
 			Compressed_3:      item3.Compressed,
 			Body_3:            item3.Body,
+			Prev_3:            item3.Prev,
+			Next_3:            item3.Next,
 		})
 		if err != nil {
 			return err

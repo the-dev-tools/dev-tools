@@ -13,6 +13,8 @@ type ItemApi struct {
 	Name         string
 	Url          string
 	Method       string
+	Prev         *ulid.ULID
+	Next         *ulid.ULID
 }
 
 type ItemApiWithExamples struct {

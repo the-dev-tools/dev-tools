@@ -45,6 +45,20 @@ sql:
               import: "github.com/oklog/ulid/v2"
               package: "ulid"
               type: "ULID"
+          ### prev
+          - column: "item_api.prev"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
+              package: "ulid"
+              type: "ULID"
+          ### next
+          - column: "item_api.next"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
+              package: "ulid"
+              type: "ULID"
           ### collection_id
           - column: "item_api.collection_id"
             go_type:
@@ -63,6 +77,20 @@ sql:
           - column: "item_api_example.id"
             go_type:
               import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### prev
+          - column: "item_api_example.prev"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
+              package: "ulid"
+              type: "ULID"
+          ### next
+          - column: "item_api_example.next"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
               package: "ulid"
               type: "ULID"
           ### api_id
@@ -101,6 +129,20 @@ sql:
           - column: "item_folder.id"
             go_type:
               import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### prev
+          - column: "item_folder.prev"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
+              package: "ulid"
+              type: "ULID"
+          ### next
+          - column: "item_folder.next"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              pointer: true
               package: "ulid"
               type: "ULID"
           ## collection_id
