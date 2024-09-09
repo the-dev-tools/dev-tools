@@ -412,9 +412,11 @@ class ApiCallFormData extends Schema.Class<ApiCallFormData>('ApiCallFormData')({
 interface ApiHeader {
   key: string;
   value: string;
+  enabled: boolean;
 }
 
 const headerColDefs: ColDef<ApiHeader>[] = [
+  { field: 'enabled', headerName: '', editable: true, resizable: false, flex: 0, width: 36 },
   { field: 'key', editable: true },
   { field: 'value', editable: true, resizable: false },
 ];
@@ -438,7 +440,7 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
       pipe(
         data.example!.headers,
         Record.toEntries,
-        Array.map(([key, value]) => ({ key, value })),
+        Array.map(([key, value]) => ({ key, value, enabled: true })),
       ),
     [data.example],
   );
