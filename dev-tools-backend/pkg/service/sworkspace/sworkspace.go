@@ -21,7 +21,6 @@ func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
 }
 
 type WorkspaceService struct {
-	DB      *sql.DB
 	queries *gen.Queries
 }
 
@@ -51,7 +50,19 @@ func New(ctx context.Context, db *sql.DB) (*WorkspaceService, error) {
 	}
 
 	return &WorkspaceService{
-		DB:      db,
+		queries: queries,
+	}, nil
+}
+
+func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoWorkspaceFound
+		}
+		return nil, err
+	}
+	return &WorkspaceService{
 		queries: queries,
 	}, nil
 }

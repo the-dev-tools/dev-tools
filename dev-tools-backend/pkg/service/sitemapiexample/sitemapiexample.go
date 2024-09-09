@@ -10,7 +10,6 @@ import (
 )
 
 type ItemApiExampleService struct {
-	DB      *sql.DB
 	Queries *gen.Queries
 }
 
@@ -19,14 +18,20 @@ var ErrNoItemApiExampleFound = sql.ErrNoRows
 func New(ctx context.Context, db *sql.DB) (*ItemApiExampleService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNoItemApiExampleFound
-		}
 		return nil, err
 	}
 
 	return &ItemApiExampleService{
-		DB:      db,
+		Queries: queries,
+	}, nil
+}
+
+func NewTX(ctx context.Context, tx *sql.Tx) (*ItemApiExampleService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &ItemApiExampleService{
 		Queries: queries,
 	}, nil
 }
@@ -72,6 +77,9 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ulid.ULID) ([]mitemapiexample.ItemApiExample, error) {
 	itemApiExamples, err := iaes.Queries.GetItemApiExamples(ctx, apiUlid)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mitemapiexample.ItemApiExample{}, ErrNoItemApiExampleFound
+		}
 		return nil, err
 	}
 	return MassConvert(itemApiExamples, ConvertToModelItem), nil
@@ -104,7 +112,7 @@ func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context,
 	itemApiExamples, err := iaes.Queries.GetItemApiExampleByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return []mitemapiexample.ItemApiExample{}, nil
+			return []mitemapiexample.ItemApiExample{}, ErrNoItemApiExampleFound
 		}
 		return nil, err
 	}

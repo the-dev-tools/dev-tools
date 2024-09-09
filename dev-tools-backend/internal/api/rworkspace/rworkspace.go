@@ -17,6 +17,7 @@ import (
 	workspacev1 "dev-tools-services/gen/workspace/v1"
 	"dev-tools-services/gen/workspace/v1/workspacev1connect"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -29,6 +30,7 @@ import (
 var ErrWorkspaceNotFound = errors.New("workspace not found")
 
 type WorkspaceServiceRPC struct {
+	DB   *sql.DB
 	sw   sworkspace.WorkspaceService
 	swu  sworkspacesusers.WorkspaceUserService
 	su   suser.UserService
@@ -107,31 +109,54 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	ulidID := ulid.Make()
+	workspaceUlid := ulid.Make()
 
 	dbTimeNow := dbtime.DBNow()
 
 	ws := &mworkspace.Workspace{
-		ID:      ulidID,
+		ID:      workspaceUlid,
 		Name:    name,
 		Updated: dbTimeNow,
 	}
 
-	// TODO: add transaction
-	err = c.sw.Create(ctx, ws)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	orgUser := &mworkspaceuser.WorkspaceUser{
 		ID:          ulid.Make(),
-		WorkspaceID: ws.ID,
+		WorkspaceID: workspaceUlid,
 		UserID:      userID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
 
-	err = c.swu.CreateWorkspaceUser(ctx, orgUser)
+	// hash md5 sum of workspace name and user id
+	fmt.Println("workspaceUlid", workspaceUlid.String())
+	fmt.Println("userID", userID.String())
+
+	tx, err := c.DB.Begin()
+	defer tx.Rollback()
 	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	workspaceServiceTX, err := sworkspace.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = workspaceServiceTX.Create(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+
+	workspaceUserServiceTX, err := sworkspacesusers.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = workspaceUserServiceTX.CreateWorkspaceUser(ctx, orgUser)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		fmt.Println("Error: ", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -453,6 +478,7 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
 	Interceptors := connect.WithInterceptors(AuthInterceptorFunc)
 	server := &WorkspaceServiceRPC{
+		DB:  db,
 		sw:  *sw,
 		swu: *swu,
 		su:  *us,

@@ -169,12 +169,12 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 	}
 
 	folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, ulidID)
-	if err != nil {
+	if err != nil && err != sitemfolder.ErrNoItemFolderFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	apiItems, err := c.ias.GetApisWithCollectionID(ctx, ulidID)
-	if err != nil {
+	if err != nil && err != sitemapi.ErrNoItemApiFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -302,17 +302,30 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = c.ifs.CreateItemApiBulk(ctx, items.Folder)
+	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = c.ias.CreateItemApiBulk(ctx, items.Api)
+	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
+	err = txItemFolderService.CreateItemFolderBulk(ctx, items.Folder)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = c.iaes.CreateApiExampleBulk(ctx, items.ApiExample)
+	txItemApiService, err := sitemapi.NewTX(ctx, tx)
+	err = txItemApiService.CreateItemApiBulk(ctx, items.Api)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
+	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExample)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

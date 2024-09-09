@@ -177,12 +177,8 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	}
 
 	examples, err := c.iaes.GetApiExamples(ctx, ulidID)
-	if err != nil {
-		if err == sitemapiexample.ErrNoItemApiExampleFound {
-			examples = []mitemapiexample.ItemApiExample{}
-		} else {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	if err != nil && err == sitemapiexample.ErrNoItemApiExampleFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))

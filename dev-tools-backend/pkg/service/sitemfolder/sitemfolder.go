@@ -10,7 +10,6 @@ import (
 )
 
 type ItemFolderService struct {
-	DB      *sql.DB
 	queries *gen.Queries
 }
 
@@ -49,8 +48,17 @@ func New(ctx context.Context, db *sql.DB) (*ItemFolderService, error) {
 	}
 
 	return &ItemFolderService{
-		DB:      db,
 		queries: q,
+	}, nil
+}
+
+func NewTX(ctx context.Context, tx *sql.Tx) (*ItemFolderService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &ItemFolderService{
+		queries: queries,
 	}, nil
 }
 
@@ -58,7 +66,7 @@ func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, col
 	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNoItemFolderFound
+			return []mitemfolder.ItemFolder{}, ErrNoItemFolderFound
 		}
 		return nil, err
 	}
@@ -84,7 +92,7 @@ func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitem
 	return ifs.queries.CreateItemFolder(ctx, createParams)
 }
 
-func (ifs ItemFolderService) CreateItemApiBulk(ctx context.Context, items []mitemfolder.ItemFolder) error {
+func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []mitemfolder.ItemFolder) error {
 	itemLen := len(items)
 	sizeOfChunks := 3
 	index := 0

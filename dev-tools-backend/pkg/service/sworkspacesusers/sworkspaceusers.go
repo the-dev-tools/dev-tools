@@ -13,7 +13,6 @@ import (
 var ErrWorkspaceUserNotFound = errors.New("workspace user not found")
 
 type WorkspaceUserService struct {
-	DB      *sql.DB
 	queries *gen.Queries
 }
 
@@ -23,7 +22,16 @@ func New(ctx context.Context, db *sql.DB) (*WorkspaceUserService, error) {
 		return nil, err
 	}
 	return &WorkspaceUserService{
-		DB:      db,
+		queries: queries,
+	}, nil
+}
+
+func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceUserService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &WorkspaceUserService{
 		queries: queries,
 	}, nil
 }

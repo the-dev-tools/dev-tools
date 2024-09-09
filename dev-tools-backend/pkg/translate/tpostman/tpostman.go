@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/goccy/go-json"
 
@@ -31,7 +32,6 @@ func ParsePostmanCollection(data []byte) (mpostmancollection.Collection, error) 
 }
 
 type ItemsPair struct {
-	mx         *sync.Mutex
 	ApiExample []mitemapiexample.ItemApiExample
 	Api        []mitemapi.ItemApi
 	Folder     []mitemfolder.ItemFolder
@@ -48,26 +48,25 @@ type ItemChannels struct {
 
 func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID) (*ItemsPair, error) {
 	var pair ItemsPair = ItemsPair{
-		mx:     &sync.Mutex{},
 		Api:    make([]mitemapi.ItemApi, 0, len(collection.Items)),
 		Folder: make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
 	}
 
-	const ChanSize = 10
-
 	var wg sync.WaitGroup
 	ItemChannels := ItemChannels{
-		ApiExample: make(chan mitemapiexample.ItemApiExample, ChanSize),
-		Api:        make(chan mitemapi.ItemApi, ChanSize),
-		Folder:     make(chan mitemfolder.ItemFolder, ChanSize),
+		ApiExample: make(chan mitemapiexample.ItemApiExample),
+		Api:        make(chan mitemapi.ItemApi),
+		Folder:     make(chan mitemfolder.ItemFolder),
 		Wg:         &wg,
 		Done:       make(chan struct{}),
 		Err:        make(chan error),
 	}
 
-	go func() {
-		for i, item := range collection.Items {
-			wg.Add(1)
+	afterTime := time.After(2 * time.Minute)
+
+	for _, item := range collection.Items {
+		wg.Add(1)
+		go func() {
 			// means it is a folder
 			if item.Request == nil {
 				rootFolder := mitemfolder.ItemFolder{
@@ -77,23 +76,22 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 					CollectionID: collectionID,
 				}
 				ItemChannels.Folder <- rootFolder
-				go GetRecursiveFolders(item, &rootFolder.ID, collectionID, ItemChannels)
-				if len(collection.Items) > 1 {
-					collection.Items = RemoveItem(collection.Items, i)
-				}
+				go GetRecursiveFolders(item, &rootFolder.ID, collectionID, &ItemChannels)
 			} else {
-				go GetRequest(item, nil, collectionID, ItemChannels)
-				if len(collection.Items) > 1 {
-					collection.Items = RemoveItem(collection.Items, i)
-				}
+				go GetRequest(item, nil, collectionID, &ItemChannels)
 			}
-		}
+		}()
+	}
+
+	go func() {
 		wg.Wait()
 		close(ItemChannels.Done)
 	}()
 
 	for {
 		select {
+		case <-afterTime:
+			return nil, errors.New("timeout")
 		case err := <-ItemChannels.Err:
 			return nil, err
 		case folder := <-ItemChannels.Folder:
@@ -108,9 +106,9 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 	}
 }
 
-func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels ItemChannels) {
+func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
 	defer channels.Wg.Done()
-	for i, item := range item.Items {
+	for _, item := range item.Items {
 		channels.Wg.Add(1)
 		if item.Request == nil {
 			folder := mitemfolder.ItemFolder{
@@ -121,15 +119,13 @@ func GetRecursiveFolders(item *mitem.Items, parentID *ulid.ULID, collectionID ul
 			}
 			channels.Folder <- folder
 			go GetRecursiveFolders(item, &folder.ID, collectionID, channels)
-			RemoveItem(item.Items, i)
 		} else {
 			go GetRequest(item, parentID, collectionID, channels)
-			RemoveItem(item.Items, i)
 		}
 	}
 }
 
-func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels ItemChannels) {
+func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
 	defer channels.Wg.Done()
 	headers := make(map[string]string)
 
@@ -187,22 +183,24 @@ func GetRequest(item *mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, 
 
 	buffBytes := bodyBuff.Bytes()
 	example := mitemapiexample.NewItemApiExample(ulid.Make(), ulidID, collectionID, nil, true,
-		item.Name, *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), compresed, buffBytes)
+		"Default Example", *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), compresed, buffBytes)
 	channels.ApiExample <- *example
 
 	for _, v := range item.Responses {
-		channels.Wg.Add(1)
 		name := v.Name
 		if name == "" {
 			name = fmt.Sprintf("Example %d of %s", v.Code, api.Name)
 		}
+		channels.Wg.Add(1)
 		go GetResponse(v, buffBytes, name, queryParams, ulidID, collectionID, channels)
 	}
 
 	return
 }
 
-func GetResponse(item *mresponse.Response, body []byte, name string, queryParams map[string]string, apiID, collectionID ulid.ULID, channels ItemChannels) {
+func GetResponse(item *mresponse.Response, body []byte, name string, queryParams map[string]string,
+	apiID, collectionID ulid.ULID, channels *ItemChannels,
+) {
 	defer channels.Wg.Done()
 	headers := make(map[string]string)
 	for _, v := range item.Headers {

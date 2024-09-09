@@ -61,6 +61,16 @@ func New(ctx context.Context, db *sql.DB) (*ItemApiService, error) {
 	}, nil
 }
 
+func NewTX(ctx context.Context, tx *sql.Tx) (*ItemApiService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &ItemApiService{
+		queries: queries,
+	}, nil
+}
+
 func (ias ItemApiService) GetItemApi(ctx context.Context, id ulid.ULID) (*mitemapi.ItemApi, error) {
 	itemApi, err := ias.queries.GetItemApi(ctx, id)
 	if err != nil {
@@ -163,7 +173,7 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 	itemApis, err := ias.queries.GetItemsApiByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNoItemApiFound
+			return []mitemapi.ItemApi{}, ErrNoItemApiFound
 		}
 		return nil, err
 	}
