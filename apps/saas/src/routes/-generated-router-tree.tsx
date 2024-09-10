@@ -18,7 +18,8 @@ import { Route as AuthorizedDashboardIndexImport } from './_authorized/_dashboar
 import { Route as AuthorizedWorkspaceWorkspaceIdRouteImport } from './_authorized/workspace.$workspaceId/route';
 import { Route as AuthorizedWorkspaceWorkspaceIdIndexImport } from './_authorized/workspace.$workspaceId/index';
 import { Route as AuthorizedWorkspaceWorkspaceIdMembersImport } from './_authorized/workspace.$workspaceId/members';
-import { Route as AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdImport } from './_authorized/workspace.$workspaceId/api-call.$apiCallId';
+import { Route as AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteImport } from './_authorized/workspace.$workspaceId/api-call.$apiCallId/route';
+import { Route as AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersImport } from './_authorized/workspace.$workspaceId/api-call.$apiCallId/headers';
 
 // Create/Update Routes
 
@@ -60,10 +61,17 @@ const AuthorizedWorkspaceWorkspaceIdMembersRoute =
     getParentRoute: () => AuthorizedWorkspaceWorkspaceIdRouteRoute,
   } as any);
 
-const AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRoute =
-  AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdImport.update({
+const AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute =
+  AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteImport.update({
     path: '/api-call/$apiCallId',
     getParentRoute: () => AuthorizedWorkspaceWorkspaceIdRouteRoute,
+  } as any);
+
+const AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute =
+  AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersImport.update({
+    path: '/headers',
+    getParentRoute: () =>
+      AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute,
   } as any);
 
 // Populate the FileRoutesByPath interface
@@ -123,8 +131,15 @@ declare module '@tanstack/react-router' {
       id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId';
       path: '/api-call/$apiCallId';
       fullPath: '/workspace/$workspaceId/api-call/$apiCallId';
-      preLoaderRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdImport;
+      preLoaderRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteImport;
       parentRoute: typeof AuthorizedWorkspaceWorkspaceIdRouteImport;
+    };
+    '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers': {
+      id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers';
+      path: '/headers';
+      fullPath: '/workspace/$workspaceId/api-call/$apiCallId/headers';
+      preLoaderRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersImport;
+      parentRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteImport;
     };
   }
 }
@@ -140,7 +155,10 @@ export const routeTree = rootRoute.addChildren({
       AuthorizedWorkspaceWorkspaceIdRouteRoute.addChildren({
         AuthorizedWorkspaceWorkspaceIdMembersRoute,
         AuthorizedWorkspaceWorkspaceIdIndexRoute,
-        AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRoute,
+        AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute:
+          AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute.addChildren({
+            AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute,
+          }),
       }),
   }),
   LoginRoute,
@@ -197,8 +215,15 @@ export const routeTree = rootRoute.addChildren({
       "parent": "/_authorized/workspace/$workspaceId"
     },
     "/_authorized/workspace/$workspaceId/api-call/$apiCallId": {
-      "filePath": "_authorized/workspace.$workspaceId/api-call.$apiCallId.tsx",
-      "parent": "/_authorized/workspace/$workspaceId"
+      "filePath": "_authorized/workspace.$workspaceId/api-call.$apiCallId/route.tsx",
+      "parent": "/_authorized/workspace/$workspaceId",
+      "children": [
+        "/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers"
+      ]
+    },
+    "/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers": {
+      "filePath": "_authorized/workspace.$workspaceId/api-call.$apiCallId/headers.tsx",
+      "parent": "/_authorized/workspace/$workspaceId/api-call/$apiCallId"
     }
   }
 }

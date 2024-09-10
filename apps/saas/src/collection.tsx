@@ -8,7 +8,7 @@ import {
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, useMatch } from '@tanstack/react-router';
+import { getRouteApi, Link, Outlet, useMatch } from '@tanstack/react-router';
 import { ColDef } from 'ag-grid-community';
 import { Array, Effect, Match, pipe, Record, Struct } from 'effect';
 import { useRef, useState } from 'react';
@@ -393,22 +393,7 @@ const apiCallRoute = getRouteApi('/_authorized/workspace/$workspaceId/api-call/$
 export const ApiCallPage = () => {
   const { apiCallId } = apiCallRoute.useParams();
 
-  const query = useConnectQuery(
-    getApiCall,
-    { id: apiCallId },
-    {
-      // TODO: remove workaround after cell saving is implemented on BE
-      select: (data) => {
-        if ('headers' in data) return data as Partial<GetApiCallResponse> & { headers: ApiHeader[] };
-        const headers = pipe(
-          data.example!.headers,
-          Record.toEntries,
-          Array.map(([key, value], index) => ({ id: index.toString(), key, value, enabled: true })),
-        );
-        return { ...data, headers };
-      },
-    },
-  );
+  const query = useConnectQuery(getApiCall, { id: apiCallId });
 
   if (!query.isSuccess) return null;
   const { data } = query;
@@ -423,27 +408,12 @@ class ApiCallFormData extends Schema.Class<ApiCallFormData>('ApiCallFormData')({
   url: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'URL must not be empty' })),
 }) {}
 
-// TODO: use protobuf type after cell saving is implemented on BE
-interface ApiHeader {
-  id: string;
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-const headerColDefs: ColDef<ApiHeader>[] = [
-  { field: 'enabled', headerName: '', editable: true, resizable: false, flex: 0, width: 36 },
-  { field: 'key', editable: true },
-  { field: 'value', editable: true, resizable: false },
-];
-
 interface ApiCallFormProps {
-  // TODO: fix type after cell saving is implemented on BE
-  data: Partial<GetApiCallResponse> & { headers: ApiHeader[] };
+  data: GetApiCallResponse;
 }
 
 const ApiCallForm = ({ data }: ApiCallFormProps) => {
-  const queryClient = useQueryClient();
+  const { workspaceId, apiCallId } = apiCallRoute.useParams();
 
   const updateMutation = useMutation(updateApiCall);
 
@@ -453,27 +423,26 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
   });
 
   return (
-    <Form
-      className='flex h-full flex-col'
-      onSubmit={form.handleSubmit((formData) => {
-        const newApiCall = Struct.evolve(data.apiCall!, {
-          method: () => formData.method,
-          url: () => formData.url,
-        });
+    <div className='flex h-full flex-col'>
+      <Form
+        onSubmit={form.handleSubmit((formData) => {
+          const newApiCall = Struct.evolve(data.apiCall!, {
+            method: () => formData.method,
+            url: () => formData.url,
+          });
 
-        updateMutation.mutate({ apiCall: newApiCall });
-      })}
-    >
-      <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
-        <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
+          updateMutation.mutate({ apiCall: newApiCall });
+        })}
+      >
+        <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
+          <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
 
-        <Button kind='placeholder' variant='placeholder' type='submit'>
-          <LuSave /> Save
-        </Button>
-      </div>
+          <Button kind='placeholder' variant='placeholder' type='submit'>
+            <LuSave /> Save
+          </Button>
+        </div>
 
-      <div className='flex flex-1 flex-col gap-4 p-4'>
-        <div className='flex items-start'>
+        <div className='flex items-start p-4 pb-0'>
           <SelectRHF
             control={form.control}
             name='method'
@@ -500,30 +469,94 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
             Send <LuSendHorizonal className='size-4' />
           </Button>
         </div>
+      </Form>
 
-        <AgGridBasic<ApiHeader>
-          wrapperClassName={tw`flex-1`}
-          columnDefs={headerColDefs}
-          rowData={data.headers}
-          getRowId={(_) => _.data.id}
-          onCellValueChanged={(e) => {
-            // TODO: send row update request after cell saving is implemented on BE
-            queryClient.setQueryData(
-              createConnectQueryKey(getApiCall, { id: data.apiCall!.meta!.id }),
-              // TODO: use safe updater after cell saving is implemented on BE
-              (apiCall: GetApiCallResponse) => {
-                const headers = Array.replace(data.headers, e.rowIndex!, e.data);
-                return { ...apiCall, headers };
-              },
-              // createProtobufSafeUpdater(getApiCall, (apiCall) => {
-              //   if (!apiCall) return apiCall;
-              //   const headers = Array.replace(data.headers, e.rowIndex!, e.data);
-              //   return { ...apiCall, example: { ...apiCall.example!, headers } };
-              // }),
-            );
-          }}
-        />
+      <div className='flex flex-1 flex-col gap-4 p-4'>
+        <div className='flex gap-4 border-b border-black'>
+          <Link
+            className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+            activeProps={{ className: tw`border-b-black` }}
+            activeOptions={{ exact: true }}
+            from='/workspace/$workspaceId/api-call/$apiCallId'
+            to='.'
+          >
+            Params
+          </Link>
+          <Link
+            className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+            activeProps={{ className: tw`border-b-black` }}
+            from='/workspace/$workspaceId/api-call/$apiCallId'
+            to='headers'
+            params={{ workspaceId, apiCallId }}
+          >
+            Headers
+          </Link>
+        </div>
+
+        <Outlet />
       </div>
-    </Form>
+    </div>
+  );
+};
+
+// TODO: use protobuf type after cell saving is implemented on BE
+interface ApiHeader {
+  id: string;
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
+const headerColDefs: ColDef<ApiHeader>[] = [
+  { field: 'enabled', headerName: '', editable: true, resizable: false, flex: 0, width: 36 },
+  { field: 'key', editable: true },
+  { field: 'value', editable: true, resizable: false },
+];
+
+export const ApiCallHeaderTab = () => {
+  const { apiCallId } = apiCallRoute.useParams();
+
+  const queryClient = useQueryClient();
+
+  const query = useConnectQuery(
+    getApiCall,
+    { id: apiCallId },
+    {
+      // TODO: remove workaround after cell saving is implemented on BE
+      select: (data) => {
+        if ('headers' in data) return data as Partial<GetApiCallResponse> & { headers: ApiHeader[] };
+        const headers = pipe(
+          data.example!.headers,
+          Record.toEntries,
+          Array.map(([key, value], index) => ({ id: index.toString(), key, value, enabled: true })),
+        );
+        return { ...data, headers };
+      },
+    },
+  );
+
+  return (
+    <AgGridBasic<ApiHeader>
+      wrapperClassName={tw`flex-1`}
+      columnDefs={headerColDefs}
+      rowData={query.data?.headers ?? []}
+      getRowId={(_) => _.data.id}
+      onCellValueChanged={(e) => {
+        // TODO: send row update request after cell saving is implemented on BE
+        queryClient.setQueryData(
+          createConnectQueryKey(getApiCall, { id: query.data!.apiCall!.meta!.id }),
+          // TODO: use safe updater after cell saving is implemented on BE
+          (apiCall: GetApiCallResponse) => {
+            const headers = Array.replace(query.data!.headers, e.rowIndex!, e.data);
+            return { ...apiCall, headers };
+          },
+          // createProtobufSafeUpdater(getApiCall, (apiCall) => {
+          //   if (!apiCall) return apiCall;
+          //   const headers = Array.replace(data.headers, e.rowIndex!, e.data);
+          //   return { ...apiCall, example: { ...apiCall.example!, headers } };
+          // }),
+        );
+      }}
+    />
   );
 };
