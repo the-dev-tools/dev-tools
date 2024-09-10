@@ -32,6 +32,11 @@ func SendRestApiRequest(nm *mnodemaster.NodeMaster) error {
 		req.Header.Add(key, value)
 	}
 
+	for key, value := range apiData.Query {
+		req.URL.Query().Add(key, value)
+		req.URL.RawQuery = req.URL.Query().Encode()
+	}
+
 	log.Printf("Sending request to: %s", apiData.Url)
 	client := nm.HttpClient
 	resp, err := client.Do(req)

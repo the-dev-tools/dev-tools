@@ -26,7 +26,7 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 		data := rawData.(*mnodedata.NodeApiRestData)
 		nodeData := &nodedatav1.NodeApiCallData{
 			Url:         data.Url,
-			QueryParams: data.QueryParams,
+			QueryParams: data.Query,
 			Method:      data.Method,
 			Headers:     data.Headers,
 			Body:        data.Body,

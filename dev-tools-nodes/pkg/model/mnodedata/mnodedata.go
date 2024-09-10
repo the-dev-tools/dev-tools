@@ -27,11 +27,11 @@ type NodeLoopRemoteData struct {
 //
 
 type NodeApiRestData struct {
-	Url         string            `json:"url"`
-	QueryParams map[string]string `json:"queryParams"`
-	Method      string            `json:"method"`
-	Headers     map[string]string `json:"headers"`
-	Body        []byte            `json:"body"`
+	Url     string            `json:"url"`
+	Query   map[string]string `json:"queryParams"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers"`
+	Body    []byte            `json:"body"`
 }
 
 // Driver value

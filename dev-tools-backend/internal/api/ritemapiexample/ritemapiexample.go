@@ -4,13 +4,27 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
+	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/model/result/mresultapi"
+	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
+	"dev-tools-backend/pkg/service/sresultapi"
+	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-nodes/pkg/model/mnode"
+	"dev-tools-nodes/pkg/model/mnodedata"
+	"dev-tools-nodes/pkg/model/mnodemaster"
+	"dev-tools-nodes/pkg/nodes/nodeapi"
+	apiresultv1 "dev-tools-services/gen/apiresult/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
@@ -21,6 +35,9 @@ type ItemAPIExampleRPC struct {
 	DB   *sql.DB
 	iaes *sitemapiexample.ItemApiExampleService
 	ias  *sitemapi.ItemApiService
+	ras  *sresultapi.ResultApiService
+	cs   *scollection.CollectionService
+	us   *suser.UserService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -34,12 +51,18 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	ras, err := sresultapi.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &ItemAPIExampleRPC{
 		DB:   db,
 		iaes: iaes,
 		ias:  ias,
+		ras:  ras,
 	}
 
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, interceptors)
@@ -79,12 +102,21 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 }
 
 func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request[itemapiexamplev1.GetExampleRequest]) (*connect.Response[itemapiexamplev1.GetExampleResponse], error) {
-	exampleId, err := ulid.Parse(req.Msg.GetId())
+	exampleUlid, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	example, err := c.iaes.GetApiExample(ctx, exampleId)
+	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isMember {
+		// return not found
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	}
+
+	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -105,6 +137,7 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 	}), nil
 }
 
+// TODO: check permissions
 func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateExampleRequest]) (*connect.Response[itemapiexamplev1.CreateExampleResponse], error) {
 	apiUlid, err := ulid.Parse(req.Msg.GetItemApiId())
 	if err != nil {
@@ -140,6 +173,15 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
+	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isMember {
+		// return not found
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	}
+
 	exRPC := req.Msg
 	ex := &mitemapiexample.ItemApiExample{
 		ID:      exampleUlid,
@@ -164,6 +206,15 @@ func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
+	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isMember {
+		// return not found
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	}
+
 	err = c.iaes.DeleteApiExample(ctx, exampleUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -173,5 +224,129 @@ func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Requ
 }
 
 func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request[itemapiexamplev1.RunExampleRequest]) (*connect.Response[itemapiexamplev1.RunExampleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	exampleUlid, err := ulid.Parse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isMember {
+		// return not found
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	}
+
+	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	/*
+		isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if !isOwner {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+		}
+	*/
+
+	itemApiCall, err := c.ias.GetItemApi(ctx, example.ItemApiID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	apiCallNodeData := mnodedata.NodeApiRestData{
+		Url:     itemApiCall.Url,
+		Method:  itemApiCall.Method,
+		Headers: example.Headers.HeaderMap,
+		Query:   example.Query.QueryMap,
+		Body:    example.Body,
+	}
+
+	node := mnode.Node{
+		ID:   exampleUlid.String(),
+		Type: mnodemaster.ApiCallRest,
+		Data: &apiCallNodeData,
+	}
+
+	runApiVars := make(map[string]interface{}, 0)
+
+	nm := &mnodemaster.NodeMaster{
+		CurrentNode: &node,
+		HttpClient:  http.DefaultClient,
+		Vars:        runApiVars,
+	}
+
+	now := time.Now()
+	err = nodeapi.SendRestApiRequest(nm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeAborted, err)
+	}
+	lapse := time.Since(now)
+
+	httpResp, err := nodeapi.GetHttpVarResponse(nm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeAborted, err)
+	}
+
+	bodyData, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	result := &mresultapi.MResultAPI{
+		ID:          ulid.Make(),
+		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
+		TriggerBy:   exampleUlid,
+		Name:        itemApiCall.Name,
+		Time:        time.Now(),
+		Duration:    time.Duration(lapse),
+		HttpResp: mresultapi.HttpResp{
+			StatusCode: httpResp.StatusCode,
+			Proto:      httpResp.Proto,
+			ProtoMajor: httpResp.ProtoMajor,
+			ProtoMinor: httpResp.ProtoMinor,
+			Header:     httpResp.Header,
+			Body:       bodyData,
+		},
+	}
+
+	err = c.ras.CreateResultApi(ctx, result)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// TODO: can be more efficient with init size
+	headers := make(map[string]string, 0)
+	for key, values := range httpResp.Header {
+		headers[key] = strings.Join(values, ",")
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
+		Result: &apiresultv1.Result{
+			Id:       result.ID.String(),
+			Name:     result.Name,
+			Time:     result.Time.Unix(),
+			Duration: result.Duration.Milliseconds(),
+			Response: &apiresultv1.Result_HttpResponse{
+				HttpResponse: &apiresultv1.HttpResponse{
+					StatusCode: int32(result.HttpResp.StatusCode),
+					Proto:      result.HttpResp.Proto,
+					ProtoMajor: int32(result.HttpResp.ProtoMajor),
+					ProtoMinor: int32(result.HttpResp.ProtoMinor),
+					Header:     headers,
+					Body:       result.HttpResp.Body,
+				},
+			},
+		},
+	}), nil
+}
+
+func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid ulid.ULID) (bool, error) {
+	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
+	if err != nil {
+		return false, err
+	}
+	return collection.CheckOwnerCollection(ctx, *c.cs, *c.us, example.CollectionID)
 }

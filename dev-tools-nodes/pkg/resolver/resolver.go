@@ -49,11 +49,11 @@ func ConvertProtoMsg(msg proto.Message) (interface{}, error) {
 	case *nodedatav1.NodeApiCallData:
 		casted := msg.(*nodedatav1.NodeApiCallData)
 		data := &mnodedata.NodeApiRestData{
-			Url:         casted.Url,
-			QueryParams: casted.QueryParams,
-			Method:      casted.Method,
-			Headers:     casted.Headers,
-			Body:        casted.Body,
+			Url:     casted.Url,
+			Query:   casted.QueryParams,
+			Method:  casted.Method,
+			Headers: casted.Headers,
+			Body:    casted.Body,
 		}
 		return data, nil
 	case *nodedatav1.NodeForRemote:
