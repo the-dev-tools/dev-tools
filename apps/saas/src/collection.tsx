@@ -1,6 +1,5 @@
 import {
   createConnectQueryKey,
-  createProtobufSafeUpdater,
   createQueryOptions,
   useQuery as useConnectQuery,
   useMutation,
@@ -12,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { ColDef } from 'ag-grid-community';
 import { Array, Effect, Match, pipe, Record, Struct } from 'effect';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal } from 'react-icons/lu';
@@ -394,7 +393,22 @@ const apiCallRoute = getRouteApi('/_authorized/workspace/$workspaceId/api-call/$
 export const ApiCallPage = () => {
   const { apiCallId } = apiCallRoute.useParams();
 
-  const query = useConnectQuery(getApiCall, { id: apiCallId });
+  const query = useConnectQuery(
+    getApiCall,
+    { id: apiCallId },
+    {
+      // TODO: remove workaround after cell saving is implemented on BE
+      select: (data) => {
+        if ('headers' in data) return data as Partial<GetApiCallResponse> & { headers: ApiHeader[] };
+        const headers = pipe(
+          data.example!.headers,
+          Record.toEntries,
+          Array.map(([key, value], index) => ({ id: index.toString(), key, value, enabled: true })),
+        );
+        return { ...data, headers };
+      },
+    },
+  );
 
   if (!query.isSuccess) return null;
   const { data } = query;
@@ -409,7 +423,9 @@ class ApiCallFormData extends Schema.Class<ApiCallFormData>('ApiCallFormData')({
   url: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'URL must not be empty' })),
 }) {}
 
+// TODO: use protobuf type after cell saving is implemented on BE
 interface ApiHeader {
+  id: string;
   key: string;
   value: string;
   enabled: boolean;
@@ -422,7 +438,8 @@ const headerColDefs: ColDef<ApiHeader>[] = [
 ];
 
 interface ApiCallFormProps {
-  data: GetApiCallResponse;
+  // TODO: fix type after cell saving is implemented on BE
+  data: Partial<GetApiCallResponse> & { headers: ApiHeader[] };
 }
 
 const ApiCallForm = ({ data }: ApiCallFormProps) => {
@@ -434,16 +451,6 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
     resolver: effectTsResolver(ApiCallFormData),
     defaultValues: data.apiCall!,
   });
-
-  const headerRowData = useMemo(
-    () =>
-      pipe(
-        data.example!.headers,
-        Record.toEntries,
-        Array.map(([key, value]) => ({ key, value, enabled: true })),
-      ),
-    [data.example],
-  );
 
   return (
     <Form
@@ -497,21 +504,22 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
         <AgGridBasic<ApiHeader>
           wrapperClassName={tw`flex-1`}
           columnDefs={headerColDefs}
-          rowData={headerRowData}
+          rowData={data.headers}
+          getRowId={(_) => _.data.id}
           onCellValueChanged={(e) => {
-            // TODO: send row update request
+            // TODO: send row update request after cell saving is implemented on BE
             queryClient.setQueryData(
               createConnectQueryKey(getApiCall, { id: data.apiCall!.meta!.id }),
-              createProtobufSafeUpdater(getApiCall, (apiCall) => {
-                if (!apiCall) return apiCall;
-                const headers = pipe(
-                  apiCall.example!.headers,
-                  Record.toEntries,
-                  Array.replace(e.rowIndex!, Record.values(e.data) as [string, string]),
-                  Record.fromEntries,
-                );
-                return { ...apiCall, example: { ...apiCall.example!, headers } };
-              }),
+              // TODO: use safe updater after cell saving is implemented on BE
+              (apiCall: GetApiCallResponse) => {
+                const headers = Array.replace(data.headers, e.rowIndex!, e.data);
+                return { ...apiCall, headers };
+              },
+              // createProtobufSafeUpdater(getApiCall, (apiCall) => {
+              //   if (!apiCall) return apiCall;
+              //   const headers = Array.replace(data.headers, e.rowIndex!, e.data);
+              //   return { ...apiCall, example: { ...apiCall.example!, headers } };
+              // }),
             );
           }}
         />
