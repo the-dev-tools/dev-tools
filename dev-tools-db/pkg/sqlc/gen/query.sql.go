@@ -42,6 +42,88 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 	return column_1, err
 }
 
+const createBodyForm = `-- name: CreateBodyForm :exec
+INSERT INTO
+  example_body_form (id, example_id, body_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateBodyFormParams struct {
+	ID          []byte
+	ExampleID   []byte
+	BodyKey     string
+	Enable      bool
+	Description string
+	Value       string
+}
+
+func (q *Queries) CreateBodyForm(ctx context.Context, arg CreateBodyFormParams) error {
+	_, err := q.exec(ctx, q.createBodyFormStmt, createBodyForm,
+		arg.ID,
+		arg.ExampleID,
+		arg.BodyKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+	)
+	return err
+}
+
+const createBodyFormBulk = `-- name: CreateBodyFormBulk :exec
+INSERT INTO
+  example_body_form (id, example_id, body_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateBodyFormBulkParams struct {
+	ID            []byte
+	ExampleID     []byte
+	BodyKey       string
+	Enable        bool
+	Description   string
+	Value         string
+	ID_2          []byte
+	ExampleID_2   []byte
+	BodyKey_2     string
+	Enable_2      bool
+	Description_2 string
+	Value_2       string
+	ID_3          []byte
+	ExampleID_3   []byte
+	BodyKey_3     string
+	Enable_3      bool
+	Description_3 string
+	Value_3       string
+}
+
+func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulkParams) error {
+	_, err := q.exec(ctx, q.createBodyFormBulkStmt, createBodyFormBulk,
+		arg.ID,
+		arg.ExampleID,
+		arg.BodyKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID_2,
+		arg.ExampleID_2,
+		arg.BodyKey_2,
+		arg.Enable_2,
+		arg.Description_2,
+		arg.Value_2,
+		arg.ID_3,
+		arg.ExampleID_3,
+		arg.BodyKey_3,
+		arg.Enable_3,
+		arg.Description_3,
+		arg.Value_3,
+	)
+	return err
+}
+
 const createCollection = `-- name: CreateCollection :exec
 INSERT INTO
   collections (id, owner_id, name)
@@ -57,6 +139,88 @@ type CreateCollectionParams struct {
 
 func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) error {
 	_, err := q.exec(ctx, q.createCollectionStmt, createCollection, arg.ID, arg.OwnerID, arg.Name)
+	return err
+}
+
+const createHeader = `-- name: CreateHeader :exec
+INSERT INTO
+  example_header (id, example_id, header_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateHeaderParams struct {
+	ID          []byte
+	ExampleID   []byte
+	HeaderKey   string
+	Enable      bool
+	Description string
+	Value       string
+}
+
+func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) error {
+	_, err := q.exec(ctx, q.createHeaderStmt, createHeader,
+		arg.ID,
+		arg.ExampleID,
+		arg.HeaderKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+	)
+	return err
+}
+
+const createHeaderBulk = `-- name: CreateHeaderBulk :exec
+INSERT INTO
+  example_header (id, example_id, header_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateHeaderBulkParams struct {
+	ID            []byte
+	ExampleID     []byte
+	HeaderKey     string
+	Enable        bool
+	Description   string
+	Value         string
+	ID_2          []byte
+	ExampleID_2   []byte
+	HeaderKey_2   string
+	Enable_2      bool
+	Description_2 string
+	Value_2       string
+	ID_3          []byte
+	ExampleID_3   []byte
+	HeaderKey_3   string
+	Enable_3      bool
+	Description_3 string
+	Value_3       string
+}
+
+func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkParams) error {
+	_, err := q.exec(ctx, q.createHeaderBulkStmt, createHeaderBulk,
+		arg.ID,
+		arg.ExampleID,
+		arg.HeaderKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID_2,
+		arg.ExampleID_2,
+		arg.HeaderKey_2,
+		arg.Enable_2,
+		arg.Description_2,
+		arg.Value_2,
+		arg.ID_3,
+		arg.ExampleID_3,
+		arg.HeaderKey_3,
+		arg.Enable_3,
+		arg.Description_3,
+		arg.Value_3,
+	)
 	return err
 }
 
@@ -396,6 +560,88 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 	return err
 }
 
+const createQuery = `-- name: CreateQuery :exec
+INSERT INTO
+  example_query (id, example_id, query_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateQueryParams struct {
+	ID          []byte
+	ExampleID   []byte
+	QueryKey    string
+	Enable      bool
+	Description string
+	Value       string
+}
+
+func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error {
+	_, err := q.exec(ctx, q.createQueryStmt, createQuery,
+		arg.ID,
+		arg.ExampleID,
+		arg.QueryKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+	)
+	return err
+}
+
+const createQueryBulk = `-- name: CreateQueryBulk :exec
+INSERT INTO
+  example_query (id, example_id, query_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateQueryBulkParams struct {
+	ID            []byte
+	ExampleID     []byte
+	QueryKey      string
+	Enable        bool
+	Description   string
+	Value         string
+	ID_2          []byte
+	ExampleID_2   []byte
+	QueryKey_2    string
+	Enable_2      bool
+	Description_2 string
+	Value_2       string
+	ID_3          []byte
+	ExampleID_3   []byte
+	QueryKey_3    string
+	Enable_3      bool
+	Description_3 string
+	Value_3       string
+}
+
+func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams) error {
+	_, err := q.exec(ctx, q.createQueryBulkStmt, createQueryBulk,
+		arg.ID,
+		arg.ExampleID,
+		arg.QueryKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID_2,
+		arg.ExampleID_2,
+		arg.QueryKey_2,
+		arg.Enable_2,
+		arg.Description_2,
+		arg.Value_2,
+		arg.ID_3,
+		arg.ExampleID_3,
+		arg.QueryKey_3,
+		arg.Enable_3,
+		arg.Description_3,
+		arg.Value_3,
+	)
+	return err
+}
+
 const createResultApi = `-- name: CreateResultApi :exec
 INSERT INTO
   result_api (
@@ -520,6 +766,17 @@ func (q *Queries) CreateWorkspaceUser(ctx context.Context, arg CreateWorkspaceUs
 	return err
 }
 
+const deleteBodyForm = `-- name: DeleteBodyForm :exec
+DELETE FROM example_body_form
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteBodyForm(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteBodyFormStmt, deleteBodyForm, id)
+	return err
+}
+
 const deleteCollection = `-- name: DeleteCollection :exec
 DELETE FROM collections
 WHERE
@@ -528,6 +785,17 @@ WHERE
 
 func (q *Queries) DeleteCollection(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteCollectionStmt, deleteCollection, id)
+	return err
+}
+
+const deleteHeader = `-- name: DeleteHeader :exec
+DELETE FROM example_header
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteHeader(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteHeaderStmt, deleteHeader, id)
 	return err
 }
 
@@ -561,6 +829,17 @@ WHERE
 
 func (q *Queries) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteItemFolderStmt, deleteItemFolder, id)
+	return err
+}
+
+const deleteQuery = `-- name: DeleteQuery :exec
+DELETE FROM example_query
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteQuery(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteQueryStmt, deleteQuery, id)
 	return err
 }
 
@@ -606,6 +885,84 @@ WHERE
 func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteWorkspaceUserStmt, deleteWorkspaceUser, id)
 	return err
+}
+
+const getBodyForm = `-- name: GetBodyForm :one
+/*
+*
+* body_form
+*
+*/
+
+SELECT 
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+    example_body_form 
+WHERE 
+    id = ?
+`
+
+func (q *Queries) GetBodyForm(ctx context.Context, id []byte) (ExampleBodyForm, error) {
+	row := q.queryRow(ctx, q.getBodyFormStmt, getBodyForm, id)
+	var i ExampleBodyForm
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.BodyKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getBodyFormsByExampleID = `-- name: GetBodyFormsByExampleID :many
+SELECT
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+    example_body_form 
+WHERE 
+    example_id = ?
+`
+
+func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID []byte) ([]ExampleBodyForm, error) {
+	rows, err := q.query(ctx, q.getBodyFormsByExampleIDStmt, getBodyFormsByExampleID, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExampleBodyForm
+	for rows.Next() {
+		var i ExampleBodyForm
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.BodyKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getCollection = `-- name: GetCollection :one
@@ -713,6 +1070,84 @@ func (q *Queries) GetCollectionOwnerID(ctx context.Context, id ulid.ULID) (ulid.
 	var owner_id ulid.ULID
 	err := row.Scan(&owner_id)
 	return owner_id, err
+}
+
+const getHeader = `-- name: GetHeader :one
+/*
+*
+* Header 
+*
+*/
+
+SELECT 
+  id,
+  example_id,
+  header_key,
+  enable,
+  description,
+  value
+FROM 
+  example_header
+WHERE
+  id = ?
+`
+
+func (q *Queries) GetHeader(ctx context.Context, id []byte) (ExampleHeader, error) {
+	row := q.queryRow(ctx, q.getHeaderStmt, getHeader, id)
+	var i ExampleHeader
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.HeaderKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getHeadersByExampleID = `-- name: GetHeadersByExampleID :many
+SELECT
+  id,
+  example_id,
+  header_key,
+  enable,
+  description,
+  value
+FROM 
+  example_header
+WHERE
+  example_id = ?
+`
+
+func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID []byte) ([]ExampleHeader, error) {
+	rows, err := q.query(ctx, q.getHeadersByExampleIDStmt, getHeadersByExampleID, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExampleHeader
+	for rows.Next() {
+		var i ExampleHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.HeaderKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getItemApi = `-- name: GetItemApi :one
@@ -1116,6 +1551,114 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ul
 		return nil, err
 	}
 	return items, nil
+}
+
+const getQueriesByExampleID = `-- name: GetQueriesByExampleID :many
+SELECT
+  id,
+  example_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM 
+  example_query
+WHERE
+  example_id = ?
+`
+
+func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID []byte) ([]ExampleQuery, error) {
+	rows, err := q.query(ctx, q.getQueriesByExampleIDStmt, getQueriesByExampleID, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExampleQuery
+	for rows.Next() {
+		var i ExampleQuery
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.QueryKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getQuery = `-- name: GetQuery :one
+/*
+*
+* Query
+*
+*/
+
+SELECT 
+  id,
+  example_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM 
+  example_query
+WHERE
+  id = ?
+`
+
+func (q *Queries) GetQuery(ctx context.Context, id []byte) (ExampleQuery, error) {
+	row := q.queryRow(ctx, q.getQueryStmt, getQuery, id)
+	var i ExampleQuery
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.QueryKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getQueryByID = `-- name: GetQueryByID :one
+SELECT
+  id,
+  example_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM
+  example_query
+WHERE
+  id = ?
+LIMIT
+  1
+`
+
+func (q *Queries) GetQueryByID(ctx context.Context, id []byte) (ExampleQuery, error) {
+	row := q.queryRow(ctx, q.getQueryByIDStmt, getQueryByID, id)
+	var i ExampleQuery
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.QueryKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+	)
+	return i, err
 }
 
 const getResultApi = `-- name: GetResultApi :one
@@ -1655,6 +2198,90 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) (
 	return items, nil
 }
 
+const setBodyFormEnable = `-- name: SetBodyFormEnable :exec
+UPDATE example_body_form
+SET
+  enable = ?
+WHERE
+  id = ?
+`
+
+type SetBodyFormEnableParams struct {
+	Enable bool
+	ID     []byte
+}
+
+func (q *Queries) SetBodyFormEnable(ctx context.Context, arg SetBodyFormEnableParams) error {
+	_, err := q.exec(ctx, q.setBodyFormEnableStmt, setBodyFormEnable, arg.Enable, arg.ID)
+	return err
+}
+
+const setHeaderEnable = `-- name: SetHeaderEnable :exec
+UPDATE example_header
+    SET
+  enable = ?
+WHERE
+  id = ?
+`
+
+type SetHeaderEnableParams struct {
+	Enable bool
+	ID     []byte
+}
+
+func (q *Queries) SetHeaderEnable(ctx context.Context, arg SetHeaderEnableParams) error {
+	_, err := q.exec(ctx, q.setHeaderEnableStmt, setHeaderEnable, arg.Enable, arg.ID)
+	return err
+}
+
+const setQueryEnable = `-- name: SetQueryEnable :exec
+UPDATE example_query
+SET
+  enable = ?
+WHERE
+  id = ?
+`
+
+type SetQueryEnableParams struct {
+	Enable bool
+	ID     []byte
+}
+
+func (q *Queries) SetQueryEnable(ctx context.Context, arg SetQueryEnableParams) error {
+	_, err := q.exec(ctx, q.setQueryEnableStmt, setQueryEnable, arg.Enable, arg.ID)
+	return err
+}
+
+const updateBodyForm = `-- name: UpdateBodyForm :exec
+UPDATE example_body_form
+SET
+  body_key = ?,
+  enable = ?,
+  description = ?,
+  value = ?
+WHERE
+  id = ?
+`
+
+type UpdateBodyFormParams struct {
+	BodyKey     string
+	Enable      bool
+	Description string
+	Value       string
+	ID          []byte
+}
+
+func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) error {
+	_, err := q.exec(ctx, q.updateBodyFormStmt, updateBodyForm,
+		arg.BodyKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID,
+	)
+	return err
+}
+
 const updateCollection = `-- name: UpdateCollection :exec
 UPDATE collections
 SET
@@ -1672,6 +2299,36 @@ type UpdateCollectionParams struct {
 
 func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
 	_, err := q.exec(ctx, q.updateCollectionStmt, updateCollection, arg.OwnerID, arg.Name, arg.ID)
+	return err
+}
+
+const updateHeader = `-- name: UpdateHeader :exec
+UPDATE example_header
+SET
+  header_key = ?,
+  enable = ?,
+  description = ?,
+  value = ?
+WHERE
+  id = ?
+`
+
+type UpdateHeaderParams struct {
+	HeaderKey   string
+	Enable      bool
+	Description string
+	Value       string
+	ID          []byte
+}
+
+func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) error {
+	_, err := q.exec(ctx, q.updateHeaderStmt, updateHeader,
+		arg.HeaderKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID,
+	)
 	return err
 }
 
@@ -1758,6 +2415,36 @@ type UpdateItemFolderParams struct {
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
 	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ParentID, arg.ID)
+	return err
+}
+
+const updateQuery = `-- name: UpdateQuery :exec
+UPDATE example_query
+SET
+  query_key = ?,
+  enable = ?,
+  description = ?,
+  value = ?
+WHERE
+  id = ?
+`
+
+type UpdateQueryParams struct {
+	QueryKey    string
+	Enable      bool
+	Description string
+	Value       string
+	ID          []byte
+}
+
+func (q *Queries) UpdateQuery(ctx context.Context, arg UpdateQueryParams) error {
+	_, err := q.exec(ctx, q.updateQueryStmt, updateQuery,
+		arg.QueryKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID,
+	)
 	return err
 }
 

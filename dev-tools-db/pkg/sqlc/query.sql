@@ -672,3 +672,223 @@ WHERE
 DELETE FROM result_api
 WHERE
   id = ?;
+
+
+/*
+*
+* Header 
+*
+*/
+
+-- name: GetHeader :one
+SELECT 
+  id,
+  example_id,
+  header_key,
+  enable,
+  description,
+  value
+FROM 
+  example_header
+WHERE
+  id = ?;
+
+-- name: GetHeadersByExampleID :many
+SELECT
+  id,
+  example_id,
+  header_key,
+  enable,
+  description,
+  value
+FROM 
+  example_header
+WHERE
+  example_id = ?;
+
+-- name: SetHeaderEnable :exec
+UPDATE example_header
+    SET
+  enable = ?
+WHERE
+  id = ?;
+
+-- name: CreateHeader :exec
+INSERT INTO
+  example_header (id, example_id, header_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?);
+
+-- name: CreateHeaderBulk :exec
+INSERT INTO
+  example_header (id, example_id, header_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHeader :exec
+UPDATE example_header
+SET
+  header_key = ?,
+  enable = ?,
+  description = ?,
+  value = ?
+WHERE
+  id = ?;
+
+-- name: DeleteHeader :exec
+DELETE FROM example_header
+WHERE
+  id = ?;
+
+/*
+*
+* Query
+*
+*/
+
+-- name: GetQuery :one
+SELECT 
+  id,
+  example_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM 
+  example_query
+WHERE
+  id = ?;
+
+-- name: GetQueriesByExampleID :many
+SELECT
+  id,
+  example_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM 
+  example_query
+WHERE
+  example_id = ?;
+
+-- name: GetQueryByID :one
+SELECT
+  id,
+  example_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM
+  example_query
+WHERE
+  id = ?
+LIMIT
+  1;
+
+-- name: CreateQuery :exec
+INSERT INTO
+  example_query (id, example_id, query_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?);
+
+-- name: CreateQueryBulk :exec
+INSERT INTO
+  example_query (id, example_id, query_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?);
+
+-- name: SetQueryEnable :exec
+UPDATE example_query
+SET
+  enable = ?
+WHERE
+  id = ?;
+
+-- name: UpdateQuery :exec
+UPDATE example_query
+SET
+  query_key = ?,
+  enable = ?,
+  description = ?,
+  value = ?
+WHERE
+  id = ?;
+
+-- name: DeleteQuery :exec
+DELETE FROM example_query
+WHERE
+  id = ?;
+
+/*
+*
+* body_form
+*
+*/
+
+-- name: GetBodyForm :one
+SELECT 
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+    example_body_form 
+WHERE 
+    id = ?;
+
+-- name: GetBodyFormsByExampleID :many
+SELECT
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+    example_body_form 
+WHERE 
+    example_id = ?;
+
+-- name: CreateBodyForm :exec
+INSERT INTO
+  example_body_form (id, example_id, body_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?);
+
+-- name: CreateBodyFormBulk :exec
+INSERT INTO
+  example_body_form (id, example_id, body_key, enable, description, value)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateBodyForm :exec
+UPDATE example_body_form
+SET
+  body_key = ?,
+  enable = ?,
+  description = ?,
+  value = ?
+WHERE
+  id = ?;
+
+-- name: SetBodyFormEnable :exec
+UPDATE example_body_form
+SET
+  enable = ?
+WHERE
+  id = ?;
+
+-- name: DeleteBodyForm :exec
+DELETE FROM example_body_form
+WHERE
+  id = ?;

@@ -27,8 +27,20 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.checkIFWorkspaceUserExistsStmt, err = db.PrepareContext(ctx, checkIFWorkspaceUserExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckIFWorkspaceUserExists: %w", err)
 	}
+	if q.createBodyFormStmt, err = db.PrepareContext(ctx, createBodyForm); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBodyForm: %w", err)
+	}
+	if q.createBodyFormBulkStmt, err = db.PrepareContext(ctx, createBodyFormBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBodyFormBulk: %w", err)
+	}
 	if q.createCollectionStmt, err = db.PrepareContext(ctx, createCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCollection: %w", err)
+	}
+	if q.createHeaderStmt, err = db.PrepareContext(ctx, createHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHeader: %w", err)
+	}
+	if q.createHeaderBulkStmt, err = db.PrepareContext(ctx, createHeaderBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHeaderBulk: %w", err)
 	}
 	if q.createItemApiStmt, err = db.PrepareContext(ctx, createItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemApi: %w", err)
@@ -48,6 +60,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createItemFolderBulkStmt, err = db.PrepareContext(ctx, createItemFolderBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemFolderBulk: %w", err)
 	}
+	if q.createQueryStmt, err = db.PrepareContext(ctx, createQuery); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateQuery: %w", err)
+	}
+	if q.createQueryBulkStmt, err = db.PrepareContext(ctx, createQueryBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateQueryBulk: %w", err)
+	}
 	if q.createResultApiStmt, err = db.PrepareContext(ctx, createResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateResultApi: %w", err)
 	}
@@ -60,8 +78,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createWorkspaceUserStmt, err = db.PrepareContext(ctx, createWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspaceUser: %w", err)
 	}
+	if q.deleteBodyFormStmt, err = db.PrepareContext(ctx, deleteBodyForm); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBodyForm: %w", err)
+	}
 	if q.deleteCollectionStmt, err = db.PrepareContext(ctx, deleteCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCollection: %w", err)
+	}
+	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
 	}
 	if q.deleteItemApiStmt, err = db.PrepareContext(ctx, deleteItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteItemApi: %w", err)
@@ -71,6 +95,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteItemFolderStmt, err = db.PrepareContext(ctx, deleteItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteItemFolder: %w", err)
+	}
+	if q.deleteQueryStmt, err = db.PrepareContext(ctx, deleteQuery); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteQuery: %w", err)
 	}
 	if q.deleteResultApiStmt, err = db.PrepareContext(ctx, deleteResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteResultApi: %w", err)
@@ -84,6 +111,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWorkspaceUserStmt, err = db.PrepareContext(ctx, deleteWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspaceUser: %w", err)
 	}
+	if q.getBodyFormStmt, err = db.PrepareContext(ctx, getBodyForm); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyForm: %w", err)
+	}
+	if q.getBodyFormsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyFormsByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyFormsByExampleID: %w", err)
+	}
 	if q.getCollectionStmt, err = db.PrepareContext(ctx, getCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollection: %w", err)
 	}
@@ -95,6 +128,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getCollectionOwnerIDStmt, err = db.PrepareContext(ctx, getCollectionOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionOwnerID: %w", err)
+	}
+	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
+	}
+	if q.getHeadersByExampleIDStmt, err = db.PrepareContext(ctx, getHeadersByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHeadersByExampleID: %w", err)
 	}
 	if q.getItemApiStmt, err = db.PrepareContext(ctx, getItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApi: %w", err)
@@ -125,6 +164,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemsApiByCollectionID: %w", err)
+	}
+	if q.getQueriesByExampleIDStmt, err = db.PrepareContext(ctx, getQueriesByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetQueriesByExampleID: %w", err)
+	}
+	if q.getQueryStmt, err = db.PrepareContext(ctx, getQuery); err != nil {
+		return nil, fmt.Errorf("error preparing query GetQuery: %w", err)
+	}
+	if q.getQueryByIDStmt, err = db.PrepareContext(ctx, getQueryByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetQueryByID: %w", err)
 	}
 	if q.getResultApiStmt, err = db.PrepareContext(ctx, getResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetResultApi: %w", err)
@@ -171,8 +219,23 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspacesByUserID: %w", err)
 	}
+	if q.setBodyFormEnableStmt, err = db.PrepareContext(ctx, setBodyFormEnable); err != nil {
+		return nil, fmt.Errorf("error preparing query SetBodyFormEnable: %w", err)
+	}
+	if q.setHeaderEnableStmt, err = db.PrepareContext(ctx, setHeaderEnable); err != nil {
+		return nil, fmt.Errorf("error preparing query SetHeaderEnable: %w", err)
+	}
+	if q.setQueryEnableStmt, err = db.PrepareContext(ctx, setQueryEnable); err != nil {
+		return nil, fmt.Errorf("error preparing query SetQueryEnable: %w", err)
+	}
+	if q.updateBodyFormStmt, err = db.PrepareContext(ctx, updateBodyForm); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateBodyForm: %w", err)
+	}
 	if q.updateCollectionStmt, err = db.PrepareContext(ctx, updateCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollection: %w", err)
+	}
+	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
 	if q.updateItemApiStmt, err = db.PrepareContext(ctx, updateItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApi: %w", err)
@@ -182,6 +245,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateItemFolderStmt, err = db.PrepareContext(ctx, updateItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolder: %w", err)
+	}
+	if q.updateQueryStmt, err = db.PrepareContext(ctx, updateQuery); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateQuery: %w", err)
 	}
 	if q.updateResultApiStmt, err = db.PrepareContext(ctx, updateResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateResultApi: %w", err)
@@ -205,9 +271,29 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing checkIFWorkspaceUserExistsStmt: %w", cerr)
 		}
 	}
+	if q.createBodyFormStmt != nil {
+		if cerr := q.createBodyFormStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBodyFormStmt: %w", cerr)
+		}
+	}
+	if q.createBodyFormBulkStmt != nil {
+		if cerr := q.createBodyFormBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBodyFormBulkStmt: %w", cerr)
+		}
+	}
 	if q.createCollectionStmt != nil {
 		if cerr := q.createCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCollectionStmt: %w", cerr)
+		}
+	}
+	if q.createHeaderStmt != nil {
+		if cerr := q.createHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHeaderStmt: %w", cerr)
+		}
+	}
+	if q.createHeaderBulkStmt != nil {
+		if cerr := q.createHeaderBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHeaderBulkStmt: %w", cerr)
 		}
 	}
 	if q.createItemApiStmt != nil {
@@ -240,6 +326,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createItemFolderBulkStmt: %w", cerr)
 		}
 	}
+	if q.createQueryStmt != nil {
+		if cerr := q.createQueryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createQueryStmt: %w", cerr)
+		}
+	}
+	if q.createQueryBulkStmt != nil {
+		if cerr := q.createQueryBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createQueryBulkStmt: %w", cerr)
+		}
+	}
 	if q.createResultApiStmt != nil {
 		if cerr := q.createResultApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createResultApiStmt: %w", cerr)
@@ -260,9 +356,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.deleteBodyFormStmt != nil {
+		if cerr := q.deleteBodyFormStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBodyFormStmt: %w", cerr)
+		}
+	}
 	if q.deleteCollectionStmt != nil {
 		if cerr := q.deleteCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteCollectionStmt: %w", cerr)
+		}
+	}
+	if q.deleteHeaderStmt != nil {
+		if cerr := q.deleteHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteHeaderStmt: %w", cerr)
 		}
 	}
 	if q.deleteItemApiStmt != nil {
@@ -278,6 +384,11 @@ func (q *Queries) Close() error {
 	if q.deleteItemFolderStmt != nil {
 		if cerr := q.deleteItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.deleteQueryStmt != nil {
+		if cerr := q.deleteQueryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteQueryStmt: %w", cerr)
 		}
 	}
 	if q.deleteResultApiStmt != nil {
@@ -300,6 +411,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.getBodyFormStmt != nil {
+		if cerr := q.getBodyFormStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyFormStmt: %w", cerr)
+		}
+	}
+	if q.getBodyFormsByExampleIDStmt != nil {
+		if cerr := q.getBodyFormsByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyFormsByExampleIDStmt: %w", cerr)
+		}
+	}
 	if q.getCollectionStmt != nil {
 		if cerr := q.getCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionStmt: %w", cerr)
@@ -318,6 +439,16 @@ func (q *Queries) Close() error {
 	if q.getCollectionOwnerIDStmt != nil {
 		if cerr := q.getCollectionOwnerIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionOwnerIDStmt: %w", cerr)
+		}
+	}
+	if q.getHeaderStmt != nil {
+		if cerr := q.getHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHeaderStmt: %w", cerr)
+		}
+	}
+	if q.getHeadersByExampleIDStmt != nil {
+		if cerr := q.getHeadersByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHeadersByExampleIDStmt: %w", cerr)
 		}
 	}
 	if q.getItemApiStmt != nil {
@@ -368,6 +499,21 @@ func (q *Queries) Close() error {
 	if q.getItemsApiByCollectionIDStmt != nil {
 		if cerr := q.getItemsApiByCollectionIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemsApiByCollectionIDStmt: %w", cerr)
+		}
+	}
+	if q.getQueriesByExampleIDStmt != nil {
+		if cerr := q.getQueriesByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getQueriesByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getQueryStmt != nil {
+		if cerr := q.getQueryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getQueryStmt: %w", cerr)
+		}
+	}
+	if q.getQueryByIDStmt != nil {
+		if cerr := q.getQueryByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getQueryByIDStmt: %w", cerr)
 		}
 	}
 	if q.getResultApiStmt != nil {
@@ -445,9 +591,34 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getWorkspacesByUserIDStmt: %w", cerr)
 		}
 	}
+	if q.setBodyFormEnableStmt != nil {
+		if cerr := q.setBodyFormEnableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setBodyFormEnableStmt: %w", cerr)
+		}
+	}
+	if q.setHeaderEnableStmt != nil {
+		if cerr := q.setHeaderEnableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setHeaderEnableStmt: %w", cerr)
+		}
+	}
+	if q.setQueryEnableStmt != nil {
+		if cerr := q.setQueryEnableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setQueryEnableStmt: %w", cerr)
+		}
+	}
+	if q.updateBodyFormStmt != nil {
+		if cerr := q.updateBodyFormStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateBodyFormStmt: %w", cerr)
+		}
+	}
 	if q.updateCollectionStmt != nil {
 		if cerr := q.updateCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCollectionStmt: %w", cerr)
+		}
+	}
+	if q.updateHeaderStmt != nil {
+		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
 		}
 	}
 	if q.updateItemApiStmt != nil {
@@ -463,6 +634,11 @@ func (q *Queries) Close() error {
 	if q.updateItemFolderStmt != nil {
 		if cerr := q.updateItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.updateQueryStmt != nil {
+		if cerr := q.updateQueryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateQueryStmt: %w", cerr)
 		}
 	}
 	if q.updateResultApiStmt != nil {
@@ -525,29 +701,42 @@ type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
+	createBodyFormStmt                         *sql.Stmt
+	createBodyFormBulkStmt                     *sql.Stmt
 	createCollectionStmt                       *sql.Stmt
+	createHeaderStmt                           *sql.Stmt
+	createHeaderBulkStmt                       *sql.Stmt
 	createItemApiStmt                          *sql.Stmt
 	createItemApiBulkStmt                      *sql.Stmt
 	createItemApiExampleStmt                   *sql.Stmt
 	createItemApiExampleBulkStmt               *sql.Stmt
 	createItemFolderStmt                       *sql.Stmt
 	createItemFolderBulkStmt                   *sql.Stmt
+	createQueryStmt                            *sql.Stmt
+	createQueryBulkStmt                        *sql.Stmt
 	createResultApiStmt                        *sql.Stmt
 	createUserStmt                             *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
+	deleteBodyFormStmt                         *sql.Stmt
 	deleteCollectionStmt                       *sql.Stmt
+	deleteHeaderStmt                           *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
 	deleteItemApiExampleStmt                   *sql.Stmt
 	deleteItemFolderStmt                       *sql.Stmt
+	deleteQueryStmt                            *sql.Stmt
 	deleteResultApiStmt                        *sql.Stmt
 	deleteUserStmt                             *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
+	getBodyFormStmt                            *sql.Stmt
+	getBodyFormsByExampleIDStmt                *sql.Stmt
 	getCollectionStmt                          *sql.Stmt
 	getCollectionByOwnerIDStmt                 *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt       *sql.Stmt
 	getCollectionOwnerIDStmt                   *sql.Stmt
+	getHeaderStmt                              *sql.Stmt
+	getHeadersByExampleIDStmt                  *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
 	getItemApiExampleStmt                      *sql.Stmt
 	getItemApiExampleByCollectionIDStmt        *sql.Stmt
@@ -558,6 +747,9 @@ type Queries struct {
 	getItemFolderByCollectionIDStmt            *sql.Stmt
 	getItemFolderOwnerIDStmt                   *sql.Stmt
 	getItemsApiByCollectionIDStmt              *sql.Stmt
+	getQueriesByExampleIDStmt                  *sql.Stmt
+	getQueryStmt                               *sql.Stmt
+	getQueryByIDStmt                           *sql.Stmt
 	getResultApiStmt                           *sql.Stmt
 	getResultApiByTriggerByStmt                *sql.Stmt
 	getResultApiByTriggerByAndTriggerTypeStmt  *sql.Stmt
@@ -573,10 +765,16 @@ type Queries struct {
 	getWorkspaceUserByWorkspaceIDStmt          *sql.Stmt
 	getWorkspaceUserByWorkspaceIDAndUserIDStmt *sql.Stmt
 	getWorkspacesByUserIDStmt                  *sql.Stmt
+	setBodyFormEnableStmt                      *sql.Stmt
+	setHeaderEnableStmt                        *sql.Stmt
+	setQueryEnableStmt                         *sql.Stmt
+	updateBodyFormStmt                         *sql.Stmt
 	updateCollectionStmt                       *sql.Stmt
+	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
 	updateItemApiExampleStmt                   *sql.Stmt
 	updateItemFolderStmt                       *sql.Stmt
+	updateQueryStmt                            *sql.Stmt
 	updateResultApiStmt                        *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
@@ -588,29 +786,42 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                         tx,
 		tx:                                         tx,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
+		createBodyFormStmt:                         q.createBodyFormStmt,
+		createBodyFormBulkStmt:                     q.createBodyFormBulkStmt,
 		createCollectionStmt:                       q.createCollectionStmt,
+		createHeaderStmt:                           q.createHeaderStmt,
+		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
 		createItemApiStmt:                          q.createItemApiStmt,
 		createItemApiBulkStmt:                      q.createItemApiBulkStmt,
 		createItemApiExampleStmt:                   q.createItemApiExampleStmt,
 		createItemApiExampleBulkStmt:               q.createItemApiExampleBulkStmt,
 		createItemFolderStmt:                       q.createItemFolderStmt,
 		createItemFolderBulkStmt:                   q.createItemFolderBulkStmt,
+		createQueryStmt:                            q.createQueryStmt,
+		createQueryBulkStmt:                        q.createQueryBulkStmt,
 		createResultApiStmt:                        q.createResultApiStmt,
 		createUserStmt:                             q.createUserStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
+		deleteBodyFormStmt:                         q.deleteBodyFormStmt,
 		deleteCollectionStmt:                       q.deleteCollectionStmt,
+		deleteHeaderStmt:                           q.deleteHeaderStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
 		deleteItemFolderStmt:                       q.deleteItemFolderStmt,
+		deleteQueryStmt:                            q.deleteQueryStmt,
 		deleteResultApiStmt:                        q.deleteResultApiStmt,
 		deleteUserStmt:                             q.deleteUserStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
+		getBodyFormStmt:                            q.getBodyFormStmt,
+		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,
 		getCollectionStmt:                          q.getCollectionStmt,
 		getCollectionByOwnerIDStmt:                 q.getCollectionByOwnerIDStmt,
 		getCollectionByPlatformIDandTypeStmt:       q.getCollectionByPlatformIDandTypeStmt,
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
+		getHeaderStmt:                              q.getHeaderStmt,
+		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
 		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
 		getItemApiExampleByCollectionIDStmt:        q.getItemApiExampleByCollectionIDStmt,
@@ -621,6 +832,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemFolderByCollectionIDStmt:            q.getItemFolderByCollectionIDStmt,
 		getItemFolderOwnerIDStmt:                   q.getItemFolderOwnerIDStmt,
 		getItemsApiByCollectionIDStmt:              q.getItemsApiByCollectionIDStmt,
+		getQueriesByExampleIDStmt:                  q.getQueriesByExampleIDStmt,
+		getQueryStmt:                               q.getQueryStmt,
+		getQueryByIDStmt:                           q.getQueryByIDStmt,
 		getResultApiStmt:                           q.getResultApiStmt,
 		getResultApiByTriggerByStmt:                q.getResultApiByTriggerByStmt,
 		getResultApiByTriggerByAndTriggerTypeStmt:  q.getResultApiByTriggerByAndTriggerTypeStmt,
@@ -636,10 +850,16 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getWorkspaceUserByWorkspaceIDStmt:          q.getWorkspaceUserByWorkspaceIDStmt,
 		getWorkspaceUserByWorkspaceIDAndUserIDStmt: q.getWorkspaceUserByWorkspaceIDAndUserIDStmt,
 		getWorkspacesByUserIDStmt:                  q.getWorkspacesByUserIDStmt,
+		setBodyFormEnableStmt:                      q.setBodyFormEnableStmt,
+		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
+		setQueryEnableStmt:                         q.setQueryEnableStmt,
+		updateBodyFormStmt:                         q.updateBodyFormStmt,
 		updateCollectionStmt:                       q.updateCollectionStmt,
+		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,
 		updateItemApiExampleStmt:                   q.updateItemApiExampleStmt,
 		updateItemFolderStmt:                       q.updateItemFolderStmt,
+		updateQueryStmt:                            q.updateQueryStmt,
 		updateResultApiStmt:                        q.updateResultApiStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,

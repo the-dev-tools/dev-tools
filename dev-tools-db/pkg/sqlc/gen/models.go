@@ -18,6 +18,33 @@ type Collection struct {
 	Name    string
 }
 
+type ExampleBodyForm struct {
+	ID          []byte
+	ExampleID   []byte
+	BodyKey     string
+	Enable      bool
+	Description string
+	Value       string
+}
+
+type ExampleHeader struct {
+	ID          []byte
+	ExampleID   []byte
+	HeaderKey   string
+	Enable      bool
+	Description string
+	Value       string
+}
+
+type ExampleQuery struct {
+	ID          []byte
+	ExampleID   []byte
+	QueryKey    string
+	Enable      bool
+	Description string
+	Value       string
+}
+
 type ItemApi struct {
 	ID           ulid.ULID
 	CollectionID ulid.ULID

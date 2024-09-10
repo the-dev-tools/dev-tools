@@ -134,7 +134,7 @@ CREATE INDEX item_api_example_idx1 ON item_api_example (
   parent_example_id
 );
 
-CREATE TABLE item_api_example_header (
+CREATE TABLE example_header (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
   header_key TEXT NOT NULL,
@@ -145,12 +145,12 @@ CREATE TABLE item_api_example_header (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_api_example_header_idx1 ON item_api_example_header (
+CREATE INDEX example_header_idx1 ON item_api_example_header (
   example_id,
   header_key
 );
 
-CREATE TABLE item_api_example_query (
+CREATE TABLE example_query (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
   query_key TEXT NOT NULL,
@@ -161,12 +161,12 @@ CREATE TABLE item_api_example_query (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_api_example_query_idx1 ON item_api_example_query (
+CREATE INDEX example_query_idx1 ON item_api_example_query (
   example_id,
   query_key
 );
 
-CREATE TABLE item_api_example_body_form (
+CREATE TABLE example_body_form (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
   body_key TEXT NOT NULL,
@@ -177,7 +177,7 @@ CREATE TABLE item_api_example_body_form (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_api_example_body_form_idx1 ON item_api_example_body_form (
+CREATE INDEX example_body_form_idx1 ON item_api_example_body_form (
   example_id,
   body_key
 );
