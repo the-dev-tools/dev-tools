@@ -24,6 +24,7 @@ export const AgGridBasic = <TData,>({
   return (
     <div {...forwardedProps.wrapper} className={twMerge(tw`ag-theme-devtools`, wrapperClassName)}>
       <AgGridReact
+        singleClickEdit
         {...forwardedProps.rest}
         defaultColDef={{
           sortable: false,
