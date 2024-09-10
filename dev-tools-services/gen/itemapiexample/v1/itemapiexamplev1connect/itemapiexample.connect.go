@@ -51,27 +51,76 @@ const (
 	// ItemApiExampleServiceRunExampleProcedure is the fully-qualified name of the
 	// ItemApiExampleService's RunExample RPC.
 	ItemApiExampleServiceRunExampleProcedure = "/itemapiexample.v1.ItemApiExampleService/RunExample"
+	// ItemApiExampleServiceCreateHeaderProcedure is the fully-qualified name of the
+	// ItemApiExampleService's CreateHeader RPC.
+	ItemApiExampleServiceCreateHeaderProcedure = "/itemapiexample.v1.ItemApiExampleService/CreateHeader"
+	// ItemApiExampleServiceUpdateHeaderProcedure is the fully-qualified name of the
+	// ItemApiExampleService's UpdateHeader RPC.
+	ItemApiExampleServiceUpdateHeaderProcedure = "/itemapiexample.v1.ItemApiExampleService/UpdateHeader"
+	// ItemApiExampleServiceDeleteHeaderProcedure is the fully-qualified name of the
+	// ItemApiExampleService's DeleteHeader RPC.
+	ItemApiExampleServiceDeleteHeaderProcedure = "/itemapiexample.v1.ItemApiExampleService/DeleteHeader"
+	// ItemApiExampleServiceCreateQueryProcedure is the fully-qualified name of the
+	// ItemApiExampleService's CreateQuery RPC.
+	ItemApiExampleServiceCreateQueryProcedure = "/itemapiexample.v1.ItemApiExampleService/CreateQuery"
+	// ItemApiExampleServiceUpdateQueryProcedure is the fully-qualified name of the
+	// ItemApiExampleService's UpdateQuery RPC.
+	ItemApiExampleServiceUpdateQueryProcedure = "/itemapiexample.v1.ItemApiExampleService/UpdateQuery"
+	// ItemApiExampleServiceDeleteQueryProcedure is the fully-qualified name of the
+	// ItemApiExampleService's DeleteQuery RPC.
+	ItemApiExampleServiceDeleteQueryProcedure = "/itemapiexample.v1.ItemApiExampleService/DeleteQuery"
+	// ItemApiExampleServiceCreateBodyFormProcedure is the fully-qualified name of the
+	// ItemApiExampleService's CreateBodyForm RPC.
+	ItemApiExampleServiceCreateBodyFormProcedure = "/itemapiexample.v1.ItemApiExampleService/CreateBodyForm"
+	// ItemApiExampleServiceUpdateBodyFormProcedure is the fully-qualified name of the
+	// ItemApiExampleService's UpdateBodyForm RPC.
+	ItemApiExampleServiceUpdateBodyFormProcedure = "/itemapiexample.v1.ItemApiExampleService/UpdateBodyForm"
+	// ItemApiExampleServiceDeleteBodyFormProcedure is the fully-qualified name of the
+	// ItemApiExampleService's DeleteBodyForm RPC.
+	ItemApiExampleServiceDeleteBodyFormProcedure = "/itemapiexample.v1.ItemApiExampleService/DeleteBodyForm"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	itemApiExampleServiceServiceDescriptor             = v1.File_itemapiexample_v1_itemapiexample_proto.Services().ByName("ItemApiExampleService")
-	itemApiExampleServiceGetExamplesMethodDescriptor   = itemApiExampleServiceServiceDescriptor.Methods().ByName("GetExamples")
-	itemApiExampleServiceGetExampleMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("GetExample")
-	itemApiExampleServiceCreateExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateExample")
-	itemApiExampleServiceUpdateExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateExample")
-	itemApiExampleServiceDeleteExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteExample")
-	itemApiExampleServiceRunExampleMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("RunExample")
+	itemApiExampleServiceServiceDescriptor              = v1.File_itemapiexample_v1_itemapiexample_proto.Services().ByName("ItemApiExampleService")
+	itemApiExampleServiceGetExamplesMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("GetExamples")
+	itemApiExampleServiceGetExampleMethodDescriptor     = itemApiExampleServiceServiceDescriptor.Methods().ByName("GetExample")
+	itemApiExampleServiceCreateExampleMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateExample")
+	itemApiExampleServiceUpdateExampleMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateExample")
+	itemApiExampleServiceDeleteExampleMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteExample")
+	itemApiExampleServiceRunExampleMethodDescriptor     = itemApiExampleServiceServiceDescriptor.Methods().ByName("RunExample")
+	itemApiExampleServiceCreateHeaderMethodDescriptor   = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateHeader")
+	itemApiExampleServiceUpdateHeaderMethodDescriptor   = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateHeader")
+	itemApiExampleServiceDeleteHeaderMethodDescriptor   = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteHeader")
+	itemApiExampleServiceCreateQueryMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateQuery")
+	itemApiExampleServiceUpdateQueryMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateQuery")
+	itemApiExampleServiceDeleteQueryMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteQuery")
+	itemApiExampleServiceCreateBodyFormMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateBodyForm")
+	itemApiExampleServiceUpdateBodyFormMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateBodyForm")
+	itemApiExampleServiceDeleteBodyFormMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteBodyForm")
 )
 
 // ItemApiExampleServiceClient is a client for the itemapiexample.v1.ItemApiExampleService service.
 type ItemApiExampleServiceClient interface {
+	// Examples
 	GetExamples(context.Context, *connect.Request[v1.GetExamplesRequest]) (*connect.Response[v1.GetExamplesResponse], error)
 	GetExample(context.Context, *connect.Request[v1.GetExampleRequest]) (*connect.Response[v1.GetExampleResponse], error)
 	CreateExample(context.Context, *connect.Request[v1.CreateExampleRequest]) (*connect.Response[v1.CreateExampleResponse], error)
 	UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error)
 	DeleteExample(context.Context, *connect.Request[v1.DeleteExampleRequest]) (*connect.Response[v1.DeleteExampleResponse], error)
 	RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error)
+	// Headers
+	CreateHeader(context.Context, *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error)
+	UpdateHeader(context.Context, *connect.Request[v1.UpdateHeaderRequest]) (*connect.Response[v1.UpdateHeaderResponse], error)
+	DeleteHeader(context.Context, *connect.Request[v1.DeleteHeaderRequest]) (*connect.Response[v1.DeleteHeaderResponse], error)
+	// Query
+	CreateQuery(context.Context, *connect.Request[v1.CreateQueryRequest]) (*connect.Response[v1.CreateQueryResponse], error)
+	UpdateQuery(context.Context, *connect.Request[v1.UpdateQueryRequest]) (*connect.Response[v1.UpdateQueryResponse], error)
+	DeleteQuery(context.Context, *connect.Request[v1.DeleteQueryRequest]) (*connect.Response[v1.DeleteQueryResponse], error)
+	// Body
+	CreateBodyForm(context.Context, *connect.Request[v1.CreateBodyFormRequest]) (*connect.Response[v1.CreateBodyFormResponse], error)
+	UpdateBodyForm(context.Context, *connect.Request[v1.UpdateBodyFormRequest]) (*connect.Response[v1.UpdateBodyFormResponse], error)
+	DeleteBodyForm(context.Context, *connect.Request[v1.DeleteBodyFormRequest]) (*connect.Response[v1.DeleteBodyFormResponse], error)
 }
 
 // NewItemApiExampleServiceClient constructs a client for the
@@ -120,17 +169,80 @@ func NewItemApiExampleServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(itemApiExampleServiceRunExampleMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		createHeader: connect.NewClient[v1.CreateHeaderRequest, v1.CreateHeaderResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceCreateHeaderProcedure,
+			connect.WithSchema(itemApiExampleServiceCreateHeaderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateHeader: connect.NewClient[v1.UpdateHeaderRequest, v1.UpdateHeaderResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceUpdateHeaderProcedure,
+			connect.WithSchema(itemApiExampleServiceUpdateHeaderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteHeader: connect.NewClient[v1.DeleteHeaderRequest, v1.DeleteHeaderResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceDeleteHeaderProcedure,
+			connect.WithSchema(itemApiExampleServiceDeleteHeaderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createQuery: connect.NewClient[v1.CreateQueryRequest, v1.CreateQueryResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceCreateQueryProcedure,
+			connect.WithSchema(itemApiExampleServiceCreateQueryMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateQuery: connect.NewClient[v1.UpdateQueryRequest, v1.UpdateQueryResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceUpdateQueryProcedure,
+			connect.WithSchema(itemApiExampleServiceUpdateQueryMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteQuery: connect.NewClient[v1.DeleteQueryRequest, v1.DeleteQueryResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceDeleteQueryProcedure,
+			connect.WithSchema(itemApiExampleServiceDeleteQueryMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createBodyForm: connect.NewClient[v1.CreateBodyFormRequest, v1.CreateBodyFormResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceCreateBodyFormProcedure,
+			connect.WithSchema(itemApiExampleServiceCreateBodyFormMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateBodyForm: connect.NewClient[v1.UpdateBodyFormRequest, v1.UpdateBodyFormResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceUpdateBodyFormProcedure,
+			connect.WithSchema(itemApiExampleServiceUpdateBodyFormMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteBodyForm: connect.NewClient[v1.DeleteBodyFormRequest, v1.DeleteBodyFormResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceDeleteBodyFormProcedure,
+			connect.WithSchema(itemApiExampleServiceDeleteBodyFormMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // itemApiExampleServiceClient implements ItemApiExampleServiceClient.
 type itemApiExampleServiceClient struct {
-	getExamples   *connect.Client[v1.GetExamplesRequest, v1.GetExamplesResponse]
-	getExample    *connect.Client[v1.GetExampleRequest, v1.GetExampleResponse]
-	createExample *connect.Client[v1.CreateExampleRequest, v1.CreateExampleResponse]
-	updateExample *connect.Client[v1.UpdateExampleRequest, v1.UpdateExampleResponse]
-	deleteExample *connect.Client[v1.DeleteExampleRequest, v1.DeleteExampleResponse]
-	runExample    *connect.Client[v1.RunExampleRequest, v1.RunExampleResponse]
+	getExamples    *connect.Client[v1.GetExamplesRequest, v1.GetExamplesResponse]
+	getExample     *connect.Client[v1.GetExampleRequest, v1.GetExampleResponse]
+	createExample  *connect.Client[v1.CreateExampleRequest, v1.CreateExampleResponse]
+	updateExample  *connect.Client[v1.UpdateExampleRequest, v1.UpdateExampleResponse]
+	deleteExample  *connect.Client[v1.DeleteExampleRequest, v1.DeleteExampleResponse]
+	runExample     *connect.Client[v1.RunExampleRequest, v1.RunExampleResponse]
+	createHeader   *connect.Client[v1.CreateHeaderRequest, v1.CreateHeaderResponse]
+	updateHeader   *connect.Client[v1.UpdateHeaderRequest, v1.UpdateHeaderResponse]
+	deleteHeader   *connect.Client[v1.DeleteHeaderRequest, v1.DeleteHeaderResponse]
+	createQuery    *connect.Client[v1.CreateQueryRequest, v1.CreateQueryResponse]
+	updateQuery    *connect.Client[v1.UpdateQueryRequest, v1.UpdateQueryResponse]
+	deleteQuery    *connect.Client[v1.DeleteQueryRequest, v1.DeleteQueryResponse]
+	createBodyForm *connect.Client[v1.CreateBodyFormRequest, v1.CreateBodyFormResponse]
+	updateBodyForm *connect.Client[v1.UpdateBodyFormRequest, v1.UpdateBodyFormResponse]
+	deleteBodyForm *connect.Client[v1.DeleteBodyFormRequest, v1.DeleteBodyFormResponse]
 }
 
 // GetExamples calls itemapiexample.v1.ItemApiExampleService.GetExamples.
@@ -163,15 +275,73 @@ func (c *itemApiExampleServiceClient) RunExample(ctx context.Context, req *conne
 	return c.runExample.CallUnary(ctx, req)
 }
 
+// CreateHeader calls itemapiexample.v1.ItemApiExampleService.CreateHeader.
+func (c *itemApiExampleServiceClient) CreateHeader(ctx context.Context, req *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error) {
+	return c.createHeader.CallUnary(ctx, req)
+}
+
+// UpdateHeader calls itemapiexample.v1.ItemApiExampleService.UpdateHeader.
+func (c *itemApiExampleServiceClient) UpdateHeader(ctx context.Context, req *connect.Request[v1.UpdateHeaderRequest]) (*connect.Response[v1.UpdateHeaderResponse], error) {
+	return c.updateHeader.CallUnary(ctx, req)
+}
+
+// DeleteHeader calls itemapiexample.v1.ItemApiExampleService.DeleteHeader.
+func (c *itemApiExampleServiceClient) DeleteHeader(ctx context.Context, req *connect.Request[v1.DeleteHeaderRequest]) (*connect.Response[v1.DeleteHeaderResponse], error) {
+	return c.deleteHeader.CallUnary(ctx, req)
+}
+
+// CreateQuery calls itemapiexample.v1.ItemApiExampleService.CreateQuery.
+func (c *itemApiExampleServiceClient) CreateQuery(ctx context.Context, req *connect.Request[v1.CreateQueryRequest]) (*connect.Response[v1.CreateQueryResponse], error) {
+	return c.createQuery.CallUnary(ctx, req)
+}
+
+// UpdateQuery calls itemapiexample.v1.ItemApiExampleService.UpdateQuery.
+func (c *itemApiExampleServiceClient) UpdateQuery(ctx context.Context, req *connect.Request[v1.UpdateQueryRequest]) (*connect.Response[v1.UpdateQueryResponse], error) {
+	return c.updateQuery.CallUnary(ctx, req)
+}
+
+// DeleteQuery calls itemapiexample.v1.ItemApiExampleService.DeleteQuery.
+func (c *itemApiExampleServiceClient) DeleteQuery(ctx context.Context, req *connect.Request[v1.DeleteQueryRequest]) (*connect.Response[v1.DeleteQueryResponse], error) {
+	return c.deleteQuery.CallUnary(ctx, req)
+}
+
+// CreateBodyForm calls itemapiexample.v1.ItemApiExampleService.CreateBodyForm.
+func (c *itemApiExampleServiceClient) CreateBodyForm(ctx context.Context, req *connect.Request[v1.CreateBodyFormRequest]) (*connect.Response[v1.CreateBodyFormResponse], error) {
+	return c.createBodyForm.CallUnary(ctx, req)
+}
+
+// UpdateBodyForm calls itemapiexample.v1.ItemApiExampleService.UpdateBodyForm.
+func (c *itemApiExampleServiceClient) UpdateBodyForm(ctx context.Context, req *connect.Request[v1.UpdateBodyFormRequest]) (*connect.Response[v1.UpdateBodyFormResponse], error) {
+	return c.updateBodyForm.CallUnary(ctx, req)
+}
+
+// DeleteBodyForm calls itemapiexample.v1.ItemApiExampleService.DeleteBodyForm.
+func (c *itemApiExampleServiceClient) DeleteBodyForm(ctx context.Context, req *connect.Request[v1.DeleteBodyFormRequest]) (*connect.Response[v1.DeleteBodyFormResponse], error) {
+	return c.deleteBodyForm.CallUnary(ctx, req)
+}
+
 // ItemApiExampleServiceHandler is an implementation of the itemapiexample.v1.ItemApiExampleService
 // service.
 type ItemApiExampleServiceHandler interface {
+	// Examples
 	GetExamples(context.Context, *connect.Request[v1.GetExamplesRequest]) (*connect.Response[v1.GetExamplesResponse], error)
 	GetExample(context.Context, *connect.Request[v1.GetExampleRequest]) (*connect.Response[v1.GetExampleResponse], error)
 	CreateExample(context.Context, *connect.Request[v1.CreateExampleRequest]) (*connect.Response[v1.CreateExampleResponse], error)
 	UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error)
 	DeleteExample(context.Context, *connect.Request[v1.DeleteExampleRequest]) (*connect.Response[v1.DeleteExampleResponse], error)
 	RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error)
+	// Headers
+	CreateHeader(context.Context, *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error)
+	UpdateHeader(context.Context, *connect.Request[v1.UpdateHeaderRequest]) (*connect.Response[v1.UpdateHeaderResponse], error)
+	DeleteHeader(context.Context, *connect.Request[v1.DeleteHeaderRequest]) (*connect.Response[v1.DeleteHeaderResponse], error)
+	// Query
+	CreateQuery(context.Context, *connect.Request[v1.CreateQueryRequest]) (*connect.Response[v1.CreateQueryResponse], error)
+	UpdateQuery(context.Context, *connect.Request[v1.UpdateQueryRequest]) (*connect.Response[v1.UpdateQueryResponse], error)
+	DeleteQuery(context.Context, *connect.Request[v1.DeleteQueryRequest]) (*connect.Response[v1.DeleteQueryResponse], error)
+	// Body
+	CreateBodyForm(context.Context, *connect.Request[v1.CreateBodyFormRequest]) (*connect.Response[v1.CreateBodyFormResponse], error)
+	UpdateBodyForm(context.Context, *connect.Request[v1.UpdateBodyFormRequest]) (*connect.Response[v1.UpdateBodyFormResponse], error)
+	DeleteBodyForm(context.Context, *connect.Request[v1.DeleteBodyFormRequest]) (*connect.Response[v1.DeleteBodyFormResponse], error)
 }
 
 // NewItemApiExampleServiceHandler builds an HTTP handler from the service implementation. It
@@ -216,6 +386,60 @@ func NewItemApiExampleServiceHandler(svc ItemApiExampleServiceHandler, opts ...c
 		connect.WithSchema(itemApiExampleServiceRunExampleMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	itemApiExampleServiceCreateHeaderHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceCreateHeaderProcedure,
+		svc.CreateHeader,
+		connect.WithSchema(itemApiExampleServiceCreateHeaderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceUpdateHeaderHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceUpdateHeaderProcedure,
+		svc.UpdateHeader,
+		connect.WithSchema(itemApiExampleServiceUpdateHeaderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceDeleteHeaderHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceDeleteHeaderProcedure,
+		svc.DeleteHeader,
+		connect.WithSchema(itemApiExampleServiceDeleteHeaderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceCreateQueryHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceCreateQueryProcedure,
+		svc.CreateQuery,
+		connect.WithSchema(itemApiExampleServiceCreateQueryMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceUpdateQueryHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceUpdateQueryProcedure,
+		svc.UpdateQuery,
+		connect.WithSchema(itemApiExampleServiceUpdateQueryMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceDeleteQueryHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceDeleteQueryProcedure,
+		svc.DeleteQuery,
+		connect.WithSchema(itemApiExampleServiceDeleteQueryMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceCreateBodyFormHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceCreateBodyFormProcedure,
+		svc.CreateBodyForm,
+		connect.WithSchema(itemApiExampleServiceCreateBodyFormMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceUpdateBodyFormHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceUpdateBodyFormProcedure,
+		svc.UpdateBodyForm,
+		connect.WithSchema(itemApiExampleServiceUpdateBodyFormMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceDeleteBodyFormHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceDeleteBodyFormProcedure,
+		svc.DeleteBodyForm,
+		connect.WithSchema(itemApiExampleServiceDeleteBodyFormMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/itemapiexample.v1.ItemApiExampleService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ItemApiExampleServiceGetExamplesProcedure:
@@ -230,6 +454,24 @@ func NewItemApiExampleServiceHandler(svc ItemApiExampleServiceHandler, opts ...c
 			itemApiExampleServiceDeleteExampleHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceRunExampleProcedure:
 			itemApiExampleServiceRunExampleHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceCreateHeaderProcedure:
+			itemApiExampleServiceCreateHeaderHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceUpdateHeaderProcedure:
+			itemApiExampleServiceUpdateHeaderHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceDeleteHeaderProcedure:
+			itemApiExampleServiceDeleteHeaderHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceCreateQueryProcedure:
+			itemApiExampleServiceCreateQueryHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceUpdateQueryProcedure:
+			itemApiExampleServiceUpdateQueryHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceDeleteQueryProcedure:
+			itemApiExampleServiceDeleteQueryHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceCreateBodyFormProcedure:
+			itemApiExampleServiceCreateBodyFormHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceUpdateBodyFormProcedure:
+			itemApiExampleServiceUpdateBodyFormHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceDeleteBodyFormProcedure:
+			itemApiExampleServiceDeleteBodyFormHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -261,4 +503,40 @@ func (UnimplementedItemApiExampleServiceHandler) DeleteExample(context.Context, 
 
 func (UnimplementedItemApiExampleServiceHandler) RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.RunExample is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) CreateHeader(context.Context, *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateHeader is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) UpdateHeader(context.Context, *connect.Request[v1.UpdateHeaderRequest]) (*connect.Response[v1.UpdateHeaderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.UpdateHeader is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) DeleteHeader(context.Context, *connect.Request[v1.DeleteHeaderRequest]) (*connect.Response[v1.DeleteHeaderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DeleteHeader is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) CreateQuery(context.Context, *connect.Request[v1.CreateQueryRequest]) (*connect.Response[v1.CreateQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateQuery is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) UpdateQuery(context.Context, *connect.Request[v1.UpdateQueryRequest]) (*connect.Response[v1.UpdateQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.UpdateQuery is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) DeleteQuery(context.Context, *connect.Request[v1.DeleteQueryRequest]) (*connect.Response[v1.DeleteQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DeleteQuery is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) CreateBodyForm(context.Context, *connect.Request[v1.CreateBodyFormRequest]) (*connect.Response[v1.CreateBodyFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateBodyForm is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) UpdateBodyForm(context.Context, *connect.Request[v1.UpdateBodyFormRequest]) (*connect.Response[v1.UpdateBodyFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.UpdateBodyForm is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) DeleteBodyForm(context.Context, *connect.Request[v1.DeleteBodyFormRequest]) (*connect.Response[v1.DeleteBodyFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DeleteBodyForm is not implemented"))
 }

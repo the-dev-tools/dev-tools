@@ -9,10 +9,13 @@ import (
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/sheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tgeneric"
+	"dev-tools-backend/pkg/translate/theader"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
@@ -30,6 +33,9 @@ type ItemApiRPC struct {
 	cs   *scollection.CollectionService
 	us   *suser.UserService
 	iaes *sitemapiexample.ItemApiExampleService
+
+	// Sub
+	hs *sheader.HeaderService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -58,6 +64,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	hs, err := sheader.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &ItemApiRPC{
@@ -67,6 +78,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		cs:   cs,
 		us:   us,
 		iaes: iaes,
+		hs:   hs,
 	}
 
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, interceptors)
@@ -105,8 +117,6 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		CollectionID: collectionUlidID,
 		IsDefault:    true,
 		Name:         "Default",
-		Headers:      *mitemapiexample.NewHeadersDefault(),
-		Query:        *mitemapiexample.NewQueryDefault(),
 		Body:         []byte{},
 	}
 	err = c.iaes.CreateApiExample(ctx, example)
@@ -176,11 +186,23 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		parentID = item.ParentID.String()
 	}
 
+	// TODO: it is overfetching the data change it
 	examples, err := c.iaes.GetApiExamples(ctx, ulidID)
 	if err != nil && err == sitemapiexample.ErrNoItemApiExampleFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	header, err := c.hs.GetHeaderByExampleID(ctx, examplePtr.ID)
+	if err != nil && err == sheader.ErrNoHeaderFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// TODO: it is overfetching the data change it
 	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))
 	for i, example := range examples {
 		metaExamplesRPC[i] = &itemapiexamplev1.ApiExampleMeta{
@@ -195,23 +217,24 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 				Id:       item.ID.String(),
 				Name:     item.Name,
 				Examples: metaExamplesRPC,
+				Method:   item.Method,
 			},
 			CollectionId: item.CollectionID.String(),
 			ParentId:     parentID,
 			Url:          item.Url,
-			Method:       item.Method,
 		},
 		Example: &itemapiexamplev1.ApiExample{
 			Meta: &itemapiexamplev1.ApiExampleMeta{
 				Id:   examplePtr.ID.String(),
 				Name: examplePtr.Name,
 			},
-			Headers: examplePtr.GetHeaders(),
-			Cookies: examplePtr.GetCookies(),
-			Query:   examplePtr.GetQueryParams(),
-			Body:    examplePtr.Body,
+			Header: rpcHeaders,
+			// TODO: add query params
+			Query: []*itemapiexamplev1.Query{},
+			Body: &itemapiexamplev1.ApiExample_BodyBytes{
+				BodyBytes: examplePtr.Body,
+			},
 			Updated: timestamppb.New(examplePtr.Updated),
-			Created: timestamppb.New(examplePtr.GetCreatedTime()),
 		},
 	}
 
@@ -269,7 +292,7 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		ParentID:     parentUlidIDPtr,
 		Name:         meta.GetName(),
 		Url:          apiCall.GetUrl(),
-		Method:       apiCall.GetMethod(),
+		Method:       meta.GetMethod(),
 	}
 
 	err = c.ias.UpdateItemApi(ctx, itemApi)
@@ -280,7 +303,6 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 	return connect.NewResponse(&itemapiv1.UpdateApiCallResponse{}), nil
 }
 
-// DeleteApiCall calls collection.v1.CollectionService.DeleteApiCall.
 func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[itemapiv1.DeleteApiCallRequest]) (*connect.Response[itemapiv1.DeleteApiCallResponse], error) {
 	ulidID, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {

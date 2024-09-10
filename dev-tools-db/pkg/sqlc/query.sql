@@ -88,8 +88,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -109,8 +107,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -129,8 +125,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -151,8 +145,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -171,15 +163,13 @@ INSERT INTO
     parent_example_id,
     is_default,
     name,
-    headers,
-    query,
     compressed,
     body,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
 INSERT INTO
@@ -190,24 +180,20 @@ INSERT INTO
     parent_example_id,
     is_default,
     name,
-    headers,
-    query,
     compressed,
     body,
     prev,
     next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
   name = ?,
-  headers = ?,
-  query = ?,
   compressed = ?,
   body = ?
 WHERE

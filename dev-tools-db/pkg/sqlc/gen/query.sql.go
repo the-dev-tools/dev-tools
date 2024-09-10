@@ -9,7 +9,6 @@ import (
 	"context"
 	"database/sql"
 
-	mitemapiexample "dev-tools-backend/pkg/model/mitemapiexample"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 	ulid "github.com/oklog/ulid/v2"
 )
@@ -50,8 +49,8 @@ VALUES
 `
 
 type CreateBodyFormParams struct {
-	ID          []byte
-	ExampleID   []byte
+	ID          ulid.ULID
+	ExampleID   ulid.ULID
 	BodyKey     string
 	Enable      bool
 	Description string
@@ -80,20 +79,20 @@ VALUES
 `
 
 type CreateBodyFormBulkParams struct {
-	ID            []byte
-	ExampleID     []byte
+	ID            ulid.ULID
+	ExampleID     ulid.ULID
 	BodyKey       string
 	Enable        bool
 	Description   string
 	Value         string
-	ID_2          []byte
-	ExampleID_2   []byte
+	ID_2          ulid.ULID
+	ExampleID_2   ulid.ULID
 	BodyKey_2     string
 	Enable_2      bool
 	Description_2 string
 	Value_2       string
-	ID_3          []byte
-	ExampleID_3   []byte
+	ID_3          ulid.ULID
+	ExampleID_3   ulid.ULID
 	BodyKey_3     string
 	Enable_3      bool
 	Description_3 string
@@ -150,8 +149,8 @@ VALUES
 `
 
 type CreateHeaderParams struct {
-	ID          []byte
-	ExampleID   []byte
+	ID          ulid.ULID
+	ExampleID   ulid.ULID
 	HeaderKey   string
 	Enable      bool
 	Description string
@@ -180,20 +179,20 @@ VALUES
 `
 
 type CreateHeaderBulkParams struct {
-	ID            []byte
-	ExampleID     []byte
+	ID            ulid.ULID
+	ExampleID     ulid.ULID
 	HeaderKey     string
 	Enable        bool
 	Description   string
 	Value         string
-	ID_2          []byte
-	ExampleID_2   []byte
+	ID_2          ulid.ULID
+	ExampleID_2   ulid.ULID
 	HeaderKey_2   string
 	Enable_2      bool
 	Description_2 string
 	Value_2       string
-	ID_3          []byte
-	ExampleID_3   []byte
+	ID_3          ulid.ULID
+	ExampleID_3   ulid.ULID
 	HeaderKey_3   string
 	Enable_3      bool
 	Description_3 string
@@ -331,15 +330,13 @@ INSERT INTO
     parent_example_id,
     is_default,
     name,
-    headers,
-    query,
     compressed,
     body,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
@@ -349,8 +346,6 @@ type CreateItemApiExampleParams struct {
 	ParentExampleID *ulid.ULID
 	IsDefault       bool
 	Name            string
-	Headers         mitemapiexample.Headers
-	Query           mitemapiexample.Query
 	Compressed      bool
 	Body            []byte
 	Prev            *ulid.ULID
@@ -365,8 +360,6 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.ParentExampleID,
 		arg.IsDefault,
 		arg.Name,
-		arg.Headers,
-		arg.Query,
 		arg.Compressed,
 		arg.Body,
 		arg.Prev,
@@ -384,17 +377,15 @@ INSERT INTO
     parent_example_id,
     is_default,
     name,
-    headers,
-    query,
     compressed,
     body,
     prev,
     next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
@@ -404,8 +395,6 @@ type CreateItemApiExampleBulkParams struct {
 	ParentExampleID   *ulid.ULID
 	IsDefault         bool
 	Name              string
-	Headers           mitemapiexample.Headers
-	Query             mitemapiexample.Query
 	Compressed        bool
 	Body              []byte
 	Prev              *ulid.ULID
@@ -416,8 +405,6 @@ type CreateItemApiExampleBulkParams struct {
 	ParentExampleID_2 *ulid.ULID
 	IsDefault_2       bool
 	Name_2            string
-	Headers_2         mitemapiexample.Headers
-	Query_2           mitemapiexample.Query
 	Compressed_2      bool
 	Body_2            []byte
 	Prev_2            *ulid.ULID
@@ -428,8 +415,6 @@ type CreateItemApiExampleBulkParams struct {
 	ParentExampleID_3 *ulid.ULID
 	IsDefault_3       bool
 	Name_3            string
-	Headers_3         mitemapiexample.Headers
-	Query_3           mitemapiexample.Query
 	Compressed_3      bool
 	Body_3            []byte
 	Prev_3            *ulid.ULID
@@ -444,8 +429,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ParentExampleID,
 		arg.IsDefault,
 		arg.Name,
-		arg.Headers,
-		arg.Query,
 		arg.Compressed,
 		arg.Body,
 		arg.Prev,
@@ -456,8 +439,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ParentExampleID_2,
 		arg.IsDefault_2,
 		arg.Name_2,
-		arg.Headers_2,
-		arg.Query_2,
 		arg.Compressed_2,
 		arg.Body_2,
 		arg.Prev_2,
@@ -468,8 +449,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ParentExampleID_3,
 		arg.IsDefault_3,
 		arg.Name_3,
-		arg.Headers_3,
-		arg.Query_3,
 		arg.Compressed_3,
 		arg.Body_3,
 		arg.Prev_3,
@@ -568,8 +547,8 @@ VALUES
 `
 
 type CreateQueryParams struct {
-	ID          []byte
-	ExampleID   []byte
+	ID          ulid.ULID
+	ExampleID   ulid.ULID
 	QueryKey    string
 	Enable      bool
 	Description string
@@ -598,20 +577,20 @@ VALUES
 `
 
 type CreateQueryBulkParams struct {
-	ID            []byte
-	ExampleID     []byte
+	ID            ulid.ULID
+	ExampleID     ulid.ULID
 	QueryKey      string
 	Enable        bool
 	Description   string
 	Value         string
-	ID_2          []byte
-	ExampleID_2   []byte
+	ID_2          ulid.ULID
+	ExampleID_2   ulid.ULID
 	QueryKey_2    string
 	Enable_2      bool
 	Description_2 string
 	Value_2       string
-	ID_3          []byte
-	ExampleID_3   []byte
+	ID_3          ulid.ULID
+	ExampleID_3   ulid.ULID
 	QueryKey_3    string
 	Enable_3      bool
 	Description_3 string
@@ -772,7 +751,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteBodyForm(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteBodyForm(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteBodyFormStmt, deleteBodyForm, id)
 	return err
 }
@@ -794,7 +773,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteHeader(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteHeader(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteHeaderStmt, deleteHeader, id)
 	return err
 }
@@ -838,7 +817,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteQuery(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteQuery(ctx context.Context, id ulid.ULID) error {
 	_, err := q.exec(ctx, q.deleteQueryStmt, deleteQuery, id)
 	return err
 }
@@ -907,7 +886,7 @@ WHERE
     id = ?
 `
 
-func (q *Queries) GetBodyForm(ctx context.Context, id []byte) (ExampleBodyForm, error) {
+func (q *Queries) GetBodyForm(ctx context.Context, id ulid.ULID) (ExampleBodyForm, error) {
 	row := q.queryRow(ctx, q.getBodyFormStmt, getBodyForm, id)
 	var i ExampleBodyForm
 	err := row.Scan(
@@ -935,7 +914,7 @@ WHERE
     example_id = ?
 `
 
-func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID []byte) ([]ExampleBodyForm, error) {
+func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID ulid.ULID) ([]ExampleBodyForm, error) {
 	rows, err := q.query(ctx, q.getBodyFormsByExampleIDStmt, getBodyFormsByExampleID, exampleID)
 	if err != nil {
 		return nil, err
@@ -1092,7 +1071,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) GetHeader(ctx context.Context, id []byte) (ExampleHeader, error) {
+func (q *Queries) GetHeader(ctx context.Context, id ulid.ULID) (ExampleHeader, error) {
 	row := q.queryRow(ctx, q.getHeaderStmt, getHeader, id)
 	var i ExampleHeader
 	err := row.Scan(
@@ -1120,7 +1099,7 @@ WHERE
   example_id = ?
 `
 
-func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID []byte) ([]ExampleHeader, error) {
+func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID ulid.ULID) ([]ExampleHeader, error) {
 	rows, err := q.query(ctx, q.getHeadersByExampleIDStmt, getHeadersByExampleID, exampleID)
 	if err != nil {
 		return nil, err
@@ -1195,8 +1174,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -1220,8 +1197,6 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiE
 		&i.ParentExampleID,
 		&i.IsDefault,
 		&i.Name,
-		&i.Headers,
-		&i.Query,
 		&i.Compressed,
 		&i.Body,
 		&i.Prev,
@@ -1238,8 +1213,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -1266,8 +1239,6 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.ParentExampleID,
 			&i.IsDefault,
 			&i.Name,
-			&i.Headers,
-			&i.Query,
 			&i.Compressed,
 			&i.Body,
 			&i.Prev,
@@ -1294,8 +1265,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -1319,8 +1288,6 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.U
 		&i.ParentExampleID,
 		&i.IsDefault,
 		&i.Name,
-		&i.Headers,
-		&i.Query,
 		&i.Compressed,
 		&i.Body,
 		&i.Prev,
@@ -1337,8 +1304,6 @@ SELECT
   parent_example_id,
   is_default,
   name,
-  headers,
-  query,
   compressed,
   body,
   prev,
@@ -1366,8 +1331,6 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) (
 			&i.ParentExampleID,
 			&i.IsDefault,
 			&i.Name,
-			&i.Headers,
-			&i.Query,
 			&i.Compressed,
 			&i.Body,
 			&i.Prev,
@@ -1567,7 +1530,7 @@ WHERE
   example_id = ?
 `
 
-func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID []byte) ([]ExampleQuery, error) {
+func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID ulid.ULID) ([]ExampleQuery, error) {
 	rows, err := q.query(ctx, q.getQueriesByExampleIDStmt, getQueriesByExampleID, exampleID)
 	if err != nil {
 		return nil, err
@@ -1617,7 +1580,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) GetQuery(ctx context.Context, id []byte) (ExampleQuery, error) {
+func (q *Queries) GetQuery(ctx context.Context, id ulid.ULID) (ExampleQuery, error) {
 	row := q.queryRow(ctx, q.getQueryStmt, getQuery, id)
 	var i ExampleQuery
 	err := row.Scan(
@@ -1647,7 +1610,7 @@ LIMIT
   1
 `
 
-func (q *Queries) GetQueryByID(ctx context.Context, id []byte) (ExampleQuery, error) {
+func (q *Queries) GetQueryByID(ctx context.Context, id ulid.ULID) (ExampleQuery, error) {
 	row := q.queryRow(ctx, q.getQueryByIDStmt, getQueryByID, id)
 	var i ExampleQuery
 	err := row.Scan(
@@ -2208,7 +2171,7 @@ WHERE
 
 type SetBodyFormEnableParams struct {
 	Enable bool
-	ID     []byte
+	ID     ulid.ULID
 }
 
 func (q *Queries) SetBodyFormEnable(ctx context.Context, arg SetBodyFormEnableParams) error {
@@ -2226,7 +2189,7 @@ WHERE
 
 type SetHeaderEnableParams struct {
 	Enable bool
-	ID     []byte
+	ID     ulid.ULID
 }
 
 func (q *Queries) SetHeaderEnable(ctx context.Context, arg SetHeaderEnableParams) error {
@@ -2244,7 +2207,7 @@ WHERE
 
 type SetQueryEnableParams struct {
 	Enable bool
-	ID     []byte
+	ID     ulid.ULID
 }
 
 func (q *Queries) SetQueryEnable(ctx context.Context, arg SetQueryEnableParams) error {
@@ -2268,7 +2231,7 @@ type UpdateBodyFormParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	ID          []byte
+	ID          ulid.ULID
 }
 
 func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) error {
@@ -2318,7 +2281,7 @@ type UpdateHeaderParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	ID          []byte
+	ID          ulid.ULID
 }
 
 func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) error {
@@ -2369,8 +2332,6 @@ const updateItemApiExample = `-- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
   name = ?,
-  headers = ?,
-  query = ?,
   compressed = ?,
   body = ?
 WHERE
@@ -2379,8 +2340,6 @@ WHERE
 
 type UpdateItemApiExampleParams struct {
 	Name       string
-	Headers    mitemapiexample.Headers
-	Query      mitemapiexample.Query
 	Compressed bool
 	Body       []byte
 	ID         ulid.ULID
@@ -2389,8 +2348,6 @@ type UpdateItemApiExampleParams struct {
 func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
 	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample,
 		arg.Name,
-		arg.Headers,
-		arg.Query,
 		arg.Compressed,
 		arg.Body,
 		arg.ID,
@@ -2434,7 +2391,7 @@ type UpdateQueryParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	ID          []byte
+	ID          ulid.ULID
 }
 
 func (q *Queries) UpdateQuery(ctx context.Context, arg UpdateQueryParams) error {

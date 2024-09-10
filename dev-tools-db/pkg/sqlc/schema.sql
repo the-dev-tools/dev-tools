@@ -112,8 +112,6 @@ CREATE TABLE item_api_example (
   parent_example_id BLOB,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   name TEXT NOT NULL,
-  headers BLOB NOT NULL,
-  query BLOB NOT NULL,
   compressed BOOLEAN NOT NULL DEFAULT FALSE,
   body BLOB NOT NULL,
   prev BLOB,
@@ -145,7 +143,7 @@ CREATE TABLE example_header (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX example_header_idx1 ON item_api_example_header (
+CREATE INDEX example_header_idx1 ON example_header (
   example_id,
   header_key
 );
@@ -161,7 +159,7 @@ CREATE TABLE example_query (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX example_query_idx1 ON item_api_example_query (
+CREATE INDEX example_query_idx1 ON example_query (
   example_id,
   query_key
 );
@@ -177,7 +175,7 @@ CREATE TABLE example_body_form (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX example_body_form_idx1 ON item_api_example_body_form (
+CREATE INDEX example_body_form_idx1 ON example_body_form (
   example_id,
   body_key
 );

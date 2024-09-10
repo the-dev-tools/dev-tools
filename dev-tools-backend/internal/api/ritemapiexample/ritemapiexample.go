@@ -9,10 +9,13 @@ import (
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/sheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tgeneric"
+	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-nodes/pkg/model/mnode"
 	"dev-tools-nodes/pkg/model/mnodedata"
 	"dev-tools-nodes/pkg/model/mnodemaster"
@@ -38,6 +41,7 @@ type ItemAPIExampleRPC struct {
 	ras  *sresultapi.ResultApiService
 	cs   *scollection.CollectionService
 	us   *suser.UserService
+	hs   *sheader.HeaderService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -83,15 +87,27 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 
 	rpcExamples := make([]*itemapiexamplev1.ApiExample, len(examples))
 	for i, example := range examples {
+
+		header, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
+		if err != nil && err != sheader.ErrNoHeaderFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		rpcExamples[i] = &itemapiexamplev1.ApiExample{
 			Meta: &itemapiexamplev1.ApiExampleMeta{
 				Id:   example.ID.String(),
 				Name: example.Name,
 			},
-			Headers: example.Headers.HeaderMap,
-			Query:   example.Query.QueryMap,
-			Body:    example.Body,
-			Created: timestamppb.New(example.GetCreatedTime()),
+			Header: rpcHeaders,
+			// TODO: add query
+			Body: &itemapiexamplev1.ApiExample_BodyBytes{
+				BodyBytes: example.Body,
+			},
 			Updated: timestamppb.New(example.Updated),
 		}
 	}
@@ -121,15 +137,26 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	header, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	exampleRPC := &itemapiexamplev1.ApiExample{
 		Meta: &itemapiexamplev1.ApiExampleMeta{
 			Id:   example.ID.String(),
 			Name: example.Name,
 		},
-		Headers: example.Headers.HeaderMap,
-		Query:   example.Query.QueryMap,
-		Body:    example.Body,
-		Created: timestamppb.New(example.GetCreatedTime()),
+		Header: rpcHeaders,
+		Query:  []*itemapiexamplev1.Query{},
+		Body: &itemapiexamplev1.ApiExample_BodyBytes{
+			BodyBytes: example.Body,
+		},
 		Updated: timestamppb.New(example.Updated),
 	}
 	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{
@@ -149,15 +176,16 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	exRPC := req.Msg
+	exampleRPC := req.Msg.Example
+	metaRPC := exampleRPC.GetMeta()
 	ex := &mitemapiexample.ItemApiExample{
 		ID:           ulid.Make(),
 		ItemApiID:    apiUlid,
 		CollectionID: itemApi.CollectionID,
-		Name:         exRPC.GetName(),
-		Headers:      mitemapiexample.Headers{HeaderMap: exRPC.GetHeaders()},
-		Query:        mitemapiexample.Query{QueryMap: exRPC.GetQuery()},
-		Body:         exRPC.GetBody(),
+		Name:         metaRPC.GetName(),
+		// TODO: add the headers and query
+		// TODO: add body parse
+		Body: exampleRPC.GetBodyBytes(),
 	}
 	err = c.iaes.CreateApiExample(ctx, ex)
 	if err != nil {
@@ -184,12 +212,9 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 
 	exRPC := req.Msg
 	ex := &mitemapiexample.ItemApiExample{
-		ID:      exampleUlid,
-		Name:    exRPC.GetName(),
-		Headers: *mitemapiexample.NewHeaders(exRPC.GetHeaders()),
-		Query:   *mitemapiexample.NewQuery(exRPC.GetQuery()),
-		Cookies: *mitemapiexample.NewCookies(exRPC.GetCookies()),
-		Body:    exRPC.GetBody(),
+		ID:   exampleUlid,
+		Name: exRPC.GetName(),
+		Body: exRPC.GetBody(),
 	}
 
 	err = c.iaes.UpdateItemApiExample(ctx, ex)
@@ -242,27 +267,15 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	/*
-		isOwner, err := c.CheckOwnerApi(ctx, ulidID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		if !isOwner {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
-		}
-	*/
-
 	itemApiCall, err := c.ias.GetItemApi(ctx, example.ItemApiID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	apiCallNodeData := mnodedata.NodeApiRestData{
-		Url:     itemApiCall.Url,
-		Method:  itemApiCall.Method,
-		Headers: example.Headers.HeaderMap,
-		Query:   example.Query.QueryMap,
-		Body:    example.Body,
+		Url:    itemApiCall.Url,
+		Method: itemApiCall.Method,
+		Body:   example.Body,
 	}
 
 	node := mnode.Node{
@@ -349,4 +362,48 @@ func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid u
 		return false, err
 	}
 	return collection.CheckOwnerCollection(ctx, *c.cs, *c.us, example.CollectionID)
+}
+
+// Headers
+func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateHeaderRequest]) (*connect.Response[itemapiexamplev1.UpdateHeaderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// DeleteHeader calls itemapiexample.v1.ItemApiExampleService.DeleteHeader.
+func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteHeaderRequest]) (*connect.Response[itemapiexamplev1.DeleteHeaderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// CreateQuery calls itemapiexample.v1.ItemApiExampleService.CreateQuery.
+func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateQueryRequest]) (*connect.Response[itemapiexamplev1.CreateQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// UpdateQuery calls itemapiexample.v1.ItemApiExampleService.UpdateQuery.
+func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateQueryRequest]) (*connect.Response[itemapiexamplev1.UpdateQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// DeleteQuery calls itemapiexample.v1.ItemApiExampleService.DeleteQuery.
+func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteQueryRequest]) (*connect.Response[itemapiexamplev1.DeleteQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// CreateBodyForm calls itemapiexample.v1.ItemApiExampleService.CreateBodyForm.
+func (c *ItemAPIExampleRPC) CreateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateBodyFormRequest]) (*connect.Response[itemapiexamplev1.CreateBodyFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// UpdateBodyForm calls itemapiexample.v1.ItemApiExampleService.UpdateBodyForm.
+func (c *ItemAPIExampleRPC) UpdateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateBodyFormRequest]) (*connect.Response[itemapiexamplev1.UpdateBodyFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+// DeleteBodyForm calls itemapiexample.v1.ItemApiExampleService.DeleteBodyForm.
+func (c *ItemAPIExampleRPC) DeleteBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteBodyFormRequest]) (*connect.Response[itemapiexamplev1.DeleteBodyFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }

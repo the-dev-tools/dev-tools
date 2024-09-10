@@ -3,14 +3,17 @@ package tpostman
 import (
 	"bytes"
 	"compress/gzip"
+	"dev-tools-backend/pkg/model/mexampleheader"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
+	"dev-tools-backend/pkg/model/postman/v21/mheader"
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"errors"
+	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -46,12 +49,15 @@ type ItemsPair struct {
 	ApiExample []mitemapiexample.ItemApiExample
 	Api        []mitemapi.ItemApi
 	Folder     []mitemfolder.ItemFolder
+	Headers    []mexampleheader.Header
+	// TODO: add query params and body
 }
 
 type ItemChannels struct {
 	ApiExample chan mitemapiexample.ItemApiExample
 	Api        chan mitemapi.ItemApi
 	Folder     chan mitemfolder.ItemFolder
+	Header     chan mexampleheader.Header
 	Wg         *sync.WaitGroup
 	Err        chan error
 	Done       chan struct{}
@@ -59,8 +65,9 @@ type ItemChannels struct {
 
 func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID) (*ItemsPair, error) {
 	var pair ItemsPair = ItemsPair{
-		Api:    make([]mitemapi.ItemApi, 0, len(collection.Items)),
-		Folder: make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
+		Api:     make([]mitemapi.ItemApi, 0, len(collection.Items)),
+		Folder:  make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
+		Headers: make([]mexampleheader.Header, 0, len(collection.Items)*2),
 	}
 
 	var wg sync.WaitGroup
@@ -68,6 +75,7 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 		ApiExample: make(chan mitemapiexample.ItemApiExample),
 		Api:        make(chan mitemapi.ItemApi),
 		Folder:     make(chan mitemfolder.ItemFolder),
+		Header:     make(chan mexampleheader.Header),
 		Wg:         &wg,
 		Done:       make(chan struct{}),
 		Err:        make(chan error),
@@ -95,6 +103,8 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 			pair.Api = append(pair.Api, api)
 		case apiExample := <-ItemChannels.ApiExample:
 			pair.ApiExample = append(pair.ApiExample, apiExample)
+		case header := <-ItemChannels.Header:
+			pair.Headers = append(pair.Headers, header)
 		case <-ItemChannels.Done:
 			return &pair, nil
 		}
@@ -203,30 +213,33 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 		apiArr = append(apiArr, apiPrev)
 
 		buffBytes := bodyBuff.Bytes()
-		example := mitemapiexample.NewItemApiExample(ulid.Make(), ulidID, collectionID, nil, true,
-			"Default Example", *mitemapiexample.NewHeaders(headers), *mitemapiexample.NewQuery(queryParams), compresed, buffBytes)
+		defaultExampleUlid := ulid.Make()
+		example := mitemapiexample.NewItemApiExample(defaultExampleUlid, ulidID, collectionID, nil, true,
+			"Default Example", compresed, buffBytes)
 
 		channels.ApiExample <- *example
+		if len(item.Responses) != 0 {
+			channels.Wg.Add(1)
+			headers := item.Responses[0].Headers
+			fmt.Println(headers)
+			go GetHeaders(headers, defaultExampleUlid, collectionID, channels)
+		}
 
 		channels.Wg.Add(1)
-		go GetResponse(item.Responses, buffBytes, queryParams, ulidID, collectionID, channels)
+		go GetResponse(item.Responses, buffBytes, ulidID, collectionID, channels)
 	}
 
 	SendAllToChannelPtr(apiArr, channels.Api)
 }
 
-func GetResponse(items []mresponse.Response, body []byte, queryParams map[string]string,
-	apiID, collectionID ulid.ULID, channels *ItemChannels,
+func GetResponse(items []mresponse.Response, body []byte,
+	apiUlid, collectionID ulid.ULID, channels *ItemChannels,
 ) {
 	defer channels.Wg.Done()
 	var prevExample *mitemapiexample.ItemApiExample
 	var examples []*mitemapiexample.ItemApiExample
 
 	for _, item := range items {
-		headers := make(map[string]string)
-		for _, v := range item.Headers {
-			headers[v.Key] = v.Value
-		}
 
 		cookies := make(map[string]string)
 		for _, v := range item.Cookies {
@@ -236,17 +249,18 @@ func GetResponse(items []mresponse.Response, body []byte, queryParams map[string
 			item.Name = "Untitled"
 		}
 
+		apiExampleID := ulid.Make()
 		apiExample := mitemapiexample.ItemApiExample{
-			ID:           ulid.Make(),
-			ItemApiID:    apiID,
+			ID:           apiExampleID,
+			ItemApiID:    apiUlid,
 			CollectionID: collectionID,
 			Name:         item.Name,
 			IsDefault:    false,
-			Headers:      *mitemapiexample.NewHeaders(headers),
-			Cookies:      *mitemapiexample.NewCookies(cookies),
-			Query:        *mitemapiexample.NewQuery(queryParams),
 			Body:         body,
 		}
+
+		channels.Wg.Add(1)
+		go GetHeaders(item.Headers, apiExampleID, collectionID, channels)
 
 		if prevExample != nil {
 			prevExample.Next = &apiExample.ID
@@ -258,6 +272,27 @@ func GetResponse(items []mresponse.Response, body []byte, queryParams map[string
 	}
 
 	SendAllToChannelPtr(examples, channels.ApiExample)
+}
+
+func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+	defer channels.Wg.Done()
+	var headerArr []mexampleheader.Header
+	for _, item := range headers {
+		header := mexampleheader.Header{
+			ID:           ulid.Make(),
+			ExampleID:    exampleID,
+			CollectionID: collectionID,
+			HeaderKey:    item.Key,
+			Enable:       !item.Disabled,
+			Description:  item.Description,
+			Value:        item.Value,
+		}
+		// TODO: add ordering
+		headerArr = append(headerArr, header)
+	}
+	for _, header := range headerArr {
+		channels.Header <- header
+	}
 }
 
 func RemoveItem[I any](slice []I, s int) []I {

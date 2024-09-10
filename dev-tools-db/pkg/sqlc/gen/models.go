@@ -7,7 +7,6 @@ package gen
 import (
 	"database/sql"
 
-	mitemapiexample "dev-tools-backend/pkg/model/mitemapiexample"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 	ulid "github.com/oklog/ulid/v2"
 )
@@ -19,8 +18,8 @@ type Collection struct {
 }
 
 type ExampleBodyForm struct {
-	ID          []byte
-	ExampleID   []byte
+	ID          ulid.ULID
+	ExampleID   ulid.ULID
 	BodyKey     string
 	Enable      bool
 	Description string
@@ -28,8 +27,8 @@ type ExampleBodyForm struct {
 }
 
 type ExampleHeader struct {
-	ID          []byte
-	ExampleID   []byte
+	ID          ulid.ULID
+	ExampleID   ulid.ULID
 	HeaderKey   string
 	Enable      bool
 	Description string
@@ -37,8 +36,8 @@ type ExampleHeader struct {
 }
 
 type ExampleQuery struct {
-	ID          []byte
-	ExampleID   []byte
+	ID          ulid.ULID
+	ExampleID   ulid.ULID
 	QueryKey    string
 	Enable      bool
 	Description string
@@ -63,8 +62,6 @@ type ItemApiExample struct {
 	ParentExampleID *ulid.ULID
 	IsDefault       bool
 	Name            string
-	Headers         mitemapiexample.Headers
-	Query           mitemapiexample.Query
 	Compressed      bool
 	Body            []byte
 	Prev            *ulid.ULID

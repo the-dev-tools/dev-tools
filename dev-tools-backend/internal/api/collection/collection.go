@@ -8,6 +8,7 @@ import (
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/sheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -18,13 +19,11 @@ import (
 	"dev-tools-backend/pkg/translate/tpostman"
 	collectionv1 "dev-tools-services/gen/collection/v1"
 	"dev-tools-services/gen/collection/v1/collectionv1connect"
-	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"errors"
 	"log"
 
 	"connectrpc.com/connect"
 	"github.com/oklog/ulid/v2"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type CollectionServiceRPC struct {
@@ -139,9 +138,8 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
-		Id:    ulidID.String(),
-		Name:  name,
-		Items: []*itemfolderv1.Item{},
+		Id:   ulidID.String(),
+		Name: name,
 	}), nil
 }
 
@@ -190,11 +188,9 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 	items := pair.GetItemsFull()
 
 	respRaw := &collectionv1.GetCollectionResponse{
-		Id:      collection.ID.String(),
-		Name:    collection.Name,
-		Items:   items,
-		Created: timestamppb.New(collection.GetCreatedTime()),
-		Updated: timestamppb.New(collection.Updated),
+		Id:    collection.ID.String(),
+		Name:  collection.Name,
+		Items: items,
 	}
 
 	return connect.NewResponse(respRaw), nil
@@ -332,6 +328,15 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	}
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExample)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txHeaderService, err := sheader.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txHeaderService.CreateBulkHeader(ctx, items.Headers)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

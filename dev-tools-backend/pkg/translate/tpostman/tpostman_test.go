@@ -2,6 +2,7 @@ package tpostman_test
 
 import (
 	"dev-tools-backend/pkg/model/mitemfolder"
+	"dev-tools-backend/pkg/model/postman/v21/mheader"
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
 	"dev-tools-backend/pkg/model/postman/v21/mrequest"
@@ -219,5 +220,74 @@ func TestTranslatePostmanOrder(test *testing.T) {
 	}
 	if expectedApiExampleLen != 0 {
 		test.Errorf("Error: %v, %v", "api example order", expectedApiExampleLen)
+	}
+}
+
+func TestTranslatePostmanHeader(test *testing.T) {
+	RootApiLen := 100
+	ReponseHeaderLen := 10
+
+	var headers []mheader.Header
+	for i := 0; i < ReponseHeaderLen; i++ {
+		headers = append(headers, mheader.Header{
+			Key:         "test",
+			Value:       "test",
+			Disabled:    false,
+			Description: "test",
+		})
+	}
+
+	request := mrequest.Request{
+		Method:      "GET",
+		Header:      headers,
+		Body:        nil,
+		Description: "test",
+		URL:         "http://localhost:8080",
+	}
+
+	response := mresponse.Response{
+		Name:            "test",
+		OriginalRequest: nil,
+		ResponseTime:    0,
+	}
+
+	responses := []mresponse.Response{}
+	for i := 0; i < RootApiLen; i++ {
+		responses = append(responses, response)
+	}
+
+	RootApi := mitem.Items{
+		ID:          "test",
+		Name:        "test",
+		Responses:   responses,
+		Request:     &request,
+		Description: "test",
+		Variables:   nil,
+		Items:       nil,
+	}
+
+	items := []mitem.Items{}
+	for i := 0; i < RootApiLen; i++ {
+		items = append(items, RootApi)
+	}
+
+	postmanCollection := mpostmancollection.Collection{
+		Auth: nil,
+		Info: mpostmancollection.Info{
+			Name: "test",
+		},
+		Items:     items,
+		Events:    nil,
+		Variables: nil,
+	}
+
+	collectionID := ulid.MustNew(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
+	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
+	if err != nil {
+		test.Errorf("Error: %v", err)
+	}
+
+	if len(pairs.Api) != RootApiLen {
+		test.Errorf("Error: %v", len(pairs.Api))
 	}
 }

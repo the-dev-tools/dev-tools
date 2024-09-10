@@ -41,12 +41,12 @@ func (c CollectionPair) GetItemsFull() []*itemfolderv1.Item {
 			Data: &itemfolderv1.Item_ApiCall{
 				ApiCall: &itemapiv1.ApiCall{
 					Meta: &itemapiv1.ApiCallMeta{
-						Name: item.Name,
-						Id:   item.ID.String(),
+						Name:   item.Name,
+						Id:     item.ID.String(),
+						Method: item.Method,
 					},
 					CollectionId: item.CollectionID.String(),
 					Url:          item.Url,
-					Method:       item.Method,
 				},
 			},
 		}
@@ -126,10 +126,10 @@ func RecursiveTranslateFull(item mitemfolder.ItemFolderNested) []*itemfolderv1.I
 							Name:     api.Name,
 							Id:       api.ID.String(),
 							Examples: rpcExamples,
+							Method:   api.Method,
 						},
 						ParentId: api.ParentID.String(),
 						Url:      api.Url,
-						Method:   api.Method,
 					},
 				},
 			}

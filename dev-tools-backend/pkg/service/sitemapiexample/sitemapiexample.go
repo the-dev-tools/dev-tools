@@ -45,6 +45,7 @@ func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
 }
 
 func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
+	// TODO: add headers and query
 	return gen.ItemApiExample{
 		ID:              item.ID,
 		ItemApiID:       item.ItemApiID,
@@ -52,8 +53,6 @@ func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
 		ParentExampleID: item.ParentExampleID,
 		IsDefault:       item.IsDefault,
 		Name:            item.Name,
-		Headers:         item.Headers,
-		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
 		Prev:            item.Prev,
@@ -62,6 +61,7 @@ func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
 }
 
 func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample {
+	// TODO: add headers and query
 	return &mitemapiexample.ItemApiExample{
 		ID:              item.ID,
 		ItemApiID:       item.ItemApiID,
@@ -69,8 +69,6 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 		ParentExampleID: item.ParentExampleID,
 		IsDefault:       item.IsDefault,
 		Name:            item.Name,
-		Headers:         item.Headers,
-		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
 		Prev:            item.Prev,
@@ -131,8 +129,6 @@ func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mi
 		IsDefault:       item.IsDefault,
 		ParentExampleID: item.ParentExampleID,
 		Name:            item.Name,
-		Headers:         item.Headers,
-		Query:           item.Query,
 		Compressed:      item.Compressed,
 		Body:            item.Body,
 		Prev:            item.Prev,
@@ -158,8 +154,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID: item1.ParentExampleID,
 			IsDefault:       item1.IsDefault,
 			Name:            item1.Name,
-			Headers:         item1.Headers,
-			Query:           item1.Query,
 			Compressed:      item1.Compressed,
 			Body:            item1.Body,
 			Prev:            item1.Prev,
@@ -171,8 +165,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_2: item2.ParentExampleID,
 			IsDefault_2:       item2.IsDefault,
 			Name_2:            item2.Name,
-			Headers_2:         item2.Headers,
-			Query_2:           item2.Query,
 			Compressed_2:      item2.Compressed,
 			Body_2:            item2.Body,
 			Prev_2:            item2.Prev,
@@ -184,8 +176,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_3: item3.ParentExampleID,
 			IsDefault_3:       item3.IsDefault,
 			Name_3:            item3.Name,
-			Headers_3:         item3.Headers,
-			Query_3:           item3.Query,
 			Compressed_3:      item3.Compressed,
 			Body_3:            item3.Body,
 			Prev_3:            item3.Prev,
@@ -212,8 +202,6 @@ func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item
 	return iaes.Queries.UpdateItemApiExample(ctx, gen.UpdateItemApiExampleParams{
 		ID:         item.ID,
 		Name:       item.Name,
-		Headers:    item.Headers,
-		Query:      item.Query,
 		Compressed: item.Compressed,
 		Body:       item.Body,
 	})

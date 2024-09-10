@@ -209,3 +209,42 @@ sql:
               import: "dev-tools-backend/pkg/model/result/mresultapi"
               package: "mresultapi"
               type: "HttpResp"
+          ## Header Table
+          ### id
+          - column: "example_header.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### example_id
+          - column: "example_header.example_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ## example_query
+          ### id
+          - column: "example_query.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### id
+          - column: "example_query.example_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ## example_body_form
+          ### id
+          - column: "example_body_form.id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"
+          ### id
+          - column: "example_body_form.example_id"
+            go_type:
+              import: "github.com/oklog/ulid/v2"
+              package: "ulid"
+              type: "ULID"

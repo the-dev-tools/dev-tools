@@ -61,7 +61,6 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		Workspace: &workspacev1.Workspace{
 			Id:      org.ID.String(),
 			Name:    org.Name,
-			Created: timestamppb.New(org.GetCreatedTime()),
 			Updated: timestamppb.New(org.Updated),
 		},
 	}
@@ -87,7 +86,6 @@ func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Re
 		respOrgs[i] = &workspacev1.Workspace{
 			Id:      ws.ID.String(),
 			Name:    ws.Name,
-			Created: timestamppb.New(ws.GetCreatedTime()),
 			Updated: timestamppb.New(ws.Updated),
 		}
 	}
