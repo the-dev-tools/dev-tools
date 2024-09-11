@@ -305,6 +305,9 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	err = txCollectionService.CreateCollection(ctx, &collection)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {
@@ -333,15 +336,6 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	tx, err = c.DB.Begin()
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
 	txHeaderService, err := sheader.NewTX(ctx, tx)
 	if err != nil {
@@ -352,6 +346,9 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	respRaw := &collectionv1.ImportPostmanResponse{
 		Id: collectionUlid.String(),
