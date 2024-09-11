@@ -195,10 +195,12 @@ const items = (collectionId: string, parentId: string | undefined, depth: number
 const apiCall = Effect.gen(function* () {
   const faker = yield* Faker;
   return new ApiCall({
-    meta: yield* meta(),
+    meta: {
+      ...(yield* meta()),
+      method: faker.internet.httpMethod(),
+    },
     collectionId: '',
     parentId: '',
-    method: faker.internet.httpMethod(),
     url: faker.internet.url(),
   });
 });

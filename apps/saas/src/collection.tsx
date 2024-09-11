@@ -1,5 +1,6 @@
 import {
   createConnectQueryKey,
+  createProtobufSafeUpdater,
   createQueryOptions,
   useQuery as useConnectQuery,
   useMutation,
@@ -10,7 +11,7 @@ import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, Outlet, useMatch } from '@tanstack/react-router';
 import { ColDef } from 'ag-grid-community';
-import { Array, Effect, Match, pipe, Record, Struct } from 'effect';
+import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
@@ -30,6 +31,7 @@ import {
   getApiCall,
   updateApiCall,
 } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import { Header } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
   createFolder,
@@ -332,8 +334,7 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
     >
       <div />
 
-      {/* TODO: re-implement once it's added to api call meta protobuf */}
-      {/* <div className='text-sm font-bold'>{apiCall.method}</div> */}
+      <div className='text-sm font-bold'>{meta.method}</div>
 
       <Text className='flex-1 truncate'>{meta.name}</Text>
 
@@ -499,15 +500,7 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
   );
 };
 
-// TODO: use protobuf type after cell saving is implemented on BE
-interface ApiHeader {
-  id: string;
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-const headerColDefs: ColDef<ApiHeader>[] = [
+const headerColDefs: ColDef<Header>[] = [
   { field: 'enabled', headerName: '', editable: true, resizable: false, flex: 0, width: 36 },
   { field: 'key', editable: true },
   { field: 'value', editable: true, resizable: false },
@@ -518,43 +511,23 @@ export const ApiCallHeaderTab = () => {
 
   const queryClient = useQueryClient();
 
-  const query = useConnectQuery(
-    getApiCall,
-    { id: apiCallId },
-    {
-      // TODO: remove workaround after cell saving is implemented on BE
-      select: (data) => {
-        if ('headers' in data) return data as Partial<GetApiCallResponse> & { headers: ApiHeader[] };
-        const headers = pipe(
-          data.example!.headers,
-          Record.toEntries,
-          Array.map(([key, value], index) => ({ id: index.toString(), key, value, enabled: true })),
-        );
-        return { ...data, headers };
-      },
-    },
-  );
+  const query = useConnectQuery(getApiCall, { id: apiCallId });
 
   return (
-    <AgGridBasic<ApiHeader>
+    <AgGridBasic<Header>
       wrapperClassName={tw`flex-1`}
       columnDefs={headerColDefs}
-      rowData={query.data?.headers ?? []}
+      rowData={query.data?.example?.header ?? []}
       getRowId={(_) => _.data.id}
-      onCellValueChanged={(e) => {
+      onCellValueChanged={(event) => {
         // TODO: send row update request after cell saving is implemented on BE
         queryClient.setQueryData(
           createConnectQueryKey(getApiCall, { id: query.data!.apiCall!.meta!.id }),
-          // TODO: use safe updater after cell saving is implemented on BE
-          (apiCall: GetApiCallResponse) => {
-            const headers = Array.replace(query.data!.headers, e.rowIndex!, e.data);
-            return { ...apiCall, headers };
-          },
-          // createProtobufSafeUpdater(getApiCall, (apiCall) => {
-          //   if (!apiCall) return apiCall;
-          //   const headers = Array.replace(data.headers, e.rowIndex!, e.data);
-          //   return { ...apiCall, example: { ...apiCall.example!, headers } };
-          // }),
+          createProtobufSafeUpdater(getApiCall, (apiCall) => {
+            if (!apiCall) return apiCall;
+            const header = Array.replace(query.data!.example!.header, event.rowIndex!, event.data);
+            return { ...apiCall, example: { ...apiCall.example!, header } };
+          }),
         );
       }}
     />

@@ -20,7 +20,7 @@
     "@tanstack/react-query": "5.53.1",
     "@tanstack/react-router": "1.51.6",
     "@the-dev-tools/api": "workspace:^",
-    "@the-dev-tools/protobuf": "1.16.0",
+    "@the-dev-tools/protobuf": "1.17.0",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "ag-grid-community": "32.1.0",
