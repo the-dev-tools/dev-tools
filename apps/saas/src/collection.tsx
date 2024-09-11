@@ -1,16 +1,9 @@
-import {
-  createConnectQueryKey,
-  createProtobufSafeUpdater,
-  createQueryOptions,
-  useQuery as useConnectQuery,
-  useMutation,
-  useTransport,
-} from '@connectrpc/connect-query';
+import { createQueryOptions, useQuery as useConnectQuery, useMutation, useTransport } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, Outlet, useMatch } from '@tanstack/react-router';
-import { ColDef } from 'ag-grid-community';
+import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
@@ -38,8 +31,8 @@ import {
   deleteFolder,
   updateFolder,
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
-import { AgGridBasic } from '@the-dev-tools/ui/ag-grid';
 import { Button } from '@the-dev-tools/ui/button';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
@@ -500,36 +493,62 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
   );
 };
 
-const headerColDefs: ColDef<Header>[] = [
-  { field: 'enabled', headerName: '', editable: true, resizable: false, flex: 0, width: 36 },
-  { field: 'key', editable: true },
-  { field: 'value', editable: true, resizable: false },
+const headerColumnHelper = createColumnHelper<Header>();
+
+const headerColumns = [
+  headerColumnHelper.accessor('enabled', {
+    header: '',
+    minSize: 0,
+    size: 0,
+    cell: ({ getValue }) => <Checkbox isSelected={getValue()} />,
+  }),
+  headerColumnHelper.accessor('key', {}),
+  headerColumnHelper.accessor('value', {}),
+  headerColumnHelper.accessor('description', {}),
 ];
 
 export const ApiCallHeaderTab = () => {
   const { apiCallId } = apiCallRoute.useParams();
 
-  const queryClient = useQueryClient();
-
   const query = useConnectQuery(getApiCall, { id: apiCallId });
 
+  const table = useReactTable({
+    columns: headerColumns,
+    data: query.data?.example?.header ?? [],
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
-    <AgGridBasic<Header>
-      wrapperClassName={tw`flex-1`}
-      columnDefs={headerColDefs}
-      rowData={query.data?.example?.header ?? []}
-      getRowId={(_) => _.data.id}
-      onCellValueChanged={(event) => {
-        // TODO: send row update request after cell saving is implemented on BE
-        queryClient.setQueryData(
-          createConnectQueryKey(getApiCall, { id: query.data!.apiCall!.meta!.id }),
-          createProtobufSafeUpdater(getApiCall, (apiCall) => {
-            if (!apiCall) return apiCall;
-            const header = Array.replace(query.data!.example!.header, event.rowIndex!, event.data);
-            return { ...apiCall, example: { ...apiCall.example!, header } };
-          }),
-        );
-      }}
-    />
+    <div className='divide-black rounded border border-black'>
+      <table className='w-full divide-inherit'>
+        <thead className='divide-y divide-inherit border-b border-inherit'>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  colSpan={header.colSpan}
+                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
+                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody className='divide-y divide-inherit'>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className='break-all p-1.5 text-sm'>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
