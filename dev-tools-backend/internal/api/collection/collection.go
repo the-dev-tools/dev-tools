@@ -35,6 +35,7 @@ type CollectionServiceRPC struct {
 	ifs    sitemfolder.ItemFolderService
 	ras    sresultapi.ResultApiService
 	iaes   sitemapiexample.ItemApiExampleService
+	hs     sheader.HeaderService
 	secret []byte
 }
 
@@ -280,20 +281,15 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	ulidID := ulid.Make()
-
+	collectionUlid := ulid.Make()
 	collection := mcollection.Collection{
-		ID:      ulidID,
+		ID:      collectionUlid,
 		Name:    req.Msg.GetName(),
 		OwnerID: org.ID,
 	}
-	err = c.cs.CreateCollection(ctx, &collection)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
 	// TODO: add ownerID
-	items, err := tpostman.ConvertPostmanCollection(postmanCollection, ulidID)
+	items, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -303,6 +299,12 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	txCollectionService, err := scollection.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txCollectionService.CreateCollection(ctx, &collection)
 
 	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {
@@ -331,6 +333,15 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	tx, err = c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	txHeaderService, err := sheader.NewTX(ctx, tx)
 	if err != nil {
@@ -340,14 +351,10 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
 	err = tx.Commit()
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
 	respRaw := &collectionv1.ImportPostmanResponse{
-		Id: ulidID.String(),
+		Id: collectionUlid.String(),
 	}
 	resp := connect.NewResponse(respRaw)
 	return resp, nil
@@ -389,6 +396,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	hs, err := sheader.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &CollectionServiceRPC{
@@ -401,6 +413,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		us:     *us,
 		ras:    *ras,
 		iaes:   *iaes,
+		hs:     *hs,
 	}
 
 	path, handler := collectionv1connect.NewCollectionServiceHandler(server, interceptors)

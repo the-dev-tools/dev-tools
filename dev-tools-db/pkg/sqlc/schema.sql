@@ -52,7 +52,6 @@ CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,
   owner_id BLOB NOT NULL,
   name TEXT NOT NULL,
-  CHECK (length (id) == 16),
   FOREIGN KEY (owner_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
@@ -71,7 +70,6 @@ CREATE TABLE item_folder (
   name TEXT NOT NULL,
   prev BLOB,
   next BLOB,
-  CHECK (length (id) == 16),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
@@ -116,9 +114,6 @@ CREATE TABLE item_api_example (
   body BLOB NOT NULL,
   prev BLOB,
   next BLOB,
-  CHECK (length(prev) == 16),
-  CHECK (length(next) == 16),
-  CHECK (length(id) == 16),
   UNIQUE (prev, next),
   FOREIGN KEY (parent_example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
@@ -139,7 +134,6 @@ CREATE TABLE example_header (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  CHECK (length (id) == 16),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
@@ -155,7 +149,6 @@ CREATE TABLE example_query (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  CHECK (length (id) == 16),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
@@ -171,7 +164,6 @@ CREATE TABLE example_body_form (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  CHECK (length (id) == 16),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 

@@ -12,7 +12,6 @@ import (
 var ErrNoCollectionFound = sql.ErrNoRows
 
 type CollectionService struct {
-	DB      *sql.DB
 	queries *gen.Queries
 }
 
@@ -45,7 +44,16 @@ func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
 	if err != nil {
 		return nil, err
 	}
-	service := CollectionService{DB: db, queries: queries}
+	service := CollectionService{queries: queries}
+	return &service, nil
+}
+
+func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	service := CollectionService{queries: queries}
 	return &service, nil
 }
 

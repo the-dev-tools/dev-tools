@@ -13,7 +13,6 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"errors"
-	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -152,22 +151,15 @@ func GetRecursiveFolders(items []mitem.Items, parentID *ulid.ULID, collectionID 
 
 func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
 	defer channels.Wg.Done()
+
 	var apiPrev *mitemapi.ItemApi
 	var apiArr []*mitemapi.ItemApi
 	for _, item := range items {
-		headers := make(map[string]string)
 		if item.Request == nil {
 			channels.Err <- errors.New("item is not an api")
 			return
 		}
-		if item.Request.Header != nil {
-			for _, v := range item.Request.Header {
-				if !v.Disabled {
-					headers[v.Key] = v.Value
-				}
-			}
-		}
-		ulidID := ulid.Make()
+		ApiUlid := ulid.Make()
 		queryParams := make(map[string]string)
 		var rawURL string
 		switch item.Request.URL.(type) {
@@ -196,7 +188,7 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 		}
 
 		api := &mitemapi.ItemApi{
-			ID:           ulidID,
+			ID:           ApiUlid,
 			CollectionID: collectionID,
 			ParentID:     parentID,
 			Name:         item.Name,
@@ -214,19 +206,18 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 
 		buffBytes := bodyBuff.Bytes()
 		defaultExampleUlid := ulid.Make()
-		example := mitemapiexample.NewItemApiExample(defaultExampleUlid, ulidID, collectionID, nil, true,
+		example := mitemapiexample.NewItemApiExample(defaultExampleUlid, ApiUlid, collectionID, nil, true,
 			"Default Example", compresed, buffBytes)
 
 		channels.ApiExample <- *example
 		if len(item.Responses) != 0 {
-			channels.Wg.Add(1)
 			headers := item.Responses[0].Headers
-			fmt.Println(headers)
+			channels.Wg.Add(1)
 			go GetHeaders(headers, defaultExampleUlid, collectionID, channels)
 		}
 
 		channels.Wg.Add(1)
-		go GetResponse(item.Responses, buffBytes, ulidID, collectionID, channels)
+		go GetResponse(item.Responses, buffBytes, ApiUlid, collectionID, channels)
 	}
 
 	SendAllToChannelPtr(apiArr, channels.Api)
@@ -276,8 +267,8 @@ func GetResponse(items []mresponse.Response, body []byte,
 
 func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
 	defer channels.Wg.Done()
-	var headerArr []mexampleheader.Header
-	for _, item := range headers {
+	headerArr := make([]mexampleheader.Header, len(headers))
+	for i, item := range headers {
 		header := mexampleheader.Header{
 			ID:           ulid.Make(),
 			ExampleID:    exampleID,
@@ -287,8 +278,8 @@ func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid
 			Description:  item.Description,
 			Value:        item.Value,
 		}
+		headerArr[i] = header
 		// TODO: add ordering
-		headerArr = append(headerArr, header)
 	}
 	for _, header := range headerArr {
 		channels.Header <- header

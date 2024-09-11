@@ -225,7 +225,7 @@ func TestTranslatePostmanOrder(test *testing.T) {
 
 func TestTranslatePostmanHeader(test *testing.T) {
 	RootApiLen := 100
-	ReponseHeaderLen := 10
+	ReponseHeaderLen := 100
 
 	var headers []mheader.Header
 	for i := 0; i < ReponseHeaderLen; i++ {
@@ -289,5 +289,29 @@ func TestTranslatePostmanHeader(test *testing.T) {
 
 	if len(pairs.Api) != RootApiLen {
 		test.Errorf("Error: %v", len(pairs.Api))
+	}
+
+	apiUlidMap := make(map[ulid.ULID]struct{})
+	for _, api := range pairs.Api {
+		if _, ok := apiUlidMap[api.ID]; ok {
+			test.Errorf("Error: %v", "api ulid duplicate")
+		}
+		apiUlidMap[api.ID] = struct{}{}
+	}
+
+	apiExampleUlidMap := make(map[ulid.ULID]struct{})
+	for _, apiExample := range pairs.ApiExample {
+		if _, ok := apiExampleUlidMap[apiExample.ID]; ok {
+			test.Errorf("Error: %v", "api example ulid duplicate")
+		}
+		apiExampleUlidMap[apiExample.ID] = struct{}{}
+	}
+
+	headerUlidMap := make(map[ulid.ULID]struct{})
+	for _, header := range pairs.Headers {
+		if _, ok := headerUlidMap[header.ID]; ok {
+			test.Errorf("Error: %v", "header ulid duplicate")
+		}
+		headerUlidMap[header.ID] = struct{}{}
 	}
 }

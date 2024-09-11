@@ -175,28 +175,77 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderBulkParams struct {
-	ID            ulid.ULID
-	ExampleID     ulid.ULID
-	HeaderKey     string
-	Enable        bool
-	Description   string
-	Value         string
-	ID_2          ulid.ULID
-	ExampleID_2   ulid.ULID
-	HeaderKey_2   string
-	Enable_2      bool
-	Description_2 string
-	Value_2       string
-	ID_3          ulid.ULID
-	ExampleID_3   ulid.ULID
-	HeaderKey_3   string
-	Enable_3      bool
-	Description_3 string
-	Value_3       string
+	ID             ulid.ULID
+	ExampleID      ulid.ULID
+	HeaderKey      string
+	Enable         bool
+	Description    string
+	Value          string
+	ID_2           ulid.ULID
+	ExampleID_2    ulid.ULID
+	HeaderKey_2    string
+	Enable_2       bool
+	Description_2  string
+	Value_2        string
+	ID_3           ulid.ULID
+	ExampleID_3    ulid.ULID
+	HeaderKey_3    string
+	Enable_3       bool
+	Description_3  string
+	Value_3        string
+	ID_4           ulid.ULID
+	ExampleID_4    ulid.ULID
+	HeaderKey_4    string
+	Enable_4       bool
+	Description_4  string
+	Value_4        string
+	ID_5           ulid.ULID
+	ExampleID_5    ulid.ULID
+	HeaderKey_5    string
+	Enable_5       bool
+	Description_5  string
+	Value_5        string
+	ID_6           ulid.ULID
+	ExampleID_6    ulid.ULID
+	HeaderKey_6    string
+	Enable_6       bool
+	Description_6  string
+	Value_6        string
+	ID_7           ulid.ULID
+	ExampleID_7    ulid.ULID
+	HeaderKey_7    string
+	Enable_7       bool
+	Description_7  string
+	Value_7        string
+	ID_8           ulid.ULID
+	ExampleID_8    ulid.ULID
+	HeaderKey_8    string
+	Enable_8       bool
+	Description_8  string
+	Value_8        string
+	ID_9           ulid.ULID
+	ExampleID_9    ulid.ULID
+	HeaderKey_9    string
+	Enable_9       bool
+	Description_9  string
+	Value_9        string
+	ID_10          ulid.ULID
+	ExampleID_10   ulid.ULID
+	HeaderKey_10   string
+	Enable_10      bool
+	Description_10 string
+	Value_10       string
 }
 
 func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkParams) error {
@@ -219,6 +268,48 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
+		arg.ID_4,
+		arg.ExampleID_4,
+		arg.HeaderKey_4,
+		arg.Enable_4,
+		arg.Description_4,
+		arg.Value_4,
+		arg.ID_5,
+		arg.ExampleID_5,
+		arg.HeaderKey_5,
+		arg.Enable_5,
+		arg.Description_5,
+		arg.Value_5,
+		arg.ID_6,
+		arg.ExampleID_6,
+		arg.HeaderKey_6,
+		arg.Enable_6,
+		arg.Description_6,
+		arg.Value_6,
+		arg.ID_7,
+		arg.ExampleID_7,
+		arg.HeaderKey_7,
+		arg.Enable_7,
+		arg.Description_7,
+		arg.Value_7,
+		arg.ID_8,
+		arg.ExampleID_8,
+		arg.HeaderKey_8,
+		arg.Enable_8,
+		arg.Description_8,
+		arg.Value_8,
+		arg.ID_9,
+		arg.ExampleID_9,
+		arg.HeaderKey_9,
+		arg.Enable_9,
+		arg.Description_9,
+		arg.Value_9,
+		arg.ID_10,
+		arg.ExampleID_10,
+		arg.HeaderKey_10,
+		arg.Enable_10,
+		arg.Description_10,
+		arg.Value_10,
 	)
 	return err
 }
