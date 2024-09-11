@@ -1,5 +1,5 @@
 import { Struct } from 'effect';
-import React from 'react';
+import { ComponentProps } from 'react';
 import {
   Checkbox as AriaCheckbox,
   CheckboxProps as AriaCheckboxProps,
@@ -30,7 +30,7 @@ export const checkboxBoxStyles = tv({
   base: tw`flex size-5 flex-none cursor-pointer items-center justify-center rounded border-2 border-black`,
 });
 
-export interface CheckboxBoxProps extends React.ComponentProps<'div'>, VariantProps<typeof checkboxBoxStyles> {}
+export interface CheckboxBoxProps extends ComponentProps<'div'>, VariantProps<typeof checkboxBoxStyles> {}
 
 export const CheckboxBox = ({ className, ...props }: CheckboxBoxProps) => {
   const forwardedProps = Struct.omit(props, ...checkboxBoxStyles.variantKeys);

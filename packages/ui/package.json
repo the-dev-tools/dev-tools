@@ -9,12 +9,12 @@
     "./tailwind-content": "./src/tailwind-content.mts"
   },
   "dependencies": {
-    "@fontsource-variable/lexend-deca": "5.0.14",
+    "@fontsource-variable/lexend-deca": "5.0.15",
     "@react-aria/collections": "3.0.0-alpha.4",
     "@the-dev-tools/utils": "workspace:^",
     "ag-grid-community": "32.1.0",
     "ag-grid-react": "32.1.0",
-    "effect": "3.7.0",
+    "effect": "3.7.2",
     "react": "18.3.1",
     "react-aria": "3.34.3",
     "react-aria-components": "1.3.3",
@@ -28,9 +28,9 @@
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "@types/node": "~22.5.1",
+    "@types/node": "~22.5.4",
     "@types/react": "~18.3.5",
     "tailwindcss": "~3.4.10",
-    "typescript": "~5.5.4"
+    "typescript": "~5.6.2"
   }
 }

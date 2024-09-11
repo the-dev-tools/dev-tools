@@ -1,5 +1,5 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router';
-import React, { ComponentType, Suspense } from 'react';
+import { ComponentType, lazy, Suspense } from 'react';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
@@ -8,7 +8,7 @@ const makeLazyDevtools = <Component extends ComponentType>(lazyComponent: () => 
     ? // Render nothing in production
       () => null
     : // Lazy load in development
-      React.lazy(() => lazyComponent().then((_) => ({ default: _ })));
+      lazy(() => lazyComponent().then((_) => ({ default: _ })));
 
 const TanStackRouterDevtools = makeLazyDevtools(() =>
   import('@tanstack/router-devtools').then((_) => _.TanStackRouterDevtools),

@@ -146,23 +146,152 @@ declare module '@tanstack/react-router' {
 
 // Create and export the route tree
 
-export const routeTree = rootRoute.addChildren({
-  AuthorizedRouteRoute: AuthorizedRouteRoute.addChildren({
-    AuthorizedDashboardRouteRoute: AuthorizedDashboardRouteRoute.addChildren({
-      AuthorizedDashboardIndexRoute,
-    }),
-    AuthorizedWorkspaceWorkspaceIdRouteRoute:
-      AuthorizedWorkspaceWorkspaceIdRouteRoute.addChildren({
-        AuthorizedWorkspaceWorkspaceIdMembersRoute,
-        AuthorizedWorkspaceWorkspaceIdIndexRoute,
-        AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute:
-          AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute.addChildren({
-            AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute,
-          }),
-      }),
-  }),
-  LoginRoute,
-});
+interface AuthorizedDashboardRouteRouteChildren {
+  AuthorizedDashboardIndexRoute: typeof AuthorizedDashboardIndexRoute;
+}
+
+const AuthorizedDashboardRouteRouteChildren: AuthorizedDashboardRouteRouteChildren =
+  {
+    AuthorizedDashboardIndexRoute: AuthorizedDashboardIndexRoute,
+  };
+
+const AuthorizedDashboardRouteRouteWithChildren =
+  AuthorizedDashboardRouteRoute._addFileChildren(
+    AuthorizedDashboardRouteRouteChildren,
+  );
+
+interface AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteChildren {
+  AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute;
+}
+
+const AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteChildren: AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteChildren =
+  {
+    AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute:
+      AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute,
+  };
+
+const AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteWithChildren =
+  AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute._addFileChildren(
+    AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteChildren,
+  );
+
+interface AuthorizedWorkspaceWorkspaceIdRouteRouteChildren {
+  AuthorizedWorkspaceWorkspaceIdMembersRoute: typeof AuthorizedWorkspaceWorkspaceIdMembersRoute;
+  AuthorizedWorkspaceWorkspaceIdIndexRoute: typeof AuthorizedWorkspaceWorkspaceIdIndexRoute;
+  AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute: typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteWithChildren;
+}
+
+const AuthorizedWorkspaceWorkspaceIdRouteRouteChildren: AuthorizedWorkspaceWorkspaceIdRouteRouteChildren =
+  {
+    AuthorizedWorkspaceWorkspaceIdMembersRoute:
+      AuthorizedWorkspaceWorkspaceIdMembersRoute,
+    AuthorizedWorkspaceWorkspaceIdIndexRoute:
+      AuthorizedWorkspaceWorkspaceIdIndexRoute,
+    AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRoute:
+      AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteWithChildren,
+  };
+
+const AuthorizedWorkspaceWorkspaceIdRouteRouteWithChildren =
+  AuthorizedWorkspaceWorkspaceIdRouteRoute._addFileChildren(
+    AuthorizedWorkspaceWorkspaceIdRouteRouteChildren,
+  );
+
+interface AuthorizedRouteRouteChildren {
+  AuthorizedDashboardRouteRoute: typeof AuthorizedDashboardRouteRouteWithChildren;
+  AuthorizedWorkspaceWorkspaceIdRouteRoute: typeof AuthorizedWorkspaceWorkspaceIdRouteRouteWithChildren;
+}
+
+const AuthorizedRouteRouteChildren: AuthorizedRouteRouteChildren = {
+  AuthorizedDashboardRouteRoute: AuthorizedDashboardRouteRouteWithChildren,
+  AuthorizedWorkspaceWorkspaceIdRouteRoute:
+    AuthorizedWorkspaceWorkspaceIdRouteRouteWithChildren,
+};
+
+const AuthorizedRouteRouteWithChildren = AuthorizedRouteRoute._addFileChildren(
+  AuthorizedRouteRouteChildren,
+);
+
+export interface FileRoutesByFullPath {
+  '': typeof AuthorizedDashboardRouteRouteWithChildren;
+  '/login': typeof LoginRoute;
+  '/workspace/$workspaceId': typeof AuthorizedWorkspaceWorkspaceIdRouteRouteWithChildren;
+  '/': typeof AuthorizedDashboardIndexRoute;
+  '/workspace/$workspaceId/members': typeof AuthorizedWorkspaceWorkspaceIdMembersRoute;
+  '/workspace/$workspaceId/': typeof AuthorizedWorkspaceWorkspaceIdIndexRoute;
+  '/workspace/$workspaceId/api-call/$apiCallId': typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteWithChildren;
+  '/workspace/$workspaceId/api-call/$apiCallId/headers': typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute;
+}
+
+export interface FileRoutesByTo {
+  '': typeof AuthorizedRouteRouteWithChildren;
+  '/login': typeof LoginRoute;
+  '/': typeof AuthorizedDashboardIndexRoute;
+  '/workspace/$workspaceId/members': typeof AuthorizedWorkspaceWorkspaceIdMembersRoute;
+  '/workspace/$workspaceId': typeof AuthorizedWorkspaceWorkspaceIdIndexRoute;
+  '/workspace/$workspaceId/api-call/$apiCallId': typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteWithChildren;
+  '/workspace/$workspaceId/api-call/$apiCallId/headers': typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute;
+}
+
+export interface FileRoutesById {
+  __root__: typeof rootRoute;
+  '/_authorized': typeof AuthorizedRouteRouteWithChildren;
+  '/login': typeof LoginRoute;
+  '/_authorized/_dashboard': typeof AuthorizedDashboardRouteRouteWithChildren;
+  '/_authorized/workspace/$workspaceId': typeof AuthorizedWorkspaceWorkspaceIdRouteRouteWithChildren;
+  '/_authorized/_dashboard/': typeof AuthorizedDashboardIndexRoute;
+  '/_authorized/workspace/$workspaceId/members': typeof AuthorizedWorkspaceWorkspaceIdMembersRoute;
+  '/_authorized/workspace/$workspaceId/': typeof AuthorizedWorkspaceWorkspaceIdIndexRoute;
+  '/_authorized/workspace/$workspaceId/api-call/$apiCallId': typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdRouteRouteWithChildren;
+  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers': typeof AuthorizedWorkspaceWorkspaceIdApiCallApiCallIdHeadersRoute;
+}
+
+export interface FileRouteTypes {
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths:
+    | ''
+    | '/login'
+    | '/workspace/$workspaceId'
+    | '/'
+    | '/workspace/$workspaceId/members'
+    | '/workspace/$workspaceId/'
+    | '/workspace/$workspaceId/api-call/$apiCallId'
+    | '/workspace/$workspaceId/api-call/$apiCallId/headers';
+  fileRoutesByTo: FileRoutesByTo;
+  to:
+    | ''
+    | '/login'
+    | '/'
+    | '/workspace/$workspaceId/members'
+    | '/workspace/$workspaceId'
+    | '/workspace/$workspaceId/api-call/$apiCallId'
+    | '/workspace/$workspaceId/api-call/$apiCallId/headers';
+  id:
+    | '__root__'
+    | '/_authorized'
+    | '/login'
+    | '/_authorized/_dashboard'
+    | '/_authorized/workspace/$workspaceId'
+    | '/_authorized/_dashboard/'
+    | '/_authorized/workspace/$workspaceId/members'
+    | '/_authorized/workspace/$workspaceId/'
+    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId'
+    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers';
+  fileRoutesById: FileRoutesById;
+}
+
+export interface RootRouteChildren {
+  AuthorizedRouteRoute: typeof AuthorizedRouteRouteWithChildren;
+  LoginRoute: typeof LoginRoute;
+}
+
+const rootRouteChildren: RootRouteChildren = {
+  AuthorizedRouteRoute: AuthorizedRouteRouteWithChildren,
+  LoginRoute: LoginRoute,
+};
+
+export const routeTree = rootRoute
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>();
 
 /* prettier-ignore-end */
 

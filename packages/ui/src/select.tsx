@@ -1,5 +1,5 @@
 import { Struct } from 'effect';
-import React, { forwardRef } from 'react';
+import { FC, ForwardedRef, forwardRef, RefAttributes } from 'react';
 import {
   Button as AriaButton,
   Select as AriaSelect,
@@ -44,7 +44,7 @@ export const selectTriggerStyles = tv({
 export interface SelectTriggerProps extends AriaButtonProps, VariantProps<typeof selectTriggerStyles> {}
 
 export const SelectTrigger = forwardRef(
-  ({ className, ...props }: SelectTriggerProps, ref: React.ForwardedRef<HTMLButtonElement>) => {
+  ({ className, ...props }: SelectTriggerProps, ref: ForwardedRef<HTMLButtonElement>) => {
     const forwardedProps = Struct.omit(props, ...selectTriggerStyles.variantKeys);
     const variantProps = Struct.pick(props, ...selectTriggerStyles.variantKeys);
     return (
@@ -72,7 +72,7 @@ export const SelectIndicator = ({ isOpen, ...props }: SelectIndicatorProps) => (
 
 export interface SelectProps<T extends object>
   extends Omit<SelectRootProps<T>, 'children'>,
-    React.RefAttributes<HTMLButtonElement>,
+    RefAttributes<HTMLButtonElement>,
     MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'trigger', Omit<SelectTriggerProps, 'children'>>,
     MixinProps<'value', Omit<AriaSelectValueProps<T>, 'children'>>,
@@ -85,8 +85,8 @@ export interface SelectProps<T extends object>
   error?: FieldErrorProps['children'];
 }
 
-interface Select extends React.FC<SelectProps<object>> {
-  <T extends object>(props: SelectProps<T>): ReturnType<React.FC<SelectProps<T>>>;
+interface Select extends FC<SelectProps<object>> {
+  <T extends object>(props: SelectProps<T>): ReturnType<FC<SelectProps<T>>>;
 }
 
 export const Select: Select = forwardRef(({ children, label, error, ...props }, ref) => {
