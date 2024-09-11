@@ -9,7 +9,7 @@ import (
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/sheader"
+	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
@@ -41,7 +41,7 @@ type ItemAPIExampleRPC struct {
 	ras  *sresultapi.ResultApiService
 	cs   *scollection.CollectionService
 	us   *suser.UserService
-	hs   *sheader.HeaderService
+	hs   *sexampleheader.HeaderService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -89,7 +89,7 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 	for i, example := range examples {
 
 		header, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
-		if err != nil && err != sheader.ErrNoHeaderFound {
+		if err != nil && err != sexampleheader.ErrNoHeaderFound {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

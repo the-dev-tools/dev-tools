@@ -9,13 +9,16 @@ import (
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/sheader"
+	"dev-tools-backend/pkg/service/sexampleheader"
+	"dev-tools-backend/pkg/service/sexamplequery"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
+	"dev-tools-backend/pkg/translate/tquery"
+	"dev-tools-backend/pkg/ulidwrap"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
@@ -35,7 +38,8 @@ type ItemApiRPC struct {
 	iaes *sitemapiexample.ItemApiExampleService
 
 	// Sub
-	hs *sheader.HeaderService
+	hs *sexampleheader.HeaderService
+	qs *sexamplequery.ExampleQueryService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -64,7 +68,12 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
-	hs, err := sheader.New(ctx, db)
+	hs, err := sexampleheader.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	qs, err := sexamplequery.New(ctx, db)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +88,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		us:   us,
 		iaes: iaes,
 		hs:   hs,
+		qs:   qs,
 	}
 
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, interceptors)
@@ -132,7 +142,7 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 }
 
 func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemapiv1.GetApiCallRequest]) (*connect.Response[itemapiv1.GetApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetId())
+	apiUlid, err := ulid.Parse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -153,12 +163,12 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	item, err := c.ias.GetItemApi(ctx, ulidID)
+	item, err := c.ias.GetItemApi(ctx, apiUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+	isOwner, err := c.CheckOwnerApi(ctx, apiUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -168,7 +178,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 
 	var examplePtr *mitemapiexample.ItemApiExample = nil
 	if isDefaultExample {
-		examplePtr, err = c.iaes.GetDefaultApiExample(ctx, ulidID)
+		examplePtr, err = c.iaes.GetDefaultApiExample(ctx, apiUlid)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -178,6 +188,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
+	exampleUlidWrap := ulidwrap.New(examplePtr.ID)
 
 	var parentID string
 	if item.ParentID == nil {
@@ -185,22 +196,24 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	} else {
 		parentID = item.ParentID.String()
 	}
-
 	// TODO: it is overfetching the data change it
-	examples, err := c.iaes.GetApiExamples(ctx, ulidID)
+	examples, err := c.iaes.GetApiExamples(ctx, apiUlid)
 	if err != nil && err == sitemapiexample.ErrNoItemApiExampleFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	header, err := c.hs.GetHeaderByExampleID(ctx, examplePtr.ID)
-	if err != nil && err == sheader.ErrNoHeaderFound {
+	if err != nil && err == sexampleheader.ErrNoHeaderFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlidWrap)
+	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	rpcQueries := tgeneric.MassConvert(queries, tquery.SerializeQueryModelToRPC)
 
 	// TODO: it is overfetching the data change it
 	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))
@@ -229,8 +242,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 				Name: examplePtr.Name,
 			},
 			Header: rpcHeaders,
-			// TODO: add query params
-			Query: []*itemapiexamplev1.Query{},
+			Query:  rpcQueries,
 			Body: &itemapiexamplev1.ApiExample_BodyBytes{
 				BodyBytes: examplePtr.Body,
 			},

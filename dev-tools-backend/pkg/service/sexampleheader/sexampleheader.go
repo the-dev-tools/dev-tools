@@ -1,4 +1,4 @@
-package sheader
+package sexampleheader
 
 import (
 	"context"

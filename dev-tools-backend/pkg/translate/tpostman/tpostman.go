@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"dev-tools-backend/pkg/model/mexampleheader"
+	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
@@ -12,8 +13,11 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
+	"dev-tools-backend/pkg/model/postman/v21/mvariable"
 	"errors"
+	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,10 +49,11 @@ func ParsePostmanCollection(data []byte) (mpostmancollection.Collection, error) 
 }
 
 type ItemsPair struct {
-	ApiExample []mitemapiexample.ItemApiExample
-	Api        []mitemapi.ItemApi
-	Folder     []mitemfolder.ItemFolder
-	Headers    []mexampleheader.Header
+	ApiExamples []mitemapiexample.ItemApiExample
+	Apis        []mitemapi.ItemApi
+	Folders     []mitemfolder.ItemFolder
+	Headers     []mexampleheader.Header
+	Queries     []mexamplequery.Query
 	// TODO: add query params and body
 }
 
@@ -56,17 +61,19 @@ type ItemChannels struct {
 	ApiExample chan mitemapiexample.ItemApiExample
 	Api        chan mitemapi.ItemApi
 	Folder     chan mitemfolder.ItemFolder
-	Header     chan mexampleheader.Header
+	Header     chan []mexampleheader.Header
+	Query      chan []mexamplequery.Query
 	Wg         *sync.WaitGroup
 	Err        chan error
 	Done       chan struct{}
 }
 
 func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID) (*ItemsPair, error) {
-	var pair ItemsPair = ItemsPair{
-		Api:     make([]mitemapi.ItemApi, 0, len(collection.Items)),
-		Folder:  make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
+	pair := ItemsPair{
+		Apis:    make([]mitemapi.ItemApi, 0, len(collection.Items)),
+		Folders: make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
 		Headers: make([]mexampleheader.Header, 0, len(collection.Items)*2),
+		Queries: make([]mexamplequery.Query, 0, len(collection.Items)*2),
 	}
 
 	var wg sync.WaitGroup
@@ -74,7 +81,8 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 		ApiExample: make(chan mitemapiexample.ItemApiExample),
 		Api:        make(chan mitemapi.ItemApi),
 		Folder:     make(chan mitemfolder.ItemFolder),
-		Header:     make(chan mexampleheader.Header),
+		Header:     make(chan []mexampleheader.Header),
+		Query:      make(chan []mexamplequery.Query),
 		Wg:         &wg,
 		Done:       make(chan struct{}),
 		Err:        make(chan error),
@@ -97,13 +105,15 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 		case err := <-ItemChannels.Err:
 			return nil, err
 		case folder := <-ItemChannels.Folder:
-			pair.Folder = append(pair.Folder, folder)
+			pair.Folders = append(pair.Folders, folder)
 		case api := <-ItemChannels.Api:
-			pair.Api = append(pair.Api, api)
+			pair.Apis = append(pair.Apis, api)
 		case apiExample := <-ItemChannels.ApiExample:
-			pair.ApiExample = append(pair.ApiExample, apiExample)
+			pair.ApiExamples = append(pair.ApiExamples, apiExample)
 		case header := <-ItemChannels.Header:
-			pair.Headers = append(pair.Headers, header)
+			pair.Headers = append(pair.Headers, header...)
+		case query := <-ItemChannels.Query:
+			pair.Queries = append(pair.Queries, query...)
 		case <-ItemChannels.Done:
 			return &pair, nil
 		}
@@ -160,19 +170,9 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 			return
 		}
 		ApiUlid := ulid.Make()
-		queryParams := make(map[string]string)
-		var rawURL string
-		switch item.Request.URL.(type) {
-		case string:
-			rawURL = item.Request.URL.(string)
-		case murl.URL:
-			url := item.Request.URL.(murl.URL)
-			rawURL = url.Raw
-			for _, v := range url.Query {
-				queryParams[v.Key] = v.Value
-			}
-		default:
-			channels.Err <- errors.New("url is not a string or murl.URL")
+		URL, err := GetQueryParams(item.Request.URL)
+		if err != nil {
+			channels.Err <- err
 			return
 		}
 		var bodyBuff bytes.Buffer
@@ -192,7 +192,7 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 			CollectionID: collectionID,
 			ParentID:     parentID,
 			Name:         item.Name,
-			Url:          rawURL,
+			Url:          URL.Raw,
 			Method:       item.Request.Method,
 		}
 
@@ -210,6 +210,8 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 			"Default Example", compresed, buffBytes)
 
 		channels.ApiExample <- *example
+		channels.Wg.Add(1)
+		go GetQueries(URL.Query, defaultExampleUlid, collectionID, channels)
 		if len(item.Responses) != 0 {
 			headers := item.Responses[0].Headers
 			channels.Wg.Add(1)
@@ -217,13 +219,13 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 		}
 
 		channels.Wg.Add(1)
-		go GetResponse(item.Responses, buffBytes, ApiUlid, collectionID, channels)
+		go GetResponse(item.Responses, URL, buffBytes, ApiUlid, collectionID, channels)
 	}
 
 	SendAllToChannelPtr(apiArr, channels.Api)
 }
 
-func GetResponse(items []mresponse.Response, body []byte,
+func GetResponse(items []mresponse.Response, urlData *murl.URL, body []byte,
 	apiUlid, collectionID ulid.ULID, channels *ItemChannels,
 ) {
 	defer channels.Wg.Done()
@@ -231,7 +233,6 @@ func GetResponse(items []mresponse.Response, body []byte,
 	var examples []*mitemapiexample.ItemApiExample
 
 	for _, item := range items {
-
 		cookies := make(map[string]string)
 		for _, v := range item.Cookies {
 			cookies[v.Name] = v.Value
@@ -250,8 +251,14 @@ func GetResponse(items []mresponse.Response, body []byte,
 			Body:         body,
 		}
 
-		channels.Wg.Add(1)
-		go GetHeaders(item.Headers, apiExampleID, collectionID, channels)
+		if len(item.Headers) > 0 {
+			channels.Wg.Add(1)
+			go GetHeaders(item.Headers, apiExampleID, collectionID, channels)
+		}
+		if len(urlData.Query) > 0 {
+			channels.Wg.Add(1)
+			go GetQueries(urlData.Query, apiExampleID, collectionID, channels)
+		}
 
 		if prevExample != nil {
 			prevExample.Next = &apiExample.ID
@@ -281,9 +288,142 @@ func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid
 		headerArr[i] = header
 		// TODO: add ordering
 	}
-	for _, header := range headerArr {
-		channels.Header <- header
+	channels.Header <- headerArr
+}
+
+func GetQueries(queries []murl.QueryParamter, exampleID ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+	defer channels.Wg.Done()
+	queryArr := make([]mexamplequery.Query, len(queries))
+	for i, item := range queries {
+		query := mexamplequery.Query{
+			ID:          ulid.Make(),
+			ExampleID:   exampleID,
+			QueryKey:    item.Key,
+			Enable:      !item.Disabled,
+			Description: item.Description,
+			Value:       item.Value,
+		}
+		queryArr[i] = query
+		// TODO: add ordering
 	}
+	channels.Query <- queryArr
+}
+
+// returns RAW URL and GetQueryParams
+func GetQueryParams(urlData interface{}) (*murl.URL, error) {
+	var murlData murl.URL
+	// TODO: put avarage size of query params
+	switch urlType := urlData.(type) {
+	case string:
+		url, err := url.Parse(urlData.(string))
+		if err != nil {
+			return nil, err
+		}
+		queryParamsMap := make(map[string]string)
+		for k, v := range url.Query() {
+			// TODO: talk about this,
+			// /api/path?limit=0&limit=10
+			queryParamsMap[k] = v[0]
+		}
+		queryParamsArr := make([]murl.QueryParamter, len(queryParamsMap))
+		var i int
+		for k, v := range queryParamsMap {
+			queryParamsArr[i] = murl.QueryParamter{
+				Key:         k,
+				Value:       v,
+				Disabled:    false,
+				Description: "",
+			}
+			i++
+		}
+
+		url.RawQuery = ""
+		murlData = murl.URL{
+			Protocol:  url.Scheme,
+			Host:      []string{url.Host},
+			Raw:       url.String(),
+			Port:      url.Port(),
+			Variables: []mvariable.Variable{},
+			Path:      strings.Split(url.Path, "/"),
+			Query:     queryParamsArr,
+			Hash:      url.Fragment,
+		}
+	case murl.URL:
+		murlData = urlData.(murl.URL)
+	case map[string]interface{}:
+		urlDataNest := urlData.(map[string]interface{})
+		queryData := urlDataNest["query"].([]interface{})
+		queryParamsArr := make([]murl.QueryParamter, len(queryData))
+		for i, query := range queryData {
+			queryMap := query.(map[string]interface{})
+			key, ok := queryMap["key"].(string)
+			if !ok {
+				return nil, fmt.Errorf("key %T not supported", key)
+			}
+			value, ok := queryMap["value"].(string)
+			if !ok {
+				value = ""
+			}
+			disabled, ok := queryMap["disabled"].(bool)
+			if !ok {
+				disabled = false
+			}
+			description, ok := queryMap["description"].(string)
+			if !ok {
+				description = ""
+			}
+
+			queryParamsArr[i] = murl.QueryParamter{
+				Key:         key,
+				Value:       value,
+				Disabled:    disabled,
+				Description: description,
+			}
+		}
+
+		raw, ok := urlDataNest["raw"].(string)
+		if !ok {
+			return nil, fmt.Errorf("raw %T not supported", raw)
+		}
+		protocol, ok := urlDataNest["protocol"].(string)
+		if !ok {
+			return nil, fmt.Errorf("protocol %T not supported", protocol)
+		}
+		hostInterface, ok := urlDataNest["host"].([]interface{})
+		hosts := make([]string, len(hostInterface))
+		for i, host := range hostInterface {
+			hosts[i] = host.(string)
+		}
+		fmt.Println("host", urlDataNest["host"])
+		if !ok {
+			return nil, fmt.Errorf("host %T not supported", urlDataNest["host"])
+		}
+		port, ok := urlDataNest["port"].(string)
+		if !ok {
+			port = "443"
+		}
+		variables, ok := urlDataNest["variables"].([]mvariable.Variable)
+		if !ok {
+			variables = []mvariable.Variable{}
+		}
+		hash, ok := urlDataNest["hash"].(string)
+		if !ok {
+			hash = ""
+		}
+
+		murlData = murl.URL{
+			Raw:       raw,
+			Protocol:  protocol,
+			Host:      hosts,
+			Port:      port,
+			Variables: variables,
+			Query:     queryParamsArr,
+			Hash:      hash,
+		}
+	default:
+		return nil, fmt.Errorf("url type %T not supported", urlType)
+	}
+	return &murlData, nil
 }
 
 func RemoveItem[I any](slice []I, s int) []I {
@@ -291,16 +431,4 @@ func RemoveItem[I any](slice []I, s int) []I {
 		return slice
 	}
 	return append(slice[:s], slice[s+1:]...)
-}
-
-func GetQueryParams(urlStr string) (map[string]string, error) {
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		return nil, err
-	}
-	queryParams := make(map[string]string)
-	for k, v := range u.Query() {
-		queryParams[k] = v[0]
-	}
-	return queryParams, nil
 }

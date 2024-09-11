@@ -91,7 +91,6 @@ CREATE TABLE item_api (
   method TEXT NOT NULL,
   prev BLOB,
   next BLOB,
-  CHECK (length (id) == 16),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );

@@ -8,7 +8,8 @@ import (
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/sheader"
+	"dev-tools-backend/pkg/service/sexampleheader"
+	"dev-tools-backend/pkg/service/sexamplequery"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -20,6 +21,7 @@ import (
 	collectionv1 "dev-tools-services/gen/collection/v1"
 	"dev-tools-services/gen/collection/v1/collectionv1connect"
 	"errors"
+	"fmt"
 	"log"
 
 	"connectrpc.com/connect"
@@ -35,7 +37,7 @@ type CollectionServiceRPC struct {
 	ifs    sitemfolder.ItemFolderService
 	ras    sresultapi.ResultApiService
 	iaes   sitemapiexample.ItemApiExampleService
-	hs     sheader.HeaderService
+	hs     sexampleheader.HeaderService
 	secret []byte
 }
 
@@ -313,7 +315,7 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = txItemFolderService.CreateItemFolderBulk(ctx, items.Folder)
+	err = txItemFolderService.CreateItemFolderBulk(ctx, items.Folders)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -322,7 +324,7 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = txItemApiService.CreateItemApiBulk(ctx, items.Api)
+	err = txItemApiService.CreateItemApiBulk(ctx, items.Apis)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -332,12 +334,12 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExample)
+	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExamples)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	txHeaderService, err := sheader.NewTX(ctx, tx)
+	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -345,6 +347,16 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("items.Queries", items.Queries)
+	err = txQueriesService.CreateBulkQuery(ctx, items.Queries)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -393,7 +405,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
-	hs, err := sheader.New(ctx, db)
+	hs, err := sexampleheader.New(ctx, db)
 	if err != nil {
 		return nil, err
 	}

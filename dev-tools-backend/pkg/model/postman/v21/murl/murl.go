@@ -10,12 +10,13 @@ type URL struct {
 	Port      string               `json:"port,omitempty"`
 	Variables []mvariable.Variable `json:"variable,omitempty"`
 	Path      []string             `json:"path,omitempty"`
-	Query     []*QueryParamter     `json:"query,omitempty"`
+	Query     []QueryParamter      `json:"query,omitempty"`
 	Hash      string               `json:"hash,omitempty"`
 }
 
 type QueryParamter struct {
 	Key         string `json:"key"`
 	Value       string `json:"value"`
+	Disabled    bool   `json:"disabled"`
 	Description string `json:"description"`
 }

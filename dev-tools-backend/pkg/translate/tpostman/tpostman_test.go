@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
 	"dev-tools-backend/pkg/model/postman/v21/mrequest"
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
+	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"dev-tools-backend/pkg/translate/tpostman"
 	"testing"
 	"time"
@@ -83,17 +84,17 @@ func TestTranslatePostman(test *testing.T) {
 		test.Errorf("Error: %v", err)
 	}
 
-	if len(pairs.Folder) != RootFolderLen {
-		test.Errorf("Error: %v", len(pairs.Folder))
+	if len(pairs.Folders) != RootFolderLen {
+		test.Errorf("Error: %v", len(pairs.Folders))
 	}
 
-	if len(pairs.Api) != RootFolderLen*NestedApiLen {
-		test.Errorf("Error: %v", len(pairs.Api))
+	if len(pairs.Apis) != RootFolderLen*NestedApiLen {
+		test.Errorf("Error: %v", len(pairs.Apis))
 	}
 
 	// 10 * 100 * (10 + 1) cuz there's 1 default example
-	if len(pairs.ApiExample) != RootFolderLen*NestedApiLen*(PerNestedApiExampleLen+1) {
-		test.Errorf("Error: %v", len(pairs.ApiExample))
+	if len(pairs.ApiExamples) != RootFolderLen*NestedApiLen*(PerNestedApiExampleLen+1) {
+		test.Errorf("Error: %v", len(pairs.ApiExamples))
 	}
 }
 
@@ -166,23 +167,23 @@ func TestTranslatePostmanOrder(test *testing.T) {
 		test.Errorf("Error: %v", err)
 	}
 
-	if len(pairs.Folder) != RootFolderLen {
-		test.Errorf("Error: %v", len(pairs.Folder))
+	if len(pairs.Folders) != RootFolderLen {
+		test.Errorf("Error: %v", len(pairs.Folders))
 	}
 
-	if len(pairs.Api) != RootFolderLen*NestedApiLen {
-		test.Errorf("Error: %v", len(pairs.Api))
+	if len(pairs.Apis) != RootFolderLen*NestedApiLen {
+		test.Errorf("Error: %v", len(pairs.Apis))
 	}
 
 	// 10 * 100 * (10 + 1) cuz there's 1 default example
-	if len(pairs.ApiExample) != RootFolderLen*NestedApiLen*(PerNestedApiExampleLen+1) {
-		test.Errorf("Error: %v", len(pairs.ApiExample))
+	if len(pairs.ApiExamples) != RootFolderLen*NestedApiLen*(PerNestedApiExampleLen+1) {
+		test.Errorf("Error: %v", len(pairs.ApiExamples))
 	}
 
 	// folder order
 	var rootFolder *mitemfolder.ItemFolder
 	var foundFolder bool = false
-	for _, folder := range pairs.Folder {
+	for _, folder := range pairs.Folders {
 		if folder.Prev == nil {
 			if foundFolder {
 				test.Errorf("Error: %v", "found more than one root folder")
@@ -202,7 +203,7 @@ func TestTranslatePostmanOrder(test *testing.T) {
 
 	// api order
 	var TotatExpectedRootApi int = RootFolderLen
-	for _, api := range pairs.Api {
+	for _, api := range pairs.Apis {
 		if api.Prev == nil {
 			TotatExpectedRootApi--
 		}
@@ -213,7 +214,7 @@ func TestTranslatePostmanOrder(test *testing.T) {
 
 	// api example order
 	expectedApiExampleLen := NestedApiLen * RootFolderLen * 2
-	for _, apiExample := range pairs.ApiExample {
+	for _, apiExample := range pairs.ApiExamples {
 		if apiExample.Prev == nil {
 			expectedApiExampleLen--
 		}
@@ -225,7 +226,13 @@ func TestTranslatePostmanOrder(test *testing.T) {
 
 func TestTranslatePostmanHeader(test *testing.T) {
 	RootApiLen := 100
+	ResponseLen := 10
 	ReponseHeaderLen := 100
+	QueryParamterLen := 10
+	// expected
+	ExpectedResponseLen := RootApiLen * (ResponseLen + 1)
+	ExpectedHeaderLen := ExpectedResponseLen * ReponseHeaderLen
+	ExpectedQueryLen := ExpectedResponseLen * QueryParamterLen
 
 	var headers []mheader.Header
 	for i := 0; i < ReponseHeaderLen; i++ {
@@ -236,23 +243,44 @@ func TestTranslatePostmanHeader(test *testing.T) {
 			Description: "test",
 		})
 	}
+	var query []murl.QueryParamter
+	for i := 0; i < QueryParamterLen; i++ {
+		query = append(query, murl.QueryParamter{
+			Key:         "test",
+			Value:       "test",
+			Disabled:    false,
+			Description: "test",
+		})
+	}
+
+	URL := murl.URL{
+		Version:   "test",
+		Raw:       "test",
+		Protocol:  "test",
+		Host:      []string{"test"},
+		Port:      "test",
+		Variables: nil,
+		Query:     query,
+		Hash:      "test",
+	}
 
 	request := mrequest.Request{
 		Method:      "GET",
 		Header:      headers,
 		Body:        nil,
 		Description: "test",
-		URL:         "http://localhost:8080",
+		URL:         URL,
 	}
 
 	response := mresponse.Response{
 		Name:            "test",
 		OriginalRequest: nil,
 		ResponseTime:    0,
+		Headers:         headers,
 	}
 
 	responses := []mresponse.Response{}
-	for i := 0; i < RootApiLen; i++ {
+	for i := 0; i < ResponseLen; i++ {
 		responses = append(responses, response)
 	}
 
@@ -287,12 +315,24 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		test.Errorf("Error: %v", err)
 	}
 
-	if len(pairs.Api) != RootApiLen {
-		test.Errorf("Error: %v", len(pairs.Api))
+	if len(pairs.Apis) != RootApiLen {
+		test.Errorf("Error: %v", len(pairs.Apis))
+	}
+
+	if len(pairs.ApiExamples) != ExpectedResponseLen {
+		test.Errorf("Error: %v", len(pairs.ApiExamples))
+	}
+
+	if len(pairs.Headers) != ExpectedHeaderLen {
+		test.Errorf("Error: %v", len(pairs.Headers))
+	}
+
+	if len(pairs.Queries) != ExpectedQueryLen {
+		test.Errorf("Error: %v", len(pairs.Queries))
 	}
 
 	apiUlidMap := make(map[ulid.ULID]struct{})
-	for _, api := range pairs.Api {
+	for _, api := range pairs.Apis {
 		if _, ok := apiUlidMap[api.ID]; ok {
 			test.Errorf("Error: %v", "api ulid duplicate")
 		}
@@ -300,7 +340,7 @@ func TestTranslatePostmanHeader(test *testing.T) {
 	}
 
 	apiExampleUlidMap := make(map[ulid.ULID]struct{})
-	for _, apiExample := range pairs.ApiExample {
+	for _, apiExample := range pairs.ApiExamples {
 		if _, ok := apiExampleUlidMap[apiExample.ID]; ok {
 			test.Errorf("Error: %v", "api example ulid duplicate")
 		}
@@ -313,5 +353,13 @@ func TestTranslatePostmanHeader(test *testing.T) {
 			test.Errorf("Error: %v", "header ulid duplicate")
 		}
 		headerUlidMap[header.ID] = struct{}{}
+	}
+
+	queryUlidMap := make(map[ulid.ULID]struct{})
+	for _, query := range pairs.Queries {
+		if _, ok := queryUlidMap[query.ID]; ok {
+			test.Errorf("Error: %v", "query ulid duplicate")
+		}
+		queryUlidMap[query.ID] = struct{}{}
 	}
 }
