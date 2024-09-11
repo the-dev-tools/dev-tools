@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-db/pkg/sqlc/gen"
+	"slices"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -93,54 +94,103 @@ func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitem
 }
 
 func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []mitemfolder.ItemFolder) error {
-	itemLen := len(items)
-	sizeOfChunks := 3
-	index := 0
+	sizeOfChunks := 10
 
-	if itemLen > 2 {
-		for {
-
-			item1 := items[index]
-			item2 := items[index+1]
-			item3 := items[index+2]
-			params := gen.CreateItemFolderBulkParams{
-				// Item 1
-				ID:           item1.ID,
-				CollectionID: item1.CollectionID,
-				ParentID:     item1.ParentID,
-				Name:         item1.Name,
-				Prev:         item1.Prev,
-				Next:         item1.Next,
-				// Item 2
-				ID_2:           item2.ID,
-				CollectionID_2: item2.CollectionID,
-				ParentID_2:     item2.ParentID,
-				Name_2:         item2.Name,
-				Prev_2:         item2.Prev,
-				Next_2:         item2.Next,
-				// Item 3
-				ID_3:           item3.ID,
-				CollectionID_3: item3.CollectionID,
-				ParentID_3:     item3.ParentID,
-				Name_3:         item3.Name,
-				Prev_3:         item3.Prev,
-				Next_3:         item3.Next,
+	for chunk := range slices.Chunk(items, sizeOfChunks) {
+		if len(chunk) < sizeOfChunks {
+			for _, item := range chunk {
+				err := ifs.CreateItemFolder(ctx, &item)
+				if err != nil {
+					return err
+				}
 			}
-
-			if err := ifs.queries.CreateItemFolderBulk(ctx, params); err != nil {
-				return err
-			}
-
-			index += sizeOfChunks
-			if index >= itemLen {
-				break
-			}
-
+			continue
 		}
-	}
-	for _, item := range items[index:] {
-		err := ifs.CreateItemFolder(ctx, &item)
-		if err != nil {
+
+		item1 := chunk[0]
+		item2 := chunk[1]
+		item3 := chunk[2]
+		item4 := chunk[3]
+		item5 := chunk[4]
+		item6 := chunk[5]
+		item7 := chunk[6]
+		item8 := chunk[7]
+		item9 := chunk[8]
+		item10 := chunk[9]
+		params := gen.CreateItemFolderBulkParams{
+			// Item 1
+			ID:           item1.ID,
+			CollectionID: item1.CollectionID,
+			ParentID:     item1.ParentID,
+			Name:         item1.Name,
+			Prev:         item1.Prev,
+			Next:         item1.Next,
+			// Item 2
+			ID_2:           item2.ID,
+			CollectionID_2: item2.CollectionID,
+			ParentID_2:     item2.ParentID,
+			Name_2:         item2.Name,
+			Prev_2:         item2.Prev,
+			Next_2:         item2.Next,
+			// Item 3
+			ID_3:           item3.ID,
+			CollectionID_3: item3.CollectionID,
+			ParentID_3:     item3.ParentID,
+			Name_3:         item3.Name,
+			Prev_3:         item3.Prev,
+			Next_3:         item3.Next,
+			// Item 4
+			ID_4:           item4.ID,
+			CollectionID_4: item4.CollectionID,
+			ParentID_4:     item4.ParentID,
+			Name_4:         item4.Name,
+			Prev_4:         item4.Prev,
+			Next_4:         item4.Next,
+			// Item 5
+			ID_5:           item5.ID,
+			CollectionID_5: item5.CollectionID,
+			ParentID_5:     item5.ParentID,
+			Name_5:         item5.Name,
+			Prev_5:         item5.Prev,
+			Next_5:         item5.Next,
+			// Item 6
+			ID_6:           item6.ID,
+			CollectionID_6: item6.CollectionID,
+			ParentID_6:     item6.ParentID,
+			Name_6:         item6.Name,
+			Prev_6:         item6.Prev,
+			Next_6:         item6.Next,
+			// Item 7
+			ID_7:           item7.ID,
+			CollectionID_7: item7.CollectionID,
+			ParentID_7:     item7.ParentID,
+			Name_7:         item7.Name,
+			Prev_7:         item7.Prev,
+			Next_7:         item7.Next,
+			// Item 8
+			ID_8:           item8.ID,
+			CollectionID_8: item8.CollectionID,
+			ParentID_8:     item8.ParentID,
+			Name_8:         item8.Name,
+			Prev_8:         item8.Prev,
+			Next_8:         item8.Next,
+			// Item 9
+			ID_9:           item9.ID,
+			CollectionID_9: item9.CollectionID,
+			ParentID_9:     item9.ParentID,
+			Name_9:         item9.Name,
+			Prev_9:         item9.Prev,
+			Next_9:         item9.Next,
+			// Item 10
+			ID_10:           item10.ID,
+			CollectionID_10: item10.CollectionID,
+			ParentID_10:     item10.ParentID,
+			Name_10:         item10.Name,
+			Prev_10:         item10.Prev,
+			Next_10:         item10.Next,
+		}
+
+		if err := ifs.queries.CreateItemFolderBulk(ctx, params); err != nil {
 			return err
 		}
 

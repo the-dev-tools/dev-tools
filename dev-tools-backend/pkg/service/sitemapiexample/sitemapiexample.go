@@ -138,7 +138,7 @@ func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mi
 }
 
 func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, items []mitemapiexample.ItemApiExample) error {
-	sizeOfChunks := 3
+	sizeOfChunks := 10
 
 	for chunk := range slices.Chunk(items, sizeOfChunks) {
 		if len(chunk) < sizeOfChunks {
@@ -150,9 +150,16 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			}
 			continue
 		}
-		item1 := items[0]
-		item2 := items[1]
-		item3 := items[2]
+		item1 := chunk[0]
+		item2 := chunk[1]
+		item3 := chunk[2]
+		item4 := chunk[3]
+		item5 := chunk[4]
+		item6 := chunk[5]
+		item7 := chunk[6]
+		item8 := chunk[7]
+		item9 := chunk[8]
+		item10 := chunk[9]
 
 		err := iaes.Queries.CreateItemApiExampleBulk(ctx, gen.CreateItemApiExampleBulkParams{
 			// Item 1
@@ -188,6 +195,83 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			Body_3:            item3.Body,
 			Prev_3:            item3.Prev,
 			Next_3:            item3.Next,
+			// Item 4
+			ID_4:              item4.ID,
+			ItemApiID_4:       item4.ItemApiID,
+			CollectionID_4:    item4.CollectionID,
+			ParentExampleID_4: item4.ParentExampleID,
+			IsDefault_4:       item4.IsDefault,
+			Name_4:            item4.Name,
+			Compressed_4:      item4.Compressed,
+			Body_4:            item4.Body,
+			Prev_4:            item4.Prev,
+			Next_4:            item4.Next,
+			// Item 5
+			ID_5:              item5.ID,
+			ItemApiID_5:       item5.ItemApiID,
+			CollectionID_5:    item5.CollectionID,
+			ParentExampleID_5: item5.ParentExampleID,
+			IsDefault_5:       item5.IsDefault,
+			Name_5:            item5.Name,
+			Compressed_5:      item5.Compressed,
+			Body_5:            item5.Body,
+			Prev_5:            item5.Prev,
+			Next_5:            item5.Next,
+			// Item 6
+			ID_6:              item6.ID,
+			ItemApiID_6:       item6.ItemApiID,
+			CollectionID_6:    item6.CollectionID,
+			ParentExampleID_6: item6.ParentExampleID,
+			IsDefault_6:       item6.IsDefault,
+			Name_6:            item6.Name,
+			Compressed_6:      item6.Compressed,
+			Body_6:            item6.Body,
+			Prev_6:            item6.Prev,
+			Next_6:            item6.Next,
+			// Item 7
+			ID_7:              item7.ID,
+			ItemApiID_7:       item7.ItemApiID,
+			CollectionID_7:    item7.CollectionID,
+			ParentExampleID_7: item7.ParentExampleID,
+			IsDefault_7:       item7.IsDefault,
+			Name_7:            item7.Name,
+			Compressed_7:      item7.Compressed,
+			Body_7:            item7.Body,
+			Prev_7:            item7.Prev,
+			Next_7:            item7.Next,
+			// Item 8
+			ID_8:              item8.ID,
+			ItemApiID_8:       item8.ItemApiID,
+			CollectionID_8:    item8.CollectionID,
+			ParentExampleID_8: item8.ParentExampleID,
+			IsDefault_8:       item8.IsDefault,
+			Name_8:            item8.Name,
+			Compressed_8:      item8.Compressed,
+			Body_8:            item8.Body,
+			Prev_8:            item8.Prev,
+			Next_8:            item8.Next,
+			// Item 9
+			ID_9:              item9.ID,
+			ItemApiID_9:       item9.ItemApiID,
+			CollectionID_9:    item9.CollectionID,
+			ParentExampleID_9: item9.ParentExampleID,
+			IsDefault_9:       item9.IsDefault,
+			Name_9:            item9.Name,
+			Compressed_9:      item9.Compressed,
+			Body_9:            item9.Body,
+			Prev_9:            item9.Prev,
+			Next_9:            item9.Next,
+			// Item 10
+			ID_10:              item10.ID,
+			ItemApiID_10:       item10.ItemApiID,
+			CollectionID_10:    item10.CollectionID,
+			ParentExampleID_10: item10.ParentExampleID,
+			IsDefault_10:       item10.IsDefault,
+			Name_10:            item10.Name,
+			Compressed_10:      item10.Compressed,
+			Body_10:            item10.Body,
+			Prev_10:            item10.Prev,
+			Next_10:            item10.Next,
 		})
 		if err != nil {
 			return err

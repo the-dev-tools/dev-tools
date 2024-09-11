@@ -352,34 +352,97 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiBulkParams struct {
-	ID             ulid.ULID
-	CollectionID   ulid.ULID
-	ParentID       *ulid.ULID
-	Name           string
-	Url            string
-	Method         string
-	Prev           *ulid.ULID
-	Next           *ulid.ULID
-	ID_2           ulid.ULID
-	CollectionID_2 ulid.ULID
-	ParentID_2     *ulid.ULID
-	Name_2         string
-	Url_2          string
-	Method_2       string
-	Prev_2         *ulid.ULID
-	Next_2         *ulid.ULID
-	ID_3           ulid.ULID
-	CollectionID_3 ulid.ULID
-	ParentID_3     *ulid.ULID
-	Name_3         string
-	Url_3          string
-	Method_3       string
-	Prev_3         *ulid.ULID
-	Next_3         *ulid.ULID
+	ID              ulid.ULID
+	CollectionID    ulid.ULID
+	ParentID        *ulid.ULID
+	Name            string
+	Url             string
+	Method          string
+	Prev            *ulid.ULID
+	Next            *ulid.ULID
+	ID_2            ulid.ULID
+	CollectionID_2  ulid.ULID
+	ParentID_2      *ulid.ULID
+	Name_2          string
+	Url_2           string
+	Method_2        string
+	Prev_2          *ulid.ULID
+	Next_2          *ulid.ULID
+	ID_3            ulid.ULID
+	CollectionID_3  ulid.ULID
+	ParentID_3      *ulid.ULID
+	Name_3          string
+	Url_3           string
+	Method_3        string
+	Prev_3          *ulid.ULID
+	Next_3          *ulid.ULID
+	ID_4            ulid.ULID
+	CollectionID_4  ulid.ULID
+	ParentID_4      *ulid.ULID
+	Name_4          string
+	Url_4           string
+	Method_4        string
+	Prev_4          *ulid.ULID
+	Next_4          *ulid.ULID
+	ID_5            ulid.ULID
+	CollectionID_5  ulid.ULID
+	ParentID_5      *ulid.ULID
+	Name_5          string
+	Url_5           string
+	Method_5        string
+	Prev_5          *ulid.ULID
+	Next_5          *ulid.ULID
+	ID_6            ulid.ULID
+	CollectionID_6  ulid.ULID
+	ParentID_6      *ulid.ULID
+	Name_6          string
+	Url_6           string
+	Method_6        string
+	Prev_6          *ulid.ULID
+	Next_6          *ulid.ULID
+	ID_7            ulid.ULID
+	CollectionID_7  ulid.ULID
+	ParentID_7      *ulid.ULID
+	Name_7          string
+	Url_7           string
+	Method_7        string
+	Prev_7          *ulid.ULID
+	Next_7          *ulid.ULID
+	ID_8            ulid.ULID
+	CollectionID_8  ulid.ULID
+	ParentID_8      *ulid.ULID
+	Name_8          string
+	Url_8           string
+	Method_8        string
+	Prev_8          *ulid.ULID
+	Next_8          *ulid.ULID
+	ID_9            ulid.ULID
+	CollectionID_9  ulid.ULID
+	ParentID_9      *ulid.ULID
+	Name_9          string
+	Url_9           string
+	Method_9        string
+	Prev_9          *ulid.ULID
+	Next_9          *ulid.ULID
+	ID_10           ulid.ULID
+	CollectionID_10 ulid.ULID
+	ParentID_10     *ulid.ULID
+	Name_10         string
+	Url_10          string
+	Method_10       string
+	Prev_10         *ulid.ULID
+	Next_10         *ulid.ULID
 }
 
 func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
@@ -408,6 +471,62 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Method_3,
 		arg.Prev_3,
 		arg.Next_3,
+		arg.ID_4,
+		arg.CollectionID_4,
+		arg.ParentID_4,
+		arg.Name_4,
+		arg.Url_4,
+		arg.Method_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.ID_5,
+		arg.CollectionID_5,
+		arg.ParentID_5,
+		arg.Name_5,
+		arg.Url_5,
+		arg.Method_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.ID_6,
+		arg.CollectionID_6,
+		arg.ParentID_6,
+		arg.Name_6,
+		arg.Url_6,
+		arg.Method_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.ID_7,
+		arg.CollectionID_7,
+		arg.ParentID_7,
+		arg.Name_7,
+		arg.Url_7,
+		arg.Method_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.ID_8,
+		arg.CollectionID_8,
+		arg.ParentID_8,
+		arg.Name_8,
+		arg.Url_8,
+		arg.Method_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.ID_9,
+		arg.CollectionID_9,
+		arg.ParentID_9,
+		arg.Name_9,
+		arg.Url_9,
+		arg.Method_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.ID_10,
+		arg.CollectionID_10,
+		arg.ParentID_10,
+		arg.Name_10,
+		arg.Url_10,
+		arg.Method_10,
+		arg.Prev_10,
+		arg.Next_10,
 	)
 	return err
 }
@@ -476,40 +595,117 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
-	ID                ulid.ULID
-	ItemApiID         ulid.ULID
-	CollectionID      ulid.ULID
-	ParentExampleID   *ulid.ULID
-	IsDefault         bool
-	Name              string
-	Compressed        bool
-	Body              []byte
-	Prev              *ulid.ULID
-	Next              *ulid.ULID
-	ID_2              ulid.ULID
-	ItemApiID_2       ulid.ULID
-	CollectionID_2    ulid.ULID
-	ParentExampleID_2 *ulid.ULID
-	IsDefault_2       bool
-	Name_2            string
-	Compressed_2      bool
-	Body_2            []byte
-	Prev_2            *ulid.ULID
-	Next_2            *ulid.ULID
-	ID_3              ulid.ULID
-	ItemApiID_3       ulid.ULID
-	CollectionID_3    ulid.ULID
-	ParentExampleID_3 *ulid.ULID
-	IsDefault_3       bool
-	Name_3            string
-	Compressed_3      bool
-	Body_3            []byte
-	Prev_3            *ulid.ULID
-	Next_3            *ulid.ULID
+	ID                 ulid.ULID
+	ItemApiID          ulid.ULID
+	CollectionID       ulid.ULID
+	ParentExampleID    *ulid.ULID
+	IsDefault          bool
+	Name               string
+	Compressed         bool
+	Body               []byte
+	Prev               *ulid.ULID
+	Next               *ulid.ULID
+	ID_2               ulid.ULID
+	ItemApiID_2        ulid.ULID
+	CollectionID_2     ulid.ULID
+	ParentExampleID_2  *ulid.ULID
+	IsDefault_2        bool
+	Name_2             string
+	Compressed_2       bool
+	Body_2             []byte
+	Prev_2             *ulid.ULID
+	Next_2             *ulid.ULID
+	ID_3               ulid.ULID
+	ItemApiID_3        ulid.ULID
+	CollectionID_3     ulid.ULID
+	ParentExampleID_3  *ulid.ULID
+	IsDefault_3        bool
+	Name_3             string
+	Compressed_3       bool
+	Body_3             []byte
+	Prev_3             *ulid.ULID
+	Next_3             *ulid.ULID
+	ID_4               ulid.ULID
+	ItemApiID_4        ulid.ULID
+	CollectionID_4     ulid.ULID
+	ParentExampleID_4  *ulid.ULID
+	IsDefault_4        bool
+	Name_4             string
+	Compressed_4       bool
+	Body_4             []byte
+	Prev_4             *ulid.ULID
+	Next_4             *ulid.ULID
+	ID_5               ulid.ULID
+	ItemApiID_5        ulid.ULID
+	CollectionID_5     ulid.ULID
+	ParentExampleID_5  *ulid.ULID
+	IsDefault_5        bool
+	Name_5             string
+	Compressed_5       bool
+	Body_5             []byte
+	Prev_5             *ulid.ULID
+	Next_5             *ulid.ULID
+	ID_6               ulid.ULID
+	ItemApiID_6        ulid.ULID
+	CollectionID_6     ulid.ULID
+	ParentExampleID_6  *ulid.ULID
+	IsDefault_6        bool
+	Name_6             string
+	Compressed_6       bool
+	Body_6             []byte
+	Prev_6             *ulid.ULID
+	Next_6             *ulid.ULID
+	ID_7               ulid.ULID
+	ItemApiID_7        ulid.ULID
+	CollectionID_7     ulid.ULID
+	ParentExampleID_7  *ulid.ULID
+	IsDefault_7        bool
+	Name_7             string
+	Compressed_7       bool
+	Body_7             []byte
+	Prev_7             *ulid.ULID
+	Next_7             *ulid.ULID
+	ID_8               ulid.ULID
+	ItemApiID_8        ulid.ULID
+	CollectionID_8     ulid.ULID
+	ParentExampleID_8  *ulid.ULID
+	IsDefault_8        bool
+	Name_8             string
+	Compressed_8       bool
+	Body_8             []byte
+	Prev_8             *ulid.ULID
+	Next_8             *ulid.ULID
+	ID_9               ulid.ULID
+	ItemApiID_9        ulid.ULID
+	CollectionID_9     ulid.ULID
+	ParentExampleID_9  *ulid.ULID
+	IsDefault_9        bool
+	Name_9             string
+	Compressed_9       bool
+	Body_9             []byte
+	Prev_9             *ulid.ULID
+	Next_9             *ulid.ULID
+	ID_10              ulid.ULID
+	ItemApiID_10       ulid.ULID
+	CollectionID_10    ulid.ULID
+	ParentExampleID_10 *ulid.ULID
+	IsDefault_10       bool
+	Name_10            string
+	Compressed_10      bool
+	Body_10            []byte
+	Prev_10            *ulid.ULID
+	Next_10            *ulid.ULID
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -544,6 +740,76 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Body_3,
 		arg.Prev_3,
 		arg.Next_3,
+		arg.ID_4,
+		arg.ItemApiID_4,
+		arg.CollectionID_4,
+		arg.ParentExampleID_4,
+		arg.IsDefault_4,
+		arg.Name_4,
+		arg.Compressed_4,
+		arg.Body_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.ID_5,
+		arg.ItemApiID_5,
+		arg.CollectionID_5,
+		arg.ParentExampleID_5,
+		arg.IsDefault_5,
+		arg.Name_5,
+		arg.Compressed_5,
+		arg.Body_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.ID_6,
+		arg.ItemApiID_6,
+		arg.CollectionID_6,
+		arg.ParentExampleID_6,
+		arg.IsDefault_6,
+		arg.Name_6,
+		arg.Compressed_6,
+		arg.Body_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.ID_7,
+		arg.ItemApiID_7,
+		arg.CollectionID_7,
+		arg.ParentExampleID_7,
+		arg.IsDefault_7,
+		arg.Name_7,
+		arg.Compressed_7,
+		arg.Body_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.ID_8,
+		arg.ItemApiID_8,
+		arg.CollectionID_8,
+		arg.ParentExampleID_8,
+		arg.IsDefault_8,
+		arg.Name_8,
+		arg.Compressed_8,
+		arg.Body_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.ID_9,
+		arg.ItemApiID_9,
+		arg.CollectionID_9,
+		arg.ParentExampleID_9,
+		arg.IsDefault_9,
+		arg.Name_9,
+		arg.Compressed_9,
+		arg.Body_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.ID_10,
+		arg.ItemApiID_10,
+		arg.CollectionID_10,
+		arg.ParentExampleID_10,
+		arg.IsDefault_10,
+		arg.Name_10,
+		arg.Compressed_10,
+		arg.Body_10,
+		arg.Prev_10,
+		arg.Next_10,
 	)
 	return err
 }
@@ -582,28 +848,77 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemFolderBulkParams struct {
-	ID             ulid.ULID
-	Name           string
-	ParentID       *ulid.ULID
-	CollectionID   ulid.ULID
-	Prev           *ulid.ULID
-	Next           *ulid.ULID
-	ID_2           ulid.ULID
-	Name_2         string
-	ParentID_2     *ulid.ULID
-	CollectionID_2 ulid.ULID
-	Prev_2         *ulid.ULID
-	Next_2         *ulid.ULID
-	ID_3           ulid.ULID
-	Name_3         string
-	ParentID_3     *ulid.ULID
-	CollectionID_3 ulid.ULID
-	Prev_3         *ulid.ULID
-	Next_3         *ulid.ULID
+	ID              ulid.ULID
+	Name            string
+	ParentID        *ulid.ULID
+	CollectionID    ulid.ULID
+	Prev            *ulid.ULID
+	Next            *ulid.ULID
+	ID_2            ulid.ULID
+	Name_2          string
+	ParentID_2      *ulid.ULID
+	CollectionID_2  ulid.ULID
+	Prev_2          *ulid.ULID
+	Next_2          *ulid.ULID
+	ID_3            ulid.ULID
+	Name_3          string
+	ParentID_3      *ulid.ULID
+	CollectionID_3  ulid.ULID
+	Prev_3          *ulid.ULID
+	Next_3          *ulid.ULID
+	ID_4            ulid.ULID
+	Name_4          string
+	ParentID_4      *ulid.ULID
+	CollectionID_4  ulid.ULID
+	Prev_4          *ulid.ULID
+	Next_4          *ulid.ULID
+	ID_5            ulid.ULID
+	Name_5          string
+	ParentID_5      *ulid.ULID
+	CollectionID_5  ulid.ULID
+	Prev_5          *ulid.ULID
+	Next_5          *ulid.ULID
+	ID_6            ulid.ULID
+	Name_6          string
+	ParentID_6      *ulid.ULID
+	CollectionID_6  ulid.ULID
+	Prev_6          *ulid.ULID
+	Next_6          *ulid.ULID
+	ID_7            ulid.ULID
+	Name_7          string
+	ParentID_7      *ulid.ULID
+	CollectionID_7  ulid.ULID
+	Prev_7          *ulid.ULID
+	Next_7          *ulid.ULID
+	ID_8            ulid.ULID
+	Name_8          string
+	ParentID_8      *ulid.ULID
+	CollectionID_8  ulid.ULID
+	Prev_8          *ulid.ULID
+	Next_8          *ulid.ULID
+	ID_9            ulid.ULID
+	Name_9          string
+	ParentID_9      *ulid.ULID
+	CollectionID_9  ulid.ULID
+	Prev_9          *ulid.ULID
+	Next_9          *ulid.ULID
+	ID_10           ulid.ULID
+	Name_10         string
+	ParentID_10     *ulid.ULID
+	CollectionID_10 ulid.ULID
+	Prev_10         *ulid.ULID
+	Next_10         *ulid.ULID
 }
 
 func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolderBulkParams) error {
@@ -626,6 +941,48 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 		arg.CollectionID_3,
 		arg.Prev_3,
 		arg.Next_3,
+		arg.ID_4,
+		arg.Name_4,
+		arg.ParentID_4,
+		arg.CollectionID_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.ID_5,
+		arg.Name_5,
+		arg.ParentID_5,
+		arg.CollectionID_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.ID_6,
+		arg.Name_6,
+		arg.ParentID_6,
+		arg.CollectionID_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.ID_7,
+		arg.Name_7,
+		arg.ParentID_7,
+		arg.CollectionID_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.ID_8,
+		arg.Name_8,
+		arg.ParentID_8,
+		arg.CollectionID_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.ID_9,
+		arg.Name_9,
+		arg.ParentID_9,
+		arg.CollectionID_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.ID_10,
+		arg.Name_10,
+		arg.ParentID_10,
+		arg.CollectionID_10,
+		arg.Prev_10,
+		arg.Next_10,
 	)
 	return err
 }
@@ -664,28 +1021,77 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?)
 `
 
 type CreateQueryBulkParams struct {
-	ID            ulid.ULID
-	ExampleID     ulid.ULID
-	QueryKey      string
-	Enable        bool
-	Description   string
-	Value         string
-	ID_2          ulid.ULID
-	ExampleID_2   ulid.ULID
-	QueryKey_2    string
-	Enable_2      bool
-	Description_2 string
-	Value_2       string
-	ID_3          ulid.ULID
-	ExampleID_3   ulid.ULID
-	QueryKey_3    string
-	Enable_3      bool
-	Description_3 string
-	Value_3       string
+	ID             ulid.ULID
+	ExampleID      ulid.ULID
+	QueryKey       string
+	Enable         bool
+	Description    string
+	Value          string
+	ID_2           ulid.ULID
+	ExampleID_2    ulid.ULID
+	QueryKey_2     string
+	Enable_2       bool
+	Description_2  string
+	Value_2        string
+	ID_3           ulid.ULID
+	ExampleID_3    ulid.ULID
+	QueryKey_3     string
+	Enable_3       bool
+	Description_3  string
+	Value_3        string
+	ID_4           ulid.ULID
+	ExampleID_4    ulid.ULID
+	QueryKey_4     string
+	Enable_4       bool
+	Description_4  string
+	Value_4        string
+	ID_5           ulid.ULID
+	ExampleID_5    ulid.ULID
+	QueryKey_5     string
+	Enable_5       bool
+	Description_5  string
+	Value_5        string
+	ID_6           ulid.ULID
+	ExampleID_6    ulid.ULID
+	QueryKey_6     string
+	Enable_6       bool
+	Description_6  string
+	Value_6        string
+	ID_7           ulid.ULID
+	ExampleID_7    ulid.ULID
+	QueryKey_7     string
+	Enable_7       bool
+	Description_7  string
+	Value_7        string
+	ID_8           ulid.ULID
+	ExampleID_8    ulid.ULID
+	QueryKey_8     string
+	Enable_8       bool
+	Description_8  string
+	Value_8        string
+	ID_9           ulid.ULID
+	ExampleID_9    ulid.ULID
+	QueryKey_9     string
+	Enable_9       bool
+	Description_9  string
+	Value_9        string
+	ID_10          ulid.ULID
+	ExampleID_10   ulid.ULID
+	QueryKey_10    string
+	Enable_10      bool
+	Description_10 string
+	Value_10       string
 }
 
 func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams) error {
@@ -708,6 +1114,48 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
+		arg.ID_4,
+		arg.ExampleID_4,
+		arg.QueryKey_4,
+		arg.Enable_4,
+		arg.Description_4,
+		arg.Value_4,
+		arg.ID_5,
+		arg.ExampleID_5,
+		arg.QueryKey_5,
+		arg.Enable_5,
+		arg.Description_5,
+		arg.Value_5,
+		arg.ID_6,
+		arg.ExampleID_6,
+		arg.QueryKey_6,
+		arg.Enable_6,
+		arg.Description_6,
+		arg.Value_6,
+		arg.ID_7,
+		arg.ExampleID_7,
+		arg.QueryKey_7,
+		arg.Enable_7,
+		arg.Description_7,
+		arg.Value_7,
+		arg.ID_8,
+		arg.ExampleID_8,
+		arg.QueryKey_8,
+		arg.Enable_8,
+		arg.Description_8,
+		arg.Value_8,
+		arg.ID_9,
+		arg.ExampleID_9,
+		arg.QueryKey_9,
+		arg.Enable_9,
+		arg.Description_9,
+		arg.Value_9,
+		arg.ID_10,
+		arg.ExampleID_10,
+		arg.QueryKey_10,
+		arg.Enable_10,
+		arg.Description_10,
+		arg.Value_10,
 	)
 	return err
 }

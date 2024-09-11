@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-db/pkg/sqlc/gen"
+	"slices"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -102,64 +103,140 @@ func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.Item
 	})
 }
 
+func (ias ItemApiService) CreateItemGenApi(ctx context.Context, item *gen.ItemApi) error {
+	return ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{
+		ID:           item.ID,
+		CollectionID: item.CollectionID,
+		ParentID:     item.ParentID,
+		Name:         item.Name,
+		Url:          item.Url,
+		Method:       item.Method,
+		Prev:         item.Prev,
+		Next:         item.Next,
+	})
+}
+
 func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemapi.ItemApi) error {
-	itemLen := len(items)
-	sizeOfChunks := 3
-	index := 0
+	sizeOfChunks := 10
 	convertedItems := MassConvert(items, ConvertToDBItemApi)
 
-	if itemLen > 2 {
-		for {
-			item1 := convertedItems[index]
-			item2 := convertedItems[index+1]
-			item3 := convertedItems[index+2]
-			params := gen.CreateItemApiBulkParams{
-				// 1
-				ID:           item1.ID,
-				CollectionID: item1.CollectionID,
-				ParentID:     item1.ParentID,
-				Name:         item1.Name,
-				Url:          item1.Url,
-				Method:       item1.Method,
-				Prev:         item1.Prev,
-				Next:         item1.Next,
-				// 2
-				ID_2:           item2.ID,
-				CollectionID_2: item2.CollectionID,
-				ParentID_2:     item2.ParentID,
-				Name_2:         item2.Name,
-				Url_2:          item2.Url,
-				Method_2:       item2.Method,
-				Prev_2:         item2.Prev,
-				Next_2:         item2.Next,
-				// 3
-				ID_3:           item3.ID,
-				CollectionID_3: item3.CollectionID,
-				ParentID_3:     item3.ParentID,
-				Name_3:         item3.Name,
-				Url_3:          item3.Url,
-				Method_3:       item3.Method,
-				Prev_3:         item3.Prev,
-				Next_3:         item3.Next,
+	for chunk := range slices.Chunk(convertedItems, sizeOfChunks) {
+		if len(chunk) < sizeOfChunks {
+			for _, item := range chunk {
+				err := ias.CreateItemGenApi(ctx, &item)
+				if err != nil {
+					return err
+				}
 			}
-
-			if err := ias.queries.CreateItemApiBulk(ctx, params); err != nil {
-				return err
-			}
-
-			index += sizeOfChunks
-			if index >= itemLen {
-				break
-			}
-
+			continue
 		}
-	}
-	for _, item := range items[index:] {
-		err := ias.CreateItemApi(ctx, &item)
-		if err != nil {
+
+		item1 := chunk[0]
+		item2 := chunk[1]
+		item3 := chunk[2]
+		item4 := chunk[3]
+		item5 := chunk[4]
+		item6 := chunk[5]
+		item7 := chunk[6]
+		item8 := chunk[7]
+		item9 := chunk[8]
+		item10 := chunk[9]
+		params := gen.CreateItemApiBulkParams{
+			// 1
+			ID:           item1.ID,
+			CollectionID: item1.CollectionID,
+			ParentID:     item1.ParentID,
+			Name:         item1.Name,
+			Url:          item1.Url,
+			Method:       item1.Method,
+			Prev:         item1.Prev,
+			Next:         item1.Next,
+			// 2
+			ID_2:           item2.ID,
+			CollectionID_2: item2.CollectionID,
+			ParentID_2:     item2.ParentID,
+			Name_2:         item2.Name,
+			Url_2:          item2.Url,
+			Method_2:       item2.Method,
+			Prev_2:         item2.Prev,
+			Next_2:         item2.Next,
+			// 3
+			ID_3:           item3.ID,
+			CollectionID_3: item3.CollectionID,
+			ParentID_3:     item3.ParentID,
+			Name_3:         item3.Name,
+			Url_3:          item3.Url,
+			Method_3:       item3.Method,
+			Prev_3:         item3.Prev,
+			Next_3:         item3.Next,
+			// 4
+			ID_4:           item4.ID,
+			CollectionID_4: item4.CollectionID,
+			ParentID_4:     item4.ParentID,
+			Name_4:         item4.Name,
+			Url_4:          item4.Url,
+			Method_4:       item4.Method,
+			Prev_4:         item4.Prev,
+			Next_4:         item4.Next,
+			// 5
+			ID_5:           item5.ID,
+			CollectionID_5: item5.CollectionID,
+			ParentID_5:     item5.ParentID,
+			Name_5:         item5.Name,
+			Url_5:          item5.Url,
+			Method_5:       item5.Method,
+			Prev_5:         item5.Prev,
+			Next_5:         item5.Next,
+			// 6
+			ID_6:           item6.ID,
+			CollectionID_6: item6.CollectionID,
+			ParentID_6:     item6.ParentID,
+			Name_6:         item6.Name,
+			Url_6:          item6.Url,
+			Method_6:       item6.Method,
+			Prev_6:         item6.Prev,
+			Next_6:         item6.Next,
+			// 7
+			ID_7:           item7.ID,
+			CollectionID_7: item7.CollectionID,
+			ParentID_7:     item7.ParentID,
+			Name_7:         item7.Name,
+			Url_7:          item7.Url,
+			Method_7:       item7.Method,
+			Prev_7:         item7.Prev,
+			Next_7:         item7.Next,
+			// 8
+			ID_8:           item8.ID,
+			CollectionID_8: item8.CollectionID,
+			ParentID_8:     item8.ParentID,
+			Name_8:         item8.Name,
+			Url_8:          item8.Url,
+			Method_8:       item8.Method,
+			Prev_8:         item8.Prev,
+			Next_8:         item8.Next,
+			// 9
+			ID_9:           item9.ID,
+			CollectionID_9: item9.CollectionID,
+			ParentID_9:     item9.ParentID,
+			Name_9:         item9.Name,
+			Url_9:          item9.Url,
+			Method_9:       item9.Method,
+			Prev_9:         item9.Prev,
+			Next_9:         item9.Next,
+			// 10
+			ID_10:           item10.ID,
+			CollectionID_10: item10.CollectionID,
+			ParentID_10:     item10.ParentID,
+			Name_10:         item10.Name,
+			Url_10:          item10.Url,
+			Method_10:       item10.Method,
+			Prev_10:         item10.Prev,
+			Next_10:         item10.Next,
+		}
+
+		if err := ias.queries.CreateItemApiBulk(ctx, params); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
