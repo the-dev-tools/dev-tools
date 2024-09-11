@@ -173,6 +173,7 @@ func RecursiveTranslateMeta(item mitemfolder.ItemFolderNested) []*itemfolderv1.I
 					ApiCallMeta: &itemapiv1.ApiCallMeta{
 						Name:     api.Name,
 						Id:       api.ID.String(),
+						Method:   api.Method,
 						Examples: rpcExamples,
 					},
 				},

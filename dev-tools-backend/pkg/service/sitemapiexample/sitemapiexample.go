@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-db/pkg/sqlc/gen"
+	"slices"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -136,15 +137,22 @@ func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mi
 	})
 }
 
-func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item []mitemapiexample.ItemApiExample) error {
-	i := 0
-	for {
-		if i+3 > len(item) {
-			break
+func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, items []mitemapiexample.ItemApiExample) error {
+	sizeOfChunks := 3
+
+	for chunk := range slices.Chunk(items, sizeOfChunks) {
+		if len(chunk) < sizeOfChunks {
+			for _, item := range chunk {
+				err := iaes.CreateApiExample(ctx, &item)
+				if err != nil {
+					return err
+				}
+			}
+			continue
 		}
-		item1 := item[i]
-		item2 := item[i+1]
-		item3 := item[i+2]
+		item1 := items[0]
+		item2 := items[1]
+		item3 := items[2]
 
 		err := iaes.Queries.CreateItemApiExampleBulk(ctx, gen.CreateItemApiExampleBulkParams{
 			// Item 1
@@ -183,15 +191,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 		})
 		if err != nil {
 			return err
-		}
-		i += 3
-	}
-	if i < len(item) {
-		for _, item := range item[i:] {
-			err := iaes.CreateApiExample(ctx, &item)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
