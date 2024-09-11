@@ -1,5 +1,18 @@
 # @the-dev-tools/protobuf
 
+## 1.17.0
+
+### Minor Changes
+
+- [`6eb1a7f`](https://github.com/the-dev-tools/dev-tools-proto/commit/6eb1a7f9a269c3942d760c4b410c24ff3de96e3f) Thanks [@ElecTwix](https://github.com/ElecTwix)! - move method field from apiCall to apiCallMeta
+
+- [`1247b57`](https://github.com/the-dev-tools/dev-tools-proto/commit/1247b577a773549949a8c0bab359e25f9ffe9eaa) Thanks [@ElecTwix](https://github.com/ElecTwix)! - Removed Created fields favor of Ulid ID field
+  Added Headers as own Message
+  Added QueryParams as own Message
+  Added Body as own Message
+  Combine partials create message into original message
+  Removed Cookies field
+
 ## 1.16.0
 
 ### Minor Changes
