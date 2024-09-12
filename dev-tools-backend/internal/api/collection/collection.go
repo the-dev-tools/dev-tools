@@ -21,7 +21,6 @@ import (
 	collectionv1 "dev-tools-services/gen/collection/v1"
 	"dev-tools-services/gen/collection/v1/collectionv1connect"
 	"errors"
-	"fmt"
 	"log"
 
 	"connectrpc.com/connect"
@@ -351,7 +350,6 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("items.Queries", items.Queries)
 	err = txQueriesService.CreateBulkQuery(ctx, items.Queries)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

@@ -319,24 +319,17 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 		if err != nil {
 			return nil, err
 		}
-		queryParamsMap := make(map[string]string)
-		for k, v := range url.Query() {
-			// TODO: talk about this,
-			// /api/path?limit=0&limit=10
-			queryParamsMap[k] = v[0]
-		}
-		queryParamsArr := make([]murl.QueryParamter, len(queryParamsMap))
-		var i int
-		for k, v := range queryParamsMap {
-			queryParamsArr[i] = murl.QueryParamter{
-				Key:         k,
-				Value:       v,
-				Disabled:    false,
-				Description: "",
+		queryParamsArr := make([]murl.QueryParamter, 0)
+		for k, vArr := range url.Query() {
+			for _, v := range vArr {
+				queryParamsArr = append(queryParamsArr, murl.QueryParamter{
+					Key:         k,
+					Value:       v,
+					Disabled:    false,
+					Description: "",
+				})
 			}
-			i++
 		}
-
 		url.RawQuery = ""
 		murlData = murl.URL{
 			Protocol:  url.Scheme,
@@ -353,38 +346,61 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 	case map[string]interface{}:
 		urlDataNest := urlData.(map[string]interface{})
 		queryData := urlDataNest["query"].([]interface{})
-		queryParamsArr := make([]murl.QueryParamter, len(queryData))
-		for i, query := range queryData {
-			queryMap := query.(map[string]interface{})
-			key, ok := queryMap["key"].(string)
-			if !ok {
-				return nil, fmt.Errorf("key %T not supported", key)
-			}
-			value, ok := queryMap["value"].(string)
-			if !ok {
-				value = ""
-			}
-			disabled, ok := queryMap["disabled"].(bool)
-			if !ok {
-				disabled = false
-			}
-			description, ok := queryMap["description"].(string)
-			if !ok {
-				description = ""
-			}
-
-			queryParamsArr[i] = murl.QueryParamter{
-				Key:         key,
-				Value:       value,
-				Disabled:    disabled,
-				Description: description,
-			}
-		}
+		queryParamsArr := make([]murl.QueryParamter, 0, len(queryData))
 
 		raw, ok := urlDataNest["raw"].(string)
 		if !ok {
 			return nil, fmt.Errorf("raw %T not supported", raw)
 		}
+		rawData, err := url.Parse(raw)
+		if err != nil {
+			return nil, err
+		}
+
+		if queryData == nil {
+			if len(queryData) == 0 {
+				for k, vArr := range rawData.Query() {
+					for _, v := range vArr {
+						queryParamsArr = append(queryParamsArr, murl.QueryParamter{
+							Key:         k,
+							Value:       v,
+							Disabled:    false,
+							Description: "",
+						})
+					}
+				}
+			}
+		} else {
+			for _, query := range queryData {
+				queryMap := query.(map[string]interface{})
+				key, ok := queryMap["key"].(string)
+				if !ok {
+					return nil, fmt.Errorf("key %T not supported", key)
+				}
+				value, ok := queryMap["value"].(string)
+				if !ok {
+					value = ""
+				}
+				disabled, ok := queryMap["disabled"].(bool)
+				if !ok {
+					disabled = false
+				}
+				description, ok := queryMap["description"].(string)
+				if !ok {
+					description = ""
+				}
+
+				queryParamsArr = append(queryParamsArr, murl.QueryParamter{
+					Key:         key,
+					Value:       value,
+					Disabled:    disabled,
+					Description: description,
+				})
+			}
+		}
+		rawData.RawQuery = ""
+		raw = rawData.String()
+
 		protocol, ok := urlDataNest["protocol"].(string)
 		if !ok {
 			return nil, fmt.Errorf("protocol %T not supported", protocol)
@@ -394,7 +410,6 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 		for i, host := range hostInterface {
 			hosts[i] = host.(string)
 		}
-		fmt.Println("host", urlDataNest["host"])
 		if !ok {
 			return nil, fmt.Errorf("host %T not supported", urlDataNest["host"])
 		}
