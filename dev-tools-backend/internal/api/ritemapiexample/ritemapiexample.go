@@ -424,17 +424,59 @@ func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid u
 }
 
 // Headers
+// TODO: add permissions
 func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if req.Msg == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("request message is nil"))
+	}
+	if req.Msg.Header == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("header is nil"))
+	}
+	headerModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.Header)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	headerModel.ID = ulid.Make()
+	err = c.hs.CreateHeader(ctx, headerModel)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{}), nil
 }
 
+// TODO: add permissions
 func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateHeaderRequest]) (*connect.Response[itemapiexamplev1.UpdateHeaderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if req.Msg == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("request message is nil"))
+	}
+	if req.Msg.Header == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("header is nil"))
+	}
+	HeaderModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.Header)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	err = c.hs.UpdateHeader(ctx, HeaderModel)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&itemapiexamplev1.UpdateHeaderResponse{}), nil
 }
 
-// DeleteHeader calls itemapiexample.v1.ItemApiExampleService.DeleteHeader.
+// TODO: add permissions
 func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteHeaderRequest]) (*connect.Response[itemapiexamplev1.DeleteHeaderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if req.Msg == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("request message is nil"))
+	}
+	ulidWrap, err := ulidwrap.NewWithParse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	err = c.hs.DeleteHeader(ctx, ulidWrap.GetUlid())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&itemapiexamplev1.DeleteHeaderResponse{}), nil
 }
 
 // CreateQuery calls itemapiexample.v1.ItemApiExampleService.CreateQuery.
