@@ -59,6 +59,7 @@ const rules = TS.config({
     '@typescript-eslint/no-meaningless-void-operator': 'off',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
+    '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
     'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
   },
 });
