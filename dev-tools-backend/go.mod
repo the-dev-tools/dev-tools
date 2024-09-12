@@ -11,12 +11,11 @@ require (
 	github.com/magiclabs/magic-admin-go v1.0.0
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/rs/cors v1.11.0
-	github.com/tursodatabase/libsql-client-go v0.0.0-20240723183952-b944339d7e70
 	golang.org/x/net v0.25.0
+	google.golang.org/protobuf v1.34.2
 )
 
 require (
-	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
@@ -26,10 +25,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
-	nhooyr.io/websocket v1.8.10 // indirect
 )
