@@ -49,7 +49,7 @@ message Query {
   string description = 5;
 }
 
-message BodyForm {
+message BodyFormDataItem {
   string id = 1;
   string key = 2;
   bool enabled = 3;
@@ -57,15 +57,24 @@ message BodyForm {
   string description = 5;
 }
 
-enum BodyType {
-  BODY_TYPE_UNSPECIFIED = 0;
-  BODY_TYPE_NONE = 1;
-  BODY_TYPE_FORM = 2;
-  BODY_TYPE_RAW = 3;
+
+message BodyFormData {
+  repeated BodyFormDataItem items = 1;
 }
 
-message BodyFormWrapper {
-  repeated BodyForm body_form = 1;
+message BodyNone {
+}
+
+message Body {
+  oneof value {
+    BodyNone body_none = 1;
+    BodyFormData form_data = 2;
+    BodyRawData raw = 3;
+  }
+}
+
+message BodyRawData {
+  bytes body_bytes = 1;
 }
 
 message ApiExampleMeta {
@@ -77,12 +86,8 @@ message ApiExample {
   ApiExampleMeta meta = 1;
   repeated Query query = 2;
   repeated Header header = 3;
-  BodyType body_type = 4;
-  google.protobuf.Timestamp updated = 5;
-  oneof body {
-    BodyFormWrapper body_form = 6;
-    bytes body_bytes = 7;
-  }
+  google.protobuf.Timestamp updated = 4;
+  Body body = 5;
 }
 
 message GetExamplesRequest {
@@ -140,7 +145,6 @@ message CreateHeaderRequest {
 }
 
 message CreateHeaderResponse {
-  Header header = 1;
 }
 
 // // UPDATE
@@ -166,7 +170,6 @@ message CreateQueryRequest {
 }
 
 message CreateQueryResponse {
-  Query query = 1;
 }
 
 // // UPDATE
@@ -188,16 +191,15 @@ message DeleteQueryResponse {
 // BODY FORM
 // // CREATE
 message CreateBodyFormRequest {
-  BodyForm body_form = 1;
+  BodyFormDataItem body_form = 1;
 }
 
 message CreateBodyFormResponse {
-  BodyForm body_form = 1;
 }
 
 // // UPDATE
 message UpdateBodyFormRequest {
-  BodyForm body_form = 1;
+  BodyFormData body_form = 1;
 }
 
 message UpdateBodyFormResponse {
