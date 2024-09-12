@@ -1,4 +1,4 @@
-import { Struct } from 'effect';
+import { String, Struct } from 'effect';
 import { forwardRef } from 'react';
 import {
   Input as AriaInput,
@@ -63,6 +63,11 @@ export interface TextFieldProps
 export const TextField = forwardRef(
   ({ label, error, ...props }: TextFieldProps, ref: React.ForwardedRef<HTMLInputElement>) => {
     const forwardedProps = splitProps(props, 'label', 'input', 'error');
+
+    if (!label && !forwardedProps.rest['aria-label'] && forwardedProps.rest.name) {
+      forwardedProps.rest['aria-label'] = String.capitalize(forwardedProps.rest.name);
+    }
+
     return (
       <TextFieldRoot {...forwardedProps.rest}>
         {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}

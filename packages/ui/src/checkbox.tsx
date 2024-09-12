@@ -1,17 +1,20 @@
 import { Struct } from 'effect';
-import { ComponentProps } from 'react';
+import { ComponentProps, ForwardedRef, forwardRef } from 'react';
 import {
   Checkbox as AriaCheckbox,
   CheckboxProps as AriaCheckboxProps,
   composeRenderProps,
 } from 'react-aria-components';
+import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { IconBaseProps } from 'react-icons';
 import { LuCheck, LuMinus } from 'react-icons/lu';
+import { twMerge } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
 
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { isFocusedRingStyles } from './focus-ring';
+import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTW } from './utils';
 
@@ -19,9 +22,12 @@ import { composeRenderPropsTW } from './utils';
 
 export interface CheckboxRootProps extends AriaCheckboxProps {}
 
-export const CheckboxRoot = ({ className, ...props }: CheckboxRootProps) => (
-  <AriaCheckbox {...props} className={composeRenderPropsTW(className, tw`group flex items-center gap-2`)} />
+export const CheckboxRoot = forwardRef(
+  ({ className, ...props }: CheckboxRootProps, ref: ForwardedRef<HTMLLabelElement>) => (
+    <AriaCheckbox {...props} ref={ref} className={composeRenderPropsTW(className, tw`group flex items-center gap-2`)} />
+  ),
 );
+CheckboxRoot.displayName = 'CheckboxRoot';
 
 // Box
 
@@ -45,10 +51,11 @@ export interface CheckboxIndicatorProps extends IconBaseProps {
   isSelected?: boolean;
 }
 
-export const CheckboxIndicator = ({ isIndeterminate, isSelected, ...props }: CheckboxIndicatorProps) => {
-  if (isIndeterminate) return <LuMinus {...props} />;
-  if (isSelected) return <LuCheck {...props} />;
-  return null;
+export const CheckboxIndicator = ({ isIndeterminate, isSelected, className, ...props }: CheckboxIndicatorProps) => {
+  const forwardedClassName = twMerge(tw`size-4`, className);
+  if (isIndeterminate) return <LuMinus {...props} className={forwardedClassName} />;
+  if (isSelected) return <LuCheck {...props} className={forwardedClassName} />;
+  return <div className={forwardedClassName} />;
 };
 
 // Mix
@@ -58,10 +65,10 @@ export interface CheckboxProps
     MixinProps<'box', CheckboxBoxProps>,
     MixinProps<'indicator', CheckboxIndicatorProps> {}
 
-export const Checkbox = ({ children, ...props }: CheckboxProps) => {
+export const Checkbox = forwardRef(({ children, ...props }: CheckboxProps, ref: ForwardedRef<HTMLLabelElement>) => {
   const forwardedProps = splitProps(props, 'box', 'indicator');
   return (
-    <CheckboxRoot {...forwardedProps.rest}>
+    <CheckboxRoot {...forwardedProps.rest} ref={ref}>
       {composeRenderProps(children, (children, renderProps) => (
         <>
           <CheckboxBox {...Struct.pick(renderProps, ...checkboxBoxStyles.variantKeys)} {...forwardedProps.box}>
@@ -74,5 +81,48 @@ export const Checkbox = ({ children, ...props }: CheckboxProps) => {
         </>
       ))}
     </CheckboxRoot>
+  );
+});
+Checkbox.displayName = 'Checkbox';
+
+// RHF wrapper mix
+
+export interface CheckboxRHFProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> extends Omit<
+      CheckboxProps,
+      | ControllerPropKeys
+      | 'name'
+      | 'isSelected'
+      | 'onChange'
+      | 'onBlur'
+      | 'isDisabled'
+      | 'validationBehavior'
+      | 'isInvalid'
+    >,
+    UseControllerProps<TFieldValues, TName> {}
+
+export const CheckboxRHF = <
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>(
+  props: CheckboxRHFProps<TFieldValues, TName>,
+) => {
+  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
+  const controllerProps = Struct.pick(props, ...controllerPropKeys);
+  const { field, fieldState } = useController(controllerProps);
+  return (
+    <Checkbox
+      {...forwardedProps}
+      ref={field.ref}
+      name={field.name}
+      isSelected={field.value}
+      onChange={field.onChange}
+      onBlur={field.onBlur}
+      isDisabled={field.disabled ?? false}
+      validationBehavior='aria'
+      isInvalid={fieldState.invalid}
+    />
   );
 };
