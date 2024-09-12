@@ -10,6 +10,8 @@ import (
 	"slices"
 )
 
+var ErrNoQueryFound = sql.ErrNoRows
+
 func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
 	return gen.ExampleQuery{
 		ID:          query.ID,
@@ -65,13 +67,12 @@ func (h ExampleQueryService) GetExampleQuery(ctx context.Context, id ulidwrap.UL
 func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, exampleID ulidwrap.ULIDWrap) ([]mexamplequery.Query, error) {
 	queries, err := h.queries.GetQueriesByExampleID(ctx, ulidwrap.GetUlid(exampleID))
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mexamplequery.Query{}, ErrNoQueryFound
+		}
 		return nil, err
 	}
-	var result []mexamplequery.Query
-	for _, query := range queries {
-		result = append(result, SerializeQueryDBToModel(query))
-	}
-	return result, nil
+	return tgeneric.MassConvert(queries, SerializeQueryDBToModel), nil
 }
 
 func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexamplequery.Query) error {

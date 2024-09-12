@@ -10,12 +10,15 @@ import (
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
+	"dev-tools-backend/pkg/service/sexamplequery"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
+	"dev-tools-backend/pkg/translate/tquery"
+	"dev-tools-backend/pkg/ulidwrap"
 	"dev-tools-nodes/pkg/model/mnode"
 	"dev-tools-nodes/pkg/model/mnodedata"
 	"dev-tools-nodes/pkg/model/mnodemaster"
@@ -42,6 +45,7 @@ type ItemAPIExampleRPC struct {
 	cs   *scollection.CollectionService
 	us   *suser.UserService
 	hs   *sexampleheader.HeaderService
+	qs   *sexamplequery.ExampleQueryService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -60,6 +64,26 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	cs, err := scollection.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	hs, err := sexampleheader.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	qs, err := sexamplequery.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	authInterceptor := mwauth.NewAuthInterceptor(secret)
 	interceptors := connect.WithInterceptors(authInterceptor)
 	server := &ItemAPIExampleRPC{
@@ -67,6 +91,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		iaes: iaes,
 		ias:  ias,
 		ras:  ras,
+		cs:   cs,
+		us:   us,
+		hs:   hs,
+		qs:   qs,
 	}
 
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, interceptors)
@@ -87,13 +115,24 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 
 	rpcExamples := make([]*itemapiexamplev1.ApiExample, len(examples))
 	for i, example := range examples {
+		exampleUlidWrap := ulidwrap.New(example.ID)
 
 		header, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
 		if err != nil && err != sexampleheader.ErrNoHeaderFound {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		query, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlidWrap)
+		if err != nil && err != sexamplequery.ErrNoQueryFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		rpcQueries := tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -104,9 +143,13 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 				Name: example.Name,
 			},
 			Header: rpcHeaders,
-			// TODO: add query
-			Body: &itemapiexamplev1.ApiExample_BodyBytes{
-				BodyBytes: example.Body,
+			Query:  rpcQueries,
+			Body: &itemapiexamplev1.Body{
+				Value: &itemapiexamplev1.Body_Raw{
+					Raw: &itemapiexamplev1.BodyRawData{
+						BodyBytes: example.Body,
+					},
+				},
 			},
 			Updated: timestamppb.New(example.Updated),
 		}
@@ -122,6 +165,8 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
+
+	exampleUlidWrap := ulidwrap.New(exampleUlid)
 
 	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
 	if err != nil {
@@ -142,7 +187,17 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	query, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlidWrap)
+	if err != nil && err != sexamplequery.ErrNoQueryFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rpcQueries := tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -153,9 +208,13 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 			Name: example.Name,
 		},
 		Header: rpcHeaders,
-		Query:  []*itemapiexamplev1.Query{},
-		Body: &itemapiexamplev1.ApiExample_BodyBytes{
-			BodyBytes: example.Body,
+		Query:  rpcQueries,
+		Body: &itemapiexamplev1.Body{
+			Value: &itemapiexamplev1.Body_Raw{
+				Raw: &itemapiexamplev1.BodyRawData{
+					BodyBytes: example.Body,
+				},
+			},
 		},
 		Updated: timestamppb.New(example.Updated),
 	}
@@ -185,7 +244,7 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		Name:         metaRPC.GetName(),
 		// TODO: add the headers and query
 		// TODO: add body parse
-		Body: exampleRPC.GetBodyBytes(),
+		Body: []byte{},
 	}
 	err = c.iaes.CreateApiExample(ctx, ex)
 	if err != nil {

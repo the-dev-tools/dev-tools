@@ -243,8 +243,12 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			},
 			Header: rpcHeaders,
 			Query:  rpcQueries,
-			Body: &itemapiexamplev1.ApiExample_BodyBytes{
-				BodyBytes: examplePtr.Body,
+			Body: &itemapiexamplev1.Body{
+				Value: &itemapiexamplev1.Body_Raw{
+					Raw: &itemapiexamplev1.BodyRawData{
+						BodyBytes: examplePtr.Body,
+					},
+				},
 			},
 			Updated: timestamppb.New(examplePtr.Updated),
 		},
