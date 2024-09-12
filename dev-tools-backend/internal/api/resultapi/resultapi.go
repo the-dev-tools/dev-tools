@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
@@ -111,8 +112,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	if err != nil {
 		return nil, err
 	}
-	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
 
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	service := &ResultService{
 		DB:  db,
 		ras: *ras,
@@ -120,7 +124,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		ws:  *ws,
 		cs:  *cs,
 	}
-	path, handler := apiresultv1connect.NewApiResultServiceHandler(service, connect.WithInterceptors(AuthInterceptorFunc))
+	path, handler := apiresultv1connect.NewApiResultServiceHandler(service, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

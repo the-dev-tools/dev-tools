@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/magiclabs/magic-admin-go/client"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -16,7 +17,7 @@ func TestRefreshToken(t *testing.T) {
 	someSecret := []byte("secret")
 
 	sv := auth.AuthServer{
-		ClientAPI:  nil,
+		ClientAPI:  client.API{},
 		HmacSecret: someSecret,
 	}
 

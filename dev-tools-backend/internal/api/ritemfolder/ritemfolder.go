@@ -6,6 +6,7 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -41,8 +42,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
-	authInterceptor := mwauth.NewAuthInterceptor(secret)
-	interceptors := connect.WithInterceptors(authInterceptor)
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	server := &ItemFolderRPC{
 		DB:  db,
 		ifs: *ifs,
@@ -50,7 +53,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		us:  *us,
 	}
 
-	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(server, interceptors)
+	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(server, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

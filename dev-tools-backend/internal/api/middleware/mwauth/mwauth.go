@@ -10,13 +10,11 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type ContextKey string
-
-const UserIDKeyCtx ContextKey = "UserID"
+type ContextKey int
 
 const (
-	OrgHeaderKey            = "organization_id"
-	OrgIDKeyCtx  ContextKey = "OrgID"
+	UserIDKeyCtx ContextKey = iota
+	WorkspaceIDKeyCtx
 )
 
 func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
@@ -64,11 +62,7 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 			connect.CodeUnauthenticated, errors.New("invalid token"))
 	}
 
-	token, err := stoken.ValidateJWT(tokenRaw[1], stoken.AccessToken, authData.secret)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-	claims, err := stoken.GetClaims(token)
+	claims, err := stoken.ValidateJWT(tokenRaw[1], stoken.AccessToken, authData.secret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}

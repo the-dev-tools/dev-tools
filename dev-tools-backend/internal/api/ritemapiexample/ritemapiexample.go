@@ -6,6 +6,7 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
@@ -84,8 +85,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
-	authInterceptor := mwauth.NewAuthInterceptor(secret)
-	interceptors := connect.WithInterceptors(authInterceptor)
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	server := &ItemAPIExampleRPC{
 		DB:   db,
 		iaes: iaes,
@@ -97,7 +100,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		qs:   qs,
 	}
 
-	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, interceptors)
+	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

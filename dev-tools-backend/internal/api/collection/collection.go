@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/service/scollection"
@@ -408,8 +409,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
-	authInterceptor := mwauth.NewAuthInterceptor(secret)
-	interceptors := connect.WithInterceptors(authInterceptor)
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	server := &CollectionServiceRPC{
 		DB:     db,
 		secret: secret,
@@ -423,7 +426,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		hs:     *hs,
 	}
 
-	path, handler := collectionv1connect.NewCollectionServiceHandler(server, interceptors)
+	path, handler := collectionv1connect.NewCollectionServiceHandler(server, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

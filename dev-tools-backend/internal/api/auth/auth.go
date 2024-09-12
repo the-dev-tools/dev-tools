@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
@@ -32,11 +33,11 @@ var (
 )
 
 type AuthServer struct {
-	ClientAPI   *client.API
-	HmacSecret  []byte
+	ClientAPI   client.API
 	userService suser.UserService
 	ws          sworkspace.WorkspaceService
 	wus         sworkspacesusers.WorkspaceUserService
+	HmacSecret  []byte
 }
 
 func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
@@ -116,14 +117,9 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
 	}
 
-	jwtToken, err := stoken.ValidateJWT(req.Msg.GetRefreshToken(), stoken.RefreshToken, a.HmacSecret)
+	claims, err := stoken.ValidateJWT(req.Msg.GetRefreshToken(), stoken.RefreshToken, a.HmacSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	claims, err := stoken.GetClaims(jwtToken)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	userUlid, err := ulid.Parse(claims.Subject)
@@ -166,19 +162,23 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	}
 
 	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
-	m, err := client.New(magicLinkSecret, cl)
+	MagicLinkClient, err := client.New(magicLinkSecret, cl)
 	if err != nil {
 		return nil, err
 	}
 
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+
 	server := &AuthServer{
-		ClientAPI:   m,
+		ClientAPI:   *MagicLinkClient,
 		HmacSecret:  secret,
 		userService: *userService,
 		ws:          *ws,
 		wus:         *wus,
 	}
-	path, handler := authv1connect.NewAuthServiceHandler(server)
+	path, handler := authv1connect.NewAuthServiceHandler(server, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

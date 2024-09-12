@@ -18,13 +18,15 @@ func TestNewJWT(t *testing.T) {
 		t.Fatalf("NewJWT() failed: %v", err)
 	}
 
-	token, err := stoken.ValidateJWT(jwtToken, stoken.AccessToken, secret)
+	claims, err := stoken.ValidateJWT(jwtToken, stoken.AccessToken, secret)
 	if err != nil {
 		t.Fatalf("ValidateJWT() failed: %v", err)
 	}
-
-	if !token.Valid {
-		t.Fatalf("Token is not valid")
+	if claims.Email != someEmail {
+		t.Fatalf("Email should be %s, but got %s", someEmail, claims.Email)
+	}
+	if claims.TokenType != stoken.AccessToken {
+		t.Fatalf("TokenType should be %s, but got %s", stoken.AccessToken, claims.TokenType)
 	}
 }
 

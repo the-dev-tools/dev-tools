@@ -46,32 +46,37 @@ func NewJWT(id ulid.ULID, email string, tokenType TokenType, duration time.Durat
 	return tokenString, nil
 }
 
-func ValidateJWT(tokenString string, tokenType TokenType, secret []byte) (*jwt.Token, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &DefaultClaims{}, func(token *jwt.Token) (interface{}, error) {
+func keyFunc(secret []byte) jwt.Keyfunc {
+	return func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-
 		return secret, nil
-	})
+	}
+}
+
+func parseClaims(tokenString string, secret []byte) (*DefaultClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &DefaultClaims{}, keyFunc(secret))
 	if err != nil {
 		return nil, err
 	}
-
 	if !token.Valid {
 		return nil, fmt.Errorf("invalid token")
 	}
+	return GetClaims(token)
+}
 
-	claims, ok := token.Claims.(*DefaultClaims)
-	if !ok {
-		return nil, fmt.Errorf("cannot cast claims")
+func ValidateJWT(tokenString string, tokenType TokenType, secret []byte) (*DefaultClaims, error) {
+	claims, err := parseClaims(tokenString, secret)
+	if err != nil {
+		return nil, err
 	}
 
 	if claims.TokenType != tokenType {
 		return nil, fmt.Errorf("invalid token type")
 	}
 
-	return token, nil
+	return claims, nil
 }
 
 func GetClaims(token *jwt.Token) (*DefaultClaims, error) {

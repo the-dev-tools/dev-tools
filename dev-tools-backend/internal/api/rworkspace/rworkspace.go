@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
@@ -466,8 +467,10 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 		return nil, err
 	}
 
-	AuthInterceptorFunc := mwauth.NewAuthInterceptor(secret)
-	Interceptors := connect.WithInterceptors(AuthInterceptorFunc)
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	server := &WorkspaceServiceRPC{
 		DB:  db,
 		sw:  *sw,
@@ -476,6 +479,6 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 		ec:  *client,
 		eim: emailInviteManager,
 	}
-	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, Interceptors)
+	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
