@@ -3,8 +3,6 @@ syntax = "proto3";
 package nodemaster.v1;
 option go_package = "dev-tools-services/gen/nodemaster/v1;nodemasterv1";
 import "google/protobuf/any.proto";
-import "google/protobuf/wrappers.proto";
-import "nodedata/v1/nodedata.proto";
 import "nodestatus/v1/nodestatus.proto";
 
 service NodeMasterService {
