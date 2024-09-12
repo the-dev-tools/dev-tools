@@ -1,14 +1,20 @@
-import { createQueryOptions, useQuery as useConnectQuery, useMutation, useTransport } from '@connectrpc/connect-query';
+import {
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+  useTransport,
+} from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, Outlet, useMatch } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal } from 'react-icons/lu';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import {
@@ -25,6 +31,7 @@ import {
   updateApiCall,
 } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { Header } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
+import { updateHeader } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
   createFolder,
@@ -32,7 +39,7 @@ import {
   updateFolder,
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
-import { Checkbox } from '@the-dev-tools/ui/checkbox';
+import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
@@ -51,7 +58,7 @@ export const CollectionsTree = () => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const createCollectionMutation = useMutation(createCollection);
+  const createCollectionMutation = useConnectMutation(createCollection);
   const collectionsQuery = useConnectQuery(listCollections, { workspaceId });
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
@@ -95,9 +102,9 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const deleteMutation = useMutation(deleteCollection);
-  const updateMutation = useMutation(updateCollection);
-  const createFolderMutation = useMutation(createFolder);
+  const deleteMutation = useConnectMutation(deleteCollection);
+  const updateMutation = useConnectMutation(updateCollection);
+  const createFolderMutation = useConnectMutation(createFolder);
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
@@ -213,8 +220,8 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const deleteMutation = useMutation(deleteFolder);
-  const updateMutation = useMutation(updateFolder);
+  const deleteMutation = useConnectMutation(deleteFolder);
+  const updateMutation = useConnectMutation(updateFolder);
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
@@ -315,7 +322,7 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
 
   const { workspaceId } = workspaceRoute.useParams();
 
-  const deleteMutation = useMutation(deleteApiCall);
+  const deleteMutation = useConnectMutation(deleteApiCall);
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
@@ -357,7 +364,7 @@ const ImportPostman = () => {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation(importPostman);
+  const createMutation = useConnectMutation(importPostman);
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
@@ -409,7 +416,7 @@ interface ApiCallFormProps {
 const ApiCallForm = ({ data }: ApiCallFormProps) => {
   const { workspaceId, apiCallId } = apiCallRoute.useParams();
 
-  const updateMutation = useMutation(updateApiCall);
+  const updateMutation = useConnectMutation(updateApiCall);
 
   const form = useForm({
     resolver: effectTsResolver(ApiCallFormData),
@@ -493,41 +500,97 @@ const ApiCallForm = ({ data }: ApiCallFormProps) => {
   );
 };
 
-const headerColumnHelper = createColumnHelper<Header>();
-
-const headerColumns = [
-  headerColumnHelper.accessor('enabled', {
-    header: '',
-    minSize: 0,
-    size: 0,
-    cell: ({ getValue }) => <Checkbox isSelected={getValue()} />,
-  }),
-  headerColumnHelper.accessor('key', {}),
-  headerColumnHelper.accessor('value', {}),
-  headerColumnHelper.accessor('description', {}),
-];
-
 export const ApiCallHeaderTab = () => {
   const { apiCallId } = apiCallRoute.useParams();
-
   const query = useConnectQuery(getApiCall, { id: apiCallId });
+  if (!query.isSuccess) return null;
+  return <ApiCallHeaderForm data={query.data} />;
+};
+
+interface ApiCallHeaderFormProps {
+  data: GetApiCallResponse;
+}
+
+const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
+  const form = useForm({ defaultValues: Struct.pick(data.example!, 'header') });
+  const fieldArray = useFieldArray({ name: 'header', control: form.control });
+
+  const columns = useMemo(() => {
+    const { accessor } = createColumnHelper<Header>();
+    return [
+      accessor('enabled', {
+        header: '',
+        minSize: 0,
+        size: 0,
+        cell: ({ row }) => <CheckboxRHF control={form.control} name={`header.${row.index}.enabled`} className='p-1' />,
+      }),
+      accessor('key', {
+        cell: ({ row }) => (
+          <TextFieldRHF
+            control={form.control}
+            name={`header.${row.index}.key`}
+            inputClassName={tw`rounded-none border-transparent`}
+          />
+        ),
+      }),
+      accessor('value', {
+        cell: ({ row }) => (
+          <TextFieldRHF
+            control={form.control}
+            name={`header.${row.index}.value`}
+            inputClassName={tw`rounded-none border-transparent`}
+          />
+        ),
+      }),
+      accessor('description', {
+        cell: ({ row }) => (
+          <TextFieldRHF
+            control={form.control}
+            name={`header.${row.index}.description`}
+            inputClassName={tw`rounded-none border-transparent`}
+          />
+        ),
+      }),
+    ];
+  }, [form.control]);
 
   const table = useReactTable({
-    columns: headerColumns,
-    data: query.data?.example?.header ?? [],
+    columns,
+    data: fieldArray.fields,
     getCoreRowModel: getCoreRowModel(),
+    getRowId: (_) => _.id,
   });
 
+  const updateHeaderMutation = useConnectMutation(updateHeader);
+  const updateHeaderMap = useRef(new Map<string, Header>());
+  const updateHeaders = useDebouncedCallback(() => {
+    const headers = updateHeaderMap.current;
+    headers.forEach((header) => void updateHeaderMutation.mutate({ header }));
+    headers.clear();
+  }, 200);
+
+  useEffect(() => {
+    const watch = form.watch((_, { name }) => {
+      if (!name) return;
+      const rowName = name.match(/(^header.[\d]+)/g)?.[0] as `header.${number}`;
+      const rowValues = form.getValues(rowName);
+      updateHeaderMap.current.set(rowValues.id, rowValues);
+      updateHeaders();
+    });
+    return () => void watch.unsubscribe();
+  }, [form, updateHeaders]);
+
+  useEffect(() => () => void updateHeaders.flush(), [updateHeaders]);
+
   return (
-    <div className='divide-black rounded border border-black'>
-      <table className='w-full divide-inherit'>
+    <div className='rounded border border-black'>
+      <table className='w-full divide-inherit border-inherit'>
         <thead className='divide-y divide-inherit border-b border-inherit'>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  colSpan={header.colSpan}
                   className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
                   style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
                 >
@@ -541,7 +604,7 @@ export const ApiCallHeaderTab = () => {
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id}>
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all p-1.5 text-sm'>
+                <td key={cell.id} className='break-all align-middle text-sm'>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}
