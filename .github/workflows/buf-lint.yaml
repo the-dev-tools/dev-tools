@@ -1,6 +1,8 @@
+name: Buf lint
+
 on:
-  pull_request:
-    types: [opened, edited, reopened]
+  push:
+    branches: [main]
 jobs:
   lint:
     runs-on: ubuntu-latest
