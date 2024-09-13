@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.20.0
+
+### Minor Changes
+
+- [`76a5120`](https://github.com/the-dev-tools/dev-tools-proto/commit/76a51203891bfde5f1a1bab952b98cd509b42aa4) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add id field to create RPC call
+
 ## 1.19.0
 
 ### Minor Changes
