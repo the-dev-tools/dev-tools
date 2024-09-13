@@ -158,7 +158,7 @@ importers:
         version: 5.55.4(react@18.3.1)
       '@tanstack/react-router':
         specifier: 1.57.9
-        version: 1.57.9(@tanstack/router-generator@1.57.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.57.9(@tanstack/router-generator@1.57.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-table':
         specifier: 8.20.5
         version: 8.20.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -166,8 +166,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/api
       '@the-dev-tools/protobuf':
-        specifier: 1.17.0
-        version: 1.17.0
+        specifier: 1.19.0
+        version: 1.19.0
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -213,7 +213,7 @@ importers:
         version: 5.55.4(@tanstack/react-query@5.55.4(react@18.3.1))(react@18.3.1)
       '@tanstack/router-devtools':
         specifier: ~1.57.9
-        version: 1.57.9(@tanstack/react-router@1.57.9(@tanstack/router-generator@1.57.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.57.9(@tanstack/react-router@1.57.9(@tanstack/router-generator@1.57.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/router-plugin':
         specifier: ~1.57.9
         version: 1.57.9(@rsbuild/core@1.0.2)(webpack-sources@3.2.3)(webpack@5.94.0(esbuild@0.17.19))
@@ -263,8 +263,8 @@ importers:
         specifier: 0.72.3
         version: 0.72.3(effect@3.7.2)
       '@the-dev-tools/protobuf':
-        specifier: 1.17.0
-        version: 1.17.0
+        specifier: 1.19.0
+        version: 1.19.0
       '@the-dev-tools/utils':
         specifier: workspace:^
         version: link:../utils
@@ -346,7 +346,7 @@ importers:
         version: 4.6.2(eslint@9.10.0(jiti@1.21.6))
       eslint-plugin-tailwindcss:
         specifier: ~3.17.4
-        version: 3.17.4(tailwindcss@3.4.10)
+        version: 3.17.4(tailwindcss@3.4.11)
       globals:
         specifier: ~15.9.0
         version: 15.9.0
@@ -3526,6 +3526,10 @@ packages:
       react: '>=18'
       react-dom: '>=18'
 
+  '@tanstack/router-generator@1.57.13':
+    resolution: {integrity: sha512-DuoXwQOJHq1cCShhMnes6OaiFmpajMcah62/h40ZobbBtP5IuJFALvdtfAC26xfi2XmDA5/DwHwgdz9AHdsQCw==}
+    engines: {node: '>=12'}
+
   '@tanstack/router-generator@1.57.9':
     resolution: {integrity: sha512-zDkyb6JLkvHc/Hhu9F+Gn4JzUR7ZgtH1rbcI2H14JG8IjW1ahtko/r0a2Ev+G4kNqhZF0a5sSgh/tMQOIPZyjg==}
     engines: {node: '>=12'}
@@ -3556,8 +3560,8 @@ packages:
     resolution: {integrity: sha512-fBUj+lbSaw+VxoBN4J/WFE7dTx8x4XCTRAQvbiIyPJ8MY1KRVkdZV6cbLvg7MeDP6CxUcj6XNvWU6h0ic1Ipyg==}
     engines: {node: '>=12'}
 
-  '@the-dev-tools/protobuf@1.17.0':
-    resolution: {integrity: sha512-w+gp1+YhbUgHImS1rConO7VherwKOLdcuUUYo9GWsb61TGR5QFS0uAT2G6mbiMk3ZsQNkEuV4CpfxxBwEmmbfw==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.17.0/5a3d3847e52a95ddb5e2cc2d23458302e44c5fb0}
+  '@the-dev-tools/protobuf@1.19.0':
+    resolution: {integrity: sha512-0goqCLwN5CZPVX4TDbf+UHzzTzO28J+y6IJ8bWeuZzuksREDthK+vfVn03g2nqvtwevEBo1i4nyQNmrLq8OyDg==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.19.0/561016cf1799d3a0ee46bb6b63eb58e06d1e3108}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -5039,6 +5043,9 @@ packages:
 
   get-tsconfig@4.8.0:
     resolution: {integrity: sha512-Pgba6TExTZ0FJAn1qkJAjIeKoDJ3CsI2ChuLohJnZl/tTU8MVrq3b+2t5UOPfRa4RMsorClBjJALkJUMjG1PAw==}
+
+  get-tsconfig@4.8.1:
+    resolution: {integrity: sha512-k9PN+cFBmaLWtVz29SkUoqU5O0slLuHJXt/2P+tMVFT+phsSGXGkp9t3rQIqdz0e+06EHNGs3oM6ZX1s2zHxRg==}
 
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
@@ -6943,6 +6950,11 @@ packages:
     engines: {node: '>=14.0.0'}
     hasBin: true
 
+  tailwindcss@3.4.11:
+    resolution: {integrity: sha512-qhEuBcLemjSJk5ajccN9xJFtM/h0AVCPaA6C92jNP+M2J8kX+eMJHI7R2HFKUvvAsMpcfLILMCFYSeDwpMmlUg==}
+    engines: {node: '>=14.0.0'}
+    hasBin: true
+
   tapable@2.2.1:
     resolution: {integrity: sha512-GNzQvQTOIP6RyTfE2Qxb8ZVlNmw0n88vp1szwWRimP02mnTsx3Wtn5qRdqY9w2XduFNUgvOwhNnQsjwCp+kqaQ==}
     engines: {node: '>=6'}
@@ -7068,6 +7080,11 @@ packages:
 
   tsx@4.19.0:
     resolution: {integrity: sha512-bV30kM7bsLZKZIOCHeMNVMJ32/LuJzLVajkQI/qf92J2Qr08ueLQvW00PUZGiuLPP760UINwupgUj8qrSCPUKg==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
+
+  tsx@4.19.1:
+    resolution: {integrity: sha512-0flMz1lh74BR4wOvBjuh9olbnwqCPc35OOlfyzHba0Dc+QNUeWX/Gq2YTbnwcWPO3BMd8fkzRVrHcsR+a7z7rA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -11064,11 +11081,11 @@ snapshots:
       '@tanstack/query-core': 5.55.4
       react: 18.3.1
 
-  '@tanstack/react-router@1.57.9(@tanstack/router-generator@1.57.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/react-router@1.57.9(@tanstack/router-generator@1.57.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/history': 1.57.6
       '@tanstack/react-store': 0.5.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/router-generator': 1.57.9
+      '@tanstack/router-generator': 1.57.13
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tiny-invariant: 1.3.3
@@ -11087,15 +11104,22 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@tanstack/router-devtools@1.57.9(@tanstack/react-router@1.57.9(@tanstack/router-generator@1.57.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/router-devtools@1.57.9(@tanstack/react-router@1.57.9(@tanstack/router-generator@1.57.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@tanstack/react-router': 1.57.9(@tanstack/router-generator@1.57.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/react-router': 1.57.9(@tanstack/router-generator@1.57.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       clsx: 2.1.1
       goober: 2.1.14(csstype@3.1.3)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
       - csstype
+
+  '@tanstack/router-generator@1.57.13':
+    dependencies:
+      '@tanstack/virtual-file-routes': 1.56.0
+      prettier: 3.3.3
+      tsx: 4.19.1
+      zod: 3.23.8
 
   '@tanstack/router-generator@1.57.9':
     dependencies:
@@ -11137,7 +11161,7 @@ snapshots:
 
   '@tanstack/virtual-file-routes@1.56.0': {}
 
-  '@the-dev-tools/protobuf@1.17.0': {}
+  '@the-dev-tools/protobuf@1.19.0': {}
 
   '@trysound/sax@0.2.0': {}
 
@@ -12746,11 +12770,11 @@ snapshots:
       string.prototype.matchall: 4.0.11
       string.prototype.repeat: 1.0.0
 
-  eslint-plugin-tailwindcss@3.17.4(tailwindcss@3.4.10):
+  eslint-plugin-tailwindcss@3.17.4(tailwindcss@3.4.11):
     dependencies:
       fast-glob: 3.3.2
       postcss: 8.4.45
-      tailwindcss: 3.4.10
+      tailwindcss: 3.4.11
 
   eslint-scope@5.1.1:
     dependencies:
@@ -13064,6 +13088,10 @@ snapshots:
       get-intrinsic: 1.2.4
 
   get-tsconfig@4.8.0:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
+
+  get-tsconfig@4.8.1:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
@@ -15231,6 +15259,33 @@ snapshots:
     transitivePeerDependencies:
       - ts-node
 
+  tailwindcss@3.4.11:
+    dependencies:
+      '@alloc/quick-lru': 5.2.0
+      arg: 5.0.2
+      chokidar: 3.6.0
+      didyoumean: 1.2.2
+      dlv: 1.1.3
+      fast-glob: 3.3.2
+      glob-parent: 6.0.2
+      is-glob: 4.0.3
+      jiti: 1.21.6
+      lilconfig: 2.1.0
+      micromatch: 4.0.8
+      normalize-path: 3.0.0
+      object-hash: 3.0.0
+      picocolors: 1.1.0
+      postcss: 8.4.45
+      postcss-import: 15.1.0(postcss@8.4.45)
+      postcss-js: 4.0.1(postcss@8.4.45)
+      postcss-load-config: 4.0.2(postcss@8.4.45)
+      postcss-nested: 6.2.0(postcss@8.4.45)
+      postcss-selector-parser: 6.1.2
+      resolve: 1.22.8
+      sucrase: 3.35.0
+    transitivePeerDependencies:
+      - ts-node
+
   tapable@2.2.1: {}
 
   temp-dir@3.0.0: {}
@@ -15350,6 +15405,13 @@ snapshots:
     dependencies:
       esbuild: 0.23.1
       get-tsconfig: 4.8.0
+    optionalDependencies:
+      fsevents: 2.3.3
+
+  tsx@4.19.1:
+    dependencies:
+      esbuild: 0.23.1
+      get-tsconfig: 4.8.1
     optionalDependencies:
       fsevents: 2.3.3
 

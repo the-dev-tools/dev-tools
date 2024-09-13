@@ -31,7 +31,10 @@ import {
   updateApiCall,
 } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { Header } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
-import { updateHeader } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+import {
+  createHeader,
+  updateHeader,
+} from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
   createFolder,
@@ -512,7 +515,19 @@ interface ApiCallHeaderFormProps {
 }
 
 const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
-  const form = useForm({ defaultValues: Struct.pick(data.example!, 'header') });
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  const getQueryOptions = createQueryOptions(getApiCall, { id: data.apiCall!.meta!.id }, { transport });
+
+  const values = useMemo(
+    () => ({
+      header: [...data.example!.header, new Header({ enabled: true })],
+    }),
+    [data.example],
+  );
+
+  const form = useForm({ values });
   const fieldArray = useFieldArray({ name: 'header', control: form.control });
 
   const columns = useMemo(() => {
@@ -562,20 +577,30 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
   });
 
   const updateHeaderMutation = useConnectMutation(updateHeader);
+  const createHeaderMutation = useConnectMutation(createHeader);
+
   const updateHeaderMap = useRef(new Map<string, Header>());
-  const updateHeaders = useDebouncedCallback(() => {
+  const updateHeaders = useDebouncedCallback(async () => {
     const headers = updateHeaderMap.current;
-    headers.forEach((header) => void updateHeaderMutation.mutate({ header }));
+
+    const promises = Array.fromIterable(headers.values()).map(async (header) => {
+      if (header.id) return void (await updateHeaderMutation.mutateAsync({ header }));
+
+      await createHeaderMutation.mutateAsync({ header: { ...header, exampleId: data.example!.meta!.id } });
+      await queryClient.invalidateQueries(getQueryOptions);
+    });
+
     headers.clear();
+    await Promise.allSettled(promises);
   }, 200);
 
   useEffect(() => {
     const watch = form.watch((_, { name }) => {
-      if (!name) return;
-      const rowName = name.match(/(^header.[\d]+)/g)?.[0] as `header.${number}`;
+      const rowName = name?.match(/(^header.[\d]+)/g)?.[0] as `header.${number}` | undefined;
+      if (!rowName) return;
       const rowValues = form.getValues(rowName);
       updateHeaderMap.current.set(rowValues.id, rowValues);
-      updateHeaders();
+      void updateHeaders();
     });
     return () => void watch.unsubscribe();
   }, [form, updateHeaders]);
