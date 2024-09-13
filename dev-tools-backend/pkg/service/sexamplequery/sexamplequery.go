@@ -98,7 +98,7 @@ func (h ExampleQueryService) CreateExampleQueryDB(ctx context.Context, query gen
 }
 
 func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexamplequery.Query) error {
-	sizeOfChunks := 10
+	const sizeOfChunks = 10
 	convertedItems := tgeneric.MassConvert(queries, SerializeQueryModelToDB)
 	for headerChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
 		if len(headerChunk) < sizeOfChunks {

@@ -163,9 +163,6 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		exampleIDPtr = &exampleID
 	}
 
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
 	item, err := c.ias.GetItemApi(ctx, apiUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

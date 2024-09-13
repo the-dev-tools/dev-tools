@@ -99,7 +99,7 @@ func (h HeaderService) CreateHeaderModel(ctx context.Context, header gen.Example
 }
 
 func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleheader.Header) error {
-	sizeOfChunks := 10
+	const sizeOfChunks = 10
 	convertedItems := tgeneric.MassConvert(headers, SerializeHeaderDBToModel)
 	for headerChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
 		if len(headerChunk) < sizeOfChunks {
