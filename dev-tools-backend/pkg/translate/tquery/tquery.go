@@ -22,8 +22,13 @@ func SerlializeQueryRPCtoModel(query *itemapiexamplev1.Query) (mexamplequery.Que
 	if err != nil {
 		return mexamplequery.Query{}, err
 	}
+	exampleUlid, err := ulid.Parse(query.GetExampleId())
+	if err != nil {
+		return mexamplequery.Query{}, err
+	}
 	return mexamplequery.Query{
 		ID:          queryId,
+		ExampleID:   exampleUlid,
 		QueryKey:    query.GetKey(),
 		Enable:      query.GetEnabled(),
 		Description: query.GetDescription(),
@@ -32,8 +37,13 @@ func SerlializeQueryRPCtoModel(query *itemapiexamplev1.Query) (mexamplequery.Que
 }
 
 func SerlializeQueryRPCtoModelNoID(query *itemapiexamplev1.Query) (mexamplequery.Query, error) {
+	exampleUlid, err := ulid.Parse(query.GetExampleId())
+	if err != nil {
+		return mexamplequery.Query{}, err
+	}
 	return mexamplequery.Query{
 		QueryKey:    query.GetKey(),
+		ExampleID:   exampleUlid,
 		Enable:      query.GetEnabled(),
 		Description: query.GetDescription(),
 		Value:       query.GetValue(),

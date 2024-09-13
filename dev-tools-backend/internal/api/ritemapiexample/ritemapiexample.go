@@ -437,7 +437,7 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("header is nil"))
 	}
 
-	headerModel, err := theader.SerlializeHeaderRPCtoModelNoID(req.Msg.Header)
+	headerModel, err := theader.SerlializeHeaderRPCtoModelNoID(req.Msg.GetHeader())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
