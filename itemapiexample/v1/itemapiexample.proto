@@ -35,26 +35,29 @@ service ItemApiExampleService {
 
 message Header {
   string id = 1;
-  string key = 2;
-  bool enabled = 3;
-  string value = 4;
-  string description = 5;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
 }
 
 message Query {
   string id = 1;
-  string key = 2;
-  bool enabled = 3;
-  string value = 4;
-  string description = 5;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
 }
 
 message BodyFormDataItem {
   string id = 1;
-  string key = 2;
-  bool enabled = 3;
-  string value = 4;
-  string description = 5;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
 }
 
 
