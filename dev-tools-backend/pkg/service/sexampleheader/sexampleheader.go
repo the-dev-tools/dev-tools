@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
+	"sort"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -65,6 +66,10 @@ func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID ulid.
 		}
 		return nil, err
 	}
+	// TODO: change to link list
+	sort.Slice(header, func(i, j int) bool {
+		return header[i].ID.Compare(header[j].ID) < 0
+	})
 	return tgeneric.MassConvert(header, SerializeHeaderModelToDB), nil
 }
 

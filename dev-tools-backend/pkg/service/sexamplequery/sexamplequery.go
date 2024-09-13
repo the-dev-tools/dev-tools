@@ -8,6 +8,7 @@ import (
 	"dev-tools-backend/pkg/ulidwrap"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
+	"sort"
 )
 
 var ErrNoQueryFound = sql.ErrNoRows
@@ -72,6 +73,9 @@ func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, e
 		}
 		return nil, err
 	}
+	sort.Slice(queries, func(i, j int) bool {
+		return queries[i].ID.Compare(queries[j].ID) < 0
+	})
 	return tgeneric.MassConvert(queries, SerializeQueryDBToModel), nil
 }
 

@@ -54,6 +54,7 @@ func SerlializeHeaderRPCtoModelNoID(header *itemapiexamplev1.Header) (mexamplehe
 		ExampleID:   exampleUlID,
 		HeaderKey:   header.GetKey(),
 		Description: header.GetDescription(),
+		Enable:      header.GetEnabled(),
 		Value:       header.GetValue(),
 	}, nil
 }
