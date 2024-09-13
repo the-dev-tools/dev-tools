@@ -1,6 +1,6 @@
 {
   "name": "@the-dev-tools/email",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "repository": {
     "type": "git",
     "directory": "packages/email",

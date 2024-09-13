@@ -2,7 +2,7 @@
   "name": "@the-dev-tools/api-recorder-extension",
   "displayName": "API Recorder",
   "author": "dev.tools",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "scripts": {
     "build": "plasmo build --build-path=dist --zip",
     "dev": "plasmo dev --build-path=dist",
