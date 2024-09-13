@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.19.0
+
+### Minor Changes
+
+- [`f044145`](https://github.com/the-dev-tools/dev-tools-proto/commit/f044145a7b95f1a06368f5431fa6c9cae3f104bb) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add example_id to header, query and body
+
 ## 1.18.0
 
 ### Minor Changes
