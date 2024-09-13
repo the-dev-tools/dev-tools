@@ -277,13 +277,12 @@ func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid
 	headerArr := make([]mexampleheader.Header, len(headers))
 	for i, item := range headers {
 		header := mexampleheader.Header{
-			ID:           ulid.Make(),
-			ExampleID:    exampleID,
-			CollectionID: collectionID,
-			HeaderKey:    item.Key,
-			Enable:       !item.Disabled,
-			Description:  item.Description,
-			Value:        item.Value,
+			ID:          ulid.Make(),
+			ExampleID:   exampleID,
+			HeaderKey:   item.Key,
+			Enable:      !item.Disabled,
+			Description: item.Description,
+			Value:       item.Value,
 		}
 		headerArr[i] = header
 		// TODO: add ordering

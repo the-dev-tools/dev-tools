@@ -30,3 +30,12 @@ func SerlializeQueryRPCtoModel(query *itemapiexamplev1.Query) (mexamplequery.Que
 		Value:       query.GetValue(),
 	}, nil
 }
+
+func SerlializeQueryRPCtoModelNoID(query *itemapiexamplev1.Query) (mexamplequery.Query, error) {
+	return mexamplequery.Query{
+		QueryKey:    query.GetKey(),
+		Enable:      query.GetEnabled(),
+		Description: query.GetDescription(),
+		Value:       query.GetValue(),
+	}, nil
+}

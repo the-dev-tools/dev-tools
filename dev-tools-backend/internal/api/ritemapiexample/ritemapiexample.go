@@ -131,14 +131,7 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 		}
 
 		rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
 		rpcQueries := tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 
 		rpcExamples[i] = &itemapiexamplev1.ApiExample{
 			Meta: &itemapiexamplev1.ApiExampleMeta{
@@ -196,14 +189,7 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 	}
 
 	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	rpcQueries := tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
 	exampleRPC := &itemapiexamplev1.ApiExample{
 		Meta: &itemapiexamplev1.ApiExampleMeta{
@@ -426,20 +412,45 @@ func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid u
 	return collection.CheckOwnerCollection(ctx, *c.cs, *c.us, example.CollectionID)
 }
 
-// Headers
-// TODO: add permissions
-func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
-	if req.Msg == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("request message is nil"))
+func (c *ItemAPIExampleRPC) CheckOwnerHeader(ctx context.Context, headerUlid ulid.ULID) (bool, error) {
+	header, err := c.hs.GetHeaderByID(ctx, headerUlid)
+	if err != nil {
+		return false, err
 	}
-	if req.Msg.Header == nil {
+	return c.CheckOwnerExample(ctx, header.ExampleID)
+}
+
+func (c *ItemAPIExampleRPC) CheckOwnerQuery(ctx context.Context, queryUlid ulid.ULID) (bool, error) {
+	ulidWrap := ulidwrap.New(queryUlid)
+	query, err := c.qs.GetExampleQuery(ctx, ulidWrap)
+	if err != nil {
+		return false, err
+	}
+	return c.CheckOwnerExample(ctx, query.ExampleID)
+}
+
+// Headers
+// TODO: refactor to use the ulidwrap
+func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
+	headerData := req.Msg.GetHeader()
+	if headerData == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("header is nil"))
 	}
-	headerModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.Header)
+
+	headerModel, err := theader.SerlializeHeaderRPCtoModelNoID(req.Msg.Header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	headerModel.ID = ulid.Make()
+
+	ok, err := c.CheckOwnerExample(ctx, headerModel.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	}
+
 	err = c.hs.CreateHeader(ctx, headerModel)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -447,17 +458,18 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{}), nil
 }
 
-// TODO: add permissions
+// TODO: refactor to use the ulidwrap
 func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateHeaderRequest]) (*connect.Response[itemapiexamplev1.UpdateHeaderResponse], error) {
-	if req.Msg == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("request message is nil"))
-	}
-	if req.Msg.Header == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("header is nil"))
-	}
-	HeaderModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.Header)
+	HeaderModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.GetHeader())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := c.CheckOwnerHeader(ctx, HeaderModel.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no header found"))
 	}
 	err = c.hs.UpdateHeader(ctx, HeaderModel)
 	if err != nil {
@@ -466,14 +478,18 @@ func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&itemapiexamplev1.UpdateHeaderResponse{}), nil
 }
 
-// TODO: add permissions
+// TODO: refactor to use the ulidwrap
 func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteHeaderRequest]) (*connect.Response[itemapiexamplev1.DeleteHeaderResponse], error) {
-	if req.Msg == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("request message is nil"))
-	}
 	ulidWrap, err := ulidwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := c.CheckOwnerHeader(ctx, ulidWrap.GetUlid())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no header found"))
 	}
 	err = c.hs.DeleteHeader(ctx, ulidWrap.GetUlid())
 	if err != nil {
@@ -482,32 +498,75 @@ func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&itemapiexamplev1.DeleteHeaderResponse{}), nil
 }
 
-// CreateQuery calls itemapiexample.v1.ItemApiExampleService.CreateQuery.
+// Query
 func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateQueryRequest]) (*connect.Response[itemapiexamplev1.CreateQueryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	queryData, err := tquery.SerlializeQueryRPCtoModelNoID(req.Msg.GetQuery())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	queryData.ID = ulid.Make()
+	ok, err := c.CheckOwnerExample(ctx, queryData.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	}
+	err = c.qs.CreateExampleQuery(ctx, queryData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&itemapiexamplev1.CreateQueryResponse{}), nil
 }
 
-// UpdateQuery calls itemapiexample.v1.ItemApiExampleService.UpdateQuery.
 func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateQueryRequest]) (*connect.Response[itemapiexamplev1.UpdateQueryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	queryData, err := tquery.SerlializeQueryRPCtoModel(req.Msg.GetQuery())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := c.CheckOwnerQuery(ctx, queryData.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no query found"))
+	}
+	err = c.qs.UpdateExampleQuery(ctx, queryData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.UpdateQueryResponse{}), nil
 }
 
-// DeleteQuery calls itemapiexample.v1.ItemApiExampleService.DeleteQuery.
 func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteQueryRequest]) (*connect.Response[itemapiexamplev1.DeleteQueryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	ulidWrap, err := ulidwrap.NewWithParse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := c.CheckOwnerQuery(ctx, ulidWrap.GetUlid())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no query found"))
+	}
+	err = c.qs.DeleteExampleQuery(ctx, ulidWrap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&itemapiexamplev1.DeleteQueryResponse{}), nil
 }
 
-// CreateBodyForm calls itemapiexample.v1.ItemApiExampleService.CreateBodyForm.
+// BodyForm
 func (c *ItemAPIExampleRPC) CreateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateBodyFormRequest]) (*connect.Response[itemapiexamplev1.CreateBodyFormResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
-// UpdateBodyForm calls itemapiexample.v1.ItemApiExampleService.UpdateBodyForm.
 func (c *ItemAPIExampleRPC) UpdateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateBodyFormRequest]) (*connect.Response[itemapiexamplev1.UpdateBodyFormResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
-// DeleteBodyForm calls itemapiexample.v1.ItemApiExampleService.DeleteBodyForm.
 func (c *ItemAPIExampleRPC) DeleteBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteBodyFormRequest]) (*connect.Response[itemapiexamplev1.DeleteBodyFormResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
