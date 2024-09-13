@@ -1,5 +1,18 @@
 # @the-dev-tools/protobuf
 
+## 1.18.0
+
+### Minor Changes
+
+- [`c9068dd`](https://github.com/the-dev-tools/dev-tools-proto/commit/c9068dd8313c55509a3dad8bd930bed654cbe214) Thanks [@ElecTwix](https://github.com/ElecTwix)! - Refactor the body messages
+  Remove create response data
+
+  Added CI for buf linting
+  fix couple of linting issues
+
+  added example id to the create request for Header, Query and FormBody
+  update lint github action trigger to push on main branch
+
 ## 1.17.0
 
 ### Minor Changes
