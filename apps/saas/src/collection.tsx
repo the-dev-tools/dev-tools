@@ -533,7 +533,7 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
   );
 
   const form = useForm({ values });
-  const { fields, remove: removeField } = useFieldArray({ name: 'header', control: form.control });
+  const { fields, remove: removeField } = useFieldArray({ name: 'header', control: form.control, keyName: 'fieldId' });
 
   const columns = useMemo(() => {
     const { accessor, display } = createColumnHelper<Header>();
