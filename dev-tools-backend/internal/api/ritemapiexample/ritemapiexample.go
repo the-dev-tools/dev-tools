@@ -224,10 +224,11 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	newUlid := ulid.Make()
 	exampleRPC := req.Msg.Example
 	metaRPC := exampleRPC.GetMeta()
 	ex := &mitemapiexample.ItemApiExample{
-		ID:           ulid.Make(),
+		ID:           newUlid,
 		ItemApiID:    apiUlid,
 		CollectionID: itemApi.CollectionID,
 		Name:         metaRPC.GetName(),
@@ -240,7 +241,9 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemapiexamplev1.CreateExampleResponse{}), nil
+	return connect.NewResponse(&itemapiexamplev1.CreateExampleResponse{
+		Id: newUlid.String(),
+	}), nil
 }
 
 func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateExampleRequest]) (*connect.Response[itemapiexamplev1.UpdateExampleResponse], error) {
@@ -441,7 +444,8 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	headerModel.ID = ulid.Make()
+	newUlid := ulid.Make()
+	headerModel.ID = newUlid
 
 	ok, err := c.CheckOwnerExample(ctx, headerModel.ExampleID)
 	if err != nil {
@@ -455,7 +459,7 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{}), nil
+	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{Id: newUlid.String()}), nil
 }
 
 // TODO: refactor to use the ulidwrap
@@ -504,7 +508,8 @@ func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	queryData.ID = ulid.Make()
+	createdUlid := ulid.Make()
+	queryData.ID = createdUlid
 	ok, err := c.CheckOwnerExample(ctx, queryData.ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -516,7 +521,7 @@ func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&itemapiexamplev1.CreateQueryResponse{}), nil
+	return connect.NewResponse(&itemapiexamplev1.CreateQueryResponse{Id: createdUlid.String()}), nil
 }
 
 func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateQueryRequest]) (*connect.Response[itemapiexamplev1.UpdateQueryResponse], error) {
