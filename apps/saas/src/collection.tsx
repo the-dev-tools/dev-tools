@@ -13,7 +13,7 @@ import { Array, Effect, Match, pipe, Struct } from 'effect';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal } from 'react-icons/lu';
+import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal, LuTrash2 } from 'react-icons/lu';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
@@ -33,6 +33,7 @@ import {
 import { Header } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import {
   createHeader,
+  deleteHeader,
   updateHeader,
 } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
@@ -520,6 +521,10 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
 
   const getQueryOptions = createQueryOptions(getApiCall, { id: data.apiCall!.meta!.id }, { transport });
 
+  const updateMutation = useConnectMutation(updateHeader);
+  const createMutation = useConnectMutation(createHeader);
+  const { mutate: delete_ } = useConnectMutation(deleteHeader);
+
   const values = useMemo(
     () => ({
       header: [...data.example!.header, new Header({ enabled: true })],
@@ -528,10 +533,10 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
   );
 
   const form = useForm({ values });
-  const fieldArray = useFieldArray({ name: 'header', control: form.control });
+  const { fields, remove: removeField } = useFieldArray({ name: 'header', control: form.control });
 
   const columns = useMemo(() => {
-    const { accessor } = createColumnHelper<Header>();
+    const { accessor, display } = createColumnHelper<Header>();
     return [
       accessor('enabled', {
         header: '',
@@ -566,27 +571,43 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
           />
         ),
       }),
+      display({
+        id: 'actions',
+        header: '',
+        minSize: 0,
+        size: 0,
+        cell: ({ row }) => (
+          <Button
+            className='text-red-700'
+            kind='placeholder'
+            variant='placeholder ghost'
+            onPress={() => {
+              delete_({ id: row.id });
+              removeField(row.index);
+            }}
+          >
+            <LuTrash2 />
+          </Button>
+        ),
+      }),
     ];
-  }, [form.control]);
+  }, [delete_, form.control, removeField]);
 
   const table = useReactTable({
     columns,
-    data: fieldArray.fields,
+    data: fields,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (_) => _.id,
   });
-
-  const updateHeaderMutation = useConnectMutation(updateHeader);
-  const createHeaderMutation = useConnectMutation(createHeader);
 
   const updateHeaderMap = useRef(new Map<string, Header>());
   const updateHeaders = useDebouncedCallback(async () => {
     const headers = updateHeaderMap.current;
 
     const promises = Array.fromIterable(headers.values()).map(async (header) => {
-      if (header.id) return void (await updateHeaderMutation.mutateAsync({ header }));
+      if (header.id) return void (await updateMutation.mutateAsync({ header }));
 
-      await createHeaderMutation.mutateAsync({ header: { ...header, exampleId: data.example!.meta!.id } });
+      await createMutation.mutateAsync({ header: { ...header, exampleId: data.example!.meta!.id } });
       await queryClient.invalidateQueries(getQueryOptions);
     });
 
