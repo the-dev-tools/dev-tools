@@ -115,6 +115,7 @@ message CreateExampleRequest {
 }
 
 message CreateExampleResponse {
+  string id = 1;
 }
 
 message UpdateExampleRequest {
@@ -148,6 +149,7 @@ message CreateHeaderRequest {
 }
 
 message CreateHeaderResponse {
+  string id = 1;
 }
 
 // // UPDATE
@@ -173,6 +175,7 @@ message CreateQueryRequest {
 }
 
 message CreateQueryResponse {
+  string id = 1;
 }
 
 // // UPDATE
@@ -198,6 +201,7 @@ message CreateBodyFormRequest {
 }
 
 message CreateBodyFormResponse {
+  string id = 1;
 }
 
 // // UPDATE
