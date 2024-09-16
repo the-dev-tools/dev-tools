@@ -206,7 +206,7 @@ message CreateBodyFormResponse {
 
 // // UPDATE
 message UpdateBodyFormRequest {
-  BodyFormData body_form = 1;
+  BodyFormDataItem body_form = 1;
 }
 
 message UpdateBodyFormResponse {
