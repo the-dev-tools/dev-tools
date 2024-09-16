@@ -290,7 +290,7 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		checkfolder, err := c.ifs.GetItemFolder(ctx, parentUlidID)
+		checkfolder, err := c.ifs.GetFolder(ctx, parentUlidID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

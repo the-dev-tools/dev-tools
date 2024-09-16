@@ -105,11 +105,12 @@ func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[item
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	folder, err := c.ifs.GetItemFolder(ctx, ulidID)
+	folder, err := c.ifs.GetFolder(ctx, ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// TODO: add items
 	respRaw := &itemfolderv1.GetFolderResponse{
 		Folder: &itemfolderv1.Folder{
 			Meta: &itemfolderv1.FolderMeta{
@@ -148,7 +149,7 @@ func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[i
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		checkfolder, err := c.ifs.GetItemFolder(ctx, parentUlidID)
+		checkfolder, err := c.ifs.GetFolder(ctx, parentUlidID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -197,7 +198,7 @@ func (c *ItemFolderRPC) DeleteFolder(ctx context.Context, req *connect.Request[i
 }
 
 func CheckOwnerFolder(ctx context.Context, ifs sitemfolder.ItemFolderService, cs scollection.CollectionService, us suser.UserService, folderID idwrap.IDWrap) (bool, error) {
-	folder, err := ifs.GetItemFolder(ctx, folderID)
+	folder, err := ifs.GetFolder(ctx, folderID)
 	if err != nil {
 		return false, err
 	}
