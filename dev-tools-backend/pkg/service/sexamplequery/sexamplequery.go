@@ -3,9 +3,9 @@ package sexamplequery
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/ulidwrap"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
 	"sort"
@@ -57,16 +57,16 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleQueryService, error) {
 	return &service, nil
 }
 
-func (h ExampleQueryService) GetExampleQuery(ctx context.Context, id ulidwrap.ULIDWrap) (mexamplequery.Query, error) {
-	query, err := h.queries.GetQuery(ctx, ulidwrap.GetUlid(id))
+func (h ExampleQueryService) GetExampleQuery(ctx context.Context, id idwrap.IDWrap) (mexamplequery.Query, error) {
+	query, err := h.queries.GetQuery(ctx, id)
 	if err != nil {
 		return mexamplequery.Query{}, err
 	}
 	return SerializeQueryDBToModel(query), nil
 }
 
-func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, exampleID ulidwrap.ULIDWrap) ([]mexamplequery.Query, error) {
-	queries, err := h.queries.GetQueriesByExampleID(ctx, ulidwrap.GetUlid(exampleID))
+func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]mexamplequery.Query, error) {
+	queries, err := h.queries.GetQueriesByExampleID(ctx, exampleID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mexamplequery.Query{}, ErrNoQueryFound
@@ -215,6 +215,6 @@ func (h ExampleQueryService) UpdateExampleQuery(ctx context.Context, query mexam
 	})
 }
 
-func (h ExampleQueryService) DeleteExampleQuery(ctx context.Context, id ulidwrap.ULIDWrap) error {
-	return h.queries.DeleteQuery(ctx, ulidwrap.GetUlid(id))
+func (h ExampleQueryService) DeleteExampleQuery(ctx context.Context, id idwrap.IDWrap) error {
+	return h.queries.DeleteQuery(ctx, id)
 }

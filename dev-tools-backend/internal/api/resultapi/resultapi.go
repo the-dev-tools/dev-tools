@@ -6,6 +6,7 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
@@ -17,7 +18,6 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 )
 
 type ResultService struct {
@@ -29,7 +29,7 @@ type ResultService struct {
 }
 
 func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv1.GetRequest]) (*connect.Response[apiresultv1.GetResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetId())
+	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -63,7 +63,7 @@ func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv
 }
 
 func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[apiresultv1.GetResultsRequest]) (*connect.Response[apiresultv1.GetResultsResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetTriggerBy())
+	ulidID, err := idwrap.NewWithParse(req.Msg.GetTriggerBy())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -153,7 +153,7 @@ func convertResultToProto(result *mresultapi.MResultAPI) *apiresultv1.Result {
 	}
 }
 
-func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID ulid.ULID) (bool, error) {
+func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (bool, error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
@@ -169,7 +169,7 @@ func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID uli
 	return true, nil
 }
 
-func (c *ResultService) CheckOwnerCollection(ctx context.Context, collectionID ulid.ULID) (bool, error) {
+func (c *ResultService) CheckOwnerCollection(ctx context.Context, collectionID idwrap.IDWrap) (bool, error) {
 	workspaceID, err := c.cs.GetOwner(ctx, collectionID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)

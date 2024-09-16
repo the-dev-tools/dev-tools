@@ -22,96 +22,96 @@ sql:
           ## user
           - column: "users.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ## collections
           ### id
           - column: "collections.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### owner_id
           - column: "collections.owner_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ## item_api
           ### id
           - column: "item_api.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### prev
           - column: "item_api.prev"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
           ### next
           - column: "item_api.next"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
           ### collection_id
           - column: "item_api.collection_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### parent_id
           - column: "item_api.parent_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
               pointer: true
-              type: "ULID"
           ## item_api_example
           ### id
           - column: "item_api_example.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### prev
           - column: "item_api_example.prev"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
           ### next
           - column: "item_api_example.next"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
           ### api_id
           - column: "item_api_example.item_api_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### collection_id
           - column: "item_api_example.collection_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### parent_example_id
           - column: "item_api_example.parent_example_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
+              package: "idwrap"
+              type: "IDWrap"
           ### headers
           - column: "item_api_example.headers"
             go_type:
@@ -128,69 +128,69 @@ sql:
           ### id
           - column: "item_folder.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### prev
           - column: "item_folder.prev"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
+              package: "idwrap"
+              type: "IDWrap"
           ### next
           - column: "item_folder.next"
             go_type:
-              import: "github.com/oklog/ulid/v2"
+              import: "dev-tools-backend/pkg/idwrap"
               pointer: true
-              package: "ulid"
-              type: "ULID"
+              package: "idwrap"
+              type: "IDWrap"
           ## collection_id
           - column: "item_folder.collection_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### parent_id
           - column: "item_folder.parent_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
               pointer: true
-              type: "ULID"
+              type: "IDWrap"
           ## workspace
           ### id
           - column: "workspaces.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ## workspaces_users
           ### id
           - column: "workspaces_users.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### workspace_id
           - column: "workspaces_users.workspace_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### user_id
           - column: "workspaces_users.user_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ## result_api
           ### id
           - column: "result_api.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### trigger_type
           - column: "result_api.trigger_type"
             go_type:
@@ -200,9 +200,9 @@ sql:
           ### trigger_by
           - column: "result_api.trigger_by"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### trigger_by
           - column: "result_api.http_resp"
             go_type:
@@ -213,38 +213,38 @@ sql:
           ### id
           - column: "example_header.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### example_id
           - column: "example_header.example_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ## example_query
           ### id
           - column: "example_query.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### id
           - column: "example_query.example_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ## example_body_form
           ### id
           - column: "example_body_form.id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### id
           - column: "example_body_form.example_id"
             go_type:
-              import: "github.com/oklog/ulid/v2"
-              package: "ulid"
-              type: "ULID"
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"

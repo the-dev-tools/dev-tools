@@ -3,14 +3,13 @@ package sresultapi
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
 	"time"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type ResultApiService struct {
@@ -73,7 +72,7 @@ func (ras ResultApiService) CreateResultApi(ctx context.Context, result *mresult
 	})
 }
 
-func (ras ResultApiService) GetResultApi(id ulid.ULID) (*mresultapi.MResultAPI, error) {
+func (ras ResultApiService) GetResultApi(id idwrap.IDWrap) (*mresultapi.MResultAPI, error) {
 	result, err := ras.queries.GetResultApi(context.Background(), id)
 	if err != nil {
 		return nil, err
@@ -93,11 +92,11 @@ func (ras ResultApiService) UpdateResultApi(ctx context.Context, result *mresult
 	})
 }
 
-func (ras ResultApiService) DeleteResultApi(ctx context.Context, id ulid.ULID) error {
+func (ras ResultApiService) DeleteResultApi(ctx context.Context, id idwrap.IDWrap) error {
 	return ras.queries.DeleteResultApi(ctx, id)
 }
 
-func (ras ResultApiService) GetResultsApiWithTriggerBy(ctx context.Context, triggerBy ulid.ULID, triggerType mresultapi.TriggerType) ([]mresultapi.MResultAPI, error) {
+func (ras ResultApiService) GetResultsApiWithTriggerBy(ctx context.Context, triggerBy idwrap.IDWrap, triggerType mresultapi.TriggerType) ([]mresultapi.MResultAPI, error) {
 	resultsRaw, err := ras.queries.GetResultApiByTriggerBy(ctx, triggerBy)
 	if err != nil {
 		return nil, err
@@ -105,8 +104,8 @@ func (ras ResultApiService) GetResultsApiWithTriggerBy(ctx context.Context, trig
 	return MassConvert(resultsRaw, ConvertToModelResultApi), nil
 }
 
-func (ras ResultApiService) GetWorkspaceID(ctx context.Context, id ulid.ULID, cs scollection.CollectionService, ias sitemapi.ItemApiService) (ulid.ULID, error) {
-	var ownerID ulid.ULID
+func (ras ResultApiService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap, cs scollection.CollectionService, ias sitemapi.ItemApiService) (idwrap.IDWrap, error) {
+	var ownerID idwrap.IDWrap
 	result, err := ras.GetResultApi(id)
 	if err != nil {
 		return ownerID, err

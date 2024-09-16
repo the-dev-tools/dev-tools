@@ -1,6 +1,6 @@
 package mworkspaceuser
 
-import "github.com/oklog/ulid/v2"
+import "dev-tools-backend/pkg/idwrap"
 
 type Role uint16
 
@@ -12,8 +12,8 @@ const (
 )
 
 type WorkspaceUser struct {
-	ID          ulid.ULID
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 	Role        Role
 }

@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"dev-tools-backend/internal/api/auth"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/stoken"
 	authv1 "dev-tools-services/gen/auth/v1"
 	"testing"
@@ -10,7 +11,6 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/magiclabs/magic-admin-go/client"
-	"github.com/oklog/ulid/v2"
 )
 
 func TestRefreshToken(t *testing.T) {
@@ -23,7 +23,7 @@ func TestRefreshToken(t *testing.T) {
 
 	ctx := context.Background()
 
-	ulidID := ulid.Make()
+	ulidID := idwrap.NewNow()
 	email := "some-email"
 
 	tk, err := stoken.NewJWT(ulidID, email, stoken.RefreshToken, time.Minute, someSecret)

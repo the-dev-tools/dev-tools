@@ -1,31 +1,30 @@
 package mitemapiexample
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"time"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type ItemApiExampleMeta struct {
-	ID   ulid.ULID
+	ID   idwrap.IDWrap
 	Name string
 }
 
 type ItemApiExample struct {
-	ID              ulid.ULID
-	ItemApiID       ulid.ULID
-	ParentExampleID *ulid.ULID
-	CollectionID    ulid.ULID
+	ID              idwrap.IDWrap
+	ItemApiID       idwrap.IDWrap
+	ParentExampleID *idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
 	IsDefault       bool
 	Name            string
 	Compressed      bool
 	Body            []byte
 	Updated         time.Time
-	Prev            *ulid.ULID
-	Next            *ulid.ULID
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
-func NewItemApiExample(id ulid.ULID, itemApiID, collectionID ulid.ULID, parentExampleId *ulid.ULID, isDefault bool, name string, compressed bool, body []byte) *ItemApiExample {
+func NewItemApiExample(id idwrap.IDWrap, itemApiID, collectionID idwrap.IDWrap, parentExampleId *idwrap.IDWrap, isDefault bool, name string, compressed bool, body []byte) *ItemApiExample {
 	return &ItemApiExample{
 		ID:              id,
 		ItemApiID:       itemApiID,
@@ -40,5 +39,5 @@ func NewItemApiExample(id ulid.ULID, itemApiID, collectionID ulid.ULID, parentEx
 }
 
 func (i ItemApiExample) GetCreatedTime() time.Time {
-	return time.UnixMilli(int64(i.ID.Time()))
+	return i.ID.Time()
 }

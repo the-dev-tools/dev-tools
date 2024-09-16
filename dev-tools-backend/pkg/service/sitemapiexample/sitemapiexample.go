@@ -3,11 +3,10 @@ package sitemapiexample
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type ItemApiExampleService struct {
@@ -77,7 +76,7 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 	}
 }
 
-func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ulid.ULID) ([]mitemapiexample.ItemApiExample, error) {
+func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid idwrap.IDWrap) ([]mitemapiexample.ItemApiExample, error) {
 	itemApiExamples, err := iaes.Queries.GetItemApiExamples(ctx, apiUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -88,7 +87,7 @@ func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid ul
 	return MassConvert(itemApiExamples, ConvertToModelItem), nil
 }
 
-func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiUlid ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
+func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiUlid idwrap.IDWrap) (*mitemapiexample.ItemApiExample, error) {
 	itemApiExample, err := iaes.Queries.GetItemApiExampleDefault(ctx, apiUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -100,7 +99,7 @@ func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiU
 	return ConvertToModelItem(itemApiExample), nil
 }
 
-func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULID) (*mitemapiexample.ItemApiExample, error) {
+func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id idwrap.IDWrap) (*mitemapiexample.ItemApiExample, error) {
 	itemApiExample, err := iaes.Queries.GetItemApiExample(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -111,7 +110,7 @@ func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id ulid.ULI
 	return ConvertToModelItem(itemApiExample), nil
 }
 
-func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context, collectionID ulid.ULID) ([]mitemapiexample.ItemApiExample, error) {
+func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemapiexample.ItemApiExample, error) {
 	itemApiExamples, err := iaes.Queries.GetItemApiExampleByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -290,6 +289,6 @@ func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item
 	})
 }
 
-func (iaes ItemApiExampleService) DeleteApiExample(ctx context.Context, id ulid.ULID) error {
+func (iaes ItemApiExampleService) DeleteApiExample(ctx context.Context, id idwrap.IDWrap) error {
 	return iaes.Queries.DeleteItemApiExample(ctx, id)
 }

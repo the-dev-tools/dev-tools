@@ -1,6 +1,7 @@
 package tpostman_test
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/model/postman/v21/mheader"
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
@@ -12,9 +13,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/oklog/ulid/v2"
 )
 
 func TestTranslatePostman(test *testing.T) {
@@ -80,7 +78,7 @@ func TestTranslatePostman(test *testing.T) {
 		Variables: nil,
 	}
 
-	collectionID := ulid.MustNew(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
+	collectionID := idwrap.NewNow()
 	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
 	if err != nil {
 		test.Errorf("Error: %v", err)
@@ -163,7 +161,7 @@ func TestTranslatePostmanOrder(test *testing.T) {
 		Variables: nil,
 	}
 
-	collectionID := ulid.MustNew(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
+	collectionID := idwrap.NewNow()
 	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
 	if err != nil {
 		test.Errorf("Error: %v", err)
@@ -311,7 +309,7 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		Variables: nil,
 	}
 
-	collectionID := ulid.MustNew(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
+	collectionID := idwrap.NewNow()
 	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
 	if err != nil {
 		test.Errorf("Error: %v", err)
@@ -333,7 +331,7 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		test.Errorf("Error: %v", len(pairs.Queries))
 	}
 
-	apiUlidMap := make(map[ulid.ULID]struct{})
+	apiUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, api := range pairs.Apis {
 		if _, ok := apiUlidMap[api.ID]; ok {
 			test.Errorf("Error: %v", "api ulid duplicate")
@@ -341,7 +339,7 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		apiUlidMap[api.ID] = struct{}{}
 	}
 
-	apiExampleUlidMap := make(map[ulid.ULID]struct{})
+	apiExampleUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, apiExample := range pairs.ApiExamples {
 		if _, ok := apiExampleUlidMap[apiExample.ID]; ok {
 			test.Errorf("Error: %v", "api example ulid duplicate")
@@ -349,7 +347,7 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		apiExampleUlidMap[apiExample.ID] = struct{}{}
 	}
 
-	headerUlidMap := make(map[ulid.ULID]struct{})
+	headerUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, header := range pairs.Headers {
 		if _, ok := headerUlidMap[header.ID]; ok {
 			test.Errorf("Error: %v", "header ulid duplicate")
@@ -357,7 +355,7 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		headerUlidMap[header.ID] = struct{}{}
 	}
 
-	queryUlidMap := make(map[ulid.ULID]struct{})
+	queryUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, query := range pairs.Queries {
 		if _, ok := queryUlidMap[query.ID]; ok {
 			test.Errorf("Error: %v", "query ulid duplicate")
@@ -442,7 +440,7 @@ func TestTranslatePostmanQuery(test *testing.T) {
 		Variables: nil,
 	}
 
-	collectionID := ulid.MustNew(ulid.Timestamp(time.Now()), ulid.DefaultEntropy())
+	collectionID := idwrap.NewNow()
 	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
 	if err != nil {
 		test.Errorf("Error: %v", err)
@@ -464,7 +462,7 @@ func TestTranslatePostmanQuery(test *testing.T) {
 		test.Errorf("Error: %v", len(pairs.Queries))
 	}
 
-	apiUlidMap := make(map[ulid.ULID]struct{})
+	apiUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, api := range pairs.Apis {
 		if strings.ContainsRune(api.Url, '?') {
 			test.Errorf("Error: %v", "url contains query")
@@ -475,7 +473,7 @@ func TestTranslatePostmanQuery(test *testing.T) {
 		apiUlidMap[api.ID] = struct{}{}
 	}
 
-	apiExampleUlidMap := make(map[ulid.ULID]struct{})
+	apiExampleUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, apiExample := range pairs.ApiExamples {
 		if _, ok := apiExampleUlidMap[apiExample.ID]; ok {
 			test.Errorf("Error: %v", "api example ulid duplicate")
@@ -483,7 +481,7 @@ func TestTranslatePostmanQuery(test *testing.T) {
 		apiExampleUlidMap[apiExample.ID] = struct{}{}
 	}
 
-	headerUlidMap := make(map[ulid.ULID]struct{})
+	headerUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, header := range pairs.Headers {
 		if _, ok := headerUlidMap[header.ID]; ok {
 			test.Errorf("Error: %v", "header ulid duplicate")
@@ -491,7 +489,7 @@ func TestTranslatePostmanQuery(test *testing.T) {
 		headerUlidMap[header.ID] = struct{}{}
 	}
 
-	queryUlidMap := make(map[ulid.ULID]struct{})
+	queryUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, query := range pairs.Queries {
 		if _, ok := queryUlidMap[query.ID]; ok {
 			test.Errorf("Error: %v", "query ulid duplicate")

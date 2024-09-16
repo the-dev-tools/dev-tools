@@ -3,11 +3,10 @@ package sworkspacesusers
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
 	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
-
-	"github.com/oklog/ulid/v2"
 )
 
 var ErrWorkspaceUserNotFound = errors.New("workspace user not found")
@@ -45,7 +44,7 @@ func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *m
 	})
 }
 
-func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
 	wsuser, err := wsu.queries.GetWorkspaceUser(ctx, id)
 	if err != nil {
 		return nil, err
@@ -67,11 +66,11 @@ func (wsu WorkspaceUserService) UpdateWorkspaceUser(ctx context.Context, wsuser 
 	})
 }
 
-func (wsu WorkspaceUserService) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
+func (wsu WorkspaceUserService) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error {
 	return wsu.queries.DeleteWorkspaceUser(ctx, id)
 }
 
-func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) ([]mworkspaceuser.WorkspaceUser, error) {
+func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
 	rawWsUsers, err := wsus.queries.GetWorkspaceUserByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -79,16 +78,16 @@ func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, u
 	wsUsers := make([]mworkspaceuser.WorkspaceUser, len(rawWsUsers))
 	for i, rawWsUser := range rawWsUsers {
 		wsUsers[i] = mworkspaceuser.WorkspaceUser{
-			ID:          ulid.ULID(rawWsUser.ID),
-			WorkspaceID: ulid.ULID(rawWsUser.WorkspaceID),
-			UserID:      ulid.ULID(rawWsUser.UserID),
+			ID:          idwrap.IDWrap(rawWsUser.ID),
+			WorkspaceID: idwrap.IDWrap(rawWsUser.WorkspaceID),
+			UserID:      idwrap.IDWrap(rawWsUser.UserID),
 			Role:        mworkspaceuser.Role(rawWsUser.Role),
 		}
 	}
 	return wsUsers, nil
 }
 
-func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID ulid.ULID) ([]mworkspaceuser.WorkspaceUser, error) {
+func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
 	rawWsUsers, err := wsus.queries.GetWorkspaceUserByWorkspaceID(ctx, wsID)
 	if err != nil {
 		return nil, err
@@ -96,15 +95,15 @@ func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Conte
 	wsUsers := make([]mworkspaceuser.WorkspaceUser, len(rawWsUsers))
 	for i, rawWsUser := range rawWsUsers {
 		wsUsers[i] = mworkspaceuser.WorkspaceUser{
-			ID:          ulid.ULID(rawWsUser.ID),
-			WorkspaceID: ulid.ULID(rawWsUser.WorkspaceID),
-			UserID:      ulid.ULID(rawWsUser.UserID),
+			ID:          idwrap.IDWrap(rawWsUser.ID),
+			WorkspaceID: idwrap.IDWrap(rawWsUser.WorkspaceID),
+			UserID:      idwrap.IDWrap(rawWsUser.UserID),
 		}
 	}
 	return wsUsers, nil
 }
 
-func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID ulid.ULID) (*mworkspaceuser.WorkspaceUser, error) {
+func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
 	wsu, err := wsus.queries.GetWorkspaceUserByWorkspaceIDAndUserID(ctx, gen.GetWorkspaceUserByWorkspaceIDAndUserIDParams{
 		WorkspaceID: wsID,
 		UserID:      userID,
@@ -113,9 +112,9 @@ func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx con
 		return nil, err
 	}
 	return &mworkspaceuser.WorkspaceUser{
-		ID:          ulid.ULID(wsu.ID),
-		WorkspaceID: ulid.ULID(wsu.WorkspaceID),
-		UserID:      ulid.ULID(wsu.UserID),
+		ID:          idwrap.IDWrap(wsu.ID),
+		WorkspaceID: idwrap.IDWrap(wsu.WorkspaceID),
+		UserID:      idwrap.IDWrap(wsu.UserID),
 		Role:        mworkspaceuser.Role(wsu.Role),
 	}, nil
 }

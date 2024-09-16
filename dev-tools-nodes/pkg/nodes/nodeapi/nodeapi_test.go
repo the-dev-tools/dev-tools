@@ -2,6 +2,9 @@ package nodeapi_test
 
 import (
 	"bytes"
+	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mexampleheader"
+	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-nodes/pkg/httpclient/httpmockclient"
 	"dev-tools-nodes/pkg/model/medge"
 	"dev-tools-nodes/pkg/model/mnode"
@@ -19,8 +22,11 @@ func TestSendRestApiRequest(t *testing.T) {
 		Url:    "http://localhost:8080",
 		Method: "GET",
 		Body:   []byte("SomeBody"),
-		Headers: map[string]string{
-			"Content-Type": "application/json",
+		Headers: []mexampleheader.Header{
+			{ID: idwrap.NewNow(), HeaderKey: "Content-Type", Value: "application/json"},
+		},
+		Query: []mexamplequery.Query{
+			{ID: idwrap.NewNow(), QueryKey: "key", Value: "value"},
 		},
 	}
 
@@ -40,8 +46,8 @@ func TestSendRestApiRequest(t *testing.T) {
 		Header:     make(http.Header),
 	}
 
-	for key, value := range apiCallData.Headers {
-		mockResponse.Header.Add(key, value)
+	for _, v := range apiCallData.Headers {
+		mockResponse.Header.Add(v.HeaderKey, v.Value)
 	}
 
 	mockHttpClient := &httpmockclient.MockHttpClient{
@@ -76,8 +82,11 @@ func TestSendRestApiRequestNextNode(t *testing.T) {
 		Url:    "http://localhost:8080",
 		Method: "GET",
 		Body:   []byte("SomeBody"),
-		Headers: map[string]string{
-			"Content-Type": "application/json",
+		Headers: []mexampleheader.Header{
+			{ID: idwrap.NewNow(), HeaderKey: "Content-Type", Value: "application/json"},
+		},
+		Query: []mexamplequery.Query{
+			{ID: idwrap.NewNow(), QueryKey: "key", Value: "value"},
 		},
 	}
 	nextNodeID := "nextNode"
@@ -97,8 +106,8 @@ func TestSendRestApiRequestNextNode(t *testing.T) {
 		Body:       bodyReaderCloser,
 		Header:     make(http.Header),
 	}
-	for key, value := range apiCallData.Headers {
-		mockResponse.Header.Add(key, value)
+	for _, v := range apiCallData.Headers {
+		mockResponse.Header.Add(v.HeaderKey, v.Value)
 	}
 	mockHttpClient := &httpmockclient.MockHttpClient{
 		ReturnResponse: &mockResponse,

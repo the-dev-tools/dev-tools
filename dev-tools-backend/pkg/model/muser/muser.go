@@ -1,8 +1,6 @@
 package muser
 
-import (
-	"github.com/oklog/ulid/v2"
-)
+import "dev-tools-backend/pkg/idwrap"
 
 type ProviderType int8
 
@@ -22,7 +20,7 @@ var (
 )
 
 type User struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	Password     []byte
 	ProviderType ProviderType

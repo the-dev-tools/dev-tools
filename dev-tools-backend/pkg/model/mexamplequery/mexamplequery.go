@@ -1,10 +1,12 @@
 package mexamplequery
 
-import "github.com/oklog/ulid/v2"
+import (
+	"dev-tools-backend/pkg/idwrap"
+)
 
 type Query struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	QueryKey    string
 	Enable      bool
 	Description string

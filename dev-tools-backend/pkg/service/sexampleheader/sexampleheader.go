@@ -3,13 +3,12 @@ package sexampleheader
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexampleheader"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
 	"sort"
-
-	"github.com/oklog/ulid/v2"
 )
 
 var ErrNoHeaderFound = sql.ErrNoRows
@@ -58,7 +57,7 @@ func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
 	}
 }
 
-func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID ulid.ULID) ([]mexampleheader.Header, error) {
+func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]mexampleheader.Header, error) {
 	header, err := h.queries.GetHeadersByExampleID(ctx, exampleID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -73,7 +72,7 @@ func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID ulid.
 	return tgeneric.MassConvert(header, SerializeHeaderModelToDB), nil
 }
 
-func (h HeaderService) GetHeaderByID(ctx context.Context, headerID ulid.ULID) (mexampleheader.Header, error) {
+func (h HeaderService) GetHeaderByID(ctx context.Context, headerID idwrap.IDWrap) (mexampleheader.Header, error) {
 	header, err := h.queries.GetHeader(ctx, headerID)
 	if err != nil {
 		return mexampleheader.Header{}, err
@@ -217,6 +216,6 @@ func (h HeaderService) UpdateHeader(ctx context.Context, header mexampleheader.H
 	})
 }
 
-func (h HeaderService) DeleteHeader(ctx context.Context, headerID ulid.ULID) error {
+func (h HeaderService) DeleteHeader(ctx context.Context, headerID idwrap.IDWrap) error {
 	return h.queries.DeleteHeader(ctx, headerID)
 }

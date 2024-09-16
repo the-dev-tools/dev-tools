@@ -2,6 +2,7 @@ package mwauth
 
 import (
 	"context"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/stoken"
 	"errors"
 	"strings"
@@ -92,8 +93,8 @@ func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.
 	return next(ctx, req)
 }
 
-func GetContextUserID(ctx context.Context) (ulid.ULID, error) {
-	ulidID, ok := ctx.Value(UserIDKeyCtx).(ulid.ULID)
+func GetContextUserID(ctx context.Context) (idwrap.IDWrap, error) {
+	ulidID, ok := ctx.Value(UserIDKeyCtx).(idwrap.IDWrap)
 	if !ok {
 		return ulidID, errors.New("user id not found in context")
 	}

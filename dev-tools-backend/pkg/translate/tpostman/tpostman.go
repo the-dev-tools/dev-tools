@@ -3,6 +3,7 @@ package tpostman
 import (
 	"bytes"
 	"compress/gzip"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexampleheader"
 	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-backend/pkg/model/mitemapi"
@@ -22,8 +23,6 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-
-	"github.com/oklog/ulid/v2"
 )
 
 func SendAllToChannel[I any](items []I, ch chan I) {
@@ -68,7 +67,7 @@ type ItemChannels struct {
 	Done       chan struct{}
 }
 
-func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID ulid.ULID) (*ItemsPair, error) {
+func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID idwrap.IDWrap) (*ItemsPair, error) {
 	pair := ItemsPair{
 		Apis:    make([]mitemapi.ItemApi, 0, len(collection.Items)),
 		Folders: make([]mitemfolder.ItemFolder, 0, len(collection.Items)),
@@ -120,11 +119,11 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 	}
 }
 
-func GetRecursiveRoots(items []mitem.Items, collectionID ulid.ULID, channels *ItemChannels) {
+func GetRecursiveRoots(items []mitem.Items, collectionID idwrap.IDWrap, channels *ItemChannels) {
 	go GetRecursiveFolders(items, nil, collectionID, channels)
 }
 
-func GetRecursiveFolders(items []mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+func GetRecursiveFolders(items []mitem.Items, parentID *idwrap.IDWrap, collectionID idwrap.IDWrap, channels *ItemChannels) {
 	defer channels.Wg.Done()
 	var folderPrev *mitemfolder.ItemFolder
 	var folderArr []*mitemfolder.ItemFolder
@@ -133,7 +132,7 @@ func GetRecursiveFolders(items []mitem.Items, parentID *ulid.ULID, collectionID 
 	for _, item := range items {
 		if item.Request == nil {
 			folder := &mitemfolder.ItemFolder{
-				ID:           ulid.Make(),
+				ID:           idwrap.NewNow(),
 				Name:         item.Name,
 				ParentID:     parentID,
 				CollectionID: collectionID,
@@ -159,7 +158,7 @@ func GetRecursiveFolders(items []mitem.Items, parentID *ulid.ULID, collectionID 
 	SendAllToChannelPtr(folderArr, channels.Folder)
 }
 
-func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwrap.IDWrap, channels *ItemChannels) {
 	defer channels.Wg.Done()
 
 	var apiPrev *mitemapi.ItemApi
@@ -169,7 +168,6 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 			channels.Err <- errors.New("item is not an api")
 			return
 		}
-		ApiUlid := ulid.Make()
 		URL, err := GetQueryParams(item.Request.URL)
 		if err != nil {
 			channels.Err <- err
@@ -187,8 +185,9 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 			}
 		}
 
+		ApiID := idwrap.NewNow()
 		api := &mitemapi.ItemApi{
-			ID:           ApiUlid,
+			ID:           ApiID,
 			CollectionID: collectionID,
 			ParentID:     parentID,
 			Name:         item.Name,
@@ -205,8 +204,8 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 		apiArr = append(apiArr, apiPrev)
 
 		buffBytes := bodyBuff.Bytes()
-		defaultExampleUlid := ulid.Make()
-		example := mitemapiexample.NewItemApiExample(defaultExampleUlid, ApiUlid, collectionID, nil, true,
+		defaultExampleUlid := idwrap.NewNow()
+		example := mitemapiexample.NewItemApiExample(defaultExampleUlid, ApiID, collectionID, nil, true,
 			"Default Example", compresed, buffBytes)
 
 		channels.ApiExample <- *example
@@ -219,14 +218,14 @@ func GetRequest(items []*mitem.Items, parentID *ulid.ULID, collectionID ulid.ULI
 		}
 
 		channels.Wg.Add(1)
-		go GetResponse(item.Responses, URL, buffBytes, ApiUlid, collectionID, channels)
+		go GetResponse(item.Responses, URL, buffBytes, ApiID, collectionID, channels)
 	}
 
 	SendAllToChannelPtr(apiArr, channels.Api)
 }
 
 func GetResponse(items []mresponse.Response, urlData *murl.URL, body []byte,
-	apiUlid, collectionID ulid.ULID, channels *ItemChannels,
+	apiUlid, collectionID idwrap.IDWrap, channels *ItemChannels,
 ) {
 	defer channels.Wg.Done()
 	var prevExample *mitemapiexample.ItemApiExample
@@ -241,7 +240,7 @@ func GetResponse(items []mresponse.Response, urlData *murl.URL, body []byte,
 			item.Name = "Untitled"
 		}
 
-		apiExampleID := ulid.Make()
+		apiExampleID := idwrap.NewNow()
 		apiExample := mitemapiexample.ItemApiExample{
 			ID:           apiExampleID,
 			ItemApiID:    apiUlid,
@@ -272,12 +271,12 @@ func GetResponse(items []mresponse.Response, urlData *murl.URL, body []byte,
 	SendAllToChannelPtr(examples, channels.ApiExample)
 }
 
-func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+func GetHeaders(headers []mheader.Header, exampleID, collectionID idwrap.IDWrap, channels *ItemChannels) {
 	defer channels.Wg.Done()
 	headerArr := make([]mexampleheader.Header, len(headers))
 	for i, item := range headers {
 		header := mexampleheader.Header{
-			ID:          ulid.Make(),
+			ID:          idwrap.NewNow(),
 			ExampleID:   exampleID,
 			HeaderKey:   item.Key,
 			Enable:      !item.Disabled,
@@ -290,12 +289,12 @@ func GetHeaders(headers []mheader.Header, exampleID ulid.ULID, collectionID ulid
 	channels.Header <- headerArr
 }
 
-func GetQueries(queries []murl.QueryParamter, exampleID ulid.ULID, collectionID ulid.ULID, channels *ItemChannels) {
+func GetQueries(queries []murl.QueryParamter, exampleID, collectionID idwrap.IDWrap, channels *ItemChannels) {
 	defer channels.Wg.Done()
 	queryArr := make([]mexamplequery.Query, len(queries))
 	for i, item := range queries {
 		query := mexamplequery.Query{
-			ID:          ulid.Make(),
+			ID:          idwrap.NewNow(),
 			ExampleID:   exampleID,
 			QueryKey:    item.Key,
 			Enable:      !item.Disabled,

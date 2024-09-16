@@ -1,6 +1,7 @@
 package titemnest
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
@@ -8,8 +9,6 @@ import (
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"fmt"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type CollectionPair struct {
@@ -194,11 +193,11 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 ) (*CollectionPair, error) {
 	var collection CollectionPair
 	sortedFolders := SortFoldersByUlidTime(folders)
-	sortedFolderIds := make([]ulid.ULID, len(sortedFolders))
+	sortedFolderIds := make([]idwrap.IDWrap, len(sortedFolders))
 	for i, item := range sortedFolders {
 		sortedFolderIds[i] = item.ID
 	}
-	folderMap := make(map[ulid.ULID]mitemfolder.ItemFolderNested, len(sortedFolders))
+	folderMap := make(map[idwrap.IDWrap]mitemfolder.ItemFolderNested, len(sortedFolders))
 	for _, item := range sortedFolders {
 		folderMap[item.ID] = mitemfolder.ItemFolderNested{
 			ItemFolder: item,
@@ -206,7 +205,7 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 		}
 	}
 
-	apiMap := make(map[ulid.ULID]mitemapi.ItemApiWithExamples, len(apis))
+	apiMap := make(map[idwrap.IDWrap]mitemapi.ItemApiWithExamples, len(apis))
 	for _, item := range apis {
 		apiMap[item.ID] = mitemapi.ItemApiWithExamples{
 			ItemApi:        item,
@@ -215,7 +214,7 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 		}
 	}
 
-	exampleMap := make(map[ulid.ULID]mitemapiexample.ItemApiExample, len(examples))
+	exampleMap := make(map[idwrap.IDWrap]mitemapiexample.ItemApiExample, len(examples))
 	for _, item := range examples {
 		exampleMap[item.ID] = item
 	}
@@ -319,10 +318,10 @@ func quickSort(arr []mitemfolder.ItemFolder, low, high int) {
 }
 
 func partition(arr []mitemfolder.ItemFolder, low, high int) int {
-	pivot := arr[high].ID.Time()
+	pivot := arr[high].ID
 	i := low - 1
 	for j := low; j < high; j++ {
-		if arr[j].ID.Time() > pivot {
+		if arr[j].ID.Compare(pivot) == 1 {
 			i++
 			arr[i], arr[j] = arr[j], arr[i]
 		}

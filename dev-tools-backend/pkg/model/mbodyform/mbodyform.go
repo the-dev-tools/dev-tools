@@ -1,12 +1,12 @@
 package mbodyform
 
-import "github.com/oklog/ulid/v2"
+import "dev-tools-backend/pkg/idwrap"
 
 type BodyForm struct {
-	ID          ulid.ULID `json:"id"`
-	ExampleID   ulid.ULID `json:"example_id"`
-	BodyKey     string    `json:"body_key"`
-	Enable      bool      `json:"enable"`
-	Description string    `json:"description"`
-	Value       string    `json:"value"`
+	ID          idwrap.IDWrap `json:"id"`
+	ExampleID   idwrap.IDWrap `json:"example_id"`
+	BodyKey     string        `json:"body_key"`
+	Enable      bool          `json:"enable"`
+	Description string        `json:"description"`
+	Value       string        `json:"value"`
 }

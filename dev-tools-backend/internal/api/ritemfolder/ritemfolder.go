@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -16,7 +17,6 @@ import (
 	"errors"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 )
 
 type ItemFolderRPC struct {
@@ -58,8 +58,8 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 }
 
 func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[itemfolderv1.CreateFolderRequest]) (*connect.Response[itemfolderv1.CreateFolderResponse], error) {
-	ulidID := ulid.Make()
-	collectionUlidID, err := ulid.Parse(req.Msg.GetCollectionId())
+	itemID := idwrap.NewNow()
+	collectionUlidID, err := idwrap.NewWithParse(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -74,7 +74,7 @@ func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[i
 
 	// TODO: parentID
 	folder := mitemfolder.ItemFolder{
-		ID:           ulidID,
+		ID:           itemID,
 		CollectionID: collectionUlidID,
 		Name:         req.Msg.GetName(),
 	}
@@ -84,7 +84,7 @@ func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[i
 	}
 
 	respRaw := &itemfolderv1.CreateFolderResponse{
-		Id:   ulidID.String(),
+		Id:   itemID.String(),
 		Name: req.Msg.GetName(),
 	}
 	resp := connect.NewResponse(respRaw)
@@ -92,7 +92,7 @@ func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[i
 }
 
 func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[itemfolderv1.GetFolderRequest]) (*connect.Response[itemfolderv1.GetFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetId())
+	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -125,11 +125,11 @@ func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[item
 
 // UpdateFolder calls collection.v1.CollectionService.UpdateFolder.
 func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[itemfolderv1.UpdateFolderRequest]) (*connect.Response[itemfolderv1.UpdateFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetFolder().GetMeta().GetId())
+	ulidID, err := idwrap.NewWithParse(req.Msg.GetFolder().GetMeta().GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collectionID, err := ulid.Parse(req.Msg.GetFolder().GetCollectionId())
+	collectionID, err := idwrap.NewWithParse(req.Msg.GetFolder().GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -142,9 +142,9 @@ func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[i
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	var parentUlidIDPtr *ulid.ULID = nil
+	var parentUlidIDPtr *idwrap.IDWrap = nil
 	if req.Msg.GetFolder().GetParentId() != "" {
-		parentUlidID, err := ulid.Parse(req.Msg.GetFolder().GetParentId())
+		parentUlidID, err := idwrap.NewWithParse(req.Msg.GetFolder().GetParentId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -152,7 +152,7 @@ func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[i
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		if checkfolder.CollectionID != collectionID {
+		if checkfolder.CollectionID.Compare(collectionID) != 0 {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 		}
 		parentUlidIDPtr = &parentUlidID
@@ -175,7 +175,7 @@ func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[i
 
 // DeleteFolder calls collection.v1.CollectionService.DeleteFolder.
 func (c *ItemFolderRPC) DeleteFolder(ctx context.Context, req *connect.Request[itemfolderv1.DeleteFolderRequest]) (*connect.Response[itemfolderv1.DeleteFolderResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetId())
+	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -196,7 +196,7 @@ func (c *ItemFolderRPC) DeleteFolder(ctx context.Context, req *connect.Request[i
 	return connect.NewResponse(&itemfolderv1.DeleteFolderResponse{}), nil
 }
 
-func CheckOwnerFolder(ctx context.Context, ifs sitemfolder.ItemFolderService, cs scollection.CollectionService, us suser.UserService, folderID ulid.ULID) (bool, error) {
+func CheckOwnerFolder(ctx context.Context, ifs sitemfolder.ItemFolderService, cs scollection.CollectionService, us suser.UserService, folderID idwrap.IDWrap) (bool, error) {
 	folder, err := ifs.GetItemFolder(ctx, folderID)
 	if err != nil {
 		return false, err

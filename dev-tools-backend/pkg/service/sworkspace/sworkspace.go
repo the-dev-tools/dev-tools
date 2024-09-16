@@ -3,11 +3,10 @@ package sworkspace
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-db/pkg/sqlc/gen"
 	"time"
-
-	"github.com/oklog/ulid/v2"
 )
 
 var ErrNoWorkspaceFound = sql.ErrNoRows
@@ -76,7 +75,7 @@ func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) 
 	})
 }
 
-func (ws WorkspaceService) Get(ctx context.Context, id ulid.ULID) (*mworkspace.Workspace, error) {
+func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
 	workspace, err := ws.queries.GetWorkspace(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -99,7 +98,7 @@ func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace
 	return err
 }
 
-func (ws WorkspaceService) Delete(ctx context.Context, id ulid.ULID) error {
+func (ws WorkspaceService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	err := ws.queries.DeleteWorkspace(ctx, id)
 	if err == sql.ErrNoRows {
 		return ErrNoWorkspaceFound
@@ -108,7 +107,7 @@ func (ws WorkspaceService) Delete(ctx context.Context, id ulid.ULID) error {
 }
 
 // TODO: this cannot be one to many should be many to many when queries
-func (ws WorkspaceService) GetByUserID(ctx context.Context, userID ulid.ULID) (*mworkspace.Workspace, error) {
+func (ws WorkspaceService) GetByUserID(ctx context.Context, userID idwrap.IDWrap) (*mworkspace.Workspace, error) {
 	workspace, err := ws.queries.GetWorkspaceByUserID(ctx, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -120,7 +119,7 @@ func (ws WorkspaceService) GetByUserID(ctx context.Context, userID ulid.ULID) (*
 	return ConvertToModelWorkspace(workspace), nil
 }
 
-func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID ulid.ULID) ([]mworkspace.Workspace, error) {
+func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	rawWorkspaces, err := ws.queries.GetWorkspacesByUserID(ctx, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -132,7 +131,7 @@ func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID ulid.ULI
 	return MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
 }
 
-func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID ulid.ULID) (*mworkspace.Workspace, error) {
+func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID idwrap.IDWrap) (*mworkspace.Workspace, error) {
 	workspace, err := ws.queries.GetWorkspaceByUserIDandWorkspaceID(ctx, gen.GetWorkspaceByUserIDandWorkspaceIDParams{
 		UserID:      userID,
 		WorkspaceID: orgID,

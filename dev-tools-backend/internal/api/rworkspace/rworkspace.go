@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
@@ -23,7 +24,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -40,7 +40,7 @@ type WorkspaceServiceRPC struct {
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
-	orgID, err := ulid.Parse(req.Msg.GetId())
+	orgID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -107,8 +107,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	workspaceUlid := ulid.Make()
-
+	workspaceUlid := idwrap.NewNow()
 	dbTimeNow := dbtime.DBNow()
 
 	ws := &mworkspace.Workspace{
@@ -118,7 +117,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	}
 
 	orgUser := &mworkspaceuser.WorkspaceUser{
-		ID:          ulid.Make(),
+		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceUlid,
 		UserID:      userID,
 		Role:        mworkspaceuser.RoleOwner,
@@ -167,7 +166,7 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	workspaceUlid, err := ulid.Parse(req.Msg.GetId())
+	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -207,7 +206,7 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	workspaceUlid, err := ulid.Parse(req.Msg.GetId())
+	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -236,7 +235,7 @@ func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 	}
 	ok, err := c.su.CheckUserBelongsToWorkspace(ctx, actionUserUlid, workspaceUlid)
@@ -272,7 +271,7 @@ func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Reques
 // TODO: I'm not sure this is the correct implementation of this function
 // Will talk with the team about this on the next meeting
 func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Request[workspacev1.InviteUserRequest]) (*connect.Response[workspacev1.InviteUserResponse], error) {
-	wid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	wid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -303,9 +302,8 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 	invitedUser, err := c.su.GetUserByEmail(ctx, req.Msg.GetEmail())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			invitedUserUlid := ulid.Make()
 			invitedUser, err = c.su.CreateUser(ctx, &muser.User{
-				ID:           invitedUserUlid,
+				ID:           idwrap.NewNow(),
 				Email:        req.Msg.GetEmail(),
 				Password:     nil,
 				ProviderType: muser.Unknown,
@@ -317,7 +315,7 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 	}
 
 	err = c.swu.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
-		ID:          ulid.Make(),
+		ID:          idwrap.NewNow(),
 		WorkspaceID: wid,
 		UserID:      invitedUser.ID,
 		Role:        mworkspaceuser.RoleUser,
@@ -350,7 +348,7 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 }
 
 func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Request[workspacev1.RemoveUserRequest]) (*connect.Response[workspacev1.RemoveUserResponse], error) {
-	workspaceULID, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	workspaceULID, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -358,7 +356,7 @@ func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := ulid.Parse(req.Msg.GetUserId())
+	targetUserUlid, err := idwrap.NewWithParse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
@@ -389,7 +387,7 @@ func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Reque
 }
 
 func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.Request[workspacev1.UpdateUserRoleRequest]) (*connect.Response[workspacev1.UpdateUserRoleResponse], error) {
-	workspaceULID, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	workspaceULID, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -397,7 +395,7 @@ func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := ulid.Parse(req.Msg.GetUserId())
+	targetUserUlid, err := idwrap.NewWithParse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}

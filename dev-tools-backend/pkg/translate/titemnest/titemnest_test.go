@@ -1,6 +1,7 @@
 package titemnest_test
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
@@ -8,15 +9,11 @@ import (
 	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 	"fmt"
 	"testing"
-	"time"
-
-	"github.com/oklog/ulid/v2"
 )
 
 func TestTranslateItemFolderNested(t *testing.T) {
-	timeNow := time.Now()
-	rootFolderUlid := ulid.MustNew(ulid.Timestamp(timeNow), ulid.DefaultEntropy())
-	collectionUlid := ulid.Make()
+	rootFolderUlid := idwrap.NewNow()
+	collectionUlid := idwrap.NewNow()
 
 	folders := []mitemfolder.ItemFolder{
 		{
@@ -26,13 +23,13 @@ func TestTranslateItemFolderNested(t *testing.T) {
 			CollectionID: collectionUlid,
 		},
 		{
-			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Second)), ulid.DefaultEntropy()),
+			ID:           idwrap.NewNow(),
 			Name:         "test folder #1",
 			ParentID:     &rootFolderUlid,
 			CollectionID: collectionUlid,
 		},
 		{
-			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Second*2)), ulid.DefaultEntropy()),
+			ID:           idwrap.NewNow(),
 			Name:         "test folder #2",
 			ParentID:     &rootFolderUlid,
 			CollectionID: collectionUlid,
@@ -40,7 +37,7 @@ func TestTranslateItemFolderNested(t *testing.T) {
 	}
 	apis := []mitemapi.ItemApi{
 		{
-			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Millisecond*0)), ulid.DefaultEntropy()),
+			ID:           idwrap.NewNow(),
 			Name:         "test api #1",
 			CollectionID: collectionUlid,
 			Url:          "http://localhost:8080",
@@ -48,7 +45,7 @@ func TestTranslateItemFolderNested(t *testing.T) {
 			ParentID:     nil,
 		},
 		{
-			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Second*3)), ulid.DefaultEntropy()),
+			ID:           idwrap.NewNow(),
 			Name:         "test api #2",
 			CollectionID: collectionUlid,
 			Url:          "http://localhost:8080",
@@ -59,14 +56,14 @@ func TestTranslateItemFolderNested(t *testing.T) {
 
 	examples := []mitemapiexample.ItemApiExample{
 		{
-			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Millisecond*0)), ulid.DefaultEntropy()),
+			ID:           idwrap.NewNow(),
 			Name:         "test example #1",
 			ItemApiID:    apis[0].ID,
 			CollectionID: collectionUlid,
 			IsDefault:    true,
 		},
 		{
-			ID:           ulid.MustNew(ulid.Timestamp(timeNow.Add(time.Millisecond*1)), ulid.DefaultEntropy()),
+			ID:           idwrap.NewNow(),
 			Name:         "test example #2",
 			ItemApiID:    apis[0].ID,
 			CollectionID: collectionUlid,

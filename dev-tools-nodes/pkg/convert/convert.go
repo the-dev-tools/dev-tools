@@ -25,11 +25,13 @@ func ConvertStructToMsg(rawData interface{}) (*anypb.Any, error) {
 	case *mnodedata.NodeApiRestData:
 		data := rawData.(*mnodedata.NodeApiRestData)
 		nodeData := &nodedatav1.NodeApiCallData{
-			Url:         data.Url,
-			QueryParams: data.Query,
-			Method:      data.Method,
-			Headers:     data.Headers,
-			Body:        data.Body,
+			Url: data.Url,
+			// TODO: change to QueryParams
+			// QueryParams: data.Query,
+			Method: data.Method,
+			// TODO: change to Headers
+			// Headers:     data.Headers,
+			Body: data.Body,
 		}
 		anyData, err = anypb.New(nodeData)
 	case *mnodedata.NodeLoopRemoteData:

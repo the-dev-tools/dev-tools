@@ -7,19 +7,19 @@ package gen
 import (
 	"database/sql"
 
+	idwrap "dev-tools-backend/pkg/idwrap"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
-	ulid "github.com/oklog/ulid/v2"
 )
 
 type Collection struct {
-	ID      ulid.ULID
-	OwnerID ulid.ULID
+	ID      idwrap.IDWrap
+	OwnerID idwrap.IDWrap
 	Name    string
 }
 
 type ExampleBodyForm struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	BodyKey     string
 	Enable      bool
 	Description string
@@ -27,8 +27,8 @@ type ExampleBodyForm struct {
 }
 
 type ExampleHeader struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	HeaderKey   string
 	Enable      bool
 	Description string
@@ -36,8 +36,8 @@ type ExampleHeader struct {
 }
 
 type ExampleQuery struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	QueryKey    string
 	Enable      bool
 	Description string
@@ -45,42 +45,42 @@ type ExampleQuery struct {
 }
 
 type ItemApi struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
+	ID           idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	Name         string
 	Url          string
 	Method       string
-	Prev         *ulid.ULID
-	Next         *ulid.ULID
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 type ItemApiExample struct {
-	ID              ulid.ULID
-	ItemApiID       ulid.ULID
-	CollectionID    ulid.ULID
-	ParentExampleID *ulid.ULID
+	ID              idwrap.IDWrap
+	ItemApiID       idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	ParentExampleID *idwrap.IDWrap
 	IsDefault       bool
 	Name            string
 	Compressed      bool
 	Body            []byte
-	Prev            *ulid.ULID
-	Next            *ulid.ULID
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 type ItemFolder struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
+	ID           idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	Name         string
-	Prev         *ulid.ULID
-	Next         *ulid.ULID
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 type ResultApi struct {
-	ID          ulid.ULID
+	ID          idwrap.IDWrap
 	TriggerType mresultapi.TriggerType
-	TriggerBy   ulid.ULID
+	TriggerBy   idwrap.IDWrap
 	Name        string
 	Status      string
 	Time        int64
@@ -89,7 +89,7 @@ type ResultApi struct {
 }
 
 type User struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	PasswordHash []byte
 	ProviderType int8
@@ -98,14 +98,14 @@ type User struct {
 }
 
 type Workspace struct {
-	ID      ulid.ULID
+	ID      idwrap.IDWrap
 	Name    string
 	Updated int64
 }
 
 type WorkspacesUser struct {
-	ID          ulid.ULID
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 	Role        int8
 }

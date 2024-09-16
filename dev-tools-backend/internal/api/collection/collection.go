@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
@@ -25,7 +26,6 @@ import (
 	"log"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 )
 
 type CollectionServiceRPC struct {
@@ -49,7 +49,7 @@ const (
 
 // ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -111,7 +111,7 @@ func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect
 
 // CreateCollection calls collection.v1.CollectionService.CreateCollection.
 func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
-	workspaceUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -128,10 +128,10 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 	if name == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is empty"))
 	}
-	ulidID := ulid.Make()
+	collectionID := idwrap.NewNow()
 	dbTimeNow := dbtime.DBNow()
 	collection := mcollection.Collection{
-		ID:      ulidID,
+		ID:      collectionID,
 		OwnerID: workspaceUlid,
 		Name:    name,
 		Updated: dbTimeNow,
@@ -141,21 +141,19 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
-		Id:   ulidID.String(),
+		Id:   collectionID.String(),
 		Name: name,
 	}), nil
 }
 
 // GetCollection calls collection.v1.CollectionService.GetCollection.
 func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.Request[collectionv1.GetCollectionRequest]) (*connect.Response[collectionv1.GetCollectionResponse], error) {
-	id := req.Msg.GetId()
-	// convert id to ulid
-	ulidID, err := ulid.Parse(id)
+	idWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, ulidID)
+	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
 	if err != nil {
 		log.Print("try to get collection error: ", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -164,22 +162,22 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	collection, err := c.cs.GetCollection(ctx, ulidID)
+	collection, err := c.cs.GetCollection(ctx, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, ulidID)
+	folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, idWrap)
 	if err != nil && err != sitemfolder.ErrNoItemFolderFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	apiItems, err := c.ias.GetApisWithCollectionID(ctx, ulidID)
+	apiItems, err := c.ias.GetApisWithCollectionID(ctx, idWrap)
 	if err != nil && err != sitemapi.ErrNoItemApiFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, ulidID)
+	apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -201,14 +199,11 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 
 // UpdateCollection calls collection.v1.CollectionService.UpdateCollection.
 func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connect.Request[collectionv1.UpdateCollectionRequest]) (*connect.Response[collectionv1.UpdateCollectionResponse], error) {
-	id := req.Msg.GetId()
-	// convert id to ulid
-	ulidID, err := ulid.Parse(id)
+	idWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-
-	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, ulidID)
+	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -217,13 +212,13 @@ func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connec
 	}
 
 	// TODO: can be merge with check
-	collectionOld, err := c.cs.GetCollection(ctx, ulidID)
+	collectionOld, err := c.cs.GetCollection(ctx, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	collection := mcollection.Collection{
-		ID:      ulidID,
+		ID:      idWrap,
 		Name:    req.Msg.GetName(),
 		OwnerID: collectionOld.OwnerID,
 	}
@@ -237,14 +232,12 @@ func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connec
 
 // DeleteCollection calls collection.v1.CollectionService.DeleteCollection.
 func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connect.Request[collectionv1.DeleteCollectionRequest]) (*connect.Response[collectionv1.DeleteCollectionResponse], error) {
-	id := req.Msg.GetId()
-	// convert id
-	wsUlid, err := ulid.Parse(id)
+	idWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, wsUlid)
+	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -252,7 +245,7 @@ func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	err = c.cs.DeleteCollection(ctx, wsUlid)
+	err = c.cs.DeleteCollection(ctx, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -261,7 +254,7 @@ func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connec
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
-	wsUlid, err := ulid.Parse(req.Msg.GetWorkspaceId())
+	wsUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -283,15 +276,15 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	collectionUlid := ulid.Make()
+	collectionidWrap := idwrap.NewNow()
 	collection := mcollection.Collection{
-		ID:      collectionUlid,
+		ID:      collectionidWrap,
 		Name:    req.Msg.GetName(),
 		OwnerID: org.ID,
 	}
 
 	// TODO: add ownerID
-	items, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionUlid)
+	items, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -362,7 +355,7 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	}
 
 	respRaw := &collectionv1.ImportPostmanResponse{
-		Id: collectionUlid.String(),
+		Id: collectionidWrap.String(),
 	}
 	resp := connect.NewResponse(respRaw)
 	return resp, nil
@@ -430,7 +423,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID ulid.ULID) (bool, error) {
+func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)
@@ -448,7 +441,7 @@ func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID 
 	return ok, nil
 }
 
-func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService, us suser.UserService, collectionID ulid.ULID) (bool, error) {
+func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService, us suser.UserService, collectionID idwrap.IDWrap) (bool, error) {
 	workspaceID, err := cs.GetOwner(ctx, collectionID)
 	if err != nil {
 		return false, connect.NewError(connect.CodeInternal, err)

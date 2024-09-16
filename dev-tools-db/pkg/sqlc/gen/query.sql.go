@@ -9,8 +9,8 @@ import (
 	"context"
 	"database/sql"
 
+	idwrap "dev-tools-backend/pkg/idwrap"
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
-	ulid "github.com/oklog/ulid/v2"
 )
 
 const checkIFWorkspaceUserExists = `-- name: CheckIFWorkspaceUserExists :one
@@ -29,8 +29,8 @@ SELECT
 `
 
 type CheckIFWorkspaceUserExistsParams struct {
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 }
 
 // WorkspaceUsers
@@ -49,8 +49,8 @@ VALUES
 `
 
 type CreateBodyFormParams struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	BodyKey     string
 	Enable      bool
 	Description string
@@ -86,62 +86,62 @@ VALUES
 `
 
 type CreateBodyFormBulkParams struct {
-	ID             ulid.ULID
-	ExampleID      ulid.ULID
+	ID             idwrap.IDWrap
+	ExampleID      idwrap.IDWrap
 	BodyKey        string
 	Enable         bool
 	Description    string
 	Value          string
-	ID_2           ulid.ULID
-	ExampleID_2    ulid.ULID
+	ID_2           idwrap.IDWrap
+	ExampleID_2    idwrap.IDWrap
 	BodyKey_2      string
 	Enable_2       bool
 	Description_2  string
 	Value_2        string
-	ID_3           ulid.ULID
-	ExampleID_3    ulid.ULID
+	ID_3           idwrap.IDWrap
+	ExampleID_3    idwrap.IDWrap
 	BodyKey_3      string
 	Enable_3       bool
 	Description_3  string
 	Value_3        string
-	ID_4           ulid.ULID
-	ExampleID_4    ulid.ULID
+	ID_4           idwrap.IDWrap
+	ExampleID_4    idwrap.IDWrap
 	BodyKey_4      string
 	Enable_4       bool
 	Description_4  string
 	Value_4        string
-	ID_5           ulid.ULID
-	ExampleID_5    ulid.ULID
+	ID_5           idwrap.IDWrap
+	ExampleID_5    idwrap.IDWrap
 	BodyKey_5      string
 	Enable_5       bool
 	Description_5  string
 	Value_5        string
-	ID_6           ulid.ULID
-	ExampleID_6    ulid.ULID
+	ID_6           idwrap.IDWrap
+	ExampleID_6    idwrap.IDWrap
 	BodyKey_6      string
 	Enable_6       bool
 	Description_6  string
 	Value_6        string
-	ID_7           ulid.ULID
-	ExampleID_7    ulid.ULID
+	ID_7           idwrap.IDWrap
+	ExampleID_7    idwrap.IDWrap
 	BodyKey_7      string
 	Enable_7       bool
 	Description_7  string
 	Value_7        string
-	ID_8           ulid.ULID
-	ExampleID_8    ulid.ULID
+	ID_8           idwrap.IDWrap
+	ExampleID_8    idwrap.IDWrap
 	BodyKey_8      string
 	Enable_8       bool
 	Description_8  string
 	Value_8        string
-	ID_9           ulid.ULID
-	ExampleID_9    ulid.ULID
+	ID_9           idwrap.IDWrap
+	ExampleID_9    idwrap.IDWrap
 	BodyKey_9      string
 	Enable_9       bool
 	Description_9  string
 	Value_9        string
-	ID_10          ulid.ULID
-	ExampleID_10   ulid.ULID
+	ID_10          idwrap.IDWrap
+	ExampleID_10   idwrap.IDWrap
 	BodyKey_10     string
 	Enable_10      bool
 	Description_10 string
@@ -222,8 +222,8 @@ VALUES
 `
 
 type CreateCollectionParams struct {
-	ID      ulid.ULID
-	OwnerID ulid.ULID
+	ID      idwrap.IDWrap
+	OwnerID idwrap.IDWrap
 	Name    string
 }
 
@@ -240,8 +240,8 @@ VALUES
 `
 
 type CreateHeaderParams struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	HeaderKey   string
 	Enable      bool
 	Description string
@@ -277,62 +277,62 @@ VALUES
 `
 
 type CreateHeaderBulkParams struct {
-	ID             ulid.ULID
-	ExampleID      ulid.ULID
+	ID             idwrap.IDWrap
+	ExampleID      idwrap.IDWrap
 	HeaderKey      string
 	Enable         bool
 	Description    string
 	Value          string
-	ID_2           ulid.ULID
-	ExampleID_2    ulid.ULID
+	ID_2           idwrap.IDWrap
+	ExampleID_2    idwrap.IDWrap
 	HeaderKey_2    string
 	Enable_2       bool
 	Description_2  string
 	Value_2        string
-	ID_3           ulid.ULID
-	ExampleID_3    ulid.ULID
+	ID_3           idwrap.IDWrap
+	ExampleID_3    idwrap.IDWrap
 	HeaderKey_3    string
 	Enable_3       bool
 	Description_3  string
 	Value_3        string
-	ID_4           ulid.ULID
-	ExampleID_4    ulid.ULID
+	ID_4           idwrap.IDWrap
+	ExampleID_4    idwrap.IDWrap
 	HeaderKey_4    string
 	Enable_4       bool
 	Description_4  string
 	Value_4        string
-	ID_5           ulid.ULID
-	ExampleID_5    ulid.ULID
+	ID_5           idwrap.IDWrap
+	ExampleID_5    idwrap.IDWrap
 	HeaderKey_5    string
 	Enable_5       bool
 	Description_5  string
 	Value_5        string
-	ID_6           ulid.ULID
-	ExampleID_6    ulid.ULID
+	ID_6           idwrap.IDWrap
+	ExampleID_6    idwrap.IDWrap
 	HeaderKey_6    string
 	Enable_6       bool
 	Description_6  string
 	Value_6        string
-	ID_7           ulid.ULID
-	ExampleID_7    ulid.ULID
+	ID_7           idwrap.IDWrap
+	ExampleID_7    idwrap.IDWrap
 	HeaderKey_7    string
 	Enable_7       bool
 	Description_7  string
 	Value_7        string
-	ID_8           ulid.ULID
-	ExampleID_8    ulid.ULID
+	ID_8           idwrap.IDWrap
+	ExampleID_8    idwrap.IDWrap
 	HeaderKey_8    string
 	Enable_8       bool
 	Description_8  string
 	Value_8        string
-	ID_9           ulid.ULID
-	ExampleID_9    ulid.ULID
+	ID_9           idwrap.IDWrap
+	ExampleID_9    idwrap.IDWrap
 	HeaderKey_9    string
 	Enable_9       bool
 	Description_9  string
 	Value_9        string
-	ID_10          ulid.ULID
-	ExampleID_10   ulid.ULID
+	ID_10          idwrap.IDWrap
+	ExampleID_10   idwrap.IDWrap
 	HeaderKey_10   string
 	Enable_10      bool
 	Description_10 string
@@ -413,14 +413,14 @@ VALUES
 `
 
 type CreateItemApiParams struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
+	ID           idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	Name         string
 	Url          string
 	Method       string
-	Prev         *ulid.ULID
-	Next         *ulid.ULID
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) error {
@@ -454,86 +454,86 @@ VALUES
 `
 
 type CreateItemApiBulkParams struct {
-	ID              ulid.ULID
-	CollectionID    ulid.ULID
-	ParentID        *ulid.ULID
+	ID              idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	ParentID        *idwrap.IDWrap
 	Name            string
 	Url             string
 	Method          string
-	Prev            *ulid.ULID
-	Next            *ulid.ULID
-	ID_2            ulid.ULID
-	CollectionID_2  ulid.ULID
-	ParentID_2      *ulid.ULID
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
+	ID_2            idwrap.IDWrap
+	CollectionID_2  idwrap.IDWrap
+	ParentID_2      *idwrap.IDWrap
 	Name_2          string
 	Url_2           string
 	Method_2        string
-	Prev_2          *ulid.ULID
-	Next_2          *ulid.ULID
-	ID_3            ulid.ULID
-	CollectionID_3  ulid.ULID
-	ParentID_3      *ulid.ULID
+	Prev_2          *idwrap.IDWrap
+	Next_2          *idwrap.IDWrap
+	ID_3            idwrap.IDWrap
+	CollectionID_3  idwrap.IDWrap
+	ParentID_3      *idwrap.IDWrap
 	Name_3          string
 	Url_3           string
 	Method_3        string
-	Prev_3          *ulid.ULID
-	Next_3          *ulid.ULID
-	ID_4            ulid.ULID
-	CollectionID_4  ulid.ULID
-	ParentID_4      *ulid.ULID
+	Prev_3          *idwrap.IDWrap
+	Next_3          *idwrap.IDWrap
+	ID_4            idwrap.IDWrap
+	CollectionID_4  idwrap.IDWrap
+	ParentID_4      *idwrap.IDWrap
 	Name_4          string
 	Url_4           string
 	Method_4        string
-	Prev_4          *ulid.ULID
-	Next_4          *ulid.ULID
-	ID_5            ulid.ULID
-	CollectionID_5  ulid.ULID
-	ParentID_5      *ulid.ULID
+	Prev_4          *idwrap.IDWrap
+	Next_4          *idwrap.IDWrap
+	ID_5            idwrap.IDWrap
+	CollectionID_5  idwrap.IDWrap
+	ParentID_5      *idwrap.IDWrap
 	Name_5          string
 	Url_5           string
 	Method_5        string
-	Prev_5          *ulid.ULID
-	Next_5          *ulid.ULID
-	ID_6            ulid.ULID
-	CollectionID_6  ulid.ULID
-	ParentID_6      *ulid.ULID
+	Prev_5          *idwrap.IDWrap
+	Next_5          *idwrap.IDWrap
+	ID_6            idwrap.IDWrap
+	CollectionID_6  idwrap.IDWrap
+	ParentID_6      *idwrap.IDWrap
 	Name_6          string
 	Url_6           string
 	Method_6        string
-	Prev_6          *ulid.ULID
-	Next_6          *ulid.ULID
-	ID_7            ulid.ULID
-	CollectionID_7  ulid.ULID
-	ParentID_7      *ulid.ULID
+	Prev_6          *idwrap.IDWrap
+	Next_6          *idwrap.IDWrap
+	ID_7            idwrap.IDWrap
+	CollectionID_7  idwrap.IDWrap
+	ParentID_7      *idwrap.IDWrap
 	Name_7          string
 	Url_7           string
 	Method_7        string
-	Prev_7          *ulid.ULID
-	Next_7          *ulid.ULID
-	ID_8            ulid.ULID
-	CollectionID_8  ulid.ULID
-	ParentID_8      *ulid.ULID
+	Prev_7          *idwrap.IDWrap
+	Next_7          *idwrap.IDWrap
+	ID_8            idwrap.IDWrap
+	CollectionID_8  idwrap.IDWrap
+	ParentID_8      *idwrap.IDWrap
 	Name_8          string
 	Url_8           string
 	Method_8        string
-	Prev_8          *ulid.ULID
-	Next_8          *ulid.ULID
-	ID_9            ulid.ULID
-	CollectionID_9  ulid.ULID
-	ParentID_9      *ulid.ULID
+	Prev_8          *idwrap.IDWrap
+	Next_8          *idwrap.IDWrap
+	ID_9            idwrap.IDWrap
+	CollectionID_9  idwrap.IDWrap
+	ParentID_9      *idwrap.IDWrap
 	Name_9          string
 	Url_9           string
 	Method_9        string
-	Prev_9          *ulid.ULID
-	Next_9          *ulid.ULID
-	ID_10           ulid.ULID
-	CollectionID_10 ulid.ULID
-	ParentID_10     *ulid.ULID
+	Prev_9          *idwrap.IDWrap
+	Next_9          *idwrap.IDWrap
+	ID_10           idwrap.IDWrap
+	CollectionID_10 idwrap.IDWrap
+	ParentID_10     *idwrap.IDWrap
 	Name_10         string
 	Url_10          string
 	Method_10       string
-	Prev_10         *ulid.ULID
-	Next_10         *ulid.ULID
+	Prev_10         *idwrap.IDWrap
+	Next_10         *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
@@ -641,16 +641,16 @@ VALUES
 `
 
 type CreateItemApiExampleParams struct {
-	ID              ulid.ULID
-	ItemApiID       ulid.ULID
-	CollectionID    ulid.ULID
-	ParentExampleID *ulid.ULID
+	ID              idwrap.IDWrap
+	ItemApiID       idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	ParentExampleID *idwrap.IDWrap
 	IsDefault       bool
 	Name            string
 	Compressed      bool
 	Body            []byte
-	Prev            *ulid.ULID
-	Next            *ulid.ULID
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExampleParams) error {
@@ -697,106 +697,106 @@ VALUES
 `
 
 type CreateItemApiExampleBulkParams struct {
-	ID                 ulid.ULID
-	ItemApiID          ulid.ULID
-	CollectionID       ulid.ULID
-	ParentExampleID    *ulid.ULID
+	ID                 idwrap.IDWrap
+	ItemApiID          idwrap.IDWrap
+	CollectionID       idwrap.IDWrap
+	ParentExampleID    *idwrap.IDWrap
 	IsDefault          bool
 	Name               string
 	Compressed         bool
 	Body               []byte
-	Prev               *ulid.ULID
-	Next               *ulid.ULID
-	ID_2               ulid.ULID
-	ItemApiID_2        ulid.ULID
-	CollectionID_2     ulid.ULID
-	ParentExampleID_2  *ulid.ULID
+	Prev               *idwrap.IDWrap
+	Next               *idwrap.IDWrap
+	ID_2               idwrap.IDWrap
+	ItemApiID_2        idwrap.IDWrap
+	CollectionID_2     idwrap.IDWrap
+	ParentExampleID_2  *idwrap.IDWrap
 	IsDefault_2        bool
 	Name_2             string
 	Compressed_2       bool
 	Body_2             []byte
-	Prev_2             *ulid.ULID
-	Next_2             *ulid.ULID
-	ID_3               ulid.ULID
-	ItemApiID_3        ulid.ULID
-	CollectionID_3     ulid.ULID
-	ParentExampleID_3  *ulid.ULID
+	Prev_2             *idwrap.IDWrap
+	Next_2             *idwrap.IDWrap
+	ID_3               idwrap.IDWrap
+	ItemApiID_3        idwrap.IDWrap
+	CollectionID_3     idwrap.IDWrap
+	ParentExampleID_3  *idwrap.IDWrap
 	IsDefault_3        bool
 	Name_3             string
 	Compressed_3       bool
 	Body_3             []byte
-	Prev_3             *ulid.ULID
-	Next_3             *ulid.ULID
-	ID_4               ulid.ULID
-	ItemApiID_4        ulid.ULID
-	CollectionID_4     ulid.ULID
-	ParentExampleID_4  *ulid.ULID
+	Prev_3             *idwrap.IDWrap
+	Next_3             *idwrap.IDWrap
+	ID_4               idwrap.IDWrap
+	ItemApiID_4        idwrap.IDWrap
+	CollectionID_4     idwrap.IDWrap
+	ParentExampleID_4  *idwrap.IDWrap
 	IsDefault_4        bool
 	Name_4             string
 	Compressed_4       bool
 	Body_4             []byte
-	Prev_4             *ulid.ULID
-	Next_4             *ulid.ULID
-	ID_5               ulid.ULID
-	ItemApiID_5        ulid.ULID
-	CollectionID_5     ulid.ULID
-	ParentExampleID_5  *ulid.ULID
+	Prev_4             *idwrap.IDWrap
+	Next_4             *idwrap.IDWrap
+	ID_5               idwrap.IDWrap
+	ItemApiID_5        idwrap.IDWrap
+	CollectionID_5     idwrap.IDWrap
+	ParentExampleID_5  *idwrap.IDWrap
 	IsDefault_5        bool
 	Name_5             string
 	Compressed_5       bool
 	Body_5             []byte
-	Prev_5             *ulid.ULID
-	Next_5             *ulid.ULID
-	ID_6               ulid.ULID
-	ItemApiID_6        ulid.ULID
-	CollectionID_6     ulid.ULID
-	ParentExampleID_6  *ulid.ULID
+	Prev_5             *idwrap.IDWrap
+	Next_5             *idwrap.IDWrap
+	ID_6               idwrap.IDWrap
+	ItemApiID_6        idwrap.IDWrap
+	CollectionID_6     idwrap.IDWrap
+	ParentExampleID_6  *idwrap.IDWrap
 	IsDefault_6        bool
 	Name_6             string
 	Compressed_6       bool
 	Body_6             []byte
-	Prev_6             *ulid.ULID
-	Next_6             *ulid.ULID
-	ID_7               ulid.ULID
-	ItemApiID_7        ulid.ULID
-	CollectionID_7     ulid.ULID
-	ParentExampleID_7  *ulid.ULID
+	Prev_6             *idwrap.IDWrap
+	Next_6             *idwrap.IDWrap
+	ID_7               idwrap.IDWrap
+	ItemApiID_7        idwrap.IDWrap
+	CollectionID_7     idwrap.IDWrap
+	ParentExampleID_7  *idwrap.IDWrap
 	IsDefault_7        bool
 	Name_7             string
 	Compressed_7       bool
 	Body_7             []byte
-	Prev_7             *ulid.ULID
-	Next_7             *ulid.ULID
-	ID_8               ulid.ULID
-	ItemApiID_8        ulid.ULID
-	CollectionID_8     ulid.ULID
-	ParentExampleID_8  *ulid.ULID
+	Prev_7             *idwrap.IDWrap
+	Next_7             *idwrap.IDWrap
+	ID_8               idwrap.IDWrap
+	ItemApiID_8        idwrap.IDWrap
+	CollectionID_8     idwrap.IDWrap
+	ParentExampleID_8  *idwrap.IDWrap
 	IsDefault_8        bool
 	Name_8             string
 	Compressed_8       bool
 	Body_8             []byte
-	Prev_8             *ulid.ULID
-	Next_8             *ulid.ULID
-	ID_9               ulid.ULID
-	ItemApiID_9        ulid.ULID
-	CollectionID_9     ulid.ULID
-	ParentExampleID_9  *ulid.ULID
+	Prev_8             *idwrap.IDWrap
+	Next_8             *idwrap.IDWrap
+	ID_9               idwrap.IDWrap
+	ItemApiID_9        idwrap.IDWrap
+	CollectionID_9     idwrap.IDWrap
+	ParentExampleID_9  *idwrap.IDWrap
 	IsDefault_9        bool
 	Name_9             string
 	Compressed_9       bool
 	Body_9             []byte
-	Prev_9             *ulid.ULID
-	Next_9             *ulid.ULID
-	ID_10              ulid.ULID
-	ItemApiID_10       ulid.ULID
-	CollectionID_10    ulid.ULID
-	ParentExampleID_10 *ulid.ULID
+	Prev_9             *idwrap.IDWrap
+	Next_9             *idwrap.IDWrap
+	ID_10              idwrap.IDWrap
+	ItemApiID_10       idwrap.IDWrap
+	CollectionID_10    idwrap.IDWrap
+	ParentExampleID_10 *idwrap.IDWrap
 	IsDefault_10       bool
 	Name_10            string
 	Compressed_10      bool
 	Body_10            []byte
-	Prev_10            *ulid.ULID
-	Next_10            *ulid.ULID
+	Prev_10            *idwrap.IDWrap
+	Next_10            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -913,12 +913,12 @@ VALUES
 `
 
 type CreateItemFolderParams struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Name         string
-	ParentID     *ulid.ULID
-	CollectionID ulid.ULID
-	Prev         *ulid.ULID
-	Next         *ulid.ULID
+	ParentID     *idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderParams) error {
@@ -950,66 +950,66 @@ VALUES
 `
 
 type CreateItemFolderBulkParams struct {
-	ID              ulid.ULID
+	ID              idwrap.IDWrap
 	Name            string
-	ParentID        *ulid.ULID
-	CollectionID    ulid.ULID
-	Prev            *ulid.ULID
-	Next            *ulid.ULID
-	ID_2            ulid.ULID
+	ParentID        *idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
+	ID_2            idwrap.IDWrap
 	Name_2          string
-	ParentID_2      *ulid.ULID
-	CollectionID_2  ulid.ULID
-	Prev_2          *ulid.ULID
-	Next_2          *ulid.ULID
-	ID_3            ulid.ULID
+	ParentID_2      *idwrap.IDWrap
+	CollectionID_2  idwrap.IDWrap
+	Prev_2          *idwrap.IDWrap
+	Next_2          *idwrap.IDWrap
+	ID_3            idwrap.IDWrap
 	Name_3          string
-	ParentID_3      *ulid.ULID
-	CollectionID_3  ulid.ULID
-	Prev_3          *ulid.ULID
-	Next_3          *ulid.ULID
-	ID_4            ulid.ULID
+	ParentID_3      *idwrap.IDWrap
+	CollectionID_3  idwrap.IDWrap
+	Prev_3          *idwrap.IDWrap
+	Next_3          *idwrap.IDWrap
+	ID_4            idwrap.IDWrap
 	Name_4          string
-	ParentID_4      *ulid.ULID
-	CollectionID_4  ulid.ULID
-	Prev_4          *ulid.ULID
-	Next_4          *ulid.ULID
-	ID_5            ulid.ULID
+	ParentID_4      *idwrap.IDWrap
+	CollectionID_4  idwrap.IDWrap
+	Prev_4          *idwrap.IDWrap
+	Next_4          *idwrap.IDWrap
+	ID_5            idwrap.IDWrap
 	Name_5          string
-	ParentID_5      *ulid.ULID
-	CollectionID_5  ulid.ULID
-	Prev_5          *ulid.ULID
-	Next_5          *ulid.ULID
-	ID_6            ulid.ULID
+	ParentID_5      *idwrap.IDWrap
+	CollectionID_5  idwrap.IDWrap
+	Prev_5          *idwrap.IDWrap
+	Next_5          *idwrap.IDWrap
+	ID_6            idwrap.IDWrap
 	Name_6          string
-	ParentID_6      *ulid.ULID
-	CollectionID_6  ulid.ULID
-	Prev_6          *ulid.ULID
-	Next_6          *ulid.ULID
-	ID_7            ulid.ULID
+	ParentID_6      *idwrap.IDWrap
+	CollectionID_6  idwrap.IDWrap
+	Prev_6          *idwrap.IDWrap
+	Next_6          *idwrap.IDWrap
+	ID_7            idwrap.IDWrap
 	Name_7          string
-	ParentID_7      *ulid.ULID
-	CollectionID_7  ulid.ULID
-	Prev_7          *ulid.ULID
-	Next_7          *ulid.ULID
-	ID_8            ulid.ULID
+	ParentID_7      *idwrap.IDWrap
+	CollectionID_7  idwrap.IDWrap
+	Prev_7          *idwrap.IDWrap
+	Next_7          *idwrap.IDWrap
+	ID_8            idwrap.IDWrap
 	Name_8          string
-	ParentID_8      *ulid.ULID
-	CollectionID_8  ulid.ULID
-	Prev_8          *ulid.ULID
-	Next_8          *ulid.ULID
-	ID_9            ulid.ULID
+	ParentID_8      *idwrap.IDWrap
+	CollectionID_8  idwrap.IDWrap
+	Prev_8          *idwrap.IDWrap
+	Next_8          *idwrap.IDWrap
+	ID_9            idwrap.IDWrap
 	Name_9          string
-	ParentID_9      *ulid.ULID
-	CollectionID_9  ulid.ULID
-	Prev_9          *ulid.ULID
-	Next_9          *ulid.ULID
-	ID_10           ulid.ULID
+	ParentID_9      *idwrap.IDWrap
+	CollectionID_9  idwrap.IDWrap
+	Prev_9          *idwrap.IDWrap
+	Next_9          *idwrap.IDWrap
+	ID_10           idwrap.IDWrap
 	Name_10         string
-	ParentID_10     *ulid.ULID
-	CollectionID_10 ulid.ULID
-	Prev_10         *ulid.ULID
-	Next_10         *ulid.ULID
+	ParentID_10     *idwrap.IDWrap
+	CollectionID_10 idwrap.IDWrap
+	Prev_10         *idwrap.IDWrap
+	Next_10         *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolderBulkParams) error {
@@ -1086,8 +1086,8 @@ VALUES
 `
 
 type CreateQueryParams struct {
-	ID          ulid.ULID
-	ExampleID   ulid.ULID
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 	QueryKey    string
 	Enable      bool
 	Description string
@@ -1123,62 +1123,62 @@ VALUES
 `
 
 type CreateQueryBulkParams struct {
-	ID             ulid.ULID
-	ExampleID      ulid.ULID
+	ID             idwrap.IDWrap
+	ExampleID      idwrap.IDWrap
 	QueryKey       string
 	Enable         bool
 	Description    string
 	Value          string
-	ID_2           ulid.ULID
-	ExampleID_2    ulid.ULID
+	ID_2           idwrap.IDWrap
+	ExampleID_2    idwrap.IDWrap
 	QueryKey_2     string
 	Enable_2       bool
 	Description_2  string
 	Value_2        string
-	ID_3           ulid.ULID
-	ExampleID_3    ulid.ULID
+	ID_3           idwrap.IDWrap
+	ExampleID_3    idwrap.IDWrap
 	QueryKey_3     string
 	Enable_3       bool
 	Description_3  string
 	Value_3        string
-	ID_4           ulid.ULID
-	ExampleID_4    ulid.ULID
+	ID_4           idwrap.IDWrap
+	ExampleID_4    idwrap.IDWrap
 	QueryKey_4     string
 	Enable_4       bool
 	Description_4  string
 	Value_4        string
-	ID_5           ulid.ULID
-	ExampleID_5    ulid.ULID
+	ID_5           idwrap.IDWrap
+	ExampleID_5    idwrap.IDWrap
 	QueryKey_5     string
 	Enable_5       bool
 	Description_5  string
 	Value_5        string
-	ID_6           ulid.ULID
-	ExampleID_6    ulid.ULID
+	ID_6           idwrap.IDWrap
+	ExampleID_6    idwrap.IDWrap
 	QueryKey_6     string
 	Enable_6       bool
 	Description_6  string
 	Value_6        string
-	ID_7           ulid.ULID
-	ExampleID_7    ulid.ULID
+	ID_7           idwrap.IDWrap
+	ExampleID_7    idwrap.IDWrap
 	QueryKey_7     string
 	Enable_7       bool
 	Description_7  string
 	Value_7        string
-	ID_8           ulid.ULID
-	ExampleID_8    ulid.ULID
+	ID_8           idwrap.IDWrap
+	ExampleID_8    idwrap.IDWrap
 	QueryKey_8     string
 	Enable_8       bool
 	Description_8  string
 	Value_8        string
-	ID_9           ulid.ULID
-	ExampleID_9    ulid.ULID
+	ID_9           idwrap.IDWrap
+	ExampleID_9    idwrap.IDWrap
 	QueryKey_9     string
 	Enable_9       bool
 	Description_9  string
 	Value_9        string
-	ID_10          ulid.ULID
-	ExampleID_10   ulid.ULID
+	ID_10          idwrap.IDWrap
+	ExampleID_10   idwrap.IDWrap
 	QueryKey_10    string
 	Enable_10      bool
 	Description_10 string
@@ -1268,9 +1268,9 @@ VALUES
 `
 
 type CreateResultApiParams struct {
-	ID          ulid.ULID
+	ID          idwrap.IDWrap
 	TriggerType mresultapi.TriggerType
-	TriggerBy   ulid.ULID
+	TriggerBy   idwrap.IDWrap
 	Name        string
 	Status      string
 	Time        int64
@@ -1306,7 +1306,7 @@ VALUES
 `
 
 type CreateUserParams struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	PasswordHash []byte
 	ProviderType int8
@@ -1341,7 +1341,7 @@ VALUES
 `
 
 type CreateWorkspaceParams struct {
-	ID      ulid.ULID
+	ID      idwrap.IDWrap
 	Name    string
 	Updated int64
 }
@@ -1359,9 +1359,9 @@ VALUES
 `
 
 type CreateWorkspaceUserParams struct {
-	ID          ulid.ULID
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 	Role        int8
 }
 
@@ -1381,7 +1381,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteBodyForm(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteBodyForm(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteBodyFormStmt, deleteBodyForm, id)
 	return err
 }
@@ -1392,7 +1392,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteCollection(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteCollection(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteCollectionStmt, deleteCollection, id)
 	return err
 }
@@ -1403,7 +1403,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteHeader(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteHeader(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteHeaderStmt, deleteHeader, id)
 	return err
 }
@@ -1414,7 +1414,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteItemApi(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteItemApiStmt, deleteItemApi, id)
 	return err
 }
@@ -1425,7 +1425,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteItemApiExample(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteItemApiExample(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteItemApiExampleStmt, deleteItemApiExample, id)
 	return err
 }
@@ -1436,7 +1436,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteItemFolder(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteItemFolderStmt, deleteItemFolder, id)
 	return err
 }
@@ -1447,7 +1447,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteQuery(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteQuery(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteQueryStmt, deleteQuery, id)
 	return err
 }
@@ -1458,7 +1458,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteResultApi(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteResultApi(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteResultApiStmt, deleteResultApi, id)
 	return err
 }
@@ -1469,7 +1469,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteUser(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteUserStmt, deleteUser, id)
 	return err
 }
@@ -1480,7 +1480,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteWorkspace(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteWorkspace(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteWorkspaceStmt, deleteWorkspace, id)
 	return err
 }
@@ -1491,7 +1491,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id ulid.ULID) error {
+func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteWorkspaceUserStmt, deleteWorkspaceUser, id)
 	return err
 }
@@ -1516,7 +1516,7 @@ WHERE
     id = ?
 `
 
-func (q *Queries) GetBodyForm(ctx context.Context, id ulid.ULID) (ExampleBodyForm, error) {
+func (q *Queries) GetBodyForm(ctx context.Context, id idwrap.IDWrap) (ExampleBodyForm, error) {
 	row := q.queryRow(ctx, q.getBodyFormStmt, getBodyForm, id)
 	var i ExampleBodyForm
 	err := row.Scan(
@@ -1544,7 +1544,7 @@ WHERE
     example_id = ?
 `
 
-func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID ulid.ULID) ([]ExampleBodyForm, error) {
+func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]ExampleBodyForm, error) {
 	rows, err := q.query(ctx, q.getBodyFormsByExampleIDStmt, getBodyFormsByExampleID, exampleID)
 	if err != nil {
 		return nil, err
@@ -1588,7 +1588,7 @@ LIMIT
 `
 
 // Collections
-func (q *Queries) GetCollection(ctx context.Context, id ulid.ULID) (Collection, error) {
+func (q *Queries) GetCollection(ctx context.Context, id idwrap.IDWrap) (Collection, error) {
 	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
 	var i Collection
 	err := row.Scan(&i.ID, &i.OwnerID, &i.Name)
@@ -1606,7 +1606,7 @@ WHERE
   owner_id = ?
 `
 
-func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID ulid.ULID) ([]Collection, error) {
+func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID idwrap.IDWrap) ([]Collection, error) {
 	rows, err := q.query(ctx, q.getCollectionByOwnerIDStmt, getCollectionByOwnerID, ownerID)
 	if err != nil {
 		return nil, err
@@ -1640,7 +1640,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id ulid.ULID) ([]Collection, error) {
+func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwrap.IDWrap) ([]Collection, error) {
 	rows, err := q.query(ctx, q.getCollectionByPlatformIDandTypeStmt, getCollectionByPlatformIDandType, id)
 	if err != nil {
 		return nil, err
@@ -1674,9 +1674,9 @@ LIMIT
   1
 `
 
-func (q *Queries) GetCollectionOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
+func (q *Queries) GetCollectionOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	row := q.queryRow(ctx, q.getCollectionOwnerIDStmt, getCollectionOwnerID, id)
-	var owner_id ulid.ULID
+	var owner_id idwrap.IDWrap
 	err := row.Scan(&owner_id)
 	return owner_id, err
 }
@@ -1701,7 +1701,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) GetHeader(ctx context.Context, id ulid.ULID) (ExampleHeader, error) {
+func (q *Queries) GetHeader(ctx context.Context, id idwrap.IDWrap) (ExampleHeader, error) {
 	row := q.queryRow(ctx, q.getHeaderStmt, getHeader, id)
 	var i ExampleHeader
 	err := row.Scan(
@@ -1729,7 +1729,7 @@ WHERE
   example_id = ?
 `
 
-func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID ulid.ULID) ([]ExampleHeader, error) {
+func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]ExampleHeader, error) {
 	rows, err := q.query(ctx, q.getHeadersByExampleIDStmt, getHeadersByExampleID, exampleID)
 	if err != nil {
 		return nil, err
@@ -1780,7 +1780,7 @@ LIMIT
 // This file is the source of truth for saas application's schema
 //
 // ItemApi
-func (q *Queries) GetItemApi(ctx context.Context, id ulid.ULID) (ItemApi, error) {
+func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, error) {
 	row := q.queryRow(ctx, q.getItemApiStmt, getItemApi, id)
 	var i ItemApi
 	err := row.Scan(
@@ -1817,7 +1817,7 @@ LIMIT
 `
 
 // Item Api Example
-func (q *Queries) GetItemApiExample(ctx context.Context, id ulid.ULID) (ItemApiExample, error) {
+func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (ItemApiExample, error) {
 	row := q.queryRow(ctx, q.getItemApiExampleStmt, getItemApiExample, id)
 	var i ItemApiExample
 	err := row.Scan(
@@ -1853,7 +1853,7 @@ WHERE
   collection_id = ?
 `
 
-func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApiExample, error) {
+func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApiExample, error) {
 	rows, err := q.query(ctx, q.getItemApiExampleByCollectionIDStmt, getItemApiExampleByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
@@ -1908,7 +1908,7 @@ LIMIT
   1
 `
 
-func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID ulid.ULID) (ItemApiExample, error) {
+func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID idwrap.IDWrap) (ItemApiExample, error) {
 	row := q.queryRow(ctx, q.getItemApiExampleDefaultStmt, getItemApiExampleDefault, itemApiID)
 	var i ItemApiExample
 	err := row.Scan(
@@ -1945,7 +1945,7 @@ WHERE
   AND is_default = false
 `
 
-func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID ulid.ULID) ([]ItemApiExample, error) {
+func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWrap) ([]ItemApiExample, error) {
 	rows, err := q.query(ctx, q.getItemApiExamplesStmt, getItemApiExamples, itemApiID)
 	if err != nil {
 		return nil, err
@@ -1991,9 +1991,9 @@ LIMIT
   1
 `
 
-func (q *Queries) GetItemApiOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
+func (q *Queries) GetItemApiOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	row := q.queryRow(ctx, q.getItemApiOwnerIDStmt, getItemApiOwnerID, id)
-	var owner_id ulid.ULID
+	var owner_id idwrap.IDWrap
 	err := row.Scan(&owner_id)
 	return owner_id, err
 }
@@ -2013,14 +2013,14 @@ LIMIT
 `
 
 type GetItemFolderRow struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Name         string
-	ParentID     *ulid.ULID
-	CollectionID ulid.ULID
+	ParentID     *idwrap.IDWrap
+	CollectionID idwrap.IDWrap
 }
 
 // ItemFolder
-func (q *Queries) GetItemFolder(ctx context.Context, id ulid.ULID) (GetItemFolderRow, error) {
+func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (GetItemFolderRow, error) {
 	row := q.queryRow(ctx, q.getItemFolderStmt, getItemFolder, id)
 	var i GetItemFolderRow
 	err := row.Scan(
@@ -2045,13 +2045,13 @@ WHERE
 `
 
 type GetItemFolderByCollectionIDRow struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Name         string
-	ParentID     *ulid.ULID
-	CollectionID ulid.ULID
+	ParentID     *idwrap.IDWrap
+	CollectionID idwrap.IDWrap
 }
 
-func (q *Queries) GetItemFolderByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]GetItemFolderByCollectionIDRow, error) {
+func (q *Queries) GetItemFolderByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]GetItemFolderByCollectionIDRow, error) {
 	rows, err := q.query(ctx, q.getItemFolderByCollectionIDStmt, getItemFolderByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
@@ -2091,9 +2091,9 @@ LIMIT
   1
 `
 
-func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
+func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	row := q.queryRow(ctx, q.getItemFolderOwnerIDStmt, getItemFolderOwnerID, id)
-	var owner_id ulid.ULID
+	var owner_id idwrap.IDWrap
 	err := row.Scan(&owner_id)
 	return owner_id, err
 }
@@ -2114,7 +2114,7 @@ WHERE
   collection_id = ?
 `
 
-func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID ulid.ULID) ([]ItemApi, error) {
+func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApi, error) {
 	rows, err := q.query(ctx, q.getItemsApiByCollectionIDStmt, getItemsApiByCollectionID, collectionID)
 	if err != nil {
 		return nil, err
@@ -2160,7 +2160,7 @@ WHERE
   example_id = ?
 `
 
-func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID ulid.ULID) ([]ExampleQuery, error) {
+func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]ExampleQuery, error) {
 	rows, err := q.query(ctx, q.getQueriesByExampleIDStmt, getQueriesByExampleID, exampleID)
 	if err != nil {
 		return nil, err
@@ -2210,7 +2210,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) GetQuery(ctx context.Context, id ulid.ULID) (ExampleQuery, error) {
+func (q *Queries) GetQuery(ctx context.Context, id idwrap.IDWrap) (ExampleQuery, error) {
 	row := q.queryRow(ctx, q.getQueryStmt, getQuery, id)
 	var i ExampleQuery
 	err := row.Scan(
@@ -2240,7 +2240,7 @@ LIMIT
   1
 `
 
-func (q *Queries) GetQueryByID(ctx context.Context, id ulid.ULID) (ExampleQuery, error) {
+func (q *Queries) GetQueryByID(ctx context.Context, id idwrap.IDWrap) (ExampleQuery, error) {
 	row := q.queryRow(ctx, q.getQueryByIDStmt, getQueryByID, id)
 	var i ExampleQuery
 	err := row.Scan(
@@ -2266,7 +2266,7 @@ LIMIT
 `
 
 // ResultAPI
-func (q *Queries) GetResultApi(ctx context.Context, id ulid.ULID) (ResultApi, error) {
+func (q *Queries) GetResultApi(ctx context.Context, id idwrap.IDWrap) (ResultApi, error) {
 	row := q.queryRow(ctx, q.getResultApiStmt, getResultApi, id)
 	var i ResultApi
 	err := row.Scan(
@@ -2291,7 +2291,7 @@ WHERE
   trigger_by = ?
 `
 
-func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy ulid.ULID) ([]ResultApi, error) {
+func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy idwrap.IDWrap) ([]ResultApi, error) {
 	rows, err := q.query(ctx, q.getResultApiByTriggerByStmt, getResultApiByTriggerBy, triggerBy)
 	if err != nil {
 		return nil, err
@@ -2334,7 +2334,7 @@ WHERE
 `
 
 type GetResultApiByTriggerByAndTriggerTypeParams struct {
-	TriggerBy   ulid.ULID
+	TriggerBy   idwrap.IDWrap
 	TriggerType mresultapi.TriggerType
 }
 
@@ -2386,7 +2386,7 @@ LIMIT
 `
 
 type GetUserRow struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	PasswordHash []byte
 	ProviderType int8
@@ -2394,7 +2394,7 @@ type GetUserRow struct {
 }
 
 // Users
-func (q *Queries) GetUser(ctx context.Context, id ulid.ULID) (GetUserRow, error) {
+func (q *Queries) GetUser(ctx context.Context, id idwrap.IDWrap) (GetUserRow, error) {
 	row := q.queryRow(ctx, q.getUserStmt, getUser, id)
 	var i GetUserRow
 	err := row.Scan(
@@ -2423,7 +2423,7 @@ LIMIT
 `
 
 type GetUserByEmailRow struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	PasswordHash []byte
 	ProviderType int8
@@ -2465,7 +2465,7 @@ type GetUserByEmailAndProviderTypeParams struct {
 }
 
 type GetUserByEmailAndProviderTypeRow struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	PasswordHash []byte
 	ProviderType int8
@@ -2507,7 +2507,7 @@ type GetUserByProviderIDandTypeParams struct {
 }
 
 type GetUserByProviderIDandTypeRow struct {
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 	Email        string
 	PasswordHash []byte
 	ProviderType int8
@@ -2541,7 +2541,7 @@ LIMIT
 `
 
 // Workspaces
-func (q *Queries) GetWorkspace(ctx context.Context, id ulid.ULID) (Workspace, error) {
+func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceStmt, getWorkspace, id)
 	var i Workspace
 	err := row.Scan(&i.ID, &i.Name, &i.Updated)
@@ -2570,7 +2570,7 @@ LIMIT
   1
 `
 
-func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID ulid.ULID) (Workspace, error) {
+func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDStmt, getWorkspaceByUserID, userID)
 	var i Workspace
 	err := row.Scan(&i.ID, &i.Name, &i.Updated)
@@ -2601,8 +2601,8 @@ LIMIT
 `
 
 type GetWorkspaceByUserIDandWorkspaceIDParams struct {
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 }
 
 func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg GetWorkspaceByUserIDandWorkspaceIDParams) (Workspace, error) {
@@ -2626,7 +2626,7 @@ LIMIT
   1
 `
 
-func (q *Queries) GetWorkspaceUser(ctx context.Context, id ulid.ULID) (WorkspacesUser, error) {
+func (q *Queries) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (WorkspacesUser, error) {
 	row := q.queryRow(ctx, q.getWorkspaceUserStmt, getWorkspaceUser, id)
 	var i WorkspacesUser
 	err := row.Scan(
@@ -2650,7 +2650,7 @@ WHERE
   user_id = ?
 `
 
-func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID ulid.ULID) ([]WorkspacesUser, error) {
+func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDWrap) ([]WorkspacesUser, error) {
 	rows, err := q.query(ctx, q.getWorkspaceUserByUserIDStmt, getWorkspaceUserByUserID, userID)
 	if err != nil {
 		return nil, err
@@ -2690,7 +2690,7 @@ WHERE
   workspace_id = ?
 `
 
-func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID ulid.ULID) ([]WorkspacesUser, error) {
+func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]WorkspacesUser, error) {
 	rows, err := q.query(ctx, q.getWorkspaceUserByWorkspaceIDStmt, getWorkspaceUserByWorkspaceID, workspaceID)
 	if err != nil {
 		return nil, err
@@ -2734,8 +2734,8 @@ LIMIT
 `
 
 type GetWorkspaceUserByWorkspaceIDAndUserIDParams struct {
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 }
 
 func (q *Queries) GetWorkspaceUserByWorkspaceIDAndUserID(ctx context.Context, arg GetWorkspaceUserByWorkspaceIDAndUserIDParams) (WorkspacesUser, error) {
@@ -2768,7 +2768,7 @@ WHERE
   )
 `
 
-func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID ulid.ULID) ([]Workspace, error) {
+func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWrap) ([]Workspace, error) {
 	rows, err := q.query(ctx, q.getWorkspacesByUserIDStmt, getWorkspacesByUserID, userID)
 	if err != nil {
 		return nil, err
@@ -2801,7 +2801,7 @@ WHERE
 
 type SetBodyFormEnableParams struct {
 	Enable bool
-	ID     ulid.ULID
+	ID     idwrap.IDWrap
 }
 
 func (q *Queries) SetBodyFormEnable(ctx context.Context, arg SetBodyFormEnableParams) error {
@@ -2819,7 +2819,7 @@ WHERE
 
 type SetHeaderEnableParams struct {
 	Enable bool
-	ID     ulid.ULID
+	ID     idwrap.IDWrap
 }
 
 func (q *Queries) SetHeaderEnable(ctx context.Context, arg SetHeaderEnableParams) error {
@@ -2837,7 +2837,7 @@ WHERE
 
 type SetQueryEnableParams struct {
 	Enable bool
-	ID     ulid.ULID
+	ID     idwrap.IDWrap
 }
 
 func (q *Queries) SetQueryEnable(ctx context.Context, arg SetQueryEnableParams) error {
@@ -2861,7 +2861,7 @@ type UpdateBodyFormParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	ID          ulid.ULID
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) error {
@@ -2885,9 +2885,9 @@ WHERE
 `
 
 type UpdateCollectionParams struct {
-	OwnerID ulid.ULID
+	OwnerID idwrap.IDWrap
 	Name    string
-	ID      ulid.ULID
+	ID      idwrap.IDWrap
 }
 
 func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
@@ -2911,7 +2911,7 @@ type UpdateHeaderParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	ID          ulid.ULID
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) error {
@@ -2938,12 +2938,12 @@ WHERE
 `
 
 type UpdateItemApiParams struct {
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
+	CollectionID idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	Name         string
 	Url          string
 	Method       string
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 }
 
 func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) error {
@@ -2972,7 +2972,7 @@ type UpdateItemApiExampleParams struct {
 	Name       string
 	Compressed bool
 	Body       []byte
-	ID         ulid.ULID
+	ID         idwrap.IDWrap
 }
 
 func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
@@ -2996,8 +2996,8 @@ WHERE
 
 type UpdateItemFolderParams struct {
 	Name     string
-	ParentID *ulid.ULID
-	ID       ulid.ULID
+	ParentID *idwrap.IDWrap
+	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
@@ -3021,7 +3021,7 @@ type UpdateQueryParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	ID          ulid.ULID
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateQuery(ctx context.Context, arg UpdateQueryParams) error {
@@ -3053,7 +3053,7 @@ type UpdateResultApiParams struct {
 	Time     int64
 	Duration int64
 	HttpResp mresultapi.HttpResp
-	ID       ulid.ULID
+	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateResultApi(ctx context.Context, arg UpdateResultApiParams) error {
@@ -3080,7 +3080,7 @@ WHERE
 type UpdateUserParams struct {
 	Email        string
 	PasswordHash []byte
-	ID           ulid.ULID
+	ID           idwrap.IDWrap
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
@@ -3098,7 +3098,7 @@ WHERE
 
 type UpdateWorkspaceParams struct {
 	Name string
-	ID   ulid.ULID
+	ID   idwrap.IDWrap
 }
 
 func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) error {
@@ -3117,10 +3117,10 @@ WHERE
 `
 
 type UpdateWorkspaceUserParams struct {
-	WorkspaceID ulid.ULID
-	UserID      ulid.ULID
+	WorkspaceID idwrap.IDWrap
+	UserID      idwrap.IDWrap
 	Role        int8
-	ID          ulid.ULID
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateWorkspaceUser(ctx context.Context, arg UpdateWorkspaceUserParams) error {

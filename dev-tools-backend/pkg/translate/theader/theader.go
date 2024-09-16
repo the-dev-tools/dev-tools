@@ -1,11 +1,10 @@
 package theader
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexampleheader"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"errors"
-
-	"github.com/oklog/ulid/v2"
 )
 
 func SerializeHeaderModelToRPC(header mexampleheader.Header) *itemapiexamplev1.Header {
@@ -23,11 +22,11 @@ func SerlializeHeaderRPCtoModel(header *itemapiexamplev1.Header) (mexampleheader
 	if header == nil {
 		return mexampleheader.Header{}, errors.New("header is nil")
 	}
-	headerId, err := ulid.Parse(header.GetId())
+	headerId, err := idwrap.NewWithParse(header.GetId())
 	if err != nil {
 		return mexampleheader.Header{}, err
 	}
-	exampleId, err := ulid.Parse(header.GetExampleId())
+	exampleId, err := idwrap.NewWithParse(header.GetExampleId())
 	if err != nil {
 		return mexampleheader.Header{}, err
 	}
@@ -46,12 +45,12 @@ func SerlializeHeaderRPCtoModelNoID(header *itemapiexamplev1.Header) (mexamplehe
 	if header == nil {
 		return mexampleheader.Header{}, errors.New("header is nil")
 	}
-	exampleUlID, err := ulid.Parse(header.GetExampleId())
+	exampleId, err := idwrap.NewWithParse(header.GetExampleId())
 	if err != nil {
 		return mexampleheader.Header{}, err
 	}
 	return mexampleheader.Header{
-		ExampleID:   exampleUlID,
+		ExampleID:   exampleId,
 		HeaderKey:   header.GetKey(),
 		Description: header.GetDescription(),
 		Enable:      header.GetEnabled(),

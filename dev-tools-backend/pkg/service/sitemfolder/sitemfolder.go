@@ -3,11 +3,10 @@ package sitemfolder
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type ItemFolderService struct {
@@ -63,7 +62,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ItemFolderService, error) {
 	}, nil
 }
 
-func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemfolder.ItemFolder, error) {
+func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemfolder.ItemFolder, error) {
 	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -198,7 +197,7 @@ func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []m
 	return nil
 }
 
-func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*mitemfolder.ItemFolder, error) {
+func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
 	rawFolder, err := ifs.queries.GetItemFolder(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -208,8 +207,8 @@ func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id ulid.ULID) (*
 	}
 
 	return &mitemfolder.ItemFolder{
-		ID:           ulid.ULID(rawFolder.ID),
-		CollectionID: ulid.ULID(rawFolder.CollectionID),
+		ID:           idwrap.IDWrap(rawFolder.ID),
+		CollectionID: idwrap.IDWrap(rawFolder.CollectionID),
 		ParentID:     rawFolder.ParentID,
 		Name:         rawFolder.Name,
 	}, nil
@@ -226,7 +225,7 @@ func (ifs ItemFolderService) UpdateItemFolder(ctx context.Context, folder *mitem
 	return err
 }
 
-func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id ulid.ULID) error {
+func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id idwrap.IDWrap) error {
 	err := ifs.queries.DeleteItemFolder(ctx, id)
 	if err == sql.ErrNoRows {
 		return ErrNoItemFolderFound
@@ -234,18 +233,18 @@ func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id ulid.ULID)
 	return err
 }
 
-func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID ulid.ULID) (ulid.ULID, error) {
+func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID idwrap.IDWrap) (idwrap.IDWrap, error) {
 	ownerID, err := ifs.queries.GetItemFolderOwnerID(ctx, folderID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ulid.ULID{}, ErrNoItemFolderFound
+			return idwrap.IDWrap{}, ErrNoItemFolderFound
 		}
-		return ulid.ULID{}, err
+		return idwrap.IDWrap{}, err
 	}
-	return ulid.ULID(ownerID), err
+	return idwrap.IDWrap(ownerID), err
 }
 
-func (ifs ItemFolderService) CheckOwnerID(ctx context.Context, folderID ulid.ULID, ownerID ulid.ULID) (bool, error) {
+func (ifs ItemFolderService) CheckOwnerID(ctx context.Context, folderID idwrap.IDWrap, ownerID idwrap.IDWrap) (bool, error) {
 	CollectionOwnerID, err := ifs.GetOwnerID(ctx, folderID)
 	if err != nil {
 		if err == sql.ErrNoRows {

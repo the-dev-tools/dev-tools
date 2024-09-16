@@ -1,17 +1,16 @@
 package mworkspace
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"time"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type Workspace struct {
-	ID      ulid.ULID
+	ID      idwrap.IDWrap
 	Name    string
 	Updated time.Time
 }
 
 func (w Workspace) GetCreatedTime() time.Time {
-	return time.UnixMilli(int64(w.ID.Time()))
+	return w.ID.Time()
 }

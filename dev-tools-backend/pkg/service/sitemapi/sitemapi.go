@@ -3,11 +3,10 @@ package sitemapi
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type ItemApiService struct {
@@ -76,7 +75,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ItemApiService, error) {
 	}, nil
 }
 
-func (ias ItemApiService) GetItemApi(ctx context.Context, id ulid.ULID) (*mitemapi.ItemApi, error) {
+func (ias ItemApiService) GetItemApi(ctx context.Context, id idwrap.IDWrap) (*mitemapi.ItemApi, error) {
 	itemApi, err := ias.queries.GetItemApi(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -257,11 +256,11 @@ func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.Item
 	return err
 }
 
-func (ias ItemApiService) DeleteItemApi(ctx context.Context, id ulid.ULID) error {
+func (ias ItemApiService) DeleteItemApi(ctx context.Context, id idwrap.IDWrap) error {
 	return ias.queries.DeleteItemApi(ctx, id)
 }
 
-func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectionID ulid.ULID) ([]mitemapi.ItemApi, error) {
+func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemapi.ItemApi, error) {
 	itemApis, err := ias.queries.GetItemsApiByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -272,18 +271,18 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 	return MassConvert(itemApis, ConvertToModelItemApi), nil
 }
 
-func (ias ItemApiService) GetOwnerID(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
+func (ias ItemApiService) GetOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	ownerUlid, err := ias.queries.GetItemApiOwnerID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ulid.ULID{}, ErrNoItemApiFound
+			return idwrap.IDWrap{}, ErrNoItemApiFound
 		}
-		return ulid.ULID{}, err
+		return idwrap.IDWrap{}, err
 	}
 	return ownerUlid, err
 }
 
-func (ias ItemApiService) CheckOwnerID(ctx context.Context, id ulid.ULID, ownerID ulid.ULID) (bool, error) {
+func (ias ItemApiService) CheckOwnerID(ctx context.Context, id, ownerID idwrap.IDWrap) (bool, error) {
 	collectionOwnerID, err := ias.GetOwnerID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {

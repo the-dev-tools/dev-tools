@@ -1,0 +1,77 @@
+package idwrap
+
+import (
+	"time"
+
+	"github.com/oklog/ulid/v2"
+)
+
+type IDWrap struct {
+	ulid ulid.ULID
+}
+
+func New(ulid ulid.ULID) IDWrap {
+	return IDWrap{ulid: ulid}
+}
+
+func NewNow() IDWrap {
+	return IDWrap{ulid: ulid.Make()}
+}
+
+func NewWithParse(ulidString string) (IDWrap, error) {
+	ulid, err := ulid.Parse(ulidString)
+	if err != nil {
+		return IDWrap{}, err
+	}
+	return IDWrap{ulid: ulid}, nil
+}
+
+func NewFromBytes(data []byte) (IDWrap, error) {
+	ulidData := ulid.ULID{}
+	err := ulidData.UnmarshalBinary(data)
+	return IDWrap{ulid: ulidData}, err
+}
+
+func (u IDWrap) String() string {
+	return u.ulid.String()
+}
+
+func (u IDWrap) GetUlid() ulid.ULID {
+	return u.ulid
+}
+
+func (u IDWrap) Bytes() []byte {
+	return u.ulid[:]
+}
+
+func (u IDWrap) Compare(ulid IDWrap) int {
+	return u.ulid.Compare(ulid.ulid)
+}
+
+func (u IDWrap) Time() time.Time {
+	return GetTimeFromULID(u)
+}
+
+// SQL driver value
+func (u IDWrap) Value() (interface{}, error) {
+	return u.ulid.Bytes(), nil
+}
+
+func (u *IDWrap) Scan(value interface{}) error {
+	var err error
+	*u, err = NewFromBytes(value.([]byte))
+	return err
+}
+
+func GetTimeFromULID(idwrap IDWrap) time.Time {
+	// Get the time from the ULID
+	return time.UnixMilli(int64(idwrap.ulid.Time()))
+}
+
+func GetUnixMilliFromULID(idwrap IDWrap) int64 {
+	return int64(idwrap.ulid.Time())
+}
+
+func GetUlid(Ulid IDWrap) ulid.ULID {
+	return Ulid.ulid
+}

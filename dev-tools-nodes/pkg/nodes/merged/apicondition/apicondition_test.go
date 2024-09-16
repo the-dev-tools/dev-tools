@@ -1,6 +1,9 @@
 package apicondition_test
 
 import (
+	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mexampleheader"
+	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-nodes/pkg/httpclient/httpmockclient"
 	"dev-tools-nodes/pkg/model/mnode"
 	"dev-tools-nodes/pkg/model/mnodedata"
@@ -17,10 +20,15 @@ func TestConditionRestStatus200(t *testing.T) {
 
 	apiconditionData := &apicondition.ConditionDataRestStatus{
 		ApiData: &mnodedata.NodeApiRestData{
-			Method:  "GET",
-			Url:     "http://localhost:8080",
-			Headers: map[string]string{},
-			Body:    []byte{},
+			Method: "GET",
+			Url:    "http://localhost:8080",
+			Headers: []mexampleheader.Header{
+				{ID: idwrap.NewNow(), HeaderKey: "Content-Type", Value: "application/json"},
+			},
+			Query: []mexamplequery.Query{
+				{ID: idwrap.NewNow(), QueryKey: "key", Value: "value"},
+			},
+			Body: []byte{},
 		},
 		ConditionData: &mnodedata.NodeConditionRestStatusData{
 			StatusCodeExits: map[string]string{

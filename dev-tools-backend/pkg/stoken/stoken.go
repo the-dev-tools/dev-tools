@@ -1,6 +1,7 @@
 package stoken
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"fmt"
 	"time"
 
@@ -23,7 +24,7 @@ type DefaultClaims struct {
 	Email     string    `json:"email"`
 }
 
-func NewJWT(id ulid.ULID, email string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
+func NewJWT(id idwrap.IDWrap, email string, tokenType TokenType, duration time.Duration, secret []byte) (string, error) {
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, DefaultClaims{
 		TokenType: tokenType,
 		Email:     email,

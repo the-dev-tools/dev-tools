@@ -3,10 +3,9 @@ package scollection
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-db/pkg/sqlc/gen"
-
-	"github.com/oklog/ulid/v2"
 )
 
 var ErrNoCollectionFound = sql.ErrNoRows
@@ -57,7 +56,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {
 	return &service, nil
 }
 
-func (cs CollectionService) ListCollections(ctx context.Context, ownerID ulid.ULID) ([]mcollection.Collection, error) {
+func (cs CollectionService) ListCollections(ctx context.Context, ownerID idwrap.IDWrap) ([]mcollection.Collection, error) {
 	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -77,7 +76,7 @@ func (cs CollectionService) CreateCollection(ctx context.Context, collection *mc
 	})
 }
 
-func (cs CollectionService) GetCollection(ctx context.Context, id ulid.ULID) (*mcollection.Collection, error) {
+func (cs CollectionService) GetCollection(ctx context.Context, id idwrap.IDWrap) (*mcollection.Collection, error) {
 	collection, err := cs.queries.GetCollection(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -97,22 +96,22 @@ func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mc
 	return err
 }
 
-func (cs CollectionService) DeleteCollection(ctx context.Context, id ulid.ULID) error {
+func (cs CollectionService) DeleteCollection(ctx context.Context, id idwrap.IDWrap) error {
 	return cs.queries.DeleteCollection(ctx, id)
 }
 
-func (cs CollectionService) GetOwner(ctx context.Context, id ulid.ULID) (ulid.ULID, error) {
+func (cs CollectionService) GetOwner(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	ulidData, err := cs.queries.GetCollectionOwnerID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ulid.ULID{}, ErrNoCollectionFound
+			return idwrap.IDWrap{}, ErrNoCollectionFound
 		}
-		return ulid.ULID{}, err
+		return idwrap.IDWrap{}, err
 	}
 	return ulidData, nil
 }
 
-func (cs CollectionService) CheckOwner(ctx context.Context, id ulid.ULID, ownerID ulid.ULID) (bool, error) {
+func (cs CollectionService) CheckOwner(ctx context.Context, id, ownerID idwrap.IDWrap) (bool, error) {
 	CollectionOwnerID, err := cs.GetOwner(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {

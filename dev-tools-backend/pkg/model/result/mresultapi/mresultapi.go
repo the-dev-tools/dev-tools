@@ -2,12 +2,11 @@ package mresultapi
 
 import (
 	"database/sql/driver"
+	"dev-tools-backend/pkg/idwrap"
 	"net/http"
 	"time"
 
 	"github.com/goccy/go-json"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type TriggerType int16
@@ -21,9 +20,9 @@ var (
 )
 
 type MResultAPI struct {
-	ID          ulid.ULID     `json:"id"`
+	ID          idwrap.IDWrap `json:"id"`
 	TriggerType TriggerType   `json:"triggerdBy"`
-	TriggerBy   ulid.ULID     `json:"rootID"`
+	TriggerBy   idwrap.IDWrap `json:"rootID"`
 	Name        string        `json:"name"`
 	Time        time.Time     `json:"time"`
 	Duration    time.Duration `json:"duration"`

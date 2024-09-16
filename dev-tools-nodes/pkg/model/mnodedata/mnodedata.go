@@ -2,6 +2,8 @@ package mnodedata
 
 import (
 	"database/sql/driver"
+	"dev-tools-backend/pkg/model/mexampleheader"
+	"dev-tools-backend/pkg/model/mexamplequery"
 	"encoding/json"
 	"errors"
 )
@@ -27,11 +29,11 @@ type NodeLoopRemoteData struct {
 //
 
 type NodeApiRestData struct {
-	Url     string            `json:"url"`
-	Query   map[string]string `json:"queryParams"`
-	Method  string            `json:"method"`
-	Headers map[string]string `json:"headers"`
-	Body    []byte            `json:"body"`
+	Url     string                  `json:"url"`
+	Query   []mexamplequery.Query   `json:"queryParams"`
+	Method  string                  `json:"method"`
+	Headers []mexampleheader.Header `json:"headers"`
+	Body    []byte                  `json:"body"`
 }
 
 // Driver value

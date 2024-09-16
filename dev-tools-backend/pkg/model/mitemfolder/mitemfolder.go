@@ -1,14 +1,14 @@
 package mitemfolder
 
-import "github.com/oklog/ulid/v2"
+import "dev-tools-backend/pkg/idwrap"
 
 type ItemFolder struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
+	ID           idwrap.IDWrap
+	CollectionID idwrap.IDWrap
 	Name         string
-	ParentID     *ulid.ULID
-	Prev         *ulid.ULID
-	Next         *ulid.ULID
+	ParentID     *idwrap.IDWrap
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 type ItemFolderNested struct {

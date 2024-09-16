@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/service/scollection"
@@ -19,14 +20,12 @@ import (
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
-	"dev-tools-backend/pkg/ulidwrap"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"errors"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -99,8 +98,8 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 }
 
 func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[itemapiv1.CreateApiCallRequest]) (*connect.Response[itemapiv1.CreateApiCallResponse], error) {
-	ulidID := ulid.Make()
-	collectionUlidID, err := ulid.Parse(req.Msg.GetCollectionId())
+	ulidID := idwrap.NewNow()
+	collectionUlidID, err := idwrap.NewWithParse(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -125,7 +124,7 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 	}
 
 	example := &mitemapiexample.ItemApiExample{
-		ID:           ulid.Make(),
+		ID:           idwrap.NewNow(),
 		ItemApiID:    ulidID,
 		CollectionID: collectionUlidID,
 		IsDefault:    true,
@@ -145,18 +144,18 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 }
 
 func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemapiv1.GetApiCallRequest]) (*connect.Response[itemapiv1.GetApiCallResponse], error) {
-	apiUlid, err := ulid.Parse(req.Msg.GetId())
+	apiUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	isDefaultExample := false
-	var exampleIDPtr *ulid.ULID = nil
+	var exampleIDPtr *idwrap.IDWrap = nil
 	rawExampleID := req.Msg.GetExampleId()
 	if rawExampleID == "" {
 		isDefaultExample = true
 	} else {
-		exampleID, err := ulid.Parse(req.Msg.GetExampleId())
+		exampleID, err := idwrap.NewWithParse(req.Msg.GetExampleId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -188,7 +187,6 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
-	exampleUlidWrap := ulidwrap.New(examplePtr.ID)
 
 	var parentID string
 	if item.ParentID == nil {
@@ -207,7 +205,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlidWrap)
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, examplePtr.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -261,11 +259,11 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 	// TODO: add more rail guards
 	apiCall := req.Msg.GetApiCall()
 	meta := apiCall.GetMeta()
-	ulidID, err := ulid.Parse(meta.GetId())
+	ulidID, err := idwrap.NewWithParse(meta.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	CollectionID, err := ulid.Parse(apiCall.GetCollectionId())
+	CollectionID, err := idwrap.NewWithParse(apiCall.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -286,9 +284,9 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	var parentUlidIDPtr *ulid.ULID = nil
+	var parentUlidIDPtr *idwrap.IDWrap = nil
 	if apiCall.GetParentId() != "" {
-		parentUlidID, err := ulid.Parse(req.Msg.GetApiCall().GetParentId())
+		parentUlidID, err := idwrap.NewWithParse(req.Msg.GetApiCall().GetParentId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -296,7 +294,7 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		if checkfolder.CollectionID != CollectionID {
+		if checkfolder.CollectionID.Compare(CollectionID) != 0 {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 		}
 		parentUlidIDPtr = &parentUlidID
@@ -320,7 +318,7 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 }
 
 func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[itemapiv1.DeleteApiCallRequest]) (*connect.Response[itemapiv1.DeleteApiCallResponse], error) {
-	ulidID, err := ulid.Parse(req.Msg.GetId())
+	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -342,7 +340,7 @@ func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[ite
 	return connect.NewResponse(&itemapiv1.DeleteApiCallResponse{}), nil
 }
 
-func (c *ItemApiRPC) CheckOwnerApi(ctx context.Context, apiID ulid.ULID) (bool, error) {
+func (c *ItemApiRPC) CheckOwnerApi(ctx context.Context, apiID idwrap.IDWrap) (bool, error) {
 	api, err := c.ias.GetItemApi(ctx, apiID)
 	if err != nil {
 		return false, err

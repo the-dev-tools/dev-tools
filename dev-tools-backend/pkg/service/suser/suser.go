@@ -3,10 +3,9 @@ package suser
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-db/pkg/sqlc/gen"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type UserService struct {
@@ -24,7 +23,7 @@ func New(ctx context.Context, db *sql.DB) (*UserService, error) {
 }
 
 // WARNING: this is also get user password hash do not use for public api
-func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, error) {
+func (us UserService) GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.User, error) {
 	user, err := us.queries.GetUser(ctx, id)
 	if err != nil {
 		return nil, err
@@ -35,7 +34,7 @@ func (us UserService) GetUser(ctx context.Context, id ulid.ULID) (*muser.User, e
 	}
 
 	return &muser.User{
-		ID:           ulid.ULID(user.ID),
+		ID:           idwrap.IDWrap(user.ID),
 		Email:        user.Email,
 		Password:     user.PasswordHash,
 		ProviderType: muser.ProviderType(user.ProviderType),
@@ -53,7 +52,7 @@ func (us UserService) GetUserByEmail(ctx context.Context, email string) (*muser.
 		provider = &user.ProviderID.String
 	}
 	return &muser.User{
-		ID:           ulid.ULID(user.ID),
+		ID:           idwrap.IDWrap(user.ID),
 		Email:        user.Email,
 		Password:     user.PasswordHash,
 		ProviderType: muser.ProviderType(user.ProviderType),
@@ -86,7 +85,7 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 		return nil, err
 	}
 	return &muser.User{
-		ID:           ulid.ULID(newUser.ID),
+		ID:           idwrap.IDWrap(newUser.ID),
 		Email:        newUser.Email,
 		Password:     newUser.PasswordHash,
 		ProviderType: muser.ProviderType(newUser.ProviderType),
@@ -103,7 +102,7 @@ func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
 	return err
 }
 
-func (us UserService) DeleteUser(ctx context.Context, id ulid.ULID) error {
+func (us UserService) DeleteUser(ctx context.Context, id idwrap.IDWrap) error {
 	return us.queries.DeleteUser(ctx, id)
 }
 
@@ -121,7 +120,7 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 	}
 
 	return &muser.User{
-		ID:           ulid.ULID(user.ID),
+		ID:           idwrap.IDWrap(user.ID),
 		Email:        user.Email,
 		Password:     user.PasswordHash,
 		ProviderType: oauthType,
@@ -129,7 +128,7 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 	}, nil
 }
 
-func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID ulid.ULID, workspaceID ulid.ULID) (bool, error) {
+func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID idwrap.IDWrap, workspaceID idwrap.IDWrap) (bool, error) {
 	// TODO: should be int8 instead of int64
 	a, err := us.queries.CheckIFWorkspaceUserExists(ctx, gen.CheckIFWorkspaceUserExistsParams{
 		UserID:      userID,

@@ -1,20 +1,19 @@
 package mitemapi
 
 import (
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapiexample"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type ItemApi struct {
-	ID           ulid.ULID
-	CollectionID ulid.ULID
-	ParentID     *ulid.ULID
+	ID           idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	Name         string
 	Url          string
 	Method       string
-	Prev         *ulid.ULID
-	Next         *ulid.ULID
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 type ItemApiWithExamples struct {

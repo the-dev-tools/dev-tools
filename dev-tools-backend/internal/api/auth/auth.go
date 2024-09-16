@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
@@ -24,7 +25,6 @@ import (
 	"github.com/magiclabs/magic-admin-go"
 	"github.com/magiclabs/magic-admin-go/client"
 	"github.com/magiclabs/magic-admin-go/token"
-	"github.com/oklog/ulid/v2"
 )
 
 var (
@@ -122,7 +122,7 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	userUlid, err := ulid.Parse(claims.Subject)
+	userUlid, err := idwrap.NewWithParse(claims.Subject)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -198,7 +198,7 @@ func (a *AuthServer) GetPendingUserByEmail(ctx context.Context, email string) (*
 
 func (a AuthServer) handleUserNotFound(ctx context.Context, email, ProviderID string, ProviderType muser.ProviderType) (*muser.User, error) {
 	org := &mworkspace.Workspace{
-		ID:   ulid.Make(),
+		ID:   idwrap.NewNow(),
 		Name: fmt.Sprintf("%s's org", email),
 	}
 	err := a.ws.Create(ctx, org)
@@ -207,7 +207,7 @@ func (a AuthServer) handleUserNotFound(ctx context.Context, email, ProviderID st
 	}
 
 	user := &muser.User{
-		ID:           ulid.Make(),
+		ID:           idwrap.NewNow(),
 		Email:        email,
 		Password:     nil,
 		ProviderType: ProviderType,
@@ -220,7 +220,7 @@ func (a AuthServer) handleUserNotFound(ctx context.Context, email, ProviderID st
 	}
 
 	orgUser := &mworkspaceuser.WorkspaceUser{
-		ID:          ulid.Make(),
+		ID:          idwrap.NewNow(),
 		WorkspaceID: org.ID,
 		UserID:      user.ID,
 		Role:        mworkspaceuser.RoleOwner,

@@ -2,9 +2,9 @@ package sexamplebodyform
 
 import (
 	"context"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexamplebodyform"
 	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/ulidwrap"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
 )
@@ -23,8 +23,8 @@ func NewTX(queries *gen.Queries) *BodyFormService {
 
 func SerializeBodyFormDBToModel(bodyForm gen.ExampleBodyForm) mexamplebodyform.BodyForm {
 	return mexamplebodyform.BodyForm{
-		ID:          ulidwrap.New(bodyForm.ID),
-		ExampleID:   ulidwrap.New(bodyForm.ExampleID),
+		ID:          bodyForm.ID,
+		ExampleID:   bodyForm.ExampleID,
 		BodyKey:     bodyForm.BodyKey,
 		Enable:      bodyForm.Enable,
 		Description: bodyForm.Description,
@@ -34,8 +34,8 @@ func SerializeBodyFormDBToModel(bodyForm gen.ExampleBodyForm) mexamplebodyform.B
 
 func SerializeBodyFormModelToDB(bodyForm mexamplebodyform.BodyForm) gen.ExampleBodyForm {
 	return gen.ExampleBodyForm{
-		ID:          bodyForm.ID.GetUlid(),
-		ExampleID:   bodyForm.ExampleID.GetUlid(),
+		ID:          bodyForm.ID,
+		ExampleID:   bodyForm.ExampleID,
 		BodyKey:     bodyForm.BodyKey,
 		Enable:      bodyForm.Enable,
 		Description: bodyForm.Description,
@@ -43,16 +43,16 @@ func SerializeBodyFormModelToDB(bodyForm mexamplebodyform.BodyForm) gen.ExampleB
 	}
 }
 
-func (s BodyFormService) GetBodyFormByID(ctx context.Context, id ulidwrap.ULIDWrap) (mexamplebodyform.BodyForm, error) {
-	bodyForm, err := s.queries.GetBodyForm(ctx, id.GetUlid())
+func (s BodyFormService) GetBodyFormByID(ctx context.Context, id idwrap.IDWrap) (mexamplebodyform.BodyForm, error) {
+	bodyForm, err := s.queries.GetBodyForm(ctx, id)
 	if err != nil {
 		return mexamplebodyform.BodyForm{}, err
 	}
 	return SerializeBodyFormDBToModel(bodyForm), nil
 }
 
-func (s BodyFormService) GetBodyFormByExampleID(ctx context.Context, exampleID ulidwrap.ULIDWrap) ([]mexamplebodyform.BodyForm, error) {
-	bodyForms, err := s.queries.GetBodyFormsByExampleID(ctx, exampleID.GetUlid())
+func (s BodyFormService) GetBodyFormByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]mexamplebodyform.BodyForm, error) {
+	bodyForms, err := s.queries.GetBodyFormsByExampleID(ctx, exampleID)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,8 @@ func (s BodyFormService) GetBodyFormByExampleID(ctx context.Context, exampleID u
 
 func (s BodyFormService) CreateBodyForm(ctx context.Context, bodyForm mexamplebodyform.BodyForm) error {
 	arg := gen.CreateBodyFormParams{
-		ID:          bodyForm.ID.GetUlid(),
-		ExampleID:   bodyForm.ExampleID.GetUlid(),
+		ID:          bodyForm.ID,
+		ExampleID:   bodyForm.ExampleID,
 		BodyKey:     bodyForm.BodyKey,
 		Enable:      bodyForm.Enable,
 		Description: bodyForm.Description,
@@ -189,7 +189,7 @@ func (s BodyFormService) CreateBulkHeader(ctx context.Context, bodyForms []mexam
 
 func (s BodyFormService) UpdateBodyForm(ctx context.Context, bodyForm mexamplebodyform.BodyForm) error {
 	arg := gen.UpdateBodyFormParams{
-		ID:          bodyForm.ID.GetUlid(),
+		ID:          bodyForm.ID,
 		BodyKey:     bodyForm.BodyKey,
 		Enable:      bodyForm.Enable,
 		Description: bodyForm.Description,
@@ -198,6 +198,6 @@ func (s BodyFormService) UpdateBodyForm(ctx context.Context, bodyForm mexamplebo
 	return s.queries.UpdateBodyForm(ctx, arg)
 }
 
-func (s BodyFormService) DeleteBodyForm(ctx context.Context, id ulidwrap.ULIDWrap) error {
-	return s.queries.DeleteBodyForm(ctx, id.GetUlid())
+func (s BodyFormService) DeleteBodyForm(ctx context.Context, id idwrap.IDWrap) error {
+	return s.queries.DeleteBodyForm(ctx, id)
 }

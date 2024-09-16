@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
@@ -19,7 +20,6 @@ import (
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
-	"dev-tools-backend/pkg/ulidwrap"
 	"dev-tools-nodes/pkg/model/mnode"
 	"dev-tools-nodes/pkg/model/mnodedata"
 	"dev-tools-nodes/pkg/model/mnodemaster"
@@ -34,7 +34,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -106,7 +105,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 
 // TODO: check permissions
 func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Request[itemapiexamplev1.GetExamplesRequest]) (*connect.Response[itemapiexamplev1.GetExamplesResponse], error) {
-	apiUlid, err := ulid.Parse(req.Msg.GetItemApiId())
+	apiUlid, err := idwrap.NewWithParse(req.Msg.GetItemApiId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
@@ -118,14 +117,12 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 
 	rpcExamples := make([]*itemapiexamplev1.ApiExample, len(examples))
 	for i, example := range examples {
-		exampleUlidWrap := ulidwrap.New(example.ID)
-
 		header, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
 		if err != nil && err != sexampleheader.ErrNoHeaderFound {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		query, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlidWrap)
+		query, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
 		if err != nil && err != sexamplequery.ErrNoQueryFound {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -157,14 +154,12 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 }
 
 func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request[itemapiexamplev1.GetExampleRequest]) (*connect.Response[itemapiexamplev1.GetExampleResponse], error) {
-	exampleUlid, err := ulid.Parse(req.Msg.GetId())
+	exampleIdWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	exampleUlidWrap := ulidwrap.New(exampleUlid)
-
-	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	isMember, err := c.CheckOwnerExample(ctx, exampleIdWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -173,17 +168,17 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
 	}
 
-	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
+	example, err := c.iaes.GetApiExample(ctx, exampleIdWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	header, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
+	header, err := c.hs.GetHeaderByExampleID(ctx, exampleIdWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	query, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlidWrap)
+	query, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleIdWrap)
 	if err != nil && err != sexamplequery.ErrNoQueryFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -214,22 +209,22 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 
 // TODO: check permissions
 func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateExampleRequest]) (*connect.Response[itemapiexamplev1.CreateExampleResponse], error) {
-	apiUlid, err := ulid.Parse(req.Msg.GetItemApiId())
+	apiIDWrap, err := idwrap.NewWithParse(req.Msg.GetItemApiId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	itemApi, err := c.ias.GetItemApi(ctx, apiUlid)
+	itemApi, err := c.ias.GetItemApi(ctx, apiIDWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	newUlid := ulid.Make()
+	ExampleIDWrapNew := idwrap.NewNow()
 	exampleRPC := req.Msg.Example
 	metaRPC := exampleRPC.GetMeta()
 	ex := &mitemapiexample.ItemApiExample{
-		ID:           newUlid,
-		ItemApiID:    apiUlid,
+		ID:           ExampleIDWrapNew,
+		ItemApiID:    apiIDWrap,
 		CollectionID: itemApi.CollectionID,
 		Name:         metaRPC.GetName(),
 		// TODO: add the headers and query
@@ -242,17 +237,17 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 	}
 
 	return connect.NewResponse(&itemapiexamplev1.CreateExampleResponse{
-		Id: newUlid.String(),
+		Id: ExampleIDWrapNew.String(),
 	}), nil
 }
 
 func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateExampleRequest]) (*connect.Response[itemapiexamplev1.UpdateExampleResponse], error) {
-	exampleUlid, err := ulid.Parse(req.Msg.GetId())
+	exampleIDWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	isMember, err := c.CheckOwnerExample(ctx, exampleIDWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -263,7 +258,7 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 
 	exRPC := req.Msg
 	ex := &mitemapiexample.ItemApiExample{
-		ID:   exampleUlid,
+		ID:   exampleIDWrap,
 		Name: exRPC.GetName(),
 		Body: exRPC.GetBody(),
 	}
@@ -277,7 +272,7 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 }
 
 func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteExampleRequest]) (*connect.Response[itemapiexamplev1.DeleteExampleResponse], error) {
-	exampleUlid, err := ulid.Parse(req.Msg.GetId())
+	exampleUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
@@ -300,7 +295,7 @@ func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Requ
 }
 
 func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request[itemapiexamplev1.RunExampleRequest]) (*connect.Response[itemapiexamplev1.RunExampleResponse], error) {
-	exampleUlid, err := ulid.Parse(req.Msg.GetId())
+	exampleUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -323,10 +318,22 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlid)
+	if err != nil && err != sexamplequery.ErrNoQueryFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	reqHeaders, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
+	if err != nil && err != sexampleheader.ErrNoHeaderFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	apiCallNodeData := mnodedata.NodeApiRestData{
-		Url:    itemApiCall.Url,
-		Method: itemApiCall.Method,
-		Body:   example.Body,
+		Url:     itemApiCall.Url,
+		Method:  itemApiCall.Method,
+		Body:    example.Body,
+		Headers: reqHeaders,
+		Query:   queries,
 	}
 
 	node := mnode.Node{
@@ -360,7 +367,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	result := &mresultapi.MResultAPI{
-		ID:          ulid.Make(),
+		ID:          idwrap.NewNow(),
 		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
 		TriggerBy:   exampleUlid,
 		Name:        itemApiCall.Name,
@@ -382,9 +389,9 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}
 
 	// TODO: can be more efficient with init size
-	headers := make(map[string]string, 0)
+	respHeaders := make(map[string]string, 0)
 	for key, values := range httpResp.Header {
-		headers[key] = strings.Join(values, ",")
+		respHeaders[key] = strings.Join(values, ",")
 	}
 
 	return connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
@@ -399,7 +406,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 					Proto:      result.HttpResp.Proto,
 					ProtoMajor: int32(result.HttpResp.ProtoMajor),
 					ProtoMinor: int32(result.HttpResp.ProtoMinor),
-					Header:     headers,
+					Header:     respHeaders,
 					Body:       result.HttpResp.Body,
 				},
 			},
@@ -407,7 +414,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}), nil
 }
 
-func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid ulid.ULID) (bool, error) {
+func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid idwrap.IDWrap) (bool, error) {
 	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
 	if err != nil {
 		return false, err
@@ -415,7 +422,7 @@ func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid u
 	return collection.CheckOwnerCollection(ctx, *c.cs, *c.us, example.CollectionID)
 }
 
-func (c *ItemAPIExampleRPC) CheckOwnerHeader(ctx context.Context, headerUlid ulid.ULID) (bool, error) {
+func (c *ItemAPIExampleRPC) CheckOwnerHeader(ctx context.Context, headerUlid idwrap.IDWrap) (bool, error) {
 	header, err := c.hs.GetHeaderByID(ctx, headerUlid)
 	if err != nil {
 		return false, err
@@ -423,9 +430,8 @@ func (c *ItemAPIExampleRPC) CheckOwnerHeader(ctx context.Context, headerUlid uli
 	return c.CheckOwnerExample(ctx, header.ExampleID)
 }
 
-func (c *ItemAPIExampleRPC) CheckOwnerQuery(ctx context.Context, queryUlid ulid.ULID) (bool, error) {
-	ulidWrap := ulidwrap.New(queryUlid)
-	query, err := c.qs.GetExampleQuery(ctx, ulidWrap)
+func (c *ItemAPIExampleRPC) CheckOwnerQuery(ctx context.Context, queryUlid idwrap.IDWrap) (bool, error) {
+	query, err := c.qs.GetExampleQuery(ctx, queryUlid)
 	if err != nil {
 		return false, err
 	}
@@ -444,8 +450,8 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	newUlid := ulid.Make()
-	headerModel.ID = newUlid
+	newIDWrap := idwrap.NewNow()
+	headerModel.ID = newIDWrap
 
 	ok, err := c.CheckOwnerExample(ctx, headerModel.ExampleID)
 	if err != nil {
@@ -459,7 +465,7 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{Id: newUlid.String()}), nil
+	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{Id: newIDWrap.String()}), nil
 }
 
 // TODO: refactor to use the ulidwrap
@@ -484,18 +490,18 @@ func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Reque
 
 // TODO: refactor to use the ulidwrap
 func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteHeaderRequest]) (*connect.Response[itemapiexamplev1.DeleteHeaderResponse], error) {
-	ulidWrap, err := ulidwrap.NewWithParse(req.Msg.GetId())
+	ulidWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := c.CheckOwnerHeader(ctx, ulidWrap.GetUlid())
+	ok, err := c.CheckOwnerHeader(ctx, ulidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !ok {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("no header found"))
 	}
-	err = c.hs.DeleteHeader(ctx, ulidWrap.GetUlid())
+	err = c.hs.DeleteHeader(ctx, ulidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -508,8 +514,8 @@ func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	createdUlid := ulid.Make()
-	queryData.ID = createdUlid
+	idWrap := idwrap.NewNow()
+	queryData.ID = idWrap
 	ok, err := c.CheckOwnerExample(ctx, queryData.ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -521,7 +527,7 @@ func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&itemapiexamplev1.CreateQueryResponse{Id: createdUlid.String()}), nil
+	return connect.NewResponse(&itemapiexamplev1.CreateQueryResponse{Id: idWrap.String()}), nil
 }
 
 func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateQueryRequest]) (*connect.Response[itemapiexamplev1.UpdateQueryResponse], error) {
@@ -545,11 +551,11 @@ func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Reques
 }
 
 func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteQueryRequest]) (*connect.Response[itemapiexamplev1.DeleteQueryResponse], error) {
-	ulidWrap, err := ulidwrap.NewWithParse(req.Msg.GetId())
+	ulidWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := c.CheckOwnerQuery(ctx, ulidWrap.GetUlid())
+	ok, err := c.CheckOwnerQuery(ctx, ulidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
