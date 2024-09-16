@@ -21,7 +21,7 @@
     "@tanstack/react-router": "1.57.13",
     "@tanstack/react-table": "8.20.5",
     "@the-dev-tools/api": "workspace:^",
-    "@the-dev-tools/protobuf": "1.19.0",
+    "@the-dev-tools/protobuf": "1.20.0",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.7.3",
@@ -35,6 +35,7 @@
     "use-debounce": "10.0.3"
   },
   "devDependencies": {
+    "@hookform/devtools": "~4.3.1",
     "@rsbuild/core": "~1.0.4",
     "@rsbuild/plugin-react": "~1.0.2",
     "@tanstack/react-query-devtools": "~5.56.2",

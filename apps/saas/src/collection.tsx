@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link, Outlet, useMatch } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, Effect, Match, pipe, Struct } from 'effect';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuSave, LuSendHorizonal, LuTrash2 } from 'react-icons/lu';
@@ -508,32 +508,30 @@ export const ApiCallHeaderTab = () => {
   const { apiCallId } = apiCallRoute.useParams();
   const query = useConnectQuery(getApiCall, { id: apiCallId });
   if (!query.isSuccess) return null;
-  return <ApiCallHeaderForm data={query.data} />;
+  return <ApiCallHeaderTable data={query.data} />;
 };
 
-interface ApiCallHeaderFormProps {
+interface ApiCallHeaderTableProps {
   data: GetApiCallResponse;
 }
 
-const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const getQueryOptions = createQueryOptions(getApiCall, { id: data.apiCall!.meta!.id }, { transport });
-
+const ApiCallHeaderTable = ({ data }: ApiCallHeaderTableProps) => {
   const updateMutation = useConnectMutation(updateHeader);
   const createMutation = useConnectMutation(createHeader);
   const { mutate: delete_ } = useConnectMutation(deleteHeader);
 
-  const values = useMemo(
-    () => ({
-      header: [...data.example!.header, new Header({ enabled: true })],
-    }),
+  const makeTemplateHeader = useCallback(
+    () => new Header({ enabled: true, exampleId: data.example!.meta!.id }),
     [data.example],
   );
 
-  const form = useForm({ values });
-  const { fields, remove: removeField } = useFieldArray({ name: 'header', control: form.control, keyName: 'fieldId' });
+  const values = useMemo(
+    () => ({ header: [...data.example!.header, makeTemplateHeader()] }),
+    [data.example, makeTemplateHeader],
+  );
+
+  const { getValues, ...form } = useForm({ values });
+  const { fields, remove: removeField, ...fieldArray } = useFieldArray({ name: 'header', control: form.control });
 
   const columns = useMemo(() => {
     const { accessor, display } = createColumnHelper<Header>();
@@ -542,11 +540,14 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
         header: '',
         minSize: 0,
         size: 0,
-        cell: ({ row }) => <CheckboxRHF control={form.control} name={`header.${row.index}.enabled`} className='p-1' />,
+        cell: ({ row }) => (
+          <CheckboxRHF key={row.id} control={form.control} name={`header.${row.index}.enabled`} className='p-1' />
+        ),
       }),
       accessor('key', {
         cell: ({ row }) => (
           <TextFieldRHF
+            key={row.id}
             control={form.control}
             name={`header.${row.index}.key`}
             inputClassName={tw`rounded-none border-transparent`}
@@ -556,6 +557,7 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
       accessor('value', {
         cell: ({ row }) => (
           <TextFieldRHF
+            key={row.id}
             control={form.control}
             name={`header.${row.index}.value`}
             inputClassName={tw`rounded-none border-transparent`}
@@ -565,6 +567,7 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
       accessor('description', {
         cell: ({ row }) => (
           <TextFieldRHF
+            key={row.id}
             control={form.control}
             name={`header.${row.index}.description`}
             inputClassName={tw`rounded-none border-transparent`}
@@ -582,7 +585,8 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
             kind='placeholder'
             variant='placeholder ghost'
             onPress={() => {
-              delete_({ id: row.id });
+              const id = getValues(`header.${row.index}.id`);
+              delete_({ id });
               removeField(row.index);
             }}
           >
@@ -591,7 +595,7 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
         ),
       }),
     ];
-  }, [delete_, form.control, removeField]);
+  }, [delete_, form.control, getValues, removeField]);
 
   const table = useReactTable({
     columns,
@@ -601,30 +605,32 @@ const ApiCallHeaderForm = ({ data }: ApiCallHeaderFormProps) => {
   });
 
   const updateHeaderMap = useRef(new Map<string, Header>());
-  const updateHeaders = useDebouncedCallback(async () => {
+  const updateHeaders = useDebouncedCallback(() => {
     const headers = updateHeaderMap.current;
-
-    const promises = Array.fromIterable(headers.values()).map(async (header) => {
-      if (header.id) return void (await updateMutation.mutateAsync({ header }));
-
-      await createMutation.mutateAsync({ header: { ...header, exampleId: data.example!.meta!.id } });
-      await queryClient.invalidateQueries(getQueryOptions);
+    headers.forEach(async (header) => {
+      headers.delete(header.id);
+      if (header.id) {
+        await updateMutation.mutateAsync({ header });
+      } else {
+        const { id } = await createMutation.mutateAsync({ header });
+        const index = getValues('header').length - 1;
+        form.setValue(`header.${index}`, new Header({ ...header, id }));
+        fieldArray.append(makeTemplateHeader(), { shouldFocus: false });
+        headers.delete(id);
+      }
     });
-
-    headers.clear();
-    await Promise.allSettled(promises);
-  }, 200);
+  }, 500);
 
   useEffect(() => {
     const watch = form.watch((_, { name }) => {
       const rowName = name?.match(/(^header.[\d]+)/g)?.[0] as `header.${number}` | undefined;
       if (!rowName) return;
-      const rowValues = form.getValues(rowName);
+      const rowValues = getValues(rowName);
       updateHeaderMap.current.set(rowValues.id, rowValues);
       void updateHeaders();
     });
     return () => void watch.unsubscribe();
-  }, [form, updateHeaders]);
+  }, [form, getValues, updateHeaders]);
 
   useEffect(() => () => void updateHeaders.flush(), [updateHeaders]);
 
