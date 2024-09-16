@@ -41,13 +41,6 @@ type CollectionServiceRPC struct {
 	secret []byte
 }
 
-type ContextKeyStr string
-
-const (
-	UserIDKeyCtx ContextKeyStr = "auth"
-)
-
-// ListCollections calls collection.v1.CollectionService.ListCollections.
 func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
 	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {
@@ -109,7 +102,6 @@ func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect
 	return connect.NewResponse(respRaw), nil
 }
 
-// CreateCollection calls collection.v1.CollectionService.CreateCollection.
 func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
 	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
 	if err != nil {

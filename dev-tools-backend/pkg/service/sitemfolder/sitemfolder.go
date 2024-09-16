@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemfolder"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
 )
@@ -15,14 +16,6 @@ type ItemFolderService struct {
 
 var ErrNoItemFolderFound = sql.ErrNoRows
 
-func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
-	arr := make([]O, len(item))
-	for i, v := range item {
-		arr[i] = *convFunc(v)
-	}
-	return arr
-}
-
 func ConvertToDBItemFolder(folder mitemfolder.ItemFolder) gen.ItemFolder {
 	return gen.ItemFolder{
 		ID:           folder.ID,
@@ -32,8 +25,8 @@ func ConvertToDBItemFolder(folder mitemfolder.ItemFolder) gen.ItemFolder {
 	}
 }
 
-func ConvertToModelItemFolder(folder gen.ItemFolder) *mitemfolder.ItemFolder {
-	return &mitemfolder.ItemFolder{
+func ConvertToModelItemFolder(folder gen.ItemFolder) mitemfolder.ItemFolder {
+	return mitemfolder.ItemFolder{
 		ID:           folder.ID,
 		CollectionID: folder.CollectionID,
 		ParentID:     folder.ParentID,
@@ -62,24 +55,27 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ItemFolderService, error) {
 	}, nil
 }
 
+func (ifs ItemFolderService) GetFolder(ctx context.Context, id idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
+	rawFolder, err := ifs.queries.GetItemFolder(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemFolderFound
+		}
+		return nil, err
+	}
+	folder := ConvertToModelItemFolder(rawFolder)
+	return &folder, nil
+}
+
 func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemfolder.ItemFolder, error) {
-	rawFolders, err := ifs.queries.GetItemFolderByCollectionID(ctx, collectionID)
+	rawFolders, err := ifs.queries.GetItemFoldersByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mitemfolder.ItemFolder{}, ErrNoItemFolderFound
 		}
 		return nil, err
 	}
-	folders := make([]mitemfolder.ItemFolder, len(rawFolders))
-	for i, rawFolder := range rawFolders {
-		folders[i] = mitemfolder.ItemFolder{
-			ID:           rawFolder.ID,
-			CollectionID: rawFolder.CollectionID,
-			ParentID:     rawFolder.ParentID,
-			Name:         rawFolder.Name,
-		}
-	}
-	return folders, nil
+	return tgeneric.MassConvert(rawFolders, ConvertToModelItemFolder), nil
 }
 
 func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
@@ -93,7 +89,7 @@ func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitem
 }
 
 func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []mitemfolder.ItemFolder) error {
-	sizeOfChunks := 10
+	const sizeOfChunks = 10
 
 	for chunk := range slices.Chunk(items, sizeOfChunks) {
 		if len(chunk) < sizeOfChunks {
@@ -197,23 +193,6 @@ func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []m
 	return nil
 }
 
-func (ifs ItemFolderService) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
-	rawFolder, err := ifs.queries.GetItemFolder(ctx, id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNoItemFolderFound
-		}
-		return nil, err
-	}
-
-	return &mitemfolder.ItemFolder{
-		ID:           idwrap.IDWrap(rawFolder.ID),
-		CollectionID: idwrap.IDWrap(rawFolder.CollectionID),
-		ParentID:     rawFolder.ParentID,
-		Name:         rawFolder.Name,
-	}, nil
-}
-
 func (ifs ItemFolderService) UpdateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
 	err := ifs.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
 		ID:   folder.ID,
@@ -241,7 +220,7 @@ func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID idwrap.IDW
 		}
 		return idwrap.IDWrap{}, err
 	}
-	return idwrap.IDWrap(ownerID), err
+	return ownerID, err
 }
 
 func (ifs ItemFolderService) CheckOwnerID(ctx context.Context, folderID idwrap.IDWrap, ownerID idwrap.IDWrap) (bool, error) {

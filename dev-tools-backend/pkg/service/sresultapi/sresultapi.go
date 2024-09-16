@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
 	"time"
@@ -15,14 +16,6 @@ import (
 type ResultApiService struct {
 	db      *sql.DB
 	queries *gen.Queries
-}
-
-func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
-	arr := make([]O, len(item))
-	for i, v := range item {
-		arr[i] = *convFunc(v)
-	}
-	return arr
 }
 
 func ConvertToDBResultApi(result mresultapi.MResultAPI) gen.ResultApi {
@@ -101,7 +94,7 @@ func (ras ResultApiService) GetResultsApiWithTriggerBy(ctx context.Context, trig
 	if err != nil {
 		return nil, err
 	}
-	return MassConvert(resultsRaw, ConvertToModelResultApi), nil
+	return tgeneric.MassConvertPtr(resultsRaw, ConvertToModelResultApi), nil
 }
 
 func (ras ResultApiService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap, cs scollection.CollectionService, ias sitemapi.ItemApiService) (idwrap.IDWrap, error) {

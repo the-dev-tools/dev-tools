@@ -5,19 +5,12 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mworkspace"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"time"
 )
 
 var ErrNoWorkspaceFound = sql.ErrNoRows
-
-func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
-	arr := make([]O, len(item))
-	for i, v := range item {
-		arr[i] = *convFunc(v)
-	}
-	return arr
-}
 
 type WorkspaceService struct {
 	queries *gen.Queries
@@ -31,8 +24,8 @@ func ConvertToDBWorkspace(workspace mworkspace.Workspace) gen.Workspace {
 	}
 }
 
-func ConvertToModelWorkspace(workspace gen.Workspace) *mworkspace.Workspace {
-	return &mworkspace.Workspace{
+func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
+	return mworkspace.Workspace{
 		ID:      workspace.ID,
 		Name:    workspace.Name,
 		Updated: time.Unix(workspace.Updated, 0),
@@ -76,7 +69,7 @@ func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) 
 }
 
 func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
-	workspace, err := ws.queries.GetWorkspace(ctx, id)
+	workspaceRaw, err := ws.queries.GetWorkspace(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNoWorkspaceFound
@@ -84,7 +77,8 @@ func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspa
 		return nil, err
 	}
 
-	return ConvertToModelWorkspace(workspace), nil
+	workspace := ConvertToModelWorkspace(workspaceRaw)
+	return &workspace, nil
 }
 
 func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace) error {
@@ -106,19 +100,6 @@ func (ws WorkspaceService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
-// TODO: this cannot be one to many should be many to many when queries
-func (ws WorkspaceService) GetByUserID(ctx context.Context, userID idwrap.IDWrap) (*mworkspace.Workspace, error) {
-	workspace, err := ws.queries.GetWorkspaceByUserID(ctx, userID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNoWorkspaceFound
-		}
-		return nil, err
-	}
-
-	return ConvertToModelWorkspace(workspace), nil
-}
-
 func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	rawWorkspaces, err := ws.queries.GetWorkspacesByUserID(ctx, userID)
 	if err != nil {
@@ -127,12 +108,11 @@ func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID idwrap.I
 		}
 		return nil, err
 	}
-
-	return MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
+	return tgeneric.MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
 }
 
 func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID idwrap.IDWrap) (*mworkspace.Workspace, error) {
-	workspace, err := ws.queries.GetWorkspaceByUserIDandWorkspaceID(ctx, gen.GetWorkspaceByUserIDandWorkspaceIDParams{
+	workspaceRaw, err := ws.queries.GetWorkspaceByUserIDandWorkspaceID(ctx, gen.GetWorkspaceByUserIDandWorkspaceIDParams{
 		UserID:      userID,
 		WorkspaceID: orgID,
 	})
@@ -142,5 +122,6 @@ func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID i
 		}
 		return nil, err
 	}
-	return ConvertToModelWorkspace(workspace), nil
+	workspace := ConvertToModelWorkspace(workspaceRaw)
+	return &workspace, nil
 }

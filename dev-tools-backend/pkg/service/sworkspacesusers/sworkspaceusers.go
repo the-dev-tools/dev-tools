@@ -5,11 +5,30 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
 )
 
 var ErrWorkspaceUserNotFound = errors.New("workspace user not found")
+
+func ConvertToDBWorkspaceUser(wsuser mworkspaceuser.WorkspaceUser) gen.WorkspacesUser {
+	return gen.WorkspacesUser{
+		ID:          wsuser.ID,
+		WorkspaceID: wsuser.WorkspaceID,
+		UserID:      wsuser.UserID,
+		Role:        int8(wsuser.Role),
+	}
+}
+
+func ConvertToModelWorkspaceUser(wsuser gen.WorkspacesUser) mworkspaceuser.WorkspaceUser {
+	return mworkspaceuser.WorkspaceUser{
+		ID:          wsuser.ID,
+		WorkspaceID: wsuser.WorkspaceID,
+		UserID:      wsuser.UserID,
+		Role:        mworkspaceuser.Role(wsuser.Role),
+	}
+}
 
 type WorkspaceUserService struct {
 	queries *gen.Queries
@@ -75,16 +94,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, u
 	if err != nil {
 		return nil, err
 	}
-	wsUsers := make([]mworkspaceuser.WorkspaceUser, len(rawWsUsers))
-	for i, rawWsUser := range rawWsUsers {
-		wsUsers[i] = mworkspaceuser.WorkspaceUser{
-			ID:          idwrap.IDWrap(rawWsUser.ID),
-			WorkspaceID: idwrap.IDWrap(rawWsUser.WorkspaceID),
-			UserID:      idwrap.IDWrap(rawWsUser.UserID),
-			Role:        mworkspaceuser.Role(rawWsUser.Role),
-		}
-	}
-	return wsUsers, nil
+	return tgeneric.MassConvert(rawWsUsers, ConvertToModelWorkspaceUser), nil
 }
 
 func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
@@ -92,15 +102,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	wsUsers := make([]mworkspaceuser.WorkspaceUser, len(rawWsUsers))
-	for i, rawWsUser := range rawWsUsers {
-		wsUsers[i] = mworkspaceuser.WorkspaceUser{
-			ID:          idwrap.IDWrap(rawWsUser.ID),
-			WorkspaceID: idwrap.IDWrap(rawWsUser.WorkspaceID),
-			UserID:      idwrap.IDWrap(rawWsUser.UserID),
-		}
-	}
-	return wsUsers, nil
+	return tgeneric.MassConvert(rawWsUsers, ConvertToModelWorkspaceUser), nil
 }
 
 func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
@@ -111,12 +113,8 @@ func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx con
 	if err != nil {
 		return nil, err
 	}
-	return &mworkspaceuser.WorkspaceUser{
-		ID:          idwrap.IDWrap(wsu.ID),
-		WorkspaceID: idwrap.IDWrap(wsu.WorkspaceID),
-		UserID:      idwrap.IDWrap(wsu.UserID),
-		Role:        mworkspaceuser.Role(wsu.Role),
-	}, nil
+	workspace := ConvertToModelWorkspaceUser(wsu)
+	return &workspace, nil
 }
 
 // is a greater than b

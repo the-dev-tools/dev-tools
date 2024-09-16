@@ -34,7 +34,7 @@ func (us UserService) GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.Use
 	}
 
 	return &muser.User{
-		ID:           idwrap.IDWrap(user.ID),
+		ID:           user.ID,
 		Email:        user.Email,
 		Password:     user.PasswordHash,
 		ProviderType: muser.ProviderType(user.ProviderType),
@@ -52,7 +52,7 @@ func (us UserService) GetUserByEmail(ctx context.Context, email string) (*muser.
 		provider = &user.ProviderID.String
 	}
 	return &muser.User{
-		ID:           idwrap.IDWrap(user.ID),
+		ID:           user.ID,
 		Email:        user.Email,
 		Password:     user.PasswordHash,
 		ProviderType: muser.ProviderType(user.ProviderType),
@@ -69,8 +69,7 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 		}
 	} else {
 		ProviderID = sql.NullString{
-			String: "",
-			Valid:  false,
+			Valid: false,
 		}
 	}
 
@@ -85,7 +84,7 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 		return nil, err
 	}
 	return &muser.User{
-		ID:           idwrap.IDWrap(newUser.ID),
+		ID:           newUser.ID,
 		Email:        newUser.Email,
 		Password:     newUser.PasswordHash,
 		ProviderType: muser.ProviderType(newUser.ProviderType),
@@ -120,7 +119,7 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 	}
 
 	return &muser.User{
-		ID:           idwrap.IDWrap(user.ID),
+		ID:           user.ID,
 		Email:        user.Email,
 		Password:     user.PasswordHash,
 		ProviderType: oauthType,
@@ -137,8 +136,5 @@ func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID id
 	if err != nil {
 		return false, err
 	}
-	if a == 0 {
-		return false, nil
-	}
-	return true, nil
+	return a == 0, nil
 }

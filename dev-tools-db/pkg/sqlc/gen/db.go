@@ -156,11 +156,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemFolderStmt, err = db.PrepareContext(ctx, getItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFolder: %w", err)
 	}
-	if q.getItemFolderByCollectionIDStmt, err = db.PrepareContext(ctx, getItemFolderByCollectionID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemFolderByCollectionID: %w", err)
-	}
 	if q.getItemFolderOwnerIDStmt, err = db.PrepareContext(ctx, getItemFolderOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFolderOwnerID: %w", err)
+	}
+	if q.getItemFoldersByCollectionIDStmt, err = db.PrepareContext(ctx, getItemFoldersByCollectionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemFoldersByCollectionID: %w", err)
 	}
 	if q.getItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemsApiByCollectionID: %w", err)
@@ -486,14 +486,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemFolderStmt: %w", cerr)
 		}
 	}
-	if q.getItemFolderByCollectionIDStmt != nil {
-		if cerr := q.getItemFolderByCollectionIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemFolderByCollectionIDStmt: %w", cerr)
-		}
-	}
 	if q.getItemFolderOwnerIDStmt != nil {
 		if cerr := q.getItemFolderOwnerIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemFolderOwnerIDStmt: %w", cerr)
+		}
+	}
+	if q.getItemFoldersByCollectionIDStmt != nil {
+		if cerr := q.getItemFoldersByCollectionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemFoldersByCollectionIDStmt: %w", cerr)
 		}
 	}
 	if q.getItemsApiByCollectionIDStmt != nil {
@@ -744,8 +744,8 @@ type Queries struct {
 	getItemApiExamplesStmt                     *sql.Stmt
 	getItemApiOwnerIDStmt                      *sql.Stmt
 	getItemFolderStmt                          *sql.Stmt
-	getItemFolderByCollectionIDStmt            *sql.Stmt
 	getItemFolderOwnerIDStmt                   *sql.Stmt
+	getItemFoldersByCollectionIDStmt           *sql.Stmt
 	getItemsApiByCollectionIDStmt              *sql.Stmt
 	getQueriesByExampleIDStmt                  *sql.Stmt
 	getQueryStmt                               *sql.Stmt
@@ -829,8 +829,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemApiExamplesStmt:                     q.getItemApiExamplesStmt,
 		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,
 		getItemFolderStmt:                          q.getItemFolderStmt,
-		getItemFolderByCollectionIDStmt:            q.getItemFolderByCollectionIDStmt,
 		getItemFolderOwnerIDStmt:                   q.getItemFolderOwnerIDStmt,
+		getItemFoldersByCollectionIDStmt:           q.getItemFoldersByCollectionIDStmt,
 		getItemsApiByCollectionIDStmt:              q.getItemsApiByCollectionIDStmt,
 		getQueriesByExampleIDStmt:                  q.getQueriesByExampleIDStmt,
 		getQueryStmt:                               q.getQueryStmt,

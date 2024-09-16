@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapi"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
 )
@@ -12,14 +13,6 @@ import (
 type ItemApiService struct {
 	DB      *sql.DB
 	queries *gen.Queries
-}
-
-func MassConvert[T any, O any](item []T, convFunc func(T) O) []O {
-	arr := make([]O, len(item))
-	for i, v := range item {
-		arr[i] = convFunc(v)
-	}
-	return arr
 }
 
 func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
@@ -117,7 +110,7 @@ func (ias ItemApiService) CreateItemGenApi(ctx context.Context, item *gen.ItemAp
 
 func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemapi.ItemApi) error {
 	sizeOfChunks := 10
-	convertedItems := MassConvert(items, ConvertToDBItemApi)
+	convertedItems := tgeneric.MassConvert(items, ConvertToDBItemApi)
 
 	for chunk := range slices.Chunk(convertedItems, sizeOfChunks) {
 		if len(chunk) < sizeOfChunks {
@@ -268,7 +261,7 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 		}
 		return nil, err
 	}
-	return MassConvert(itemApis, ConvertToModelItemApi), nil
+	return tgeneric.MassConvert(itemApis, ConvertToModelItemApi), nil
 }
 
 func (ias ItemApiService) GetOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {

@@ -1999,11 +1999,10 @@ func (q *Queries) GetItemApiOwnerID(ctx context.Context, id idwrap.IDWrap) (idwr
 }
 
 const getItemFolder = `-- name: GetItemFolder :one
+
+
 SELECT
-  id,
-  name,
-  parent_id,
-  collection_id
+    id, collection_id, parent_id, name, prev, next
 FROM
   item_folder
 WHERE
@@ -2012,71 +2011,19 @@ LIMIT
   1
 `
 
-type GetItemFolderRow struct {
-	ID           idwrap.IDWrap
-	Name         string
-	ParentID     *idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-}
-
 // ItemFolder
-func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (GetItemFolderRow, error) {
+func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (ItemFolder, error) {
 	row := q.queryRow(ctx, q.getItemFolderStmt, getItemFolder, id)
-	var i GetItemFolderRow
+	var i ItemFolder
 	err := row.Scan(
 		&i.ID,
-		&i.Name,
-		&i.ParentID,
 		&i.CollectionID,
+		&i.ParentID,
+		&i.Name,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
-}
-
-const getItemFolderByCollectionID = `-- name: GetItemFolderByCollectionID :many
-SELECT
-  id,
-  name,
-  parent_id,
-  collection_id
-FROM
-  item_folder
-WHERE
-  collection_id = ?
-`
-
-type GetItemFolderByCollectionIDRow struct {
-	ID           idwrap.IDWrap
-	Name         string
-	ParentID     *idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-}
-
-func (q *Queries) GetItemFolderByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]GetItemFolderByCollectionIDRow, error) {
-	rows, err := q.query(ctx, q.getItemFolderByCollectionIDStmt, getItemFolderByCollectionID, collectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetItemFolderByCollectionIDRow
-	for rows.Next() {
-		var i GetItemFolderByCollectionIDRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.ParentID,
-			&i.CollectionID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getItemFolderOwnerID = `-- name: GetItemFolderOwnerID :one
@@ -2096,6 +2043,45 @@ func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id idwrap.IDWrap) (i
 	var owner_id idwrap.IDWrap
 	err := row.Scan(&owner_id)
 	return owner_id, err
+}
+
+const getItemFoldersByCollectionID = `-- name: GetItemFoldersByCollectionID :many
+SELECT
+    id, collection_id, parent_id, name, prev, next
+FROM
+  item_folder
+WHERE
+  collection_id = ?
+`
+
+func (q *Queries) GetItemFoldersByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemFolder, error) {
+	rows, err := q.query(ctx, q.getItemFoldersByCollectionIDStmt, getItemFoldersByCollectionID, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemFolder
+	for rows.Next() {
+		var i ItemFolder
+		if err := rows.Scan(
+			&i.ID,
+			&i.CollectionID,
+			&i.ParentID,
+			&i.Name,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getItemsApiByCollectionID = `-- name: GetItemsApiByCollectionID :many

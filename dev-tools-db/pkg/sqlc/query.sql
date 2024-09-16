@@ -221,12 +221,11 @@ WHERE
 --
 -- ItemFolder
 --
+
+
 -- name: GetItemFolder :one
 SELECT
-  id,
-  name,
-  parent_id,
-  collection_id
+    *
 FROM
   item_folder
 WHERE
@@ -234,12 +233,9 @@ WHERE
 LIMIT
   1;
 
--- name: GetItemFolderByCollectionID :many
+-- name: GetItemFoldersByCollectionID :many
 SELECT
-  id,
-  name,
-  parent_id,
-  collection_id
+    *
 FROM
   item_folder
 WHERE
