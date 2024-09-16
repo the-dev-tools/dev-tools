@@ -540,9 +540,12 @@ const ApiCallHeaderTable = ({ data }: ApiCallHeaderTableProps) => {
         header: '',
         minSize: 0,
         size: 0,
-        cell: ({ row }) => (
-          <CheckboxRHF key={row.id} control={form.control} name={`header.${row.index}.enabled`} className='p-1' />
-        ),
+        cell: ({ row, table }) => {
+          if (row.index + 1 === table.getRowCount()) return null;
+          return (
+            <CheckboxRHF key={row.id} control={form.control} name={`header.${row.index}.enabled`} className='p-1' />
+          );
+        },
       }),
       accessor('key', {
         cell: ({ row }) => (
@@ -579,20 +582,24 @@ const ApiCallHeaderTable = ({ data }: ApiCallHeaderTableProps) => {
         header: '',
         minSize: 0,
         size: 0,
-        cell: ({ row }) => (
-          <Button
-            className='text-red-700'
-            kind='placeholder'
-            variant='placeholder ghost'
-            onPress={() => {
-              const id = getValues(`header.${row.index}.id`);
-              delete_({ id });
-              removeField(row.index);
-            }}
-          >
-            <LuTrash2 />
-          </Button>
-        ),
+        cell: ({ row, table }) => {
+          if (row.index + 1 === table.getRowCount()) return null;
+
+          return (
+            <Button
+              className='text-red-700'
+              kind='placeholder'
+              variant='placeholder ghost'
+              onPress={() => {
+                const id = getValues(`header.${row.index}.id`);
+                delete_({ id });
+                removeField(row.index);
+              }}
+            >
+              <LuTrash2 />
+            </Button>
+          );
+        },
       }),
     ];
   }, [delete_, form.control, getValues, removeField]);
