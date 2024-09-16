@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 )
 
@@ -12,14 +13,6 @@ var ErrNoCollectionFound = sql.ErrNoRows
 
 type CollectionService struct {
 	queries *gen.Queries
-}
-
-func MassConvert[T any, O any](item []T, convFunc func(T) *O) []O {
-	arr := make([]O, len(item))
-	for i, v := range item {
-		arr[i] = *convFunc(v)
-	}
-	return arr
 }
 
 func ConvertToDBCollection(collection mcollection.Collection) gen.Collection {
@@ -64,7 +57,7 @@ func (cs CollectionService) ListCollections(ctx context.Context, ownerID idwrap.
 		}
 		return nil, err
 	}
-	return MassConvert(rows, ConvertToModelCollection), nil
+	return tgeneric.MassConvertPtr(rows, ConvertToModelCollection), nil
 }
 
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {

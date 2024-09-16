@@ -1,6 +1,7 @@
 package idwrap
 
 import (
+	"database/sql/driver"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -53,14 +54,12 @@ func (u IDWrap) Time() time.Time {
 }
 
 // SQL driver value
-func (u IDWrap) Value() (interface{}, error) {
-	return u.ulid.Bytes(), nil
+func (u IDWrap) Value() (driver.Value, error) {
+	return u.ulid.Value()
 }
 
 func (u *IDWrap) Scan(value interface{}) error {
-	var err error
-	*u, err = NewFromBytes(value.([]byte))
-	return err
+	return u.ulid.UnmarshalBinary(value.([]byte))
 }
 
 func GetTimeFromULID(idwrap IDWrap) time.Time {

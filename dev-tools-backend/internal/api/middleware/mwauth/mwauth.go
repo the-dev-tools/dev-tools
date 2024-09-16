@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 )
 
 type ContextKey int
@@ -68,12 +67,12 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	ulidID, err := ulid.Parse(claims.Subject)
+	ID, err := idwrap.NewWithParse(claims.Subject)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ulidID)
+	CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ID)
 
 	return next(CtxWithValue, req)
 }

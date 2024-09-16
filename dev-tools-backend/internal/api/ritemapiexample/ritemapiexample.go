@@ -8,8 +8,10 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mbodyform"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
+	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
@@ -17,6 +19,7 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
@@ -44,8 +47,10 @@ type ItemAPIExampleRPC struct {
 	ras  *sresultapi.ResultApiService
 	cs   *scollection.CollectionService
 	us   *suser.UserService
-	hs   *sexampleheader.HeaderService
-	qs   *sexamplequery.ExampleQueryService
+	// sub
+	hs  *sexampleheader.HeaderService
+	qs  *sexamplequery.ExampleQueryService
+	bfs *sbodyform.BodyFormService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -84,6 +89,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	bfs, err := sbodyform.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -97,6 +107,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		us:   us,
 		hs:   hs,
 		qs:   qs,
+		bfs:  bfs,
 	}
 
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, options...)
@@ -351,11 +362,12 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}
 
 	now := time.Now()
+	// TODO: add content encoding like gzip, zstd
 	err = nodeapi.SendRestApiRequest(nm)
+	lapse := time.Since(now)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeAborted, err)
 	}
-	lapse := time.Since(now)
 
 	httpResp, err := nodeapi.GetHttpVarResponse(nm)
 	if err != nil {
@@ -436,6 +448,14 @@ func (c *ItemAPIExampleRPC) CheckOwnerQuery(ctx context.Context, queryUlid idwra
 		return false, err
 	}
 	return c.CheckOwnerExample(ctx, query.ExampleID)
+}
+
+func (c *ItemAPIExampleRPC) CheckOwnerBodyForm(ctx context.Context, bodyFormUlid idwrap.IDWrap) (bool, error) {
+	bodyForm, err := c.bfs.GetBodyForm(ctx, bodyFormUlid)
+	if err != nil {
+		return false, err
+	}
+	return c.CheckOwnerExample(ctx, bodyForm.ExampleID)
 }
 
 // Headers
@@ -571,13 +591,90 @@ func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Reques
 
 // BodyForm
 func (c *ItemAPIExampleRPC) CreateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateBodyFormRequest]) (*connect.Response[itemapiexamplev1.CreateBodyFormResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	bodyData := req.Msg.GetBodyForm()
+	if bodyData == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
+	}
+
+	exampleID, err := idwrap.NewWithParse(bodyData.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	ok, err := c.CheckOwnerExample(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	}
+
+	bodyForm := mbodyform.BodyForm{
+		ID:          idwrap.NewNow(),
+		ExampleID:   exampleID,
+		BodyKey:     bodyData.GetKey(),
+		Description: bodyData.GetDescription(),
+		Enable:      bodyData.GetEnabled(),
+		Value:       bodyData.GetValue(),
+	}
+
+	err = c.bfs.CreateBodyForm(ctx, &bodyForm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.CreateBodyFormResponse{Id: bodyForm.ID.String()}), nil
 }
 
 func (c *ItemAPIExampleRPC) UpdateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateBodyFormRequest]) (*connect.Response[itemapiexamplev1.UpdateBodyFormResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	bodyData := req.Msg.GetBodyForm()
+	if bodyData == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
+	}
+	BodyID, err := idwrap.NewWithParse(bodyData.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	ok, err := c.CheckOwnerBodyForm(ctx, BodyID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no body form found"))
+	}
+
+	bodyModel, err := tbodyform.SerializeFormRPCtoModel(bodyData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	err = c.bfs.UpdateBodyForm(ctx, bodyModel)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.UpdateBodyFormResponse{}), nil
 }
 
 func (c *ItemAPIExampleRPC) DeleteBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteBodyFormRequest]) (*connect.Response[itemapiexamplev1.DeleteBodyFormResponse], error) {
+	ID, err := idwrap.NewWithParse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	ok, err := c.CheckOwnerBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no body form found"))
+	}
+
+	err = c.bfs.DeleteBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
