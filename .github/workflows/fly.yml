@@ -1,7 +1,7 @@
 name: Fly Deploy
 
 on:
-  create:
+  push:
     tags:
       - "*"
 
