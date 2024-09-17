@@ -19,6 +19,7 @@ import { Route as workspaceListImport } from './workspace-list';
 import { Route as workspaceMembersImport } from './workspace-members';
 import { Route as apiCallImport } from './api-call';
 import { Route as headersImport } from './headers';
+import { Route as queryImport } from './query';
 
 // Create/Update Routes
 
@@ -59,6 +60,11 @@ const apiCallRoute = apiCallImport.update({
 
 const headersRoute = headersImport.update({
   path: '/headers',
+  getParentRoute: () => apiCallRoute,
+} as any);
+
+const queryRoute = queryImport.update({
+  path: '/',
   getParentRoute: () => apiCallRoute,
 } as any);
 
@@ -115,6 +121,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof apiCallImport;
       parentRoute: typeof workspaceLayoutImport;
     };
+    '/_authorized/workspace/$workspaceId/api-call/$apiCallId/': {
+      id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/';
+      path: '/';
+      fullPath: '/workspace/$workspaceId/api-call/$apiCallId/';
+      preLoaderRoute: typeof queryImport;
+      parentRoute: typeof apiCallImport;
+    };
     '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers': {
       id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers';
       path: '/headers';
@@ -140,10 +153,12 @@ const dashboardRouteWithChildren = dashboardRoute._addFileChildren(
 );
 
 interface apiCallRouteChildren {
+  queryRoute: typeof queryRoute;
   headersRoute: typeof headersRoute;
 }
 
 const apiCallRouteChildren: apiCallRouteChildren = {
+  queryRoute: queryRoute,
   headersRoute: headersRoute,
 };
 
@@ -185,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/workspace/$workspaceId': typeof workspaceLayoutRouteWithChildren;
   '/workspace/$workspaceId/members': typeof workspaceMembersRoute;
   '/workspace/$workspaceId/api-call/$apiCallId': typeof apiCallRouteWithChildren;
+  '/workspace/$workspaceId/api-call/$apiCallId/': typeof queryRoute;
   '/workspace/$workspaceId/api-call/$apiCallId/headers': typeof headersRoute;
 }
 
@@ -194,7 +210,7 @@ export interface FileRoutesByTo {
   '/': typeof workspaceListRoute;
   '/workspace/$workspaceId': typeof workspaceLayoutRouteWithChildren;
   '/workspace/$workspaceId/members': typeof workspaceMembersRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId': typeof apiCallRouteWithChildren;
+  '/workspace/$workspaceId/api-call/$apiCallId': typeof queryRoute;
   '/workspace/$workspaceId/api-call/$apiCallId/headers': typeof headersRoute;
 }
 
@@ -207,6 +223,7 @@ export interface FileRoutesById {
   '/_authorized/workspace/$workspaceId': typeof workspaceLayoutRouteWithChildren;
   '/_authorized/workspace/$workspaceId/members': typeof workspaceMembersRoute;
   '/_authorized/workspace/$workspaceId/api-call/$apiCallId': typeof apiCallRouteWithChildren;
+  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/': typeof queryRoute;
   '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers': typeof headersRoute;
 }
 
@@ -219,6 +236,7 @@ export interface FileRouteTypes {
     | '/workspace/$workspaceId'
     | '/workspace/$workspaceId/members'
     | '/workspace/$workspaceId/api-call/$apiCallId'
+    | '/workspace/$workspaceId/api-call/$apiCallId/'
     | '/workspace/$workspaceId/api-call/$apiCallId/headers';
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -238,6 +256,7 @@ export interface FileRouteTypes {
     | '/_authorized/workspace/$workspaceId'
     | '/_authorized/workspace/$workspaceId/members'
     | '/_authorized/workspace/$workspaceId/api-call/$apiCallId'
+    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/'
     | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers';
   fileRoutesById: FileRoutesById;
 }
@@ -305,8 +324,13 @@ export const routeTree = rootRoute
       "filePath": "api-call.tsx",
       "parent": "/_authorized/workspace/$workspaceId",
       "children": [
+        "/_authorized/workspace/$workspaceId/api-call/$apiCallId/",
         "/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers"
       ]
+    },
+    "/_authorized/workspace/$workspaceId/api-call/$apiCallId/": {
+      "filePath": "query.tsx",
+      "parent": "/_authorized/workspace/$workspaceId/api-call/$apiCallId"
     },
     "/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers": {
       "filePath": "headers.tsx",

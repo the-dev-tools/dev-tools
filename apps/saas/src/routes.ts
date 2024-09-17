@@ -6,7 +6,7 @@ export const routes = rootRoute('root.tsx', [
     layout('dashboard', 'dashboard.tsx', [index('workspace-list.tsx')]),
     route('workspace/$workspaceId', 'workspace-layout.tsx', [
       route('members', 'workspace-members.tsx'),
-      route('api-call/$apiCallId', 'api-call.tsx', [route('headers', 'headers.tsx')]),
+      route('api-call/$apiCallId', 'api-call.tsx', [index('query.tsx'), route('headers', 'headers.tsx')]),
     ]),
   ]),
 ]);
