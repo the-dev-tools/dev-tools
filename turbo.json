@@ -12,9 +12,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "//#lint": {},
+    "//#lint:prettier": {},
+    "//#lint:syncpack": {},
     "lint": {
-      "dependsOn": ["//#lint"]
+      "dependsOn": ["//#lint:syncpack", "//#lint:prettier"]
     }
   }
 }
