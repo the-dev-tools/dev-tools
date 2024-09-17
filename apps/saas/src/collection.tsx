@@ -611,19 +611,28 @@ const ApiCallHeaderTable = ({ data }: ApiCallHeaderTableProps) => {
     getRowId: (_) => _.id,
   });
 
-  const updateHeaderMap = useRef(new Map<string, Header>());
+  const updateHeaderQueueMap = useRef(new Map<string, Header>());
   const updateHeaders = useDebouncedCallback(() => {
-    const headers = updateHeaderMap.current;
-    headers.forEach(async (header) => {
-      headers.delete(header.id);
+    const updates = updateHeaderQueueMap.current;
+    updates.forEach(async (header) => {
+      updates.delete(header.id); // Un-queue update
       if (header.id) {
         await updateMutation.mutateAsync({ header });
       } else {
         const { id } = await createMutation.mutateAsync({ header });
         const index = getValues('header').length - 1;
+
         form.setValue(`header.${index}`, new Header({ ...header, id }));
+        updates.delete(id); // Delete update that gets queued by setting new id
+
         fieldArray.append(makeTemplateHeader(), { shouldFocus: false });
-        headers.delete(id);
+
+        // Redirect outdated queued update to the new id
+        const outdated = updates.get('');
+        if (outdated !== undefined) {
+          updates.delete('');
+          updates.set(id, new Header({ ...outdated, id }));
+        }
       }
     });
   }, 500);
@@ -633,7 +642,7 @@ const ApiCallHeaderTable = ({ data }: ApiCallHeaderTableProps) => {
       const rowName = name?.match(/(^header.[\d]+)/g)?.[0] as `header.${number}` | undefined;
       if (!rowName) return;
       const rowValues = getValues(rowName);
-      updateHeaderMap.current.set(rowValues.id, rowValues);
+      updateHeaderQueueMap.current.set(rowValues.id, rowValues);
       void updateHeaders();
     });
     return () => void watch.unsubscribe();
