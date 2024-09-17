@@ -162,6 +162,9 @@ importers:
       '@tanstack/react-table':
         specifier: 8.20.5
         version: 8.20.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/virtual-file-routes':
+        specifier: 1.56.0
+        version: 1.56.0
       '@the-dev-tools/api':
         specifier: workspace:^
         version: link:../../packages/api

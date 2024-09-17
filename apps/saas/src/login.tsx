@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema';
-import { getRouteApi, useRouter } from '@tanstack/react-router';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { Effect, pipe } from 'effect';
 import { Form } from 'react-aria-components';
 
@@ -10,15 +10,22 @@ import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { Runtime } from './runtime';
 
-const route = getRouteApi('/login');
+export class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
+  redirect: Schema.optional(Schema.String),
+}) {}
+
+export const Route = createFileRoute('/login')({
+  validateSearch: Schema.decodeSync(LoginSearch),
+  component: LoginPage,
+});
 
 class LoginForm extends Schema.Class<LoginForm>('LoginForm')({
   email: Schema.String,
 }) {}
 
-export const LoginPage = () => {
+function LoginPage() {
   const router = useRouter();
-  const { redirect } = route.useSearch();
+  const { redirect } = Route.useSearch();
   return (
     <div className='mx-auto h-full max-w-64'>
       <Form
@@ -52,4 +59,4 @@ export const LoginPage = () => {
       </Form>
     </div>
   );
-};
+}

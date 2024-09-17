@@ -3,6 +3,8 @@ import { pluginReact } from '@rsbuild/plugin-react';
 import { TanStackRouterRspack } from '@tanstack/router-plugin/rspack';
 import { Array, flow, pipe, Record, String } from 'effect';
 
+import { routes } from './src/routes';
+
 // Rsbuild throws warnings on unexpected environments
 const NODE_ENV = process.env['NODE_ENV'];
 const mode = NODE_ENV === 'production' ? 'production' : 'development';
@@ -30,7 +32,9 @@ export default defineConfig(({ command }) => ({
       plugins: [
         command === 'dev' &&
           TanStackRouterRspack({
-            generatedRouteTree: './src/routes/-generated-router-tree.tsx',
+            routesDirectory: './src',
+            generatedRouteTree: './src/router-tree.tsx',
+            virtualRouteConfig: routes,
             semicolons: true,
           }),
       ],

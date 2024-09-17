@@ -1,39 +1,32 @@
-import {
-  createQueryOptions,
-  useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
-  useTransport,
-} from '@connectrpc/connect-query';
+import { createQueryOptions, useMutation as useConnectMutation, useTransport } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, Outlet } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { Effect, pipe, Struct } from 'effect';
 import { useState } from 'react';
-import { Form, MenuTrigger } from 'react-aria-components';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Form } from 'react-aria-components';
 
 import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
 import {
   createWorkspace,
   deleteWorkspace,
-  getWorkspace,
   getWorkspaces,
   updateWorkspace,
 } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
-import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
-import { CollectionsTree } from './collection';
-import { DashboardLayout } from './dashboard';
 import { Runtime } from './runtime';
 
-class WorkspaceRenameForm extends Schema.Class<WorkspaceRenameForm>('WorkspaceRenameForm')({
+export const Route = createFileRoute('/_authorized/_dashboard/')({
+  component: Page,
+});
+
+class RenameForm extends Schema.Class<RenameForm>('WorkspaceRenameForm')({
   name: Schema.String,
 }) {}
 
-export const WorkspacesPage = () => {
+function Page() {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
@@ -60,17 +53,17 @@ export const WorkspacesPage = () => {
       </div>
 
       {workspaces.map((_) => (
-        <WorkspaceRow key={_.id} workspace={_} />
+        <Row key={_.id} workspace={_} />
       ))}
     </div>
   );
-};
+}
 
-interface WorkspaceRowProps {
+interface RowProps {
   workspace: Workspace;
 }
 
-const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
+const Row = ({ workspace }: RowProps) => {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
@@ -93,7 +86,7 @@ const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
               const { name } = yield* pipe(
                 new FormData(event.currentTarget),
                 Object.fromEntries,
-                Schema.decode(WorkspaceRenameForm),
+                Schema.decode(RenameForm),
               );
 
               const data = Struct.evolve(workspace, { name: () => name });
@@ -135,48 +128,5 @@ const WorkspaceRow = ({ workspace }: WorkspaceRowProps) => {
         Delete
       </Button>
     </div>
-  );
-};
-
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceId');
-
-export const WorkspaceLayout = () => {
-  const { workspaceId } = workspaceRoute.useParams();
-
-  const query = useConnectQuery(getWorkspace, { id: workspaceId });
-  if (!query.isSuccess) return;
-  const { workspace } = query.data;
-
-  return (
-    <DashboardLayout
-      leftChildren={
-        <MenuTrigger>
-          <Button kind='placeholder' className='bg-transparent text-white' variant='placeholder'>
-            {workspace!.name}
-          </Button>
-          <Menu>
-            <MenuItem href={{ to: '/workspace/$workspaceId', params: { workspaceId } }}>Home</MenuItem>
-            <MenuItem href={{ to: '/workspace/$workspaceId/members', params: { workspaceId } }}>Members</MenuItem>
-          </Menu>
-        </MenuTrigger>
-      }
-    >
-      <PanelGroup direction='horizontal'>
-        <Panel
-          className='flex flex-col gap-2 p-2'
-          style={{ overflowY: 'auto' }}
-          defaultSize={20}
-          minSize={10}
-          maxSize={40}
-        >
-          <h2 className='uppercase'>Overview</h2>
-          <CollectionsTree />
-        </Panel>
-        <PanelResizeHandle direction='horizontal' />
-        <Panel className='h-full !overflow-auto'>
-          <Outlet />
-        </Panel>
-      </PanelGroup>
-    </DashboardLayout>
   );
 };

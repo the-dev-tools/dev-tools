@@ -1,6 +1,6 @@
 import { useMutation as useConnectMutation } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
-import { getRouteApi } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { Effect, pipe } from 'effect';
 import { Form } from 'react-aria-components';
 
@@ -10,19 +10,21 @@ import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { Runtime } from './runtime';
 
-const membersRoute = getRouteApi('/_authorized/workspace/$workspaceId/members');
+export const Route = createFileRoute('/_authorized/workspace/$workspaceId/members')({
+  component: Page,
+});
 
-class InviteForm extends Schema.Class<InviteForm>('InviteForm')({
+class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
   email: Schema.String,
 }) {}
 
-export const MembersPage = () => {
-  const { workspaceId } = membersRoute.useParams();
+function Page() {
+  const { workspaceId } = Route.useParams();
 
   const inviteUserMutation = useConnectMutation(inviteUser);
 
   return (
-    <>
+    <div className='p-4'>
       <h2 className='text-center text-2xl font-extrabold'>Members</h2>
       <Form
         className='flex flex-col items-start gap-2'
@@ -45,6 +47,6 @@ export const MembersPage = () => {
           Send invite
         </Button>
       </Form>
-    </>
+    </div>
   );
-};
+}

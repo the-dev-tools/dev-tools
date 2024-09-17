@@ -5,7 +5,7 @@ import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
-import { routeTree } from './routes/-generated-router-tree';
+import { routeTree } from './router-tree';
 import { queryClient, transport } from './runtime';
 
 import '@the-dev-tools/ui/fonts';
