@@ -136,5 +136,5 @@ func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID id
 	if err != nil {
 		return false, err
 	}
-	return a == 0, nil
+	return a != 0, nil
 }

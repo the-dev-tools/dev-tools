@@ -23,7 +23,6 @@ import (
 	collectionv1 "dev-tools-services/gen/collection/v1"
 	"dev-tools-services/gen/collection/v1/collectionv1connect"
 	"errors"
-	"log"
 
 	"connectrpc.com/connect"
 )
@@ -147,7 +146,6 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 
 	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
 	if err != nil {
-		log.Print("try to get collection error: ", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !isOwner {
