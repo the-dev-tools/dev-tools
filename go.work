@@ -10,5 +10,4 @@ use (
 	./dev-tools-platform
 	./dev-tools-services
 	./dev-tools-slave
-	./fly-go
 )
