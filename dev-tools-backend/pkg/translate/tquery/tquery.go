@@ -9,6 +9,7 @@ import (
 func SerializeQueryModelToRPC(query mexamplequery.Query) *itemapiexamplev1.Query {
 	return &itemapiexamplev1.Query{
 		Id:          query.ID.String(),
+		ExampleId:   query.ExampleID.String(),
 		Key:         query.QueryKey,
 		Enabled:     query.Enable,
 		Description: query.Description,

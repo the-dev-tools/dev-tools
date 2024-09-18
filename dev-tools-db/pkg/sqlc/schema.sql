@@ -108,9 +108,8 @@ CREATE TABLE item_api_example (
   collection_id BLOB NOT NULL,
   parent_example_id BLOB,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  body_type TINYINT NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
-  compressed BOOLEAN NOT NULL DEFAULT FALSE,
-  body BLOB NOT NULL,
   prev BLOB,
   next BLOB,
   UNIQUE (prev, next),
@@ -170,3 +169,29 @@ CREATE INDEX example_body_form_idx1 ON example_body_form (
   example_id,
   body_key
 );
+
+CREATE TABLE example_body_urlencoded (
+  id BLOB NOT NULL PRIMARY KEY,
+  example_id BLOB NOT NULL,
+  body_key TEXT NOT NULL,
+  enable BOOLEAN NOT NULL DEFAULT TRUE,
+  description TEXT NOT NULL,
+  value TEXT NOT NULL,
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+
+CREATE INDEX example_body_urlencoded_idx1 ON example_body_urlencoded (
+  example_id,
+  body_key
+);
+
+CREATE TABLE example_body_raw (
+  id BLOB NOT NULL PRIMARY KEY,
+  example_id BLOB NOT NULL,
+  visualize_mode TINYINT NOT NULL,
+  compress_type TINYINT NOT NULL,
+  data BLOB,
+  UNIQUE (example_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+

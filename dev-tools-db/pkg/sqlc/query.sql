@@ -94,9 +94,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -113,9 +112,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -131,9 +129,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -151,9 +148,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -169,14 +165,13 @@ INSERT INTO
     collection_id,
     parent_example_id,
     is_default,
+    body_type,
     name,
-    compressed,
-    body,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
 INSERT INTO
@@ -186,30 +181,27 @@ INSERT INTO
     collection_id,
     parent_example_id,
     is_default,
+    body_type,
     name,
-    compressed,
-    body,
     prev,
     next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
-  name = ?,
-  compressed = ?,
-  body = ?
+  name = ?
 WHERE
   id = ?;
 
@@ -874,6 +866,10 @@ FROM
 WHERE 
     example_id = ?;
 
+--
+-- BodyForm
+--
+
 -- name: CreateBodyForm :exec
 INSERT INTO
   example_body_form (id, example_id, body_key, enable, description, value)
@@ -914,5 +910,71 @@ WHERE
 
 -- name: DeleteBodyForm :exec
 DELETE FROM example_body_form
+WHERE
+  id = ?;
+
+-- 
+-- Body Url Encoded
+--
+
+-- name: GetBodyUrlEncoded :one
+SELECT 
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+  example_body_urlencoded
+WHERE
+  id = ?;
+
+-- name: GetBodyUrlEncodedsByExampleID :many
+SELECT 
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+  example_body_urlencoded
+WHERE
+  example_id = ?;
+
+-- name: CreateBodyUrlEncoded :exec
+INSERT INTO
+  example_body_urlencoded (id, example_id, body_key, enable, description, value)
+VALUES
+    (?, ?, ?, ?, ?, ?);
+
+-- name: CreateBodyUrlEncodedBulk :exec
+INSERT INTO
+  example_body_urlencoded (id, example_id, body_key, enable, description, value)
+VALUES
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateBodyUrlEncoded :exec
+UPDATE example_body_urlencoded
+    SET
+      body_key = ?,
+      enable = ?,
+      description = ?,
+      value = ?
+    WHERE
+      id = ?;
+
+-- name: SetBodyUrlEncodedEnable :exec
+DELETE FROM example_body_urlencoded
 WHERE
   id = ?;
