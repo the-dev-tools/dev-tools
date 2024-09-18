@@ -132,6 +132,9 @@ const Table = ({ data }: TableProps) => {
 
   const updateHeaderQueueMap = useRef(new Map<string, Header>());
   const updateHeaders = useDebouncedCallback(() => {
+    // Wait for all mutations to finish before processing new updates
+    if (updateMutation.isPending || createMutation.isPending) return void updateHeaders();
+
     const updates = updateHeaderQueueMap.current;
     updates.forEach(async (header) => {
       updates.delete(header.id); // Un-queue update

@@ -132,6 +132,9 @@ const Table = ({ data }: TableProps) => {
 
   const updateQueryQueueMap = useRef(new Map<string, Query>());
   const updateQueries = useDebouncedCallback(() => {
+    // Wait for all mutations to finish before processing new updates
+    if (updateMutation.isPending || createMutation.isPending) return void updateQueries();
+
     const updates = updateQueryQueueMap.current;
     updates.forEach(async (query) => {
       updates.delete(query.id); // Un-queue update
