@@ -1,8 +1,14 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import {
+  createConnectQueryKey,
+  createProtobufSafeUpdater,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+} from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
-import { Array, pipe } from 'effect';
+import { Array, HashMap, MutableHashMap, Option, pipe } from 'effect';
 import { useMemo } from 'react';
 import { Form } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
@@ -10,6 +16,11 @@ import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 
 import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall, updateApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import { Query } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
+import {
+  createQuery,
+  updateQuery,
+} from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { SelectRHF } from '@the-dev-tools/ui/select';
@@ -45,13 +56,21 @@ interface ApiFormProps {
 const ApiForm = ({ data }: ApiFormProps) => {
   const { workspaceId, apiCallId } = Route.useParams();
 
+  const queryClient = useQueryClient();
+
   const updateMutation = useConnectMutation(updateApiCall);
+
+  const updateQueryMutation = useConnectMutation(updateQuery);
+  const createQueryMutation = useConnectMutation(createQuery);
 
   const values = useMemo(() => {
     const { origin, pathname } = new URL(data.apiCall!.url);
     const url = pipe(
       data.example!.query,
-      Array.map((_) => [_.key, _.value]),
+      Array.filterMap((_) => {
+        if (!_.enabled) return Option.none();
+        else return Option.some([_.key, _.value]);
+      }),
       (_) => new URLSearchParams(_).toString(),
       (_) => origin + pathname + '?' + _,
     );
@@ -69,15 +88,78 @@ const ApiForm = ({ data }: ApiFormProps) => {
   return (
     <div className='flex h-full flex-col'>
       <Form
-        onSubmit={form.handleSubmit((formData) => {
-          const { origin, pathname } = new URL(formData.url);
-          return void updateMutation.mutate({
+        onSubmit={form.handleSubmit(async (formData) => {
+          const { origin, pathname, searchParams } = new URL(formData.url);
+
+          updateMutation.mutate({
             apiCall: {
               ...data.apiCall,
               url: origin + pathname,
               meta: { ...data.apiCall?.meta, method: formData.method },
             },
           });
+
+          const queryMap = pipe(
+            searchParams.entries(),
+            Array.fromIterable,
+            Array.map(
+              ([key, value]) =>
+                [
+                  key + value,
+                  new Query({
+                    key,
+                    value,
+                    enabled: true,
+                    exampleId: data.example!.meta!.id,
+                  }),
+                ] as const,
+            ),
+            MutableHashMap.fromIterable,
+          );
+
+          data.example!.query.forEach((query) => {
+            MutableHashMap.modifyAt(
+              queryMap,
+              query.key + query.value,
+              Option.match({
+                onSome: () => Option.none(),
+                onNone: () => Option.some(new Query({ ...query, enabled: false })),
+              }),
+            );
+          });
+
+          const queryIdIndexMap = pipe(
+            data.example!.query,
+            Array.map(({ id }, index) => [id, index] as const),
+            HashMap.fromIterable,
+          );
+
+          const newQueryList = [...data.example!.query];
+          await pipe(
+            Array.fromIterable(queryMap),
+            Array.map(async ([_, query]) => {
+              if (query.id) {
+                await updateQueryMutation.mutateAsync({ query });
+                const index = HashMap.unsafeGet(queryIdIndexMap, query.id);
+                newQueryList[index] = query;
+              } else {
+                const { id } = await createQueryMutation.mutateAsync({ query });
+                newQueryList.push(new Query({ ...query, id }));
+              }
+            }),
+            (_) => Promise.allSettled(_),
+          );
+
+          queryClient.setQueryData(
+            createConnectQueryKey(getApiCall, { id: apiCallId }),
+            createProtobufSafeUpdater(getApiCall, (_) => ({
+              ..._,
+              example: {
+                ..._!.example,
+                query: newQueryList,
+              },
+            })),
+          );
         })}
       >
         <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
