@@ -183,8 +183,8 @@ func (bfs BodyFormService) GetBodyFormsByExampleID(ctx context.Context, exampleI
 	return tgeneric.MassConvert(bodyForms, DeserializeGenToModel), nil
 }
 
-func (bfs BodyFormService) CreateBodyForm(ctx context.Context, body mbodyform.BodyForm) error {
-	bf := SeralizeModeltoGen(body)
+func (bfs BodyFormService) CreateBodyForm(ctx context.Context, body *mbodyform.BodyForm) error {
+	bf := SeralizeModeltoGen(*body)
 	return bfs.queries.CreateBodyForm(ctx, gen.CreateBodyFormParams{
 		ID:          bf.ID,
 		ExampleID:   bf.ExampleID,

@@ -63,7 +63,7 @@ func (c BodyRPC) CreateBodyForm(ctx context.Context, req *connect.Request[bodyv1
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
 	}
 
-	bodyForm := mbodyform.BodyForm{
+	bodyForm := &mbodyform.BodyForm{
 		ID:          idwrap.NewNow(),
 		ExampleID:   exampleID,
 		BodyKey:     bodyData.GetKey(),
@@ -72,7 +72,7 @@ func (c BodyRPC) CreateBodyForm(ctx context.Context, req *connect.Request[bodyv1
 		Value:       bodyData.GetValue(),
 	}
 
-	err = c.bfs.CreateBodyForm(ctx, &bodyForm)
+	err = c.bfs.CreateBodyForm(ctx, bodyForm)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
