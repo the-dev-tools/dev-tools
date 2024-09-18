@@ -197,6 +197,10 @@ func (c *ItemFolderRPC) DeleteFolder(ctx context.Context, req *connect.Request[i
 	return connect.NewResponse(&itemfolderv1.DeleteFolderResponse{}), nil
 }
 
+func (c *ItemFolderRPC) MoveFolder(context.Context, *connect.Request[itemfolderv1.MoveFolderRequest]) (*connect.Response[itemfolderv1.MoveFolderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
 func CheckOwnerFolder(ctx context.Context, ifs sitemfolder.ItemFolderService, cs scollection.CollectionService, us suser.UserService, folderID idwrap.IDWrap) (bool, error) {
 	folder, err := ifs.GetFolder(ctx, folderID)
 	if err != nil {

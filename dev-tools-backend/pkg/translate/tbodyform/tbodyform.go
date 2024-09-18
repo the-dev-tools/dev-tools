@@ -3,11 +3,11 @@ package tbodyform
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyform"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	bodyv1 "dev-tools-services/gen/body/v1"
 )
 
-func SerializeFormModelToRPC(form mbodyform.BodyForm) *itemapiexamplev1.BodyFormDataItem {
-	return &itemapiexamplev1.BodyFormDataItem{
+func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
+	return &bodyv1.BodyFormItem{
 		Id:          form.ID.String(),
 		ExampleId:   form.ExampleID.String(),
 		Key:         form.BodyKey,
@@ -17,7 +17,7 @@ func SerializeFormModelToRPC(form mbodyform.BodyForm) *itemapiexamplev1.BodyForm
 	}
 }
 
-func SerializeFormRPCtoModel(form *itemapiexamplev1.BodyFormDataItem) (*mbodyform.BodyForm, error) {
+func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem) (*mbodyform.BodyForm, error) {
 	ID, err := idwrap.NewWithParse(form.GetId())
 	if err != nil {
 		return nil, err

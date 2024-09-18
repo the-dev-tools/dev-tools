@@ -20,6 +20,7 @@ import (
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
+	bodyv1 "dev-tools-services/gen/body/v1"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
@@ -241,9 +242,9 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			},
 			Header: rpcHeaders,
 			Query:  rpcQueries,
-			Body: &itemapiexamplev1.Body{
-				Value: &itemapiexamplev1.Body_Raw{
-					Raw: &itemapiexamplev1.BodyRawData{
+			Body: &bodyv1.Body{
+				Value: &bodyv1.Body_Raw{
+					Raw: &bodyv1.BodyRaw{
 						BodyBytes: examplePtr.Body,
 					},
 				},
@@ -315,6 +316,10 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 	}
 
 	return connect.NewResponse(&itemapiv1.UpdateApiCallResponse{}), nil
+}
+
+func (c *ItemApiRPC) MoveApiCall(ctx context.Context, req *connect.Request[itemapiv1.MoveApiCallRequest]) (*connect.Response[itemapiv1.MoveApiCallResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
 func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[itemapiv1.DeleteApiCallRequest]) (*connect.Response[itemapiv1.DeleteApiCallResponse], error) {

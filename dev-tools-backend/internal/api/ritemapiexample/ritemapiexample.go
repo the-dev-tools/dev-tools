@@ -8,7 +8,6 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyform"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/sbodyform"
@@ -19,7 +18,6 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
-	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
@@ -28,6 +26,7 @@ import (
 	"dev-tools-nodes/pkg/model/mnodemaster"
 	"dev-tools-nodes/pkg/nodes/nodeapi"
 	apiresultv1 "dev-tools-services/gen/apiresult/v1"
+	bodyv1 "dev-tools-services/gen/body/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
@@ -148,9 +147,9 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 			},
 			Header: rpcHeaders,
 			Query:  rpcQueries,
-			Body: &itemapiexamplev1.Body{
-				Value: &itemapiexamplev1.Body_Raw{
-					Raw: &itemapiexamplev1.BodyRawData{
+			Body: &bodyv1.Body{
+				Value: &bodyv1.Body_Raw{
+					Raw: &bodyv1.BodyRaw{
 						BodyBytes: example.Body,
 					},
 				},
@@ -170,7 +169,7 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	isMember, err := c.CheckOwnerExample(ctx, exampleIdWrap)
+	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleIdWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -204,9 +203,9 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		},
 		Header: rpcHeaders,
 		Query:  rpcQueries,
-		Body: &itemapiexamplev1.Body{
-			Value: &itemapiexamplev1.Body_Raw{
-				Raw: &itemapiexamplev1.BodyRawData{
+		Body: &bodyv1.Body{
+			Value: &bodyv1.Body_Raw{
+				Raw: &bodyv1.BodyRaw{
 					BodyBytes: example.Body,
 				},
 			},
@@ -258,7 +257,7 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	isMember, err := c.CheckOwnerExample(ctx, exampleIDWrap)
+	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleIDWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -288,7 +287,7 @@ func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -310,7 +309,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	isMember, err := c.CheckOwnerExample(ctx, exampleUlid)
+	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -426,40 +425,31 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}), nil
 }
 
-func (c *ItemAPIExampleRPC) CheckOwnerExample(ctx context.Context, exampleUlid idwrap.IDWrap) (bool, error) {
-	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
+func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {
+	example, err := iaes.GetApiExample(ctx, exampleUlid)
 	if err != nil {
 		return false, err
 	}
-	return collection.CheckOwnerCollection(ctx, *c.cs, *c.us, example.CollectionID)
+	return collection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }
 
-func (c *ItemAPIExampleRPC) CheckOwnerHeader(ctx context.Context, headerUlid idwrap.IDWrap) (bool, error) {
-	header, err := c.hs.GetHeaderByID(ctx, headerUlid)
+func CheckOwnerHeader(ctx context.Context, hs sexampleheader.HeaderService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, headerUlid idwrap.IDWrap) (bool, error) {
+	header, err := hs.GetHeaderByID(ctx, headerUlid)
 	if err != nil {
 		return false, err
 	}
-	return c.CheckOwnerExample(ctx, header.ExampleID)
+	return CheckOwnerExample(ctx, iaes, cs, us, header.ExampleID)
 }
 
-func (c *ItemAPIExampleRPC) CheckOwnerQuery(ctx context.Context, queryUlid idwrap.IDWrap) (bool, error) {
-	query, err := c.qs.GetExampleQuery(ctx, queryUlid)
+func CheckOwnerQuery(ctx context.Context, qs sexamplequery.ExampleQueryService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, queryUlid idwrap.IDWrap) (bool, error) {
+	query, err := qs.GetExampleQuery(ctx, queryUlid)
 	if err != nil {
 		return false, err
 	}
-	return c.CheckOwnerExample(ctx, query.ExampleID)
-}
-
-func (c *ItemAPIExampleRPC) CheckOwnerBodyForm(ctx context.Context, bodyFormUlid idwrap.IDWrap) (bool, error) {
-	bodyForm, err := c.bfs.GetBodyForm(ctx, bodyFormUlid)
-	if err != nil {
-		return false, err
-	}
-	return c.CheckOwnerExample(ctx, bodyForm.ExampleID)
+	return CheckOwnerExample(ctx, iaes, cs, us, query.ExampleID)
 }
 
 // Headers
-// TODO: refactor to use the ulidwrap
 func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
 	headerData := req.Msg.GetHeader()
 	if headerData == nil {
@@ -473,7 +463,7 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	newIDWrap := idwrap.NewNow()
 	headerModel.ID = newIDWrap
 
-	ok, err := c.CheckOwnerExample(ctx, headerModel.ExampleID)
+	ok, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, headerModel.ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -488,13 +478,12 @@ func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{Id: newIDWrap.String()}), nil
 }
 
-// TODO: refactor to use the ulidwrap
 func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateHeaderRequest]) (*connect.Response[itemapiexamplev1.UpdateHeaderResponse], error) {
 	HeaderModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.GetHeader())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := c.CheckOwnerHeader(ctx, HeaderModel.ID)
+	ok, err := CheckOwnerHeader(ctx, *c.hs, *c.iaes, *c.cs, *c.us, HeaderModel.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -508,13 +497,12 @@ func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&itemapiexamplev1.UpdateHeaderResponse{}), nil
 }
 
-// TODO: refactor to use the ulidwrap
 func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteHeaderRequest]) (*connect.Response[itemapiexamplev1.DeleteHeaderResponse], error) {
 	ulidWrap, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := c.CheckOwnerHeader(ctx, ulidWrap)
+	ok, err := CheckOwnerHeader(ctx, *c.hs, *c.iaes, *c.cs, *c.us, ulidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -536,7 +524,7 @@ func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Reques
 	}
 	idWrap := idwrap.NewNow()
 	queryData.ID = idWrap
-	ok, err := c.CheckOwnerExample(ctx, queryData.ExampleID)
+	ok, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, queryData.ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -555,7 +543,7 @@ func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := c.CheckOwnerQuery(ctx, queryData.ID)
+	ok, err := CheckOwnerQuery(ctx, *c.qs, *c.iaes, *c.cs, *c.us, queryData.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -575,7 +563,7 @@ func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := c.CheckOwnerQuery(ctx, ulidWrap)
+	ok, err := CheckOwnerQuery(ctx, *c.qs, *c.iaes, *c.cs, *c.us, ulidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -590,42 +578,7 @@ func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Reques
 }
 
 // BodyForm
-func (c *ItemAPIExampleRPC) CreateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateBodyFormRequest]) (*connect.Response[itemapiexamplev1.CreateBodyFormResponse], error) {
-	bodyData := req.Msg.GetBodyForm()
-	if bodyData == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
-	}
-
-	exampleID, err := idwrap.NewWithParse(bodyData.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	ok, err := c.CheckOwnerExample(ctx, exampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
-	}
-
-	bodyForm := mbodyform.BodyForm{
-		ID:          idwrap.NewNow(),
-		ExampleID:   exampleID,
-		BodyKey:     bodyData.GetKey(),
-		Description: bodyData.GetDescription(),
-		Enable:      bodyData.GetEnabled(),
-		Value:       bodyData.GetValue(),
-	}
-
-	err = c.bfs.CreateBodyForm(ctx, &bodyForm)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&itemapiexamplev1.CreateBodyFormResponse{Id: bodyForm.ID.String()}), nil
-}
-
+/*
 func (c *ItemAPIExampleRPC) UpdateBodyForm(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateBodyFormRequest]) (*connect.Response[itemapiexamplev1.UpdateBodyFormResponse], error) {
 	bodyData := req.Msg.GetBodyForm()
 	if bodyData == nil {
@@ -678,3 +631,4 @@ func (c *ItemAPIExampleRPC) DeleteBodyForm(ctx context.Context, req *connect.Req
 
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
+*/
