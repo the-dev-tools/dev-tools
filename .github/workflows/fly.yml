@@ -23,8 +23,6 @@ jobs:
         env:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Fetch specific submodule
-        run: git submodule update --init --recursive fly-go
       - name: Deploy to Fly.io
         working-directory: ${{ env.app_name }}
         run: ./deploy-dev.sh
