@@ -6,6 +6,7 @@ option go_package = "dev-tools-services/gen/itemapiexample/v1;itemapiexamplev1";
 
 import "google/protobuf/timestamp.proto";
 import "apiresult/v1/apiresult.proto";
+import "body/v1/body.proto";
 
 service ItemApiExampleService {
   // Examples
@@ -26,11 +27,6 @@ service ItemApiExampleService {
   rpc CreateQuery(CreateQueryRequest) returns (CreateQueryResponse);
   rpc UpdateQuery(UpdateQueryRequest) returns (UpdateQueryResponse);
   rpc DeleteQuery(DeleteQueryRequest) returns (DeleteQueryResponse);
-
-  // Body
-  rpc CreateBodyForm(CreateBodyFormRequest) returns (CreateBodyFormResponse);
-  rpc UpdateBodyForm(UpdateBodyFormRequest) returns (UpdateBodyFormResponse);
-  rpc DeleteBodyForm(DeleteBodyFormRequest) returns (DeleteBodyFormResponse);
 }
 
 message Header {
@@ -51,35 +47,6 @@ message Query {
   string description = 6;
 }
 
-message BodyFormDataItem {
-  string id = 1;
-  string example_id = 2;
-  string key = 3;
-  bool enabled = 4;
-  string value = 5;
-  string description = 6;
-}
-
-
-message BodyFormData {
-  repeated BodyFormDataItem items = 1;
-}
-
-message BodyNone {
-}
-
-message Body {
-  oneof value {
-    BodyNone body_none = 1;
-    BodyFormData form_data = 2;
-    BodyRawData raw = 3;
-  }
-}
-
-message BodyRawData {
-  bytes body_bytes = 1;
-}
-
 message ApiExampleMeta {
   string id = 1;
   string name = 2;
@@ -90,7 +57,7 @@ message ApiExample {
   repeated Query query = 2;
   repeated Header header = 3;
   google.protobuf.Timestamp updated = 4;
-  Body body = 5;
+  body.v1.Body body = 5;
 }
 
 message GetExamplesRequest {
@@ -194,28 +161,3 @@ message DeleteQueryRequest {
 message DeleteQueryResponse {
 }
 
-// BODY FORM
-// // CREATE
-message CreateBodyFormRequest {
-  BodyFormDataItem body_form = 1;
-}
-
-message CreateBodyFormResponse {
-  string id = 1;
-}
-
-// // UPDATE
-message UpdateBodyFormRequest {
-  BodyFormDataItem body_form = 1;
-}
-
-message UpdateBodyFormResponse {
-}
-
-// // DELETE
-message DeleteBodyFormRequest {
-  string id = 1;
-}
-
-message DeleteBodyFormResponse {
-}

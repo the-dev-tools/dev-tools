@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package body.v1;
+
+option go_package = "dev-tools-services/gen/body/v1;bodyv1";
+
+
+service BodyService {
+  // Body Form
+  rpc CreateBodyForm(CreateBodyFormRequest) returns (CreateBodyFormResponse);
+  rpc UpdateBodyForm(UpdateBodyFormRequest) returns (UpdateBodyFormResponse);
+  rpc DeleteBodyForm(DeleteBodyFormRequest) returns (DeleteBodyFormResponse);
+  // Body URL Encoded
+  rpc CreateBodyUrlEncoded(CreateBodyUrlEncodedRequest) returns (CreateBodyUrlEncodedResponse);
+  rpc UpdateBodyUrlEncoded(UpdateBodyUrlEncodedRequest) returns (UpdateBodyUrlEncodedResponse);
+  rpc DeleteBodyUrlEncoded(DeleteBodyUrlEncodedRequest) returns (DeleteBodyUrlEncodedResponse);
+  // Body Raw
+  rpc UpdateBodyRaw(UpdateBodyRawRequest) returns (UpdateBodyRawResponse);
+}
+
+message BodyFormItem {
+  string id = 1;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
+}
+
+message BodyUrlEncodedItem {
+  string id = 1;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
+}
+
+message BodyNone {
+}
+
+message BodyUrlEncodedArray {
+  repeated BodyUrlEncodedItem items = 1;
+}
+
+message BodyFormArray {
+  repeated BodyFormItem items = 1;
+}
+
+message BodyRaw {
+  bytes body_bytes = 1;
+}
+
+message Body {
+  oneof value {
+    BodyNone none = 1;
+    BodyFormArray forms = 2;
+    BodyUrlEncodedArray url_encodeds = 3;
+    BodyRaw raw = 4;
+  }
+}
+
+// RPC
+
+// Form Data
+
+message CreateBodyFormRequest {
+  BodyFormItem item = 1;
+}
+
+message CreateBodyFormResponse {
+  string id = 1;
+}
+
+message UpdateBodyFormRequest {
+  BodyFormItem item = 1;
+}
+
+message UpdateBodyFormResponse {
+}
+
+message DeleteBodyFormRequest {
+  string id = 1;
+}
+
+message DeleteBodyFormResponse {
+}
+
+// URL Encoded
+
+message CreateBodyUrlEncodedRequest {
+  BodyUrlEncodedItem item = 1;
+}
+
+message CreateBodyUrlEncodedResponse {
+  string id = 1;
+}
+
+message UpdateBodyUrlEncodedRequest {
+  BodyUrlEncodedItem item = 1;
+}
+
+message UpdateBodyUrlEncodedResponse {
+}
+
+message DeleteBodyUrlEncodedRequest {
+  string id = 1;
+}
+
+message DeleteBodyUrlEncodedResponse {
+}
+
+// Raw Data
+
+message UpdateBodyRawRequest {
+  string example_id = 1;
+}
+
+message UpdateBodyRawResponse {
+}
+
