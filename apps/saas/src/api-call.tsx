@@ -2,7 +2,8 @@ import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
-import { Array, Struct } from 'effect';
+import { Array, pipe } from 'effect';
+import { useMemo } from 'react';
 import { Form } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuSave, LuSendHorizonal } from 'react-icons/lu';
@@ -46,21 +47,37 @@ const ApiForm = ({ data }: ApiFormProps) => {
 
   const updateMutation = useConnectMutation(updateApiCall);
 
+  const values = useMemo(() => {
+    const { origin, pathname } = new URL(data.apiCall!.url);
+    const url = pipe(
+      data.example!.query,
+      Array.map((_) => [_.key, _.value]),
+      (_) => new URLSearchParams(_).toString(),
+      (_) => origin + pathname + '?' + _,
+    );
+    return new ApiFormData({
+      url,
+      method: data.apiCall!.meta!.method,
+    });
+  }, [data.apiCall, data.example]);
+
   const form = useForm({
     resolver: effectTsResolver(ApiFormData),
-    defaultValues: data.apiCall!,
+    values,
   });
 
   return (
     <div className='flex h-full flex-col'>
       <Form
         onSubmit={form.handleSubmit((formData) => {
-          const newApiCall = Struct.evolve(data.apiCall!, {
-            method: () => formData.method,
-            url: () => formData.url,
+          const { origin, pathname } = new URL(formData.url);
+          return void updateMutation.mutate({
+            apiCall: {
+              ...data.apiCall,
+              url: origin + pathname,
+              meta: { ...data.apiCall?.meta, method: formData.method },
+            },
           });
-
-          updateMutation.mutate({ apiCall: newApiCall });
         })}
       >
         <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
