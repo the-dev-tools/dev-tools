@@ -53,8 +53,6 @@ func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
 		ParentExampleID: item.ParentExampleID,
 		IsDefault:       item.IsDefault,
 		Name:            item.Name,
-		Compressed:      item.Compressed,
-		Body:            item.Body,
 		Prev:            item.Prev,
 		Next:            item.Next,
 	}
@@ -69,8 +67,6 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 		ParentExampleID: item.ParentExampleID,
 		IsDefault:       item.IsDefault,
 		Name:            item.Name,
-		Compressed:      item.Compressed,
-		Body:            item.Body,
 		Prev:            item.Prev,
 		Next:            item.Next,
 	}
@@ -129,8 +125,6 @@ func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mi
 		IsDefault:       item.IsDefault,
 		ParentExampleID: item.ParentExampleID,
 		Name:            item.Name,
-		Compressed:      item.Compressed,
-		Body:            item.Body,
 		Prev:            item.Prev,
 		Next:            item.Next,
 	})
@@ -168,8 +162,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID: item1.ParentExampleID,
 			IsDefault:       item1.IsDefault,
 			Name:            item1.Name,
-			Compressed:      item1.Compressed,
-			Body:            item1.Body,
 			Prev:            item1.Prev,
 			Next:            item1.Next,
 			// Item 2
@@ -179,8 +171,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_2: item2.ParentExampleID,
 			IsDefault_2:       item2.IsDefault,
 			Name_2:            item2.Name,
-			Compressed_2:      item2.Compressed,
-			Body_2:            item2.Body,
 			Prev_2:            item2.Prev,
 			Next_2:            item2.Next,
 			// Item 3
@@ -190,8 +180,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_3: item3.ParentExampleID,
 			IsDefault_3:       item3.IsDefault,
 			Name_3:            item3.Name,
-			Compressed_3:      item3.Compressed,
-			Body_3:            item3.Body,
 			Prev_3:            item3.Prev,
 			Next_3:            item3.Next,
 			// Item 4
@@ -201,8 +189,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_4: item4.ParentExampleID,
 			IsDefault_4:       item4.IsDefault,
 			Name_4:            item4.Name,
-			Compressed_4:      item4.Compressed,
-			Body_4:            item4.Body,
 			Prev_4:            item4.Prev,
 			Next_4:            item4.Next,
 			// Item 5
@@ -212,8 +198,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_5: item5.ParentExampleID,
 			IsDefault_5:       item5.IsDefault,
 			Name_5:            item5.Name,
-			Compressed_5:      item5.Compressed,
-			Body_5:            item5.Body,
 			Prev_5:            item5.Prev,
 			Next_5:            item5.Next,
 			// Item 6
@@ -223,8 +207,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_6: item6.ParentExampleID,
 			IsDefault_6:       item6.IsDefault,
 			Name_6:            item6.Name,
-			Compressed_6:      item6.Compressed,
-			Body_6:            item6.Body,
 			Prev_6:            item6.Prev,
 			Next_6:            item6.Next,
 			// Item 7
@@ -234,8 +216,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_7: item7.ParentExampleID,
 			IsDefault_7:       item7.IsDefault,
 			Name_7:            item7.Name,
-			Compressed_7:      item7.Compressed,
-			Body_7:            item7.Body,
 			Prev_7:            item7.Prev,
 			Next_7:            item7.Next,
 			// Item 8
@@ -245,8 +225,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_8: item8.ParentExampleID,
 			IsDefault_8:       item8.IsDefault,
 			Name_8:            item8.Name,
-			Compressed_8:      item8.Compressed,
-			Body_8:            item8.Body,
 			Prev_8:            item8.Prev,
 			Next_8:            item8.Next,
 			// Item 9
@@ -256,8 +234,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_9: item9.ParentExampleID,
 			IsDefault_9:       item9.IsDefault,
 			Name_9:            item9.Name,
-			Compressed_9:      item9.Compressed,
-			Body_9:            item9.Body,
 			Prev_9:            item9.Prev,
 			Next_9:            item9.Next,
 			// Item 10
@@ -267,8 +243,6 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			ParentExampleID_10: item10.ParentExampleID,
 			IsDefault_10:       item10.IsDefault,
 			Name_10:            item10.Name,
-			Compressed_10:      item10.Compressed,
-			Body_10:            item10.Body,
 			Prev_10:            item10.Prev,
 			Next_10:            item10.Next,
 		})
@@ -282,10 +256,8 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 
 func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
 	return iaes.Queries.UpdateItemApiExample(ctx, gen.UpdateItemApiExampleParams{
-		ID:         item.ID,
-		Name:       item.Name,
-		Compressed: item.Compressed,
-		Body:       item.Body,
+		ID:   item.ID,
+		Name: item.Name,
 	})
 }
 

@@ -42,6 +42,7 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 }
 
 const createBodyForm = `-- name: CreateBodyForm :exec
+
 INSERT INTO
   example_body_form (id, example_id, body_key, enable, description, value)
 VALUES
@@ -57,6 +58,7 @@ type CreateBodyFormParams struct {
 	Value       string
 }
 
+// BodyForm
 func (q *Queries) CreateBodyForm(ctx context.Context, arg CreateBodyFormParams) error {
 	_, err := q.exec(ctx, q.createBodyFormStmt, createBodyForm,
 		arg.ID,
@@ -150,6 +152,179 @@ type CreateBodyFormBulkParams struct {
 
 func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulkParams) error {
 	_, err := q.exec(ctx, q.createBodyFormBulkStmt, createBodyFormBulk,
+		arg.ID,
+		arg.ExampleID,
+		arg.BodyKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID_2,
+		arg.ExampleID_2,
+		arg.BodyKey_2,
+		arg.Enable_2,
+		arg.Description_2,
+		arg.Value_2,
+		arg.ID_3,
+		arg.ExampleID_3,
+		arg.BodyKey_3,
+		arg.Enable_3,
+		arg.Description_3,
+		arg.Value_3,
+		arg.ID_4,
+		arg.ExampleID_4,
+		arg.BodyKey_4,
+		arg.Enable_4,
+		arg.Description_4,
+		arg.Value_4,
+		arg.ID_5,
+		arg.ExampleID_5,
+		arg.BodyKey_5,
+		arg.Enable_5,
+		arg.Description_5,
+		arg.Value_5,
+		arg.ID_6,
+		arg.ExampleID_6,
+		arg.BodyKey_6,
+		arg.Enable_6,
+		arg.Description_6,
+		arg.Value_6,
+		arg.ID_7,
+		arg.ExampleID_7,
+		arg.BodyKey_7,
+		arg.Enable_7,
+		arg.Description_7,
+		arg.Value_7,
+		arg.ID_8,
+		arg.ExampleID_8,
+		arg.BodyKey_8,
+		arg.Enable_8,
+		arg.Description_8,
+		arg.Value_8,
+		arg.ID_9,
+		arg.ExampleID_9,
+		arg.BodyKey_9,
+		arg.Enable_9,
+		arg.Description_9,
+		arg.Value_9,
+		arg.ID_10,
+		arg.ExampleID_10,
+		arg.BodyKey_10,
+		arg.Enable_10,
+		arg.Description_10,
+		arg.Value_10,
+	)
+	return err
+}
+
+const createBodyUrlEncoded = `-- name: CreateBodyUrlEncoded :exec
+INSERT INTO
+  example_body_urlencoded (id, example_id, body_key, enable, description, value)
+VALUES
+    (?, ?, ?, ?, ?, ?)
+`
+
+type CreateBodyUrlEncodedParams struct {
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
+	BodyKey     string
+	Enable      bool
+	Description string
+	Value       string
+}
+
+func (q *Queries) CreateBodyUrlEncoded(ctx context.Context, arg CreateBodyUrlEncodedParams) error {
+	_, err := q.exec(ctx, q.createBodyUrlEncodedStmt, createBodyUrlEncoded,
+		arg.ID,
+		arg.ExampleID,
+		arg.BodyKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+	)
+	return err
+}
+
+const createBodyUrlEncodedBulk = `-- name: CreateBodyUrlEncodedBulk :exec
+INSERT INTO
+  example_body_urlencoded (id, example_id, body_key, enable, description, value)
+VALUES
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?)
+`
+
+type CreateBodyUrlEncodedBulkParams struct {
+	ID             idwrap.IDWrap
+	ExampleID      idwrap.IDWrap
+	BodyKey        string
+	Enable         bool
+	Description    string
+	Value          string
+	ID_2           idwrap.IDWrap
+	ExampleID_2    idwrap.IDWrap
+	BodyKey_2      string
+	Enable_2       bool
+	Description_2  string
+	Value_2        string
+	ID_3           idwrap.IDWrap
+	ExampleID_3    idwrap.IDWrap
+	BodyKey_3      string
+	Enable_3       bool
+	Description_3  string
+	Value_3        string
+	ID_4           idwrap.IDWrap
+	ExampleID_4    idwrap.IDWrap
+	BodyKey_4      string
+	Enable_4       bool
+	Description_4  string
+	Value_4        string
+	ID_5           idwrap.IDWrap
+	ExampleID_5    idwrap.IDWrap
+	BodyKey_5      string
+	Enable_5       bool
+	Description_5  string
+	Value_5        string
+	ID_6           idwrap.IDWrap
+	ExampleID_6    idwrap.IDWrap
+	BodyKey_6      string
+	Enable_6       bool
+	Description_6  string
+	Value_6        string
+	ID_7           idwrap.IDWrap
+	ExampleID_7    idwrap.IDWrap
+	BodyKey_7      string
+	Enable_7       bool
+	Description_7  string
+	Value_7        string
+	ID_8           idwrap.IDWrap
+	ExampleID_8    idwrap.IDWrap
+	BodyKey_8      string
+	Enable_8       bool
+	Description_8  string
+	Value_8        string
+	ID_9           idwrap.IDWrap
+	ExampleID_9    idwrap.IDWrap
+	BodyKey_9      string
+	Enable_9       bool
+	Description_9  string
+	Value_9        string
+	ID_10          idwrap.IDWrap
+	ExampleID_10   idwrap.IDWrap
+	BodyKey_10     string
+	Enable_10      bool
+	Description_10 string
+	Value_10       string
+}
+
+func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUrlEncodedBulkParams) error {
+	_, err := q.exec(ctx, q.createBodyUrlEncodedBulkStmt, createBodyUrlEncodedBulk,
 		arg.ID,
 		arg.ExampleID,
 		arg.BodyKey,
@@ -630,14 +805,13 @@ INSERT INTO
     collection_id,
     parent_example_id,
     is_default,
+    body_type,
     name,
-    compressed,
-    body,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
@@ -646,9 +820,8 @@ type CreateItemApiExampleParams struct {
 	CollectionID    idwrap.IDWrap
 	ParentExampleID *idwrap.IDWrap
 	IsDefault       bool
+	BodyType        int16
 	Name            string
-	Compressed      bool
-	Body            []byte
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }
@@ -660,9 +833,8 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.CollectionID,
 		arg.ParentExampleID,
 		arg.IsDefault,
+		arg.BodyType,
 		arg.Name,
-		arg.Compressed,
-		arg.Body,
 		arg.Prev,
 		arg.Next,
 	)
@@ -677,23 +849,22 @@ INSERT INTO
     collection_id,
     parent_example_id,
     is_default,
+    body_type,
     name,
-    compressed,
-    body,
     prev,
     next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
@@ -702,9 +873,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID       idwrap.IDWrap
 	ParentExampleID    *idwrap.IDWrap
 	IsDefault          bool
+	BodyType           int16
 	Name               string
-	Compressed         bool
-	Body               []byte
 	Prev               *idwrap.IDWrap
 	Next               *idwrap.IDWrap
 	ID_2               idwrap.IDWrap
@@ -712,9 +882,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_2     idwrap.IDWrap
 	ParentExampleID_2  *idwrap.IDWrap
 	IsDefault_2        bool
+	BodyType_2         int16
 	Name_2             string
-	Compressed_2       bool
-	Body_2             []byte
 	Prev_2             *idwrap.IDWrap
 	Next_2             *idwrap.IDWrap
 	ID_3               idwrap.IDWrap
@@ -722,9 +891,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_3     idwrap.IDWrap
 	ParentExampleID_3  *idwrap.IDWrap
 	IsDefault_3        bool
+	BodyType_3         int16
 	Name_3             string
-	Compressed_3       bool
-	Body_3             []byte
 	Prev_3             *idwrap.IDWrap
 	Next_3             *idwrap.IDWrap
 	ID_4               idwrap.IDWrap
@@ -732,9 +900,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_4     idwrap.IDWrap
 	ParentExampleID_4  *idwrap.IDWrap
 	IsDefault_4        bool
+	BodyType_4         int16
 	Name_4             string
-	Compressed_4       bool
-	Body_4             []byte
 	Prev_4             *idwrap.IDWrap
 	Next_4             *idwrap.IDWrap
 	ID_5               idwrap.IDWrap
@@ -742,9 +909,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_5     idwrap.IDWrap
 	ParentExampleID_5  *idwrap.IDWrap
 	IsDefault_5        bool
+	BodyType_5         int16
 	Name_5             string
-	Compressed_5       bool
-	Body_5             []byte
 	Prev_5             *idwrap.IDWrap
 	Next_5             *idwrap.IDWrap
 	ID_6               idwrap.IDWrap
@@ -752,9 +918,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_6     idwrap.IDWrap
 	ParentExampleID_6  *idwrap.IDWrap
 	IsDefault_6        bool
+	BodyType_6         int16
 	Name_6             string
-	Compressed_6       bool
-	Body_6             []byte
 	Prev_6             *idwrap.IDWrap
 	Next_6             *idwrap.IDWrap
 	ID_7               idwrap.IDWrap
@@ -762,9 +927,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_7     idwrap.IDWrap
 	ParentExampleID_7  *idwrap.IDWrap
 	IsDefault_7        bool
+	BodyType_7         int16
 	Name_7             string
-	Compressed_7       bool
-	Body_7             []byte
 	Prev_7             *idwrap.IDWrap
 	Next_7             *idwrap.IDWrap
 	ID_8               idwrap.IDWrap
@@ -772,9 +936,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_8     idwrap.IDWrap
 	ParentExampleID_8  *idwrap.IDWrap
 	IsDefault_8        bool
+	BodyType_8         int16
 	Name_8             string
-	Compressed_8       bool
-	Body_8             []byte
 	Prev_8             *idwrap.IDWrap
 	Next_8             *idwrap.IDWrap
 	ID_9               idwrap.IDWrap
@@ -782,9 +945,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_9     idwrap.IDWrap
 	ParentExampleID_9  *idwrap.IDWrap
 	IsDefault_9        bool
+	BodyType_9         int16
 	Name_9             string
-	Compressed_9       bool
-	Body_9             []byte
 	Prev_9             *idwrap.IDWrap
 	Next_9             *idwrap.IDWrap
 	ID_10              idwrap.IDWrap
@@ -792,9 +954,8 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_10    idwrap.IDWrap
 	ParentExampleID_10 *idwrap.IDWrap
 	IsDefault_10       bool
+	BodyType_10        int16
 	Name_10            string
-	Compressed_10      bool
-	Body_10            []byte
 	Prev_10            *idwrap.IDWrap
 	Next_10            *idwrap.IDWrap
 }
@@ -806,9 +967,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID,
 		arg.ParentExampleID,
 		arg.IsDefault,
+		arg.BodyType,
 		arg.Name,
-		arg.Compressed,
-		arg.Body,
 		arg.Prev,
 		arg.Next,
 		arg.ID_2,
@@ -816,9 +976,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_2,
 		arg.ParentExampleID_2,
 		arg.IsDefault_2,
+		arg.BodyType_2,
 		arg.Name_2,
-		arg.Compressed_2,
-		arg.Body_2,
 		arg.Prev_2,
 		arg.Next_2,
 		arg.ID_3,
@@ -826,9 +985,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_3,
 		arg.ParentExampleID_3,
 		arg.IsDefault_3,
+		arg.BodyType_3,
 		arg.Name_3,
-		arg.Compressed_3,
-		arg.Body_3,
 		arg.Prev_3,
 		arg.Next_3,
 		arg.ID_4,
@@ -836,9 +994,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_4,
 		arg.ParentExampleID_4,
 		arg.IsDefault_4,
+		arg.BodyType_4,
 		arg.Name_4,
-		arg.Compressed_4,
-		arg.Body_4,
 		arg.Prev_4,
 		arg.Next_4,
 		arg.ID_5,
@@ -846,9 +1003,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_5,
 		arg.ParentExampleID_5,
 		arg.IsDefault_5,
+		arg.BodyType_5,
 		arg.Name_5,
-		arg.Compressed_5,
-		arg.Body_5,
 		arg.Prev_5,
 		arg.Next_5,
 		arg.ID_6,
@@ -856,9 +1012,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_6,
 		arg.ParentExampleID_6,
 		arg.IsDefault_6,
+		arg.BodyType_6,
 		arg.Name_6,
-		arg.Compressed_6,
-		arg.Body_6,
 		arg.Prev_6,
 		arg.Next_6,
 		arg.ID_7,
@@ -866,9 +1021,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_7,
 		arg.ParentExampleID_7,
 		arg.IsDefault_7,
+		arg.BodyType_7,
 		arg.Name_7,
-		arg.Compressed_7,
-		arg.Body_7,
 		arg.Prev_7,
 		arg.Next_7,
 		arg.ID_8,
@@ -876,9 +1030,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_8,
 		arg.ParentExampleID_8,
 		arg.IsDefault_8,
+		arg.BodyType_8,
 		arg.Name_8,
-		arg.Compressed_8,
-		arg.Body_8,
 		arg.Prev_8,
 		arg.Next_8,
 		arg.ID_9,
@@ -886,9 +1039,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_9,
 		arg.ParentExampleID_9,
 		arg.IsDefault_9,
+		arg.BodyType_9,
 		arg.Name_9,
-		arg.Compressed_9,
-		arg.Body_9,
 		arg.Prev_9,
 		arg.Next_9,
 		arg.ID_10,
@@ -896,9 +1048,8 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.CollectionID_10,
 		arg.ParentExampleID_10,
 		arg.IsDefault_10,
+		arg.BodyType_10,
 		arg.Name_10,
-		arg.Compressed_10,
-		arg.Body_10,
 		arg.Prev_10,
 		arg.Next_10,
 	)
@@ -1386,6 +1537,17 @@ func (q *Queries) DeleteBodyForm(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const deleteBodyURLEncoded = `-- name: DeleteBodyURLEncoded :exec
+DELETE FROM example_body_urlencoded
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteBodyURLEncoded(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteBodyURLEncodedStmt, deleteBodyURLEncoded, id)
+	return err
+}
+
 const deleteCollection = `-- name: DeleteCollection :exec
 DELETE FROM collections
 WHERE
@@ -1553,6 +1715,80 @@ func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID idwrap.
 	var items []ExampleBodyForm
 	for rows.Next() {
 		var i ExampleBodyForm
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.BodyKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBodyUrlEncoded = `-- name: GetBodyUrlEncoded :one
+
+SELECT 
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+  example_body_urlencoded
+WHERE
+  id = ?
+`
+
+// Body Url Encoded
+func (q *Queries) GetBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (ExampleBodyUrlencoded, error) {
+	row := q.queryRow(ctx, q.getBodyUrlEncodedStmt, getBodyUrlEncoded, id)
+	var i ExampleBodyUrlencoded
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.BodyKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getBodyUrlEncodedsByExampleID = `-- name: GetBodyUrlEncodedsByExampleID :many
+SELECT 
+  id,
+  example_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM 
+  example_body_urlencoded
+WHERE
+  example_id = ?
+`
+
+func (q *Queries) GetBodyUrlEncodedsByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]ExampleBodyUrlencoded, error) {
+	rows, err := q.query(ctx, q.getBodyUrlEncodedsByExampleIDStmt, getBodyUrlEncodedsByExampleID, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExampleBodyUrlencoded
+	for rows.Next() {
+		var i ExampleBodyUrlencoded
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
@@ -1803,9 +2039,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -1826,9 +2061,8 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (Item
 		&i.CollectionID,
 		&i.ParentExampleID,
 		&i.IsDefault,
+		&i.BodyType,
 		&i.Name,
-		&i.Compressed,
-		&i.Body,
 		&i.Prev,
 		&i.Next,
 	)
@@ -1842,9 +2076,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -1868,9 +2101,8 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.CollectionID,
 			&i.ParentExampleID,
 			&i.IsDefault,
+			&i.BodyType,
 			&i.Name,
-			&i.Compressed,
-			&i.Body,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -1894,9 +2126,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -1917,9 +2148,8 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID idwrap
 		&i.CollectionID,
 		&i.ParentExampleID,
 		&i.IsDefault,
+		&i.BodyType,
 		&i.Name,
-		&i.Compressed,
-		&i.Body,
 		&i.Prev,
 		&i.Next,
 	)
@@ -1933,9 +2163,8 @@ SELECT
   collection_id,
   parent_example_id,
   is_default,
+  body_type,
   name,
-  compressed,
-  body,
   prev,
   next
 FROM
@@ -1960,9 +2189,8 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 			&i.CollectionID,
 			&i.ParentExampleID,
 			&i.IsDefault,
+			&i.BodyType,
 			&i.Name,
-			&i.Compressed,
-			&i.Body,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -2861,6 +3089,36 @@ func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) 
 	return err
 }
 
+const updateBodyUrlEncoded = `-- name: UpdateBodyUrlEncoded :exec
+UPDATE example_body_urlencoded
+    SET
+      body_key = ?,
+      enable = ?,
+      description = ?,
+      value = ?
+    WHERE
+      id = ?
+`
+
+type UpdateBodyUrlEncodedParams struct {
+	BodyKey     string
+	Enable      bool
+	Description string
+	Value       string
+	ID          idwrap.IDWrap
+}
+
+func (q *Queries) UpdateBodyUrlEncoded(ctx context.Context, arg UpdateBodyUrlEncodedParams) error {
+	_, err := q.exec(ctx, q.updateBodyUrlEncodedStmt, updateBodyUrlEncoded,
+		arg.BodyKey,
+		arg.Enable,
+		arg.Description,
+		arg.Value,
+		arg.ID,
+	)
+	return err
+}
+
 const updateCollection = `-- name: UpdateCollection :exec
 UPDATE collections
 SET
@@ -2947,27 +3205,18 @@ func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) er
 const updateItemApiExample = `-- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
-  name = ?,
-  compressed = ?,
-  body = ?
+  name = ?
 WHERE
   id = ?
 `
 
 type UpdateItemApiExampleParams struct {
-	Name       string
-	Compressed bool
-	Body       []byte
-	ID         idwrap.IDWrap
+	Name string
+	ID   idwrap.IDWrap
 }
 
 func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
-	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample,
-		arg.Name,
-		arg.Compressed,
-		arg.Body,
-		arg.ID,
-	)
+	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample, arg.Name, arg.ID)
 	return err
 }
 

@@ -33,6 +33,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createBodyFormBulkStmt, err = db.PrepareContext(ctx, createBodyFormBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateBodyFormBulk: %w", err)
 	}
+	if q.createBodyUrlEncodedStmt, err = db.PrepareContext(ctx, createBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBodyUrlEncoded: %w", err)
+	}
+	if q.createBodyUrlEncodedBulkStmt, err = db.PrepareContext(ctx, createBodyUrlEncodedBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBodyUrlEncodedBulk: %w", err)
+	}
 	if q.createCollectionStmt, err = db.PrepareContext(ctx, createCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCollection: %w", err)
 	}
@@ -81,6 +87,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteBodyFormStmt, err = db.PrepareContext(ctx, deleteBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteBodyForm: %w", err)
 	}
+	if q.deleteBodyURLEncodedStmt, err = db.PrepareContext(ctx, deleteBodyURLEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBodyURLEncoded: %w", err)
+	}
 	if q.deleteCollectionStmt, err = db.PrepareContext(ctx, deleteCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCollection: %w", err)
 	}
@@ -116,6 +125,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getBodyFormsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyFormsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyFormsByExampleID: %w", err)
+	}
+	if q.getBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyUrlEncoded: %w", err)
+	}
+	if q.getBodyUrlEncodedsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByExampleID: %w", err)
 	}
 	if q.getCollectionStmt, err = db.PrepareContext(ctx, getCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollection: %w", err)
@@ -231,6 +246,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateBodyFormStmt, err = db.PrepareContext(ctx, updateBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateBodyForm: %w", err)
 	}
+	if q.updateBodyUrlEncodedStmt, err = db.PrepareContext(ctx, updateBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateBodyUrlEncoded: %w", err)
+	}
 	if q.updateCollectionStmt, err = db.PrepareContext(ctx, updateCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollection: %w", err)
 	}
@@ -279,6 +297,16 @@ func (q *Queries) Close() error {
 	if q.createBodyFormBulkStmt != nil {
 		if cerr := q.createBodyFormBulkStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createBodyFormBulkStmt: %w", cerr)
+		}
+	}
+	if q.createBodyUrlEncodedStmt != nil {
+		if cerr := q.createBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBodyUrlEncodedStmt: %w", cerr)
+		}
+	}
+	if q.createBodyUrlEncodedBulkStmt != nil {
+		if cerr := q.createBodyUrlEncodedBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBodyUrlEncodedBulkStmt: %w", cerr)
 		}
 	}
 	if q.createCollectionStmt != nil {
@@ -361,6 +389,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteBodyFormStmt: %w", cerr)
 		}
 	}
+	if q.deleteBodyURLEncodedStmt != nil {
+		if cerr := q.deleteBodyURLEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBodyURLEncodedStmt: %w", cerr)
+		}
+	}
 	if q.deleteCollectionStmt != nil {
 		if cerr := q.deleteCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteCollectionStmt: %w", cerr)
@@ -419,6 +452,16 @@ func (q *Queries) Close() error {
 	if q.getBodyFormsByExampleIDStmt != nil {
 		if cerr := q.getBodyFormsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBodyFormsByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getBodyUrlEncodedStmt != nil {
+		if cerr := q.getBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyUrlEncodedStmt: %w", cerr)
+		}
+	}
+	if q.getBodyUrlEncodedsByExampleIDStmt != nil {
+		if cerr := q.getBodyUrlEncodedsByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyUrlEncodedsByExampleIDStmt: %w", cerr)
 		}
 	}
 	if q.getCollectionStmt != nil {
@@ -611,6 +654,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateBodyFormStmt: %w", cerr)
 		}
 	}
+	if q.updateBodyUrlEncodedStmt != nil {
+		if cerr := q.updateBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateBodyUrlEncodedStmt: %w", cerr)
+		}
+	}
 	if q.updateCollectionStmt != nil {
 		if cerr := q.updateCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCollectionStmt: %w", cerr)
@@ -703,6 +751,8 @@ type Queries struct {
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
 	createBodyFormStmt                         *sql.Stmt
 	createBodyFormBulkStmt                     *sql.Stmt
+	createBodyUrlEncodedStmt                   *sql.Stmt
+	createBodyUrlEncodedBulkStmt               *sql.Stmt
 	createCollectionStmt                       *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
 	createHeaderBulkStmt                       *sql.Stmt
@@ -719,6 +769,7 @@ type Queries struct {
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
 	deleteBodyFormStmt                         *sql.Stmt
+	deleteBodyURLEncodedStmt                   *sql.Stmt
 	deleteCollectionStmt                       *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
@@ -731,6 +782,8 @@ type Queries struct {
 	deleteWorkspaceUserStmt                    *sql.Stmt
 	getBodyFormStmt                            *sql.Stmt
 	getBodyFormsByExampleIDStmt                *sql.Stmt
+	getBodyUrlEncodedStmt                      *sql.Stmt
+	getBodyUrlEncodedsByExampleIDStmt          *sql.Stmt
 	getCollectionStmt                          *sql.Stmt
 	getCollectionByOwnerIDStmt                 *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt       *sql.Stmt
@@ -769,6 +822,7 @@ type Queries struct {
 	setHeaderEnableStmt                        *sql.Stmt
 	setQueryEnableStmt                         *sql.Stmt
 	updateBodyFormStmt                         *sql.Stmt
+	updateBodyUrlEncodedStmt                   *sql.Stmt
 	updateCollectionStmt                       *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
@@ -788,6 +842,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
 		createBodyFormStmt:                         q.createBodyFormStmt,
 		createBodyFormBulkStmt:                     q.createBodyFormBulkStmt,
+		createBodyUrlEncodedStmt:                   q.createBodyUrlEncodedStmt,
+		createBodyUrlEncodedBulkStmt:               q.createBodyUrlEncodedBulkStmt,
 		createCollectionStmt:                       q.createCollectionStmt,
 		createHeaderStmt:                           q.createHeaderStmt,
 		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
@@ -804,6 +860,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
 		deleteBodyFormStmt:                         q.deleteBodyFormStmt,
+		deleteBodyURLEncodedStmt:                   q.deleteBodyURLEncodedStmt,
 		deleteCollectionStmt:                       q.deleteCollectionStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
@@ -816,6 +873,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
 		getBodyFormStmt:                            q.getBodyFormStmt,
 		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,
+		getBodyUrlEncodedStmt:                      q.getBodyUrlEncodedStmt,
+		getBodyUrlEncodedsByExampleIDStmt:          q.getBodyUrlEncodedsByExampleIDStmt,
 		getCollectionStmt:                          q.getCollectionStmt,
 		getCollectionByOwnerIDStmt:                 q.getCollectionByOwnerIDStmt,
 		getCollectionByPlatformIDandTypeStmt:       q.getCollectionByPlatformIDandTypeStmt,
@@ -854,6 +913,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
 		setQueryEnableStmt:                         q.setQueryEnableStmt,
 		updateBodyFormStmt:                         q.updateBodyFormStmt,
+		updateBodyUrlEncodedStmt:                   q.updateBodyUrlEncodedStmt,
 		updateCollectionStmt:                       q.updateCollectionStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,

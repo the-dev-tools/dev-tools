@@ -974,7 +974,7 @@ UPDATE example_body_urlencoded
     WHERE
       id = ?;
 
--- name: SetBodyUrlEncodedEnable :exec
+-- name: DeleteBodyURLEncoded :exec
 DELETE FROM example_body_urlencoded
 WHERE
   id = ?;

@@ -229,7 +229,7 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
-          ### id
+          ### example_id
           - column: "example_query.example_id"
             go_type:
               import: "dev-tools-backend/pkg/idwrap"
@@ -242,8 +242,34 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
-          ### id
+          ### example_id
           - column: "example_body_form.example_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## example_body_url
+          ### id
+          - column: "example_body_urlencoded.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### example_id
+          - column: "example_body_urlencoded.example_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## example_body_raw
+          ### id
+          - column: "example_body_raw.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### example_id
+          - column: "example_body_raw.example_id"
             go_type:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"

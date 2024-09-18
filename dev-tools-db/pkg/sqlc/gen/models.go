@@ -26,6 +26,23 @@ type ExampleBodyForm struct {
 	Value       string
 }
 
+type ExampleBodyRaw struct {
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	VisualizeMode int16
+	CompressType  int16
+	Data          []byte
+}
+
+type ExampleBodyUrlencoded struct {
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
+	BodyKey     string
+	Enable      bool
+	Description string
+	Value       string
+}
+
 type ExampleHeader struct {
 	ID          idwrap.IDWrap
 	ExampleID   idwrap.IDWrap
@@ -61,9 +78,8 @@ type ItemApiExample struct {
 	CollectionID    idwrap.IDWrap
 	ParentExampleID *idwrap.IDWrap
 	IsDefault       bool
+	BodyType        int16
 	Name            string
-	Compressed      bool
-	Body            []byte
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }
