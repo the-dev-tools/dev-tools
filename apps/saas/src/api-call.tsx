@@ -122,8 +122,14 @@ const ApiForm = ({ data }: ApiFormProps) => {
               queryMap,
               query.key + query.value,
               Option.match({
-                onSome: () => Option.none(),
-                onNone: () => Option.some(new Query({ ...query, enabled: false })),
+                onSome: () => {
+                  if (query.enabled) return Option.none();
+                  else return Option.some(new Query({ ...query, enabled: true }));
+                },
+                onNone: () => {
+                  if (!query.enabled) return Option.none();
+                  return Option.some(new Query({ ...query, exampleId: data.example!.meta!.id, enabled: false }));
+                },
               }),
             );
           });
