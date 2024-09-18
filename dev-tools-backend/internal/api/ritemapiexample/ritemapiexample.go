@@ -150,7 +150,7 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 			Body: &bodyv1.Body{
 				Value: &bodyv1.Body_Raw{
 					Raw: &bodyv1.BodyRaw{
-						BodyBytes: example.Body,
+						BodyBytes: nil,
 					},
 				},
 			},
@@ -206,7 +206,7 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		Body: &bodyv1.Body{
 			Value: &bodyv1.Body_Raw{
 				Raw: &bodyv1.BodyRaw{
-					BodyBytes: example.Body,
+					BodyBytes: nil,
 				},
 			},
 		},
@@ -239,7 +239,6 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		Name:         metaRPC.GetName(),
 		// TODO: add the headers and query
 		// TODO: add body parse
-		Body: []byte{},
 	}
 	err = c.iaes.CreateApiExample(ctx, ex)
 	if err != nil {
@@ -270,7 +269,6 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 	ex := &mitemapiexample.ItemApiExample{
 		ID:   exampleIDWrap,
 		Name: exRPC.GetName(),
-		Body: exRPC.GetBody(),
 	}
 
 	err = c.iaes.UpdateItemApiExample(ctx, ex)
@@ -341,7 +339,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	apiCallNodeData := mnodedata.NodeApiRestData{
 		Url:     itemApiCall.Url,
 		Method:  itemApiCall.Method,
-		Body:    example.Body,
+		Body:    nil,
 		Headers: reqHeaders,
 		Query:   queries,
 	}

@@ -1,14 +1,15 @@
 package tpostman
 
 import (
-	"bytes"
-	"compress/gzip"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mbodyform"
+	"dev-tools-backend/pkg/model/mbodyurl"
 	"dev-tools-backend/pkg/model/mexampleheader"
 	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
+	"dev-tools-backend/pkg/model/postman/v21/mbody"
 	"dev-tools-backend/pkg/model/postman/v21/mheader"
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
@@ -48,23 +49,30 @@ func ParsePostmanCollection(data []byte) (mpostmancollection.Collection, error) 
 }
 
 type ItemsPair struct {
-	ApiExamples []mitemapiexample.ItemApiExample
-	Apis        []mitemapi.ItemApi
-	Folders     []mitemfolder.ItemFolder
-	Headers     []mexampleheader.Header
-	Queries     []mexamplequery.Query
+	ApiExamples    []mitemapiexample.ItemApiExample
+	Apis           []mitemapi.ItemApi
+	Folders        []mitemfolder.ItemFolder
+	Headers        []mexampleheader.Header
+	Queries        []mexamplequery.Query
+	BodyForm       []mbodyform.BodyForm
+	BodyUrlEncoded []mbodyurl.BodyURLEncoded
+	BodyRaw        [][]byte
+
 	// TODO: add query params and body
 }
 
 type ItemChannels struct {
-	ApiExample chan mitemapiexample.ItemApiExample
-	Api        chan mitemapi.ItemApi
-	Folder     chan mitemfolder.ItemFolder
-	Header     chan []mexampleheader.Header
-	Query      chan []mexamplequery.Query
-	Wg         *sync.WaitGroup
-	Err        chan error
-	Done       chan struct{}
+	ApiExample     chan mitemapiexample.ItemApiExample
+	Api            chan mitemapi.ItemApi
+	Folder         chan mitemfolder.ItemFolder
+	Header         chan []mexampleheader.Header
+	Query          chan []mexamplequery.Query
+	BodyForm       chan []mbodyform.BodyForm
+	BodyUrlEncoded chan []mbodyurl.BodyURLEncoded
+	BodyRaw        chan []byte
+	Wg             *sync.WaitGroup
+	Err            chan error
+	Done           chan struct{}
 }
 
 func ConvertPostmanCollection(collection mpostmancollection.Collection, collectionID idwrap.IDWrap) (*ItemsPair, error) {
@@ -77,14 +85,17 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 
 	var wg sync.WaitGroup
 	ItemChannels := ItemChannels{
-		ApiExample: make(chan mitemapiexample.ItemApiExample),
-		Api:        make(chan mitemapi.ItemApi),
-		Folder:     make(chan mitemfolder.ItemFolder),
-		Header:     make(chan []mexampleheader.Header),
-		Query:      make(chan []mexamplequery.Query),
-		Wg:         &wg,
-		Done:       make(chan struct{}),
-		Err:        make(chan error),
+		ApiExample:     make(chan mitemapiexample.ItemApiExample),
+		Api:            make(chan mitemapi.ItemApi),
+		Folder:         make(chan mitemfolder.ItemFolder),
+		Header:         make(chan []mexampleheader.Header),
+		Query:          make(chan []mexamplequery.Query),
+		BodyForm:       make(chan []mbodyform.BodyForm),
+		BodyUrlEncoded: make(chan []mbodyurl.BodyURLEncoded),
+		BodyRaw:        make(chan []byte),
+		Wg:             &wg,
+		Done:           make(chan struct{}),
+		Err:            make(chan error),
 	}
 
 	afterTime := time.After(2 * time.Minute)
@@ -113,6 +124,12 @@ func ConvertPostmanCollection(collection mpostmancollection.Collection, collecti
 			pair.Headers = append(pair.Headers, header...)
 		case query := <-ItemChannels.Query:
 			pair.Queries = append(pair.Queries, query...)
+		case bodyForm := <-ItemChannels.BodyForm:
+			pair.BodyForm = append(pair.BodyForm, bodyForm...)
+		case bodyUrlEncoded := <-ItemChannels.BodyUrlEncoded:
+			pair.BodyUrlEncoded = append(pair.BodyUrlEncoded, bodyUrlEncoded...)
+		case bodyRaw := <-ItemChannels.BodyRaw:
+			pair.BodyRaw = append(pair.BodyRaw, bodyRaw)
 		case <-ItemChannels.Done:
 			return &pair, nil
 		}
@@ -173,18 +190,6 @@ func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwr
 			channels.Err <- err
 			return
 		}
-		var bodyBuff bytes.Buffer
-		compresed := false
-		if item.Request.Body != nil {
-			if len(item.Request.Body.Raw) > 1000 {
-				compresed = true
-				w := gzip.NewWriter(&bodyBuff)
-				w.Write([]byte(item.Request.Body.Raw))
-			} else {
-				bodyBuff.Write([]byte(item.Request.Body.Raw))
-			}
-		}
-
 		ApiID := idwrap.NewNow()
 		api := &mitemapi.ItemApi{
 			ID:           ApiID,
@@ -203,10 +208,13 @@ func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwr
 		apiPrev = api
 		apiArr = append(apiArr, apiPrev)
 
-		buffBytes := bodyBuff.Bytes()
 		defaultExampleUlid := idwrap.NewNow()
 		example := mitemapiexample.NewItemApiExample(defaultExampleUlid, ApiID, collectionID, nil, true,
-			"Default Example", compresed, buffBytes)
+			"Default Example")
+		if item.Request.Body != nil {
+			channels.Wg.Add(1)
+			go GetBody(item.Request.Body, defaultExampleUlid, collectionID, channels)
+		}
 
 		channels.ApiExample <- *example
 		channels.Wg.Add(1)
@@ -218,13 +226,13 @@ func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwr
 		}
 
 		channels.Wg.Add(1)
-		go GetResponse(item.Responses, URL, buffBytes, ApiID, collectionID, channels)
+		go GetResponse(item.Responses, item.Request.Body, URL, ApiID, collectionID, channels)
 	}
 
 	SendAllToChannelPtr(apiArr, channels.Api)
 }
 
-func GetResponse(items []mresponse.Response, urlData *murl.URL, body []byte,
+func GetResponse(items []mresponse.Response, body *mbody.Body, urlData *murl.URL,
 	apiUlid, collectionID idwrap.IDWrap, channels *ItemChannels,
 ) {
 	defer channels.Wg.Done()
@@ -247,7 +255,10 @@ func GetResponse(items []mresponse.Response, urlData *murl.URL, body []byte,
 			CollectionID: collectionID,
 			Name:         item.Name,
 			IsDefault:    false,
-			Body:         body,
+		}
+		if body != nil {
+			channels.Wg.Add(1)
+			go GetBody(body, apiExampleID, collectionID, channels)
 		}
 
 		if len(item.Headers) > 0 {
@@ -437,6 +448,42 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 		return nil, fmt.Errorf("url type %T not supported", urlType)
 	}
 	return &murlData, nil
+}
+
+func GetBody(body *mbody.Body, exampleID, collectionID idwrap.IDWrap, channels *ItemChannels) {
+	defer channels.Wg.Done()
+	switch body.Mode {
+	case mbody.ModeFormData:
+		formArr := make([]mbodyform.BodyForm, len(body.FormData))
+		for i, v := range body.FormData {
+			formArr[i] = mbodyform.BodyForm{
+				ID:          idwrap.NewNow(),
+				ExampleID:   exampleID,
+				BodyKey:     v.Key,
+				Enable:      !v.Disabled,
+				Description: v.Description,
+				Value:       v.Value,
+			}
+		}
+		channels.BodyForm <- formArr
+	case mbody.ModeURLEncoded:
+		encodedArr := make([]mbodyurl.BodyURLEncoded, len(body.URLEncoded))
+		for i, v := range body.URLEncoded {
+			encodedArr[i] = mbodyurl.BodyURLEncoded{
+				ID:          idwrap.NewNow(),
+				ExampleID:   exampleID,
+				BodyKey:     v.Key,
+				Enable:      !v.Disabled,
+				Description: v.Description,
+				Value:       v.Value,
+			}
+		}
+		channels.BodyUrlEncoded <- encodedArr
+	case mbody.ModeRaw:
+		channels.BodyRaw <- []byte(body.Raw)
+	default:
+		channels.Err <- errors.New("body mode not supported")
+	}
 }
 
 func RemoveItem[I any](slice []I, s int) []I {

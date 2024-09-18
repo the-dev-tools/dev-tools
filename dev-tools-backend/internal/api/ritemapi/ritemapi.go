@@ -130,7 +130,6 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		CollectionID: collectionUlidID,
 		IsDefault:    true,
 		Name:         "Default",
-		Body:         []byte{},
 	}
 	err = c.iaes.CreateApiExample(ctx, example)
 	if err != nil {
@@ -245,7 +244,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			Body: &bodyv1.Body{
 				Value: &bodyv1.Body_Raw{
 					Raw: &bodyv1.BodyRaw{
-						BodyBytes: examplePtr.Body,
+						BodyBytes: nil,
 					},
 				},
 			},

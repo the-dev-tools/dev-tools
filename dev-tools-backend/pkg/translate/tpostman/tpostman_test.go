@@ -1,8 +1,10 @@
 package tpostman_test
 
 import (
+	"bytes"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemfolder"
+	"dev-tools-backend/pkg/model/postman/v21/mbody"
 	"dev-tools-backend/pkg/model/postman/v21/mheader"
 	"dev-tools-backend/pkg/model/postman/v21/mitem"
 	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
@@ -14,89 +16,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestTranslatePostman(test *testing.T) {
-	NestedApiLen := 100
-	PerNestedApiExampleLen := 10
-	RootFolderLen := 10
-
-	request := mrequest.Request{
-		Method:      "GET",
-		Header:      nil,
-		Body:        nil,
-		Description: "test",
-		URL:         "http://localhost:8080",
-	}
-
-	response := mresponse.Response{
-		Name:            "test",
-		OriginalRequest: nil,
-		ResponseTime:    0,
-	}
-
-	responses := []mresponse.Response{}
-	for i := 0; i < PerNestedApiExampleLen; i++ {
-		responses = append(responses, response)
-	}
-
-	item := mitem.Items{
-		ID:          "test",
-		Name:        "test",
-		Responses:   responses,
-		Request:     &request,
-		Description: "test",
-		Variables:   nil,
-		Items:       nil,
-	}
-
-	// folder
-	RootItem := mitem.Items{
-		ID:          "test",
-		Name:        "test",
-		Request:     nil,
-		Description: "test",
-		Variables:   nil,
-		Items:       nil,
-	}
-
-	for i := 0; i < NestedApiLen; i++ {
-		RootItem.Items = append(RootItem.Items, item)
-	}
-
-	items := []mitem.Items{}
-	for i := 0; i < RootFolderLen; i++ {
-		items = append(items, RootItem)
-	}
-
-	postmanCollection := mpostmancollection.Collection{
-		Auth: nil,
-		Info: mpostmancollection.Info{
-			Name: "test",
-		},
-		Items:     items,
-		Events:    nil,
-		Variables: nil,
-	}
-
-	collectionID := idwrap.NewNow()
-	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
-	if err != nil {
-		test.Errorf("Error: %v", err)
-	}
-
-	if len(pairs.Folders) != RootFolderLen {
-		test.Errorf("Error: %v", len(pairs.Folders))
-	}
-
-	if len(pairs.Apis) != RootFolderLen*NestedApiLen {
-		test.Errorf("Error: %v", len(pairs.Apis))
-	}
-
-	// 10 * 100 * (10 + 1) cuz there's 1 default example
-	if len(pairs.ApiExamples) != RootFolderLen*NestedApiLen*(PerNestedApiExampleLen+1) {
-		test.Errorf("Error: %v", len(pairs.ApiExamples))
-	}
-}
 
 func TestTranslatePostmanOrder(test *testing.T) {
 	NestedApiLen := 100
@@ -495,5 +414,158 @@ func TestTranslatePostmanQuery(test *testing.T) {
 			test.Errorf("Error: %v", "query ulid duplicate")
 		}
 		queryUlidMap[query.ID] = struct{}{}
+	}
+}
+
+func TestTranslatePostmanBody(test *testing.T) {
+	PerNestedApiExampleLen := 3
+	PerRootApi := 9
+	bodyFormDataLen := 5
+	bodyUrlEncodedLen := 5
+	ExpectedBodyBytes := []byte("Abc")
+
+	bodyForm := mbody.Body{
+		Mode:     mbody.ModeFormData,
+		Raw:      "",
+		FormData: []mbody.BodyFormData{},
+		Disabled: false,
+		Options:  mbody.BodyOptions{},
+	}
+
+	bodyUrlEncoded := mbody.Body{
+		Mode:       mbody.ModeURLEncoded,
+		Raw:        "",
+		URLEncoded: []mbody.BodyURLEncoded{},
+		Disabled:   false,
+		Options:    mbody.BodyOptions{},
+	}
+
+	bodyRaw := mbody.Body{
+		Mode:     mbody.ModeRaw,
+		Raw:      string(ExpectedBodyBytes),
+		Disabled: false,
+		Options:  mbody.BodyOptions{},
+	}
+
+	for i := 0; i < bodyFormDataLen; i++ {
+		bodyForm.FormData = append(bodyForm.FormData, mbody.BodyFormData{
+			Key:         "test",
+			Value:       "test",
+			Disabled:    false,
+			Description: "test",
+		})
+	}
+
+	for i := 0; i < bodyUrlEncodedLen; i++ {
+		bodyUrlEncoded.URLEncoded = append(bodyUrlEncoded.URLEncoded, mbody.BodyURLEncoded{
+			Key:         "test",
+			Value:       "test",
+			Disabled:    false,
+			Description: "test",
+		})
+	}
+
+	requestForm := mrequest.Request{
+		Method:      "GET",
+		Header:      nil,
+		Body:        &bodyForm,
+		Description: "test",
+		URL:         "http://localhost:8080",
+	}
+
+	requestUrlEncoded := mrequest.Request{
+		Method:      "GET",
+		Header:      nil,
+		Body:        &bodyUrlEncoded,
+		Description: "test",
+		URL:         "http://localhost:8080",
+	}
+
+	requestRaw := mrequest.Request{
+		Method:      "GET",
+		Header:      nil,
+		Body:        &bodyRaw,
+		Description: "test",
+		URL:         "http://localhost:8080",
+	}
+
+	response := mresponse.Response{
+		Name:            "test",
+		OriginalRequest: nil,
+		ResponseTime:    0,
+	}
+
+	responses := []mresponse.Response{}
+	for i := 0; i < PerNestedApiExampleLen; i++ {
+		responses = append(responses, response)
+	}
+
+	item := mitem.Items{
+		ID:          "test",
+		Name:        "test",
+		Responses:   responses,
+		Description: "test",
+		Variables:   nil,
+		Items:       nil,
+	}
+
+	items := []mitem.Items{}
+
+	for i := 0; i < PerRootApi; i++ {
+		item.Request = &requestForm
+		items = append(items, item)
+	}
+
+	for i := 0; i < PerRootApi; i++ {
+		item.Request = &requestUrlEncoded
+		items = append(items, item)
+	}
+
+	for i := 0; i < PerRootApi; i++ {
+		item.Request = &requestRaw
+		items = append(items, item)
+	}
+
+	postmanCollection := mpostmancollection.Collection{
+		Auth: nil,
+		Info: mpostmancollection.Info{
+			Name: "test",
+		},
+		Items:     items,
+		Events:    nil,
+		Variables: nil,
+	}
+
+	collectionID := idwrap.NewNow()
+	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
+	if err != nil {
+		test.Errorf("Error: %v", err)
+	}
+
+	expectedRootApi := PerRootApi * 3
+	if len(pairs.Apis) != expectedRootApi {
+		test.Errorf("Error: %v", len(pairs.Apis))
+	}
+
+	if len(pairs.ApiExamples) != expectedRootApi*(PerNestedApiExampleLen+1) {
+		test.Errorf("Error: %v", len(pairs.ApiExamples))
+	}
+
+	if len(pairs.BodyForm) != PerRootApi*(PerNestedApiExampleLen+1)*bodyFormDataLen {
+		test.Errorf("Error: %v", len(pairs.BodyForm))
+	}
+
+	if len(pairs.BodyUrlEncoded) != PerRootApi*(PerNestedApiExampleLen+1)*bodyUrlEncodedLen {
+		test.Errorf("Error: %v", len(pairs.BodyUrlEncoded))
+	}
+
+	if len(pairs.BodyRaw) != PerRootApi*(PerNestedApiExampleLen+1) {
+		test.Errorf("Error: %v", len(pairs.BodyRaw))
+	}
+
+	for _, bodyRaw := range pairs.BodyRaw {
+		if !bytes.Equal(bodyRaw, ExpectedBodyBytes) {
+			test.Errorf("Error: %v %v", bodyRaw, ExpectedBodyBytes)
+		}
 	}
 }
