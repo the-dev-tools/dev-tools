@@ -45,6 +45,9 @@ const (
 	// ItemFolderServiceDeleteFolderProcedure is the fully-qualified name of the ItemFolderService's
 	// DeleteFolder RPC.
 	ItemFolderServiceDeleteFolderProcedure = "/itemfolder.v1.ItemFolderService/DeleteFolder"
+	// ItemFolderServiceMoveFolderProcedure is the fully-qualified name of the ItemFolderService's
+	// MoveFolder RPC.
+	ItemFolderServiceMoveFolderProcedure = "/itemfolder.v1.ItemFolderService/MoveFolder"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -54,6 +57,7 @@ var (
 	itemFolderServiceGetFolderMethodDescriptor    = itemFolderServiceServiceDescriptor.Methods().ByName("GetFolder")
 	itemFolderServiceUpdateFolderMethodDescriptor = itemFolderServiceServiceDescriptor.Methods().ByName("UpdateFolder")
 	itemFolderServiceDeleteFolderMethodDescriptor = itemFolderServiceServiceDescriptor.Methods().ByName("DeleteFolder")
+	itemFolderServiceMoveFolderMethodDescriptor   = itemFolderServiceServiceDescriptor.Methods().ByName("MoveFolder")
 )
 
 // ItemFolderServiceClient is a client for the itemfolder.v1.ItemFolderService service.
@@ -62,6 +66,7 @@ type ItemFolderServiceClient interface {
 	GetFolder(context.Context, *connect.Request[v1.GetFolderRequest]) (*connect.Response[v1.GetFolderResponse], error)
 	UpdateFolder(context.Context, *connect.Request[v1.UpdateFolderRequest]) (*connect.Response[v1.UpdateFolderResponse], error)
 	DeleteFolder(context.Context, *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error)
+	MoveFolder(context.Context, *connect.Request[v1.MoveFolderRequest]) (*connect.Response[v1.MoveFolderResponse], error)
 }
 
 // NewItemFolderServiceClient constructs a client for the itemfolder.v1.ItemFolderService service.
@@ -98,6 +103,12 @@ func NewItemFolderServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(itemFolderServiceDeleteFolderMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		moveFolder: connect.NewClient[v1.MoveFolderRequest, v1.MoveFolderResponse](
+			httpClient,
+			baseURL+ItemFolderServiceMoveFolderProcedure,
+			connect.WithSchema(itemFolderServiceMoveFolderMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -107,6 +118,7 @@ type itemFolderServiceClient struct {
 	getFolder    *connect.Client[v1.GetFolderRequest, v1.GetFolderResponse]
 	updateFolder *connect.Client[v1.UpdateFolderRequest, v1.UpdateFolderResponse]
 	deleteFolder *connect.Client[v1.DeleteFolderRequest, v1.DeleteFolderResponse]
+	moveFolder   *connect.Client[v1.MoveFolderRequest, v1.MoveFolderResponse]
 }
 
 // CreateFolder calls itemfolder.v1.ItemFolderService.CreateFolder.
@@ -129,12 +141,18 @@ func (c *itemFolderServiceClient) DeleteFolder(ctx context.Context, req *connect
 	return c.deleteFolder.CallUnary(ctx, req)
 }
 
+// MoveFolder calls itemfolder.v1.ItemFolderService.MoveFolder.
+func (c *itemFolderServiceClient) MoveFolder(ctx context.Context, req *connect.Request[v1.MoveFolderRequest]) (*connect.Response[v1.MoveFolderResponse], error) {
+	return c.moveFolder.CallUnary(ctx, req)
+}
+
 // ItemFolderServiceHandler is an implementation of the itemfolder.v1.ItemFolderService service.
 type ItemFolderServiceHandler interface {
 	CreateFolder(context.Context, *connect.Request[v1.CreateFolderRequest]) (*connect.Response[v1.CreateFolderResponse], error)
 	GetFolder(context.Context, *connect.Request[v1.GetFolderRequest]) (*connect.Response[v1.GetFolderResponse], error)
 	UpdateFolder(context.Context, *connect.Request[v1.UpdateFolderRequest]) (*connect.Response[v1.UpdateFolderResponse], error)
 	DeleteFolder(context.Context, *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error)
+	MoveFolder(context.Context, *connect.Request[v1.MoveFolderRequest]) (*connect.Response[v1.MoveFolderResponse], error)
 }
 
 // NewItemFolderServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -167,6 +185,12 @@ func NewItemFolderServiceHandler(svc ItemFolderServiceHandler, opts ...connect.H
 		connect.WithSchema(itemFolderServiceDeleteFolderMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	itemFolderServiceMoveFolderHandler := connect.NewUnaryHandler(
+		ItemFolderServiceMoveFolderProcedure,
+		svc.MoveFolder,
+		connect.WithSchema(itemFolderServiceMoveFolderMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/itemfolder.v1.ItemFolderService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ItemFolderServiceCreateFolderProcedure:
@@ -177,6 +201,8 @@ func NewItemFolderServiceHandler(svc ItemFolderServiceHandler, opts ...connect.H
 			itemFolderServiceUpdateFolderHandler.ServeHTTP(w, r)
 		case ItemFolderServiceDeleteFolderProcedure:
 			itemFolderServiceDeleteFolderHandler.ServeHTTP(w, r)
+		case ItemFolderServiceMoveFolderProcedure:
+			itemFolderServiceMoveFolderHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -200,4 +226,8 @@ func (UnimplementedItemFolderServiceHandler) UpdateFolder(context.Context, *conn
 
 func (UnimplementedItemFolderServiceHandler) DeleteFolder(context.Context, *connect.Request[v1.DeleteFolderRequest]) (*connect.Response[v1.DeleteFolderResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemfolder.v1.ItemFolderService.DeleteFolder is not implemented"))
+}
+
+func (UnimplementedItemFolderServiceHandler) MoveFolder(context.Context, *connect.Request[v1.MoveFolderRequest]) (*connect.Response[v1.MoveFolderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemfolder.v1.ItemFolderService.MoveFolder is not implemented"))
 }

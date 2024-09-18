@@ -45,6 +45,9 @@ const (
 	// ItemApiServiceDeleteApiCallProcedure is the fully-qualified name of the ItemApiService's
 	// DeleteApiCall RPC.
 	ItemApiServiceDeleteApiCallProcedure = "/itemapi.v1.ItemApiService/DeleteApiCall"
+	// ItemApiServiceMoveApiCallProcedure is the fully-qualified name of the ItemApiService's
+	// MoveApiCall RPC.
+	ItemApiServiceMoveApiCallProcedure = "/itemapi.v1.ItemApiService/MoveApiCall"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -54,6 +57,7 @@ var (
 	itemApiServiceCreateApiCallMethodDescriptor = itemApiServiceServiceDescriptor.Methods().ByName("CreateApiCall")
 	itemApiServiceUpdateApiCallMethodDescriptor = itemApiServiceServiceDescriptor.Methods().ByName("UpdateApiCall")
 	itemApiServiceDeleteApiCallMethodDescriptor = itemApiServiceServiceDescriptor.Methods().ByName("DeleteApiCall")
+	itemApiServiceMoveApiCallMethodDescriptor   = itemApiServiceServiceDescriptor.Methods().ByName("MoveApiCall")
 )
 
 // ItemApiServiceClient is a client for the itemapi.v1.ItemApiService service.
@@ -62,6 +66,7 @@ type ItemApiServiceClient interface {
 	CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error)
 	UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error)
 	DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error)
+	MoveApiCall(context.Context, *connect.Request[v1.MoveApiCallRequest]) (*connect.Response[v1.MoveApiCallResponse], error)
 }
 
 // NewItemApiServiceClient constructs a client for the itemapi.v1.ItemApiService service. By
@@ -98,6 +103,12 @@ func NewItemApiServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(itemApiServiceDeleteApiCallMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		moveApiCall: connect.NewClient[v1.MoveApiCallRequest, v1.MoveApiCallResponse](
+			httpClient,
+			baseURL+ItemApiServiceMoveApiCallProcedure,
+			connect.WithSchema(itemApiServiceMoveApiCallMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -107,6 +118,7 @@ type itemApiServiceClient struct {
 	createApiCall *connect.Client[v1.CreateApiCallRequest, v1.CreateApiCallResponse]
 	updateApiCall *connect.Client[v1.UpdateApiCallRequest, v1.UpdateApiCallResponse]
 	deleteApiCall *connect.Client[v1.DeleteApiCallRequest, v1.DeleteApiCallResponse]
+	moveApiCall   *connect.Client[v1.MoveApiCallRequest, v1.MoveApiCallResponse]
 }
 
 // GetApiCall calls itemapi.v1.ItemApiService.GetApiCall.
@@ -129,12 +141,18 @@ func (c *itemApiServiceClient) DeleteApiCall(ctx context.Context, req *connect.R
 	return c.deleteApiCall.CallUnary(ctx, req)
 }
 
+// MoveApiCall calls itemapi.v1.ItemApiService.MoveApiCall.
+func (c *itemApiServiceClient) MoveApiCall(ctx context.Context, req *connect.Request[v1.MoveApiCallRequest]) (*connect.Response[v1.MoveApiCallResponse], error) {
+	return c.moveApiCall.CallUnary(ctx, req)
+}
+
 // ItemApiServiceHandler is an implementation of the itemapi.v1.ItemApiService service.
 type ItemApiServiceHandler interface {
 	GetApiCall(context.Context, *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error)
 	CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error)
 	UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error)
 	DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error)
+	MoveApiCall(context.Context, *connect.Request[v1.MoveApiCallRequest]) (*connect.Response[v1.MoveApiCallResponse], error)
 }
 
 // NewItemApiServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -167,6 +185,12 @@ func NewItemApiServiceHandler(svc ItemApiServiceHandler, opts ...connect.Handler
 		connect.WithSchema(itemApiServiceDeleteApiCallMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	itemApiServiceMoveApiCallHandler := connect.NewUnaryHandler(
+		ItemApiServiceMoveApiCallProcedure,
+		svc.MoveApiCall,
+		connect.WithSchema(itemApiServiceMoveApiCallMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/itemapi.v1.ItemApiService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ItemApiServiceGetApiCallProcedure:
@@ -177,6 +201,8 @@ func NewItemApiServiceHandler(svc ItemApiServiceHandler, opts ...connect.Handler
 			itemApiServiceUpdateApiCallHandler.ServeHTTP(w, r)
 		case ItemApiServiceDeleteApiCallProcedure:
 			itemApiServiceDeleteApiCallHandler.ServeHTTP(w, r)
+		case ItemApiServiceMoveApiCallProcedure:
+			itemApiServiceMoveApiCallHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -200,4 +226,8 @@ func (UnimplementedItemApiServiceHandler) UpdateApiCall(context.Context, *connec
 
 func (UnimplementedItemApiServiceHandler) DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapi.v1.ItemApiService.DeleteApiCall is not implemented"))
+}
+
+func (UnimplementedItemApiServiceHandler) MoveApiCall(context.Context, *connect.Request[v1.MoveApiCallRequest]) (*connect.Response[v1.MoveApiCallResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapi.v1.ItemApiService.MoveApiCall is not implemented"))
 }
