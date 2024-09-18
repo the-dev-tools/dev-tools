@@ -10,6 +10,7 @@ service ItemFolderService {
   rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
   rpc UpdateFolder(UpdateFolderRequest) returns (UpdateFolderResponse);
   rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse);
+  rpc MoveFolder(MoveFolderRequest) returns (MoveFolderResponse);
 }
 
 message FolderMeta {
@@ -68,3 +69,11 @@ message DeleteFolderRequest {
 }
 
 message DeleteFolderResponse {}
+
+message MoveFolderRequest {
+  string id = 1;
+  string next_id = 2;
+  string prev_id = 3;
+}
+
+message MoveFolderResponse {}

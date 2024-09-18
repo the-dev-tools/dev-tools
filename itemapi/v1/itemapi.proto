@@ -9,6 +9,7 @@ service ItemApiService {
   rpc CreateApiCall(CreateApiCallRequest) returns (CreateApiCallResponse);
   rpc UpdateApiCall(UpdateApiCallRequest) returns (UpdateApiCallResponse);
   rpc DeleteApiCall(DeleteApiCallRequest) returns (DeleteApiCallResponse);
+  rpc MoveApiCall(MoveApiCallRequest) returns (MoveApiCallResponse);
 }
 
 message ApiCallMeta {
@@ -57,3 +58,10 @@ message DeleteApiCallRequest {
 
 message DeleteApiCallResponse {}
 
+message MoveApiCallRequest {
+  string id = 1;
+  string next_id = 2;
+  string prev_id = 3;
+}
+
+message MoveApiCallResponse {}
