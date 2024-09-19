@@ -1,6 +1,13 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import {
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+  useTransport,
+} from '@connectrpc/connect-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { Array, pipe } from 'effect';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
@@ -35,6 +42,9 @@ interface TableProps {
 }
 
 const Table = ({ data }: TableProps) => {
+  const queryClient = useQueryClient();
+  const transport = useTransport();
+
   const updateMutation = useConnectMutation(updateQuery);
   const createMutation = useConnectMutation(createQuery);
   const { mutate: delete_ } = useConnectMutation(deleteQuery);
@@ -131,32 +141,38 @@ const Table = ({ data }: TableProps) => {
   });
 
   const updateQueryQueueMap = useRef(new Map<string, Query>());
-  const updateQueries = useDebouncedCallback(() => {
+  const updateQueries = useDebouncedCallback(async () => {
     // Wait for all mutations to finish before processing new updates
     if (updateMutation.isPending || createMutation.isPending) return void updateQueries();
 
     const updates = updateQueryQueueMap.current;
-    updates.forEach(async (query) => {
-      updates.delete(query.id); // Un-queue update
-      if (query.id) {
-        await updateMutation.mutateAsync({ query });
-      } else {
-        const { id } = await createMutation.mutateAsync({ query });
-        const index = getValues('query').length - 1;
+    await pipe(
+      Array.fromIterable(updates),
+      Array.map(async ([id, query]) => {
+        updates.delete(id); // Un-queue update
+        if (id) {
+          await updateMutation.mutateAsync({ query });
+        } else {
+          const { id } = await createMutation.mutateAsync({ query });
+          const index = getValues('query').length - 1;
 
-        form.setValue(`query.${index}`, new Query({ ...query, id }));
-        updates.delete(id); // Delete update that gets queued by setting new id
+          form.setValue(`query.${index}`, new Query({ ...query, id }));
+          updates.delete(id); // Delete update that gets queued by setting new id
 
-        fieldArray.append(makeTemplateQuery(), { shouldFocus: false });
+          fieldArray.append(makeTemplateQuery(), { shouldFocus: false });
 
-        // Redirect outdated queued update to the new id
-        const outdated = updates.get('');
-        if (outdated !== undefined) {
-          updates.delete('');
-          updates.set(id, new Query({ ...outdated, id }));
+          // Redirect outdated queued update to the new id
+          const outdated = updates.get('');
+          if (outdated !== undefined) {
+            updates.delete('');
+            updates.set(id, new Query({ ...outdated, id }));
+          }
         }
-      }
-    });
+      }),
+      (_) => Promise.allSettled(_),
+    );
+
+    await queryClient.invalidateQueries(createQueryOptions(getApiCall, { id: data.apiCall!.meta!.id }, { transport }));
   }, 500);
 
   useEffect(() => {
