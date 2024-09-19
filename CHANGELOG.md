@@ -1,5 +1,16 @@
 # @the-dev-tools/protobuf
 
+## 1.21.0
+
+### Minor Changes
+
+- [`7f0a0f7`](https://github.com/the-dev-tools/dev-tools-proto/commit/7f0a0f7d1be321025ec322582cce3bb100e75fb7) Thanks [@ElecTwix](https://github.com/ElecTwix)! - move body rpc to body.proto and refactor
+
+### Patch Changes
+
+- [`5a57e1b`](https://github.com/the-dev-tools/dev-tools-proto/commit/5a57e1bdeaa77b4ec4e37a3e01a693b2976e2de9) Thanks [@ElecTwix](https://github.com/ElecTwix)! - update BodyFormDataItem data Items to Item
+  add Move Call for ApiItem and FolderItem
+
 ## 1.20.0
 
 ### Minor Changes
