@@ -10,7 +10,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { Array, HashMap, MutableHashMap, Option, pipe } from 'effect';
 import { useMemo } from 'react';
-import { Form } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 
@@ -85,89 +84,89 @@ const ApiForm = ({ data }: ApiFormProps) => {
     values,
   });
 
+  const onSubmit = form.handleSubmit(async (formData) => {
+    const { origin, pathname, searchParams } = new URL(formData.url);
+
+    updateMutation.mutate({
+      apiCall: {
+        ...data.apiCall,
+        url: origin + pathname,
+        meta: { ...data.apiCall?.meta, method: formData.method },
+      },
+    });
+
+    const queryMap = pipe(
+      searchParams.entries(),
+      Array.fromIterable,
+      Array.map(
+        ([key, value]) =>
+          [
+            key + value,
+            new Query({
+              key,
+              value,
+              enabled: true,
+              exampleId: data.example!.meta!.id,
+            }),
+          ] as const,
+      ),
+      MutableHashMap.fromIterable,
+    );
+
+    data.example!.query.forEach((query) => {
+      MutableHashMap.modifyAt(
+        queryMap,
+        query.key + query.value,
+        Option.match({
+          onSome: () => {
+            if (query.enabled) return Option.none();
+            else return Option.some(new Query({ ...query, enabled: true }));
+          },
+          onNone: () => {
+            if (!query.enabled) return Option.none();
+            return Option.some(new Query({ ...query, exampleId: data.example!.meta!.id, enabled: false }));
+          },
+        }),
+      );
+    });
+
+    const queryIdIndexMap = pipe(
+      data.example!.query,
+      Array.map(({ id }, index) => [id, index] as const),
+      HashMap.fromIterable,
+    );
+
+    const newQueryList = [...data.example!.query];
+    await pipe(
+      Array.fromIterable(queryMap),
+      Array.map(async ([_, query]) => {
+        if (query.id) {
+          await updateQueryMutation.mutateAsync({ query });
+          const index = HashMap.unsafeGet(queryIdIndexMap, query.id);
+          newQueryList[index] = query;
+        } else {
+          const { id } = await createQueryMutation.mutateAsync({ query });
+          newQueryList.push(new Query({ ...query, id }));
+        }
+      }),
+      (_) => Promise.allSettled(_),
+    );
+
+    queryClient.setQueryData(
+      createConnectQueryKey(getApiCall, { id: apiCallId }),
+      createProtobufSafeUpdater(getApiCall, (_) => ({
+        ..._,
+        example: {
+          ..._!.example,
+          query: newQueryList,
+        },
+      })),
+    );
+  });
+
   return (
     <div className='flex h-full flex-col'>
-      <Form
-        onSubmit={form.handleSubmit(async (formData) => {
-          const { origin, pathname, searchParams } = new URL(formData.url);
-
-          updateMutation.mutate({
-            apiCall: {
-              ...data.apiCall,
-              url: origin + pathname,
-              meta: { ...data.apiCall?.meta, method: formData.method },
-            },
-          });
-
-          const queryMap = pipe(
-            searchParams.entries(),
-            Array.fromIterable,
-            Array.map(
-              ([key, value]) =>
-                [
-                  key + value,
-                  new Query({
-                    key,
-                    value,
-                    enabled: true,
-                    exampleId: data.example!.meta!.id,
-                  }),
-                ] as const,
-            ),
-            MutableHashMap.fromIterable,
-          );
-
-          data.example!.query.forEach((query) => {
-            MutableHashMap.modifyAt(
-              queryMap,
-              query.key + query.value,
-              Option.match({
-                onSome: () => {
-                  if (query.enabled) return Option.none();
-                  else return Option.some(new Query({ ...query, enabled: true }));
-                },
-                onNone: () => {
-                  if (!query.enabled) return Option.none();
-                  return Option.some(new Query({ ...query, exampleId: data.example!.meta!.id, enabled: false }));
-                },
-              }),
-            );
-          });
-
-          const queryIdIndexMap = pipe(
-            data.example!.query,
-            Array.map(({ id }, index) => [id, index] as const),
-            HashMap.fromIterable,
-          );
-
-          const newQueryList = [...data.example!.query];
-          await pipe(
-            Array.fromIterable(queryMap),
-            Array.map(async ([_, query]) => {
-              if (query.id) {
-                await updateQueryMutation.mutateAsync({ query });
-                const index = HashMap.unsafeGet(queryIdIndexMap, query.id);
-                newQueryList[index] = query;
-              } else {
-                const { id } = await createQueryMutation.mutateAsync({ query });
-                newQueryList.push(new Query({ ...query, id }));
-              }
-            }),
-            (_) => Promise.allSettled(_),
-          );
-
-          queryClient.setQueryData(
-            createConnectQueryKey(getApiCall, { id: apiCallId }),
-            createProtobufSafeUpdater(getApiCall, (_) => ({
-              ..._,
-              example: {
-                ..._!.example,
-                query: newQueryList,
-              },
-            })),
-          );
-        })}
-      >
+      <form onSubmit={onSubmit} onBlur={onSubmit}>
         <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
           <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
 
@@ -203,7 +202,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
             Send <LuSendHorizonal className='size-4' />
           </Button>
         </div>
-      </Form>
+      </form>
 
       <div className='flex flex-1 flex-col gap-4 p-4'>
         <div className='flex gap-4 border-b border-black'>
