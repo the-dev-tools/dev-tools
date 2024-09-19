@@ -27,6 +27,12 @@ export default defineConfig(({ command }) => ({
       ),
     },
   },
+  dev: {
+    watchFiles: {
+      paths: ['src/routes.ts'],
+      type: 'reload-server',
+    },
+  },
   tools: {
     rspack: {
       plugins: [
