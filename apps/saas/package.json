@@ -22,7 +22,7 @@
     "@tanstack/react-table": "8.20.5",
     "@tanstack/virtual-file-routes": "1.56.0",
     "@the-dev-tools/api": "workspace:^",
-    "@the-dev-tools/protobuf": "1.20.0",
+    "@the-dev-tools/protobuf": "1.21.0",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.7.3",
