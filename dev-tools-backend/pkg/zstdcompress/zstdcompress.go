@@ -83,3 +83,17 @@ func NewZstdCompressor() connect.Compressor {
 	}
 	return w
 }
+
+var encoder, _ = zstd.NewWriter(nil)
+
+// Compress a buffer.
+// If you have a destination buffer, the allocation in the call can also be eliminated.
+func Compress(src []byte) []byte {
+	return encoder.EncodeAll(src, make([]byte, 0, len(src)))
+}
+
+var decoder, _ = zstd.NewReader(nil)
+
+func Decompress(src []byte) ([]byte, error) {
+	return decoder.DecodeAll(src, nil)
+}

@@ -8,8 +8,12 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/service/sbodyform"
+	"dev-tools-backend/pkg/service/sbodyraw"
+	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
@@ -17,9 +21,12 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tbodyform"
+	"dev-tools-backend/pkg/translate/tbodyurl"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
+	"dev-tools-backend/pkg/zstdcompress"
 	bodyv1 "dev-tools-services/gen/body/v1"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
@@ -41,6 +48,11 @@ type ItemApiRPC struct {
 	// Sub
 	hs *sexampleheader.HeaderService
 	qs *sexamplequery.ExampleQueryService
+
+	// Body
+	brs  *sbodyraw.BodyRawService
+	bfs  *sbodyform.BodyFormService
+	bufs *sbodyurl.BodyURLEncodedService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -79,6 +91,21 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	brs, err := sbodyraw.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	bfs, err := sbodyform.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	bufs, err := sbodyurl.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -90,8 +117,13 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		cs:   cs,
 		us:   us,
 		iaes: iaes,
-		hs:   hs,
-		qs:   qs,
+		// Sub
+		hs: hs,
+		qs: qs,
+		// Body
+		brs:  brs,
+		bfs:  bfs,
+		bufs: bufs,
 	}
 
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, options...)
@@ -215,10 +247,59 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 
 	// TODO: it is overfetching the data change it
 	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))
+
+	// TODO: simplify this
 	for i, example := range examples {
 		metaExamplesRPC[i] = &itemapiexamplev1.ApiExampleMeta{
 			Id:   example.ID.String(),
 			Name: example.Name,
+		}
+	}
+
+	bodyPtr := &bodyv1.Body{}
+	switch examplePtr.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		body, err := c.brs.GetBodyRawByExampleID(ctx, examplePtr.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		data := body.Data
+		if body.CompressType == mbodyraw.CompressTypeZstd {
+			body.Data, err = zstdcompress.Decompress(data)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		bodyPtr = &bodyv1.Body{
+			Value: &bodyv1.Body_Raw{
+				Raw: &bodyv1.BodyRaw{
+					BodyBytes: body.Data,
+				},
+			},
+		}
+	case mitemapiexample.BodyTypeForm:
+		body, err := c.bfs.GetBodyFormsByExampleID(ctx, examplePtr.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		bodyPtr = &bodyv1.Body{
+			Value: &bodyv1.Body_Forms{
+				Forms: &bodyv1.BodyFormArray{
+					Items: tgeneric.MassConvert(body, tbodyform.SerializeFormModelToRPC),
+				},
+			},
+		}
+	case mitemapiexample.BodyTypeUrlencoded:
+		body, err := c.bufs.GetBodyURLEncodedByExampleID(ctx, examplePtr.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		bodyPtr = &bodyv1.Body{
+			Value: &bodyv1.Body_UrlEncodeds{
+				UrlEncodeds: &bodyv1.BodyUrlEncodedArray{
+					Items: tgeneric.MassConvert(body, tbodyurl.SerializeURLModelToRPC),
+				},
+			},
 		}
 	}
 
@@ -239,15 +320,9 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 				Id:   examplePtr.ID.String(),
 				Name: examplePtr.Name,
 			},
-			Header: rpcHeaders,
-			Query:  rpcQueries,
-			Body: &bodyv1.Body{
-				Value: &bodyv1.Body_Raw{
-					Raw: &bodyv1.BodyRaw{
-						BodyBytes: nil,
-					},
-				},
-			},
+			Header:  rpcHeaders,
+			Query:   rpcQueries,
+			Body:    bodyPtr,
 			Updated: timestamppb.New(examplePtr.Updated),
 		},
 	}

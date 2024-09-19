@@ -9,6 +9,9 @@ import (
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
+	"dev-tools-backend/pkg/service/sbodyform"
+	"dev-tools-backend/pkg/service/sbodyraw"
+	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
@@ -321,6 +324,35 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// START BODY
+	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyRawService.CreateBulkBodyRaw(ctx, items.BodyRaw)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyFormService.CreateBulkBodyForm(ctx, items.BodyForm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, items.BodyUrlEncoded)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	// END BODY
 
 	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
 	if err != nil {

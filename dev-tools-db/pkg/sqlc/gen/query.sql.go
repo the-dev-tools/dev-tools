@@ -216,6 +216,102 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 	return err
 }
 
+const createBodyRaw = `-- name: CreateBodyRaw :exec
+INSERT INTO
+  example_body_raw (id, example_id, visualize_mode, compress_type, data)
+VALUES
+  (?, ?, ?, ?, ?)
+`
+
+type CreateBodyRawParams struct {
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	VisualizeMode int8
+	CompressType  int8
+	Data          []byte
+}
+
+func (q *Queries) CreateBodyRaw(ctx context.Context, arg CreateBodyRawParams) error {
+	_, err := q.exec(ctx, q.createBodyRawStmt, createBodyRaw,
+		arg.ID,
+		arg.ExampleID,
+		arg.VisualizeMode,
+		arg.CompressType,
+		arg.Data,
+	)
+	return err
+}
+
+const createBodyRawBulk = `-- name: CreateBodyRawBulk :exec
+INSERT INTO
+  example_body_raw (id, example_id, visualize_mode, compress_type, data)
+VALUES
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?)
+`
+
+type CreateBodyRawBulkParams struct {
+	ID              idwrap.IDWrap
+	ExampleID       idwrap.IDWrap
+	VisualizeMode   int8
+	CompressType    int8
+	Data            []byte
+	ID_2            idwrap.IDWrap
+	ExampleID_2     idwrap.IDWrap
+	VisualizeMode_2 int8
+	CompressType_2  int8
+	Data_2          []byte
+	ID_3            idwrap.IDWrap
+	ExampleID_3     idwrap.IDWrap
+	VisualizeMode_3 int8
+	CompressType_3  int8
+	Data_3          []byte
+	ID_4            idwrap.IDWrap
+	ExampleID_4     idwrap.IDWrap
+	VisualizeMode_4 int8
+	CompressType_4  int8
+	Data_4          []byte
+	ID_5            idwrap.IDWrap
+	ExampleID_5     idwrap.IDWrap
+	VisualizeMode_5 int8
+	CompressType_5  int8
+	Data_5          []byte
+}
+
+func (q *Queries) CreateBodyRawBulk(ctx context.Context, arg CreateBodyRawBulkParams) error {
+	_, err := q.exec(ctx, q.createBodyRawBulkStmt, createBodyRawBulk,
+		arg.ID,
+		arg.ExampleID,
+		arg.VisualizeMode,
+		arg.CompressType,
+		arg.Data,
+		arg.ID_2,
+		arg.ExampleID_2,
+		arg.VisualizeMode_2,
+		arg.CompressType_2,
+		arg.Data_2,
+		arg.ID_3,
+		arg.ExampleID_3,
+		arg.VisualizeMode_3,
+		arg.CompressType_3,
+		arg.Data_3,
+		arg.ID_4,
+		arg.ExampleID_4,
+		arg.VisualizeMode_4,
+		arg.CompressType_4,
+		arg.Data_4,
+		arg.ID_5,
+		arg.ExampleID_5,
+		arg.VisualizeMode_5,
+		arg.CompressType_5,
+		arg.Data_5,
+	)
+	return err
+}
+
 const createBodyUrlEncoded = `-- name: CreateBodyUrlEncoded :exec
 INSERT INTO
   example_body_urlencoded (id, example_id, body_key, enable, description, value)
@@ -820,7 +916,7 @@ type CreateItemApiExampleParams struct {
 	CollectionID    idwrap.IDWrap
 	ParentExampleID *idwrap.IDWrap
 	IsDefault       bool
-	BodyType        int16
+	BodyType        int8
 	Name            string
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
@@ -873,7 +969,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID       idwrap.IDWrap
 	ParentExampleID    *idwrap.IDWrap
 	IsDefault          bool
-	BodyType           int16
+	BodyType           int8
 	Name               string
 	Prev               *idwrap.IDWrap
 	Next               *idwrap.IDWrap
@@ -882,7 +978,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_2     idwrap.IDWrap
 	ParentExampleID_2  *idwrap.IDWrap
 	IsDefault_2        bool
-	BodyType_2         int16
+	BodyType_2         int8
 	Name_2             string
 	Prev_2             *idwrap.IDWrap
 	Next_2             *idwrap.IDWrap
@@ -891,7 +987,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_3     idwrap.IDWrap
 	ParentExampleID_3  *idwrap.IDWrap
 	IsDefault_3        bool
-	BodyType_3         int16
+	BodyType_3         int8
 	Name_3             string
 	Prev_3             *idwrap.IDWrap
 	Next_3             *idwrap.IDWrap
@@ -900,7 +996,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_4     idwrap.IDWrap
 	ParentExampleID_4  *idwrap.IDWrap
 	IsDefault_4        bool
-	BodyType_4         int16
+	BodyType_4         int8
 	Name_4             string
 	Prev_4             *idwrap.IDWrap
 	Next_4             *idwrap.IDWrap
@@ -909,7 +1005,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_5     idwrap.IDWrap
 	ParentExampleID_5  *idwrap.IDWrap
 	IsDefault_5        bool
-	BodyType_5         int16
+	BodyType_5         int8
 	Name_5             string
 	Prev_5             *idwrap.IDWrap
 	Next_5             *idwrap.IDWrap
@@ -918,7 +1014,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_6     idwrap.IDWrap
 	ParentExampleID_6  *idwrap.IDWrap
 	IsDefault_6        bool
-	BodyType_6         int16
+	BodyType_6         int8
 	Name_6             string
 	Prev_6             *idwrap.IDWrap
 	Next_6             *idwrap.IDWrap
@@ -927,7 +1023,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_7     idwrap.IDWrap
 	ParentExampleID_7  *idwrap.IDWrap
 	IsDefault_7        bool
-	BodyType_7         int16
+	BodyType_7         int8
 	Name_7             string
 	Prev_7             *idwrap.IDWrap
 	Next_7             *idwrap.IDWrap
@@ -936,7 +1032,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_8     idwrap.IDWrap
 	ParentExampleID_8  *idwrap.IDWrap
 	IsDefault_8        bool
-	BodyType_8         int16
+	BodyType_8         int8
 	Name_8             string
 	Prev_8             *idwrap.IDWrap
 	Next_8             *idwrap.IDWrap
@@ -945,7 +1041,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_9     idwrap.IDWrap
 	ParentExampleID_9  *idwrap.IDWrap
 	IsDefault_9        bool
-	BodyType_9         int16
+	BodyType_9         int8
 	Name_9             string
 	Prev_9             *idwrap.IDWrap
 	Next_9             *idwrap.IDWrap
@@ -954,7 +1050,7 @@ type CreateItemApiExampleBulkParams struct {
 	CollectionID_10    idwrap.IDWrap
 	ParentExampleID_10 *idwrap.IDWrap
 	IsDefault_10       bool
-	BodyType_10        int16
+	BodyType_10        int8
 	Name_10            string
 	Prev_10            *idwrap.IDWrap
 	Next_10            *idwrap.IDWrap
@@ -1537,6 +1633,17 @@ func (q *Queries) DeleteBodyForm(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const deleteBodyRaw = `-- name: DeleteBodyRaw :exec
+DELETE FROM example_body_raw
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteBodyRaw(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteBodyRawStmt, deleteBodyRaw, id)
+	return err
+}
+
 const deleteBodyURLEncoded = `-- name: DeleteBodyURLEncoded :exec
 DELETE FROM example_body_urlencoded
 WHERE
@@ -1676,6 +1783,7 @@ FROM
     example_body_form 
 WHERE 
     id = ?
+LIMIT 1
 `
 
 func (q *Queries) GetBodyForm(ctx context.Context, id idwrap.IDWrap) (ExampleBodyForm, error) {
@@ -1736,6 +1844,64 @@ func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID idwrap.
 	return items, nil
 }
 
+const getBodyRaw = `-- name: GetBodyRaw :one
+/*
+* Body Raw
+*/
+
+SELECT 
+  id,
+  example_id,
+  visualize_mode,
+  compress_type,
+  data
+FROM 
+  example_body_raw
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetBodyRaw(ctx context.Context, id idwrap.IDWrap) (ExampleBodyRaw, error) {
+	row := q.queryRow(ctx, q.getBodyRawStmt, getBodyRaw, id)
+	var i ExampleBodyRaw
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.VisualizeMode,
+		&i.CompressType,
+		&i.Data,
+	)
+	return i, err
+}
+
+const getBodyRawsByExampleID = `-- name: GetBodyRawsByExampleID :one
+SELECT 
+  id,
+  example_id,
+  visualize_mode,
+  compress_type,
+  data
+FROM 
+  example_body_raw
+WHERE
+  example_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetBodyRawsByExampleID(ctx context.Context, exampleID idwrap.IDWrap) (ExampleBodyRaw, error) {
+	row := q.queryRow(ctx, q.getBodyRawsByExampleIDStmt, getBodyRawsByExampleID, exampleID)
+	var i ExampleBodyRaw
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.VisualizeMode,
+		&i.CompressType,
+		&i.Data,
+	)
+	return i, err
+}
+
 const getBodyUrlEncoded = `-- name: GetBodyUrlEncoded :one
 
 SELECT 
@@ -1749,6 +1915,7 @@ FROM
   example_body_urlencoded
 WHERE
   id = ?
+LIMIT 1
 `
 
 // Body Url Encoded
@@ -1935,6 +2102,7 @@ FROM
   example_header
 WHERE
   id = ?
+LIMIT 1
 `
 
 func (q *Queries) GetHeader(ctx context.Context, id idwrap.IDWrap) (ExampleHeader, error) {
@@ -2422,40 +2590,11 @@ FROM
   example_query
 WHERE
   id = ?
+LIMIT 1
 `
 
 func (q *Queries) GetQuery(ctx context.Context, id idwrap.IDWrap) (ExampleQuery, error) {
 	row := q.queryRow(ctx, q.getQueryStmt, getQuery, id)
-	var i ExampleQuery
-	err := row.Scan(
-		&i.ID,
-		&i.ExampleID,
-		&i.QueryKey,
-		&i.Enable,
-		&i.Description,
-		&i.Value,
-	)
-	return i, err
-}
-
-const getQueryByID = `-- name: GetQueryByID :one
-SELECT
-  id,
-  example_id,
-  query_key,
-  enable,
-  description,
-  value
-FROM
-  example_query
-WHERE
-  id = ?
-LIMIT
-  1
-`
-
-func (q *Queries) GetQueryByID(ctx context.Context, id idwrap.IDWrap) (ExampleQuery, error) {
-	row := q.queryRow(ctx, q.getQueryByIDStmt, getQueryByID, id)
 	var i ExampleQuery
 	err := row.Scan(
 		&i.ID,
@@ -3089,6 +3228,26 @@ func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) 
 	return err
 }
 
+const updateBodyRawData = `-- name: UpdateBodyRawData :exec
+UPDATE example_body_raw
+SET 
+  compress_type = ?,
+  data = ?
+WHERE
+  id = ?
+`
+
+type UpdateBodyRawDataParams struct {
+	CompressType int8
+	Data         []byte
+	ID           idwrap.IDWrap
+}
+
+func (q *Queries) UpdateBodyRawData(ctx context.Context, arg UpdateBodyRawDataParams) error {
+	_, err := q.exec(ctx, q.updateBodyRawDataStmt, updateBodyRawData, arg.CompressType, arg.Data, arg.ID)
+	return err
+}
+
 const updateBodyUrlEncoded = `-- name: UpdateBodyUrlEncoded :exec
 UPDATE example_body_urlencoded
     SET
@@ -3320,6 +3479,25 @@ type UpdateUserParams struct {
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 	_, err := q.exec(ctx, q.updateUserStmt, updateUser, arg.Email, arg.PasswordHash, arg.ID)
+	return err
+}
+
+const updateVisualizeMode = `-- name: UpdateVisualizeMode :exec
+
+UPDATE example_body_raw
+SET visualize_mode = ?
+WHERE
+  id = ?
+`
+
+type UpdateVisualizeModeParams struct {
+	VisualizeMode int8
+	ID            idwrap.IDWrap
+}
+
+// TODO: make another query for change body only
+func (q *Queries) UpdateVisualizeMode(ctx context.Context, arg UpdateVisualizeModeParams) error {
+	_, err := q.exec(ctx, q.updateVisualizeModeStmt, updateVisualizeMode, arg.VisualizeMode, arg.ID)
 	return err
 }
 

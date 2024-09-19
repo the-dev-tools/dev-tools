@@ -686,7 +686,8 @@ SELECT
 FROM 
   example_header
 WHERE
-  id = ?;
+  id = ?
+LIMIT 1;
 
 -- name: GetHeadersByExampleID :many
 SELECT
@@ -761,7 +762,8 @@ SELECT
 FROM 
   example_query
 WHERE
-  id = ?;
+  id = ?
+LIMIT 1;
 
 -- name: GetQueriesByExampleID :many
 SELECT
@@ -775,21 +777,6 @@ FROM
   example_query
 WHERE
   example_id = ?;
-
--- name: GetQueryByID :one
-SELECT
-  id,
-  example_id,
-  query_key,
-  enable,
-  description,
-  value
-FROM
-  example_query
-WHERE
-  id = ?
-LIMIT
-  1;
 
 -- name: CreateQuery :exec
 INSERT INTO
@@ -851,7 +838,8 @@ SELECT
 FROM 
     example_body_form 
 WHERE 
-    id = ?;
+    id = ?
+LIMIT 1;
 
 -- name: GetBodyFormsByExampleID :many
 SELECT
@@ -928,7 +916,8 @@ SELECT
 FROM 
   example_body_urlencoded
 WHERE
-  id = ?;
+  id = ?
+LIMIT 1;
 
 -- name: GetBodyUrlEncodedsByExampleID :many
 SELECT 
@@ -976,5 +965,74 @@ UPDATE example_body_urlencoded
 
 -- name: DeleteBodyURLEncoded :exec
 DELETE FROM example_body_urlencoded
+WHERE
+  id = ?;
+
+/*
+* Body Raw
+*/
+
+-- name: GetBodyRaw :one
+SELECT 
+  id,
+  example_id,
+  visualize_mode,
+  compress_type,
+  data
+FROM 
+  example_body_raw
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetBodyRawsByExampleID :one
+SELECT 
+  id,
+  example_id,
+  visualize_mode,
+  compress_type,
+  data
+FROM 
+  example_body_raw
+WHERE
+  example_id = ?
+LIMIT 1;
+
+-- name: CreateBodyRaw :exec
+INSERT INTO
+  example_body_raw (id, example_id, visualize_mode, compress_type, data)
+VALUES
+  (?, ?, ?, ?, ?);
+
+-- name: CreateBodyRawBulk :exec
+INSERT INTO
+  example_body_raw (id, example_id, visualize_mode, compress_type, data)
+VALUES
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?);
+
+
+--TODO: make another query for change body only
+
+-- name: UpdateVisualizeMode :exec
+UPDATE example_body_raw
+SET visualize_mode = ?
+WHERE
+  id = ?;
+
+-- name: UpdateBodyRawData :exec
+UPDATE example_body_raw
+SET 
+  compress_type = ?,
+  data = ?
+WHERE
+  id = ?;
+
+
+-- name: DeleteBodyRaw :exec
+DELETE FROM example_body_raw
 WHERE
   id = ?;

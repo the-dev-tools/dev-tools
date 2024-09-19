@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+type BodyType int8
+
+const (
+	BodyTypeUndefined  BodyType = 0
+	BodyTypeNone       BodyType = 1
+	BodyTypeRaw        BodyType = 2
+	BodyTypeForm       BodyType = 3
+	BodyTypeUrlencoded BodyType = 4
+)
+
 type ItemApiExampleMeta struct {
 	ID   idwrap.IDWrap
 	Name string
@@ -16,6 +26,7 @@ type ItemApiExample struct {
 	ParentExampleID *idwrap.IDWrap
 	CollectionID    idwrap.IDWrap
 	IsDefault       bool
+	BodyType        BodyType
 	Name            string
 	Updated         time.Time
 	Prev            *idwrap.IDWrap

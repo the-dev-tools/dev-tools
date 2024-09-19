@@ -108,7 +108,7 @@ CREATE TABLE item_api_example (
   collection_id BLOB NOT NULL,
   parent_example_id BLOB,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
-  body_type TINYINT NOT NULL DEFAULT 0,
+  body_type INT8 NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
   prev BLOB,
   next BLOB,
@@ -188,8 +188,8 @@ CREATE INDEX example_body_urlencoded_idx1 ON example_body_urlencoded (
 CREATE TABLE example_body_raw (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
-  visualize_mode TINYINT NOT NULL,
-  compress_type TINYINT NOT NULL,
+  visualize_mode INT8 NOT NULL,
+  compress_type INT8 NOT NULL,
   data BLOB,
   UNIQUE (example_id),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE

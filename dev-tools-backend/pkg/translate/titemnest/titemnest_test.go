@@ -7,7 +7,6 @@ import (
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/translate/titemnest"
 	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
-	"fmt"
 	"testing"
 )
 
@@ -86,9 +85,6 @@ func TestTranslateItemFolderNested(t *testing.T) {
 
 	items := collectionPair.GetItemsFull()
 	if len(items) != 2 {
-		for _, item := range items {
-			fmt.Println("Item", item)
-		}
 		t.Errorf("expected 2 items, got %d", len(items))
 	}
 
@@ -99,9 +95,5 @@ func TestTranslateItemFolderNested(t *testing.T) {
 	newItems := items[0].GetData().(*itemfolderv1.Item_Folder).Folder.GetItems()
 	if len(newItems) != 3 {
 		t.Errorf("expected 3 sub item, got %d", len(newItems))
-		for _, item := range newItems {
-			fmt.Println("Item", item)
-		}
-
 	}
 }

@@ -564,8 +564,79 @@ func TestTranslatePostmanBody(test *testing.T) {
 	}
 
 	for _, bodyRaw := range pairs.BodyRaw {
-		if !bytes.Equal(bodyRaw, ExpectedBodyBytes) {
+		if !bytes.Equal(bodyRaw.Data, ExpectedBodyBytes) {
 			test.Errorf("Error: %v %v", bodyRaw, ExpectedBodyBytes)
 		}
+	}
+}
+
+func TestTranslatePostmanBodyRaw(test *testing.T) {
+	ExpectedBodyBytes := []byte("A")
+	LongBody := make([]byte, 1024*1024)
+	for i := 0; i < 1024*1024; i++ {
+		LongBody[i] = ExpectedBodyBytes[0]
+	}
+
+	bodyRaw := mbody.Body{
+		Mode:     mbody.ModeRaw,
+		Raw:      string(ExpectedBodyBytes),
+		Disabled: false,
+		Options:  mbody.BodyOptions{},
+	}
+
+	requestRaw := mrequest.Request{
+		Method:      "GET",
+		Header:      nil,
+		Body:        &bodyRaw,
+		Description: "test",
+		URL:         "http://localhost:8080",
+	}
+
+	response := mresponse.Response{
+		Name:            "test",
+		OriginalRequest: nil,
+		ResponseTime:    0,
+	}
+
+	responses := []mresponse.Response{
+		response,
+	}
+
+	item := mitem.Items{
+		ID:          "test",
+		Name:        "test",
+		Request:     &requestRaw,
+		Responses:   responses,
+		Description: "test",
+		Variables:   nil,
+		Items:       nil,
+	}
+
+	items := []mitem.Items{
+		item,
+	}
+
+	postmanCollection := mpostmancollection.Collection{
+		Auth: nil,
+		Info: mpostmancollection.Info{
+			Name: "test",
+		},
+		Items:     items,
+		Events:    nil,
+		Variables: nil,
+	}
+
+	collectionID := idwrap.NewNow()
+	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
+	if err != nil {
+		test.Errorf("Error: %v", err)
+	}
+
+	if len(pairs.BodyRaw) != 2 {
+		test.Errorf("Error: %v", len(pairs.BodyRaw))
+	}
+	CompressedBody := pairs.BodyRaw[0]
+	if len(CompressedBody.Data) > len(LongBody) {
+		test.Errorf("Error: %v", len(CompressedBody.Data))
 	}
 }

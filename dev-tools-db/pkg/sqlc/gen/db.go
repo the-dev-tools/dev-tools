@@ -33,6 +33,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createBodyFormBulkStmt, err = db.PrepareContext(ctx, createBodyFormBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateBodyFormBulk: %w", err)
 	}
+	if q.createBodyRawStmt, err = db.PrepareContext(ctx, createBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBodyRaw: %w", err)
+	}
+	if q.createBodyRawBulkStmt, err = db.PrepareContext(ctx, createBodyRawBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBodyRawBulk: %w", err)
+	}
 	if q.createBodyUrlEncodedStmt, err = db.PrepareContext(ctx, createBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateBodyUrlEncoded: %w", err)
 	}
@@ -87,6 +93,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteBodyFormStmt, err = db.PrepareContext(ctx, deleteBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteBodyForm: %w", err)
 	}
+	if q.deleteBodyRawStmt, err = db.PrepareContext(ctx, deleteBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBodyRaw: %w", err)
+	}
 	if q.deleteBodyURLEncodedStmt, err = db.PrepareContext(ctx, deleteBodyURLEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteBodyURLEncoded: %w", err)
 	}
@@ -125,6 +134,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getBodyFormsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyFormsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyFormsByExampleID: %w", err)
+	}
+	if q.getBodyRawStmt, err = db.PrepareContext(ctx, getBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyRaw: %w", err)
+	}
+	if q.getBodyRawsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyRawsByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyRawsByExampleID: %w", err)
 	}
 	if q.getBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyUrlEncoded: %w", err)
@@ -186,9 +201,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getQueryStmt, err = db.PrepareContext(ctx, getQuery); err != nil {
 		return nil, fmt.Errorf("error preparing query GetQuery: %w", err)
 	}
-	if q.getQueryByIDStmt, err = db.PrepareContext(ctx, getQueryByID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetQueryByID: %w", err)
-	}
 	if q.getResultApiStmt, err = db.PrepareContext(ctx, getResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetResultApi: %w", err)
 	}
@@ -246,6 +258,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateBodyFormStmt, err = db.PrepareContext(ctx, updateBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateBodyForm: %w", err)
 	}
+	if q.updateBodyRawDataStmt, err = db.PrepareContext(ctx, updateBodyRawData); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateBodyRawData: %w", err)
+	}
 	if q.updateBodyUrlEncodedStmt, err = db.PrepareContext(ctx, updateBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateBodyUrlEncoded: %w", err)
 	}
@@ -273,6 +288,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateUserStmt, err = db.PrepareContext(ctx, updateUser); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateUser: %w", err)
 	}
+	if q.updateVisualizeModeStmt, err = db.PrepareContext(ctx, updateVisualizeMode); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateVisualizeMode: %w", err)
+	}
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
 	}
@@ -297,6 +315,16 @@ func (q *Queries) Close() error {
 	if q.createBodyFormBulkStmt != nil {
 		if cerr := q.createBodyFormBulkStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createBodyFormBulkStmt: %w", cerr)
+		}
+	}
+	if q.createBodyRawStmt != nil {
+		if cerr := q.createBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBodyRawStmt: %w", cerr)
+		}
+	}
+	if q.createBodyRawBulkStmt != nil {
+		if cerr := q.createBodyRawBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBodyRawBulkStmt: %w", cerr)
 		}
 	}
 	if q.createBodyUrlEncodedStmt != nil {
@@ -389,6 +417,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteBodyFormStmt: %w", cerr)
 		}
 	}
+	if q.deleteBodyRawStmt != nil {
+		if cerr := q.deleteBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBodyRawStmt: %w", cerr)
+		}
+	}
 	if q.deleteBodyURLEncodedStmt != nil {
 		if cerr := q.deleteBodyURLEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteBodyURLEncodedStmt: %w", cerr)
@@ -452,6 +485,16 @@ func (q *Queries) Close() error {
 	if q.getBodyFormsByExampleIDStmt != nil {
 		if cerr := q.getBodyFormsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBodyFormsByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getBodyRawStmt != nil {
+		if cerr := q.getBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyRawStmt: %w", cerr)
+		}
+	}
+	if q.getBodyRawsByExampleIDStmt != nil {
+		if cerr := q.getBodyRawsByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyRawsByExampleIDStmt: %w", cerr)
 		}
 	}
 	if q.getBodyUrlEncodedStmt != nil {
@@ -554,11 +597,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getQueryStmt: %w", cerr)
 		}
 	}
-	if q.getQueryByIDStmt != nil {
-		if cerr := q.getQueryByIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getQueryByIDStmt: %w", cerr)
-		}
-	}
 	if q.getResultApiStmt != nil {
 		if cerr := q.getResultApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getResultApiStmt: %w", cerr)
@@ -654,6 +692,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateBodyFormStmt: %w", cerr)
 		}
 	}
+	if q.updateBodyRawDataStmt != nil {
+		if cerr := q.updateBodyRawDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateBodyRawDataStmt: %w", cerr)
+		}
+	}
 	if q.updateBodyUrlEncodedStmt != nil {
 		if cerr := q.updateBodyUrlEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateBodyUrlEncodedStmt: %w", cerr)
@@ -697,6 +740,11 @@ func (q *Queries) Close() error {
 	if q.updateUserStmt != nil {
 		if cerr := q.updateUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateUserStmt: %w", cerr)
+		}
+	}
+	if q.updateVisualizeModeStmt != nil {
+		if cerr := q.updateVisualizeModeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateVisualizeModeStmt: %w", cerr)
 		}
 	}
 	if q.updateWorkspaceStmt != nil {
@@ -751,6 +799,8 @@ type Queries struct {
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
 	createBodyFormStmt                         *sql.Stmt
 	createBodyFormBulkStmt                     *sql.Stmt
+	createBodyRawStmt                          *sql.Stmt
+	createBodyRawBulkStmt                      *sql.Stmt
 	createBodyUrlEncodedStmt                   *sql.Stmt
 	createBodyUrlEncodedBulkStmt               *sql.Stmt
 	createCollectionStmt                       *sql.Stmt
@@ -769,6 +819,7 @@ type Queries struct {
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
 	deleteBodyFormStmt                         *sql.Stmt
+	deleteBodyRawStmt                          *sql.Stmt
 	deleteBodyURLEncodedStmt                   *sql.Stmt
 	deleteCollectionStmt                       *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
@@ -782,6 +833,8 @@ type Queries struct {
 	deleteWorkspaceUserStmt                    *sql.Stmt
 	getBodyFormStmt                            *sql.Stmt
 	getBodyFormsByExampleIDStmt                *sql.Stmt
+	getBodyRawStmt                             *sql.Stmt
+	getBodyRawsByExampleIDStmt                 *sql.Stmt
 	getBodyUrlEncodedStmt                      *sql.Stmt
 	getBodyUrlEncodedsByExampleIDStmt          *sql.Stmt
 	getCollectionStmt                          *sql.Stmt
@@ -802,7 +855,6 @@ type Queries struct {
 	getItemsApiByCollectionIDStmt              *sql.Stmt
 	getQueriesByExampleIDStmt                  *sql.Stmt
 	getQueryStmt                               *sql.Stmt
-	getQueryByIDStmt                           *sql.Stmt
 	getResultApiStmt                           *sql.Stmt
 	getResultApiByTriggerByStmt                *sql.Stmt
 	getResultApiByTriggerByAndTriggerTypeStmt  *sql.Stmt
@@ -822,6 +874,7 @@ type Queries struct {
 	setHeaderEnableStmt                        *sql.Stmt
 	setQueryEnableStmt                         *sql.Stmt
 	updateBodyFormStmt                         *sql.Stmt
+	updateBodyRawDataStmt                      *sql.Stmt
 	updateBodyUrlEncodedStmt                   *sql.Stmt
 	updateCollectionStmt                       *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
@@ -831,6 +884,7 @@ type Queries struct {
 	updateQueryStmt                            *sql.Stmt
 	updateResultApiStmt                        *sql.Stmt
 	updateUserStmt                             *sql.Stmt
+	updateVisualizeModeStmt                    *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
 }
@@ -842,6 +896,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
 		createBodyFormStmt:                         q.createBodyFormStmt,
 		createBodyFormBulkStmt:                     q.createBodyFormBulkStmt,
+		createBodyRawStmt:                          q.createBodyRawStmt,
+		createBodyRawBulkStmt:                      q.createBodyRawBulkStmt,
 		createBodyUrlEncodedStmt:                   q.createBodyUrlEncodedStmt,
 		createBodyUrlEncodedBulkStmt:               q.createBodyUrlEncodedBulkStmt,
 		createCollectionStmt:                       q.createCollectionStmt,
@@ -860,6 +916,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
 		deleteBodyFormStmt:                         q.deleteBodyFormStmt,
+		deleteBodyRawStmt:                          q.deleteBodyRawStmt,
 		deleteBodyURLEncodedStmt:                   q.deleteBodyURLEncodedStmt,
 		deleteCollectionStmt:                       q.deleteCollectionStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
@@ -873,6 +930,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
 		getBodyFormStmt:                            q.getBodyFormStmt,
 		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,
+		getBodyRawStmt:                             q.getBodyRawStmt,
+		getBodyRawsByExampleIDStmt:                 q.getBodyRawsByExampleIDStmt,
 		getBodyUrlEncodedStmt:                      q.getBodyUrlEncodedStmt,
 		getBodyUrlEncodedsByExampleIDStmt:          q.getBodyUrlEncodedsByExampleIDStmt,
 		getCollectionStmt:                          q.getCollectionStmt,
@@ -893,7 +952,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemsApiByCollectionIDStmt:              q.getItemsApiByCollectionIDStmt,
 		getQueriesByExampleIDStmt:                  q.getQueriesByExampleIDStmt,
 		getQueryStmt:                               q.getQueryStmt,
-		getQueryByIDStmt:                           q.getQueryByIDStmt,
 		getResultApiStmt:                           q.getResultApiStmt,
 		getResultApiByTriggerByStmt:                q.getResultApiByTriggerByStmt,
 		getResultApiByTriggerByAndTriggerTypeStmt:  q.getResultApiByTriggerByAndTriggerTypeStmt,
@@ -913,6 +971,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
 		setQueryEnableStmt:                         q.setQueryEnableStmt,
 		updateBodyFormStmt:                         q.updateBodyFormStmt,
+		updateBodyRawDataStmt:                      q.updateBodyRawDataStmt,
 		updateBodyUrlEncodedStmt:                   q.updateBodyUrlEncodedStmt,
 		updateCollectionStmt:                       q.updateCollectionStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
@@ -922,6 +981,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateQueryStmt:                            q.updateQueryStmt,
 		updateResultApiStmt:                        q.updateResultApiStmt,
 		updateUserStmt:                             q.updateUserStmt,
+		updateVisualizeModeStmt:                    q.updateVisualizeModeStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
 	}
