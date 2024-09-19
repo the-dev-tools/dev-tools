@@ -36,3 +36,17 @@ func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem) (*mbodyform.BodyForm, er
 		Value:       form.Value,
 	}, nil
 }
+
+func SeralizeFormRPCToModelWithoutID(form *bodyv1.BodyFormItem) (*mbodyform.BodyForm, error) {
+	ExampleID, err := idwrap.NewWithParse(form.GetExampleId())
+	if err != nil {
+		return nil, err
+	}
+	return &mbodyform.BodyForm{
+		ExampleID:   ExampleID,
+		BodyKey:     form.Key,
+		Description: form.Description,
+		Enable:      form.Enabled,
+		Value:       form.Value,
+	}, nil
+}
