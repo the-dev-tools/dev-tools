@@ -199,7 +199,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	isOwner, err := c.CheckOwnerApi(ctx, apiUlid)
+	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -343,7 +343,7 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -402,7 +402,7 @@ func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := c.CheckOwnerApi(ctx, ulidID)
+	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, ulidID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -419,12 +419,12 @@ func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[ite
 	return connect.NewResponse(&itemapiv1.DeleteApiCallResponse{}), nil
 }
 
-func (c *ItemApiRPC) CheckOwnerApi(ctx context.Context, apiID idwrap.IDWrap) (bool, error) {
-	api, err := c.ias.GetItemApi(ctx, apiID)
+func CheckOwnerApi(ctx context.Context, ias sitemapi.ItemApiService, cs scollection.CollectionService, us suser.UserService, apiID idwrap.IDWrap) (bool, error) {
+	api, err := ias.GetItemApi(ctx, apiID)
 	if err != nil {
 		return false, err
 	}
-	isOwner, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, api.CollectionID)
+	isOwner, err := collection.CheckOwnerCollection(ctx, cs, us, api.CollectionID)
 	if err != nil {
 		return false, err
 	}

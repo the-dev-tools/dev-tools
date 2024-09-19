@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
@@ -113,11 +114,18 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-// TODO: check permissions
 func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Request[itemapiexamplev1.GetExamplesRequest]) (*connect.Response[itemapiexamplev1.GetExamplesResponse], error) {
 	apiUlid, err := idwrap.NewWithParse(req.Msg.GetItemApiId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
+	}
+
+	ok, err := ritemapi.CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found api"))
 	}
 
 	examples, err := c.iaes.GetApiExamples(ctx, apiUlid)

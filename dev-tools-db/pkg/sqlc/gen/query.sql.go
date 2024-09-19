@@ -15,6 +15,7 @@ import (
 
 const checkIFWorkspaceUserExists = `-- name: CheckIFWorkspaceUserExists :one
 SELECT
+  cast(
   EXISTS (
     SELECT
       1
@@ -25,7 +26,8 @@ SELECT
       AND user_id = ?
     LIMIT
       1
-  )
+) AS boolean
+)
 `
 
 type CheckIFWorkspaceUserExistsParams struct {
@@ -34,9 +36,9 @@ type CheckIFWorkspaceUserExistsParams struct {
 }
 
 // WorkspaceUsers
-func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWorkspaceUserExistsParams) (int64, error) {
+func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWorkspaceUserExistsParams) (bool, error) {
 	row := q.queryRow(ctx, q.checkIFWorkspaceUserExistsStmt, checkIFWorkspaceUserExists, arg.WorkspaceID, arg.UserID)
-	var column_1 int64
+	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
 }
@@ -3483,7 +3485,6 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 }
 
 const updateVisualizeMode = `-- name: UpdateVisualizeMode :exec
-
 UPDATE example_body_raw
 SET visualize_mode = ?
 WHERE
@@ -3495,7 +3496,6 @@ type UpdateVisualizeModeParams struct {
 	ID            idwrap.IDWrap
 }
 
-// TODO: make another query for change body only
 func (q *Queries) UpdateVisualizeMode(ctx context.Context, arg UpdateVisualizeModeParams) error {
 	_, err := q.exec(ctx, q.updateVisualizeModeStmt, updateVisualizeMode, arg.VisualizeMode, arg.ID)
 	return err

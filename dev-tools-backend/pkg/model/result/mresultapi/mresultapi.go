@@ -3,6 +3,7 @@ package mresultapi
 import (
 	"database/sql/driver"
 	"dev-tools-backend/pkg/idwrap"
+	"errors"
 	"net/http"
 	"time"
 
@@ -43,6 +44,9 @@ func (h HttpResp) Value() (driver.Value, error) {
 }
 
 func (h *HttpResp) Scan(value interface{}) error {
-	// TODO: check if value is not byte array
-	return json.Unmarshal(value.([]byte), &h)
+	data, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(data, &h)
 }

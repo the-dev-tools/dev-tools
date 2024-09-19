@@ -59,8 +59,6 @@ type ItemsPair struct {
 	BodyForm       []mbodyform.BodyForm
 	BodyUrlEncoded []mbodyurl.BodyURLEncoded
 	BodyRaw        []mbodyraw.ExampleBodyRaw
-
-	// TODO: add query params and body
 }
 
 type ItemChannels struct {

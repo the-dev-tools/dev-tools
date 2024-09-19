@@ -526,6 +526,7 @@ WHERE
 --
 -- name: CheckIFWorkspaceUserExists :one
 SELECT
+  cast(
   EXISTS (
     SELECT
       1
@@ -536,7 +537,8 @@ SELECT
       AND user_id = ?
     LIMIT
       1
-  );
+) AS boolean
+);
 
 -- name: GetWorkspaceUser :one
 SELECT
@@ -1014,8 +1016,6 @@ VALUES
   (?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?);
 
-
---TODO: make another query for change body only
 
 -- name: UpdateVisualizeMode :exec
 UPDATE example_body_raw

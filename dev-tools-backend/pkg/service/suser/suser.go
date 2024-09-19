@@ -128,13 +128,8 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 }
 
 func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID idwrap.IDWrap, workspaceID idwrap.IDWrap) (bool, error) {
-	// TODO: should be int8 instead of int64
-	a, err := us.queries.CheckIFWorkspaceUserExists(ctx, gen.CheckIFWorkspaceUserExistsParams{
+	return us.queries.CheckIFWorkspaceUserExists(ctx, gen.CheckIFWorkspaceUserExistsParams{
 		UserID:      userID,
 		WorkspaceID: workspaceID,
 	})
-	if err != nil {
-		return false, err
-	}
-	return a != 0, nil
 }

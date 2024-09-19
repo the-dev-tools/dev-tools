@@ -21,6 +21,8 @@ import (
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/translate/tcollection"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/titemnest"
 	"dev-tools-backend/pkg/translate/tpostman"
 	collectionv1 "dev-tools-services/gen/collection/v1"
@@ -67,39 +69,27 @@ func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	metaCollections := make([]*collectionv1.CollectionMeta, 0, len(simpleCollections))
-	for _, collection := range simpleCollections {
-		ulidID := collection.ID
-		folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, ulidID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		apiItems, err := c.ias.GetApisWithCollectionID(ctx, ulidID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, ulidID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems, apiExampleItems)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		items := pair.GetItemsMeta()
-
-		metaCollections = append(metaCollections, &collectionv1.CollectionMeta{
-			Id:    collection.ID.String(),
-			Name:  collection.Name,
-			Items: items,
+	rpcCollections, err := tgeneric.MassConvertWithErr(simpleCollections,
+		func(collection mcollection.Collection) (*collectionv1.CollectionMeta, error) {
+			t, err := tcollection.NewWithFunc(ctx, collection.ID,
+				c.ifs.GetFoldersWithCollectionID,
+				c.ias.GetApisWithCollectionID,
+				c.iaes.GetApiExampleByCollection)
+			if err != nil {
+				return &collectionv1.CollectionMeta{}, connect.NewError(connect.CodeInternal, err)
+			}
+			return &collectionv1.CollectionMeta{
+				Id:    collection.ID.String(),
+				Name:  collection.Name,
+				Items: t.GetItems(),
+			}, nil
 		})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	respRaw := &collectionv1.ListCollectionsResponse{
-		MetaCollections: metaCollections,
+		MetaCollections: rpcCollections,
 	}
 	return connect.NewResponse(respRaw), nil
 }
@@ -204,7 +194,6 @@ func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	// TODO: can be merge with check
 	collectionOld, err := c.cs.GetCollection(ctx, idWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
