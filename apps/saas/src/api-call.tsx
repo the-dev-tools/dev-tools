@@ -224,6 +224,15 @@ const ApiForm = ({ data }: ApiFormProps) => {
           >
             Headers
           </Link>
+          <Link
+            className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+            activeProps={{ className: tw`border-b-black` }}
+            from='/workspace/$workspaceId/api-call/$apiCallId'
+            to='body'
+            params={{ workspaceId, apiCallId }}
+          >
+            Body
+          </Link>
         </div>
 
         <Outlet />
