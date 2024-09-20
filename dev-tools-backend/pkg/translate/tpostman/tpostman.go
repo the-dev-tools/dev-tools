@@ -222,9 +222,18 @@ func GetResponse(items []mresponse.Response, body *mbody.Body, urlData *murl.URL
 	var prevExample *mitemapiexample.ItemApiExample
 	var examples []*mitemapiexample.ItemApiExample
 
-	ExampleLastDefault := items[len(items)-1]
-	ExampleLastDefault.Name = "Default Example"
-	items = append(items, ExampleLastDefault)
+	var defaultExample *mresponse.Response
+	if len(items) != 0 {
+		ExampleLastDefault := items[len(items)-1]
+		ExampleLastDefault.Name = "Default Example"
+		defaultExample = &ExampleLastDefault
+	} else {
+		emptyExample := mresponse.Response{
+			Name: "Empty Example",
+		}
+		defaultExample = &emptyExample
+	}
+	items = append(items, *defaultExample)
 
 	for i, item := range items {
 		isDefault := i == len(items)-1
