@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.22.0
+
+### Minor Changes
+
+- [`ed1dbf4`](https://github.com/the-dev-tools/dev-tools-proto/commit/ed1dbf4a333226628689856f1cd3d64810687638) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add body type to updateExample
+
 ## 1.21.0
 
 ### Minor Changes
