@@ -16,21 +16,22 @@ const (
 )
 
 type ItemApiExampleMeta struct {
-	ID   idwrap.IDWrap
 	Name string
+	ID   idwrap.IDWrap
 }
 
 type ItemApiExample struct {
-	ID              idwrap.IDWrap
-	ItemApiID       idwrap.IDWrap
 	ParentExampleID *idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
-	IsDefault       bool
-	BodyType        BodyType
-	Name            string
-	Updated         time.Time
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
+	Updated         time.Time
+	Name            string
+	IsDefault       bool
+	BodyType        BodyType
+
+	ID           idwrap.IDWrap
+	ItemApiID    idwrap.IDWrap
+	CollectionID idwrap.IDWrap
 }
 
 func NewItemApiExample(id, itemApiID, collectionID idwrap.IDWrap, parentExampleId *idwrap.IDWrap, isDefault bool, name string) *ItemApiExample {

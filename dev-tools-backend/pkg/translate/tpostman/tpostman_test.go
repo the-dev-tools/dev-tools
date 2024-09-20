@@ -100,7 +100,7 @@ func TestTranslatePostmanOrder(test *testing.T) {
 
 	// folder order
 	var rootFolder *mitemfolder.ItemFolder
-	var foundFolder bool = false
+	foundFolder := false
 	for _, folder := range pairs.Folders {
 		if folder.Prev == nil {
 			if foundFolder {
@@ -120,7 +120,7 @@ func TestTranslatePostmanOrder(test *testing.T) {
 	}
 
 	// api order
-	var TotatExpectedRootApi int = RootFolderLen
+	TotatExpectedRootApi := RootFolderLen
 	for _, api := range pairs.Apis {
 		if api.Prev == nil {
 			TotatExpectedRootApi--

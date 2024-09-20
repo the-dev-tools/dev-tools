@@ -6,19 +6,18 @@ import (
 )
 
 type ItemApi struct {
-	ID           idwrap.IDWrap
-	CollectionID idwrap.IDWrap
 	ParentID     *idwrap.IDWrap
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 	Name         string
 	Url          string
 	Method       string
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	CollectionID idwrap.IDWrap
 }
 
 type ItemApiWithExamples struct {
+	Examples []mitemapiexample.ItemApiExampleMeta
 	ItemApi
-
 	DefaultExample mitemapiexample.ItemApiExample
-	Examples       []mitemapiexample.ItemApiExampleMeta
 }

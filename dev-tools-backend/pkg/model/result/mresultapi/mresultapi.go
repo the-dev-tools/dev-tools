@@ -21,22 +21,22 @@ var (
 )
 
 type MResultAPI struct {
-	ID          idwrap.IDWrap `json:"id"`
-	TriggerType TriggerType   `json:"triggerdBy"`
-	TriggerBy   idwrap.IDWrap `json:"rootID"`
-	Name        string        `json:"name"`
 	Time        time.Time     `json:"time"`
-	Duration    time.Duration `json:"duration"`
+	Name        string        `json:"name"`
 	HttpResp    HttpResp      `json:"httpResp"`
+	Duration    time.Duration `json:"duration"`
+	TriggerType TriggerType   `json:"triggerdBy"`
+	ID          idwrap.IDWrap `json:"id"`
+	TriggerBy   idwrap.IDWrap `json:"rootID"`
 }
 
 type HttpResp struct {
-	StatusCode int         `json:"statusCode"`
+	Header     http.Header `json:"header"`
 	Proto      string      `json:"proto"`
+	Body       []byte      `json:"body"`
+	StatusCode int         `json:"statusCode"`
 	ProtoMajor int         `json:"protoMajor"`
 	ProtoMinor int         `json:"protoMinor"`
-	Header     http.Header `json:"header"`
-	Body       []byte      `json:"body"`
 }
 
 func (h HttpResp) Value() (driver.Value, error) {

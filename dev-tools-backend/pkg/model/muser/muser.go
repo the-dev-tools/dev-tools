@@ -20,10 +20,10 @@ var (
 )
 
 type User struct {
-	ID           idwrap.IDWrap
 	Email        string
+	ProviderID   *string
 	Password     []byte
 	ProviderType ProviderType
-	ProviderID   *string
 	Status       UserStatus
+	ID           idwrap.IDWrap
 }

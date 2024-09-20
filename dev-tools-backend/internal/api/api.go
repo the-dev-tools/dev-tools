@@ -14,8 +14,8 @@ import (
 )
 
 type Service struct {
-	Path    string
 	Handler http.Handler
+	Path    string
 }
 
 func newCORS() *cors.Cors {

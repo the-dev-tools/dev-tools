@@ -23,9 +23,9 @@ const (
 )
 
 type ExampleBodyRaw struct {
-	ID            idwrap.IDWrap
-	ExampleID     idwrap.IDWrap
+	Data          []byte
 	VisualizeMode VisualizeMode
 	CompressType  CompressType
-	Data          []byte
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
 }

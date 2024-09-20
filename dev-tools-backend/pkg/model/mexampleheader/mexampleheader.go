@@ -5,10 +5,10 @@ import (
 )
 
 type Header struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
 	HeaderKey   string
-	Enable      bool
 	Description string
 	Value       string
+	Enable      bool
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
 }

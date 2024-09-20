@@ -6,9 +6,9 @@ import (
 )
 
 type Workspace struct {
-	ID      idwrap.IDWrap
-	Name    string
 	Updated time.Time
+	Name    string
+	ID      idwrap.IDWrap
 }
 
 func (w Workspace) GetCreatedTime() time.Time {
