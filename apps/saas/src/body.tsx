@@ -1,12 +1,19 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import {
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+  useTransport,
+} from '@connectrpc/connect-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { Match, pipe } from 'effect';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { BodyFormArray, BodyFormItem } from '@the-dev-tools/protobuf/body/v1/body_pb';
+import { Body, BodyFormArray, BodyFormItem } from '@the-dev-tools/protobuf/body/v1/body_pb';
 import {
   createBodyForm,
   deleteBodyForm,
@@ -14,8 +21,10 @@ import {
 } from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
 import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import { updateExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
@@ -24,12 +33,49 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-ca
 });
 
 function Tab() {
+  const queryClient = useQueryClient();
+  const transport = useTransport();
+
   const { apiCallId } = Route.useParams();
+
   const query = useConnectQuery(getApiCall, { id: apiCallId });
+  const updateMutation = useConnectMutation(updateExample);
+
   if (!query.isSuccess) return null;
   const body = query.data.example!.body!.value;
-  if (body.case === 'forms') return <FormDataTable data={query.data} body={body.value} />;
-  return 'TBD';
+
+  return (
+    <>
+      <RadioGroup
+        orientation='horizontal'
+        defaultValue={body.case ?? 'none'}
+        onChange={async (kind) => {
+          await updateMutation.mutateAsync({
+            id: query.data.example!.meta!.id,
+            bodyType: new Body({
+              value: {
+                case: kind as Exclude<Body['value']['case'], undefined>,
+                value: {},
+              },
+            }),
+          });
+
+          await queryClient.invalidateQueries(createQueryOptions(getApiCall, { id: apiCallId }, { transport }));
+        }}
+      >
+        <Radio value='none'>none</Radio>
+        <Radio value='forms'>form-data</Radio>
+        <Radio value='urlEncodeds'>x-www-form-urlencoded</Radio>
+        <Radio value='raw'>raw</Radio>
+      </RadioGroup>
+
+      {pipe(
+        Match.value(body),
+        Match.when({ case: 'forms' }, ({ value }) => <FormDataTable data={query.data} body={value} />),
+        Match.orElse(() => null),
+      )}
+    </>
+  );
 }
 
 interface FormDataTableProps {
