@@ -9,9 +9,12 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/sbodyform"
+	"dev-tools-backend/pkg/service/sbodyraw"
+	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
@@ -48,9 +51,11 @@ type ItemAPIExampleRPC struct {
 	cs   *scollection.CollectionService
 	us   *suser.UserService
 	// sub
-	hs  *sexampleheader.HeaderService
-	qs  *sexamplequery.ExampleQueryService
-	bfs *sbodyform.BodyFormService
+	hs   *sexampleheader.HeaderService
+	qs   *sexamplequery.ExampleQueryService
+	bfs  *sbodyform.BodyFormService
+	bues *sbodyurl.BodyURLEncodedService
+	brs  *sbodyraw.BodyRawService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -225,7 +230,6 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 	}), nil
 }
 
-// TODO: check permissions
 func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateExampleRequest]) (*connect.Response[itemapiexamplev1.CreateExampleResponse], error) {
 	apiIDWrap, err := idwrap.NewWithParse(req.Msg.GetItemApiId())
 	if err != nil {
@@ -244,6 +248,7 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// TODO: make this a transaction
 	ExampleIDWrapNew := idwrap.NewNow()
 	exampleRPC := req.Msg.Example
 	metaRPC := exampleRPC.GetMeta()
@@ -256,6 +261,18 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		IsDefault:    false,
 	}
 	err = c.iaes.CreateApiExample(ctx, ex)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyRaw := mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     ExampleIDWrapNew,
+		VisualizeMode: mbodyraw.VisualizeModeBinary,
+		CompressType:  mbodyraw.CompressTypeNone,
+		Data:          []byte{},
+	}
+
+	err = c.brs.CreateBodyRaw(ctx, bodyRaw)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

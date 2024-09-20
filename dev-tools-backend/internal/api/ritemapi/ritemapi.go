@@ -32,6 +32,7 @@ import (
 	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"errors"
+	"sort"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -282,6 +283,9 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		sort.Slice(body, func(i, j int) bool {
+			return body[i].ID.Compare(body[j].ID) < 0
+		})
 		bodyPtr = &bodyv1.Body{
 			Value: &bodyv1.Body_Forms{
 				Forms: &bodyv1.BodyFormArray{
@@ -294,6 +298,9 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		sort.Slice(body, func(i, j int) bool {
+			return body[i].ID.Compare(body[j].ID) < 0
+		})
 		bodyPtr = &bodyv1.Body{
 			Value: &bodyv1.Body_UrlEncodeds{
 				UrlEncodeds: &bodyv1.BodyUrlEncodedArray{

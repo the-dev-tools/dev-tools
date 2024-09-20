@@ -491,9 +491,18 @@ func GetBody(body *mbody.Body, exampleID, collectionID idwrap.IDWrap, channels *
 		}
 
 		channels.BodyRaw <- bodyRaw
+		return
 	default:
 		channels.Err <- errors.New("body mode not supported")
 	}
+	rawDefault := mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     exampleID,
+		VisualizeMode: mbodyraw.VisualizeModeUndefined,
+		CompressType:  mbodyraw.CompressTypeNone,
+		Data:          []byte{},
+	}
+	channels.BodyRaw <- rawDefault
 }
 
 func RemoveItem[I any](slice []I, s int) []I {
