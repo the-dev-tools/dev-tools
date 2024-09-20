@@ -10,11 +10,20 @@ import { flexRender } from '@tanstack/react-table';
 import { Match, pipe } from 'effect';
 import { useCallback } from 'react';
 
-import { Body, BodyFormArray, BodyFormItem } from '@the-dev-tools/protobuf/body/v1/body_pb';
+import {
+  Body,
+  BodyFormArray,
+  BodyFormItem,
+  BodyUrlEncodedArray,
+  BodyUrlEncodedItem,
+} from '@the-dev-tools/protobuf/body/v1/body_pb';
 import {
   createBodyForm,
+  createBodyUrlEncoded,
   deleteBodyForm,
+  deleteBodyUrlEncoded,
   updateBodyForm,
+  updateBodyUrlEncoded,
 } from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
 import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
@@ -68,6 +77,7 @@ function Tab() {
       {pipe(
         Match.value(body),
         Match.when({ case: 'forms' }, ({ value }) => <FormDataTable data={query.data} body={value} />),
+        Match.when({ case: 'urlEncodeds' }, ({ value }) => <UrlEncodedTable data={query.data} body={value} />),
         Match.orElse(() => null),
       )}
     </>
@@ -86,6 +96,64 @@ const FormDataTable = ({ data, body }: FormDataTableProps) => {
 
   const makeItem = useCallback(
     (item?: Partial<BodyFormItem>) => new BodyFormItem({ ...item, enabled: true, exampleId: data.example!.meta!.id }),
+    [data.example],
+  );
+
+  const table = useFormTable({
+    items: body.items,
+    makeItem,
+    onCreate: createMutateAsync,
+    onUpdate: updateMutateAsync,
+    onDelete: deleteMutate,
+  });
+
+  return (
+    <div className='rounded border border-black'>
+      <table className='w-full divide-inherit border-inherit'>
+        <thead className='divide-y divide-inherit border-b border-inherit'>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
+                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody className='divide-y divide-inherit'>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className='break-all align-middle text-sm'>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+interface UrlEncodedTableProps {
+  data: GetApiCallResponse;
+  body: BodyUrlEncodedArray;
+}
+
+const UrlEncodedTable = ({ data, body }: UrlEncodedTableProps) => {
+  const { mutateAsync: createMutateAsync } = useConnectMutation(createBodyUrlEncoded);
+  const { mutateAsync: updateMutateAsync } = useConnectMutation(updateBodyUrlEncoded);
+  const { mutate: deleteMutate } = useConnectMutation(deleteBodyUrlEncoded);
+
+  const makeItem = useCallback(
+    (item?: Partial<BodyUrlEncodedItem>) =>
+      new BodyUrlEncodedItem({ ...item, enabled: true, exampleId: data.example!.meta!.id }),
     [data.example],
   );
 
