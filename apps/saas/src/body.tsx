@@ -53,7 +53,7 @@ function Tab() {
       <RadioGroup
         aria-label='Body type'
         orientation='horizontal'
-        defaultValue={body.case ?? 'none'}
+        value={body.case ?? 'none'}
         onChange={async (kind) => {
           await updateMutation.mutateAsync({
             id: query.data.example!.meta!.id,
