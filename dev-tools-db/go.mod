@@ -2,7 +2,7 @@ module dev-tools-db
 
 go 1.23.0
 
-require github.com/tursodatabase/go-libsql v0.0.0-20240819180805-a9b092b8bc77
+require github.com/tursodatabase/go-libsql v0.0.0-20240916111504-922dfa87e1e6
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
