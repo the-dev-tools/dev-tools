@@ -88,7 +88,7 @@ message CreateExampleResponse {
 message UpdateExampleRequest {
   string id = 1;
   string name = 2;
-  bytes body = 6;
+  body.v1.Body body_type = 3;
 }
 
 message UpdateExampleResponse {
