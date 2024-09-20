@@ -47,6 +47,7 @@ function Tab() {
   return (
     <>
       <RadioGroup
+        aria-label='Body type'
         orientation='horizontal'
         defaultValue={body.case ?? 'none'}
         onChange={async (kind) => {
