@@ -3366,18 +3366,20 @@ func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) er
 const updateItemApiExample = `-- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
-  name = ?
+  name = ?,
+  body_type = ?
 WHERE
   id = ?
 `
 
 type UpdateItemApiExampleParams struct {
-	Name string
-	ID   idwrap.IDWrap
+	Name     string
+	BodyType int8
+	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
-	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample, arg.Name, arg.ID)
+	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample, arg.Name, arg.BodyType, arg.ID)
 	return err
 }
 

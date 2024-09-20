@@ -269,8 +269,9 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 
 func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
 	return iaes.Queries.UpdateItemApiExample(ctx, gen.UpdateItemApiExampleParams{
-		ID:   item.ID,
-		Name: item.Name,
+		ID:       item.ID,
+		Name:     item.Name,
+		BodyType: int8(item.BodyType),
 	})
 }
 

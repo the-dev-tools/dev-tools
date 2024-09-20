@@ -231,6 +231,13 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
+	ok, err := ritemapi.CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiIDWrap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found api"))
+	}
 
 	itemApi, err := c.ias.GetItemApi(ctx, apiIDWrap)
 	if err != nil {
@@ -245,8 +252,8 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		ItemApiID:    apiIDWrap,
 		CollectionID: itemApi.CollectionID,
 		Name:         metaRPC.GetName(),
-		// TODO: add the headers and query
-		// TODO: add body parse
+		BodyType:     mitemapiexample.BodyTypeNone,
+		IsDefault:    false,
 	}
 	err = c.iaes.CreateApiExample(ctx, ex)
 	if err != nil {
@@ -273,10 +280,23 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
 	}
 
+	bodyType := mitemapiexample.BodyTypeUndefined
+	switch req.Msg.BodyType.Value.(type) {
+	case *bodyv1.Body_None:
+		bodyType = mitemapiexample.BodyTypeNone
+	case *bodyv1.Body_Raw:
+		bodyType = mitemapiexample.BodyTypeRaw
+	case *bodyv1.Body_Forms:
+		bodyType = mitemapiexample.BodyTypeForm
+	case *bodyv1.Body_UrlEncodeds:
+		bodyType = mitemapiexample.BodyTypeUrlencoded
+	}
+
 	exRPC := req.Msg
 	ex := &mitemapiexample.ItemApiExample{
-		ID:   exampleIDWrap,
-		Name: exRPC.GetName(),
+		ID:       exampleIDWrap,
+		Name:     exRPC.GetName(),
+		BodyType: bodyType,
 	}
 
 	err = c.iaes.UpdateItemApiExample(ctx, ex)

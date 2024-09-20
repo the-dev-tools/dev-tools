@@ -201,7 +201,8 @@ VALUES
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
-  name = ?
+  name = ?,
+  body_type = ?
 WHERE
   id = ?;
 
