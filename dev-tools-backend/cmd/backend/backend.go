@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/node"
+	"dev-tools-backend/internal/api/rbody"
 	"dev-tools-backend/internal/api/resultapi"
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/internal/api/ritemapiexample"
@@ -62,6 +63,7 @@ func main() {
 	newServiceManager.AddService(ritemapi.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 	newServiceManager.AddService(ritemfolder.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 	newServiceManager.AddService(ritemapiexample.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(rbody.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 
 	// Start services
 	go func() {
