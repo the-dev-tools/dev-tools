@@ -35,11 +35,41 @@ type BodyRPC struct {
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
 	var options []connect.HandlerOption
+
+	cs, err := scollection.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	iaes, err := sitemapiexample.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	bfs, err := sbodyform.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	bues, err := sbodyurl.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
 	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	service := &BodyRPC{
 		DB: db,
+		// root
+		cs:   *cs,
+		iaes: *iaes,
+		us:   *us,
+		// body services
+		bfs:  *bfs,
+		bues: *bues,
 	}
 
 	path, handler := bodyv1connect.NewBodyServiceHandler(service, options...)
