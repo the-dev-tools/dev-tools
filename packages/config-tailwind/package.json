@@ -14,7 +14,7 @@
     "@the-dev-tools/utils": "workspace:^",
     "@types/node": "~22.5.5",
     "effect": "~3.8.3",
-    "tailwindcss": "~3.4.12",
+    "tailwindcss": "~3.4.13",
     "tailwindcss-react-aria-components": "~1.1.5",
     "tsx": "~4.19.1",
     "typescript": "~5.6.2"

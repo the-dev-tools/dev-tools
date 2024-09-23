@@ -11,12 +11,12 @@
     "@bufbuild/protobuf": "1.10.0",
     "@connectrpc/connect": "1.5.0",
     "@connectrpc/connect-web": "1.5.0",
-    "@effect/platform": "0.65.5",
-    "@effect/schema": "0.73.4",
+    "@effect/platform": "0.66.0",
+    "@effect/schema": "0.74.0",
     "@the-dev-tools/protobuf": "1.23.0",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.8.3",
-    "jose": "5.9.2",
+    "jose": "5.9.3",
     "magic-sdk": "28.10.0"
   },
   "devDependencies": {
