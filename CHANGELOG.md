@@ -1,5 +1,12 @@
 # @the-dev-tools/protobuf
 
+## 1.23.0
+
+### Minor Changes
+
+- [`f1fb23a`](https://github.com/the-dev-tools/dev-tools-proto/commit/f1fb23ad9b33dfa1186dd5413aecbedc8aa0f7da) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add env and var proto files
+  add body_bytes to UpdateRawBodyRequest
+
 ## 1.22.0
 
 ### Minor Changes
