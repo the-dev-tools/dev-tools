@@ -1037,3 +1037,105 @@ WHERE
 DELETE FROM example_body_raw
 WHERE
   id = ?;
+
+
+/*
+* Environment
+*/
+
+-- name: GetEnvironment :one
+SELECT
+  id,
+  workspace_id,
+  is_default,
+  name
+FROM 
+  environment
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetEnvironmentsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  is_default,
+  name
+FROM 
+  environment
+WHERE
+  workspace_id = ?;
+
+-- CreateEnvironment :exec
+INSERT INTO
+  environment (id, workspace_id, is_default, name)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateEnvironment :exec
+UPDATE environment
+SET
+    is_default = ?
+WHERE
+    id = ?;
+
+-- name: DeleteEnvironment :exec
+DELETE FROM environment
+WHERE
+  id = ?;
+
+/*
+* Variables
+*/
+
+-- name: GetVariable :one
+SELECT
+  id,
+  env_id,
+  var_key,
+  value
+FROM 
+  variable
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetVariablesByEnvironmentID :many
+SELECT
+  id,
+  env_id,
+  var_key,
+  value
+FROM
+  variable
+WHERE
+  env_id = ?;
+
+-- name: CreateVariable :exec
+INSERT INTO
+  variable (id, env_id, var_key, value)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: CreateVariableBulk :exec
+INSERT INTO
+  variable (id, env_id, var_key, value)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?);
+
+-- name: UpdateVariable :exec
+UPDATE variable
+SET
+  var_key = ?,
+  value = ?
+WHERE
+  id = ?;
+
+-- name: DeleteVariable :exec
+DELETE FROM variable
+WHERE
+  id = ?;

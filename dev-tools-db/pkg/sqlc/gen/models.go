@@ -17,6 +17,13 @@ type Collection struct {
 	Name    string
 }
 
+type Environment struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	IsDefault   bool
+	Name        string
+}
+
 type ExampleBodyForm struct {
 	ID          idwrap.IDWrap
 	ExampleID   idwrap.IDWrap
@@ -111,6 +118,13 @@ type User struct {
 	ProviderType int8
 	ProviderID   sql.NullString
 	Status       int8
+}
+
+type Variable struct {
+	ID     idwrap.IDWrap
+	EnvID  []byte
+	VarKey string
+	Value  string
 }
 
 type Workspace struct {

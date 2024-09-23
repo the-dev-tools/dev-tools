@@ -84,6 +84,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
 	}
+	if q.createVariableStmt, err = db.PrepareContext(ctx, createVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateVariable: %w", err)
+	}
+	if q.createVariableBulkStmt, err = db.PrepareContext(ctx, createVariableBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateVariableBulk: %w", err)
+	}
 	if q.createWorkspaceStmt, err = db.PrepareContext(ctx, createWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspace: %w", err)
 	}
@@ -101,6 +107,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteCollectionStmt, err = db.PrepareContext(ctx, deleteCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCollection: %w", err)
+	}
+	if q.deleteEnvironmentStmt, err = db.PrepareContext(ctx, deleteEnvironment); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteEnvironment: %w", err)
 	}
 	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
@@ -122,6 +131,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteUserStmt, err = db.PrepareContext(ctx, deleteUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteUser: %w", err)
+	}
+	if q.deleteVariableStmt, err = db.PrepareContext(ctx, deleteVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteVariable: %w", err)
 	}
 	if q.deleteWorkspaceStmt, err = db.PrepareContext(ctx, deleteWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspace: %w", err)
@@ -158,6 +170,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getCollectionOwnerIDStmt, err = db.PrepareContext(ctx, getCollectionOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionOwnerID: %w", err)
+	}
+	if q.getEnvironmentStmt, err = db.PrepareContext(ctx, getEnvironment); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEnvironment: %w", err)
+	}
+	if q.getEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceID: %w", err)
 	}
 	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
@@ -222,6 +240,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserByProviderIDandTypeStmt, err = db.PrepareContext(ctx, getUserByProviderIDandType); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByProviderIDandType: %w", err)
 	}
+	if q.getVariableStmt, err = db.PrepareContext(ctx, getVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query GetVariable: %w", err)
+	}
+	if q.getVariablesByEnvironmentIDStmt, err = db.PrepareContext(ctx, getVariablesByEnvironmentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetVariablesByEnvironmentID: %w", err)
+	}
 	if q.getWorkspaceStmt, err = db.PrepareContext(ctx, getWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspace: %w", err)
 	}
@@ -267,6 +291,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateCollectionStmt, err = db.PrepareContext(ctx, updateCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollection: %w", err)
 	}
+	if q.updateEnvironmentStmt, err = db.PrepareContext(ctx, updateEnvironment); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateEnvironment: %w", err)
+	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
@@ -287,6 +314,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateUserStmt, err = db.PrepareContext(ctx, updateUser); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateUser: %w", err)
+	}
+	if q.updateVariableStmt, err = db.PrepareContext(ctx, updateVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateVariable: %w", err)
 	}
 	if q.updateVisualizeModeStmt, err = db.PrepareContext(ctx, updateVisualizeMode); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateVisualizeMode: %w", err)
@@ -402,6 +432,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
 		}
 	}
+	if q.createVariableStmt != nil {
+		if cerr := q.createVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createVariableStmt: %w", cerr)
+		}
+	}
+	if q.createVariableBulkStmt != nil {
+		if cerr := q.createVariableBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createVariableBulkStmt: %w", cerr)
+		}
+	}
 	if q.createWorkspaceStmt != nil {
 		if cerr := q.createWorkspaceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createWorkspaceStmt: %w", cerr)
@@ -430,6 +470,11 @@ func (q *Queries) Close() error {
 	if q.deleteCollectionStmt != nil {
 		if cerr := q.deleteCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteCollectionStmt: %w", cerr)
+		}
+	}
+	if q.deleteEnvironmentStmt != nil {
+		if cerr := q.deleteEnvironmentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteEnvironmentStmt: %w", cerr)
 		}
 	}
 	if q.deleteHeaderStmt != nil {
@@ -465,6 +510,11 @@ func (q *Queries) Close() error {
 	if q.deleteUserStmt != nil {
 		if cerr := q.deleteUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteUserStmt: %w", cerr)
+		}
+	}
+	if q.deleteVariableStmt != nil {
+		if cerr := q.deleteVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteVariableStmt: %w", cerr)
 		}
 	}
 	if q.deleteWorkspaceStmt != nil {
@@ -525,6 +575,16 @@ func (q *Queries) Close() error {
 	if q.getCollectionOwnerIDStmt != nil {
 		if cerr := q.getCollectionOwnerIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionOwnerIDStmt: %w", cerr)
+		}
+	}
+	if q.getEnvironmentStmt != nil {
+		if cerr := q.getEnvironmentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEnvironmentStmt: %w", cerr)
+		}
+	}
+	if q.getEnvironmentsByWorkspaceIDStmt != nil {
+		if cerr := q.getEnvironmentsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getHeaderStmt != nil {
@@ -632,6 +692,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserByProviderIDandTypeStmt: %w", cerr)
 		}
 	}
+	if q.getVariableStmt != nil {
+		if cerr := q.getVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getVariableStmt: %w", cerr)
+		}
+	}
+	if q.getVariablesByEnvironmentIDStmt != nil {
+		if cerr := q.getVariablesByEnvironmentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getVariablesByEnvironmentIDStmt: %w", cerr)
+		}
+	}
 	if q.getWorkspaceStmt != nil {
 		if cerr := q.getWorkspaceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWorkspaceStmt: %w", cerr)
@@ -707,6 +777,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateCollectionStmt: %w", cerr)
 		}
 	}
+	if q.updateEnvironmentStmt != nil {
+		if cerr := q.updateEnvironmentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateEnvironmentStmt: %w", cerr)
+		}
+	}
 	if q.updateHeaderStmt != nil {
 		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
@@ -740,6 +815,11 @@ func (q *Queries) Close() error {
 	if q.updateUserStmt != nil {
 		if cerr := q.updateUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateUserStmt: %w", cerr)
+		}
+	}
+	if q.updateVariableStmt != nil {
+		if cerr := q.updateVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateVariableStmt: %w", cerr)
 		}
 	}
 	if q.updateVisualizeModeStmt != nil {
@@ -816,12 +896,15 @@ type Queries struct {
 	createQueryBulkStmt                        *sql.Stmt
 	createResultApiStmt                        *sql.Stmt
 	createUserStmt                             *sql.Stmt
+	createVariableStmt                         *sql.Stmt
+	createVariableBulkStmt                     *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
 	deleteBodyFormStmt                         *sql.Stmt
 	deleteBodyRawStmt                          *sql.Stmt
 	deleteBodyURLEncodedStmt                   *sql.Stmt
 	deleteCollectionStmt                       *sql.Stmt
+	deleteEnvironmentStmt                      *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
 	deleteItemApiExampleStmt                   *sql.Stmt
@@ -829,6 +912,7 @@ type Queries struct {
 	deleteQueryStmt                            *sql.Stmt
 	deleteResultApiStmt                        *sql.Stmt
 	deleteUserStmt                             *sql.Stmt
+	deleteVariableStmt                         *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
 	getBodyFormStmt                            *sql.Stmt
@@ -841,6 +925,8 @@ type Queries struct {
 	getCollectionByOwnerIDStmt                 *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt       *sql.Stmt
 	getCollectionOwnerIDStmt                   *sql.Stmt
+	getEnvironmentStmt                         *sql.Stmt
+	getEnvironmentsByWorkspaceIDStmt           *sql.Stmt
 	getHeaderStmt                              *sql.Stmt
 	getHeadersByExampleIDStmt                  *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
@@ -862,6 +948,8 @@ type Queries struct {
 	getUserByEmailStmt                         *sql.Stmt
 	getUserByEmailAndProviderTypeStmt          *sql.Stmt
 	getUserByProviderIDandTypeStmt             *sql.Stmt
+	getVariableStmt                            *sql.Stmt
+	getVariablesByEnvironmentIDStmt            *sql.Stmt
 	getWorkspaceStmt                           *sql.Stmt
 	getWorkspaceByUserIDStmt                   *sql.Stmt
 	getWorkspaceByUserIDandWorkspaceIDStmt     *sql.Stmt
@@ -877,6 +965,7 @@ type Queries struct {
 	updateBodyRawDataStmt                      *sql.Stmt
 	updateBodyUrlEncodedStmt                   *sql.Stmt
 	updateCollectionStmt                       *sql.Stmt
+	updateEnvironmentStmt                      *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
 	updateItemApiExampleStmt                   *sql.Stmt
@@ -884,6 +973,7 @@ type Queries struct {
 	updateQueryStmt                            *sql.Stmt
 	updateResultApiStmt                        *sql.Stmt
 	updateUserStmt                             *sql.Stmt
+	updateVariableStmt                         *sql.Stmt
 	updateVisualizeModeStmt                    *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
@@ -913,12 +1003,15 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createQueryBulkStmt:                        q.createQueryBulkStmt,
 		createResultApiStmt:                        q.createResultApiStmt,
 		createUserStmt:                             q.createUserStmt,
+		createVariableStmt:                         q.createVariableStmt,
+		createVariableBulkStmt:                     q.createVariableBulkStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
 		deleteBodyFormStmt:                         q.deleteBodyFormStmt,
 		deleteBodyRawStmt:                          q.deleteBodyRawStmt,
 		deleteBodyURLEncodedStmt:                   q.deleteBodyURLEncodedStmt,
 		deleteCollectionStmt:                       q.deleteCollectionStmt,
+		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
@@ -926,6 +1019,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteQueryStmt:                            q.deleteQueryStmt,
 		deleteResultApiStmt:                        q.deleteResultApiStmt,
 		deleteUserStmt:                             q.deleteUserStmt,
+		deleteVariableStmt:                         q.deleteVariableStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
 		getBodyFormStmt:                            q.getBodyFormStmt,
@@ -938,6 +1032,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionByOwnerIDStmt:                 q.getCollectionByOwnerIDStmt,
 		getCollectionByPlatformIDandTypeStmt:       q.getCollectionByPlatformIDandTypeStmt,
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
+		getEnvironmentStmt:                         q.getEnvironmentStmt,
+		getEnvironmentsByWorkspaceIDStmt:           q.getEnvironmentsByWorkspaceIDStmt,
 		getHeaderStmt:                              q.getHeaderStmt,
 		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
@@ -959,6 +1055,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserByEmailStmt:                         q.getUserByEmailStmt,
 		getUserByEmailAndProviderTypeStmt:          q.getUserByEmailAndProviderTypeStmt,
 		getUserByProviderIDandTypeStmt:             q.getUserByProviderIDandTypeStmt,
+		getVariableStmt:                            q.getVariableStmt,
+		getVariablesByEnvironmentIDStmt:            q.getVariablesByEnvironmentIDStmt,
 		getWorkspaceStmt:                           q.getWorkspaceStmt,
 		getWorkspaceByUserIDStmt:                   q.getWorkspaceByUserIDStmt,
 		getWorkspaceByUserIDandWorkspaceIDStmt:     q.getWorkspaceByUserIDandWorkspaceIDStmt,
@@ -974,6 +1072,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateBodyRawDataStmt:                      q.updateBodyRawDataStmt,
 		updateBodyUrlEncodedStmt:                   q.updateBodyUrlEncodedStmt,
 		updateCollectionStmt:                       q.updateCollectionStmt,
+		updateEnvironmentStmt:                      q.updateEnvironmentStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,
 		updateItemApiExampleStmt:                   q.updateItemApiExampleStmt,
@@ -981,6 +1080,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateQueryStmt:                            q.updateQueryStmt,
 		updateResultApiStmt:                        q.updateResultApiStmt,
 		updateUserStmt:                             q.updateUserStmt,
+		updateVariableStmt:                         q.updateVariableStmt,
 		updateVisualizeModeStmt:                    q.updateVisualizeModeStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,

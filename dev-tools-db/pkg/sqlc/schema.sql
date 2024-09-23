@@ -209,5 +209,5 @@ CREATE TABLE variable (
     var_key TEXT NOT NULL,
     value TEXt NOT NULL,
     UNIQUE (env_id, var_key),
-    FOREIGN KEY (env_id) REFERENCES environment (id) ON DELETE CASCADE
+    FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
 )

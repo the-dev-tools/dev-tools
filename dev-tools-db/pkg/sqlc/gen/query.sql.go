@@ -1582,6 +1582,90 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const createVariable = `-- name: CreateVariable :exec
+INSERT INTO
+  variable (id, env_id, var_key, value)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateVariableParams struct {
+	ID     idwrap.IDWrap
+	EnvID  []byte
+	VarKey string
+	Value  string
+}
+
+func (q *Queries) CreateVariable(ctx context.Context, arg CreateVariableParams) error {
+	_, err := q.exec(ctx, q.createVariableStmt, createVariable,
+		arg.ID,
+		arg.EnvID,
+		arg.VarKey,
+		arg.Value,
+	)
+	return err
+}
+
+const createVariableBulk = `-- name: CreateVariableBulk :exec
+INSERT INTO
+  variable (id, env_id, var_key, value)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?)
+`
+
+type CreateVariableBulkParams struct {
+	ID       idwrap.IDWrap
+	EnvID    []byte
+	VarKey   string
+	Value    string
+	ID_2     idwrap.IDWrap
+	EnvID_2  []byte
+	VarKey_2 string
+	Value_2  string
+	ID_3     idwrap.IDWrap
+	EnvID_3  []byte
+	VarKey_3 string
+	Value_3  string
+	ID_4     idwrap.IDWrap
+	EnvID_4  []byte
+	VarKey_4 string
+	Value_4  string
+	ID_5     idwrap.IDWrap
+	EnvID_5  []byte
+	VarKey_5 string
+	Value_5  string
+}
+
+func (q *Queries) CreateVariableBulk(ctx context.Context, arg CreateVariableBulkParams) error {
+	_, err := q.exec(ctx, q.createVariableBulkStmt, createVariableBulk,
+		arg.ID,
+		arg.EnvID,
+		arg.VarKey,
+		arg.Value,
+		arg.ID_2,
+		arg.EnvID_2,
+		arg.VarKey_2,
+		arg.Value_2,
+		arg.ID_3,
+		arg.EnvID_3,
+		arg.VarKey_3,
+		arg.Value_3,
+		arg.ID_4,
+		arg.EnvID_4,
+		arg.VarKey_4,
+		arg.Value_4,
+		arg.ID_5,
+		arg.EnvID_5,
+		arg.VarKey_5,
+		arg.Value_5,
+	)
+	return err
+}
+
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
   workspaces (id, name, updated)
@@ -1668,6 +1752,17 @@ func (q *Queries) DeleteCollection(ctx context.Context, id idwrap.IDWrap) error 
 	return err
 }
 
+const deleteEnvironment = `-- name: DeleteEnvironment :exec
+DELETE FROM environment
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteEnvironment(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteEnvironmentStmt, deleteEnvironment, id)
+	return err
+}
+
 const deleteHeader = `-- name: DeleteHeader :exec
 DELETE FROM example_header
 WHERE
@@ -1742,6 +1837,17 @@ WHERE
 
 func (q *Queries) DeleteUser(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteUserStmt, deleteUser, id)
+	return err
+}
+
+const deleteVariable = `-- name: DeleteVariable :exec
+DELETE FROM variable
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteVariable(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteVariableStmt, deleteVariable, id)
 	return err
 }
 
@@ -2084,6 +2190,75 @@ func (q *Queries) GetCollectionOwnerID(ctx context.Context, id idwrap.IDWrap) (i
 	var owner_id idwrap.IDWrap
 	err := row.Scan(&owner_id)
 	return owner_id, err
+}
+
+const getEnvironment = `-- name: GetEnvironment :one
+/*
+* Environment
+*/
+
+SELECT 
+  id,
+  workspace_id,
+  is_default,
+  name
+FROM 
+  environment
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environment, error) {
+	row := q.queryRow(ctx, q.getEnvironmentStmt, getEnvironment, id)
+	var i Environment
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.IsDefault,
+		&i.Name,
+	)
+	return i, err
+}
+
+const getEnvironmentsByWorkspaceID = `-- name: GetEnvironmentsByWorkspaceID :many
+SELECT 
+  id,
+  workspace_id,
+  is_default,
+  name
+FROM 
+  environment
+WHERE
+  workspace_id = ?
+`
+
+func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Environment, error) {
+	rows, err := q.query(ctx, q.getEnvironmentsByWorkspaceIDStmt, getEnvironmentsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Environment
+	for rows.Next() {
+		var i Environment
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IsDefault,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getHeader = `-- name: GetHeader :one
@@ -2882,6 +3057,75 @@ func (q *Queries) GetUserByProviderIDandType(ctx context.Context, arg GetUserByP
 	return i, err
 }
 
+const getVariable = `-- name: GetVariable :one
+/*
+* Variables
+*/
+
+SELECT 
+  id,
+  env_id,
+  var_key,
+  value
+FROM 
+  variable
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetVariable(ctx context.Context, id idwrap.IDWrap) (Variable, error) {
+	row := q.queryRow(ctx, q.getVariableStmt, getVariable, id)
+	var i Variable
+	err := row.Scan(
+		&i.ID,
+		&i.EnvID,
+		&i.VarKey,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getVariablesByEnvironmentID = `-- name: GetVariablesByEnvironmentID :many
+SELECT 
+  id,
+  env_id,
+  var_key,
+  value
+FROM 
+  variable
+WHERE
+  env_id = ?
+`
+
+func (q *Queries) GetVariablesByEnvironmentID(ctx context.Context, envID []byte) ([]Variable, error) {
+	rows, err := q.query(ctx, q.getVariablesByEnvironmentIDStmt, getVariablesByEnvironmentID, envID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Variable
+	for rows.Next() {
+		var i Variable
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnvID,
+			&i.VarKey,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWorkspace = `-- name: GetWorkspace :one
 SELECT
   id,
@@ -3300,6 +3544,24 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 	return err
 }
 
+const updateEnvironment = `-- name: UpdateEnvironment :exec
+UPDATE environment
+SET
+    is_default = ?
+WHERE
+    id = ?
+`
+
+type UpdateEnvironmentParams struct {
+	IsDefault bool
+	ID        idwrap.IDWrap
+}
+
+func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
+	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.IsDefault, arg.ID)
+	return err
+}
+
 const updateHeader = `-- name: UpdateHeader :exec
 UPDATE example_header
 SET
@@ -3483,6 +3745,26 @@ type UpdateUserParams struct {
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 	_, err := q.exec(ctx, q.updateUserStmt, updateUser, arg.Email, arg.PasswordHash, arg.ID)
+	return err
+}
+
+const updateVariable = `-- name: UpdateVariable :exec
+UPDATE variable
+SET 
+  var_key = ?,
+  value = ?
+WHERE
+  id = ?
+`
+
+type UpdateVariableParams struct {
+	VarKey string
+	Value  string
+	ID     idwrap.IDWrap
+}
+
+func (q *Queries) UpdateVariable(ctx context.Context, arg UpdateVariableParams) error {
+	_, err := q.exec(ctx, q.updateVariableStmt, updateVariable, arg.VarKey, arg.Value, arg.ID)
 	return err
 }
 
