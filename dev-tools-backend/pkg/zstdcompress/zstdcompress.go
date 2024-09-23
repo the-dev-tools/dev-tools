@@ -7,6 +7,8 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+const CompressThreshold = 1024
+
 type errorDecompressor struct {
 	err error
 }

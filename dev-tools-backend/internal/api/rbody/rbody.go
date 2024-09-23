@@ -8,13 +8,16 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/service/sbodyform"
+	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tbodyurl"
+	"dev-tools-backend/pkg/zstdcompress"
 	bodyv1 "dev-tools-services/gen/body/v1"
 	"dev-tools-services/gen/body/v1/bodyv1connect"
 	"errors"
@@ -31,6 +34,7 @@ type BodyRPC struct {
 
 	bfs  sbodyform.BodyFormService
 	bues sbodyurl.BodyURLEncodedService
+	brs  sbodyraw.BodyRawService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -57,6 +61,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	if err != nil {
 		return nil, err
 	}
+	brs, err := sbodyraw.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
 
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -70,6 +78,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		// body services
 		bfs:  *bfs,
 		bues: *bues,
+		brs:  *brs,
 	}
 
 	path, handler := bodyv1connect.NewBodyServiceHandler(service, options...)
@@ -245,7 +254,37 @@ func (c BodyRPC) DeleteBodyUrlEncoded(ctx context.Context, req *connect.Request[
 }
 
 func (c BodyRPC) UpdateBodyRaw(ctx context.Context, req *connect.Request[bodyv1.UpdateBodyRawRequest]) (*connect.Response[bodyv1.UpdateBodyRawResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	exampleID, err := idwrap.NewWithParse(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	}
+	bodyRawID, err := c.brs.GetBodyRawByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rawBody := mbodyraw.ExampleBodyRaw{
+		ID:           bodyRawID.ID,
+		CompressType: mbodyraw.CompressTypeNone,
+		Data:         req.Msg.GetBodyBytes(),
+	}
+	if len(rawBody.Data) > zstdcompress.CompressThreshold {
+		rawBody.CompressType = mbodyraw.CompressTypeZstd
+		rawBody.Data = zstdcompress.Compress(rawBody.Data)
+	}
+
+	err = c.brs.UpdateBodyRawBody(ctx, rawBody)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&bodyv1.UpdateBodyRawResponse{}), nil
 }
 
 func CheckOwnerBodyForm(ctx context.Context, bfs sbodyform.BodyFormService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, bodyFormUlid idwrap.IDWrap) (bool, error) {

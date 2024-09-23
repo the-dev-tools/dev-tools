@@ -195,3 +195,19 @@ CREATE TABLE example_body_raw (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
+CREATE TABLE environment (
+  id BLOB NOT NULL PRIMARY KEY,
+  workspace_id BLOB NOT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  name TEXT NOT NULL,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
+);
+
+CREATE TABLE variable (
+    id BLOB NOT NULL PRIMARY KEY,
+    env_id BLOB NOT NULL,
+    var_key TEXT NOT NULL,
+    value TEXt NOT NULL,
+    UNIQUE (env_id, var_key),
+    FOREIGN KEY (env_id) REFERENCES environment (id) ON DELETE CASCADE
+)

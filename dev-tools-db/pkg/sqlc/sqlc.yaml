@@ -274,3 +274,29 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
+          ## environment
+          ### id
+          - column: "environment.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### workspace_id
+          - column: "environment.workspace_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## variable
+          ### id
+          - column: "variable.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### workspace_id
+          - column: "variable.workspace_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"

@@ -487,7 +487,7 @@ func GetBody(body *mbody.Body, exampleID, collectionID idwrap.IDWrap, channels *
 			ExampleID:     exampleID,
 			VisualizeMode: mbodyraw.VisualizeModeUndefined,
 		}
-		if len(rawBytes) > 1000 {
+		if len(rawBytes) > zstdcompress.CompressThreshold {
 			bodyRaw.CompressType = mbodyraw.CompressTypeZstd
 			bodyRaw.Data = zstdcompress.Compress(rawBytes)
 			if len(bodyRaw.Data) > len(rawBytes) {

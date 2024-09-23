@@ -158,29 +158,21 @@ func (brs BodyRawService) CreateBulkBodyRaw(ctx context.Context, bodyRawArr []mb
 	return nil
 }
 
-func (brs BodyRawService) UpdateBodyRawBody(ctx context.Context, body mbodyraw.ExampleBodyRaw) (*mbodyraw.ExampleBodyRaw, error) {
+func (brs BodyRawService) UpdateBodyRawBody(ctx context.Context, body mbodyraw.ExampleBodyRaw) error {
 	bodyRaw := ConvertModelToGen(body)
-	err := brs.queries.UpdateBodyRawData(ctx, gen.UpdateBodyRawDataParams{
+	return brs.queries.UpdateBodyRawData(ctx, gen.UpdateBodyRawDataParams{
 		ID:           bodyRaw.ID,
 		CompressType: bodyRaw.CompressType,
 		Data:         bodyRaw.Data,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &body, nil
 }
 
-func (brs BodyRawService) UpdateBodyRawVisualize(ctx context.Context, body mbodyraw.ExampleBodyRaw) (*mbodyraw.ExampleBodyRaw, error) {
+func (brs BodyRawService) UpdateBodyRawVisualize(ctx context.Context, body mbodyraw.ExampleBodyRaw) error {
 	bodyRaw := ConvertModelToGen(body)
-	err := brs.queries.UpdateVisualizeMode(ctx, gen.UpdateVisualizeModeParams{
+	return brs.queries.UpdateVisualizeMode(ctx, gen.UpdateVisualizeModeParams{
 		ID:            bodyRaw.ID,
 		VisualizeMode: bodyRaw.VisualizeMode,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &body, nil
 }
 
 func (brs BodyRawService) DeleteBodyRaw(ctx context.Context, id idwrap.IDWrap) error {
