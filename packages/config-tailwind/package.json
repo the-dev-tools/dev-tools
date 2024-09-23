@@ -1,6 +1,6 @@
 {
   "name": "@the-dev-tools/config-tailwind",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "scripts": {
     "build/design-tokens": "tsx ./src/design-tokens",
     "lint": "eslint ."
