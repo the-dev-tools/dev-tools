@@ -8,12 +8,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { flexRender } from '@tanstack/react-table';
 import { Match, pipe } from 'effect';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   Body,
   BodyFormArray,
   BodyFormItem,
+  BodyRaw,
   BodyUrlEncodedArray,
   BodyUrlEncodedItem,
 } from '@the-dev-tools/protobuf/body/v1/body_pb';
@@ -23,12 +24,15 @@ import {
   deleteBodyForm,
   deleteBodyUrlEncoded,
   updateBodyForm,
+  updateBodyRaw,
   updateBodyUrlEncoded,
 } from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
 import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { updateExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextAreaField } from '@the-dev-tools/ui/text-field';
 
 import { useFormTable } from './form-table';
 
@@ -78,6 +82,7 @@ function Tab() {
         Match.value(body),
         Match.when({ case: 'forms' }, ({ value }) => <FormDataTable data={query.data} body={value} />),
         Match.when({ case: 'urlEncodeds' }, ({ value }) => <UrlEncodedTable data={query.data} body={value} />),
+        Match.when({ case: 'raw' }, ({ value }) => <RawForm data={query.data} body={value} />),
         Match.orElse(() => null),
       )}
     </>
@@ -196,5 +201,32 @@ const UrlEncodedTable = ({ data, body }: UrlEncodedTableProps) => {
         </tbody>
       </table>
     </div>
+  );
+};
+
+interface RawFormProps {
+  data: GetApiCallResponse;
+  body: BodyRaw;
+}
+
+const RawForm = ({ data, body }: RawFormProps) => {
+  const [value, setValue] = useState(new TextDecoder().decode(body.bodyBytes));
+
+  const updateMutation = useConnectMutation(updateBodyRaw);
+
+  return (
+    <TextAreaField
+      aria-label='Raw body value'
+      value={value}
+      onChange={setValue}
+      onBlur={() =>
+        void updateMutation.mutate({
+          exampleId: data.example!.meta!.id,
+          bodyBytes: new TextEncoder().encode(value),
+        })
+      }
+      className='h-full'
+      areaClassName={tw`h-full`}
+    />
   );
 };
