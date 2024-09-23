@@ -8,20 +8,27 @@ import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
-import { Array, HashMap, MutableHashMap, Option, pipe } from 'effect';
+import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { Array, Duration, HashMap, MutableHashMap, Option, pipe } from 'effect';
 import { useMemo } from 'react';
+import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuSave, LuSendHorizonal } from 'react-icons/lu';
+import { Panel, PanelGroup } from 'react-resizable-panels';
+import { twMerge } from 'tailwind-merge';
 
+import { HttpResponse, Result } from '@the-dev-tools/protobuf/apiresult/v1/apiresult_pb';
 import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall, updateApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { Query } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import {
   createQuery,
+  runExample,
   updateQuery,
 } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
+import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
@@ -58,6 +65,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
   const queryClient = useQueryClient();
 
   const updateMutation = useConnectMutation(updateApiCall);
+  const runMutation = useConnectMutation(runExample);
 
   const updateQueryMutation = useConnectMutation(updateQuery);
   const createQueryMutation = useConnectMutation(createQuery);
@@ -165,78 +173,213 @@ const ApiForm = ({ data }: ApiFormProps) => {
   });
 
   return (
-    <div className='flex h-full flex-col'>
-      <form onSubmit={onSubmit} onBlur={onSubmit}>
-        <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
-          <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
+    <PanelGroup direction='vertical'>
+      <Panel id='request' order={1} className='flex h-full flex-col'>
+        <form onSubmit={onSubmit} onBlur={onSubmit}>
+          <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
+            <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
 
-          <Button kind='placeholder' variant='placeholder' type='submit'>
-            <LuSave /> Save
-          </Button>
+            <Button kind='placeholder' variant='placeholder' type='submit'>
+              <LuSave /> Save
+            </Button>
+          </div>
+
+          <div className='flex items-start p-4 pb-0'>
+            <SelectRHF
+              control={form.control}
+              name='method'
+              aria-label='Method'
+              triggerClassName={tw`rounded-r-none border-r-0`}
+            >
+              {methods.map((_) => (
+                <DropdownItem key={_} id={_}>
+                  {_}
+                </DropdownItem>
+              ))}
+            </SelectRHF>
+
+            <TextFieldRHF
+              control={form.control}
+              name='url'
+              aria-label='URL'
+              className={tw`flex-1`}
+              inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
+            />
+
+            {/* TODO: implement */}
+            <Button
+              kind='placeholder'
+              variant='placeholder'
+              className='rounded-l-none border-l-0 bg-black text-white'
+              onPress={async () => {
+                await onSubmit();
+                await runMutation.mutateAsync({ id: data.example!.meta!.id });
+              }}
+            >
+              Send <LuSendHorizonal className='size-4' />
+            </Button>
+          </div>
+        </form>
+
+        <div className='flex flex-1 flex-col gap-4 overflow-auto p-4'>
+          <div className='flex gap-4 border-b border-black'>
+            <Link
+              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+              activeProps={{ className: tw`border-b-black` }}
+              activeOptions={{ exact: true }}
+              from='/workspace/$workspaceId/api-call/$apiCallId'
+              to='.'
+            >
+              Params
+            </Link>
+            <Link
+              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+              activeProps={{ className: tw`border-b-black` }}
+              from='/workspace/$workspaceId/api-call/$apiCallId'
+              to='headers'
+              params={{ workspaceId, apiCallId }}
+            >
+              Headers
+            </Link>
+            <Link
+              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+              activeProps={{ className: tw`border-b-black` }}
+              from='/workspace/$workspaceId/api-call/$apiCallId'
+              to='body'
+              params={{ workspaceId, apiCallId }}
+            >
+              Body
+            </Link>
+          </div>
+
+          <Outlet />
         </div>
+      </Panel>
+      {runMutation.data?.result && (
+        <>
+          <PanelResizeHandle direction='vertical' />
+          <Panel id='response' order={2} defaultSize={40}>
+            <ResponsePanel result={runMutation.data.result} />
+          </Panel>
+        </>
+      )}
+    </PanelGroup>
+  );
+};
 
-        <div className='flex items-start p-4 pb-0'>
-          <SelectRHF
-            control={form.control}
-            name='method'
-            aria-label='Method'
-            triggerClassName={tw`rounded-r-none border-r-0`}
-          >
-            {methods.map((_) => (
-              <DropdownItem key={_} id={_}>
-                {_}
-              </DropdownItem>
-            ))}
-          </SelectRHF>
+interface ResponsePanelProps {
+  result: Result;
+}
 
-          <TextFieldRHF
-            control={form.control}
-            name='url'
-            aria-label='URL'
-            className={tw`flex-1`}
-            inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
-          />
+const ResponsePanel = ({ result }: ResponsePanelProps) => {
+  if (result.response.case !== 'httpResponse') return `Error: ${result.response.value}`;
+  const response = result.response.value;
 
-          {/* TODO: implement */}
-          <Button kind='placeholder' variant='placeholder' className='rounded-l-none border-l-0 bg-black text-white'>
-            Send <LuSendHorizonal className='size-4' />
-          </Button>
-        </div>
-      </form>
-
-      <div className='flex flex-1 flex-col gap-4 p-4'>
-        <div className='flex gap-4 border-b border-black'>
-          <Link
-            className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-            activeProps={{ className: tw`border-b-black` }}
-            activeOptions={{ exact: true }}
-            from='/workspace/$workspaceId/api-call/$apiCallId'
-            to='.'
-          >
-            Params
-          </Link>
-          <Link
-            className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-            activeProps={{ className: tw`border-b-black` }}
-            from='/workspace/$workspaceId/api-call/$apiCallId'
-            to='headers'
-            params={{ workspaceId, apiCallId }}
-          >
-            Headers
-          </Link>
-          <Link
-            className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-            activeProps={{ className: tw`border-b-black` }}
-            from='/workspace/$workspaceId/api-call/$apiCallId'
-            to='body'
-            params={{ workspaceId, apiCallId }}
+  return (
+    <Tabs className='flex h-full flex-col'>
+      <div className='flex items-center gap-2 border-b border-black pl-2 pr-4 text-sm text-neutral-500'>
+        <TabList className='contents'>
+          <Tab
+            id='body'
+            className={({ isSelected }) =>
+              twMerge(
+                tw`cursor-pointer border-b-2 border-transparent p-2 transition-colors`,
+                isSelected && tw`border-black text-black`,
+              )
+            }
           >
             Body
-          </Link>
+          </Tab>
+          <Tab
+            id='headers'
+            className={({ isSelected }) =>
+              twMerge(
+                tw`cursor-pointer border-b-2 border-transparent p-2 transition-colors`,
+                isSelected && tw`border-black text-black`,
+              )
+            }
+          >
+            Headers
+          </Tab>
+        </TabList>
+
+        <div className='flex-1' />
+
+        <div>
+          Status: <span className='text-black'>{response.statusCode}</span>
         </div>
 
-        <Outlet />
+        <div>
+          Time: <span className='text-black'>{pipe(Number(result.duration), Duration.millis, Duration.format)}</span>
+        </div>
       </div>
+
+      <div className='flex-1 overflow-auto'>
+        <TabPanel id='body'>{new TextDecoder().decode(response.body)}</TabPanel>
+
+        <TabPanel id='headers' className='p-4'>
+          <ResponseHeadersTable headers={response.header} />
+        </TabPanel>
+      </div>
+    </Tabs>
+  );
+};
+
+interface ResponseHeadersTableProps {
+  headers: HttpResponse['header'];
+}
+
+const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
+  const columns = useMemo(() => {
+    const { accessor } = createColumnHelper<{ key: string; value: string }>();
+    return [accessor('key', {}), accessor('value', {})];
+  }, []);
+
+  const data = useMemo(
+    () =>
+      pipe(
+        Array.fromRecord(headers),
+        Array.map(([key, value]) => ({ key, value })),
+      ),
+    [headers],
+  );
+
+  const table = useReactTable({
+    columns,
+    data,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return (
+    <div className='rounded border border-black'>
+      <table className='w-full divide-inherit border-inherit'>
+        <thead className='divide-y divide-inherit border-b border-inherit'>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
+                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody className='divide-y divide-inherit'>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className='break-all p-1 align-middle text-sm'>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
