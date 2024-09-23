@@ -114,6 +114,7 @@ message DeleteBodyUrlEncodedResponse {
 
 message UpdateBodyRawRequest {
   string example_id = 1;
+  bytes body_bytes = 2;
 }
 
 message UpdateBodyRawResponse {
