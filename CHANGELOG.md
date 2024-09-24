@@ -1,5 +1,15 @@
 # @the-dev-tools/protobuf
 
+## 1.24.0
+
+### Minor Changes
+
+- [`3bc47b9`](https://github.com/the-dev-tools/dev-tools-proto/commit/3bc47b9fceccd5d766b2f1c5f86a4345f99338e7) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add ExampleResp and ExampleRespHeader
+  rename ExampleResp to ApiExampleResponse
+  rename ExampleRespHeader to ResponseHeader
+  change status string to in32
+  change body string to bytes
+
 ## 1.23.0
 
 ### Minor Changes
