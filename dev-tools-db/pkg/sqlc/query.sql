@@ -89,15 +89,14 @@ WHERE
 --
 -- name: GetItemApiExample :one
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -107,15 +106,14 @@ LIMIT
 
 -- name: GetItemApiExamples :many
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -124,15 +122,14 @@ WHERE
 
 -- name: GetItemApiExampleDefault :one
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -143,15 +140,14 @@ LIMIT
 
 -- name: GetItemApiExampleByCollectionID :many
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -163,7 +159,6 @@ INSERT INTO
     id,
     item_api_id,
     collection_id,
-    parent_example_id,
     is_default,
     body_type,
     name,
@@ -171,7 +166,7 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
 INSERT INTO
@@ -179,7 +174,6 @@ INSERT INTO
     id,
     item_api_id,
     collection_id,
-    parent_example_id,
     is_default,
     body_type,
     name,
@@ -187,16 +181,16 @@ INSERT INTO
     next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
@@ -731,6 +725,11 @@ VALUES
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHeader :exec
@@ -1139,3 +1138,100 @@ WHERE
 DELETE FROM variable
 WHERE
   id = ?;
+
+-- name: GetExampleResp :one
+SELECT
+  id,
+  example_id,
+  resp_status,
+  resp_body,
+  resp_time,
+  resp_duration
+FROM 
+  example_resp
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetExampleRespsByExampleID :one
+SELECT
+  id,
+  example_id,
+  resp_status,
+  resp_body,
+  resp_time,
+  resp_duration
+FROM
+  example_resp
+WHERE
+  example_id = ?
+LIMIT 1;
+
+-- name: CreateExampleResp :exec
+INSERT INTO
+  example_resp (id, example_id, resp_status, resp_body, resp_time, resp_duration)
+VALUES
+  (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateExampleResp :exec
+UPDATE example_resp
+SET 
+  resp_status = ?,
+  resp_body = ?,
+  resp_time = ?,
+  resp_duration = ?
+WHERE
+  id = ?;
+
+-- name: DeleteExampleResp :exec
+DELETE FROM example_resp
+WHERE
+  id = ?;
+
+/*
+* example_resp_header
+*/
+
+-- name: GetExampleRespHeader :one
+SELECT 
+  id,
+  example_resp_id,
+  header_key,
+  value
+FROM 
+  example_resp_header
+WHERE
+  id = ?
+LIMIT 1;
+
+
+-- name: GetExampleRespHeadersByRespID :many
+SELECT 
+  id,
+  example_resp_id,
+  header_key,
+  value
+FROM 
+  example_resp_header
+WHERE
+  example_resp_id = ?;
+
+-- name: CreateExampleRespHeader :exec
+INSERT INTO
+  example_resp_header (id, example_resp_id, header_key, value)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateExampleRespHeader :exec
+UPDATE example_resp_header
+SET 
+  header_key = ?,
+  value = ?
+WHERE
+  id = ?;
+
+-- name: DeleteExampleRespHeader :exec
+DELETE FROM example_resp_header
+WHERE
+  id = ?;
+

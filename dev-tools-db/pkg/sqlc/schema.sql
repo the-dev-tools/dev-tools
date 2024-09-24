@@ -106,14 +106,14 @@ CREATE TABLE item_api_example (
   id BLOB NOT NULL PRIMARY KEY,
   item_api_id BLOB NOT NULL,
   collection_id BLOB NOT NULL,
-  parent_example_id BLOB,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   body_type INT8 NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
+
+  -- Odering
   prev BLOB,
   next BLOB,
   UNIQUE (prev, next),
-  FOREIGN KEY (parent_example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
 );
@@ -121,8 +121,22 @@ CREATE TABLE item_api_example (
 CREATE INDEX item_api_example_idx1 ON item_api_example (
   item_api_id,
   collection_id,
-  is_default,
-  parent_example_id
+  is_default
+);
+
+CREATE TABLE example_resp (
+  id BLOB NOT NULL PRIMARY KEY,
+  example_id BLOB NOT NULL,
+  resp_status TINYINT NOT NULL DEFAULT 200,
+  resp_body BLOB,
+  resp_time TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
+  resp_duration INT NOT NULL,
+  UNIQUE (example_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+
+CREATE INDEX item_api_example_resp_idx1 ON item_api_example_resp (
+  example_id
 );
 
 CREATE TABLE example_header (
@@ -132,11 +146,26 @@ CREATE TABLE example_header (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  UNIQUE (example_id, header_key),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
 CREATE INDEX example_header_idx1 ON example_header (
   example_id,
+  header_key
+);
+
+CREATE TABLE example_resp_header (
+  id BLOB NOT NULL PRIMARY KEY,
+  example_resp_id BLOB NOT NULL,
+  header_key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  UNIQUE (example_resp_id, header_key),
+  FOREIGN KEY (example_resp_id) REFERENCES item_api_example_resp (id) ON DELETE CASCADE
+);
+
+CREATE INDEX example_header_resp_idx1 ON example_header_resp (
+  example_resp_id,
   header_key
 );
 
@@ -162,6 +191,7 @@ CREATE TABLE example_body_form (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  UNIQUE (example_id, body_key),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
@@ -177,6 +207,7 @@ CREATE TABLE example_body_urlencoded (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  UNIQUE (example_id, body_key),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 

@@ -505,6 +505,58 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 	return err
 }
 
+const createExampleResp = `-- name: CreateExampleResp :exec
+INSERT INTO
+  example_resp (id, example_id, resp_status, resp_body, resp_time, resp_duration)
+VALUES
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateExampleRespParams struct {
+	ID           idwrap.IDWrap
+	ExampleID    idwrap.IDWrap
+	RespStatus   uint16
+	RespBody     []byte
+	RespTime     int64
+	RespDuration int32
+}
+
+func (q *Queries) CreateExampleResp(ctx context.Context, arg CreateExampleRespParams) error {
+	_, err := q.exec(ctx, q.createExampleRespStmt, createExampleResp,
+		arg.ID,
+		arg.ExampleID,
+		arg.RespStatus,
+		arg.RespBody,
+		arg.RespTime,
+		arg.RespDuration,
+	)
+	return err
+}
+
+const createExampleRespHeader = `-- name: CreateExampleRespHeader :exec
+INSERT INTO
+  example_resp_header (id, example_resp_id, header_key, value)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateExampleRespHeaderParams struct {
+	ID            idwrap.IDWrap
+	ExampleRespID idwrap.IDWrap
+	HeaderKey     string
+	Value         string
+}
+
+func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExampleRespHeaderParams) error {
+	_, err := q.exec(ctx, q.createExampleRespHeaderStmt, createExampleRespHeader,
+		arg.ID,
+		arg.ExampleRespID,
+		arg.HeaderKey,
+		arg.Value,
+	)
+	return err
+}
+
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
   example_header (id, example_id, header_key, enable, description, value)
@@ -537,6 +589,11 @@ const createHeaderBulk = `-- name: CreateHeaderBulk :exec
 INSERT INTO
   example_header (id, example_id, header_key, enable, description, value)
 VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?),
@@ -610,6 +667,36 @@ type CreateHeaderBulkParams struct {
 	Enable_10      bool
 	Description_10 string
 	Value_10       string
+	ID_11          idwrap.IDWrap
+	ExampleID_11   idwrap.IDWrap
+	HeaderKey_11   string
+	Enable_11      bool
+	Description_11 string
+	Value_11       string
+	ID_12          idwrap.IDWrap
+	ExampleID_12   idwrap.IDWrap
+	HeaderKey_12   string
+	Enable_12      bool
+	Description_12 string
+	Value_12       string
+	ID_13          idwrap.IDWrap
+	ExampleID_13   idwrap.IDWrap
+	HeaderKey_13   string
+	Enable_13      bool
+	Description_13 string
+	Value_13       string
+	ID_14          idwrap.IDWrap
+	ExampleID_14   idwrap.IDWrap
+	HeaderKey_14   string
+	Enable_14      bool
+	Description_14 string
+	Value_14       string
+	ID_15          idwrap.IDWrap
+	ExampleID_15   idwrap.IDWrap
+	HeaderKey_15   string
+	Enable_15      bool
+	Description_15 string
+	Value_15       string
 }
 
 func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkParams) error {
@@ -674,6 +761,36 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
+		arg.ID_11,
+		arg.ExampleID_11,
+		arg.HeaderKey_11,
+		arg.Enable_11,
+		arg.Description_11,
+		arg.Value_11,
+		arg.ID_12,
+		arg.ExampleID_12,
+		arg.HeaderKey_12,
+		arg.Enable_12,
+		arg.Description_12,
+		arg.Value_12,
+		arg.ID_13,
+		arg.ExampleID_13,
+		arg.HeaderKey_13,
+		arg.Enable_13,
+		arg.Description_13,
+		arg.Value_13,
+		arg.ID_14,
+		arg.ExampleID_14,
+		arg.HeaderKey_14,
+		arg.Enable_14,
+		arg.Description_14,
+		arg.Value_14,
+		arg.ID_15,
+		arg.ExampleID_15,
+		arg.HeaderKey_15,
+		arg.Enable_15,
+		arg.Description_15,
+		arg.Value_15,
 	)
 	return err
 }
@@ -901,7 +1018,6 @@ INSERT INTO
     id,
     item_api_id,
     collection_id,
-    parent_example_id,
     is_default,
     body_type,
     name,
@@ -909,19 +1025,18 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
-	ID              idwrap.IDWrap
-	ItemApiID       idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
-	ParentExampleID *idwrap.IDWrap
-	IsDefault       bool
-	BodyType        int8
-	Name            string
-	Prev            *idwrap.IDWrap
-	Next            *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	ItemApiID    idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	IsDefault    bool
+	BodyType     int8
+	Name         string
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExampleParams) error {
@@ -929,7 +1044,6 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.ID,
 		arg.ItemApiID,
 		arg.CollectionID,
-		arg.ParentExampleID,
 		arg.IsDefault,
 		arg.BodyType,
 		arg.Name,
@@ -945,7 +1059,6 @@ INSERT INTO
     id,
     item_api_id,
     collection_id,
-    parent_example_id,
     is_default,
     body_type,
     name,
@@ -953,109 +1066,99 @@ INSERT INTO
     next
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
-	ID                 idwrap.IDWrap
-	ItemApiID          idwrap.IDWrap
-	CollectionID       idwrap.IDWrap
-	ParentExampleID    *idwrap.IDWrap
-	IsDefault          bool
-	BodyType           int8
-	Name               string
-	Prev               *idwrap.IDWrap
-	Next               *idwrap.IDWrap
-	ID_2               idwrap.IDWrap
-	ItemApiID_2        idwrap.IDWrap
-	CollectionID_2     idwrap.IDWrap
-	ParentExampleID_2  *idwrap.IDWrap
-	IsDefault_2        bool
-	BodyType_2         int8
-	Name_2             string
-	Prev_2             *idwrap.IDWrap
-	Next_2             *idwrap.IDWrap
-	ID_3               idwrap.IDWrap
-	ItemApiID_3        idwrap.IDWrap
-	CollectionID_3     idwrap.IDWrap
-	ParentExampleID_3  *idwrap.IDWrap
-	IsDefault_3        bool
-	BodyType_3         int8
-	Name_3             string
-	Prev_3             *idwrap.IDWrap
-	Next_3             *idwrap.IDWrap
-	ID_4               idwrap.IDWrap
-	ItemApiID_4        idwrap.IDWrap
-	CollectionID_4     idwrap.IDWrap
-	ParentExampleID_4  *idwrap.IDWrap
-	IsDefault_4        bool
-	BodyType_4         int8
-	Name_4             string
-	Prev_4             *idwrap.IDWrap
-	Next_4             *idwrap.IDWrap
-	ID_5               idwrap.IDWrap
-	ItemApiID_5        idwrap.IDWrap
-	CollectionID_5     idwrap.IDWrap
-	ParentExampleID_5  *idwrap.IDWrap
-	IsDefault_5        bool
-	BodyType_5         int8
-	Name_5             string
-	Prev_5             *idwrap.IDWrap
-	Next_5             *idwrap.IDWrap
-	ID_6               idwrap.IDWrap
-	ItemApiID_6        idwrap.IDWrap
-	CollectionID_6     idwrap.IDWrap
-	ParentExampleID_6  *idwrap.IDWrap
-	IsDefault_6        bool
-	BodyType_6         int8
-	Name_6             string
-	Prev_6             *idwrap.IDWrap
-	Next_6             *idwrap.IDWrap
-	ID_7               idwrap.IDWrap
-	ItemApiID_7        idwrap.IDWrap
-	CollectionID_7     idwrap.IDWrap
-	ParentExampleID_7  *idwrap.IDWrap
-	IsDefault_7        bool
-	BodyType_7         int8
-	Name_7             string
-	Prev_7             *idwrap.IDWrap
-	Next_7             *idwrap.IDWrap
-	ID_8               idwrap.IDWrap
-	ItemApiID_8        idwrap.IDWrap
-	CollectionID_8     idwrap.IDWrap
-	ParentExampleID_8  *idwrap.IDWrap
-	IsDefault_8        bool
-	BodyType_8         int8
-	Name_8             string
-	Prev_8             *idwrap.IDWrap
-	Next_8             *idwrap.IDWrap
-	ID_9               idwrap.IDWrap
-	ItemApiID_9        idwrap.IDWrap
-	CollectionID_9     idwrap.IDWrap
-	ParentExampleID_9  *idwrap.IDWrap
-	IsDefault_9        bool
-	BodyType_9         int8
-	Name_9             string
-	Prev_9             *idwrap.IDWrap
-	Next_9             *idwrap.IDWrap
-	ID_10              idwrap.IDWrap
-	ItemApiID_10       idwrap.IDWrap
-	CollectionID_10    idwrap.IDWrap
-	ParentExampleID_10 *idwrap.IDWrap
-	IsDefault_10       bool
-	BodyType_10        int8
-	Name_10            string
-	Prev_10            *idwrap.IDWrap
-	Next_10            *idwrap.IDWrap
+	ID              idwrap.IDWrap
+	ItemApiID       idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	IsDefault       bool
+	BodyType        int8
+	Name            string
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
+	ID_2            idwrap.IDWrap
+	ItemApiID_2     idwrap.IDWrap
+	CollectionID_2  idwrap.IDWrap
+	IsDefault_2     bool
+	BodyType_2      int8
+	Name_2          string
+	Prev_2          *idwrap.IDWrap
+	Next_2          *idwrap.IDWrap
+	ID_3            idwrap.IDWrap
+	ItemApiID_3     idwrap.IDWrap
+	CollectionID_3  idwrap.IDWrap
+	IsDefault_3     bool
+	BodyType_3      int8
+	Name_3          string
+	Prev_3          *idwrap.IDWrap
+	Next_3          *idwrap.IDWrap
+	ID_4            idwrap.IDWrap
+	ItemApiID_4     idwrap.IDWrap
+	CollectionID_4  idwrap.IDWrap
+	IsDefault_4     bool
+	BodyType_4      int8
+	Name_4          string
+	Prev_4          *idwrap.IDWrap
+	Next_4          *idwrap.IDWrap
+	ID_5            idwrap.IDWrap
+	ItemApiID_5     idwrap.IDWrap
+	CollectionID_5  idwrap.IDWrap
+	IsDefault_5     bool
+	BodyType_5      int8
+	Name_5          string
+	Prev_5          *idwrap.IDWrap
+	Next_5          *idwrap.IDWrap
+	ID_6            idwrap.IDWrap
+	ItemApiID_6     idwrap.IDWrap
+	CollectionID_6  idwrap.IDWrap
+	IsDefault_6     bool
+	BodyType_6      int8
+	Name_6          string
+	Prev_6          *idwrap.IDWrap
+	Next_6          *idwrap.IDWrap
+	ID_7            idwrap.IDWrap
+	ItemApiID_7     idwrap.IDWrap
+	CollectionID_7  idwrap.IDWrap
+	IsDefault_7     bool
+	BodyType_7      int8
+	Name_7          string
+	Prev_7          *idwrap.IDWrap
+	Next_7          *idwrap.IDWrap
+	ID_8            idwrap.IDWrap
+	ItemApiID_8     idwrap.IDWrap
+	CollectionID_8  idwrap.IDWrap
+	IsDefault_8     bool
+	BodyType_8      int8
+	Name_8          string
+	Prev_8          *idwrap.IDWrap
+	Next_8          *idwrap.IDWrap
+	ID_9            idwrap.IDWrap
+	ItemApiID_9     idwrap.IDWrap
+	CollectionID_9  idwrap.IDWrap
+	IsDefault_9     bool
+	BodyType_9      int8
+	Name_9          string
+	Prev_9          *idwrap.IDWrap
+	Next_9          *idwrap.IDWrap
+	ID_10           idwrap.IDWrap
+	ItemApiID_10    idwrap.IDWrap
+	CollectionID_10 idwrap.IDWrap
+	IsDefault_10    bool
+	BodyType_10     int8
+	Name_10         string
+	Prev_10         *idwrap.IDWrap
+	Next_10         *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -1063,7 +1166,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID,
 		arg.ItemApiID,
 		arg.CollectionID,
-		arg.ParentExampleID,
 		arg.IsDefault,
 		arg.BodyType,
 		arg.Name,
@@ -1072,7 +1174,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_2,
 		arg.ItemApiID_2,
 		arg.CollectionID_2,
-		arg.ParentExampleID_2,
 		arg.IsDefault_2,
 		arg.BodyType_2,
 		arg.Name_2,
@@ -1081,7 +1182,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_3,
 		arg.ItemApiID_3,
 		arg.CollectionID_3,
-		arg.ParentExampleID_3,
 		arg.IsDefault_3,
 		arg.BodyType_3,
 		arg.Name_3,
@@ -1090,7 +1190,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_4,
 		arg.ItemApiID_4,
 		arg.CollectionID_4,
-		arg.ParentExampleID_4,
 		arg.IsDefault_4,
 		arg.BodyType_4,
 		arg.Name_4,
@@ -1099,7 +1198,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_5,
 		arg.ItemApiID_5,
 		arg.CollectionID_5,
-		arg.ParentExampleID_5,
 		arg.IsDefault_5,
 		arg.BodyType_5,
 		arg.Name_5,
@@ -1108,7 +1206,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_6,
 		arg.ItemApiID_6,
 		arg.CollectionID_6,
-		arg.ParentExampleID_6,
 		arg.IsDefault_6,
 		arg.BodyType_6,
 		arg.Name_6,
@@ -1117,7 +1214,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_7,
 		arg.ItemApiID_7,
 		arg.CollectionID_7,
-		arg.ParentExampleID_7,
 		arg.IsDefault_7,
 		arg.BodyType_7,
 		arg.Name_7,
@@ -1126,7 +1222,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_8,
 		arg.ItemApiID_8,
 		arg.CollectionID_8,
-		arg.ParentExampleID_8,
 		arg.IsDefault_8,
 		arg.BodyType_8,
 		arg.Name_8,
@@ -1135,7 +1230,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_9,
 		arg.ItemApiID_9,
 		arg.CollectionID_9,
-		arg.ParentExampleID_9,
 		arg.IsDefault_9,
 		arg.BodyType_9,
 		arg.Name_9,
@@ -1144,7 +1238,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.ID_10,
 		arg.ItemApiID_10,
 		arg.CollectionID_10,
-		arg.ParentExampleID_10,
 		arg.IsDefault_10,
 		arg.BodyType_10,
 		arg.Name_10,
@@ -1763,6 +1856,28 @@ func (q *Queries) DeleteEnvironment(ctx context.Context, id idwrap.IDWrap) error
 	return err
 }
 
+const deleteExampleResp = `-- name: DeleteExampleResp :exec
+DELETE FROM example_resp
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteExampleResp(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteExampleRespStmt, deleteExampleResp, id)
+	return err
+}
+
+const deleteExampleRespHeader = `-- name: DeleteExampleRespHeader :exec
+DELETE FROM example_resp_header
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteExampleRespHeaderStmt, deleteExampleRespHeader, id)
+	return err
+}
+
 const deleteHeader = `-- name: DeleteHeader :exec
 DELETE FROM example_header
 WHERE
@@ -2197,7 +2312,7 @@ const getEnvironment = `-- name: GetEnvironment :one
 * Environment
 */
 
-SELECT 
+SELECT
   id,
   workspace_id,
   is_default,
@@ -2222,7 +2337,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environ
 }
 
 const getEnvironmentsByWorkspaceID = `-- name: GetEnvironmentsByWorkspaceID :many
-SELECT 
+SELECT
   id,
   workspace_id,
   is_default,
@@ -2259,6 +2374,133 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 		return nil, err
 	}
 	return items, nil
+}
+
+const getExampleResp = `-- name: GetExampleResp :one
+SELECT
+  id,
+  example_id,
+  resp_status,
+  resp_body,
+  resp_time,
+  resp_duration
+FROM 
+  example_resp
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetExampleResp(ctx context.Context, id idwrap.IDWrap) (ExampleResp, error) {
+	row := q.queryRow(ctx, q.getExampleRespStmt, getExampleResp, id)
+	var i ExampleResp
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.RespStatus,
+		&i.RespBody,
+		&i.RespTime,
+		&i.RespDuration,
+	)
+	return i, err
+}
+
+const getExampleRespHeader = `-- name: GetExampleRespHeader :one
+/*
+* example_resp_header
+*/
+
+SELECT 
+  id,
+  example_resp_id,
+  header_key,
+  value
+FROM 
+  example_resp_header
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetExampleRespHeader(ctx context.Context, id idwrap.IDWrap) (ExampleRespHeader, error) {
+	row := q.queryRow(ctx, q.getExampleRespHeaderStmt, getExampleRespHeader, id)
+	var i ExampleRespHeader
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleRespID,
+		&i.HeaderKey,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getExampleRespHeadersByRespID = `-- name: GetExampleRespHeadersByRespID :many
+SELECT 
+  id,
+  example_resp_id,
+  header_key,
+  value
+FROM 
+  example_resp_header
+WHERE
+  example_resp_id = ?
+`
+
+func (q *Queries) GetExampleRespHeadersByRespID(ctx context.Context, exampleRespID idwrap.IDWrap) ([]ExampleRespHeader, error) {
+	rows, err := q.query(ctx, q.getExampleRespHeadersByRespIDStmt, getExampleRespHeadersByRespID, exampleRespID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExampleRespHeader
+	for rows.Next() {
+		var i ExampleRespHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleRespID,
+			&i.HeaderKey,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getExampleRespsByExampleID = `-- name: GetExampleRespsByExampleID :one
+SELECT
+  id,
+  example_id,
+  resp_status,
+  resp_body,
+  resp_time,
+  resp_duration
+FROM
+  example_resp
+WHERE
+  example_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwrap.IDWrap) (ExampleResp, error) {
+	row := q.queryRow(ctx, q.getExampleRespsByExampleIDStmt, getExampleRespsByExampleID, exampleID)
+	var i ExampleResp
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.RespStatus,
+		&i.RespBody,
+		&i.RespTime,
+		&i.RespDuration,
+	)
+	return i, err
 }
 
 const getHeader = `-- name: GetHeader :one
@@ -2379,15 +2621,14 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 
 const getItemApiExample = `-- name: GetItemApiExample :one
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -2404,7 +2645,6 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (Item
 		&i.ID,
 		&i.ItemApiID,
 		&i.CollectionID,
-		&i.ParentExampleID,
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
@@ -2416,15 +2656,14 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (Item
 
 const getItemApiExampleByCollectionID = `-- name: GetItemApiExampleByCollectionID :many
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -2444,7 +2683,6 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.ID,
 			&i.ItemApiID,
 			&i.CollectionID,
-			&i.ParentExampleID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -2466,15 +2704,14 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 
 const getItemApiExampleDefault = `-- name: GetItemApiExampleDefault :one
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -2491,7 +2728,6 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID idwrap
 		&i.ID,
 		&i.ItemApiID,
 		&i.CollectionID,
-		&i.ParentExampleID,
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
@@ -2503,15 +2739,14 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID idwrap
 
 const getItemApiExamples = `-- name: GetItemApiExamples :many
 SELECT
-  id,
-  item_api_id,
-  collection_id,
-  parent_example_id,
-  is_default,
-  body_type,
-  name,
-  prev,
-  next
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
 FROM
   item_api_example
 WHERE
@@ -2532,7 +2767,6 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 			&i.ID,
 			&i.ItemApiID,
 			&i.CollectionID,
-			&i.ParentExampleID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -3062,7 +3296,7 @@ const getVariable = `-- name: GetVariable :one
 * Variables
 */
 
-SELECT 
+SELECT
   id,
   env_id,
   var_key,
@@ -3087,12 +3321,12 @@ func (q *Queries) GetVariable(ctx context.Context, id idwrap.IDWrap) (Variable, 
 }
 
 const getVariablesByEnvironmentID = `-- name: GetVariablesByEnvironmentID :many
-SELECT 
+SELECT
   id,
   env_id,
   var_key,
   value
-FROM 
+FROM
   variable
 WHERE
   env_id = ?
@@ -3562,6 +3796,56 @@ func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentPa
 	return err
 }
 
+const updateExampleResp = `-- name: UpdateExampleResp :exec
+UPDATE example_resp
+SET 
+  resp_status = ?,
+  resp_body = ?,
+  resp_time = ?,
+  resp_duration = ?
+WHERE
+  id = ?
+`
+
+type UpdateExampleRespParams struct {
+	RespStatus   uint16
+	RespBody     []byte
+	RespTime     int64
+	RespDuration int32
+	ID           idwrap.IDWrap
+}
+
+func (q *Queries) UpdateExampleResp(ctx context.Context, arg UpdateExampleRespParams) error {
+	_, err := q.exec(ctx, q.updateExampleRespStmt, updateExampleResp,
+		arg.RespStatus,
+		arg.RespBody,
+		arg.RespTime,
+		arg.RespDuration,
+		arg.ID,
+	)
+	return err
+}
+
+const updateExampleRespHeader = `-- name: UpdateExampleRespHeader :exec
+UPDATE example_resp_header
+SET 
+  header_key = ?,
+  value = ?
+WHERE
+  id = ?
+`
+
+type UpdateExampleRespHeaderParams struct {
+	HeaderKey string
+	Value     string
+	ID        idwrap.IDWrap
+}
+
+func (q *Queries) UpdateExampleRespHeader(ctx context.Context, arg UpdateExampleRespHeaderParams) error {
+	_, err := q.exec(ctx, q.updateExampleRespHeaderStmt, updateExampleRespHeader, arg.HeaderKey, arg.Value, arg.ID)
+	return err
+}
+
 const updateHeader = `-- name: UpdateHeader :exec
 UPDATE example_header
 SET
@@ -3750,7 +4034,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 
 const updateVariable = `-- name: UpdateVariable :exec
 UPDATE variable
-SET 
+SET
   var_key = ?,
   value = ?
 WHERE

@@ -48,6 +48,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createCollectionStmt, err = db.PrepareContext(ctx, createCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCollection: %w", err)
 	}
+	if q.createExampleRespStmt, err = db.PrepareContext(ctx, createExampleResp); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateExampleResp: %w", err)
+	}
+	if q.createExampleRespHeaderStmt, err = db.PrepareContext(ctx, createExampleRespHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateExampleRespHeader: %w", err)
+	}
 	if q.createHeaderStmt, err = db.PrepareContext(ctx, createHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHeader: %w", err)
 	}
@@ -110,6 +116,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteEnvironmentStmt, err = db.PrepareContext(ctx, deleteEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteEnvironment: %w", err)
+	}
+	if q.deleteExampleRespStmt, err = db.PrepareContext(ctx, deleteExampleResp); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExampleResp: %w", err)
+	}
+	if q.deleteExampleRespHeaderStmt, err = db.PrepareContext(ctx, deleteExampleRespHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExampleRespHeader: %w", err)
 	}
 	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
@@ -176,6 +188,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceID: %w", err)
+	}
+	if q.getExampleRespStmt, err = db.PrepareContext(ctx, getExampleResp); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleResp: %w", err)
+	}
+	if q.getExampleRespHeaderStmt, err = db.PrepareContext(ctx, getExampleRespHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleRespHeader: %w", err)
+	}
+	if q.getExampleRespHeadersByRespIDStmt, err = db.PrepareContext(ctx, getExampleRespHeadersByRespID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleRespHeadersByRespID: %w", err)
+	}
+	if q.getExampleRespsByExampleIDStmt, err = db.PrepareContext(ctx, getExampleRespsByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleRespsByExampleID: %w", err)
 	}
 	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
@@ -294,6 +318,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateEnvironmentStmt, err = db.PrepareContext(ctx, updateEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateEnvironment: %w", err)
 	}
+	if q.updateExampleRespStmt, err = db.PrepareContext(ctx, updateExampleResp); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateExampleResp: %w", err)
+	}
+	if q.updateExampleRespHeaderStmt, err = db.PrepareContext(ctx, updateExampleRespHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateExampleRespHeader: %w", err)
+	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
@@ -370,6 +400,16 @@ func (q *Queries) Close() error {
 	if q.createCollectionStmt != nil {
 		if cerr := q.createCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCollectionStmt: %w", cerr)
+		}
+	}
+	if q.createExampleRespStmt != nil {
+		if cerr := q.createExampleRespStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createExampleRespStmt: %w", cerr)
+		}
+	}
+	if q.createExampleRespHeaderStmt != nil {
+		if cerr := q.createExampleRespHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createExampleRespHeaderStmt: %w", cerr)
 		}
 	}
 	if q.createHeaderStmt != nil {
@@ -475,6 +515,16 @@ func (q *Queries) Close() error {
 	if q.deleteEnvironmentStmt != nil {
 		if cerr := q.deleteEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteEnvironmentStmt: %w", cerr)
+		}
+	}
+	if q.deleteExampleRespStmt != nil {
+		if cerr := q.deleteExampleRespStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExampleRespStmt: %w", cerr)
+		}
+	}
+	if q.deleteExampleRespHeaderStmt != nil {
+		if cerr := q.deleteExampleRespHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExampleRespHeaderStmt: %w", cerr)
 		}
 	}
 	if q.deleteHeaderStmt != nil {
@@ -585,6 +635,26 @@ func (q *Queries) Close() error {
 	if q.getEnvironmentsByWorkspaceIDStmt != nil {
 		if cerr := q.getEnvironmentsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getExampleRespStmt != nil {
+		if cerr := q.getExampleRespStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleRespStmt: %w", cerr)
+		}
+	}
+	if q.getExampleRespHeaderStmt != nil {
+		if cerr := q.getExampleRespHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleRespHeaderStmt: %w", cerr)
+		}
+	}
+	if q.getExampleRespHeadersByRespIDStmt != nil {
+		if cerr := q.getExampleRespHeadersByRespIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleRespHeadersByRespIDStmt: %w", cerr)
+		}
+	}
+	if q.getExampleRespsByExampleIDStmt != nil {
+		if cerr := q.getExampleRespsByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleRespsByExampleIDStmt: %w", cerr)
 		}
 	}
 	if q.getHeaderStmt != nil {
@@ -782,6 +852,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateEnvironmentStmt: %w", cerr)
 		}
 	}
+	if q.updateExampleRespStmt != nil {
+		if cerr := q.updateExampleRespStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateExampleRespStmt: %w", cerr)
+		}
+	}
+	if q.updateExampleRespHeaderStmt != nil {
+		if cerr := q.updateExampleRespHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateExampleRespHeaderStmt: %w", cerr)
+		}
+	}
 	if q.updateHeaderStmt != nil {
 		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
@@ -884,6 +964,8 @@ type Queries struct {
 	createBodyUrlEncodedStmt                   *sql.Stmt
 	createBodyUrlEncodedBulkStmt               *sql.Stmt
 	createCollectionStmt                       *sql.Stmt
+	createExampleRespStmt                      *sql.Stmt
+	createExampleRespHeaderStmt                *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
 	createHeaderBulkStmt                       *sql.Stmt
 	createItemApiStmt                          *sql.Stmt
@@ -905,6 +987,8 @@ type Queries struct {
 	deleteBodyURLEncodedStmt                   *sql.Stmt
 	deleteCollectionStmt                       *sql.Stmt
 	deleteEnvironmentStmt                      *sql.Stmt
+	deleteExampleRespStmt                      *sql.Stmt
+	deleteExampleRespHeaderStmt                *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
 	deleteItemApiExampleStmt                   *sql.Stmt
@@ -927,6 +1011,10 @@ type Queries struct {
 	getCollectionOwnerIDStmt                   *sql.Stmt
 	getEnvironmentStmt                         *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt           *sql.Stmt
+	getExampleRespStmt                         *sql.Stmt
+	getExampleRespHeaderStmt                   *sql.Stmt
+	getExampleRespHeadersByRespIDStmt          *sql.Stmt
+	getExampleRespsByExampleIDStmt             *sql.Stmt
 	getHeaderStmt                              *sql.Stmt
 	getHeadersByExampleIDStmt                  *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
@@ -966,6 +1054,8 @@ type Queries struct {
 	updateBodyUrlEncodedStmt                   *sql.Stmt
 	updateCollectionStmt                       *sql.Stmt
 	updateEnvironmentStmt                      *sql.Stmt
+	updateExampleRespStmt                      *sql.Stmt
+	updateExampleRespHeaderStmt                *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
 	updateItemApiExampleStmt                   *sql.Stmt
@@ -991,6 +1081,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createBodyUrlEncodedStmt:                   q.createBodyUrlEncodedStmt,
 		createBodyUrlEncodedBulkStmt:               q.createBodyUrlEncodedBulkStmt,
 		createCollectionStmt:                       q.createCollectionStmt,
+		createExampleRespStmt:                      q.createExampleRespStmt,
+		createExampleRespHeaderStmt:                q.createExampleRespHeaderStmt,
 		createHeaderStmt:                           q.createHeaderStmt,
 		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
 		createItemApiStmt:                          q.createItemApiStmt,
@@ -1012,6 +1104,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteBodyURLEncodedStmt:                   q.deleteBodyURLEncodedStmt,
 		deleteCollectionStmt:                       q.deleteCollectionStmt,
 		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
+		deleteExampleRespStmt:                      q.deleteExampleRespStmt,
+		deleteExampleRespHeaderStmt:                q.deleteExampleRespHeaderStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
@@ -1034,6 +1128,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionOwnerIDStmt:                   q.getCollectionOwnerIDStmt,
 		getEnvironmentStmt:                         q.getEnvironmentStmt,
 		getEnvironmentsByWorkspaceIDStmt:           q.getEnvironmentsByWorkspaceIDStmt,
+		getExampleRespStmt:                         q.getExampleRespStmt,
+		getExampleRespHeaderStmt:                   q.getExampleRespHeaderStmt,
+		getExampleRespHeadersByRespIDStmt:          q.getExampleRespHeadersByRespIDStmt,
+		getExampleRespsByExampleIDStmt:             q.getExampleRespsByExampleIDStmt,
 		getHeaderStmt:                              q.getHeaderStmt,
 		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
@@ -1073,6 +1171,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateBodyUrlEncodedStmt:                   q.updateBodyUrlEncodedStmt,
 		updateCollectionStmt:                       q.updateCollectionStmt,
 		updateEnvironmentStmt:                      q.updateEnvironmentStmt,
+		updateExampleRespStmt:                      q.updateExampleRespStmt,
+		updateExampleRespHeaderStmt:                q.updateExampleRespHeaderStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,
 		updateItemApiExampleStmt:                   q.updateItemApiExampleStmt,

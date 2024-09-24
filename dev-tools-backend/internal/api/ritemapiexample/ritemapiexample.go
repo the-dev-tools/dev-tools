@@ -420,6 +420,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	result := &mresultapi.MResultAPI{
 		ID:          idwrap.NewNow(),
 		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,

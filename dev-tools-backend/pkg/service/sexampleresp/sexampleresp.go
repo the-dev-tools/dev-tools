@@ -1,0 +1,100 @@
+package sexampleresp
+
+import (
+	"context"
+	"database/sql"
+	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mexampleresp"
+	"dev-tools-db/pkg/sqlc/gen"
+)
+
+type ExampleRespService struct {
+	Queries *gen.Queries
+}
+
+func New(ctx context.Context, db *sql.DB) (*ExampleRespService, error) {
+	queries, err := gen.Prepare(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	return &ExampleRespService{
+		Queries: queries,
+	}, nil
+}
+
+func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &ExampleRespService{
+		Queries: queries,
+	}, nil
+}
+
+func ConvertToDBExampleResp(item mexampleresp.ExampleResp) gen.ExampleResp {
+	return gen.ExampleResp{
+		ID:           item.ID,
+		ExampleID:    item.ExampleID,
+		RespStatus:   item.RespStatus,
+		RespBody:     item.RespBody,
+		RespTime:     item.RespTime,
+		RespDuration: item.RespDuration,
+	}
+}
+
+func ConvertToModelExampleResp(item gen.ExampleResp) mexampleresp.ExampleResp {
+	return mexampleresp.ExampleResp{
+		ID:           item.ID,
+		ExampleID:    item.ExampleID,
+		RespStatus:   item.RespStatus,
+		RespBody:     item.RespBody,
+		RespTime:     item.RespTime,
+		RespDuration: item.RespDuration,
+	}
+}
+
+func (s ExampleRespService) GetExampleResp(ctx context.Context, respID idwrap.IDWrap) (*mexampleresp.ExampleResp, error) {
+	exampleResp, err := s.Queries.GetExampleResp(ctx, respID)
+	if err != nil {
+		return nil, err
+	}
+	a := ConvertToModelExampleResp(exampleResp)
+	return &a, nil
+}
+
+func (s ExampleRespService) GetExampleRespByExampleID(ctx context.Context, exampleID idwrap.IDWrap) (*mexampleresp.ExampleResp, error) {
+	exampleResp, err := s.Queries.GetExampleRespsByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	a := ConvertToModelExampleResp(exampleResp)
+	return &a, nil
+}
+
+func (s ExampleRespService) CreateExampleResp(ctx context.Context, item mexampleresp.ExampleResp) error {
+	exampleResp := ConvertToDBExampleResp(item)
+	return s.Queries.CreateExampleResp(ctx, gen.CreateExampleRespParams{
+		ID:           exampleResp.ID,
+		ExampleID:    exampleResp.ExampleID,
+		RespStatus:   exampleResp.RespStatus,
+		RespBody:     exampleResp.RespBody,
+		RespTime:     exampleResp.RespTime,
+		RespDuration: exampleResp.RespDuration,
+	})
+}
+
+func (s ExampleRespService) UpdateExampleResp(ctx context.Context, item mexampleresp.ExampleResp) error {
+	exampleResp := ConvertToDBExampleResp(item)
+	return s.Queries.UpdateExampleResp(ctx, gen.UpdateExampleRespParams{
+		ID:           exampleResp.ID,
+		RespStatus:   exampleResp.RespStatus,
+		RespBody:     exampleResp.RespBody,
+		RespTime:     exampleResp.RespTime,
+		RespDuration: exampleResp.RespDuration,
+	})
+}
+
+func (s ExampleRespService) DeleteExampleResp(ctx context.Context, respID idwrap.IDWrap) error {
+	return s.Queries.DeleteExampleResp(ctx, respID)
+}

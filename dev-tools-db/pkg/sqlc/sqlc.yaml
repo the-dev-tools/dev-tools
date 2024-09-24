@@ -300,3 +300,33 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
+          ## example_resp
+          ### id
+          - column: "example_resp.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## example_id
+          - column: "example_resp.example_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## example_id
+          - column: "example_resp.resp_status"
+            go_type:
+              type: "uint16"
+          ## example_resp_header
+          ### id
+          - column: "example_resp_header.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### example_resp_id
+          - column: "example_resp_header.example_resp_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"

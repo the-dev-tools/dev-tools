@@ -68,6 +68,22 @@ type ExampleQuery struct {
 	Value       string
 }
 
+type ExampleResp struct {
+	ID           idwrap.IDWrap
+	ExampleID    idwrap.IDWrap
+	RespStatus   uint16
+	RespBody     []byte
+	RespTime     int64
+	RespDuration int32
+}
+
+type ExampleRespHeader struct {
+	ID            idwrap.IDWrap
+	ExampleRespID idwrap.IDWrap
+	HeaderKey     string
+	Value         string
+}
+
 type ItemApi struct {
 	ID           idwrap.IDWrap
 	CollectionID idwrap.IDWrap
@@ -80,15 +96,14 @@ type ItemApi struct {
 }
 
 type ItemApiExample struct {
-	ID              idwrap.IDWrap
-	ItemApiID       idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
-	ParentExampleID *idwrap.IDWrap
-	IsDefault       bool
-	BodyType        int8
-	Name            string
-	Prev            *idwrap.IDWrap
-	Next            *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	ItemApiID    idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+	IsDefault    bool
+	BodyType     int8
+	Name         string
+	Prev         *idwrap.IDWrap
+	Next         *idwrap.IDWrap
 }
 
 type ItemFolder struct {

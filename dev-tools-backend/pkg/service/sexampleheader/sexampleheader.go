@@ -103,7 +103,7 @@ func (h HeaderService) CreateHeaderModel(ctx context.Context, header gen.Example
 }
 
 func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleheader.Header) error {
-	const sizeOfChunks = 10
+	const sizeOfChunks = 15
 	convertedItems := tgeneric.MassConvert(headers, SerializeHeaderDBToModel)
 	for headerChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
 		if len(headerChunk) < sizeOfChunks {
@@ -125,6 +125,11 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 		item8 := headerChunk[7]
 		item9 := headerChunk[8]
 		item10 := headerChunk[9]
+		item11 := headerChunk[10]
+		item12 := headerChunk[11]
+		item13 := headerChunk[12]
+		item14 := headerChunk[13]
+		item15 := headerChunk[14]
 
 		params := gen.CreateHeaderBulkParams{
 			// 1
@@ -197,6 +202,41 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_10:      item10.Enable,
 			Description_10: item10.Description,
 			Value_10:       item10.Value,
+			// 11
+			ID_11:          item11.ID,
+			ExampleID_11:   item11.ExampleID,
+			HeaderKey_11:   item11.HeaderKey,
+			Enable_11:      item11.Enable,
+			Description_11: item11.Description,
+			Value_11:       item11.Value,
+			// 12
+			ID_12:          item12.ID,
+			ExampleID_12:   item12.ExampleID,
+			HeaderKey_12:   item12.HeaderKey,
+			Enable_12:      item12.Enable,
+			Description_12: item12.Description,
+			Value_12:       item12.Value,
+			// 13
+			ID_13:          item13.ID,
+			ExampleID_13:   item13.ExampleID,
+			HeaderKey_13:   item13.HeaderKey,
+			Enable_13:      item13.Enable,
+			Description_13: item13.Description,
+			Value_13:       item13.Value,
+			// 14
+			ID_14:          item14.ID,
+			ExampleID_14:   item14.ExampleID,
+			HeaderKey_14:   item14.HeaderKey,
+			Enable_14:      item14.Enable,
+			Description_14: item14.Description,
+			Value_14:       item14.Value,
+			// 15
+			ID_15:          item15.ID,
+			ExampleID_15:   item15.ExampleID,
+			HeaderKey_15:   item15.HeaderKey,
+			Enable_15:      item15.Enable,
+			Description_15: item15.Description,
+			Value_15:       item15.Value,
 		}
 		if err := h.queries.CreateHeaderBulk(ctx, params); err != nil {
 			return err
