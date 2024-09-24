@@ -72,8 +72,8 @@ message ResponseHeader {
 message ApiExampleResponse {
   string id = 1;
   string example_id = 2;
-  string status = 3;
-  string body = 4;
+  int32 status = 3;
+  bytes body = 4;
   google.protobuf.Timestamp time = 5;
   int32 duration = 6;
   repeated ResponseHeader headers = 7;
