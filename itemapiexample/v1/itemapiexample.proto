@@ -5,7 +5,6 @@ package itemapiexample.v1;
 option go_package = "dev-tools-services/gen/itemapiexample/v1;itemapiexamplev1";
 
 import "google/protobuf/timestamp.proto";
-import "apiresult/v1/apiresult.proto";
 import "body/v1/body.proto";
 
 service ItemApiExampleService {
@@ -29,6 +28,8 @@ service ItemApiExampleService {
   rpc DeleteQuery(DeleteQueryRequest) returns (DeleteQueryResponse);
 }
 
+// # Models
+// ## Request
 message Header {
   string id = 1;
   string example_id = 2;
@@ -58,8 +59,27 @@ message ApiExample {
   repeated Header header = 3;
   google.protobuf.Timestamp updated = 4;
   body.v1.Body body = 5;
+  ApiExampleResponse response = 6;
 }
 
+// ## Reponse
+message RespHeader {
+  string id = 1;
+  string key = 2;
+  string value = 3;
+}
+
+message ApiExampleResponse {
+  string id = 1;
+  string example_id = 2;
+  string resp_status = 3;
+  string resp_body = 4;
+  google.protobuf.Timestamp resp_time = 5;
+  int32 resp_duration = 6;
+  repeated RespHeader headers = 7;
+}
+
+// Messages
 message GetExamplesRequest {
   string item_api_id = 1;
 }
@@ -106,7 +126,7 @@ message RunExampleRequest {
 }
 
 message RunExampleResponse {
-  apiresult.v1.Result result = 1;
+  ApiExampleResponse response = 1;
 }
 
 // Headers
