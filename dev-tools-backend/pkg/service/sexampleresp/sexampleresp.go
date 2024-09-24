@@ -8,6 +8,8 @@ import (
 	"dev-tools-db/pkg/sqlc/gen"
 )
 
+var ErrNoRespFound error = sql.ErrNoRows
+
 type ExampleRespService struct {
 	Queries *gen.Queries
 }
@@ -34,23 +36,21 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespService, error) {
 
 func ConvertToDBExampleResp(item mexampleresp.ExampleResp) gen.ExampleResp {
 	return gen.ExampleResp{
-		ID:           item.ID,
-		ExampleID:    item.ExampleID,
-		RespStatus:   item.RespStatus,
-		RespBody:     item.RespBody,
-		RespTime:     item.RespTime,
-		RespDuration: item.RespDuration,
+		ID:        item.ID,
+		ExampleID: item.ExampleID,
+		Status:    item.Status,
+		Body:      item.Body,
+		Duration:  item.Duration,
 	}
 }
 
 func ConvertToModelExampleResp(item gen.ExampleResp) mexampleresp.ExampleResp {
 	return mexampleresp.ExampleResp{
-		ID:           item.ID,
-		ExampleID:    item.ExampleID,
-		RespStatus:   item.RespStatus,
-		RespBody:     item.RespBody,
-		RespTime:     item.RespTime,
-		RespDuration: item.RespDuration,
+		ID:        item.ID,
+		ExampleID: item.ExampleID,
+		Status:    item.Status,
+		Body:      item.Body,
+		Duration:  item.Duration,
 	}
 }
 
@@ -73,25 +73,25 @@ func (s ExampleRespService) GetExampleRespByExampleID(ctx context.Context, examp
 }
 
 func (s ExampleRespService) CreateExampleResp(ctx context.Context, item mexampleresp.ExampleResp) error {
-	exampleResp := ConvertToDBExampleResp(item)
+	e := ConvertToDBExampleResp(item)
 	return s.Queries.CreateExampleResp(ctx, gen.CreateExampleRespParams{
-		ID:           exampleResp.ID,
-		ExampleID:    exampleResp.ExampleID,
-		RespStatus:   exampleResp.RespStatus,
-		RespBody:     exampleResp.RespBody,
-		RespTime:     exampleResp.RespTime,
-		RespDuration: exampleResp.RespDuration,
+		ID:               e.ID,
+		ExampleID:        e.ExampleID,
+		Status:           e.Status,
+		Body:             e.Body,
+		BodyCompressType: e.BodyCompressType,
+		Duration:         e.Duration,
 	})
 }
 
 func (s ExampleRespService) UpdateExampleResp(ctx context.Context, item mexampleresp.ExampleResp) error {
-	exampleResp := ConvertToDBExampleResp(item)
+	e := ConvertToDBExampleResp(item)
 	return s.Queries.UpdateExampleResp(ctx, gen.UpdateExampleRespParams{
-		ID:           exampleResp.ID,
-		RespStatus:   exampleResp.RespStatus,
-		RespBody:     exampleResp.RespBody,
-		RespTime:     exampleResp.RespTime,
-		RespDuration: exampleResp.RespDuration,
+		ID:               e.ID,
+		Status:           e.Status,
+		Body:             e.Body,
+		BodyCompressType: e.BodyCompressType,
+		Duration:         e.Duration,
 	})
 }
 

@@ -69,12 +69,13 @@ type ExampleQuery struct {
 }
 
 type ExampleResp struct {
-	ID           idwrap.IDWrap
-	ExampleID    idwrap.IDWrap
-	RespStatus   uint16
-	RespBody     []byte
-	RespTime     int64
-	RespDuration int32
+	ID               idwrap.IDWrap
+	ExampleID        idwrap.IDWrap
+	Status           uint16
+	Body             []byte
+	BodyCompressType int8
+	Time             int64
+	Duration         int32
 }
 
 type ExampleRespHeader struct {

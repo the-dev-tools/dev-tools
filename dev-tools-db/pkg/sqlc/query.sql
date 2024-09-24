@@ -1141,12 +1141,7 @@ WHERE
 
 -- name: GetExampleResp :one
 SELECT
-  id,
-  example_id,
-  resp_status,
-  resp_body,
-  resp_time,
-  resp_duration
+    *
 FROM 
   example_resp
 WHERE
@@ -1155,12 +1150,7 @@ LIMIT 1;
 
 -- name: GetExampleRespsByExampleID :one
 SELECT
-  id,
-  example_id,
-  resp_status,
-  resp_body,
-  resp_time,
-  resp_duration
+    *
 FROM
   example_resp
 WHERE
@@ -1169,17 +1159,17 @@ LIMIT 1;
 
 -- name: CreateExampleResp :exec
 INSERT INTO
-  example_resp (id, example_id, resp_status, resp_body, resp_time, resp_duration)
+  example_resp (id, example_id, status, body, body_compress_type, duration)
 VALUES
   (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateExampleResp :exec
 UPDATE example_resp
 SET 
-  resp_status = ?,
-  resp_body = ?,
-  resp_time = ?,
-  resp_duration = ?
+  status = ?,
+  body = ?,
+  body_compress_type = ?,
+  duration = ?
 WHERE
   id = ?;
 

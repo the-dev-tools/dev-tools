@@ -10,26 +10,30 @@ import (
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
+	"dev-tools-backend/pkg/model/mexampleresp"
+	"dev-tools-backend/pkg/model/mexamplerespheader"
 	"dev-tools-backend/pkg/model/mitemapiexample"
-	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
+	"dev-tools-backend/pkg/service/sexampleresp"
+	"dev-tools-backend/pkg/service/sexamplerespheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/texampleresp"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
+	"dev-tools-backend/pkg/zstdcompress"
 	"dev-tools-nodes/pkg/model/mnode"
 	"dev-tools-nodes/pkg/model/mnodedata"
 	"dev-tools-nodes/pkg/model/mnodemaster"
 	"dev-tools-nodes/pkg/nodes/nodeapi"
-	apiresultv1 "dev-tools-services/gen/apiresult/v1"
 	bodyv1 "dev-tools-services/gen/body/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
@@ -56,6 +60,9 @@ type ItemAPIExampleRPC struct {
 	bfs  *sbodyform.BodyFormService
 	bues *sbodyurl.BodyURLEncodedService
 	brs  *sbodyraw.BodyRawService
+	// resp sub
+	erhs *sexamplerespheader.ExampleRespHeaderService
+	ers  *sexampleresp.ExampleRespService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -99,6 +106,16 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	erhs, err := sexamplerespheader.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	ers, err := sexampleresp.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -113,6 +130,9 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		hs:   hs,
 		qs:   qs,
 		bfs:  bfs,
+		// resp sub
+		erhs: erhs,
+		ers:  ers,
 	}
 
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, options...)
@@ -421,51 +441,92 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	result := &mresultapi.MResultAPI{
-		ID:          idwrap.NewNow(),
-		TriggerType: mresultapi.TRIGGER_TYPE_COLLECTION,
-		TriggerBy:   exampleUlid,
-		Name:        itemApiCall.Name,
-		Time:        time.Now(),
-		Duration:    time.Duration(lapse),
-		HttpResp: mresultapi.HttpResp{
-			StatusCode: httpResp.StatusCode,
-			Proto:      httpResp.Proto,
-			ProtoMajor: httpResp.ProtoMajor,
-			ProtoMinor: httpResp.ProtoMinor,
-			Header:     httpResp.Header,
-			Body:       bodyData,
-		},
-	}
-
-	err = c.ras.CreateResultApi(ctx, result)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	// TODO: can be more efficient with init size
 	respHeaders := make(map[string]string, 0)
 	for key, values := range httpResp.Header {
 		respHeaders[key] = strings.Join(values, ",")
 	}
+	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
+	if err != nil {
+		if err != sexampleresp.ErrNoRespFound {
+			exampleRespTemp := mexampleresp.ExampleResp{
+				ID:        idwrap.NewNow(),
+				ExampleID: exampleUlid,
+			}
+			exampleResp = &exampleRespTemp
+
+			err = c.ers.CreateExampleResp(ctx, exampleRespTemp)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		} else {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if len(bodyData) > 1024 {
+		// TODO: check later if it is better then %10 if it is not better change it
+		bodyDataTemp := zstdcompress.Compress(bodyData)
+		if len(bodyDataTemp) < 1024 {
+			exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeZstd
+			bodyData = bodyDataTemp
+		}
+	}
+
+	exampleResp.Body = bodyData
+	exampleResp.Duration = int32(lapse.Milliseconds())
+	exampleResp.Status = uint16(httpResp.StatusCode)
+
+	err = c.ers.UpdateExampleResp(ctx, *exampleResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	dbHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// TODO: make it more efficient
+	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
+	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
+	for key, value := range respHeaders {
+		for _, dbHeader := range dbHeaders {
+			if dbHeader.HeaderKey == key {
+				if dbHeader.Value != value {
+					dbHeader.Value = value
+					taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
+				}
+			} else {
+				taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
+					ID:            idwrap.NewNow(),
+					ExampleRespID: exampleResp.ID,
+					HeaderKey:     key,
+					Value:         value,
+				})
+			}
+		}
+	}
+
+	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
+
+	err = c.erhs.CreateExampleRespHeaderBulk(ctx, taskCreateHeaders)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = c.erhs.UpdateExampleRespHeaderBulk(ctx, taskUpdateHeaders)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, fullHeaders)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	return connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
-		Result: &apiresultv1.Result{
-			Id:       result.ID.String(),
-			Name:     result.Name,
-			Time:     result.Time.Unix(),
-			Duration: result.Duration.Milliseconds(),
-			Response: &apiresultv1.Result_HttpResponse{
-				HttpResponse: &apiresultv1.HttpResponse{
-					StatusCode: int32(result.HttpResp.StatusCode),
-					Proto:      result.HttpResp.Proto,
-					ProtoMajor: int32(result.HttpResp.ProtoMajor),
-					ProtoMinor: int32(result.HttpResp.ProtoMinor),
-					Header:     respHeaders,
-					Body:       result.HttpResp.Body,
-				},
-			},
-		},
+		Response: rpcExampleResp,
 	}), nil
 }
 

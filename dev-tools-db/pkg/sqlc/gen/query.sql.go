@@ -507,28 +507,28 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createExampleResp = `-- name: CreateExampleResp :exec
 INSERT INTO
-  example_resp (id, example_id, resp_status, resp_body, resp_time, resp_duration)
+  example_resp (id, example_id, status, body, body_compress_type, duration)
 VALUES
   (?, ?, ?, ?, ?, ?)
 `
 
 type CreateExampleRespParams struct {
-	ID           idwrap.IDWrap
-	ExampleID    idwrap.IDWrap
-	RespStatus   uint16
-	RespBody     []byte
-	RespTime     int64
-	RespDuration int32
+	ID               idwrap.IDWrap
+	ExampleID        idwrap.IDWrap
+	Status           uint16
+	Body             []byte
+	BodyCompressType int8
+	Duration         int32
 }
 
 func (q *Queries) CreateExampleResp(ctx context.Context, arg CreateExampleRespParams) error {
 	_, err := q.exec(ctx, q.createExampleRespStmt, createExampleResp,
 		arg.ID,
 		arg.ExampleID,
-		arg.RespStatus,
-		arg.RespBody,
-		arg.RespTime,
-		arg.RespDuration,
+		arg.Status,
+		arg.Body,
+		arg.BodyCompressType,
+		arg.Duration,
 	)
 	return err
 }
@@ -2378,12 +2378,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 
 const getExampleResp = `-- name: GetExampleResp :one
 SELECT
-  id,
-  example_id,
-  resp_status,
-  resp_body,
-  resp_time,
-  resp_duration
+    id, example_id, status, body, body_compress_type, time, duration
 FROM 
   example_resp
 WHERE
@@ -2397,10 +2392,11 @@ func (q *Queries) GetExampleResp(ctx context.Context, id idwrap.IDWrap) (Example
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
-		&i.RespStatus,
-		&i.RespBody,
-		&i.RespTime,
-		&i.RespDuration,
+		&i.Status,
+		&i.Body,
+		&i.BodyCompressType,
+		&i.Time,
+		&i.Duration,
 	)
 	return i, err
 }
@@ -2476,12 +2472,7 @@ func (q *Queries) GetExampleRespHeadersByRespID(ctx context.Context, exampleResp
 
 const getExampleRespsByExampleID = `-- name: GetExampleRespsByExampleID :one
 SELECT
-  id,
-  example_id,
-  resp_status,
-  resp_body,
-  resp_time,
-  resp_duration
+    id, example_id, status, body, body_compress_type, time, duration
 FROM
   example_resp
 WHERE
@@ -2495,10 +2486,11 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
-		&i.RespStatus,
-		&i.RespBody,
-		&i.RespTime,
-		&i.RespDuration,
+		&i.Status,
+		&i.Body,
+		&i.BodyCompressType,
+		&i.Time,
+		&i.Duration,
 	)
 	return i, err
 }
@@ -3799,28 +3791,28 @@ func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentPa
 const updateExampleResp = `-- name: UpdateExampleResp :exec
 UPDATE example_resp
 SET 
-  resp_status = ?,
-  resp_body = ?,
-  resp_time = ?,
-  resp_duration = ?
+  status = ?,
+  body = ?,
+  body_compress_type = ?,
+  duration = ?
 WHERE
   id = ?
 `
 
 type UpdateExampleRespParams struct {
-	RespStatus   uint16
-	RespBody     []byte
-	RespTime     int64
-	RespDuration int32
-	ID           idwrap.IDWrap
+	Status           uint16
+	Body             []byte
+	BodyCompressType int8
+	Duration         int32
+	ID               idwrap.IDWrap
 }
 
 func (q *Queries) UpdateExampleResp(ctx context.Context, arg UpdateExampleRespParams) error {
 	_, err := q.exec(ctx, q.updateExampleRespStmt, updateExampleResp,
-		arg.RespStatus,
-		arg.RespBody,
-		arg.RespTime,
-		arg.RespDuration,
+		arg.Status,
+		arg.Body,
+		arg.BodyCompressType,
+		arg.Duration,
 		arg.ID,
 	)
 	return err

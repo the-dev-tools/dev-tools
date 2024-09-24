@@ -127,15 +127,15 @@ CREATE INDEX item_api_example_idx1 ON item_api_example (
 CREATE TABLE example_resp (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
-  resp_status TINYINT NOT NULL DEFAULT 200,
-  resp_body BLOB,
-  resp_time TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
-  resp_duration INT NOT NULL,
+  status TINYINT NOT NULL DEFAULT 200,
+  body BLOB,
+  body_compress_type INT8 NOT NULL DEFAULT FALSE,
+  duration INT NOT NULL,
   UNIQUE (example_id),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_api_example_resp_idx1 ON item_api_example_resp (
+CREATE INDEX item_api_example_resp_idx1 ON example_resp (
   example_id
 );
 
@@ -146,7 +146,6 @@ CREATE TABLE example_header (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  UNIQUE (example_id, header_key),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
@@ -160,11 +159,10 @@ CREATE TABLE example_resp_header (
   example_resp_id BLOB NOT NULL,
   header_key TEXT NOT NULL,
   value TEXT NOT NULL,
-  UNIQUE (example_resp_id, header_key),
-  FOREIGN KEY (example_resp_id) REFERENCES item_api_example_resp (id) ON DELETE CASCADE
+  FOREIGN KEY (example_resp_id) REFERENCES example_resp (id) ON DELETE CASCADE
 );
 
-CREATE INDEX example_header_resp_idx1 ON example_header_resp (
+CREATE INDEX example_header_resp_idx1 ON example_resp_header (
   example_resp_id,
   header_key
 );
@@ -191,7 +189,6 @@ CREATE TABLE example_body_form (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  UNIQUE (example_id, body_key),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
@@ -207,7 +204,6 @@ CREATE TABLE example_body_urlencoded (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  UNIQUE (example_id, body_key),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 

@@ -314,7 +314,7 @@ sql:
               package: "idwrap"
               type: "IDWrap"
           ## example_id
-          - column: "example_resp.resp_status"
+          - column: "example_resp.status"
             go_type:
               type: "uint16"
           ## example_resp_header

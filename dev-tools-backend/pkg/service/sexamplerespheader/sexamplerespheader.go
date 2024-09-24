@@ -61,6 +61,18 @@ func (s *ExampleRespHeaderService) CreateExampleRespHeader(ctx context.Context, 
 	})
 }
 
+func (s *ExampleRespHeaderService) CreateExampleRespHeaderBulk(ctx context.Context, items []mexamplerespheader.ExampleRespHeader) error {
+	// TODO: Implement bulk insert
+	var err error
+	for _, item := range items {
+		err = s.CreateExampleRespHeader(ctx, item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *ExampleRespHeaderService) GetExampleRespHeader(ctx context.Context, id idwrap.IDWrap) (mexamplerespheader.ExampleRespHeader, error) {
 	item, err := s.Queries.GetExampleRespHeader(ctx, id)
 	if err != nil {
@@ -72,6 +84,9 @@ func (s *ExampleRespHeaderService) GetExampleRespHeader(ctx context.Context, id 
 func (s *ExampleRespHeaderService) GetHeaderByRespID(ctx context.Context, id idwrap.IDWrap) ([]mexamplerespheader.ExampleRespHeader, error) {
 	items, err := s.Queries.GetExampleRespHeadersByRespID(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mexamplerespheader.ExampleRespHeader{}, nil
+		}
 		return nil, err
 	}
 	return tgeneric.MassConvert(items, ConvertFromDBExampleRespHeader), nil
@@ -84,6 +99,17 @@ func (s *ExampleRespHeaderService) UpdateExampleRespHeader(ctx context.Context, 
 		HeaderKey: arg.HeaderKey,
 		Value:     arg.Value,
 	})
+}
+
+func (s *ExampleRespHeaderService) UpdateExampleRespHeaderBulk(ctx context.Context, items []mexamplerespheader.ExampleRespHeader) error {
+	var err error
+	for _, item := range items {
+		err = s.UpdateExampleRespHeader(ctx, item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ExampleRespHeaderService) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap) error {
