@@ -186,16 +186,12 @@ func (c BodyRPC) CreateBodyUrlEncoded(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
 	}
 
-	bodyForm, err := tbodyurl.SerializeURLRPCtoModel(bodyData)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	err = c.bues.CreateBodyURLEncoded(ctx, bodyForm)
+	err = c.bues.CreateBodyURLEncoded(ctx, bodyUrl)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.CreateBodyUrlEncodedResponse{Id: bodyForm.ID.String()}), nil
+	return connect.NewResponse(&bodyv1.CreateBodyUrlEncodedResponse{Id: bodyUrl.ID.String()}), nil
 }
 
 func (c BodyRPC) UpdateBodyUrlEncoded(ctx context.Context, req *connect.Request[bodyv1.UpdateBodyUrlEncodedRequest]) (*connect.Response[bodyv1.UpdateBodyUrlEncodedResponse], error) {
@@ -203,12 +199,12 @@ func (c BodyRPC) UpdateBodyUrlEncoded(ctx context.Context, req *connect.Request[
 	if bodyData == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
 	}
+
 	bodyURL, err := tbodyurl.SerializeURLRPCtoModel(bodyData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-
-	ok, err := CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, bodyURL.ID)
+	ok, err := CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, bodyURL.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -293,4 +289,12 @@ func CheckOwnerBodyForm(ctx context.Context, bfs sbodyform.BodyFormService, iaes
 		return false, err
 	}
 	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, bodyForm.ExampleID)
+}
+
+func CheckOwnerBodyUrlEncoded(ctx context.Context, bues sbodyurl.BodyURLEncodedService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, bodyUrlUlid idwrap.IDWrap) (bool, error) {
+	bodyUrl, err := bues.GetBodyURLEncoded(ctx, bodyUrlUlid)
+	if err != nil {
+		return false, err
+	}
+	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, bodyUrl.ExampleID)
 }
