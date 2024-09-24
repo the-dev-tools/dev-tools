@@ -17,10 +17,9 @@ import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 
-import { HttpResponse, Result } from '@the-dev-tools/protobuf/apiresult/v1/apiresult_pb';
 import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall, updateApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
-import { Query } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
+import { ApiExampleResponse, Query, ResponseHeader } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import {
   createQuery,
   runExample,
@@ -213,7 +212,18 @@ const ApiForm = ({ data }: ApiFormProps) => {
               className='rounded-l-none border-l-0 bg-black text-white'
               onPress={async () => {
                 await onSubmit();
-                await runMutation.mutateAsync({ id: data.example!.meta!.id });
+                const { response } = await runMutation.mutateAsync({ id: data.example!.meta!.id });
+                if (!response) return;
+                queryClient.setQueryData(
+                  createConnectQueryKey(getApiCall, { id: apiCallId }),
+                  createProtobufSafeUpdater(getApiCall, (_) => ({
+                    ..._,
+                    example: {
+                      ..._!.example,
+                      response,
+                    },
+                  })),
+                );
               }}
             >
               Send <LuSendHorizonal className='size-4' />
@@ -255,11 +265,11 @@ const ApiForm = ({ data }: ApiFormProps) => {
           <Outlet />
         </div>
       </Panel>
-      {runMutation.data?.result && (
+      {data.example?.response && (
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
-            <ResponsePanel result={runMutation.data.result} />
+            <ResponsePanel response={data.example.response} />
           </Panel>
         </>
       )}
@@ -268,13 +278,10 @@ const ApiForm = ({ data }: ApiFormProps) => {
 };
 
 interface ResponsePanelProps {
-  result: Result;
+  response: ApiExampleResponse;
 }
 
-const ResponsePanel = ({ result }: ResponsePanelProps) => {
-  if (result.response.case !== 'httpResponse') return `Error: ${result.response.value}`;
-  const response = result.response.value;
-
+const ResponsePanel = ({ response }: ResponsePanelProps) => {
   return (
     <Tabs className='flex h-full flex-col'>
       <div className='flex items-center gap-2 border-b border-black pl-2 pr-4 text-sm text-neutral-500'>
@@ -306,11 +313,11 @@ const ResponsePanel = ({ result }: ResponsePanelProps) => {
         <div className='flex-1' />
 
         <div>
-          Status: <span className='text-black'>{response.statusCode}</span>
+          Status: <span className='text-black'>{response.status}</span>
         </div>
 
         <div>
-          Time: <span className='text-black'>{pipe(Number(result.duration), Duration.millis, Duration.format)}</span>
+          Time: <span className='text-black'>{pipe(Number(response.duration), Duration.millis, Duration.format)}</span>
         </div>
       </div>
 
@@ -318,7 +325,7 @@ const ResponsePanel = ({ result }: ResponsePanelProps) => {
         <TabPanel id='body'>{new TextDecoder().decode(response.body)}</TabPanel>
 
         <TabPanel id='headers' className='p-4'>
-          <ResponseHeadersTable headers={response.header} />
+          <ResponseHeadersTable headers={response.headers} />
         </TabPanel>
       </div>
     </Tabs>
@@ -326,27 +333,18 @@ const ResponsePanel = ({ result }: ResponsePanelProps) => {
 };
 
 interface ResponseHeadersTableProps {
-  headers: HttpResponse['header'];
+  headers: ResponseHeader[];
 }
 
 const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
   const columns = useMemo(() => {
-    const { accessor } = createColumnHelper<{ key: string; value: string }>();
+    const { accessor } = createColumnHelper<ResponseHeader>();
     return [accessor('key', {}), accessor('value', {})];
   }, []);
 
-  const data = useMemo(
-    () =>
-      pipe(
-        Array.fromRecord(headers),
-        Array.map(([key, value]) => ({ key, value })),
-      ),
-    [headers],
-  );
-
   const table = useReactTable({
     columns,
-    data,
+    data: headers,
     getCoreRowModel: getCoreRowModel(),
   });
 
