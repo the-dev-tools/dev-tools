@@ -63,7 +63,7 @@ message ApiExample {
 }
 
 // ## Reponse
-message RespHeader {
+message ResponseHeader {
   string id = 1;
   string key = 2;
   string value = 3;
@@ -72,11 +72,11 @@ message RespHeader {
 message ApiExampleResponse {
   string id = 1;
   string example_id = 2;
-  string resp_status = 3;
-  string resp_body = 4;
-  google.protobuf.Timestamp resp_time = 5;
-  int32 resp_duration = 6;
-  repeated RespHeader headers = 7;
+  string status = 3;
+  string body = 4;
+  google.protobuf.Timestamp time = 5;
+  int32 duration = 6;
+  repeated ResponseHeader headers = 7;
 }
 
 // Messages
