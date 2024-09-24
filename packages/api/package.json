@@ -13,7 +13,7 @@
     "@connectrpc/connect-web": "1.5.0",
     "@effect/platform": "0.66.0",
     "@effect/schema": "0.74.0",
-    "@the-dev-tools/protobuf": "1.23.0",
+    "@the-dev-tools/protobuf": "1.24.0",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.8.3",
     "jose": "5.9.3",
