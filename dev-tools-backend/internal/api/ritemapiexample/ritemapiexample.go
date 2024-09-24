@@ -25,6 +25,8 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tbodyform"
+	"dev-tools-backend/pkg/translate/tbodyurl"
 	"dev-tools-backend/pkg/translate/texampleresp"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
@@ -226,23 +228,65 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
-	rpcQueries := tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC)
-
+	var body *bodyv1.Body
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeNone:
+		body = &bodyv1.Body{
+			Value: &bodyv1.Body_None{
+				None: &bodyv1.BodyNone{},
+			},
+		}
+	case mitemapiexample.BodyTypeRaw:
+		bodyData, err := c.brs.GetBodyRawByExampleID(ctx, exampleIdWrap)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if bodyData.CompressType == mbodyraw.CompressTypeZstd {
+			bodyData.Data, err = zstdcompress.Decompress(bodyData.Data)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		body = &bodyv1.Body{
+			Value: &bodyv1.Body_Raw{
+				Raw: &bodyv1.BodyRaw{
+					BodyBytes: bodyData.Data,
+				},
+			},
+		}
+	case mitemapiexample.BodyTypeForm:
+		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleIdWrap)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		body = &bodyv1.Body{
+			Value: &bodyv1.Body_Forms{
+				Forms: &bodyv1.BodyFormArray{
+					Items: tgeneric.MassConvert(forms, tbodyform.SerializeFormModelToRPC),
+				},
+			},
+		}
+	case mitemapiexample.BodyTypeUrlencoded:
+		urls, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleIdWrap)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		body = &bodyv1.Body{
+			Value: &bodyv1.Body_UrlEncodeds{
+				UrlEncodeds: &bodyv1.BodyUrlEncodedArray{
+					Items: tgeneric.MassConvert(urls, tbodyurl.SerializeURLModelToRPC),
+				},
+			},
+		}
+	}
 	exampleRPC := &itemapiexamplev1.ApiExample{
 		Meta: &itemapiexamplev1.ApiExampleMeta{
 			Id:   example.ID.String(),
 			Name: example.Name,
 		},
-		Header: rpcHeaders,
-		Query:  rpcQueries,
-		Body: &bodyv1.Body{
-			Value: &bodyv1.Body_Raw{
-				Raw: &bodyv1.BodyRaw{
-					BodyBytes: nil,
-				},
-			},
-		},
+		Header:  tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC),
+		Query:   tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC),
+		Body:    body,
 		Updated: timestamppb.New(example.Updated),
 	}
 	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{
