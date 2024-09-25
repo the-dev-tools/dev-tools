@@ -228,12 +228,15 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
+	defaultExample, err := c.iaes.GetDefaultApiExample(ctx, apiUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	defaultID := defaultExample.ID
 	var examplePtr *mitemapiexample.ItemApiExample = nil
 	if isDefaultExample {
-		examplePtr, err = c.iaes.GetDefaultApiExample(ctx, apiUlid)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		examplePtr = defaultExample
 	} else {
 		examplePtr, err = c.iaes.GetApiExample(ctx, *exampleIDPtr)
 		if err != nil {
@@ -351,10 +354,11 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	respRaw := &itemapiv1.GetApiCallResponse{
 		ApiCall: &itemapiv1.ApiCall{
 			Meta: &itemapiv1.ApiCallMeta{
-				Id:       item.ID.String(),
-				Name:     item.Name,
-				Examples: metaExamplesRPC,
-				Method:   item.Method,
+				Id:               item.ID.String(),
+				Name:             item.Name,
+				Method:           item.Method,
+				DefaultExampleId: defaultID.String(),
+				Examples:         metaExamplesRPC,
 			},
 			CollectionId: item.CollectionID.String(),
 			ParentId:     parentID,
