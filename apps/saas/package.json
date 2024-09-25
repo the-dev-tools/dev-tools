@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "1.10.0",
+    "@codemirror/lang-html": "^6.4.9",
+    "@codemirror/lang-json": "^6.0.1",
+    "@codemirror/lang-xml": "^6.1.0",
     "@connectrpc/connect": "1.5.0",
     "@connectrpc/connect-query": "1.4.2",
     "@connectrpc/connect-web": "1.5.0",
@@ -25,6 +28,7 @@
     "@the-dev-tools/protobuf": "1.25.0",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
+    "@uiw/react-codemirror": "^4.23.3",
     "effect": "3.8.4",
     "react": "18.3.1",
     "react-aria-components": "1.3.3",

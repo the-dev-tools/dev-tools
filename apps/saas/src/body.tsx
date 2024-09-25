@@ -1,3 +1,6 @@
+import { html as cmHtml } from '@codemirror/lang-html';
+import { json as cmJson } from '@codemirror/lang-json';
+import { xml as cmXml } from '@codemirror/lang-xml';
 import {
   createQueryOptions,
   useMutation as useConnectMutation,
@@ -7,8 +10,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { flexRender } from '@tanstack/react-table';
+import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Body,
@@ -29,9 +33,10 @@ import {
 } from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
 import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { updateExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
+import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextAreaField } from '@the-dev-tools/ui/text-field';
 
 import { useFormTable } from './form-table';
 
@@ -54,9 +59,10 @@ function Tab() {
   const body = query.data.example!.body!.value;
 
   return (
-    <>
+    <div className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
       <RadioGroup
         aria-label='Body type'
+        className='h-7 justify-center'
         orientation='horizontal'
         value={body.case ?? 'none'}
         onChange={async (kind) => {
@@ -88,7 +94,7 @@ function Tab() {
         Match.when({ case: 'raw' }, ({ value }) => <RawForm body={value} />),
         Match.orElse(() => null),
       )}
-    </>
+    </div>
   );
 }
 
@@ -117,7 +123,7 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
   });
 
   return (
-    <div className='rounded border border-black'>
+    <div className='col-span-full rounded border border-black'>
       <table className='w-full divide-inherit border-inherit'>
         <thead className='divide-y divide-inherit border-b border-inherit'>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -175,7 +181,7 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
   });
 
   return (
-    <div className='rounded border border-black'>
+    <div className='col-span-full rounded border border-black'>
       <table className='w-full divide-inherit border-inherit'>
         <thead className='divide-y divide-inherit border-b border-inherit'>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -208,6 +214,7 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
   );
 };
 
+const languages = ['text', 'json', 'html', 'xml'] as const;
 interface RawFormProps {
   body: BodyRaw;
 }
@@ -215,18 +222,48 @@ interface RawFormProps {
 const RawForm = ({ body }: RawFormProps) => {
   const { exampleId } = Route.useParams();
 
-  const [value, setValue] = useState(new TextDecoder().decode(body.bodyBytes));
-
   const updateMutation = useConnectMutation(updateBodyRaw);
 
+  const [value, setValue] = useState(new TextDecoder().decode(body.bodyBytes));
+  const [language, setLanguage] = useState<(typeof languages)[number]>('text');
+
+  const extensions = useMemo(
+    () =>
+      pipe(
+        Match.value(language),
+        Match.when('text', () => []),
+        Match.when('json', () => [cmJson()]),
+        Match.when('html', () => [cmHtml()]),
+        Match.when('xml', () => [cmXml()]),
+        Match.exhaustive,
+      ),
+    [language],
+  );
+
   return (
-    <TextAreaField
-      aria-label='Raw body value'
-      value={value}
-      onChange={setValue}
-      onBlur={() => void updateMutation.mutate({ exampleId, bodyBytes: new TextEncoder().encode(value) })}
-      className='h-full'
-      areaClassName={tw`h-full`}
-    />
+    <>
+      <Select
+        aria-label='Language'
+        className='self-center justify-self-start'
+        triggerClassName={tw`px-1.5 py-1`}
+        selectedKey={language}
+        onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
+      >
+        {languages.map((_) => (
+          <DropdownItem key={_} id={_}>
+            {_}
+          </DropdownItem>
+        ))}
+      </Select>
+
+      <CodeMirror
+        value={value}
+        onChange={setValue}
+        onBlur={() => void updateMutation.mutate({ exampleId, bodyBytes: new TextEncoder().encode(value) })}
+        height='100%'
+        className='col-span-full self-stretch'
+        extensions={extensions}
+      />
+    </>
   );
 };
