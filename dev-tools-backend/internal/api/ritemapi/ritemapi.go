@@ -17,12 +17,15 @@ import (
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
+	"dev-tools-backend/pkg/service/sexampleresp"
+	"dev-tools-backend/pkg/service/sexamplerespheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tbodyurl"
+	"dev-tools-backend/pkg/translate/texampleresp"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
@@ -54,6 +57,10 @@ type ItemApiRPC struct {
 	brs  *sbodyraw.BodyRawService
 	bfs  *sbodyform.BodyFormService
 	bufs *sbodyurl.BodyURLEncodedService
+
+	// ExampleResp
+	ers  *sexampleresp.ExampleRespService
+	erhs *sexamplerespheader.ExampleRespHeaderService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -107,6 +114,16 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	ers, err := sexampleresp.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	erhs, err := sexamplerespheader.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -125,6 +142,9 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		brs:  brs,
 		bfs:  bfs,
 		bufs: bufs,
+		// example
+		ers:  ers,
+		erhs: erhs,
 	}
 
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, options...)
@@ -310,6 +330,24 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		}
 	}
 
+	var resp *itemapiexamplev1.ApiExampleResponse = nil
+	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, examplePtr.ID)
+	if err != nil && err != sexampleresp.ErrNoRespFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if exampleResp != nil {
+		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, examplePtr.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		resp, err = texampleresp.SeralizeModelToRPC(*exampleResp, respHeaders)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	respRaw := &itemapiv1.GetApiCallResponse{
 		ApiCall: &itemapiv1.ApiCall{
 			Meta: &itemapiv1.ApiCallMeta{
@@ -327,10 +365,11 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 				Id:   examplePtr.ID.String(),
 				Name: examplePtr.Name,
 			},
-			Header:  rpcHeaders,
-			Query:   rpcQueries,
-			Body:    bodyPtr,
-			Updated: timestamppb.New(examplePtr.Updated),
+			Header:   rpcHeaders,
+			Query:    rpcQueries,
+			Body:     bodyPtr,
+			Updated:  timestamppb.New(examplePtr.Updated),
+			Response: resp,
 		},
 	}
 

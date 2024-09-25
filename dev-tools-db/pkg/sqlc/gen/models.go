@@ -74,7 +74,6 @@ type ExampleResp struct {
 	Status           uint16
 	Body             []byte
 	BodyCompressType int8
-	Time             int64
 	Duration         int32
 }
 

@@ -40,6 +40,7 @@ import (
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -279,15 +280,36 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 			},
 		}
 	}
+
+	var resp *itemapiexamplev1.ApiExampleResponse = nil
+
+	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleIdWrap)
+	if err != nil && err != sexampleresp.ErrNoRespFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if exampleResp != nil {
+		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		resp, err = texampleresp.SeralizeModelToRPC(*exampleResp, respHeaders)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	exampleRPC := &itemapiexamplev1.ApiExample{
 		Meta: &itemapiexamplev1.ApiExampleMeta{
 			Id:   example.ID.String(),
 			Name: example.Name,
 		},
-		Header:  tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC),
-		Query:   tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC),
-		Body:    body,
-		Updated: timestamppb.New(example.Updated),
+		Header:   tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC),
+		Query:    tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC),
+		Body:     body,
+		Updated:  timestamppb.New(example.Updated),
+		Response: resp,
 	}
 	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{
 		Example: exampleRPC,
@@ -492,6 +514,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
 	if err != nil {
+		fmt.Println(err)
 		if err != sexampleresp.ErrNoRespFound {
 			exampleRespTemp := mexampleresp.ExampleResp{
 				ID:        idwrap.NewNow(),

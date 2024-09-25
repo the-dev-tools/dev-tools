@@ -2378,7 +2378,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 
 const getExampleResp = `-- name: GetExampleResp :one
 SELECT
-    id, example_id, status, body, body_compress_type, time, duration
+    id, example_id, status, body, body_compress_type, duration
 FROM 
   example_resp
 WHERE
@@ -2395,7 +2395,6 @@ func (q *Queries) GetExampleResp(ctx context.Context, id idwrap.IDWrap) (Example
 		&i.Status,
 		&i.Body,
 		&i.BodyCompressType,
-		&i.Time,
 		&i.Duration,
 	)
 	return i, err
@@ -2472,7 +2471,7 @@ func (q *Queries) GetExampleRespHeadersByRespID(ctx context.Context, exampleResp
 
 const getExampleRespsByExampleID = `-- name: GetExampleRespsByExampleID :one
 SELECT
-    id, example_id, status, body, body_compress_type, time, duration
+    id, example_id, status, body, body_compress_type, duration
 FROM
   example_resp
 WHERE
@@ -2489,7 +2488,6 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 		&i.Status,
 		&i.Body,
 		&i.BodyCompressType,
-		&i.Time,
 		&i.Duration,
 	)
 	return i, err
