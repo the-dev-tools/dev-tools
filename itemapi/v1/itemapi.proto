@@ -16,7 +16,8 @@ message ApiCallMeta {
   string id = 1;
   string name = 2;
 	string method = 3;
-  repeated itemapiexample.v1.ApiExampleMeta examples = 4;
+  string default_example_id = 4;
+  repeated itemapiexample.v1.ApiExampleMeta examples = 5;
 }
 
 message ApiCall {
@@ -39,7 +40,7 @@ message CreateApiCallResponse {
 
 message GetApiCallRequest {
   string id = 1;
-  optional string example_id = 2;
+  string example_id = 2;
 }
 
 message GetApiCallResponse {
