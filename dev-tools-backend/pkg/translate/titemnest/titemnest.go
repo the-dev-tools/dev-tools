@@ -5,6 +5,7 @@ import (
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
@@ -16,6 +17,7 @@ type CollectionPair struct {
 	itemApis    []mitemapi.ItemApiWithExamples
 }
 
+// INFO: outdated update if you want to use this function
 // TODO: can be more efficient by MultiThreading
 func (c CollectionPair) GetItemsFull() []*itemfolderv1.Item {
 	items := make([]*itemfolderv1.Item, 0, len(c.itemApis)+len(c.itemFolders))
@@ -36,14 +38,26 @@ func (c CollectionPair) GetItemsFull() []*itemfolderv1.Item {
 	}
 
 	for _, item := range c.itemApis {
+
+		apiExamples := make([]*itemapiexamplev1.ApiExampleMeta, len(item.Examples))
+		for i, example := range item.Examples {
+			apiExamples[i] = &itemapiexamplev1.ApiExampleMeta{
+				Id:   example.ID.String(),
+				Name: example.Name,
+			}
+		}
+
 		apiItem := &itemfolderv1.Item{
 			Data: &itemfolderv1.Item_ApiCall{
 				ApiCall: &itemapiv1.ApiCall{
 					Meta: &itemapiv1.ApiCallMeta{
-						Name:   item.Name,
-						Id:     item.ID.String(),
-						Method: item.Method,
+						Name:             item.Name,
+						Id:               item.ID.String(),
+						Method:           item.Method,
+						DefaultExampleId: item.DefaultExample.ID.String(),
+						Examples:         apiExamples,
 					},
+					ParentId:     "",
 					CollectionId: item.CollectionID.String(),
 					Url:          item.Url,
 				},
@@ -58,36 +72,17 @@ func (c CollectionPair) GetItemsFull() []*itemfolderv1.Item {
 func (c CollectionPair) GetItemsMeta() []*itemfolderv1.ItemMeta {
 	items := make([]*itemfolderv1.ItemMeta, len(c.itemApis)+len(c.itemFolders))
 
-	for i, item := range c.itemFolders {
-		folderItem := &itemfolderv1.ItemMeta{
-			Meta: &itemfolderv1.ItemMeta_FolderMeta{
-				FolderMeta: &itemfolderv1.FolderMeta{
-					Id:    item.ID.String(),
-					Name:  item.Name,
-					Items: RecursiveTranslateMeta(item),
-				},
-			},
-		}
-		items[i] = folderItem
-	}
+	folderMetas := tgeneric.MassConvert(c.itemFolders, ConvertApiToFolderMeta)
+	copy(items, folderMetas)
 
 	index := len(c.itemFolders)
-
-	for i, item := range c.itemApis {
-		apiItem := &itemfolderv1.ItemMeta{
-			Meta: &itemfolderv1.ItemMeta_ApiCallMeta{
-				ApiCallMeta: &itemapiv1.ApiCallMeta{
-					Name: item.Name,
-					Id:   item.ID.String(),
-				},
-			},
-		}
-		items[index+i] = apiItem
-	}
+	apiMetas := tgeneric.MassConvert(c.itemApis, ConvertApiToApiMeta)
+	copy(items[index:], apiMetas)
 
 	return items
 }
 
+// INFO: outdated update if you want to use this function
 func RecursiveTranslateFull(item mitemfolder.ItemFolderNested) []*itemfolderv1.Item {
 	var items []*itemfolderv1.Item
 	for _, child := range item.Children {
@@ -146,38 +141,9 @@ func RecursiveTranslateMeta(item mitemfolder.ItemFolderNested) []*itemfolderv1.I
 	for i, child := range item.Children {
 		switch child.(type) {
 		case mitemfolder.ItemFolderNested:
-			folder := child.(mitemfolder.ItemFolderNested)
-			folderCollection := &itemfolderv1.ItemMeta{
-				Meta: &itemfolderv1.ItemMeta_FolderMeta{
-					FolderMeta: &itemfolderv1.FolderMeta{
-						Id:    folder.ID.String(),
-						Name:  folder.Name,
-						Items: RecursiveTranslateMeta(folder),
-					},
-				},
-			}
-			items[i] = folderCollection
+			items[i] = ConvertApiToFolderMeta(child.(mitemfolder.ItemFolderNested))
 		case mitemapi.ItemApiWithExamples:
-			api := child.(mitemapi.ItemApiWithExamples)
-			rpcExamples := make([]*itemapiexamplev1.ApiExampleMeta, len(api.Examples))
-			for i, example := range api.Examples {
-				rpcExamples[i] = &itemapiexamplev1.ApiExampleMeta{
-					Id:   example.ID.String(),
-					Name: example.Name,
-				}
-			}
-
-			item := &itemfolderv1.ItemMeta{
-				Meta: &itemfolderv1.ItemMeta_ApiCallMeta{
-					ApiCallMeta: &itemapiv1.ApiCallMeta{
-						Name:     api.Name,
-						Id:       api.ID.String(),
-						Method:   api.Method,
-						Examples: rpcExamples,
-					},
-				},
-			}
-			items[i] = item
+			items[i] = ConvertApiToApiMeta(child.(mitemapi.ItemApiWithExamples))
 		default:
 			return nil
 		}
@@ -226,6 +192,7 @@ func TranslateItemFolderNested(folders []mitemfolder.ItemFolder, apis []mitemapi
 				return nil, fmt.Errorf("Parent Api not found for example %s", api.ParentID)
 			}
 			api.DefaultExample = example
+			apiMap[api.ID] = api
 			continue
 		}
 		if example.Prev != nil {
@@ -307,6 +274,39 @@ func SortFoldersByUlidTime(folders []mitemfolder.ItemFolder) []mitemfolder.ItemF
 	quickSort(sortedFolders, 0, len(sortedFolders)-1)
 
 	return sortedFolders
+}
+
+func ConvertApiToFolderMeta(ex mitemfolder.ItemFolderNested) *itemfolderv1.ItemMeta {
+	return &itemfolderv1.ItemMeta{
+		Meta: &itemfolderv1.ItemMeta_FolderMeta{
+			FolderMeta: &itemfolderv1.FolderMeta{
+				Id:    ex.ID.String(),
+				Name:  ex.Name,
+				Items: RecursiveTranslateMeta(ex),
+			},
+		},
+	}
+}
+
+func ConvertApiToApiMeta(ex mitemapi.ItemApiWithExamples) *itemfolderv1.ItemMeta {
+	return &itemfolderv1.ItemMeta{
+		Meta: &itemfolderv1.ItemMeta_ApiCallMeta{
+			ApiCallMeta: &itemapiv1.ApiCallMeta{
+				Name:             ex.Name,
+				Id:               ex.ID.String(),
+				Method:           ex.Method,
+				DefaultExampleId: ex.DefaultExample.ID.String(),
+				Examples:         tgeneric.MassConvert(ex.Examples, ConvertExampleToExampleMeta),
+			},
+		},
+	}
+}
+
+func ConvertExampleToExampleMeta(ex mitemapiexample.ItemApiExampleMeta) *itemapiexamplev1.ApiExampleMeta {
+	return &itemapiexamplev1.ApiExampleMeta{
+		Id:   ex.ID.String(),
+		Name: ex.Name,
+	}
 }
 
 func quickSort(arr []mitemfolder.ItemFolder, low, high int) {
