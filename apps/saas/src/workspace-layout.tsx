@@ -23,6 +23,8 @@ import {
 } from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 import { ApiCallMeta } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { deleteApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import { ApiExampleMeta } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
+import { deleteExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
   createFolder,
@@ -364,18 +366,70 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
+  // TODO: use default example id once implemented on backend
+  const exampleId = meta.examples[0]?.id ?? '';
+
   return (
     <TreeItem
       textValue={meta.name}
       href={{
         to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
-        params: { workspaceId, apiCallId: meta.id, exampleId: meta.examples[0]?.id ?? '' },
+        params: { workspaceId, apiCallId: meta.id, exampleId },
       }}
-      wrapperIsSelected={match.params.apiCallId === meta.id}
+      wrapperIsSelected={match.params.exampleId === exampleId}
+      childItems={meta.examples}
+      childItem={(_) => <ApiExampleItem apiCallId={meta.id} meta={_} />}
     >
-      <div />
+      {!meta.examples.length && <div />}
 
       <div className='text-sm font-bold'>{meta.method}</div>
+
+      <Text className='flex-1 truncate'>{meta.name}</Text>
+
+      <MenuTrigger>
+        <Button kind='placeholder' variant='placeholder ghost'>
+          <LuMoreHorizontal />
+        </Button>
+
+        <Menu>
+          <MenuItem
+            onAction={async () => {
+              await deleteMutation.mutateAsync({ id: meta.id });
+              await queryClient.invalidateQueries(listQueryOptions);
+            }}
+          >
+            Delete
+          </MenuItem>
+        </Menu>
+      </MenuTrigger>
+    </TreeItem>
+  );
+};
+
+interface ApiExampleItemProps {
+  apiCallId: string;
+  meta: ApiExampleMeta;
+}
+
+const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
+  const match = useMatch({ strict: false });
+
+  const { workspaceId } = Route.useParams();
+
+  const deleteMutation = useConnectMutation(deleteExample);
+
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+
+  return (
+    <TreeItem
+      textValue={meta.name}
+      href={{
+        to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
+        params: { workspaceId, apiCallId: apiCallId, exampleId: meta.id },
+      }}
+      wrapperIsSelected={match.params.exampleId === meta.id}
+    >
+      <div />
 
       <Text className='flex-1 truncate'>{meta.name}</Text>
 
