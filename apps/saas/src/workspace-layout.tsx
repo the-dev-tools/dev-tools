@@ -366,17 +366,14 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
 
   const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
 
-  // TODO: use default example id once implemented on backend
-  const exampleId = meta.examples[0]?.id ?? '';
-
   return (
     <TreeItem
       textValue={meta.name}
       href={{
         to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
-        params: { workspaceId, apiCallId: meta.id, exampleId },
+        params: { workspaceId, apiCallId: meta.id, exampleId: meta.defaultExampleId },
       }}
-      wrapperIsSelected={match.params.exampleId === exampleId}
+      wrapperIsSelected={match.params.exampleId === meta.defaultExampleId}
       childItems={meta.examples}
       childItem={(_) => <ApiExampleItem apiCallId={meta.id} meta={_} />}
     >
