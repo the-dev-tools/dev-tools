@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.25.0
+
+### Minor Changes
+
+- [`124e249`](https://github.com/the-dev-tools/dev-tools-proto/commit/124e2497988e5457c62c4f3edaab1d2bbbfd8326) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add default_example_id to ApiCallResp and remove optional from example_id/ApiCallReq
+
 ## 1.24.0
 
 ### Minor Changes
