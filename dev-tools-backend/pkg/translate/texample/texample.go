@@ -14,16 +14,17 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, q []mexamplequery.Query, h []mexampleheader.Header, b *bodyv1.Body) *itemapiexamplev1.ApiExample {
+func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, q []mexamplequery.Query, h []mexampleheader.Header, b *bodyv1.Body, resp *itemapiexamplev1.ApiExampleResponse) *itemapiexamplev1.ApiExample {
 	return &itemapiexamplev1.ApiExample{
 		Meta: &itemapiexamplev1.ApiExampleMeta{
 			Id:   ex.ID.String(),
 			Name: ex.Name,
 		},
-		Query:   tgeneric.MassConvert(q, tquery.SerializeQueryModelToRPC),
-		Header:  tgeneric.MassConvert(h, theader.SerializeHeaderModelToRPC),
-		Updated: timestamppb.New(ex.Updated),
-		Body:    b,
+		Query:    tgeneric.MassConvert(q, tquery.SerializeQueryModelToRPC),
+		Header:   tgeneric.MassConvert(h, theader.SerializeHeaderModelToRPC),
+		Updated:  timestamppb.New(ex.Updated),
+		Response: resp,
+		Body:     b,
 	}
 }
 

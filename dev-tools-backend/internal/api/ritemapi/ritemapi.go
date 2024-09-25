@@ -7,9 +7,9 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
-	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
@@ -25,10 +25,10 @@ import (
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tbodyurl"
+	"dev-tools-backend/pkg/translate/texample"
 	"dev-tools-backend/pkg/translate/texampleresp"
 	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/translate/theader"
-	"dev-tools-backend/pkg/translate/tquery"
+	"dev-tools-backend/pkg/translate/titemapi"
 	"dev-tools-backend/pkg/zstdcompress"
 	bodyv1 "dev-tools-services/gen/body/v1"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
@@ -38,7 +38,6 @@ import (
 	"sort"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ItemApiRPC struct {
@@ -152,13 +151,12 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 }
 
 func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[itemapiv1.CreateApiCallRequest]) (*connect.Response[itemapiv1.CreateApiCallResponse], error) {
-	ulidID := idwrap.NewNow()
-	collectionUlidID, err := idwrap.NewWithParse(req.Msg.GetCollectionId())
+	itemApiReq, err := titemapi.SeralizeRPCToModelWithoutID(req.Msg.Data)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	ok, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, collectionUlidID)
+	ok, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, itemApiReq.CollectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -166,21 +164,29 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	// TODO: add parent id
-	apiCall := &mitemapi.ItemApi{
-		ID:           ulidID,
-		CollectionID: collectionUlidID,
-		Name:         req.Msg.GetName(),
+	if itemApiReq.ParentID != nil {
+		ok, err := ritemfolder.CheckOwnerFolder(ctx, *c.ifs, *c.cs, *c.us, *itemApiReq.ParentID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
 	}
-	err = c.ias.CreateItemApi(ctx, apiCall)
+
+	// TODO: add ordering it should append into end
+
+	itemApiReq.ID = idwrap.NewNow()
+
+	err = c.ias.CreateItemApi(ctx, itemApiReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	example := &mitemapiexample.ItemApiExample{
 		ID:           idwrap.NewNow(),
-		ItemApiID:    ulidID,
-		CollectionID: collectionUlidID,
+		ItemApiID:    itemApiReq.ID,
+		CollectionID: itemApiReq.CollectionID,
 		IsDefault:    true,
 		Name:         "Default",
 	}
@@ -190,7 +196,7 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 	}
 
 	respRaw := &itemapiv1.CreateApiCallResponse{
-		Id:   ulidID.String(),
+		Id:   itemApiReq.ID.String(),
 		Name: req.Msg.GetName(),
 	}
 	return connect.NewResponse(respRaw), nil
@@ -244,19 +250,13 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		}
 	}
 
-	var parentID string
-	if item.ParentID == nil {
-		parentID = ""
-	} else {
-		parentID = item.ParentID.String()
-	}
 	// TODO: it is overfetching the data change it
 	examples, err := c.iaes.GetApiExamples(ctx, apiUlid)
 	if err != nil && err == sitemapiexample.ErrNoItemApiExampleFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	header, err := c.hs.GetHeaderByExampleID(ctx, examplePtr.ID)
+	headers, err := c.hs.GetHeaderByExampleID(ctx, examplePtr.ID)
 	if err != nil && err == sexampleheader.ErrNoHeaderFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -265,9 +265,6 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
-	rpcQueries := tgeneric.MassConvert(queries, tquery.SerializeQueryModelToRPC)
 
 	// TODO: it is overfetching the data change it
 	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))
@@ -350,50 +347,19 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
+	exampleRPC := texample.SerializeModelToRPC(*examplePtr, queries, headers, bodyPtr, resp)
 
-	respRaw := &itemapiv1.GetApiCallResponse{
-		ApiCall: &itemapiv1.ApiCall{
-			Meta: &itemapiv1.ApiCallMeta{
-				Id:               item.ID.String(),
-				Name:             item.Name,
-				Method:           item.Method,
-				DefaultExampleId: defaultID.String(),
-				Examples:         metaExamplesRPC,
-			},
-			CollectionId: item.CollectionID.String(),
-			ParentId:     parentID,
-			Url:          item.Url,
-		},
-		Example: &itemapiexamplev1.ApiExample{
-			Meta: &itemapiexamplev1.ApiExampleMeta{
-				Id:   examplePtr.ID.String(),
-				Name: examplePtr.Name,
-			},
-			Header:   rpcHeaders,
-			Query:    rpcQueries,
-			Body:     bodyPtr,
-			Updated:  timestamppb.New(examplePtr.Updated),
-			Response: resp,
-		},
-	}
-
-	return connect.NewResponse(respRaw), nil
+	apiCall := titemapi.DeseralizeModelToRPC(item, defaultID, metaExamplesRPC)
+	return connect.NewResponse(&itemapiv1.GetApiCallResponse{ApiCall: apiCall, Example: exampleRPC}), nil
 }
 
 func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[itemapiv1.UpdateApiCallRequest]) (*connect.Response[itemapiv1.UpdateApiCallResponse], error) {
-	// TODO: add more rail guards
-	apiCall := req.Msg.GetApiCall()
-	meta := apiCall.GetMeta()
-	ulidID, err := idwrap.NewWithParse(meta.GetId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	CollectionID, err := idwrap.NewWithParse(apiCall.GetCollectionId())
+	apiCall, err := titemapi.SeralizeRPCToModel(req.Msg.GetApiCall())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, ulidID)
+	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiCall.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -401,7 +367,7 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	checkOwner, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, CollectionID)
+	checkOwner, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, apiCall.CollectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -409,32 +375,17 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	var parentUlidIDPtr *idwrap.IDWrap = nil
-	if apiCall.GetParentId() != "" {
-		parentUlidID, err := idwrap.NewWithParse(req.Msg.GetApiCall().GetParentId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		checkfolder, err := c.ifs.GetFolder(ctx, parentUlidID)
+	if apiCall.ParentID != nil {
+		checkfolder, err := c.ifs.GetFolder(ctx, *apiCall.ParentID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		if checkfolder.CollectionID.Compare(CollectionID) != 0 {
+		if checkfolder.CollectionID.Compare(apiCall.CollectionID) != 0 {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 		}
-		parentUlidIDPtr = &parentUlidID
 	}
 
-	itemApi := &mitemapi.ItemApi{
-		ID:           ulidID,
-		CollectionID: CollectionID,
-		ParentID:     parentUlidIDPtr,
-		Name:         meta.GetName(),
-		Url:          apiCall.GetUrl(),
-		Method:       meta.GetMethod(),
-	}
-
-	err = c.ias.UpdateItemApi(ctx, itemApi)
+	err = c.ias.UpdateItemApi(ctx, apiCall)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
