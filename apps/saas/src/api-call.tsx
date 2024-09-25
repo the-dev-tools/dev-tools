@@ -32,14 +32,14 @@ import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId')({
+export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId')({
   component: Page,
 });
 
 function Page() {
-  const { apiCallId } = Route.useParams();
+  const { apiCallId, exampleId } = Route.useParams();
 
-  const query = useConnectQuery(getApiCall, { id: apiCallId });
+  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
 
   if (!query.isSuccess) return null;
   const { data } = query;
@@ -59,7 +59,7 @@ interface ApiFormProps {
 }
 
 const ApiForm = ({ data }: ApiFormProps) => {
-  const { workspaceId, apiCallId } = Route.useParams();
+  const { apiCallId, exampleId } = Route.useParams();
 
   const queryClient = useQueryClient();
 
@@ -105,18 +105,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
     const queryMap = pipe(
       searchParams.entries(),
       Array.fromIterable,
-      Array.map(
-        ([key, value]) =>
-          [
-            key + value,
-            new Query({
-              key,
-              value,
-              enabled: true,
-              exampleId: data.example!.meta!.id,
-            }),
-          ] as const,
-      ),
+      Array.map(([key, value]) => [key + value, new Query({ key, value, enabled: true, exampleId })] as const),
       MutableHashMap.fromIterable,
     );
 
@@ -131,7 +120,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
           },
           onNone: () => {
             if (!query.enabled) return Option.none();
-            return Option.some(new Query({ ...query, exampleId: data.example!.meta!.id, enabled: false }));
+            return Option.some(new Query({ ...query, exampleId, enabled: false }));
           },
         }),
       );
@@ -160,7 +149,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
     );
 
     queryClient.setQueryData(
-      createConnectQueryKey(getApiCall, { id: apiCallId }),
+      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
       createProtobufSafeUpdater(getApiCall, (_) => ({
         ..._,
         example: {
@@ -212,17 +201,11 @@ const ApiForm = ({ data }: ApiFormProps) => {
               className='rounded-l-none border-l-0 bg-black text-white'
               onPress={async () => {
                 await onSubmit();
-                const { response } = await runMutation.mutateAsync({ id: data.example!.meta!.id });
+                const { response } = await runMutation.mutateAsync({ id: exampleId });
                 if (!response) return;
                 queryClient.setQueryData(
-                  createConnectQueryKey(getApiCall, { id: apiCallId }),
-                  createProtobufSafeUpdater(getApiCall, (_) => ({
-                    ..._,
-                    example: {
-                      ..._!.example,
-                      response,
-                    },
-                  })),
+                  createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
+                  createProtobufSafeUpdater(getApiCall, (_) => ({ ..._, example: { ..._!.example, response } })),
                 );
               }}
             >
@@ -237,7 +220,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
               activeProps={{ className: tw`border-b-black` }}
               activeOptions={{ exact: true }}
-              from='/workspace/$workspaceId/api-call/$apiCallId'
+              from='/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
               to='.'
             >
               Params
@@ -245,18 +228,16 @@ const ApiForm = ({ data }: ApiFormProps) => {
             <Link
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
               activeProps={{ className: tw`border-b-black` }}
-              from='/workspace/$workspaceId/api-call/$apiCallId'
+              from='/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
               to='headers'
-              params={{ workspaceId, apiCallId }}
             >
               Headers
             </Link>
             <Link
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
               activeProps={{ className: tw`border-b-black` }}
-              from='/workspace/$workspaceId/api-call/$apiCallId'
+              from='/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
               to='body'
-              params={{ workspaceId, apiCallId }}
             >
               Body
             </Link>

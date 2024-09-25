@@ -367,7 +367,10 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
   return (
     <TreeItem
       textValue={meta.name}
-      href={{ to: '/workspace/$workspaceId/api-call/$apiCallId', params: { workspaceId, apiCallId: meta.id } }}
+      href={{
+        to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
+        params: { workspaceId, apiCallId: meta.id, exampleId: meta.examples[0]?.id ?? '' },
+      }}
       wrapperIsSelected={match.params.apiCallId === meta.id}
     >
       <div />

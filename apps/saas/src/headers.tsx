@@ -14,13 +14,15 @@ import {
 
 import { useFormTable } from './form-table';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/headers')({
+export const Route = createFileRoute(
+  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers',
+)({
   component: Tab,
 });
 
 function Tab() {
-  const { apiCallId } = Route.useParams();
-  const query = useConnectQuery(getApiCall, { id: apiCallId });
+  const { apiCallId, exampleId } = Route.useParams();
+  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
   if (!query.isSuccess) return null;
   return <Table data={query.data} />;
 }
@@ -30,13 +32,15 @@ interface TableProps {
 }
 
 const Table = ({ data }: TableProps) => {
+  const { exampleId } = Route.useParams();
+
   const { mutateAsync: createMutateAsync } = useConnectMutation(createHeader);
   const { mutateAsync: updateMutateAsync } = useConnectMutation(updateHeader);
   const { mutate: deleteMutate } = useConnectMutation(deleteHeader);
 
   const makeItem = useCallback(
-    (item?: Partial<Header>) => new Header({ ...item, enabled: true, exampleId: data.example!.meta!.id }),
-    [data.example],
+    (item?: Partial<Header>) => new Header({ ...item, enabled: true, exampleId }),
+    [exampleId],
   );
 
   const onCreate = useCallback(

@@ -27,7 +27,6 @@ import {
   updateBodyRaw,
   updateBodyUrlEncoded,
 } from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
-import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { updateExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
@@ -36,17 +35,19 @@ import { TextAreaField } from '@the-dev-tools/ui/text-field';
 
 import { useFormTable } from './form-table';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/body')({
-  component: Tab,
-});
+export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body')(
+  {
+    component: Tab,
+  },
+);
 
 function Tab() {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
-  const { apiCallId } = Route.useParams();
+  const { apiCallId, exampleId } = Route.useParams();
 
-  const query = useConnectQuery(getApiCall, { id: apiCallId });
+  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
   const updateMutation = useConnectMutation(updateExample);
 
   if (!query.isSuccess) return null;
@@ -69,7 +70,9 @@ function Tab() {
             }),
           });
 
-          await queryClient.invalidateQueries(createQueryOptions(getApiCall, { id: apiCallId }, { transport }));
+          await queryClient.invalidateQueries(
+            createQueryOptions(getApiCall, { id: apiCallId, exampleId }, { transport }),
+          );
         }}
       >
         <Radio value='none'>none</Radio>
@@ -80,9 +83,9 @@ function Tab() {
 
       {pipe(
         Match.value(body),
-        Match.when({ case: 'forms' }, ({ value }) => <FormDataTable data={query.data} body={value} />),
-        Match.when({ case: 'urlEncodeds' }, ({ value }) => <UrlEncodedTable data={query.data} body={value} />),
-        Match.when({ case: 'raw' }, ({ value }) => <RawForm data={query.data} body={value} />),
+        Match.when({ case: 'forms' }, ({ value }) => <FormDataTable body={value} />),
+        Match.when({ case: 'urlEncodeds' }, ({ value }) => <UrlEncodedTable body={value} />),
+        Match.when({ case: 'raw' }, ({ value }) => <RawForm body={value} />),
         Match.orElse(() => null),
       )}
     </>
@@ -90,18 +93,19 @@ function Tab() {
 }
 
 interface FormDataTableProps {
-  data: GetApiCallResponse;
   body: BodyFormArray;
 }
 
-const FormDataTable = ({ data, body }: FormDataTableProps) => {
+const FormDataTable = ({ body }: FormDataTableProps) => {
+  const { exampleId } = Route.useParams();
+
   const { mutateAsync: createMutateAsync } = useConnectMutation(createBodyForm);
   const { mutateAsync: updateMutateAsync } = useConnectMutation(updateBodyForm);
   const { mutate: deleteMutate } = useConnectMutation(deleteBodyForm);
 
   const makeItem = useCallback(
-    (item?: Partial<BodyFormItem>) => new BodyFormItem({ ...item, enabled: true, exampleId: data.example!.meta!.id }),
-    [data.example],
+    (item?: Partial<BodyFormItem>) => new BodyFormItem({ ...item, enabled: true, exampleId }),
+    [exampleId],
   );
 
   const table = useFormTable({
@@ -147,19 +151,19 @@ const FormDataTable = ({ data, body }: FormDataTableProps) => {
 };
 
 interface UrlEncodedTableProps {
-  data: GetApiCallResponse;
   body: BodyUrlEncodedArray;
 }
 
-const UrlEncodedTable = ({ data, body }: UrlEncodedTableProps) => {
+const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
+  const { exampleId } = Route.useParams();
+
   const { mutateAsync: createMutateAsync } = useConnectMutation(createBodyUrlEncoded);
   const { mutateAsync: updateMutateAsync } = useConnectMutation(updateBodyUrlEncoded);
   const { mutate: deleteMutate } = useConnectMutation(deleteBodyUrlEncoded);
 
   const makeItem = useCallback(
-    (item?: Partial<BodyUrlEncodedItem>) =>
-      new BodyUrlEncodedItem({ ...item, enabled: true, exampleId: data.example!.meta!.id }),
-    [data.example],
+    (item?: Partial<BodyUrlEncodedItem>) => new BodyUrlEncodedItem({ ...item, enabled: true, exampleId }),
+    [exampleId],
   );
 
   const table = useFormTable({
@@ -205,11 +209,12 @@ const UrlEncodedTable = ({ data, body }: UrlEncodedTableProps) => {
 };
 
 interface RawFormProps {
-  data: GetApiCallResponse;
   body: BodyRaw;
 }
 
-const RawForm = ({ data, body }: RawFormProps) => {
+const RawForm = ({ body }: RawFormProps) => {
+  const { exampleId } = Route.useParams();
+
   const [value, setValue] = useState(new TextDecoder().decode(body.bodyBytes));
 
   const updateMutation = useConnectMutation(updateBodyRaw);
@@ -219,12 +224,7 @@ const RawForm = ({ data, body }: RawFormProps) => {
       aria-label='Raw body value'
       value={value}
       onChange={setValue}
-      onBlur={() =>
-        void updateMutation.mutate({
-          exampleId: data.example!.meta!.id,
-          bodyBytes: new TextEncoder().encode(value),
-        })
-      }
+      onBlur={() => void updateMutation.mutate({ exampleId, bodyBytes: new TextEncoder().encode(value) })}
       className='h-full'
       areaClassName={tw`h-full`}
     />

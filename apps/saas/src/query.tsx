@@ -20,13 +20,13 @@ import {
 
 import { useFormTable } from './form-table';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/')({
+export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/')({
   component: Tab,
 });
 
 function Tab() {
-  const { apiCallId } = Route.useParams();
-  const query = useConnectQuery(getApiCall, { id: apiCallId });
+  const { apiCallId, exampleId } = Route.useParams();
+  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
   if (!query.isSuccess) return null;
   return <Table data={query.data} />;
 }
@@ -39,15 +39,15 @@ const Table = ({ data }: TableProps) => {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
-  const { apiCallId } = Route.useParams();
+  const { apiCallId, exampleId } = Route.useParams();
 
   const { mutateAsync: createMutateAsync } = useConnectMutation(createQuery);
   const { mutateAsync: updateMutateAsync } = useConnectMutation(updateQuery);
   const { mutate: deleteMutate } = useConnectMutation(deleteQuery);
 
   const makeItem = useCallback(
-    (item?: Partial<Query>) => new Query({ ...item, enabled: true, exampleId: data.example!.meta!.id }),
-    [data.example],
+    (item?: Partial<Query>) => new Query({ ...item, enabled: true, exampleId }),
+    [exampleId],
   );
 
   const onCreate = useCallback(({ item }: { item: Query }) => createMutateAsync({ query: item }), [createMutateAsync]);
@@ -55,8 +55,8 @@ const Table = ({ data }: TableProps) => {
   const onUpdate = useCallback(({ item }: { item: Query }) => updateMutateAsync({ query: item }), [updateMutateAsync]);
 
   const onChange = useCallback(
-    () => queryClient.invalidateQueries(createQueryOptions(getApiCall, { id: apiCallId }, { transport })),
-    [apiCallId, queryClient, transport],
+    () => queryClient.invalidateQueries(createQueryOptions(getApiCall, { id: apiCallId, exampleId }, { transport })),
+    [apiCallId, exampleId, queryClient, transport],
   );
 
   const table = useFormTable({
