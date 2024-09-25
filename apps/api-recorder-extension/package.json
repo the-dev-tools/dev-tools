@@ -9,9 +9,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@effect/schema": "0.74.0",
+    "@effect/schema": "0.74.1",
     "@plasmohq/storage": "1.12.0",
-    "effect": "3.8.3",
+    "effect": "3.8.4",
     "magic-sdk": "28.10.0",
     "plasmo": "0.89.2",
     "react": "18.3.1",
@@ -28,17 +28,17 @@
     "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/chrome": "~0.0.271",
-    "@types/node": "~22.5.5",
-    "@types/react": "~18.3.8",
+    "@types/chrome": "~0.0.272",
+    "@types/node": "~22.7.0",
+    "@types/react": "~18.3.9",
     "@types/react-dom": "~18.3.0",
     "@types/uuid": "~10.0.0",
     "autoprefixer": "~10.4.20",
-    "devtools-protocol": "~0.0.1358005",
+    "devtools-protocol": "~0.0.1359167",
     "postcss": "~8.4.47",
     "tailwindcss": "~3.4.13",
     "typescript": "~5.6.2",
-    "typescript-eslint": "~8.6.0"
+    "typescript-eslint": "~8.7.0"
   },
   "manifest": {
     "host_permissions": [
