@@ -25,8 +25,9 @@ func TestMergeVars(t *testing.T) {
 
 	b := []mvar.Var{}
 	const bNonDupe = 10
+	const bSize = bNonDupe + aSize
 
-	for i := 0; i < bNonDupe; i++ {
+	for i := aSize; i < bSize; i++ {
 		b = append(b, mvar.Var{
 			ID:     idwrap.NewNow(),
 			VarKey: fmt.Sprintf("key_%d", i),
