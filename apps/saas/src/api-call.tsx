@@ -307,7 +307,7 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
       </div>
 
       <div className='flex-1 overflow-auto'>
-        <TabPanel id='body'>
+        <TabPanel id='body' className='flex h-full flex-col gap-4 p-4'>
           <ResponseBodyView bodyBytes={response.body} />
         </TabPanel>
 
@@ -328,6 +328,39 @@ interface ResponseBodyViewProps {
 const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
   const body = new TextDecoder().decode(bodyBytes);
 
+  return (
+    <Tabs className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
+      <TabList className='flex gap-2 self-start rounded bg-neutral-400 p-1 text-sm'>
+        <Tab
+          className={({ isSelected }) => twMerge(tw`cursor-pointer rounded px-2 py-1`, isSelected && tw`bg-white`)}
+          id='pretty'
+        >
+          Pretty
+        </Tab>
+        <Tab
+          className={({ isSelected }) => twMerge(tw`cursor-pointer rounded px-2 py-1`, isSelected && tw`bg-white`)}
+          id='raw'
+        >
+          Raw
+        </Tab>
+      </TabList>
+
+      <TabPanel id='pretty' className='contents'>
+        <ResponseBodyPrettyView body={body} />
+      </TabPanel>
+
+      <TabPanel id='raw' className='col-span-full font-mono'>
+        {body}
+      </TabPanel>
+    </Tabs>
+  );
+};
+
+interface ResponseBodyPrettyViewProps {
+  body: string;
+}
+
+const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
   const [language, setLanguage] = useState<(typeof languages)[number]>('text');
 
   const extensions = useMemo(
@@ -347,6 +380,7 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
     <>
       <Select
         aria-label='Language'
+        className='self-center justify-self-start'
         triggerClassName={tw`px-1.5 py-1`}
         selectedKey={language}
         onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
@@ -357,7 +391,8 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
           </DropdownItem>
         ))}
       </Select>
-      <CodeMirror value={body} readOnly height='100%' extensions={extensions} />;
+
+      <CodeMirror value={body} readOnly height='100%' className='col-span-full self-stretch' extensions={extensions} />
     </>
   );
 };
