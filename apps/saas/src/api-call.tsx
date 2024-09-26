@@ -1,3 +1,6 @@
+import { html as cmHtml } from '@codemirror/lang-html';
+import { json as cmJson } from '@codemirror/lang-json';
+import { xml as cmXml } from '@codemirror/lang-xml';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
@@ -9,8 +12,9 @@ import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Array, Duration, HashMap, MutableHashMap, Option, pipe } from 'effect';
-import { useMemo } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { Array, Duration, HashMap, Match, MutableHashMap, Option, pipe } from 'effect';
+import { useMemo, useState } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuSave, LuSendHorizonal } from 'react-icons/lu';
@@ -28,7 +32,7 @@ import {
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { SelectRHF } from '@the-dev-tools/ui/select';
+import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
@@ -303,13 +307,58 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
       </div>
 
       <div className='flex-1 overflow-auto'>
-        <TabPanel id='body'>{new TextDecoder().decode(response.body)}</TabPanel>
+        <TabPanel id='body'>
+          <ResponseBodyView bodyBytes={response.body} />
+        </TabPanel>
 
         <TabPanel id='headers' className='p-4'>
           <ResponseHeadersTable headers={response.headers} />
         </TabPanel>
       </div>
     </Tabs>
+  );
+};
+
+const languages = ['text', 'json', 'html', 'xml'] as const;
+
+interface ResponseBodyViewProps {
+  bodyBytes: Uint8Array;
+}
+
+const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
+  const body = new TextDecoder().decode(bodyBytes);
+
+  const [language, setLanguage] = useState<(typeof languages)[number]>('text');
+
+  const extensions = useMemo(
+    () =>
+      pipe(
+        Match.value(language),
+        Match.when('text', () => []),
+        Match.when('json', () => [cmJson()]),
+        Match.when('html', () => [cmHtml()]),
+        Match.when('xml', () => [cmXml()]),
+        Match.exhaustive,
+      ),
+    [language],
+  );
+
+  return (
+    <>
+      <Select
+        aria-label='Language'
+        triggerClassName={tw`px-1.5 py-1`}
+        selectedKey={language}
+        onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
+      >
+        {languages.map((_) => (
+          <DropdownItem key={_} id={_}>
+            {_}
+          </DropdownItem>
+        ))}
+      </Select>
+      <CodeMirror value={body} readOnly height='100%' extensions={extensions} />;
+    </>
   );
 };
 
