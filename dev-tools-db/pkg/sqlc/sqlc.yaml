@@ -294,6 +294,12 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
+          ### env_id
+          - column: "variable.env_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### workspace_id
           - column: "variable.workspace_id"
             go_type:

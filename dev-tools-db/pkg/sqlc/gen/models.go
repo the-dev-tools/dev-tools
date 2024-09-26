@@ -20,7 +20,7 @@ type Collection struct {
 type Environment struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
-	IsDefault   bool
+	Type        int8
 	Name        string
 }
 
@@ -137,7 +137,7 @@ type User struct {
 
 type Variable struct {
 	ID     idwrap.IDWrap
-	EnvID  []byte
+	EnvID  idwrap.IDWrap
 	VarKey string
 	Value  string
 }

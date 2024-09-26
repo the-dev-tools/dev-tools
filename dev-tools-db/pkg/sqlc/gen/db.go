@@ -48,6 +48,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createCollectionStmt, err = db.PrepareContext(ctx, createCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCollection: %w", err)
 	}
+	if q.createEnvironmentStmt, err = db.PrepareContext(ctx, createEnvironment); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateEnvironment: %w", err)
+	}
 	if q.createExampleRespStmt, err = db.PrepareContext(ctx, createExampleResp); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateExampleResp: %w", err)
 	}
@@ -400,6 +403,11 @@ func (q *Queries) Close() error {
 	if q.createCollectionStmt != nil {
 		if cerr := q.createCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCollectionStmt: %w", cerr)
+		}
+	}
+	if q.createEnvironmentStmt != nil {
+		if cerr := q.createEnvironmentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createEnvironmentStmt: %w", cerr)
 		}
 	}
 	if q.createExampleRespStmt != nil {
@@ -964,6 +972,7 @@ type Queries struct {
 	createBodyUrlEncodedStmt                   *sql.Stmt
 	createBodyUrlEncodedBulkStmt               *sql.Stmt
 	createCollectionStmt                       *sql.Stmt
+	createEnvironmentStmt                      *sql.Stmt
 	createExampleRespStmt                      *sql.Stmt
 	createExampleRespHeaderStmt                *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
@@ -1081,6 +1090,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createBodyUrlEncodedStmt:                   q.createBodyUrlEncodedStmt,
 		createBodyUrlEncodedBulkStmt:               q.createBodyUrlEncodedBulkStmt,
 		createCollectionStmt:                       q.createCollectionStmt,
+		createEnvironmentStmt:                      q.createEnvironmentStmt,
 		createExampleRespStmt:                      q.createExampleRespStmt,
 		createExampleRespHeaderStmt:                q.createExampleRespHeaderStmt,
 		createHeaderStmt:                           q.createHeaderStmt,

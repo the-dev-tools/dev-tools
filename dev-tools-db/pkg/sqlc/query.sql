@@ -1046,7 +1046,7 @@ WHERE
 SELECT
   id,
   workspace_id,
-  is_default,
+  type,
   name
 FROM 
   environment
@@ -1058,23 +1058,23 @@ LIMIT 1;
 SELECT
   id,
   workspace_id,
-  is_default,
+  type,
   name
 FROM 
   environment
 WHERE
   workspace_id = ?;
 
--- CreateEnvironment :exec
+-- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, is_default, name)
+  environment (id, workspace_id, type, name)
 VALUES
   (?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment
 SET
-    is_default = ?
+    name = ?
 WHERE
     id = ?;
 

@@ -505,6 +505,30 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 	return err
 }
 
+const createEnvironment = `-- name: CreateEnvironment :exec
+INSERT INTO
+  environment (id, workspace_id, type, name)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateEnvironmentParams struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Type        int8
+	Name        string
+}
+
+func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) error {
+	_, err := q.exec(ctx, q.createEnvironmentStmt, createEnvironment,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.Type,
+		arg.Name,
+	)
+	return err
+}
+
 const createExampleResp = `-- name: CreateExampleResp :exec
 INSERT INTO
   example_resp (id, example_id, status, body, body_compress_type, duration)
@@ -1684,7 +1708,7 @@ VALUES
 
 type CreateVariableParams struct {
 	ID     idwrap.IDWrap
-	EnvID  []byte
+	EnvID  idwrap.IDWrap
 	VarKey string
 	Value  string
 }
@@ -1712,23 +1736,23 @@ VALUES
 
 type CreateVariableBulkParams struct {
 	ID       idwrap.IDWrap
-	EnvID    []byte
+	EnvID    idwrap.IDWrap
 	VarKey   string
 	Value    string
 	ID_2     idwrap.IDWrap
-	EnvID_2  []byte
+	EnvID_2  idwrap.IDWrap
 	VarKey_2 string
 	Value_2  string
 	ID_3     idwrap.IDWrap
-	EnvID_3  []byte
+	EnvID_3  idwrap.IDWrap
 	VarKey_3 string
 	Value_3  string
 	ID_4     idwrap.IDWrap
-	EnvID_4  []byte
+	EnvID_4  idwrap.IDWrap
 	VarKey_4 string
 	Value_4  string
 	ID_5     idwrap.IDWrap
-	EnvID_5  []byte
+	EnvID_5  idwrap.IDWrap
 	VarKey_5 string
 	Value_5  string
 }
@@ -2315,7 +2339,7 @@ const getEnvironment = `-- name: GetEnvironment :one
 SELECT
   id,
   workspace_id,
-  is_default,
+  type,
   name
 FROM 
   environment
@@ -2330,7 +2354,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environ
 	err := row.Scan(
 		&i.ID,
 		&i.WorkspaceID,
-		&i.IsDefault,
+		&i.Type,
 		&i.Name,
 	)
 	return i, err
@@ -2340,7 +2364,7 @@ const getEnvironmentsByWorkspaceID = `-- name: GetEnvironmentsByWorkspaceID :man
 SELECT
   id,
   workspace_id,
-  is_default,
+  type,
   name
 FROM 
   environment
@@ -2360,7 +2384,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.IsDefault,
+			&i.Type,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -3322,7 +3346,7 @@ WHERE
   env_id = ?
 `
 
-func (q *Queries) GetVariablesByEnvironmentID(ctx context.Context, envID []byte) ([]Variable, error) {
+func (q *Queries) GetVariablesByEnvironmentID(ctx context.Context, envID idwrap.IDWrap) ([]Variable, error) {
 	rows, err := q.query(ctx, q.getVariablesByEnvironmentIDStmt, getVariablesByEnvironmentID, envID)
 	if err != nil {
 		return nil, err
@@ -3771,18 +3795,18 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE environment
 SET
-    is_default = ?
+    name = ?
 WHERE
     id = ?
 `
 
 type UpdateEnvironmentParams struct {
-	IsDefault bool
-	ID        idwrap.IDWrap
+	Name string
+	ID   idwrap.IDWrap
 }
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
-	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.IsDefault, arg.ID)
+	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.Name, arg.ID)
 	return err
 }
 
