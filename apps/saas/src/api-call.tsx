@@ -343,6 +343,12 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         >
           Raw
         </Tab>
+        <Tab
+          className={({ isSelected }) => twMerge(tw`cursor-pointer rounded px-2 py-1`, isSelected && tw`bg-white`)}
+          id='preview'
+        >
+          Preview
+        </Tab>
       </TabList>
 
       <TabPanel id='pretty' className='contents'>
@@ -351,6 +357,10 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
 
       <TabPanel id='raw' className='col-span-full font-mono'>
         {body}
+      </TabPanel>
+
+      <TabPanel id='preview' className='col-span-full self-stretch'>
+        <iframe title='Response preview' srcDoc={body} className='size-full' />
       </TabPanel>
     </Tabs>
   );
