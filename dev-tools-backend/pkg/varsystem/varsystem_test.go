@@ -1,9 +1,9 @@
-package svar_test
+package varsystem_test
 
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mvar"
-	"dev-tools-backend/pkg/service/svar"
+	"dev-tools-backend/pkg/varsystem"
 	"fmt"
 	"testing"
 )
@@ -36,7 +36,7 @@ func TestMergeVars(t *testing.T) {
 		})
 	}
 
-	c := svar.MergeVars(a, b)
+	c := varsystem.MergeVars(a, b)
 	const expectedSize = aSize + bNonDupe
 	if len(c) != expectedSize {
 		t.Errorf("Expected size of %d, got %d", expectedSize, len(c))

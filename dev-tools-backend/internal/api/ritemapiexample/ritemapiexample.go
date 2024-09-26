@@ -1,6 +1,7 @@
 package ritemapiexample
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
@@ -41,7 +42,9 @@ import (
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -108,6 +111,16 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	beus, err := sbodyurl.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	brs, err := sbodyraw.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	erhs, err := sexamplerespheader.New(ctx, db)
 	if err != nil {
 		return nil, err
@@ -131,7 +144,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		us:   us,
 		hs:   hs,
 		qs:   qs,
+		// body
 		bfs:  bfs,
+		bues: beus,
+		brs:  brs,
 		// resp sub
 		erhs: erhs,
 		ers:  ers,
@@ -408,10 +424,45 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	bodyBytes := &bytes.Buffer{}
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeNone:
+	case mitemapiexample.BodyTypeRaw:
+		bodyData, err := c.brs.GetBodyRawByExampleID(ctx, exampleUlid)
+		if err != nil {
+			return nil, err
+		}
+		bodyBytes.Write(bodyData.Data)
+	case mitemapiexample.BodyTypeForm:
+		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleUlid)
+		if err != nil {
+			return nil, err
+		}
+		writer := multipart.NewWriter(bodyBytes)
+
+		for _, v := range forms {
+			err = writer.WriteField(v.BodyKey, v.Value)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
+	case mitemapiexample.BodyTypeUrlencoded:
+		urls, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleUlid)
+		if err != nil {
+			return nil, err
+		}
+		urlVal := url.Values{}
+		for _, url := range urls {
+			urlVal.Add(url.BodyKey, url.Value)
+		}
+
+	}
+
 	apiCallNodeData := mnodedata.NodeApiRestData{
 		Url:     itemApiCall.Url,
 		Method:  itemApiCall.Method,
-		Body:    nil,
+		Body:    bodyBytes.Bytes(),
 		Headers: reqHeaders,
 		Query:   queries,
 	}
@@ -532,10 +583,12 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	return connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
+	resp := connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
 		Response: rpcExampleResp,
-	}), nil
+	})
+	resp.Header().Set("Cache-Control", "max-age=0")
+
+	return resp, nil
 }
 
 func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {
