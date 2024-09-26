@@ -11,8 +11,8 @@ const (
 )
 
 type Env struct {
-	ID           idwrap.IDWrap
-	Workspace_ID idwrap.IDWrap
-	Type         EnvType
-	Name         string
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Type        EnvType
+	Name        string
 }

@@ -8,12 +8,15 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/menv"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/model/mworkspaceuser"
+	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
+	"dev-tools-backend/pkg/translate/tworkspace"
 	"dev-tools-mail/pkg/emailclient"
 	"dev-tools-mail/pkg/emailinvite"
 	workspacev1 "dev-tools-services/gen/workspace/v1"
@@ -21,7 +24,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -30,13 +32,71 @@ import (
 var ErrWorkspaceNotFound = errors.New("workspace not found")
 
 type WorkspaceServiceRPC struct {
-	DB   *sql.DB
-	sw   sworkspace.WorkspaceService
-	swu  sworkspacesusers.WorkspaceUserService
-	su   suser.UserService
-	ec   emailclient.EmailClient
-	eim  *emailinvite.EmailTemplateManager
-	time time.Time
+	DB  *sql.DB
+	sw  sworkspace.WorkspaceService
+	swu sworkspacesusers.WorkspaceUserService
+	su  suser.UserService
+
+	// env
+	es senv.EnvService
+
+	// email
+	ec  emailclient.EmailClient
+	eim *emailinvite.EmailTemplateManager
+}
+
+func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service, error) {
+	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+	if AWS_ACCESS_KEY == "" {
+		log.Fatalf("AWS_ACCESS_KEY is empty")
+	}
+	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+	if AWS_SECRET_KEY == "" {
+		log.Fatalf("AWS_SECRET_KEY is empty")
+	}
+
+	sw, err := sworkspace.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	swu, err := sworkspacesusers.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+	if err != nil {
+		log.Fatalf("failed to create email client: %v", err)
+	}
+
+	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
+	if path == "" {
+		return nil, errors.New("EMAIL_INVITE_TEMPLATE_PATH env var is required")
+	}
+	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, client)
+	if err != nil {
+		return nil, err
+	}
+
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
+	server := &WorkspaceServiceRPC{
+		DB:  db,
+		sw:  *sw,
+		swu: *swu,
+		su:  *us,
+		ec:  *client,
+		eim: emailInviteManager,
+	}
+	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
@@ -108,12 +168,17 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	}
 
 	workspaceUlid := idwrap.NewNow()
-	dbTimeNow := dbtime.DBNow()
-
 	ws := &mworkspace.Workspace{
 		ID:      workspaceUlid,
 		Name:    name,
-		Updated: dbTimeNow,
+		Updated: dbtime.DBNow(),
+	}
+
+	wsEnv := &menv.Env{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceUlid,
+		Name:        "default",
+		Type:        menv.EnvGlobal,
 	}
 
 	orgUser := &mworkspaceuser.WorkspaceUser{
@@ -137,6 +202,15 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		return nil, err
 	}
 
+	envServiceTX, err := senv.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = envServiceTX.Create(ctx, wsEnv)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	workspaceUserServiceTX, err := sworkspacesusers.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -152,20 +226,12 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	}
 
 	resp := &workspacev1.CreateWorkspaceResponse{
-		Workspace: &workspacev1.Workspace{
-			Id:   ws.ID.String(),
-			Name: name,
-		},
+		Workspace: tworkspace.SeralizeWorkspace(*ws),
 	}
 	return connect.NewResponse(resp), nil
 }
 
 func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.Request[workspacev1.UpdateWorkspaceRequest]) (*connect.Response[workspacev1.UpdateWorkspaceResponse], error) {
-	userUlid, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
-	}
-
 	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -173,18 +239,20 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 	if req.Msg.GetName() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
-
+	userUlid, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
 	wsUser, err := c.swu.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceUlid, userUlid)
 	if err != nil {
 		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
 		}
 	}
-
+	// TODO: role system will change later
 	if wsUser.Role < mworkspaceuser.RoleAdmin {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
-
 	ws, err := c.sw.Get(ctx, workspaceUlid)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -425,58 +493,4 @@ func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&workspacev1.UpdateUserRoleResponse{}), nil
-}
-
-func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service, error) {
-	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
-	if AWS_ACCESS_KEY == "" {
-		log.Fatalf("AWS_ACCESS_KEY is empty")
-	}
-	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
-	if AWS_SECRET_KEY == "" {
-		log.Fatalf("AWS_SECRET_KEY is empty")
-	}
-
-	sw, err := sworkspace.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-	swu, err := sworkspacesusers.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	us, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
-	if err != nil {
-		log.Fatalf("failed to create email client: %v", err)
-	}
-
-	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
-	if path == "" {
-		return nil, errors.New("EMAIL_INVITE_TEMPLATE_PATH env var is required")
-	}
-	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, client)
-	if err != nil {
-		return nil, err
-	}
-
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	server := &WorkspaceServiceRPC{
-		DB:  db,
-		sw:  *sw,
-		swu: *swu,
-		su:  *us,
-		ec:  *client,
-		eim: emailInviteManager,
-	}
-	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, options...)
-	return &api.Service{Path: path, Handler: handler}, nil
 }

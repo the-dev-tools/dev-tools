@@ -36,7 +36,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*EnvService, error) {
 func ConvertToDBEnv(env menv.Env) gen.Environment {
 	return gen.Environment{
 		ID:          env.ID,
-		WorkspaceID: env.Workspace_ID,
+		WorkspaceID: env.WorkspaceID,
 		Type:        int8(env.Type),
 		Name:        env.Name,
 	}
@@ -44,10 +44,10 @@ func ConvertToDBEnv(env menv.Env) gen.Environment {
 
 func ConvertToModelEnv(env gen.Environment) *menv.Env {
 	return &menv.Env{
-		ID:           env.ID,
-		Workspace_ID: env.WorkspaceID,
-		Type:         menv.EnvType(env.Type),
-		Name:         env.Name,
+		ID:          env.ID,
+		WorkspaceID: env.WorkspaceID,
+		Type:        menv.EnvType(env.Type),
+		Name:        env.Name,
 	}
 }
 

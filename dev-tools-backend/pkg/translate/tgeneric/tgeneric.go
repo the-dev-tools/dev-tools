@@ -27,3 +27,11 @@ func MassConvertWithErr[T any, O any](item []T, convFunc func(T) (O, error)) ([]
 	}
 	return arr, nil
 }
+
+func MapToSlice[T any, K comparable](item map[K]T) []T {
+	arr := make([]T, 0, len(item))
+	for _, v := range item {
+		arr = append(arr, v)
+	}
+	return arr
+}

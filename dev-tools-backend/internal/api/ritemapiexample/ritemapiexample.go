@@ -40,7 +40,6 @@ import (
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -454,10 +453,10 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	for key, values := range httpResp.Header {
 		respHeaders[key] = strings.Join(values, ",")
 	}
+
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
 	if err != nil {
-		fmt.Println(err)
-		if err != sexampleresp.ErrNoRespFound {
+		if err == sexampleresp.ErrNoRespFound {
 			exampleRespTemp := mexampleresp.ExampleResp{
 				ID:        idwrap.NewNow(),
 				ExampleID: exampleUlid,

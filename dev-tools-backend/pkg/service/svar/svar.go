@@ -95,3 +95,17 @@ func (e VarService) Update(ctx context.Context, varParm *mvar.Var) error {
 func (e VarService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	return e.queries.DeleteVariable(ctx, id)
 }
+
+// Helper functions
+func MergeVars(global, current []mvar.Var) []mvar.Var {
+	globalMap := make(map[string]mvar.Var, len(global))
+	for _, globalVar := range global {
+		globalMap[globalVar.VarKey] = globalVar
+	}
+
+	for _, currentVar := range current {
+		globalMap[currentVar.VarKey] = currentVar
+	}
+
+	return tgeneric.MapToSlice(globalMap)
+}
