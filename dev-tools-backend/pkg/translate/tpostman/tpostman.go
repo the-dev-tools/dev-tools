@@ -259,8 +259,17 @@ func GetResponse(items []mresponse.Response, reqHeaders []mheader.Header, body *
 			apiExample.BodyType = BodyType(body.Mode)
 			channels.Wg.Add(1)
 			go GetBody(body, apiExampleID, collectionID, channels)
+		} else {
+			apiExample.BodyType = mitemapiexample.BodyTypeRaw
+			bodyRaw := mbodyraw.ExampleBodyRaw{
+				ID:            idwrap.NewNow(),
+				ExampleID:     apiExampleID,
+				VisualizeMode: mbodyraw.VisualizeModeUndefined,
+				CompressType:  mbodyraw.CompressTypeNone,
+				Data:          []byte{},
+			}
+			channels.BodyRaw <- bodyRaw
 		}
-
 		if len(reqHeaders) > 0 {
 			channels.Wg.Add(1)
 			go GetHeaders(reqHeaders, apiExampleID, collectionID, channels)
