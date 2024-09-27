@@ -9,11 +9,12 @@ import {
 } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, HashMap, Match, MutableHashMap, Option, pipe } from 'effect';
+import { format as prettierFormat } from 'prettier/standalone';
 import { useMemo, useState } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
@@ -373,6 +374,38 @@ interface ResponseBodyPrettyViewProps {
 const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
   const [language, setLanguage] = useState<(typeof languages)[number]>('text');
 
+  const { data: prettierBody } = useQuery({
+    initialData: '',
+    queryKey: ['prettier', language, body],
+    queryFn: async () => {
+      if (language === 'text') return body;
+
+      const plugins = await pipe(
+        Match.value(language),
+        Match.when('json', () => [import('prettier/plugins/estree'), import('prettier/plugins/babel')]),
+        Match.when('html', () => [import('prettier/plugins/html')]),
+        Match.when('xml', () => [import('@prettier/plugin-xml')]),
+        Match.exhaustive,
+        Array.map((_) => _.then((_) => _.default)),
+        (_) => Promise.all(_),
+      );
+
+      const parser = pipe(
+        Match.value(language),
+        Match.when('json', () => 'json-stringify'),
+        Match.orElse((_) => _),
+      );
+
+      return await prettierFormat(body, {
+        parser,
+        plugins,
+        singleAttributePerLine: true,
+        htmlWhitespaceSensitivity: 'ignore',
+        xmlWhitespaceSensitivity: 'ignore',
+      }).catch(() => body);
+    },
+  });
+
   const extensions = useMemo(
     () =>
       pipe(
@@ -402,7 +435,13 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
         ))}
       </Select>
 
-      <CodeMirror value={body} readOnly height='100%' className='col-span-full self-stretch' extensions={extensions} />
+      <CodeMirror
+        value={prettierBody}
+        readOnly
+        height='100%'
+        className='col-span-full self-stretch'
+        extensions={extensions}
+      />
     </>
   );
 };
