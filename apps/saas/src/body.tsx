@@ -1,18 +1,15 @@
-import { html as cmHtml } from '@codemirror/lang-html';
-import { json as cmJson } from '@codemirror/lang-json';
-import { xml as cmXml } from '@codemirror/lang-xml';
 import {
   createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
   useTransport,
 } from '@connectrpc/connect-query';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { flexRender } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Match, pipe } from 'effect';
-import { useCallback, useMemo, useState } from 'react';
+import { Array, Match, pipe } from 'effect';
+import { useCallback, useState } from 'react';
 
 import {
   Body,
@@ -227,18 +224,21 @@ const RawForm = ({ body }: RawFormProps) => {
   const [value, setValue] = useState(new TextDecoder().decode(body.bodyBytes));
   const [language, setLanguage] = useState<(typeof languages)[number]>('text');
 
-  const extensions = useMemo(
-    () =>
-      pipe(
+  const { data: extensions } = useQuery({
+    initialData: [],
+    queryKey: ['code-mirror', language],
+    queryFn: async () => {
+      if (language === 'text') return [];
+      return await pipe(
         Match.value(language),
-        Match.when('text', () => []),
-        Match.when('json', () => [cmJson()]),
-        Match.when('html', () => [cmHtml()]),
-        Match.when('xml', () => [cmXml()]),
+        Match.when('json', () => import('@codemirror/lang-json').then((_) => _.json())),
+        Match.when('html', () => import('@codemirror/lang-html').then((_) => _.html())),
+        Match.when('xml', () => import('@codemirror/lang-xml').then((_) => _.xml())),
         Match.exhaustive,
-      ),
-    [language],
-  );
+        (_) => _.then(Array.make),
+      );
+    },
+  });
 
   return (
     <>

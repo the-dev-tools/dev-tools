@@ -1,6 +1,3 @@
-import { html as cmHtml } from '@codemirror/lang-html';
-import { json as cmJson } from '@codemirror/lang-json';
-import { xml as cmXml } from '@codemirror/lang-xml';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
@@ -406,18 +403,21 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
     },
   });
 
-  const extensions = useMemo(
-    () =>
-      pipe(
+  const { data: extensions } = useQuery({
+    initialData: [],
+    queryKey: ['code-mirror', language],
+    queryFn: async () => {
+      if (language === 'text') return [];
+      return await pipe(
         Match.value(language),
-        Match.when('text', () => []),
-        Match.when('json', () => [cmJson()]),
-        Match.when('html', () => [cmHtml()]),
-        Match.when('xml', () => [cmXml()]),
+        Match.when('json', () => import('@codemirror/lang-json').then((_) => _.json())),
+        Match.when('html', () => import('@codemirror/lang-html').then((_) => _.html())),
+        Match.when('xml', () => import('@codemirror/lang-xml').then((_) => _.xml())),
         Match.exhaustive,
-      ),
-    [language],
-  );
+        (_) => _.then(Array.make),
+      );
+    },
+  });
 
   return (
     <>
