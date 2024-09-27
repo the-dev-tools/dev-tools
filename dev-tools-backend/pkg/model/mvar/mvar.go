@@ -3,8 +3,13 @@ package mvar
 import "dev-tools-backend/pkg/idwrap"
 
 const (
-	Prefix = '$'
-	Suffix = '$'
+	Prefix = "{{"
+	Suffix = "}}"
+)
+
+const (
+	PrefixSize = len(Prefix)
+	SuffixSize = len(Suffix)
 )
 
 type Var struct {

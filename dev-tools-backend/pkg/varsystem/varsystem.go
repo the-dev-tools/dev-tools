@@ -51,14 +51,19 @@ func FilterVars(vars []mvar.Var, filter func(mvar.Var) bool) []mvar.Var {
 	return filtered
 }
 
+// {{varKey}}
+func GetVarKeyFromRaw(raw string) string {
+	return raw[mvar.PrefixSize : len(raw)-mvar.SuffixSize]
+}
+
 func CheckIsVar(varKey string) bool {
 	return CheckPrefix(varKey) && CheckSuffix(varKey)
 }
 
 func CheckPrefix(varKey string) bool {
-	return varKey[0] == mvar.Prefix
+	return len(varKey) >= mvar.PrefixSize && varKey[:mvar.PrefixSize] == mvar.Prefix
 }
 
 func CheckSuffix(varKey string) bool {
-	return varKey[len(varKey)-1] == mvar.Suffix
+	return len(varKey) >= mvar.SuffixSize && varKey[len(varKey)-mvar.SuffixSize:] == mvar.Suffix
 }

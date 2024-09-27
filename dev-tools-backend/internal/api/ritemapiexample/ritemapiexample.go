@@ -11,6 +11,7 @@ import (
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
+	"dev-tools-backend/pkg/model/menv"
 	"dev-tools-backend/pkg/model/mexampleresp"
 	"dev-tools-backend/pkg/model/mexamplerespheader"
 	"dev-tools-backend/pkg/model/mitemapiexample"
@@ -18,6 +19,7 @@ import (
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/sexampleheader"
 	"dev-tools-backend/pkg/service/sexamplequery"
 	"dev-tools-backend/pkg/service/sexampleresp"
@@ -26,12 +28,14 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/service/svar"
 	"dev-tools-backend/pkg/translate/tbodyraw"
 	"dev-tools-backend/pkg/translate/texample"
 	"dev-tools-backend/pkg/translate/texampleresp"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/theader"
 	"dev-tools-backend/pkg/translate/tquery"
+	"dev-tools-backend/pkg/varsystem"
 	"dev-tools-backend/pkg/zstdcompress"
 	"dev-tools-nodes/pkg/model/mnode"
 	"dev-tools-nodes/pkg/model/mnodedata"
@@ -41,6 +45,7 @@ import (
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -68,6 +73,9 @@ type ItemAPIExampleRPC struct {
 	// resp sub
 	erhs *sexamplerespheader.ExampleRespHeaderService
 	ers  *sexampleresp.ExampleRespService
+	// env
+	es *senv.EnvService
+	vs *svar.VarService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -131,6 +139,16 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	es, err := senv.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	vs, err := svar.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -151,6 +169,9 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		// resp sub
 		erhs: erhs,
 		ers:  ers,
+		// env
+		es: es,
+		vs: vs,
 	}
 
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, options...)
@@ -414,14 +435,72 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlid)
+	reqQueries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleUlid)
 	if err != nil && err != sexamplequery.ErrNoQueryFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Get workspace of of the current example
+
+	collection, err := c.cs.GetCollection(ctx, example.CollectionID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	workspaceID := collection.OwnerID
+
+	env, err := c.es.GetByWorkspace(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var selectedEnv *menv.Env
+	if len(env) != 0 {
+		tempEnv := env[0]
+		selectedEnv = &tempEnv
+	}
+
+	var varMap *varsystem.VarMap
+	if selectedEnv != nil {
+		vars, err := c.vs.GetVariableByEnvID(ctx, selectedEnv.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		tempVarMap := varsystem.NewVarMap(vars)
+		varMap = &tempVarMap
+	}
+
+	if varMap == nil {
+		// TODO implement var system
+		for _, query := range reqQueries {
+			if varsystem.CheckIsVar(query.Value) {
+				key := varsystem.GetVarKeyFromRaw(query.Value)
+				val, ok := varMap.Get(key)
+				if ok {
+					query.Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+		}
 	}
 
 	reqHeaders, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
 	if err != nil && err != sexampleheader.ErrNoHeaderFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if varMap == nil {
+		for _, header := range reqHeaders {
+			if varsystem.CheckIsVar(header.Value) {
+				key := varsystem.GetVarKeyFromRaw(header.Value)
+				val, ok := varMap.Get(key)
+				if ok {
+					header.Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+		}
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -464,7 +543,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		Method:  itemApiCall.Method,
 		Body:    bodyBytes.Bytes(),
 		Headers: reqHeaders,
-		Query:   queries,
+		Query:   reqQueries,
 	}
 
 	node := mnode.Node{
