@@ -160,8 +160,8 @@ importers:
         specifier: 3.9.0
         version: 3.9.0(react-hook-form@7.53.0(react@18.3.1))
       '@prettier/plugin-xml':
-        specifier: ^3.4.1
-        version: 3.4.1(prettier@3.3.3)
+        specifier: 3.4.1
+        version: 3.4.1(prettier@3.3.2)
       '@react-aria/collections':
         specifier: 3.0.0-alpha.4
         version: 3.0.0-alpha.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -196,8 +196,8 @@ importers:
         specifier: 3.8.4
         version: 3.8.4
       prettier:
-        specifier: ~3.3.2
-        version: 3.3.3
+        specifier: 3.3.2
+        version: 3.3.2
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -6610,6 +6610,11 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
+  prettier@3.3.2:
+    resolution: {integrity: sha512-rAVeHYMcv8ATV5d508CFdn+8/pHPpXeIid1DdrPwXnaAdH7cqjVbpJaT5eq4yRAFU/lsbwYwSF/n5iNrdJHPQA==}
+    engines: {node: '>=14'}
+    hasBin: true
+
   prettier@3.3.3:
     resolution: {integrity: sha512-i2tDNA0O5IrMO757lfrdQZCc2jPNDVntV0m/+4whiDfWaTKfMNgR7Qz0NAeGz/nRqF4m5/6CLzbP4/liHt12Ew==}
     engines: {node: '>=14'}
@@ -10195,10 +10200,10 @@ snapshots:
       '@pnpm/network.ca-file': 1.0.2
       config-chain: 1.1.13
 
-  '@prettier/plugin-xml@3.4.1(prettier@3.3.3)':
+  '@prettier/plugin-xml@3.4.1(prettier@3.3.2)':
     dependencies:
       '@xml-tools/parser': 1.0.11
-      prettier: 3.3.3
+      prettier: 3.3.2
 
   '@react-aria/breadcrumbs@3.5.16(react@18.3.1)':
     dependencies:
@@ -15094,6 +15099,8 @@ snapshots:
   prelude-ls@1.2.1: {}
 
   prettier@2.8.8: {}
+
+  prettier@3.3.2: {}
 
   prettier@3.3.3: {}
 
