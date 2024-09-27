@@ -5,6 +5,7 @@ sql:
     schema: "schema.sql"
     gen:
       go:
+        emit_empty_slices: true
         emit_prepared_queries: true
         package: "gen"
         out: "gen"

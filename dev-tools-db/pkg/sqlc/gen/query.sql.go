@@ -2067,7 +2067,7 @@ func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID idwrap.
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ExampleBodyForm
+	items := []ExampleBodyForm{}
 	for rows.Next() {
 		var i ExampleBodyForm
 		if err := rows.Scan(
@@ -2200,7 +2200,7 @@ func (q *Queries) GetBodyUrlEncodedsByExampleID(ctx context.Context, exampleID i
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ExampleBodyUrlencoded
+	items := []ExampleBodyUrlencoded{}
 	for rows.Next() {
 		var i ExampleBodyUrlencoded
 		if err := rows.Scan(
@@ -2262,7 +2262,7 @@ func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID idwrap.IDW
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Collection
+	items := []Collection{}
 	for rows.Next() {
 		var i Collection
 		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
@@ -2296,7 +2296,7 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwra
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Collection
+	items := []Collection{}
 	for rows.Next() {
 		var i Collection
 		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
@@ -2378,7 +2378,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Environment
+	items := []Environment{}
 	for rows.Next() {
 		var i Environment
 		if err := rows.Scan(
@@ -2471,7 +2471,7 @@ func (q *Queries) GetExampleRespHeadersByRespID(ctx context.Context, exampleResp
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ExampleRespHeader
+	items := []ExampleRespHeader{}
 	for rows.Next() {
 		var i ExampleRespHeader
 		if err := rows.Scan(
@@ -2572,7 +2572,7 @@ func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID idwrap.ID
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ExampleHeader
+	items := []ExampleHeader{}
 	for rows.Next() {
 		var i ExampleHeader
 		if err := rows.Scan(
@@ -2690,7 +2690,7 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ItemApiExample
+	items := []ItemApiExample{}
 	for rows.Next() {
 		var i ItemApiExample
 		if err := rows.Scan(
@@ -2774,7 +2774,7 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ItemApiExample
+	items := []ItemApiExample{}
 	for rows.Next() {
 		var i ItemApiExample
 		if err := rows.Scan(
@@ -2881,7 +2881,7 @@ func (q *Queries) GetItemFoldersByCollectionID(ctx context.Context, collectionID
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ItemFolder
+	items := []ItemFolder{}
 	for rows.Next() {
 		var i ItemFolder
 		if err := rows.Scan(
@@ -2927,7 +2927,7 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ItemApi
+	items := []ItemApi{}
 	for rows.Next() {
 		var i ItemApi
 		if err := rows.Scan(
@@ -2973,7 +2973,7 @@ func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID idwrap.ID
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ExampleQuery
+	items := []ExampleQuery{}
 	for rows.Next() {
 		var i ExampleQuery
 		if err := rows.Scan(
@@ -3075,7 +3075,7 @@ func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy idwrap.
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ResultApi
+	items := []ResultApi{}
 	for rows.Next() {
 		var i ResultApi
 		if err := rows.Scan(
@@ -3122,7 +3122,7 @@ func (q *Queries) GetResultApiByTriggerByAndTriggerType(ctx context.Context, arg
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ResultApi
+	items := []ResultApi{}
 	for rows.Next() {
 		var i ResultApi
 		if err := rows.Scan(
@@ -3352,7 +3352,7 @@ func (q *Queries) GetVariablesByEnvironmentID(ctx context.Context, envID idwrap.
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Variable
+	items := []Variable{}
 	for rows.Next() {
 		var i Variable
 		if err := rows.Scan(
@@ -3503,7 +3503,7 @@ func (q *Queries) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.ID
 		return nil, err
 	}
 	defer rows.Close()
-	var items []WorkspacesUser
+	items := []WorkspacesUser{}
 	for rows.Next() {
 		var i WorkspacesUser
 		if err := rows.Scan(
@@ -3543,7 +3543,7 @@ func (q *Queries) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID
 		return nil, err
 	}
 	defer rows.Close()
-	var items []WorkspacesUser
+	items := []WorkspacesUser{}
 	for rows.Next() {
 		var i WorkspacesUser
 		if err := rows.Scan(
@@ -3621,7 +3621,7 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Workspace
+	items := []Workspace{}
 	for rows.Next() {
 		var i Workspace
 		if err := rows.Scan(&i.ID, &i.Name, &i.Updated); err != nil {
