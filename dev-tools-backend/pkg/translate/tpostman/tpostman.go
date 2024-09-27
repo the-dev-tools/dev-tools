@@ -209,13 +209,13 @@ func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwr
 		apiArr = append(apiArr, apiPrev)
 
 		channels.Wg.Add(1)
-		go GetResponse(item.Responses, item.Request.Body, URL, ApiID, collectionID, channels)
+		go GetResponse(item.Responses, item.Request.Header, item.Request.Body, URL, ApiID, collectionID, channels)
 	}
 
 	SendAllToChannelPtr(apiArr, channels.Api)
 }
 
-func GetResponse(items []mresponse.Response, body *mbody.Body, urlData *murl.URL,
+func GetResponse(items []mresponse.Response, reqHeaders []mheader.Header, body *mbody.Body, urlData *murl.URL,
 	apiUlid, collectionID idwrap.IDWrap, channels *ItemChannels,
 ) {
 	defer channels.Wg.Done()
@@ -261,9 +261,9 @@ func GetResponse(items []mresponse.Response, body *mbody.Body, urlData *murl.URL
 			go GetBody(body, apiExampleID, collectionID, channels)
 		}
 
-		if len(item.Headers) > 0 {
+		if len(reqHeaders) > 0 {
 			channels.Wg.Add(1)
-			go GetHeaders(item.Headers, apiExampleID, collectionID, channels)
+			go GetHeaders(reqHeaders, apiExampleID, collectionID, channels)
 		}
 		if len(urlData.Query) > 0 {
 			channels.Wg.Add(1)

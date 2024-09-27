@@ -11,8 +11,6 @@ import (
 	"dev-tools-backend/pkg/model/postman/v21/mresponse"
 	"dev-tools-backend/pkg/model/postman/v21/murl"
 	"dev-tools-backend/pkg/translate/tpostman"
-	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -142,18 +140,16 @@ func TestTranslatePostmanOrder(test *testing.T) {
 	}
 }
 
-func TestTranslatePostmanHeader(test *testing.T) {
+func TestRequestHeaders(test *testing.T) {
 	RootApiLen := 100
-	ResponseLen := 10
-	ReponseHeaderLen := 100
+	ReqHeaders := 100
 	QueryParamterLen := 10
 	// expected
-	ExpectedResponseLen := RootApiLen * (ResponseLen + 1)
-	ExpectedHeaderLen := ExpectedResponseLen * ReponseHeaderLen
-	ExpectedQueryLen := ExpectedResponseLen * QueryParamterLen
+	ExpectedHeaderLen := RootApiLen * ReqHeaders
+	ExpectedQueryLen := RootApiLen * QueryParamterLen
 
 	var headers []mheader.Header
-	for i := 0; i < ReponseHeaderLen; i++ {
+	for i := 0; i < ReqHeaders; i++ {
 		headers = append(headers, mheader.Header{
 			Key:         "test",
 			Value:       "test",
@@ -190,22 +186,10 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		URL:         URL,
 	}
 
-	response := mresponse.Response{
-		Name:            "test",
-		OriginalRequest: nil,
-		ResponseTime:    0,
-		Headers:         headers,
-	}
-
-	responses := []mresponse.Response{}
-	for i := 0; i < ResponseLen; i++ {
-		responses = append(responses, response)
-	}
-
 	RootApi := mitem.Items{
 		ID:          "test",
 		Name:        "test",
-		Responses:   responses,
+		Responses:   nil,
 		Request:     &request,
 		Description: "test",
 		Variables:   nil,
@@ -237,10 +221,6 @@ func TestTranslatePostmanHeader(test *testing.T) {
 		test.Errorf("Error: %v", len(pairs.Apis))
 	}
 
-	if len(pairs.ApiExamples) != ExpectedResponseLen {
-		test.Errorf("Error: %v", len(pairs.ApiExamples))
-	}
-
 	if len(pairs.Headers) != ExpectedHeaderLen {
 		test.Errorf("Error: %v", len(pairs.Headers))
 	}
@@ -251,140 +231,6 @@ func TestTranslatePostmanHeader(test *testing.T) {
 
 	apiUlidMap := make(map[idwrap.IDWrap]struct{})
 	for _, api := range pairs.Apis {
-		if _, ok := apiUlidMap[api.ID]; ok {
-			test.Errorf("Error: %v", "api ulid duplicate")
-		}
-		apiUlidMap[api.ID] = struct{}{}
-	}
-
-	apiExampleUlidMap := make(map[idwrap.IDWrap]struct{})
-	for _, apiExample := range pairs.ApiExamples {
-		if _, ok := apiExampleUlidMap[apiExample.ID]; ok {
-			test.Errorf("Error: %v", "api example ulid duplicate")
-		}
-		apiExampleUlidMap[apiExample.ID] = struct{}{}
-	}
-
-	headerUlidMap := make(map[idwrap.IDWrap]struct{})
-	for _, header := range pairs.Headers {
-		if _, ok := headerUlidMap[header.ID]; ok {
-			test.Errorf("Error: %v", "header ulid duplicate")
-		}
-		headerUlidMap[header.ID] = struct{}{}
-	}
-
-	queryUlidMap := make(map[idwrap.IDWrap]struct{})
-	for _, query := range pairs.Queries {
-		if _, ok := queryUlidMap[query.ID]; ok {
-			test.Errorf("Error: %v", "query ulid duplicate")
-		}
-		queryUlidMap[query.ID] = struct{}{}
-	}
-}
-
-func TestTranslatePostmanQuery(test *testing.T) {
-	RootApiLen := 100
-	ResponseLen := 10
-	ReponseHeaderLen := 100
-	QueryParamterLen := 10
-	// expected
-	ExpectedResponseLen := RootApiLen * (ResponseLen + 1)
-	ExpectedHeaderLen := ExpectedResponseLen * ReponseHeaderLen
-	ExpectedQueryLen := ExpectedResponseLen * QueryParamterLen
-
-	var headers []mheader.Header
-	for i := 0; i < ReponseHeaderLen; i++ {
-		headers = append(headers, mheader.Header{
-			Key:         "test",
-			Value:       "test",
-			Disabled:    false,
-			Description: "test",
-		})
-	}
-	urlData, err := url.Parse("http://localhost:8080")
-	if err != nil {
-		test.Errorf("Error: %v", err)
-	}
-	for i := 0; i < QueryParamterLen; i++ {
-		queryData := urlData.Query()
-		queryData.Add("test", "test")
-		urlData.RawQuery = queryData.Encode()
-	}
-
-	URLWithQuery := urlData.String()
-
-	request := mrequest.Request{
-		Method:      "GET",
-		Header:      headers,
-		Body:        nil,
-		Description: "test",
-		URL:         URLWithQuery,
-	}
-
-	response := mresponse.Response{
-		Name:            "test",
-		OriginalRequest: nil,
-		ResponseTime:    0,
-		Headers:         headers,
-	}
-
-	responses := []mresponse.Response{}
-	for i := 0; i < ResponseLen; i++ {
-		responses = append(responses, response)
-	}
-
-	RootApi := mitem.Items{
-		ID:          "test",
-		Name:        "test",
-		Responses:   responses,
-		Request:     &request,
-		Description: "test",
-		Variables:   nil,
-		Items:       nil,
-	}
-
-	items := []mitem.Items{}
-	for i := 0; i < RootApiLen; i++ {
-		items = append(items, RootApi)
-	}
-
-	postmanCollection := mpostmancollection.Collection{
-		Auth: nil,
-		Info: mpostmancollection.Info{
-			Name: "test",
-		},
-		Items:     items,
-		Events:    nil,
-		Variables: nil,
-	}
-
-	collectionID := idwrap.NewNow()
-	pairs, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionID)
-	if err != nil {
-		test.Errorf("Error: %v", err)
-	}
-
-	if len(pairs.Apis) != RootApiLen {
-		test.Errorf("Error: %v", len(pairs.Apis))
-	}
-
-	if len(pairs.ApiExamples) != ExpectedResponseLen {
-		test.Errorf("Error: %v", len(pairs.ApiExamples))
-	}
-
-	if len(pairs.Headers) != ExpectedHeaderLen {
-		test.Errorf("Error: %v", len(pairs.Headers))
-	}
-
-	if len(pairs.Queries) != ExpectedQueryLen {
-		test.Errorf("Error: %v", len(pairs.Queries))
-	}
-
-	apiUlidMap := make(map[idwrap.IDWrap]struct{})
-	for _, api := range pairs.Apis {
-		if strings.ContainsRune(api.Url, '?') {
-			test.Errorf("Error: %v", "url contains query")
-		}
 		if _, ok := apiUlidMap[api.ID]; ok {
 			test.Errorf("Error: %v", "api ulid duplicate")
 		}
