@@ -12,6 +12,7 @@ service ItemApiExampleService {
   rpc GetExamples(GetExamplesRequest) returns (GetExamplesResponse);
   rpc GetExample(GetExampleRequest) returns (GetExampleResponse);
   rpc CreateExample(CreateExampleRequest) returns (CreateExampleResponse);
+  rpc DupeExample(DupeExampleRequest) returns (DupeExampleResponse);
   rpc UpdateExample(UpdateExampleRequest) returns (UpdateExampleResponse);
   rpc DeleteExample(DeleteExampleRequest) returns (DeleteExampleResponse);
 
@@ -102,6 +103,14 @@ message CreateExampleRequest {
 }
 
 message CreateExampleResponse {
+  string id = 1;
+}
+
+message DupeExampleRequest {
+  string id = 1;
+}
+
+message DupeExampleResponse {
   string id = 1;
 }
 

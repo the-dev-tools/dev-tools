@@ -7,6 +7,7 @@ import "itemapiexample/v1/itemapiexample.proto";
 service ItemApiService {
   rpc GetApiCall(GetApiCallRequest) returns (GetApiCallResponse);
   rpc CreateApiCall(CreateApiCallRequest) returns (CreateApiCallResponse);
+  rpc DupeApiCall(DupeApiCallRequest) returns (DupeApiCallResponse);
   rpc UpdateApiCall(UpdateApiCallRequest) returns (UpdateApiCallResponse);
   rpc DeleteApiCall(DeleteApiCallRequest) returns (DeleteApiCallResponse);
   rpc MoveApiCall(MoveApiCallRequest) returns (MoveApiCallResponse);
@@ -36,6 +37,14 @@ message CreateApiCallRequest {
 message CreateApiCallResponse {
   string id = 1;
   string name = 2;
+}
+
+message DupeApiCallRequest {
+  string id = 1;
+}
+
+message DupeApiCallResponse {
+  string id = 1;
 }
 
 message GetApiCallRequest {

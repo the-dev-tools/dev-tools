@@ -19,7 +19,8 @@ message Variable {
 }
 
 message CreateVariableRequest {
-  Variable variable = 1;
+  string environment_id = 1;
+  Variable variable = 2;
 }
 
 message CreateVariableResponse {
