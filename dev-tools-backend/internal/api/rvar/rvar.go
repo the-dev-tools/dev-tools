@@ -6,7 +6,10 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
+	"dev-tools-backend/internal/api/renv"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/service/senv"
+	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/svar"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tvar"
@@ -19,11 +22,24 @@ import (
 type VarRPC struct {
 	DB *sql.DB
 
+	us suser.UserService
+
+	es senv.EnvService
 	vs svar.VarService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
 	var options []connect.HandlerOption
+
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	es, err := senv.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
 
 	vs, err := svar.New(ctx, db)
 	if err != nil {
@@ -36,6 +52,10 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	service := &VarRPC{
 		DB: db,
 
+		us: *us,
+
+		es: es,
+
 		vs: vs,
 	}
 
@@ -43,12 +63,19 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-// TODO: add perm checks
 func (v *VarRPC) CreateVariable(ctx context.Context, req *connect.Request[variablev1.CreateVariableRequest]) (*connect.Response[variablev1.CreateVariableResponse], error) {
 	envID, err := idwrap.NewWithParse(req.Msg.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	ok, err := renv.CheckOwnerEnv(ctx, v.us, v.es, envID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, nil)
+	}
+
 	varReq := tvar.DeserializeRPCToModelWithID(idwrap.NewNow(), req.Msg.GetVariable())
 	err = v.vs.Create(ctx, varReq)
 	if err != nil {
@@ -59,11 +86,17 @@ func (v *VarRPC) CreateVariable(ctx context.Context, req *connect.Request[variab
 	return connect.NewResponse(&variablev1.CreateVariableResponse{Id: varReq.ID.String()}), nil
 }
 
-// TODO: add perm checks
 func (v *VarRPC) GetVariable(ctx context.Context, req *connect.Request[variablev1.GetVariableRequest]) (*connect.Response[variablev1.GetVariableResponse], error) {
 	id, err := idwrap.NewWithParse(req.Msg.Id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := CheckOwnerVar(ctx, v.us, v.vs, v.es, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, nil)
 	}
 	varible, err := v.vs.Get(ctx, id)
 	if err != nil {
@@ -72,11 +105,17 @@ func (v *VarRPC) GetVariable(ctx context.Context, req *connect.Request[variablev
 	return connect.NewResponse(&variablev1.GetVariableResponse{Variable: tvar.SerializeModelToRPC(*varible)}), nil
 }
 
-// TODO: add perm checks
 func (v *VarRPC) GetVariables(ctx context.Context, req *connect.Request[variablev1.GetVariablesRequest]) (*connect.Response[variablev1.GetVariablesResponse], error) {
 	envID, err := idwrap.NewWithParse(req.Msg.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := renv.CheckOwnerEnv(ctx, v.us, v.es, envID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, nil)
 	}
 	variables, err := v.vs.GetVariableByEnvID(ctx, envID)
 	if err != nil {
@@ -86,11 +125,17 @@ func (v *VarRPC) GetVariables(ctx context.Context, req *connect.Request[variable
 	return connect.NewResponse(&variablev1.GetVariablesResponse{Variables: rpcVars}), nil
 }
 
-// TODO: add perm checks
 func (c *VarRPC) UpdateVariable(ctx context.Context, req *connect.Request[variablev1.UpdateVariableRequest]) (*connect.Response[variablev1.UpdateVariableResponse], error) {
 	varReq, err := tvar.DeserializeRPCToModel(req.Msg.GetVariable())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	ok, err := CheckOwnerVar(ctx, c.us, c.vs, c.es, varReq.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, nil)
 	}
 
 	err = c.vs.Update(ctx, &varReq)
@@ -100,15 +145,30 @@ func (c *VarRPC) UpdateVariable(ctx context.Context, req *connect.Request[variab
 	return connect.NewResponse(&variablev1.UpdateVariableResponse{}), nil
 }
 
-// TODO: add perm checks
 func (c *VarRPC) DeleteVariable(ctx context.Context, req *connect.Request[variablev1.DeleteVariableRequest]) (*connect.Response[variablev1.DeleteVariableResponse], error) {
 	id, err := idwrap.NewWithParse(req.Msg.Id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	ok, err := CheckOwnerVar(ctx, c.us, c.vs, c.es, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, nil)
+	}
+
 	err = c.vs.Delete(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&variablev1.DeleteVariableResponse{}), nil
+}
+
+func CheckOwnerVar(ctx context.Context, us suser.UserService, vs svar.VarService, es senv.EnvService, varID idwrap.IDWrap) (bool, error) {
+	variable, err := vs.Get(ctx, varID)
+	if err != nil {
+		return false, err
+	}
+	return renv.CheckOwnerEnv(ctx, us, es, variable.EnvID)
 }

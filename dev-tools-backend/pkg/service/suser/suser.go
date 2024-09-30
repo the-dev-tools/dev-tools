@@ -9,7 +9,6 @@ import (
 )
 
 type UserService struct {
-	DB      *sql.DB
 	queries *gen.Queries
 }
 
@@ -18,7 +17,7 @@ func New(ctx context.Context, db *sql.DB) (*UserService, error) {
 	if err != nil {
 		return nil, err
 	}
-	userService := UserService{DB: db, queries: queries}
+	userService := UserService{queries: queries}
 	return &userService, nil
 }
 

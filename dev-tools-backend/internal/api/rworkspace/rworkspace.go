@@ -494,3 +494,11 @@ func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.R
 	}
 	return connect.NewResponse(&workspacev1.UpdateUserRoleResponse{}), nil
 }
+
+func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return false, err
+	}
+	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
+}
