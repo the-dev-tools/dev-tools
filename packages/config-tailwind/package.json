@@ -12,7 +12,7 @@
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/node": "~22.7.0",
+    "@types/node": "~22.7.4",
     "effect": "~3.8.4",
     "tailwindcss": "~3.4.13",
     "tailwindcss-react-aria-components": "~1.1.5",
