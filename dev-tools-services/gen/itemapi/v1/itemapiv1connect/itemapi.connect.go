@@ -39,6 +39,9 @@ const (
 	// ItemApiServiceCreateApiCallProcedure is the fully-qualified name of the ItemApiService's
 	// CreateApiCall RPC.
 	ItemApiServiceCreateApiCallProcedure = "/itemapi.v1.ItemApiService/CreateApiCall"
+	// ItemApiServiceDupeApiCallProcedure is the fully-qualified name of the ItemApiService's
+	// DupeApiCall RPC.
+	ItemApiServiceDupeApiCallProcedure = "/itemapi.v1.ItemApiService/DupeApiCall"
 	// ItemApiServiceUpdateApiCallProcedure is the fully-qualified name of the ItemApiService's
 	// UpdateApiCall RPC.
 	ItemApiServiceUpdateApiCallProcedure = "/itemapi.v1.ItemApiService/UpdateApiCall"
@@ -55,6 +58,7 @@ var (
 	itemApiServiceServiceDescriptor             = v1.File_itemapi_v1_itemapi_proto.Services().ByName("ItemApiService")
 	itemApiServiceGetApiCallMethodDescriptor    = itemApiServiceServiceDescriptor.Methods().ByName("GetApiCall")
 	itemApiServiceCreateApiCallMethodDescriptor = itemApiServiceServiceDescriptor.Methods().ByName("CreateApiCall")
+	itemApiServiceDupeApiCallMethodDescriptor   = itemApiServiceServiceDescriptor.Methods().ByName("DupeApiCall")
 	itemApiServiceUpdateApiCallMethodDescriptor = itemApiServiceServiceDescriptor.Methods().ByName("UpdateApiCall")
 	itemApiServiceDeleteApiCallMethodDescriptor = itemApiServiceServiceDescriptor.Methods().ByName("DeleteApiCall")
 	itemApiServiceMoveApiCallMethodDescriptor   = itemApiServiceServiceDescriptor.Methods().ByName("MoveApiCall")
@@ -64,6 +68,7 @@ var (
 type ItemApiServiceClient interface {
 	GetApiCall(context.Context, *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error)
 	CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error)
+	DupeApiCall(context.Context, *connect.Request[v1.DupeApiCallRequest]) (*connect.Response[v1.DupeApiCallResponse], error)
 	UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error)
 	DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error)
 	MoveApiCall(context.Context, *connect.Request[v1.MoveApiCallRequest]) (*connect.Response[v1.MoveApiCallResponse], error)
@@ -91,6 +96,12 @@ func NewItemApiServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(itemApiServiceCreateApiCallMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		dupeApiCall: connect.NewClient[v1.DupeApiCallRequest, v1.DupeApiCallResponse](
+			httpClient,
+			baseURL+ItemApiServiceDupeApiCallProcedure,
+			connect.WithSchema(itemApiServiceDupeApiCallMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		updateApiCall: connect.NewClient[v1.UpdateApiCallRequest, v1.UpdateApiCallResponse](
 			httpClient,
 			baseURL+ItemApiServiceUpdateApiCallProcedure,
@@ -116,6 +127,7 @@ func NewItemApiServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 type itemApiServiceClient struct {
 	getApiCall    *connect.Client[v1.GetApiCallRequest, v1.GetApiCallResponse]
 	createApiCall *connect.Client[v1.CreateApiCallRequest, v1.CreateApiCallResponse]
+	dupeApiCall   *connect.Client[v1.DupeApiCallRequest, v1.DupeApiCallResponse]
 	updateApiCall *connect.Client[v1.UpdateApiCallRequest, v1.UpdateApiCallResponse]
 	deleteApiCall *connect.Client[v1.DeleteApiCallRequest, v1.DeleteApiCallResponse]
 	moveApiCall   *connect.Client[v1.MoveApiCallRequest, v1.MoveApiCallResponse]
@@ -129,6 +141,11 @@ func (c *itemApiServiceClient) GetApiCall(ctx context.Context, req *connect.Requ
 // CreateApiCall calls itemapi.v1.ItemApiService.CreateApiCall.
 func (c *itemApiServiceClient) CreateApiCall(ctx context.Context, req *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error) {
 	return c.createApiCall.CallUnary(ctx, req)
+}
+
+// DupeApiCall calls itemapi.v1.ItemApiService.DupeApiCall.
+func (c *itemApiServiceClient) DupeApiCall(ctx context.Context, req *connect.Request[v1.DupeApiCallRequest]) (*connect.Response[v1.DupeApiCallResponse], error) {
+	return c.dupeApiCall.CallUnary(ctx, req)
 }
 
 // UpdateApiCall calls itemapi.v1.ItemApiService.UpdateApiCall.
@@ -150,6 +167,7 @@ func (c *itemApiServiceClient) MoveApiCall(ctx context.Context, req *connect.Req
 type ItemApiServiceHandler interface {
 	GetApiCall(context.Context, *connect.Request[v1.GetApiCallRequest]) (*connect.Response[v1.GetApiCallResponse], error)
 	CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error)
+	DupeApiCall(context.Context, *connect.Request[v1.DupeApiCallRequest]) (*connect.Response[v1.DupeApiCallResponse], error)
 	UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error)
 	DeleteApiCall(context.Context, *connect.Request[v1.DeleteApiCallRequest]) (*connect.Response[v1.DeleteApiCallResponse], error)
 	MoveApiCall(context.Context, *connect.Request[v1.MoveApiCallRequest]) (*connect.Response[v1.MoveApiCallResponse], error)
@@ -171,6 +189,12 @@ func NewItemApiServiceHandler(svc ItemApiServiceHandler, opts ...connect.Handler
 		ItemApiServiceCreateApiCallProcedure,
 		svc.CreateApiCall,
 		connect.WithSchema(itemApiServiceCreateApiCallMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiServiceDupeApiCallHandler := connect.NewUnaryHandler(
+		ItemApiServiceDupeApiCallProcedure,
+		svc.DupeApiCall,
+		connect.WithSchema(itemApiServiceDupeApiCallMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	itemApiServiceUpdateApiCallHandler := connect.NewUnaryHandler(
@@ -197,6 +221,8 @@ func NewItemApiServiceHandler(svc ItemApiServiceHandler, opts ...connect.Handler
 			itemApiServiceGetApiCallHandler.ServeHTTP(w, r)
 		case ItemApiServiceCreateApiCallProcedure:
 			itemApiServiceCreateApiCallHandler.ServeHTTP(w, r)
+		case ItemApiServiceDupeApiCallProcedure:
+			itemApiServiceDupeApiCallHandler.ServeHTTP(w, r)
 		case ItemApiServiceUpdateApiCallProcedure:
 			itemApiServiceUpdateApiCallHandler.ServeHTTP(w, r)
 		case ItemApiServiceDeleteApiCallProcedure:
@@ -218,6 +244,10 @@ func (UnimplementedItemApiServiceHandler) GetApiCall(context.Context, *connect.R
 
 func (UnimplementedItemApiServiceHandler) CreateApiCall(context.Context, *connect.Request[v1.CreateApiCallRequest]) (*connect.Response[v1.CreateApiCallResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapi.v1.ItemApiService.CreateApiCall is not implemented"))
+}
+
+func (UnimplementedItemApiServiceHandler) DupeApiCall(context.Context, *connect.Request[v1.DupeApiCallRequest]) (*connect.Response[v1.DupeApiCallResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapi.v1.ItemApiService.DupeApiCall is not implemented"))
 }
 
 func (UnimplementedItemApiServiceHandler) UpdateApiCall(context.Context, *connect.Request[v1.UpdateApiCallRequest]) (*connect.Response[v1.UpdateApiCallResponse], error) {

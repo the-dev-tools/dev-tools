@@ -74,8 +74,8 @@ type ItemAPIExampleRPC struct {
 	erhs *sexamplerespheader.ExampleRespHeaderService
 	ers  *sexampleresp.ExampleRespService
 	// env
-	es *senv.EnvService
-	vs *svar.VarService
+	es senv.EnvService
+	vs svar.VarService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -292,6 +292,10 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{
 		Example: texample.SerializeModelToRPC(*example, queries, headers, body, resp),
 	}), nil
+}
+
+func (c *ItemAPIExampleRPC) DupeExample(ctx context.Context, req *connect.Request[itemapiexamplev1.DupeExampleRequest]) (*connect.Response[itemapiexamplev1.DupeExampleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("unimplemented"))
 }
 
 func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateExampleRequest]) (*connect.Response[itemapiexamplev1.CreateExampleResponse], error) {

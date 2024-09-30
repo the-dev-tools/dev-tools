@@ -15,4 +15,5 @@ type Env struct {
 	WorkspaceID idwrap.IDWrap
 	Type        EnvType
 	Name        string
+	Updated     int64
 }

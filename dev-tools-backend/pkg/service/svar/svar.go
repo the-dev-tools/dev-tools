@@ -15,13 +15,13 @@ type VarService struct {
 
 var ErrNoVarFound error = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (*VarService, error) {
+func New(ctx context.Context, db *sql.DB) (VarService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return VarService{}, err
 	}
 	service := VarService{queries: queries}
-	return &service, nil
+	return service, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*VarService, error) {
@@ -73,8 +73,8 @@ func (e VarService) GetVariableByEnvID(ctx context.Context, envID idwrap.IDWrap)
 	return tgeneric.MassConvertPtr(rows, ConvertToModelVar), nil
 }
 
-func (e VarService) Create(ctx context.Context, varParm *mvar.Var) error {
-	variable := ConvertToDBVar(*varParm)
+func (e VarService) Create(ctx context.Context, varParm mvar.Var) error {
+	variable := ConvertToDBVar(varParm)
 	return e.queries.CreateVariable(ctx, gen.CreateVariableParams{
 		ID:     variable.ID,
 		EnvID:  variable.EnvID,

@@ -202,6 +202,10 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 	return connect.NewResponse(respRaw), nil
 }
 
+func (c *ItemApiRPC) DupeApiCall(ctx context.Context, req *connect.Request[itemapiv1.DupeApiCallRequest]) (*connect.Response[itemapiv1.DupeApiCallResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
 func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemapiv1.GetApiCallRequest]) (*connect.Response[itemapiv1.GetApiCallResponse], error) {
 	apiUlid, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {

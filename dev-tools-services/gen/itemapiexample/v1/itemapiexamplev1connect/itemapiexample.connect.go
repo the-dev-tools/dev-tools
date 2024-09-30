@@ -42,6 +42,9 @@ const (
 	// ItemApiExampleServiceCreateExampleProcedure is the fully-qualified name of the
 	// ItemApiExampleService's CreateExample RPC.
 	ItemApiExampleServiceCreateExampleProcedure = "/itemapiexample.v1.ItemApiExampleService/CreateExample"
+	// ItemApiExampleServiceDupeExampleProcedure is the fully-qualified name of the
+	// ItemApiExampleService's DupeExample RPC.
+	ItemApiExampleServiceDupeExampleProcedure = "/itemapiexample.v1.ItemApiExampleService/DupeExample"
 	// ItemApiExampleServiceUpdateExampleProcedure is the fully-qualified name of the
 	// ItemApiExampleService's UpdateExample RPC.
 	ItemApiExampleServiceUpdateExampleProcedure = "/itemapiexample.v1.ItemApiExampleService/UpdateExample"
@@ -77,6 +80,7 @@ var (
 	itemApiExampleServiceGetExamplesMethodDescriptor   = itemApiExampleServiceServiceDescriptor.Methods().ByName("GetExamples")
 	itemApiExampleServiceGetExampleMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("GetExample")
 	itemApiExampleServiceCreateExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateExample")
+	itemApiExampleServiceDupeExampleMethodDescriptor   = itemApiExampleServiceServiceDescriptor.Methods().ByName("DupeExample")
 	itemApiExampleServiceUpdateExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateExample")
 	itemApiExampleServiceDeleteExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteExample")
 	itemApiExampleServiceRunExampleMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("RunExample")
@@ -94,6 +98,7 @@ type ItemApiExampleServiceClient interface {
 	GetExamples(context.Context, *connect.Request[v1.GetExamplesRequest]) (*connect.Response[v1.GetExamplesResponse], error)
 	GetExample(context.Context, *connect.Request[v1.GetExampleRequest]) (*connect.Response[v1.GetExampleResponse], error)
 	CreateExample(context.Context, *connect.Request[v1.CreateExampleRequest]) (*connect.Response[v1.CreateExampleResponse], error)
+	DupeExample(context.Context, *connect.Request[v1.DupeExampleRequest]) (*connect.Response[v1.DupeExampleResponse], error)
 	UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error)
 	DeleteExample(context.Context, *connect.Request[v1.DeleteExampleRequest]) (*connect.Response[v1.DeleteExampleResponse], error)
 	RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error)
@@ -133,6 +138,12 @@ func NewItemApiExampleServiceClient(httpClient connect.HTTPClient, baseURL strin
 			httpClient,
 			baseURL+ItemApiExampleServiceCreateExampleProcedure,
 			connect.WithSchema(itemApiExampleServiceCreateExampleMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		dupeExample: connect.NewClient[v1.DupeExampleRequest, v1.DupeExampleResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceDupeExampleProcedure,
+			connect.WithSchema(itemApiExampleServiceDupeExampleMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		updateExample: connect.NewClient[v1.UpdateExampleRequest, v1.UpdateExampleResponse](
@@ -197,6 +208,7 @@ type itemApiExampleServiceClient struct {
 	getExamples   *connect.Client[v1.GetExamplesRequest, v1.GetExamplesResponse]
 	getExample    *connect.Client[v1.GetExampleRequest, v1.GetExampleResponse]
 	createExample *connect.Client[v1.CreateExampleRequest, v1.CreateExampleResponse]
+	dupeExample   *connect.Client[v1.DupeExampleRequest, v1.DupeExampleResponse]
 	updateExample *connect.Client[v1.UpdateExampleRequest, v1.UpdateExampleResponse]
 	deleteExample *connect.Client[v1.DeleteExampleRequest, v1.DeleteExampleResponse]
 	runExample    *connect.Client[v1.RunExampleRequest, v1.RunExampleResponse]
@@ -221,6 +233,11 @@ func (c *itemApiExampleServiceClient) GetExample(ctx context.Context, req *conne
 // CreateExample calls itemapiexample.v1.ItemApiExampleService.CreateExample.
 func (c *itemApiExampleServiceClient) CreateExample(ctx context.Context, req *connect.Request[v1.CreateExampleRequest]) (*connect.Response[v1.CreateExampleResponse], error) {
 	return c.createExample.CallUnary(ctx, req)
+}
+
+// DupeExample calls itemapiexample.v1.ItemApiExampleService.DupeExample.
+func (c *itemApiExampleServiceClient) DupeExample(ctx context.Context, req *connect.Request[v1.DupeExampleRequest]) (*connect.Response[v1.DupeExampleResponse], error) {
+	return c.dupeExample.CallUnary(ctx, req)
 }
 
 // UpdateExample calls itemapiexample.v1.ItemApiExampleService.UpdateExample.
@@ -275,6 +292,7 @@ type ItemApiExampleServiceHandler interface {
 	GetExamples(context.Context, *connect.Request[v1.GetExamplesRequest]) (*connect.Response[v1.GetExamplesResponse], error)
 	GetExample(context.Context, *connect.Request[v1.GetExampleRequest]) (*connect.Response[v1.GetExampleResponse], error)
 	CreateExample(context.Context, *connect.Request[v1.CreateExampleRequest]) (*connect.Response[v1.CreateExampleResponse], error)
+	DupeExample(context.Context, *connect.Request[v1.DupeExampleRequest]) (*connect.Response[v1.DupeExampleResponse], error)
 	UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error)
 	DeleteExample(context.Context, *connect.Request[v1.DeleteExampleRequest]) (*connect.Response[v1.DeleteExampleResponse], error)
 	RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error)
@@ -310,6 +328,12 @@ func NewItemApiExampleServiceHandler(svc ItemApiExampleServiceHandler, opts ...c
 		ItemApiExampleServiceCreateExampleProcedure,
 		svc.CreateExample,
 		connect.WithSchema(itemApiExampleServiceCreateExampleMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceDupeExampleHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceDupeExampleProcedure,
+		svc.DupeExample,
+		connect.WithSchema(itemApiExampleServiceDupeExampleMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	itemApiExampleServiceUpdateExampleHandler := connect.NewUnaryHandler(
@@ -374,6 +398,8 @@ func NewItemApiExampleServiceHandler(svc ItemApiExampleServiceHandler, opts ...c
 			itemApiExampleServiceGetExampleHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceCreateExampleProcedure:
 			itemApiExampleServiceCreateExampleHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceDupeExampleProcedure:
+			itemApiExampleServiceDupeExampleHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceUpdateExampleProcedure:
 			itemApiExampleServiceUpdateExampleHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceDeleteExampleProcedure:
@@ -411,6 +437,10 @@ func (UnimplementedItemApiExampleServiceHandler) GetExample(context.Context, *co
 
 func (UnimplementedItemApiExampleServiceHandler) CreateExample(context.Context, *connect.Request[v1.CreateExampleRequest]) (*connect.Response[v1.CreateExampleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateExample is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) DupeExample(context.Context, *connect.Request[v1.DupeExampleRequest]) (*connect.Response[v1.DupeExampleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DupeExample is not implemented"))
 }
 
 func (UnimplementedItemApiExampleServiceHandler) UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error) {

@@ -174,7 +174,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		Updated: dbtime.DBNow(),
 	}
 
-	wsEnv := &menv.Env{
+	wsEnv := menv.Env{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceUlid,
 		Name:        "default",

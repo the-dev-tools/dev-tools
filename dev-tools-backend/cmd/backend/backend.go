@@ -8,10 +8,12 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/rbody"
+	"dev-tools-backend/internal/api/renv"
 	"dev-tools-backend/internal/api/resultapi"
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/internal/api/ritemfolder"
+	"dev-tools-backend/internal/api/rvar"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-db/pkg/tursoembedded"
 	"errors"
@@ -64,6 +66,8 @@ func main() {
 	newServiceManager.AddService(ritemfolder.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 	newServiceManager.AddService(ritemapiexample.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 	newServiceManager.AddService(rbody.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(renv.CreateService(ctx, dbEmbedded, hmacSecretBytes))
+	newServiceManager.AddService(rvar.CreateService(ctx, dbEmbedded, hmacSecretBytes))
 
 	// Start services
 	go func() {

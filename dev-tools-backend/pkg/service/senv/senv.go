@@ -15,13 +15,13 @@ type EnvService struct {
 
 var ErrNoEnvFound error = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (*EnvService, error) {
+func New(ctx context.Context, db *sql.DB) (EnvService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return EnvService{}, err
 	}
 	service := EnvService{queries: queries}
-	return &service, nil
+	return service, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*EnvService, error) {
@@ -73,8 +73,8 @@ func (e EnvService) GetByWorkspace(ctx context.Context, workspaceID idwrap.IDWra
 	return tgeneric.MassConvertPtr(envs, ConvertToModelEnv), nil
 }
 
-func (e EnvService) Create(ctx context.Context, env *menv.Env) error {
-	dbEnv := ConvertToDBEnv(*env)
+func (e EnvService) Create(ctx context.Context, env menv.Env) error {
+	dbEnv := ConvertToDBEnv(env)
 	return e.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams{
 		ID:          dbEnv.ID,
 		WorkspaceID: dbEnv.WorkspaceID,
