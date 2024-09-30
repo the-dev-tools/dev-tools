@@ -33,9 +33,11 @@ import {
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { getWorkspace } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
+import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 import { Tree, TreeItem } from '@the-dev-tools/ui/tree';
@@ -73,15 +75,46 @@ function Layout() {
       }
     >
       <PanelGroup direction='horizontal'>
-        <Panel
-          className='flex flex-col gap-2 p-2'
-          style={{ overflowY: 'auto' }}
-          defaultSize={20}
-          minSize={10}
-          maxSize={40}
-        >
-          <h2 className='uppercase'>Overview</h2>
-          <CollectionsTree />
+        <Panel className='flex flex-col' style={{ overflowY: 'auto' }} defaultSize={20} minSize={10} maxSize={40}>
+          <div className='border-b border-black p-2'>
+            {/* TODO: connect with backend once implemented */}
+            <Select
+              aria-label='Environment'
+              selectedKey='development'
+              triggerClassName={tw`justify-start border-transparent bg-transparent p-0`}
+            >
+              <DropdownItem id='development' textValue='development'>
+                <div className='flex items-center gap-2 text-sm'>
+                  <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
+                    D
+                  </div>
+                  <span className='font-semibold'>Development</span>
+                </div>
+              </DropdownItem>
+              <DropdownItem id='test' textValue='test'>
+                <div className='flex items-center gap-2 text-sm'>
+                  <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
+                    D
+                  </div>
+                  <span className='font-semibold'>Testing</span>
+                </div>
+              </DropdownItem>
+              <DropdownItem id='production' textValue='production'>
+                <div className='flex items-center gap-2 text-sm'>
+                  <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
+                    D
+                  </div>
+                  <span className='font-semibold'>Production</span>
+                </div>
+              </DropdownItem>
+            </Select>
+          </div>
+
+          <div className='flex flex-col gap-2 p-2'>
+            <h2 className='uppercase'>Overview</h2>
+
+            <CollectionsTree />
+          </div>
         </Panel>
         <PanelResizeHandle direction='horizontal' />
         <Panel className='h-full !overflow-auto'>
