@@ -646,11 +646,6 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 
 	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
 
-	// Sort headers by key
-	sort.Slice(fullHeaders, func(i, j int) bool {
-		return fullHeaders[i].HeaderKey < fullHeaders[j].HeaderKey
-	})
-
 	if len(fullHeaders) > 0 {
 		tx, err := c.DB.Begin()
 		if err != nil {
@@ -677,6 +672,11 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
+
+	// TODO: make it more efficient
+	sort.Slice(respHttp.Headers, func(i, j int) bool {
+		return respHttp.Headers[i].HeaderKey < respHttp.Headers[j].HeaderKey
+	})
 
 	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, respHttp.Headers)
 	if err != nil {
