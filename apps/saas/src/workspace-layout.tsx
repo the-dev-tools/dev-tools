@@ -10,9 +10,21 @@ import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-rou
 import { flexRender } from '@tanstack/react-table';
 import { Effect, Match, pipe, Struct } from 'effect';
 import { useCallback, useRef, useState } from 'react';
-import { Dialog, DialogTrigger, FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
-import { LuClipboardList, LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuX } from 'react-icons/lu';
+import {
+  Dialog,
+  DialogTrigger,
+  FileTrigger,
+  Form,
+  MenuTrigger,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  Text,
+} from 'react-aria-components';
+import { LuBraces, LuClipboardList, LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuX } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
+import { twJoin } from 'tailwind-merge';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import {
@@ -121,32 +133,96 @@ function Layout() {
               <Modal modalClassName={tw`size-full`}>
                 <Dialog className='h-full outline-none'>
                   {({ close }) => (
-                    <div className='flex h-full flex-col'>
-                      <div className='px-6 py-4'>
-                        <div className='mb-4 flex items-start'>
-                          <div className='flex-1'>
-                            <h1 className='text-xl font-medium'>Global Variables</h1>
-                            <span className='text-sm font-light'>
-                              Lorem ipsum dolor sit amet consectur adipiscing elit.
-                            </span>
-                          </div>
-
-                          <Button variant='placeholder ghost' kind='placeholder' onPress={close}>
-                            <LuX />
-                          </Button>
+                    <Tabs className='flex h-full'>
+                      <div className='flex w-72 flex-col gap-2 border-r border-black bg-neutral-200 p-4'>
+                        <div className='-order-3 mb-2'>
+                          <div className='text-lg font-medium'>Variable Settings</div>
+                          <span className='text-sm font-light'>Manage variables & environment</span>
                         </div>
 
-                        <EnvironmentVariables />
+                        <div className='-order-1 text-neutral-600'>Environments</div>
+
+                        <TabList className='contents'>
+                          <Tab
+                            id='global'
+                            className={({ isSelected }) =>
+                              twJoin(
+                                tw`-order-2 -m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
+                                isSelected && tw`bg-neutral-400`,
+                              )
+                            }
+                          >
+                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>
+                              <LuBraces />
+                            </div>
+                            <span>Global Variables</span>
+                          </Tab>
+                          <Tab
+                            id='development'
+                            className={({ isSelected }) =>
+                              twJoin(
+                                tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
+                                isSelected && tw`bg-neutral-400`,
+                              )
+                            }
+                          >
+                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>D</div>
+                            <span>Development</span>
+                          </Tab>
+                          <Tab
+                            id='testing'
+                            className={({ isSelected }) =>
+                              twJoin(
+                                tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
+                                isSelected && tw`bg-neutral-400`,
+                              )
+                            }
+                          >
+                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>T</div>
+                            <span>Testing</span>
+                          </Tab>
+                          <Tab
+                            id='production'
+                            className={({ isSelected }) =>
+                              twJoin(
+                                tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
+                                isSelected && tw`bg-neutral-400`,
+                              )
+                            }
+                          >
+                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>P</div>
+                            <span>Production</span>
+                          </Tab>
+                        </TabList>
                       </div>
 
-                      <div className='flex-1' />
+                      <TabPanel id='global' className='flex h-full flex-1 flex-col'>
+                        <div className='px-6 py-4'>
+                          <div className='mb-4 flex items-start'>
+                            <div className='flex-1'>
+                              <h1 className='text-xl font-medium'>Global Variables</h1>
+                              <span className='text-sm font-light'>
+                                Lorem ipsum dolor sit amet consectur adipiscing elit.
+                              </span>
+                            </div>
 
-                      <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
-                        <Button kind='placeholder' variant='placeholder' onPress={close}>
-                          Save
-                        </Button>
-                      </div>
-                    </div>
+                            <Button variant='placeholder ghost' kind='placeholder' onPress={close}>
+                              <LuX />
+                            </Button>
+                          </div>
+
+                          <EnvironmentVariables />
+                        </div>
+
+                        <div className='flex-1' />
+
+                        <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
+                          <Button kind='placeholder' variant='placeholder' onPress={close}>
+                            Save
+                          </Button>
+                        </div>
+                      </TabPanel>
+                    </Tabs>
                   )}
                 </Dialog>
               </Modal>
