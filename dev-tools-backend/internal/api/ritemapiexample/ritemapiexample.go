@@ -681,6 +681,9 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		}
 		if len(taskDeleteHeaders) > 0 {
 			err = erhsTx.DeleteExampleRespHeaderBulk(ctx, taskDeleteHeaders)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 		}
 		err = tx.Commit()
 		if err != nil {
