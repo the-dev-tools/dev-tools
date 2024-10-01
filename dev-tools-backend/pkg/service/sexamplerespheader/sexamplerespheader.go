@@ -115,3 +115,13 @@ func (s *ExampleRespHeaderService) UpdateExampleRespHeaderBulk(ctx context.Conte
 func (s *ExampleRespHeaderService) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap) error {
 	return s.Queries.DeleteExampleRespHeader(ctx, id)
 }
+
+func (s *ExampleRespHeaderService) DeleteExampleRespHeaderBulk(ctx context.Context, id []idwrap.IDWrap) error {
+	for _, item := range id {
+		err := s.DeleteExampleRespHeader(ctx, item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

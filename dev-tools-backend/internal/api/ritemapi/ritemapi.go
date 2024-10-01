@@ -341,11 +341,10 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 	}
 
 	if exampleResp != nil {
-		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, examplePtr.ID)
+		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
 		resp, err = texampleresp.SeralizeModelToRPC(*exampleResp, respHeaders)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)

@@ -46,7 +46,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
@@ -623,6 +622,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	// TODO: make it more efficient
 	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
 	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
+	taskDeleteHeaders := make([]idwrap.IDWrap, 0)
 	for _, respHeader := range respHttp.Headers {
 		found := false
 		for _, dbHeader := range dbHeaders {
@@ -641,6 +641,18 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 				HeaderKey:     respHeader.HeaderKey,
 				Value:         respHeader.Value,
 			})
+		}
+	}
+
+	for _, dbHeader := range dbHeaders {
+		found := false
+		for _, respHeader := range respHttp.Headers {
+			if dbHeader.HeaderKey == respHeader.HeaderKey {
+				found = true
+			}
+		}
+		if !found {
+			taskDeleteHeaders = append(taskDeleteHeaders, dbHeader.ID)
 		}
 	}
 
@@ -667,18 +679,21 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
+		if len(taskDeleteHeaders) > 0 {
+			err = erhsTx.DeleteExampleRespHeaderBulk(ctx, taskDeleteHeaders)
+		}
 		err = tx.Commit()
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	// TODO: make it more efficient
-	sort.Slice(respHttp.Headers, func(i, j int) bool {
-		return respHttp.Headers[i].HeaderKey < respHttp.Headers[j].HeaderKey
-	})
+	currentHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, respHttp.Headers)
+	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, currentHeaders)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
