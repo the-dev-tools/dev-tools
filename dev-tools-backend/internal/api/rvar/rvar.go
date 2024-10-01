@@ -8,6 +8,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/renv"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/svar"
@@ -52,11 +53,12 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 	service := &VarRPC{
 		DB: db,
 
-		us: *us,
-
-		es: es,
-
+		// Services
 		vs: vs,
+
+		// Dependencies
+		es: es,
+		us: *us,
 	}
 
 	path, handler := variablev1connect.NewVariableServiceHandler(service, options...)
@@ -68,12 +70,9 @@ func (v *VarRPC) CreateVariable(ctx context.Context, req *connect.Request[variab
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := renv.CheckOwnerEnv(ctx, v.us, v.es, envID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
+	rpcErr := permcheck.CheckPerm(renv.CheckOwnerEnv(ctx, v.us, v.es, envID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	varReq := tvar.DeserializeRPCToModelWithID(idwrap.NewNow(), req.Msg.GetVariable())
@@ -91,12 +90,9 @@ func (v *VarRPC) GetVariable(ctx context.Context, req *connect.Request[variablev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := CheckOwnerVar(ctx, v.us, v.vs, v.es, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
+	rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, v.us, v.vs, v.es, id))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	varible, err := v.vs.Get(ctx, id)
 	if err != nil {
@@ -110,12 +106,9 @@ func (v *VarRPC) GetVariables(ctx context.Context, req *connect.Request[variable
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := renv.CheckOwnerEnv(ctx, v.us, v.es, envID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
+	rpcErr := permcheck.CheckPerm(renv.CheckOwnerEnv(ctx, v.us, v.es, envID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	variables, err := v.vs.GetVariableByEnvID(ctx, envID)
 	if err != nil {
@@ -130,14 +123,10 @@ func (c *VarRPC) UpdateVariable(ctx context.Context, req *connect.Request[variab
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := CheckOwnerVar(ctx, c.us, c.vs, c.es, varReq.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, c.us, c.vs, c.es, varReq.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
-	}
-
 	err = c.vs.Update(ctx, &varReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -150,14 +139,10 @@ func (c *VarRPC) DeleteVariable(ctx context.Context, req *connect.Request[variab
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := CheckOwnerVar(ctx, c.us, c.vs, c.es, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, c.us, c.vs, c.es, id))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
-	}
-
 	err = c.vs.Delete(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

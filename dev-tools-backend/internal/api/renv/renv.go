@@ -8,6 +8,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tenv"
@@ -22,7 +23,7 @@ type EnvRPC struct {
 	DB *sql.DB
 
 	es senv.EnvService
-	su suser.UserService
+	us suser.UserService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -33,14 +34,22 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	us, err := suser.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
 	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
 	service := &EnvRPC{
 		DB: db,
 
+		// Services
 		es: es,
-		// root
+
+		// Depdenencies
+		us: *us,
 	}
 
 	path, handler := environmentv1connect.NewEnvironmentServiceHandler(service, options...)
@@ -49,14 +58,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 
 func (e *EnvRPC) CreateEnvironment(ctx context.Context, req *connect.Request[environmentv1.CreateEnvironmentRequest]) (*connect.Response[environmentv1.CreateEnvironmentResponse], error) {
 	envReq := tenv.DeseralizeRPCToModelWithID(idwrap.NewNow(), req.Msg.GetEnvironment())
-	ok, err := rworkspace.CheckOwnerWorkspace(ctx, e.su, envReq.WorkspaceID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, envReq.WorkspaceID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
-	}
-	err = e.es.Create(ctx, envReq)
+	err := e.es.Create(ctx, envReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -68,7 +74,11 @@ func (e *EnvRPC) GetEnvironment(ctx context.Context, req *connect.Request[enviro
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := CheckOwnerEnv(ctx, e.su, e.es, id)
+	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, id))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	ok, err := CheckOwnerEnv(ctx, e.us, e.es, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -88,14 +98,10 @@ func (e *EnvRPC) GetEnvironments(ctx context.Context, req *connect.Request[envir
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := rworkspace.CheckOwnerWorkspace(ctx, e.su, workspaceID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
-	}
-
 	envs, err := e.es.GetByWorkspace(ctx, workspaceID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -110,15 +116,10 @@ func (e *EnvRPC) UpdateEnvironment(ctx context.Context, req *connect.Request[env
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-
-	ok, err := CheckOwnerEnv(ctx, e.su, e.es, envReq.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envReq.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
-	}
-
 	err = e.es.Update(ctx, &envReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -132,12 +133,9 @@ func (e *EnvRPC) DeleteEnvironment(ctx context.Context, req *connect.Request[env
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ok, err := CheckOwnerEnv(ctx, e.su, e.es, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
+	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, id))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	err = e.es.Delete(ctx, id)
 	if err != nil {
@@ -147,15 +145,13 @@ func (e *EnvRPC) DeleteEnvironment(ctx context.Context, req *connect.Request[env
 }
 
 func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService, envid idwrap.IDWrap) (bool, error) {
-	env, err := es.Get(ctx, envid)
-	if err != nil {
-		return false, err
-	}
-
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return false, err
 	}
-
+	env, err := es.Get(ctx, envid)
+	if err != nil {
+		return false, err
+	}
 	return su.CheckUserBelongsToWorkspace(ctx, userID, env.WorkspaceID)
 }
