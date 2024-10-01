@@ -46,6 +46,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -644,6 +645,11 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}
 
 	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
+
+	// Sort headers by key
+	sort.Slice(fullHeaders, func(i, j int) bool {
+		return fullHeaders[i].HeaderKey < fullHeaders[j].HeaderKey
+	})
 
 	if len(fullHeaders) > 0 {
 		tx, err := c.DB.Begin()
