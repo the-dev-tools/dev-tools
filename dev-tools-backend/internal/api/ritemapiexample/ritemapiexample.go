@@ -9,6 +9,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/ritemapi"
+	"dev-tools-backend/pkg/compress"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/menv"
@@ -45,6 +46,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -467,7 +469,13 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		varMap = &tempVarMap
 	}
 
-	if varMap == nil {
+	reqHeaders, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
+	if err != nil && err != sexampleheader.ErrNoHeaderFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	compressType := compress.CompressTypeNone
+	if varMap != nil {
 		// TODO implement var system
 		for _, query := range reqQueries {
 			if varsystem.CheckIsVar(query.Value) {
@@ -480,23 +488,32 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 				}
 			}
 		}
-	}
 
-	reqHeaders, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
-	if err != nil && err != sexampleheader.ErrNoHeaderFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if varMap == nil {
 		for _, header := range reqHeaders {
+			if header.HeaderKey == "Content-Encoding" {
+				switch strings.ToLower(header.Value) {
+				case "gzip":
+					compressType = compress.CompressTypeGzip
+				case "zstd":
+					compressType = compress.CompressTypeZstd
+				case "deflate":
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("deflate not supported"))
+				case "br":
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("br not supported"))
+				case "identity":
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("identity not supported"))
+				default:
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
+				}
+			}
+
 			if varsystem.CheckIsVar(header.Value) {
 				key := varsystem.GetVarKeyFromRaw(header.Value)
 				val, ok := varMap.Get(key)
-				if ok {
-					header.Value = val.Value
-				} else {
+				if !ok {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
+				header.Value = val.Value
 			}
 		}
 	}
@@ -534,6 +551,14 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 			urlVal.Add(url.BodyKey, url.Value)
 		}
 
+	}
+
+	if compressType != compress.CompressTypeNone {
+		compressedData, err := compress.Compress(bodyBytes.Bytes(), compressType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		bodyBytes = bytes.NewBuffer(compressedData)
 	}
 
 	httpReq := httpclient.Request{
@@ -647,7 +672,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		}
 	}
 
-	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, fullHeaders)
+	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, respHttp.Headers)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
