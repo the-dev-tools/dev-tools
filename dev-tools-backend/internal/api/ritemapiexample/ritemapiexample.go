@@ -37,20 +37,14 @@ import (
 	"dev-tools-backend/pkg/translate/tquery"
 	"dev-tools-backend/pkg/varsystem"
 	"dev-tools-backend/pkg/zstdcompress"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodes/nodeapi"
+	"dev-tools-nodes/pkg/httpclient"
 	bodyv1 "dev-tools-services/gen/body/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
 	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
 	"errors"
 	"fmt"
-	"io"
 	"mime/multipart"
-	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -542,51 +536,22 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 
 	}
 
-	apiCallNodeData := mnodedata.NodeApiRestData{
-		Url:     itemApiCall.Url,
+	httpReq := httpclient.Request{
 		Method:  itemApiCall.Method,
-		Body:    bodyBytes.Bytes(),
+		URL:     itemApiCall.Url,
 		Headers: reqHeaders,
-		Query:   reqQueries,
-	}
-
-	node := mnode.Node{
-		ID:   exampleUlid.String(),
-		Type: mnodemaster.ApiCallRest,
-		Data: &apiCallNodeData,
-	}
-
-	runApiVars := make(map[string]interface{}, 0)
-
-	nm := &mnodemaster.NodeMaster{
-		CurrentNode: &node,
-		HttpClient:  http.DefaultClient,
-		Vars:        runApiVars,
+		Queries: reqQueries,
+		Body:    bodyBytes.Bytes(),
 	}
 
 	now := time.Now()
-	// TODO: add content encoding like gzip, zstd
-	err = nodeapi.SendRestApiRequest(nm)
+	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), httpReq, exampleUlid)
 	lapse := time.Since(now)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeAborted, err)
 	}
 
-	httpResp, err := nodeapi.GetHttpVarResponse(nm)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeAborted, err)
-	}
-
-	bodyData, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// TODO: can be more efficient with init size
-	respHeaders := make(map[string]string, 0)
-	for key, values := range httpResp.Header {
-		respHeaders[key] = strings.Join(values, ",")
-	}
+	bodyData := respHttp.Body
 
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
 	if err != nil {
@@ -617,7 +582,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 
 	exampleResp.Body = bodyData
 	exampleResp.Duration = int32(lapse.Milliseconds())
-	exampleResp.Status = uint16(httpResp.StatusCode)
+	exampleResp.Status = uint16(respHttp.StatusCode)
 
 	err = c.ers.UpdateExampleResp(ctx, *exampleResp)
 	if err != nil {
@@ -632,46 +597,66 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	// TODO: make it more efficient
 	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
 	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
-	for key, value := range respHeaders {
+	for _, respHeader := range respHttp.Headers {
+		found := false
 		for _, dbHeader := range dbHeaders {
-			if dbHeader.HeaderKey == key {
-				if dbHeader.Value != value {
-					dbHeader.Value = value
+			if dbHeader.HeaderKey == respHeader.HeaderKey {
+				found = true
+				if dbHeader.Value != respHeader.Value {
+					dbHeader.Value = respHeader.Value
 					taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
 				}
-			} else {
-				taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
-					ID:            idwrap.NewNow(),
-					ExampleRespID: exampleResp.ID,
-					HeaderKey:     key,
-					Value:         value,
-				})
 			}
+		}
+		if !found {
+			taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
+				ID:            idwrap.NewNow(),
+				ExampleRespID: exampleResp.ID,
+				HeaderKey:     respHeader.HeaderKey,
+				Value:         respHeader.Value,
+			})
 		}
 	}
 
 	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
 
-	err = c.erhs.CreateExampleRespHeaderBulk(ctx, taskCreateHeaders)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	err = c.erhs.UpdateExampleRespHeaderBulk(ctx, taskUpdateHeaders)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	if len(fullHeaders) > 0 {
+		tx, err := c.DB.Begin()
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		erhsTx, err := sexamplerespheader.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if len(taskCreateHeaders) > 0 {
+			err = erhsTx.CreateExampleRespHeaderBulk(ctx, taskCreateHeaders)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if len(taskUpdateHeaders) > 0 {
+			err = erhsTx.UpdateExampleRespHeaderBulk(ctx, taskUpdateHeaders)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		err = tx.Commit()
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, fullHeaders)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	resp := connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
+	rpcResponse := connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
 		Response: rpcExampleResp,
 	})
-	resp.Header().Set("Cache-Control", "max-age=0")
+	rpcResponse.Header().Set("Cache-Control", "max-age=0")
 
-	return resp, nil
+	return rpcResponse, nil
 }
 
 func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {
