@@ -21,7 +21,7 @@ const overlayStyles = tv({
 });
 
 const modalStyles = tv({
-  base: tw`max-h-[60vh] w-full max-w-[60vw] rounded border border-black bg-white bg-clip-padding text-left align-middle shadow-xl`,
+  base: tw`max-h-[60vh] w-full max-w-[60vw] overflow-auto rounded border border-black bg-white bg-clip-padding text-left align-middle shadow-xl`,
   variants: {
     isEntering: {
       true: tw`duration-200 ease-out animate-in zoom-in-105`,
