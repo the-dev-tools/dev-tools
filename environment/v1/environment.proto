@@ -13,12 +13,16 @@ service EnvironmentService {
   rpc DeleteEnvironment(DeleteEnvironmentRequest) returns (DeleteEnvironmentResponse);
 }
 
-
+enum EnvType {
+  ENV_TYPE_UNSPECIFIED = 0;
+  ENV_TYPE_GLOBAL = 1;
+  ENV_TYPE_NORMAL = 2;
+}
 
 message Environment {
   string id = 1;
   string name = 2;
-  bool is_default = 3;
+  EnvType type = 3;
   string description = 4;
   string created_at = 5;
   string updated_at = 6;

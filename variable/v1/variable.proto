@@ -16,6 +16,8 @@ message Variable {
   string id = 1;
   string name = 2;
   string value = 3;
+  bool enabled = 4;
+  string description = 5;
 }
 
 message CreateVariableRequest {
