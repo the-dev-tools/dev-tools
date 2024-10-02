@@ -1,124 +1,47 @@
-import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, pipe } from 'effect';
-import { useEffect, useMemo, useRef } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
-import { LuTrash2 } from 'react-icons/lu';
+import { ComponentProps, useEffect, useRef } from 'react';
+import { FieldArrayMethodProps, WatchObserver } from 'react-hook-form';
+import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Button } from '@the-dev-tools/ui/button';
-import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-interface Item {
-  id: string;
-  enabled: boolean;
-  key: string;
-  value: string;
-  description: string;
-}
-
-interface Props<TItem extends Item> {
-  items: TItem[];
+export interface UseFormTableSyncProps<
+  TItem extends { id: string },
+  TField extends string,
+  TFieldValues extends { [key in TField]: TItem[] },
+> {
+  field: TField;
+  form: {
+    getValues: {
+      (path: TField): TItem[];
+      (path: `${TField}.${number}`): TItem;
+    };
+    setValue: (path: `${TField}.${number}`, item: TItem) => void;
+    watch: (callback: WatchObserver<TFieldValues>) => { unsubscribe: () => void };
+  };
+  fieldArray: {
+    append: (value: TItem, options?: FieldArrayMethodProps) => void;
+  };
   makeItem: (item?: Partial<TItem>) => TItem;
-  onCreate: (props: { item: TItem }) => Promise<{ id: string }>;
-  onUpdate: (props: { item: TItem }) => Promise<unknown>;
-  onDelete: (props: { id: string }) => void;
+  onCreate: (item: TItem) => Promise<string>;
+  onUpdate: (item: TItem) => Promise<unknown>;
   onChange?: () => void;
 }
 
-export const useFormTable = <TItem extends Item>({
-  items,
+export const useFormTableSync = <
+  TItem extends { id: string },
+  TField extends string,
+  TFieldValues extends { [key in TField]: TItem[] },
+>({
+  field,
+  form: { getValues, setValue, watch },
+  fieldArray,
   makeItem,
-  onDelete,
   onUpdate,
   onCreate,
   onChange,
-}: Props<TItem>) => {
-  const values = useMemo(() => ({ items: [...items, makeItem()] }), [items, makeItem]);
-
-  const { getValues, ...form } = useForm<{ items: Item[] }>({ values });
-  const { fields, remove: removeField, ...fieldArray } = useFieldArray({ name: 'items', control: form.control });
-
-  const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<Item>();
-    return [
-      accessor('enabled', {
-        header: '',
-        minSize: 0,
-        size: 0,
-        cell: ({ row, table }) => {
-          if (row.index + 1 === table.getRowCount()) return null;
-          return (
-            <CheckboxRHF key={row.id} control={form.control} name={`items.${row.index}.enabled`} className='p-1' />
-          );
-        },
-      }),
-      accessor('key', {
-        cell: ({ row }) => (
-          <TextFieldRHF
-            key={row.id}
-            control={form.control}
-            name={`items.${row.index}.key`}
-            inputClassName={tw`rounded-none border-transparent`}
-          />
-        ),
-      }),
-      accessor('value', {
-        cell: ({ row }) => (
-          <TextFieldRHF
-            key={row.id}
-            control={form.control}
-            name={`items.${row.index}.value`}
-            inputClassName={tw`rounded-none border-transparent`}
-          />
-        ),
-      }),
-      accessor('description', {
-        cell: ({ row }) => (
-          <TextFieldRHF
-            key={row.id}
-            control={form.control}
-            name={`items.${row.index}.description`}
-            inputClassName={tw`rounded-none border-transparent`}
-          />
-        ),
-      }),
-      display({
-        id: 'actions',
-        header: '',
-        minSize: 0,
-        size: 0,
-        cell: ({ row, table }) => {
-          if (row.index + 1 === table.getRowCount()) return null;
-
-          return (
-            <Button
-              className='text-red-700'
-              kind='placeholder'
-              variant='placeholder ghost'
-              onPress={() => {
-                const id = getValues(`items.${row.index}.id`);
-                onDelete({ id });
-                removeField(row.index);
-                onChange?.();
-              }}
-            >
-              <LuTrash2 />
-            </Button>
-          );
-        },
-      }),
-    ];
-  }, [form.control, getValues, onChange, onDelete, removeField]);
-
-  const table = useReactTable({
-    columns,
-    data: fields,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => _.id,
-  });
-
+}: UseFormTableSyncProps<TItem, TField, TFieldValues>) => {
   const isUpdatingItems = useRef(false);
   const updateItemQueueMap = useRef(new Map<string, TItem>());
   const updateItems = useDebouncedCallback(async () => {
@@ -129,26 +52,24 @@ export const useFormTable = <TItem extends Item>({
     const updates = updateItemQueueMap.current;
     await pipe(
       Array.fromIterable(updates),
-      Array.map(async ([id, item]) => {
-        updates.delete(id); // Un-queue update
-        if (id) {
-          await onUpdate({ item });
-        } else {
-          const { id } = await onCreate({ item });
-          const index = getValues('items').length - 1;
+      Array.map(async ([updateId, item]) => {
+        updates.delete(updateId); // Un-queue update
 
-          form.setValue(`items.${index}`, makeItem({ ...item, id }));
-          updates.delete(id); // Delete update that gets queued by setting new id
+        if (updateId) return void (await onUpdate(item));
 
-          fieldArray.append(makeItem(), { shouldFocus: false });
+        const index = getValues(field).length - 1;
+        const id = await onCreate(item);
 
-          // Redirect outdated queued update to the new id
-          const outdated = updates.get('');
-          if (outdated !== undefined) {
-            updates.delete('');
-            updates.set(id, makeItem({ ...outdated, id }));
-          }
-        }
+        setValue(`${field}.${index}`, makeItem({ ...item, id }));
+        updates.delete(id); // Delete update that gets queued by setting new id
+
+        fieldArray.append(makeItem(), { shouldFocus: false });
+
+        // Redirect outdated queued update to the new id
+        const outdated = updates.get('');
+        if (!outdated) return;
+        updates.delete(outdated.id);
+        updates.set(id, makeItem({ ...outdated, id }));
       }),
       (_) => Promise.allSettled(_),
     );
@@ -158,17 +79,29 @@ export const useFormTable = <TItem extends Item>({
   }, 500);
 
   useEffect(() => {
-    const watch = form.watch((_, { name }) => {
-      const rowName = name?.match(/(^items.[\d]+)/g)?.[0] as `items.${number}` | undefined;
+    const subscription = watch((_, { name }) => {
+      const rowName = name?.match(new RegExp(`(^${field}.[\\d]+)`, 'g'))?.[0] as `${TField}.${number}` | undefined;
       if (!rowName) return;
       const rowValues = getValues(rowName);
-      updateItemQueueMap.current.set(rowValues.id, rowValues as TItem);
+      updateItemQueueMap.current.set(rowValues.id, rowValues);
       void updateItems();
     });
-    return () => void watch.unsubscribe();
-  }, [form, getValues, updateItems]);
+    return () => void subscription.unsubscribe();
+  }, [field, getValues, updateItems, watch]);
 
   useEffect(() => () => void updateItems.flush(), [updateItems]);
-
-  return table;
 };
+
+export interface HidePlaceholderCellProps extends ComponentProps<'div'> {
+  row: { index: number };
+  table: { getRowCount: () => number };
+}
+
+export const HidePlaceholderCell = ({
+  className,
+  row: { index },
+  table: { getRowCount },
+  ...props
+}: HidePlaceholderCellProps) => (
+  <div {...props} className={twJoin(className, index + 1 === getRowCount() && tw`invisible`)} />
+);

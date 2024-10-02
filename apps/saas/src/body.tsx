@@ -6,10 +6,12 @@ import {
 } from '@connectrpc/connect-query';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { flexRender } from '@tanstack/react-table';
+import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Match, pipe } from 'effect';
-import { useCallback, useState } from 'react';
+import { Array, Match, pipe, Struct } from 'effect';
+import { useCallback, useMemo, useState } from 'react';
+import { useFieldArray, useForm } from 'react-hook-form';
+import { LuTrash2 } from 'react-icons/lu';
 
 import {
   Body,
@@ -30,12 +32,15 @@ import {
 } from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
 import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { updateExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+import { Button } from '@the-dev-tools/ui/button';
+import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { useFormTable } from './form-table';
+import { HidePlaceholderCell, useFormTableSync } from './form-table';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body')(
   {
@@ -102,8 +107,8 @@ interface FormDataTableProps {
 const FormDataTable = ({ body }: FormDataTableProps) => {
   const { exampleId } = Route.useParams();
 
-  const { mutateAsync: createMutateAsync } = useConnectMutation(createBodyForm);
-  const { mutateAsync: updateMutateAsync } = useConnectMutation(updateBodyForm);
+  const createMutation = useConnectMutation(createBodyForm);
+  const updateMutation = useConnectMutation(updateBodyForm);
   const { mutate: deleteMutate } = useConnectMutation(deleteBodyForm);
 
   const makeItem = useCallback(
@@ -111,12 +116,73 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
     [exampleId],
   );
 
-  const table = useFormTable({
-    items: body.items,
+  const values = useMemo(() => ({ items: [...body.items, makeItem()] }), [body.items, makeItem]);
+  const { getValues, ...form } = useForm({ values });
+  const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+
+  const columns = useMemo(() => {
+    const { accessor, display } = createColumnHelper<BodyFormItem>();
+    return [
+      accessor('enabled', {
+        header: '',
+        size: 0,
+        cell: ({ row, table }) => (
+          <HidePlaceholderCell row={row} table={table}>
+            <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
+          </HidePlaceholderCell>
+        ),
+      }),
+      accessor('key', {
+        cell: ({ row }) => <TextFieldRHF control={form.control} name={`items.${row.index}.key`} variant='table-cell' />,
+      }),
+      accessor('value', {
+        cell: ({ row: { index } }) => (
+          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
+        ),
+      }),
+      accessor('description', {
+        cell: ({ row }) => (
+          <TextFieldRHF control={form.control} name={`items.${row.index}.description`} variant='table-cell' />
+        ),
+      }),
+      display({
+        id: 'actions',
+        header: '',
+        size: 0,
+        cell: ({ row, table }) => (
+          <HidePlaceholderCell row={row} table={table}>
+            <Button
+              className='text-red-700'
+              kind='placeholder'
+              variant='placeholder ghost'
+              onPress={() => {
+                deleteMutate({ id: getValues(`items.${row.index}.id`) });
+                removeField(row.index);
+              }}
+            >
+              <LuTrash2 />
+            </Button>
+          </HidePlaceholderCell>
+        ),
+      }),
+    ];
+  }, [form.control, deleteMutate, getValues, removeField]);
+
+  const table = useReactTable({
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: Struct.get('id'),
+    defaultColumn: { minSize: 0 },
+    data: fieldArray.fields,
+    columns,
+  });
+
+  useFormTableSync({
+    field: 'items',
+    form: { ...form, getValues },
+    fieldArray,
     makeItem,
-    onCreate: createMutateAsync,
-    onUpdate: updateMutateAsync,
-    onDelete: deleteMutate,
+    onCreate: async (item) => (await createMutation.mutateAsync({ item })).id,
+    onUpdate: (item) => updateMutation.mutateAsync({ item }),
   });
 
   return (
@@ -160,8 +226,8 @@ interface UrlEncodedTableProps {
 const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
   const { exampleId } = Route.useParams();
 
-  const { mutateAsync: createMutateAsync } = useConnectMutation(createBodyUrlEncoded);
-  const { mutateAsync: updateMutateAsync } = useConnectMutation(updateBodyUrlEncoded);
+  const createMutation = useConnectMutation(createBodyUrlEncoded);
+  const updateMutation = useConnectMutation(updateBodyUrlEncoded);
   const { mutate: deleteMutate } = useConnectMutation(deleteBodyUrlEncoded);
 
   const makeItem = useCallback(
@@ -169,12 +235,73 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
     [exampleId],
   );
 
-  const table = useFormTable({
-    items: body.items,
+  const values = useMemo(() => ({ items: [...body.items, makeItem()] }), [body.items, makeItem]);
+  const { getValues, ...form } = useForm({ values });
+  const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+
+  const columns = useMemo(() => {
+    const { accessor, display } = createColumnHelper<BodyUrlEncodedItem>();
+    return [
+      accessor('enabled', {
+        header: '',
+        size: 0,
+        cell: ({ row, table }) => (
+          <HidePlaceholderCell row={row} table={table}>
+            <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
+          </HidePlaceholderCell>
+        ),
+      }),
+      accessor('key', {
+        cell: ({ row }) => <TextFieldRHF control={form.control} name={`items.${row.index}.key`} variant='table-cell' />,
+      }),
+      accessor('value', {
+        cell: ({ row: { index } }) => (
+          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
+        ),
+      }),
+      accessor('description', {
+        cell: ({ row }) => (
+          <TextFieldRHF control={form.control} name={`items.${row.index}.description`} variant='table-cell' />
+        ),
+      }),
+      display({
+        id: 'actions',
+        header: '',
+        size: 0,
+        cell: ({ row, table }) => (
+          <HidePlaceholderCell row={row} table={table}>
+            <Button
+              className='text-red-700'
+              kind='placeholder'
+              variant='placeholder ghost'
+              onPress={() => {
+                deleteMutate({ id: getValues(`items.${row.index}.id`) });
+                removeField(row.index);
+              }}
+            >
+              <LuTrash2 />
+            </Button>
+          </HidePlaceholderCell>
+        ),
+      }),
+    ];
+  }, [form.control, deleteMutate, getValues, removeField]);
+
+  const table = useReactTable({
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: Struct.get('id'),
+    defaultColumn: { minSize: 0 },
+    data: fieldArray.fields,
+    columns,
+  });
+
+  useFormTableSync({
+    field: 'items',
+    form: { ...form, getValues },
+    fieldArray,
     makeItem,
-    onCreate: createMutateAsync,
-    onUpdate: updateMutateAsync,
-    onDelete: deleteMutate,
+    onCreate: async (item) => (await createMutation.mutateAsync({ item })).id,
+    onUpdate: (item) => updateMutation.mutateAsync({ item }),
   });
 
   return (
