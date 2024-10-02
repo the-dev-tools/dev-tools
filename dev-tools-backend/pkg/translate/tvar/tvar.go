@@ -8,9 +8,11 @@ import (
 
 func SerializeModelToRPC(v mvar.Var) *variablev1.Variable {
 	return &variablev1.Variable{
-		Id:    v.ID.String(),
-		Name:  v.VarKey,
-		Value: v.Value,
+		Id:          v.ID.String(),
+		Name:        v.VarKey,
+		Value:       v.Value,
+		Enabled:     v.Enabled,
+		Description: v.Description,
 	}
 }
 
@@ -21,16 +23,20 @@ func DeserializeRPCToModel(v *variablev1.Variable) (mvar.Var, error) {
 	}
 
 	return mvar.Var{
-		ID:     id,
-		VarKey: v.Name,
-		Value:  v.Value,
+		ID:          id,
+		VarKey:      v.Name,
+		Value:       v.Value,
+		Enabled:     v.Enabled,
+		Description: v.Description,
 	}, nil
 }
 
 func DeserializeRPCToModelWithID(id idwrap.IDWrap, v *variablev1.Variable) mvar.Var {
 	return mvar.Var{
-		ID:     id,
-		VarKey: v.Name,
-		Value:  v.Value,
+		ID:          id,
+		VarKey:      v.Name,
+		Value:       v.Value,
+		Enabled:     v.Enabled,
+		Description: v.Description,
 	}
 }

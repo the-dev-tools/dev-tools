@@ -57,12 +57,17 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 }
 
 func (e *EnvRPC) CreateEnvironment(ctx context.Context, req *connect.Request[environmentv1.CreateEnvironmentRequest]) (*connect.Response[environmentv1.CreateEnvironmentResponse], error) {
+	workspaceID, err := idwrap.NewWithParse(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	envReq := tenv.DeseralizeRPCToModelWithID(idwrap.NewNow(), req.Msg.GetEnvironment())
+	envReq.WorkspaceID = workspaceID
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, envReq.WorkspaceID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err := e.es.Create(ctx, envReq)
+	err = e.es.Create(ctx, envReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

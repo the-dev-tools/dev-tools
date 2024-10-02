@@ -13,8 +13,10 @@ const (
 )
 
 type Var struct {
-	ID     idwrap.IDWrap
-	EnvID  idwrap.IDWrap
-	VarKey string
-	Value  string
+	ID          idwrap.IDWrap
+	EnvID       idwrap.IDWrap
+	VarKey      string
+	Value       string
+	Enabled     bool
+	Description string
 }
