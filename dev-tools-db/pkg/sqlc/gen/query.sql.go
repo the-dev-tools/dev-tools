@@ -507,9 +507,9 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createEnvironment = `-- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name)
+  environment (id, workspace_id, type, name, description)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateEnvironmentParams struct {
@@ -517,6 +517,7 @@ type CreateEnvironmentParams struct {
 	WorkspaceID idwrap.IDWrap
 	Type        int8
 	Name        string
+	Description string
 }
 
 func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) error {
@@ -525,6 +526,7 @@ func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentPa
 		arg.WorkspaceID,
 		arg.Type,
 		arg.Name,
+		arg.Description,
 	)
 	return err
 }
@@ -1701,16 +1703,18 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 
 const createVariable = `-- name: CreateVariable :exec
 INSERT INTO
-  variable (id, env_id, var_key, value)
+  variable (id, env_id, var_key, value, enabled, description)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateVariableParams struct {
-	ID     idwrap.IDWrap
-	EnvID  idwrap.IDWrap
-	VarKey string
-	Value  string
+	ID          idwrap.IDWrap
+	EnvID       idwrap.IDWrap
+	VarKey      string
+	Value       string
+	Enabled     bool
+	Description string
 }
 
 func (q *Queries) CreateVariable(ctx context.Context, arg CreateVariableParams) error {
@@ -1719,13 +1723,15 @@ func (q *Queries) CreateVariable(ctx context.Context, arg CreateVariableParams) 
 		arg.EnvID,
 		arg.VarKey,
 		arg.Value,
+		arg.Enabled,
+		arg.Description,
 	)
 	return err
 }
 
 const createVariableBulk = `-- name: CreateVariableBulk :exec
 INSERT INTO
-  variable (id, env_id, var_key, value)
+  variable (id, env_id, var_key, value, enabled, description)
 VALUES
   (?, ?, ?, ?),
   (?, ?, ?, ?),
@@ -2340,7 +2346,8 @@ SELECT
   id,
   workspace_id,
   type,
-  name
+  name,
+  description
 FROM 
   environment
 WHERE
@@ -2356,6 +2363,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environ
 		&i.WorkspaceID,
 		&i.Type,
 		&i.Name,
+		&i.Description,
 	)
 	return i, err
 }
@@ -2365,7 +2373,8 @@ SELECT
   id,
   workspace_id,
   type,
-  name
+  name,
+  description
 FROM 
   environment
 WHERE
@@ -2386,6 +2395,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 			&i.WorkspaceID,
 			&i.Type,
 			&i.Name,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -3314,7 +3324,9 @@ SELECT
   id,
   env_id,
   var_key,
-  value
+  value,
+  enabled,
+  description
 FROM 
   variable
 WHERE
@@ -3330,6 +3342,8 @@ func (q *Queries) GetVariable(ctx context.Context, id idwrap.IDWrap) (Variable, 
 		&i.EnvID,
 		&i.VarKey,
 		&i.Value,
+		&i.Enabled,
+		&i.Description,
 	)
 	return i, err
 }
@@ -3339,7 +3353,9 @@ SELECT
   id,
   env_id,
   var_key,
-  value
+  value,
+  enabled,
+  description
 FROM
   variable
 WHERE
@@ -3360,6 +3376,8 @@ func (q *Queries) GetVariablesByEnvironmentID(ctx context.Context, envID idwrap.
 			&i.EnvID,
 			&i.VarKey,
 			&i.Value,
+			&i.Enabled,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -3795,18 +3813,20 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE environment
 SET
-    name = ?
+    name = ?,
+    description = ?
 WHERE
     id = ?
 `
 
 type UpdateEnvironmentParams struct {
-	Name string
-	ID   idwrap.IDWrap
+	Name        string
+	Description string
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
-	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.Name, arg.ID)
+	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.Name, arg.Description, arg.ID)
 	return err
 }
 
@@ -4050,19 +4070,29 @@ const updateVariable = `-- name: UpdateVariable :exec
 UPDATE variable
 SET
   var_key = ?,
-  value = ?
+  value = ?,
+  enabled = ?,
+  description = ?
 WHERE
   id = ?
 `
 
 type UpdateVariableParams struct {
-	VarKey string
-	Value  string
-	ID     idwrap.IDWrap
+	VarKey      string
+	Value       string
+	Enabled     bool
+	Description string
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateVariable(ctx context.Context, arg UpdateVariableParams) error {
-	_, err := q.exec(ctx, q.updateVariableStmt, updateVariable, arg.VarKey, arg.Value, arg.ID)
+	_, err := q.exec(ctx, q.updateVariableStmt, updateVariable,
+		arg.VarKey,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
+		arg.ID,
+	)
 	return err
 }
 

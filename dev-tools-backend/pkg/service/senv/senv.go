@@ -39,6 +39,7 @@ func ConvertToDBEnv(env menv.Env) gen.Environment {
 		WorkspaceID: env.WorkspaceID,
 		Type:        int8(env.Type),
 		Name:        env.Name,
+		Description: env.Description,
 	}
 }
 
@@ -48,6 +49,7 @@ func ConvertToModelEnv(env gen.Environment) *menv.Env {
 		WorkspaceID: env.WorkspaceID,
 		Type:        menv.EnvType(env.Type),
 		Name:        env.Name,
+		Description: env.Description,
 	}
 }
 
@@ -80,14 +82,16 @@ func (e EnvService) Create(ctx context.Context, env menv.Env) error {
 		WorkspaceID: dbEnv.WorkspaceID,
 		Type:        dbEnv.Type,
 		Name:        dbEnv.Name,
+		Description: dbEnv.Description,
 	})
 }
 
 func (e EnvService) Update(ctx context.Context, env *menv.Env) error {
 	dbEnv := ConvertToDBEnv(*env)
 	return e.queries.UpdateEnvironment(ctx, gen.UpdateEnvironmentParams{
-		ID:   dbEnv.ID,
-		Name: dbEnv.Name,
+		ID:          dbEnv.ID,
+		Name:        dbEnv.Name,
+		Description: dbEnv.Description,
 	})
 }
 

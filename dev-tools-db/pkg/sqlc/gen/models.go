@@ -22,6 +22,7 @@ type Environment struct {
 	WorkspaceID idwrap.IDWrap
 	Type        int8
 	Name        string
+	Description string
 }
 
 type ExampleBodyForm struct {
@@ -136,10 +137,12 @@ type User struct {
 }
 
 type Variable struct {
-	ID     idwrap.IDWrap
-	EnvID  idwrap.IDWrap
-	VarKey string
-	Value  string
+	ID          idwrap.IDWrap
+	EnvID       idwrap.IDWrap
+	VarKey      string
+	Value       string
+	Enabled     bool
+	Description string
 }
 
 type Workspace struct {

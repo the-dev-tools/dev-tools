@@ -227,6 +227,7 @@ CREATE TABLE environment (
   workspace_id BLOB NOT NULL,
   type INT8 NOT NULL,
   name TEXT NOT NULL,
+  description TEXT NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
@@ -235,6 +236,8 @@ CREATE TABLE variable (
     env_id BLOB NOT NULL,
     var_key TEXT NOT NULL,
     value TEXt NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    description TEXT NOT NULL,
     UNIQUE (env_id, var_key),
     FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
 )

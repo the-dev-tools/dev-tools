@@ -1047,7 +1047,8 @@ SELECT
   id,
   workspace_id,
   type,
-  name
+  name,
+  description
 FROM 
   environment
 WHERE
@@ -1059,7 +1060,8 @@ SELECT
   id,
   workspace_id,
   type,
-  name
+  name,
+  description
 FROM 
   environment
 WHERE
@@ -1067,14 +1069,15 @@ WHERE
 
 -- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name)
+  environment (id, workspace_id, type, name, description)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment
 SET
-    name = ?
+    name = ?,
+    description = ?
 WHERE
     id = ?;
 
@@ -1092,7 +1095,9 @@ SELECT
   id,
   env_id,
   var_key,
-  value
+  value,
+  enabled,
+  description
 FROM 
   variable
 WHERE
@@ -1104,7 +1109,9 @@ SELECT
   id,
   env_id,
   var_key,
-  value
+  value,
+  enabled,
+  description
 FROM
   variable
 WHERE
@@ -1112,13 +1119,13 @@ WHERE
 
 -- name: CreateVariable :exec
 INSERT INTO
-  variable (id, env_id, var_key, value)
+  variable (id, env_id, var_key, value, enabled, description)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: CreateVariableBulk :exec
 INSERT INTO
-  variable (id, env_id, var_key, value)
+  variable (id, env_id, var_key, value, enabled, description)
 VALUES
   (?, ?, ?, ?),
   (?, ?, ?, ?),
@@ -1130,7 +1137,9 @@ VALUES
 UPDATE variable
 SET
   var_key = ?,
-  value = ?
+  value = ?,
+  enabled = ?,
+  description = ?
 WHERE
   id = ?;
 

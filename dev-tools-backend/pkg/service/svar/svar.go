@@ -35,19 +35,23 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*VarService, error) {
 
 func ConvertToDBVar(varParm mvar.Var) gen.Variable {
 	return gen.Variable{
-		ID:     varParm.ID,
-		EnvID:  varParm.EnvID,
-		VarKey: varParm.VarKey,
-		Value:  varParm.Value,
+		ID:          varParm.ID,
+		EnvID:       varParm.EnvID,
+		VarKey:      varParm.VarKey,
+		Value:       varParm.Value,
+		Enabled:     varParm.Enabled,
+		Description: varParm.Description,
 	}
 }
 
 func ConvertToModelVar(varParm gen.Variable) *mvar.Var {
 	return &mvar.Var{
-		ID:     varParm.ID,
-		EnvID:  varParm.EnvID,
-		VarKey: varParm.VarKey,
-		Value:  varParm.Value,
+		ID:          varParm.ID,
+		EnvID:       varParm.EnvID,
+		VarKey:      varParm.VarKey,
+		Value:       varParm.Value,
+		Enabled:     varParm.Enabled,
+		Description: varParm.Description,
 	}
 }
 
@@ -76,19 +80,23 @@ func (e VarService) GetVariableByEnvID(ctx context.Context, envID idwrap.IDWrap)
 func (e VarService) Create(ctx context.Context, varParm mvar.Var) error {
 	variable := ConvertToDBVar(varParm)
 	return e.queries.CreateVariable(ctx, gen.CreateVariableParams{
-		ID:     variable.ID,
-		EnvID:  variable.EnvID,
-		VarKey: variable.VarKey,
-		Value:  variable.Value,
+		ID:          variable.ID,
+		EnvID:       variable.EnvID,
+		VarKey:      variable.VarKey,
+		Value:       variable.Value,
+		Enabled:     variable.Enabled,
+		Description: variable.Description,
 	})
 }
 
 func (e VarService) Update(ctx context.Context, varParm *mvar.Var) error {
 	variable := ConvertToDBVar(*varParm)
 	return e.queries.UpdateVariable(ctx, gen.UpdateVariableParams{
-		ID:     variable.ID,
-		VarKey: variable.VarKey,
-		Value:  variable.Value,
+		ID:          variable.ID,
+		VarKey:      variable.VarKey,
+		Value:       variable.Value,
+		Enabled:     variable.Enabled,
+		Description: variable.Description,
 	})
 }
 
