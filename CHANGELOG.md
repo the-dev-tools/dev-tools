@@ -1,5 +1,15 @@
 # @the-dev-tools/protobuf
 
+## 1.26.0
+
+### Minor Changes
+
+- [`35ce549`](https://github.com/the-dev-tools/dev-tools-proto/commit/35ce5491be94b20a9a06427ee93406a13af4ef67) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add dupe calls for api and example
+  add env_id when create a new var
+  added workspace_id to the create env
+
+- [`c58e4bb`](https://github.com/the-dev-tools/dev-tools-proto/commit/c58e4bbf14f3019044d2a8006af827adb39f2530) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add type for env and add enabled and description fields
+
 ## 1.25.0
 
 ### Minor Changes
