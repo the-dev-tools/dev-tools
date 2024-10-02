@@ -7,24 +7,11 @@ import {
 import { Schema } from '@effect/schema';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-router';
-import { flexRender } from '@tanstack/react-table';
 import { Effect, Match, pipe, Struct } from 'effect';
-import { useCallback, useRef, useState } from 'react';
-import {
-  Dialog,
-  DialogTrigger,
-  FileTrigger,
-  Form,
-  MenuTrigger,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Text,
-} from 'react-aria-components';
-import { LuBraces, LuClipboardList, LuFolder, LuImport, LuMoreHorizontal, LuPlus, LuX } from 'react-icons/lu';
+import { useRef, useState } from 'react';
+import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
+import { LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
-import { twJoin } from 'tailwind-merge';
 
 import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
 import {
@@ -46,18 +33,15 @@ import {
 } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
 import { getWorkspace } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
-import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
-import { Modal } from '@the-dev-tools/ui/modal';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 import { Tree, TreeItem } from '@the-dev-tools/ui/tree';
 
 import { DashboardLayout } from './authorized';
-import { useFormTable } from './form-table';
+import { EnvironmentsWidget } from './environment';
 import { queryClient, Runtime, transport } from './runtime';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceId')({
@@ -91,143 +75,7 @@ function Layout() {
     >
       <PanelGroup direction='horizontal'>
         <Panel className='flex flex-col' style={{ overflowY: 'auto' }} defaultSize={20} minSize={10} maxSize={40}>
-          <div className='flex justify-between border-b border-black p-2'>
-            {/* TODO: connect with backend once implemented */}
-            <Select
-              aria-label='Environment'
-              selectedKey='development'
-              triggerClassName={tw`justify-start`}
-              triggerVariant='placeholder ghost'
-            >
-              <DropdownItem id='development' textValue='development'>
-                <div className='flex items-center gap-2 text-sm'>
-                  <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
-                    D
-                  </div>
-                  <span className='font-semibold'>Development</span>
-                </div>
-              </DropdownItem>
-              <DropdownItem id='test' textValue='test'>
-                <div className='flex items-center gap-2 text-sm'>
-                  <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
-                    D
-                  </div>
-                  <span className='font-semibold'>Testing</span>
-                </div>
-              </DropdownItem>
-              <DropdownItem id='production' textValue='production'>
-                <div className='flex items-center gap-2 text-sm'>
-                  <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
-                    D
-                  </div>
-                  <span className='font-semibold'>Production</span>
-                </div>
-              </DropdownItem>
-            </Select>
-
-            <DialogTrigger>
-              <Button kind='placeholder' variant='placeholder ghost' className='aspect-square'>
-                <LuClipboardList />
-              </Button>
-
-              <Modal modalClassName={tw`size-full`}>
-                <Dialog className='h-full outline-none'>
-                  {({ close }) => (
-                    <Tabs className='flex h-full'>
-                      <div className='flex w-72 flex-col gap-2 border-r border-black bg-neutral-200 p-4'>
-                        <div className='-order-3 mb-2'>
-                          <div className='text-lg font-medium'>Variable Settings</div>
-                          <span className='text-sm font-light'>Manage variables & environment</span>
-                        </div>
-
-                        <div className='-order-1 text-neutral-600'>Environments</div>
-
-                        <TabList className='contents'>
-                          <Tab
-                            id='global'
-                            className={({ isSelected }) =>
-                              twJoin(
-                                tw`-order-2 -m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
-                                isSelected && tw`bg-neutral-400`,
-                              )
-                            }
-                          >
-                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>
-                              <LuBraces />
-                            </div>
-                            <span>Global Variables</span>
-                          </Tab>
-                          <Tab
-                            id='development'
-                            className={({ isSelected }) =>
-                              twJoin(
-                                tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
-                                isSelected && tw`bg-neutral-400`,
-                              )
-                            }
-                          >
-                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>D</div>
-                            <span>Development</span>
-                          </Tab>
-                          <Tab
-                            id='testing'
-                            className={({ isSelected }) =>
-                              twJoin(
-                                tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
-                                isSelected && tw`bg-neutral-400`,
-                              )
-                            }
-                          >
-                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>T</div>
-                            <span>Testing</span>
-                          </Tab>
-                          <Tab
-                            id='production'
-                            className={({ isSelected }) =>
-                              twJoin(
-                                tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
-                                isSelected && tw`bg-neutral-400`,
-                              )
-                            }
-                          >
-                            <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>P</div>
-                            <span>Production</span>
-                          </Tab>
-                        </TabList>
-                      </div>
-
-                      <TabPanel id='global' className='flex h-full flex-1 flex-col'>
-                        <div className='px-6 py-4'>
-                          <div className='mb-4 flex items-start'>
-                            <div className='flex-1'>
-                              <h1 className='text-xl font-medium'>Global Variables</h1>
-                              <span className='text-sm font-light'>
-                                Lorem ipsum dolor sit amet consectur adipiscing elit.
-                              </span>
-                            </div>
-
-                            <Button variant='placeholder ghost' kind='placeholder' onPress={close}>
-                              <LuX />
-                            </Button>
-                          </div>
-
-                          <EnvironmentVariables />
-                        </div>
-
-                        <div className='flex-1' />
-
-                        <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
-                          <Button kind='placeholder' variant='placeholder' onPress={close}>
-                            Save
-                          </Button>
-                        </div>
-                      </TabPanel>
-                    </Tabs>
-                  )}
-                </Dialog>
-              </Modal>
-            </DialogTrigger>
-          </div>
+          <EnvironmentsWidget />
 
           <div className='flex flex-col gap-2 p-2'>
             <h2 className='uppercase'>Overview</h2>
@@ -280,60 +128,6 @@ const CollectionsTree = () => {
         {(_) => <CollectionTree id={_.id} meta={_} />}
       </Tree>
     </>
-  );
-};
-
-interface EnvironmentVariable {
-  id: string;
-  enabled: boolean;
-  key: string;
-  value: string;
-  description: string;
-}
-
-// TODO: connect to BE when implemented
-const EnvironmentVariables = () => {
-  const dummyCallback = useCallback(() => Promise.resolve({ id: Math.random().toString() }), []);
-
-  const table = useFormTable<EnvironmentVariable>({
-    items: [],
-    makeItem: (item) => ({ id: '', enabled: true, key: '', value: '', description: '', ...item }),
-    onCreate: dummyCallback,
-    onUpdate: dummyCallback,
-    onDelete: dummyCallback,
-  });
-
-  return (
-    <div className='rounded border border-black'>
-      <table className='w-full divide-inherit border-inherit'>
-        <thead className='divide-y divide-inherit border-b border-inherit'>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody className='divide-y divide-inherit'>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all p-1 align-middle text-sm'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 };
 
