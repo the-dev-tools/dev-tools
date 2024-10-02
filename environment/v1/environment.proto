@@ -30,6 +30,7 @@ message Environment {
 
 message CreateEnvironmentRequest {
   Environment environment = 1;
+  string workspace_id = 2;
 }
 
 message CreateEnvironmentResponse {
