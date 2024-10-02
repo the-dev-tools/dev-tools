@@ -10,7 +10,7 @@ import {
   type TextFieldProps as AriaTextFieldProps,
 } from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
-import { tv } from 'tailwind-variants';
+import { tv, VariantProps } from 'tailwind-variants';
 
 import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 
@@ -25,6 +25,11 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 const inputStyles = tv({
   extend: focusRingStyles,
   base: tw`col-start-2 rounded border border-black px-2 py-1 rac-invalid:border-red-600`,
+  variants: {
+    variant: {
+      'table-cell': tw`rounded-none border-transparent`,
+    },
+  },
 });
 
 // Root
@@ -61,15 +66,23 @@ const Root = ({ className, children, label, error, ...props }: RootProps) => {
 
 export interface TextFieldProps
   extends Omit<RootProps, 'children'>,
+    VariantProps<typeof inputStyles>,
     MixinProps<'input', Omit<AriaInputProps, 'children'>> {}
 
 export const TextField = forwardRef(
   ({ inputClassName, ...props }: TextFieldProps, ref: React.ForwardedRef<HTMLInputElement>) => {
     const forwardedProps = splitProps(props, 'input');
 
+    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...inputStyles.variantKeys);
+    const variantProps = Struct.pick(forwardedProps.rest, ...inputStyles.variantKeys);
+
     return (
-      <Root {...forwardedProps.rest}>
-        <AriaInput {...forwardedProps} ref={ref} className={composeRenderPropsTV(inputClassName, inputStyles)} />
+      <Root {...rootForwardedProps}>
+        <AriaInput
+          {...forwardedProps}
+          ref={ref}
+          className={composeRenderPropsTV(inputClassName, inputStyles, variantProps)}
+        />
       </Root>
     );
   },
@@ -126,15 +139,23 @@ export const TextFieldRHF = <
 
 export interface TextAreaFieldProps
   extends Omit<RootProps, 'children'>,
+    VariantProps<typeof inputStyles>,
     MixinProps<'area', Omit<AriaTextAreaProps, 'children'>> {}
 
 export const TextAreaField = forwardRef(
   ({ areaClassName, ...props }: TextAreaFieldProps, ref: React.ForwardedRef<HTMLTextAreaElement>) => {
     const forwardedProps = splitProps(props, 'area');
 
+    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...inputStyles.variantKeys);
+    const variantProps = Struct.pick(forwardedProps.rest, ...inputStyles.variantKeys);
+
     return (
-      <Root {...forwardedProps.rest}>
-        <AriaTextArea {...forwardedProps.area} ref={ref} className={composeRenderPropsTV(areaClassName, inputStyles)} />
+      <Root {...rootForwardedProps}>
+        <AriaTextArea
+          {...forwardedProps.area}
+          ref={ref}
+          className={composeRenderPropsTV(areaClassName, inputStyles, variantProps)}
+        />
       </Root>
     );
   },

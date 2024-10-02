@@ -16,16 +16,34 @@ import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 import { isFocusedRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTW } from './utils';
+import { composeRenderPropsTV } from './utils';
 
 // Root
 
-export interface CheckboxRootProps extends AriaCheckboxProps {}
+export const rootStyles = tv({
+  base: tw`group flex items-center gap-2`,
+  variants: {
+    variant: {
+      'table-cell': tw`p-1`,
+    },
+  },
+});
+
+export interface CheckboxRootProps extends AriaCheckboxProps, VariantProps<typeof rootStyles> {}
 
 export const CheckboxRoot = forwardRef(
-  ({ className, ...props }: CheckboxRootProps, ref: ForwardedRef<HTMLLabelElement>) => (
-    <AriaCheckbox {...props} ref={ref} className={composeRenderPropsTW(className, tw`group flex items-center gap-2`)} />
-  ),
+  ({ className, ...props }: CheckboxRootProps, ref: ForwardedRef<HTMLLabelElement>) => {
+    const forwardedProps = Struct.omit(props, ...rootStyles.variantKeys);
+    const variantProps = Struct.pick(props, ...rootStyles.variantKeys);
+
+    return (
+      <AriaCheckbox
+        {...forwardedProps}
+        ref={ref}
+        className={composeRenderPropsTV(className, rootStyles, variantProps)}
+      />
+    );
+  },
 );
 CheckboxRoot.displayName = 'CheckboxRoot';
 
