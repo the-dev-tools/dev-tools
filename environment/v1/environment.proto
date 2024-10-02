@@ -3,6 +3,7 @@ syntax = "proto3";
 package environment.v1;
 
 option go_package = "dev-tools-services/gen/environment/v1;environmentv1";
+import "google/protobuf/timestamp.proto";
 
 
 service EnvironmentService {
@@ -19,13 +20,13 @@ enum EnvironmentType {
   ENVIRONMENT_TYPE_NORMAL = 2;
 }
 
+
 message Environment {
   string id = 1;
   string name = 2;
   EnvironmentType type = 3;
   string description = 4;
-  string created_at = 5;
-  string updated_at = 6;
+  google.protobuf.Timestamp updated_at = 5;
 }
 
 message CreateEnvironmentRequest {
