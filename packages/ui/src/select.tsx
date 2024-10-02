@@ -102,7 +102,7 @@ export const Select: Select = forwardRef(({ children, label, error, ...props }, 
           </SelectTrigger>
           <FieldError {...forwardedProps.error}>{error}</FieldError>
           <DropdownPopover {...forwardedProps.popover}>
-            <DropdownListBox>{children}</DropdownListBox>
+            <DropdownListBox {...forwardedProps.listBox}>{children}</DropdownListBox>
           </DropdownPopover>
         </>
       )}
