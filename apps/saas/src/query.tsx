@@ -25,6 +25,7 @@ import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
+import { TextFieldWithVariables } from './variable';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/')({
   component: Tab,
@@ -45,7 +46,7 @@ const Table = ({ data }: TableProps) => {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
-  const { apiCallId, exampleId } = Route.useParams();
+  const { workspaceId, apiCallId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createQuery);
   const updateMutation = useConnectMutation(updateQuery);
@@ -78,11 +79,25 @@ const Table = ({ data }: TableProps) => {
         ),
       }),
       accessor('key', {
-        cell: ({ row }) => <TextFieldRHF control={form.control} name={`items.${row.index}.key`} variant='table-cell' />,
+        cell: ({ row: { index } }) => (
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.key`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
+        ),
       }),
       accessor('value', {
         cell: ({ row: { index } }) => (
-          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.value`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
         ),
       }),
       accessor('description', {
@@ -112,7 +127,7 @@ const Table = ({ data }: TableProps) => {
         ),
       }),
     ];
-  }, [form.control, deleteMutate, getValues, removeField, onChange]);
+  }, [form.control, workspaceId, deleteMutate, getValues, removeField, onChange]);
 
   const table = useReactTable<Query>({
     getCoreRowModel: getCoreRowModel(),

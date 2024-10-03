@@ -19,6 +19,7 @@ import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
+import { TextFieldWithVariables } from './variable';
 
 export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers',
@@ -38,7 +39,7 @@ interface TableProps {
 }
 
 const Table = ({ data }: TableProps) => {
-  const { exampleId } = Route.useParams();
+  const { workspaceId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createHeader);
   const updateMutation = useConnectMutation(updateHeader);
@@ -66,11 +67,25 @@ const Table = ({ data }: TableProps) => {
         ),
       }),
       accessor('key', {
-        cell: ({ row }) => <TextFieldRHF control={form.control} name={`items.${row.index}.key`} variant='table-cell' />,
+        cell: ({ row: { index } }) => (
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.key`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
+        ),
       }),
       accessor('value', {
         cell: ({ row: { index } }) => (
-          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.value`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
         ),
       }),
       accessor('description', {
@@ -99,7 +114,7 @@ const Table = ({ data }: TableProps) => {
         ),
       }),
     ];
-  }, [form.control, deleteMutate, getValues, removeField]);
+  }, [form.control, workspaceId, deleteMutate, getValues, removeField]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),

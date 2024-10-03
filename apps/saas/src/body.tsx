@@ -41,6 +41,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
+import { TextFieldWithVariables } from './variable';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body')(
   {
@@ -105,7 +106,7 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ body }: FormDataTableProps) => {
-  const { exampleId } = Route.useParams();
+  const { workspaceId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createBodyForm);
   const updateMutation = useConnectMutation(updateBodyForm);
@@ -133,11 +134,25 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
         ),
       }),
       accessor('key', {
-        cell: ({ row }) => <TextFieldRHF control={form.control} name={`items.${row.index}.key`} variant='table-cell' />,
+        cell: ({ row: { index } }) => (
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.key`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
+        ),
       }),
       accessor('value', {
         cell: ({ row: { index } }) => (
-          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.value`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
         ),
       }),
       accessor('description', {
@@ -166,7 +181,7 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
         ),
       }),
     ];
-  }, [form.control, deleteMutate, getValues, removeField]);
+  }, [form.control, workspaceId, deleteMutate, getValues, removeField]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
@@ -224,7 +239,7 @@ interface UrlEncodedTableProps {
 }
 
 const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
-  const { exampleId } = Route.useParams();
+  const { workspaceId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createBodyUrlEncoded);
   const updateMutation = useConnectMutation(updateBodyUrlEncoded);
@@ -252,11 +267,25 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
         ),
       }),
       accessor('key', {
-        cell: ({ row }) => <TextFieldRHF control={form.control} name={`items.${row.index}.key`} variant='table-cell' />,
+        cell: ({ row: { index } }) => (
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.key`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
+        ),
       }),
       accessor('value', {
         cell: ({ row: { index } }) => (
-          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
+          <TextFieldWithVariables
+            control={form.control}
+            name={`items.${index}.value`}
+            workspaceId={workspaceId}
+            variant='table-cell'
+            className='flex-1'
+          />
         ),
       }),
       accessor('description', {
@@ -285,7 +314,7 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
         ),
       }),
     ];
-  }, [form.control, deleteMutate, getValues, removeField]);
+  }, [form.control, workspaceId, deleteMutate, getValues, removeField]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
