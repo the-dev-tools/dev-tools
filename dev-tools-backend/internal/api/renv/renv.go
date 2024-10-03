@@ -37,6 +37,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	vs, err := svar.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	us, err := suser.New(ctx, db)
 	if err != nil {
 		return nil, err
@@ -50,6 +55,7 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 
 		// Services
 		es: es,
+		vs: vs,
 
 		// Depdenencies
 		us: *us,
