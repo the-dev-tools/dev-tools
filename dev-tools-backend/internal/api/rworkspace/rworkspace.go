@@ -250,6 +250,7 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 	if req.Msg.GetName() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
+
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -269,6 +270,42 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		if err == sql.ErrNoRows {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
 		}
+	}
+
+	reqUpdateEnvIDStr := req.Msg.GetEnvId()
+	var envID *idwrap.IDWrap
+	if reqUpdateEnvIDStr != "" {
+		tempEnvID, err := idwrap.NewWithParse(reqUpdateEnvIDStr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		envID = &tempEnvID
+	}
+
+	currentEnv, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
+	if err != nil {
+		if !errors.Is(err, senv.ErrNoEnvFound) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if currentEnv != nil {
+		currentEnv.Active = false
+		err = c.es.Update(ctx, currentEnv)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if envID != nil {
+		env, err := c.es.Get(ctx, *envID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("env not found"))
+			}
+		}
+		env.Active = true
+		err = c.es.Update(ctx, env)
 	}
 
 	ws.Name = req.Msg.GetName()
