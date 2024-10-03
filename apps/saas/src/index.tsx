@@ -21,7 +21,7 @@ declare module '@tanstack/react-router' {
 
 declare module 'react-aria-components' {
   interface RouterConfig {
-    href: ToOptions;
+    href: ToOptions | string;
     routerOptions: Omit<NavigateOptions, keyof ToOptions>;
   }
 }
@@ -34,8 +34,14 @@ if (rootEl) {
       <TransportProvider transport={transport}>
         <QueryClientProvider client={queryClient}>
           <AriaRouterProvider
-            navigate={(to, options) => router.navigate({ ...to, ...options })}
-            useHref={(to) => router.buildLocation(to).href}
+            navigate={(to, options) => {
+              if (typeof to === 'string') return;
+              return router.navigate({ ...to, ...options });
+            }}
+            useHref={(to) => {
+              if (typeof to === 'string') return to;
+              return router.buildLocation(to).href;
+            }}
           >
             <RouterProvider router={router} />
           </AriaRouterProvider>
