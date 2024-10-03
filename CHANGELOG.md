@@ -1,5 +1,14 @@
 # @the-dev-tools/protobuf
 
+## 1.27.0
+
+### Minor Changes
+
+- [`d9d129c`](https://github.com/the-dev-tools/dev-tools-proto/commit/d9d129cb50e54543cab9d2c246316590c41393ca) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add env to getWorkspace and UpdateWorkspace
+
+- [`c9ab34b`](https://github.com/the-dev-tools/dev-tools-proto/commit/c9ab34b92c9325f0aa3c94344bfb9dcaff93166d) Thanks [@ElecTwix](https://github.com/ElecTwix)! - remove created field and change type of updated field to timestamp
+  add GetAllVariables to env protobuf
+
 ## 1.26.0
 
 ### Minor Changes
