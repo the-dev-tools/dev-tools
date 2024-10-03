@@ -4,6 +4,7 @@ package environment.v1;
 
 option go_package = "dev-tools-services/gen/environment/v1;environmentv1";
 import "google/protobuf/timestamp.proto";
+import "variable/v1/variable.proto";
 
 
 service EnvironmentService {
@@ -27,6 +28,7 @@ message Environment {
   EnvironmentType type = 3;
   string description = 4;
   google.protobuf.Timestamp updated_at = 5;
+  repeated variable.v1.Variable variables = 6;
 }
 
 message CreateEnvironmentRequest {
