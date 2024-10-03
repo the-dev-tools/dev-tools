@@ -26,6 +26,11 @@ import {
   getVariables,
   updateVariable,
 } from '@the-dev-tools/protobuf/variable/v1/variable-VariableService_connectquery';
+import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
+import {
+  getWorkspace,
+  updateWorkspace,
+} from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
@@ -43,29 +48,48 @@ export const EnvironmentsWidget = () => {
 
   const { workspaceId } = workspaceRoute.useParams();
 
-  const { data, isSuccess } = useConnectQuery(getEnvironments, { workspaceId });
+  const workspaceQuery = useConnectQuery(getWorkspace, { id: workspaceId });
+  const updateWorkspaceMutation = useConnectMutation(updateWorkspace);
+
+  const environmentsQuery = useConnectQuery(getEnvironments, { workspaceId });
   const createEnvironmentMutation = useConnectMutation(createEnvironment);
 
-  if (!isSuccess) return null;
+  if (!environmentsQuery.isSuccess || !workspaceQuery.isSuccess) return null;
 
-  const { environments } = data;
+  const { environments } = environmentsQuery.data;
+  const { workspace } = workspaceQuery.data;
 
   return (
     <div className='flex justify-between border-b border-black p-2'>
       <Select
         aria-label='Environment'
-        selectedKey='development'
+        selectedKey={workspace?.environment?.id ?? null}
+        onSelectionChange={async (key) => {
+          const environment = environments.find(({ id }) => id === key);
+          if (!environment) return;
+
+          await updateWorkspaceMutation.mutateAsync({ id: workspaceId, envId: environment.id });
+
+          queryClient.setQueryData(
+            createConnectQueryKey(getWorkspace, { id: workspaceId }),
+            createProtobufSafeUpdater(getWorkspace, (_) => ({
+              workspace: new Workspace({ ..._?.workspace, environment }),
+            })),
+          );
+        }}
         triggerClassName={tw`justify-start`}
         triggerVariant='placeholder ghost'
-        listBoxItems={environments.filter((item) => item.type === EnvironmentType.NORMAL)}
+        listBoxItems={environments}
       >
         {(item) => (
           <DropdownItem id={item.id} textValue={item.name}>
             <div className='flex items-center gap-2 text-sm'>
               <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
-                {item.name[0]}
+                {item.type === EnvironmentType.GLOBAL ? <LuBraces /> : item.name[0]}
               </div>
-              <span className='font-semibold'>{item.name}</span>
+              <span className='font-semibold'>
+                {item.type === EnvironmentType.GLOBAL ? 'Global Environment' : item.name}
+              </span>
             </div>
           </DropdownItem>
         )}
@@ -133,7 +157,7 @@ export const EnvironmentsWidget = () => {
 
                 <Collection items={environments}>
                   {(item) => (
-                    <TabPanel id={item.id} className='flex h-full flex-1 flex-col'>
+                    <TabPanel id={item.id} className='flex h-full min-w-0 flex-1 flex-col'>
                       <div className='px-6 py-4'>
                         <div className='mb-4 flex items-start'>
                           <div className='flex-1'>
