@@ -306,6 +306,9 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		}
 		env.Active = true
 		err = c.es.Update(ctx, env)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	ws.Name = req.Msg.GetName()
