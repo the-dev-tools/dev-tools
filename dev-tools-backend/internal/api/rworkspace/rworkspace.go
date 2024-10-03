@@ -189,10 +189,11 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceUlid,
 		Name:        "default",
+		Active:      true,
 		Type:        menv.EnvGlobal,
 	}
 
-	orgUser := &mworkspaceuser.WorkspaceUser{
+	wsUser := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceUlid,
 		UserID:      userID,
@@ -226,7 +227,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = workspaceUserServiceTX.CreateWorkspaceUser(ctx, orgUser)
+	err = workspaceUserServiceTX.CreateWorkspaceUser(ctx, wsUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -307,7 +308,10 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		}
 	}
 
-	ws.Name = req.Msg.GetName()
+	name := req.Msg.GetName()
+	if name != "" {
+		ws.Name = name
+	}
 	err = c.sw.Update(ctx, ws)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
