@@ -20,6 +20,7 @@ type Collection struct {
 type Environment struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
+	Active      bool
 	Type        int8
 	Name        string
 	Description string

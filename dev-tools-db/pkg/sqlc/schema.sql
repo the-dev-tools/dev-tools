@@ -225,11 +225,17 @@ CREATE TABLE example_body_raw (
 CREATE TABLE environment (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT FALSE,
   type INT8 NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX unique_active_environment
+ON environment (workspace_id)
+WHERE active = true;
+
 
 CREATE TABLE variable (
     id BLOB NOT NULL PRIMARY KEY,

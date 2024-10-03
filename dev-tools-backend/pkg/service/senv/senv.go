@@ -75,6 +75,17 @@ func (e EnvService) GetByWorkspace(ctx context.Context, workspaceID idwrap.IDWra
 	return tgeneric.MassConvertPtr(envs, ConvertToModelEnv), nil
 }
 
+func (e EnvService) GetActiveByWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (*menv.Env, error) {
+	env, err := e.queries.GetActiveEnvironmentsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoEnvFound
+		}
+		return nil, err
+	}
+	return ConvertToModelEnv(env), nil
+}
+
 func (e EnvService) Create(ctx context.Context, env menv.Env) error {
 	dbEnv := ConvertToDBEnv(env)
 	return e.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams{

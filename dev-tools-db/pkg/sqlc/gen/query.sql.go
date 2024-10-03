@@ -507,14 +507,15 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createEnvironment = `-- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name, description)
+  environment (id, workspace_id, active, type, name, description)
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateEnvironmentParams struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
+	Active      bool
 	Type        int8
 	Name        string
 	Description string
@@ -524,6 +525,7 @@ func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentPa
 	_, err := q.exec(ctx, q.createEnvironmentStmt, createEnvironment,
 		arg.ID,
 		arg.WorkspaceID,
+		arg.Active,
 		arg.Type,
 		arg.Name,
 		arg.Description,
@@ -2018,6 +2020,35 @@ func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) err
 	return err
 }
 
+const getActiveEnvironmentsByWorkspaceID = `-- name: GetActiveEnvironmentsByWorkspaceID :one
+SELECT
+  id,
+  workspace_id,
+  active,
+  type,
+  name,
+  description
+FROM 
+  environment
+WHERE
+  workspace_id = ? AND active = true
+LIMIT 1
+`
+
+func (q *Queries) GetActiveEnvironmentsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) (Environment, error) {
+	row := q.queryRow(ctx, q.getActiveEnvironmentsByWorkspaceIDStmt, getActiveEnvironmentsByWorkspaceID, workspaceID)
+	var i Environment
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Active,
+		&i.Type,
+		&i.Name,
+		&i.Description,
+	)
+	return i, err
+}
+
 const getBodyForm = `-- name: GetBodyForm :one
 /*
 *
@@ -2345,6 +2376,7 @@ const getEnvironment = `-- name: GetEnvironment :one
 SELECT
   id,
   workspace_id,
+  active,
   type,
   name,
   description
@@ -2361,6 +2393,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environ
 	err := row.Scan(
 		&i.ID,
 		&i.WorkspaceID,
+		&i.Active,
 		&i.Type,
 		&i.Name,
 		&i.Description,
@@ -2372,6 +2405,7 @@ const getEnvironmentsByWorkspaceID = `-- name: GetEnvironmentsByWorkspaceID :man
 SELECT
   id,
   workspace_id,
+  active,
   type,
   name,
   description
@@ -2393,6 +2427,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
+			&i.Active,
 			&i.Type,
 			&i.Name,
 			&i.Description,

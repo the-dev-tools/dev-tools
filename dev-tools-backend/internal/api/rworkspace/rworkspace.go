@@ -26,7 +26,6 @@ import (
 	"os"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var ErrWorkspaceNotFound = errors.New("workspace not found")
@@ -69,6 +68,11 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 		return nil, err
 	}
 
+	es, err := senv.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
 	if err != nil {
 		log.Fatalf("failed to create email client: %v", err)
@@ -94,6 +98,7 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 		su:  *us,
 		ec:  *client,
 		eim: emailInviteManager,
+		es:  es,
 	}
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(server, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
@@ -110,7 +115,7 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	org, err := c.sw.GetByIDandUserID(ctx, orgID, userID)
+	ws, err := c.sw.GetByIDandUserID(ctx, orgID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -118,12 +123,15 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	env, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
+	if err != nil {
+		if !errors.Is(err, senv.ErrNoEnvFound) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	resp := &workspacev1.GetWorkspaceResponse{
-		Workspace: &workspacev1.Workspace{
-			Id:      org.ID.String(),
-			Name:    org.Name,
-			Updated: timestamppb.New(org.Updated),
-		},
+		Workspace: tworkspace.SeralizeWorkspace(*ws, env),
 	}
 
 	return connect.NewResponse(resp), nil
@@ -142,13 +150,16 @@ func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Re
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	respOrgs := make([]*workspacev1.Workspace, len(workspaces))
 	for i, ws := range workspaces {
-		respOrgs[i] = &workspacev1.Workspace{
-			Id:      ws.ID.String(),
-			Name:    ws.Name,
-			Updated: timestamppb.New(ws.Updated),
+		env, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
+		if err != nil {
+			if !errors.Is(err, senv.ErrNoEnvFound) {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 		}
+		respOrgs[i] = tworkspace.SeralizeWorkspace(ws, env)
 	}
 
 	resp := &workspacev1.GetWorkspacesResponse{
@@ -226,7 +237,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 	}
 
 	resp := &workspacev1.CreateWorkspaceResponse{
-		Workspace: tworkspace.SeralizeWorkspace(*ws),
+		Workspace: tworkspace.SeralizeWorkspace(*ws, nil),
 	}
 	return connect.NewResponse(resp), nil
 }

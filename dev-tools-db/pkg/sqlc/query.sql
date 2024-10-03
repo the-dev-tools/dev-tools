@@ -1046,6 +1046,7 @@ WHERE
 SELECT
   id,
   workspace_id,
+  active,
   type,
   name,
   description
@@ -1059,6 +1060,7 @@ LIMIT 1;
 SELECT
   id,
   workspace_id,
+  active,
   type,
   name,
   description
@@ -1067,11 +1069,25 @@ FROM
 WHERE
   workspace_id = ?;
 
+-- name: GetActiveEnvironmentsByWorkspaceID :one
+SELECT
+  id,
+  workspace_id,
+  active,
+  type,
+  name,
+  description
+FROM 
+  environment
+WHERE
+  workspace_id = ? AND active = true
+LIMIT 1;
+
 -- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name, description)
+  environment (id, workspace_id, active, type, name, description)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment

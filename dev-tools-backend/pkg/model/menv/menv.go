@@ -16,6 +16,7 @@ const (
 type Env struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
+	Active      bool
 	Type        EnvType
 	Description string
 	Name        string

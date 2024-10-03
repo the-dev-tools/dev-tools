@@ -156,6 +156,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWorkspaceUserStmt, err = db.PrepareContext(ctx, deleteWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspaceUser: %w", err)
 	}
+	if q.getActiveEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getActiveEnvironmentsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetActiveEnvironmentsByWorkspaceID: %w", err)
+	}
 	if q.getBodyFormStmt, err = db.PrepareContext(ctx, getBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyForm: %w", err)
 	}
@@ -585,6 +588,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.getActiveEnvironmentsByWorkspaceIDStmt != nil {
+		if cerr := q.getActiveEnvironmentsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getActiveEnvironmentsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getBodyFormStmt != nil {
 		if cerr := q.getBodyFormStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBodyFormStmt: %w", cerr)
@@ -1008,6 +1016,7 @@ type Queries struct {
 	deleteVariableStmt                         *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
+	getActiveEnvironmentsByWorkspaceIDStmt     *sql.Stmt
 	getBodyFormStmt                            *sql.Stmt
 	getBodyFormsByExampleIDStmt                *sql.Stmt
 	getBodyRawStmt                             *sql.Stmt
@@ -1126,6 +1135,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteVariableStmt:                         q.deleteVariableStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
+		getActiveEnvironmentsByWorkspaceIDStmt:     q.getActiveEnvironmentsByWorkspaceIDStmt,
 		getBodyFormStmt:                            q.getBodyFormStmt,
 		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,
 		getBodyRawStmt:                             q.getBodyRawStmt,
