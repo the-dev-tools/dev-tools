@@ -1092,6 +1092,7 @@ VALUES
 -- name: UpdateEnvironment :exec
 UPDATE environment
 SET
+    active = ?,
     name = ?,
     description = ?
 WHERE

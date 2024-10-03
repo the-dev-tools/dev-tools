@@ -105,7 +105,7 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 }
 
 func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
-	orgID, err := idwrap.NewWithParse(req.Msg.GetId())
+	wsID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -115,7 +115,7 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	ws, err := c.sw.GetByIDandUserID(ctx, orgID, userID)
+	ws, err := c.sw.GetByIDandUserID(ctx, wsID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)

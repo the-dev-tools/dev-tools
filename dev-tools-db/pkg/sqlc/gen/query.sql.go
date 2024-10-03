@@ -3848,6 +3848,7 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE environment
 SET
+    active = ?,
     name = ?,
     description = ?
 WHERE
@@ -3855,13 +3856,19 @@ WHERE
 `
 
 type UpdateEnvironmentParams struct {
+	Active      bool
 	Name        string
 	Description string
 	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
-	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.Name, arg.Description, arg.ID)
+	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment,
+		arg.Active,
+		arg.Name,
+		arg.Description,
+		arg.ID,
+	)
 	return err
 }
 
