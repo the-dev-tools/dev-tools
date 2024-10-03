@@ -16,6 +16,7 @@ import (
 	"dev-tools-backend/pkg/translate/tvar"
 	variablev1 "dev-tools-services/gen/variable/v1"
 	"dev-tools-services/gen/variable/v1/variablev1connect"
+	"sort"
 
 	"connectrpc.com/connect"
 )
@@ -114,6 +115,9 @@ func (v *VarRPC) GetVariables(ctx context.Context, req *connect.Request[variable
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	sort.Slice(variables, func(i, j int) bool {
+		return variables[i].ID.Compare(variables[j].ID) < 0
+	})
 	rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPC)
 	return connect.NewResponse(&variablev1.GetVariablesResponse{Variables: rpcVars}), nil
 }
