@@ -93,6 +93,7 @@ func (e EnvService) Create(ctx context.Context, env menv.Env) error {
 	return e.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams{
 		ID:          dbEnv.ID,
 		WorkspaceID: dbEnv.WorkspaceID,
+		Active:      dbEnv.Active,
 		Type:        dbEnv.Type,
 		Name:        dbEnv.Name,
 		Description: dbEnv.Description,
