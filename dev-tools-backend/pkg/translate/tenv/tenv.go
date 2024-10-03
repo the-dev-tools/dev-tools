@@ -3,6 +3,7 @@ package tenv
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/menv"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	environmentv1 "dev-tools-services/gen/environment/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -41,5 +42,12 @@ func DeseralizeRPCToModelWithID(id idwrap.IDWrap, e *environmentv1.Environment) 
 		Type:        menv.EnvType(e.Type),
 		Description: e.Description,
 		Updated:     e.UpdatedAt.AsTime(),
+	}
+}
+
+func SeralizeModelToGroupRPC(key string, envs []menv.Env) *environmentv1.VariableWithEnvironments {
+	return &environmentv1.VariableWithEnvironments{
+		VariableKey: key,
+		Environment: tgeneric.MassConvert(envs, SeralizeModelToRPC),
 	}
 }

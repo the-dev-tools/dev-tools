@@ -8,9 +8,11 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/menv"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/service/svar"
 	"dev-tools-backend/pkg/translate/tenv"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	environmentv1 "dev-tools-services/gen/environment/v1"
@@ -23,6 +25,7 @@ type EnvRPC struct {
 	DB *sql.DB
 
 	es senv.EnvService
+	vs svar.VarService
 	us suser.UserService
 }
 
@@ -147,6 +150,41 @@ func (e *EnvRPC) DeleteEnvironment(ctx context.Context, req *connect.Request[env
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&environmentv1.DeleteEnvironmentResponse{}), nil
+}
+
+func (e *EnvRPC) GetAllVariables(ctx context.Context, req *connect.Request[environmentv1.GetAllVariablesRequest]) (*connect.Response[environmentv1.GetAllVariablesResponse], error) {
+	workspaceID, err := idwrap.NewWithParse(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	envs, err := e.es.GetByWorkspace(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	varMap := make(map[string][]menv.Env)
+	for _, env := range envs {
+		vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, v := range vars {
+			mapVars, ok := varMap[v.VarKey]
+			if !ok {
+				varMap[v.VarKey] = []menv.Env{env}
+			} else {
+				varMap[v.VarKey] = append(mapVars, env)
+			}
+		}
+	}
+	var envsRPC []*environmentv1.VariableWithEnvironments
+	for key, envs := range varMap {
+		envsRPC = append(envsRPC, tenv.SeralizeModelToGroupRPC(key, envs))
+	}
+	return connect.NewResponse(&environmentv1.GetAllVariablesResponse{Items: envsRPC}), nil
 }
 
 func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService, envid idwrap.IDWrap) (bool, error) {

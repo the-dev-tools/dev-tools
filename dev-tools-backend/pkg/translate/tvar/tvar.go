@@ -31,10 +31,11 @@ func DeserializeRPCToModel(v *variablev1.Variable) (mvar.Var, error) {
 	}, nil
 }
 
-func DeserializeRPCToModelWithID(id idwrap.IDWrap, v *variablev1.Variable) mvar.Var {
+func DeserializeRPCToModelWithID(id, envID idwrap.IDWrap, v *variablev1.Variable) mvar.Var {
 	return mvar.Var{
 		ID:          id,
 		VarKey:      v.Name,
+		EnvID:       envID,
 		Value:       v.Value,
 		Enabled:     v.Enabled,
 		Description: v.Description,

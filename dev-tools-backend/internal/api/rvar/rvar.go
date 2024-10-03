@@ -75,7 +75,7 @@ func (v *VarRPC) CreateVariable(ctx context.Context, req *connect.Request[variab
 		return nil, rpcErr
 	}
 
-	varReq := tvar.DeserializeRPCToModelWithID(idwrap.NewNow(), req.Msg.GetVariable())
+	varReq := tvar.DeserializeRPCToModelWithID(idwrap.NewNow(), envID, req.Msg.GetVariable())
 	err = v.vs.Create(ctx, varReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

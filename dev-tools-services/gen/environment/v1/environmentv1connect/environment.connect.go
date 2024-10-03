@@ -48,6 +48,9 @@ const (
 	// EnvironmentServiceDeleteEnvironmentProcedure is the fully-qualified name of the
 	// EnvironmentService's DeleteEnvironment RPC.
 	EnvironmentServiceDeleteEnvironmentProcedure = "/environment.v1.EnvironmentService/DeleteEnvironment"
+	// EnvironmentServiceGetAllVariablesProcedure is the fully-qualified name of the
+	// EnvironmentService's GetAllVariables RPC.
+	EnvironmentServiceGetAllVariablesProcedure = "/environment.v1.EnvironmentService/GetAllVariables"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -58,6 +61,7 @@ var (
 	environmentServiceGetEnvironmentsMethodDescriptor   = environmentServiceServiceDescriptor.Methods().ByName("GetEnvironments")
 	environmentServiceUpdateEnvironmentMethodDescriptor = environmentServiceServiceDescriptor.Methods().ByName("UpdateEnvironment")
 	environmentServiceDeleteEnvironmentMethodDescriptor = environmentServiceServiceDescriptor.Methods().ByName("DeleteEnvironment")
+	environmentServiceGetAllVariablesMethodDescriptor   = environmentServiceServiceDescriptor.Methods().ByName("GetAllVariables")
 )
 
 // EnvironmentServiceClient is a client for the environment.v1.EnvironmentService service.
@@ -67,6 +71,7 @@ type EnvironmentServiceClient interface {
 	GetEnvironments(context.Context, *connect.Request[v1.GetEnvironmentsRequest]) (*connect.Response[v1.GetEnvironmentsResponse], error)
 	UpdateEnvironment(context.Context, *connect.Request[v1.UpdateEnvironmentRequest]) (*connect.Response[v1.UpdateEnvironmentResponse], error)
 	DeleteEnvironment(context.Context, *connect.Request[v1.DeleteEnvironmentRequest]) (*connect.Response[v1.DeleteEnvironmentResponse], error)
+	GetAllVariables(context.Context, *connect.Request[v1.GetAllVariablesRequest]) (*connect.Response[v1.GetAllVariablesResponse], error)
 }
 
 // NewEnvironmentServiceClient constructs a client for the environment.v1.EnvironmentService
@@ -109,6 +114,12 @@ func NewEnvironmentServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(environmentServiceDeleteEnvironmentMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getAllVariables: connect.NewClient[v1.GetAllVariablesRequest, v1.GetAllVariablesResponse](
+			httpClient,
+			baseURL+EnvironmentServiceGetAllVariablesProcedure,
+			connect.WithSchema(environmentServiceGetAllVariablesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -119,6 +130,7 @@ type environmentServiceClient struct {
 	getEnvironments   *connect.Client[v1.GetEnvironmentsRequest, v1.GetEnvironmentsResponse]
 	updateEnvironment *connect.Client[v1.UpdateEnvironmentRequest, v1.UpdateEnvironmentResponse]
 	deleteEnvironment *connect.Client[v1.DeleteEnvironmentRequest, v1.DeleteEnvironmentResponse]
+	getAllVariables   *connect.Client[v1.GetAllVariablesRequest, v1.GetAllVariablesResponse]
 }
 
 // CreateEnvironment calls environment.v1.EnvironmentService.CreateEnvironment.
@@ -146,6 +158,11 @@ func (c *environmentServiceClient) DeleteEnvironment(ctx context.Context, req *c
 	return c.deleteEnvironment.CallUnary(ctx, req)
 }
 
+// GetAllVariables calls environment.v1.EnvironmentService.GetAllVariables.
+func (c *environmentServiceClient) GetAllVariables(ctx context.Context, req *connect.Request[v1.GetAllVariablesRequest]) (*connect.Response[v1.GetAllVariablesResponse], error) {
+	return c.getAllVariables.CallUnary(ctx, req)
+}
+
 // EnvironmentServiceHandler is an implementation of the environment.v1.EnvironmentService service.
 type EnvironmentServiceHandler interface {
 	CreateEnvironment(context.Context, *connect.Request[v1.CreateEnvironmentRequest]) (*connect.Response[v1.CreateEnvironmentResponse], error)
@@ -153,6 +170,7 @@ type EnvironmentServiceHandler interface {
 	GetEnvironments(context.Context, *connect.Request[v1.GetEnvironmentsRequest]) (*connect.Response[v1.GetEnvironmentsResponse], error)
 	UpdateEnvironment(context.Context, *connect.Request[v1.UpdateEnvironmentRequest]) (*connect.Response[v1.UpdateEnvironmentResponse], error)
 	DeleteEnvironment(context.Context, *connect.Request[v1.DeleteEnvironmentRequest]) (*connect.Response[v1.DeleteEnvironmentResponse], error)
+	GetAllVariables(context.Context, *connect.Request[v1.GetAllVariablesRequest]) (*connect.Response[v1.GetAllVariablesResponse], error)
 }
 
 // NewEnvironmentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -191,6 +209,12 @@ func NewEnvironmentServiceHandler(svc EnvironmentServiceHandler, opts ...connect
 		connect.WithSchema(environmentServiceDeleteEnvironmentMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	environmentServiceGetAllVariablesHandler := connect.NewUnaryHandler(
+		EnvironmentServiceGetAllVariablesProcedure,
+		svc.GetAllVariables,
+		connect.WithSchema(environmentServiceGetAllVariablesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/environment.v1.EnvironmentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EnvironmentServiceCreateEnvironmentProcedure:
@@ -203,6 +227,8 @@ func NewEnvironmentServiceHandler(svc EnvironmentServiceHandler, opts ...connect
 			environmentServiceUpdateEnvironmentHandler.ServeHTTP(w, r)
 		case EnvironmentServiceDeleteEnvironmentProcedure:
 			environmentServiceDeleteEnvironmentHandler.ServeHTTP(w, r)
+		case EnvironmentServiceGetAllVariablesProcedure:
+			environmentServiceGetAllVariablesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -230,4 +256,8 @@ func (UnimplementedEnvironmentServiceHandler) UpdateEnvironment(context.Context,
 
 func (UnimplementedEnvironmentServiceHandler) DeleteEnvironment(context.Context, *connect.Request[v1.DeleteEnvironmentRequest]) (*connect.Response[v1.DeleteEnvironmentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("environment.v1.EnvironmentService.DeleteEnvironment is not implemented"))
+}
+
+func (UnimplementedEnvironmentServiceHandler) GetAllVariables(context.Context, *connect.Request[v1.GetAllVariablesRequest]) (*connect.Response[v1.GetAllVariablesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("environment.v1.EnvironmentService.GetAllVariables is not implemented"))
 }
