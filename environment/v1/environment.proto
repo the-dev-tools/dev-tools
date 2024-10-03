@@ -4,7 +4,6 @@ package environment.v1;
 
 option go_package = "dev-tools-services/gen/environment/v1;environmentv1";
 import "google/protobuf/timestamp.proto";
-import "variable/v1/variable.proto";
 
 
 service EnvironmentService {
@@ -13,6 +12,7 @@ service EnvironmentService {
   rpc GetEnvironments(GetEnvironmentsRequest) returns (GetEnvironmentsResponse);
   rpc UpdateEnvironment(UpdateEnvironmentRequest) returns (UpdateEnvironmentResponse);
   rpc DeleteEnvironment(DeleteEnvironmentRequest) returns (DeleteEnvironmentResponse);
+  rpc GetAllVariables(GetAllVariablesRequest) returns (GetAllVariablesResponse);
 }
 
 enum EnvironmentType {
@@ -28,7 +28,6 @@ message Environment {
   EnvironmentType type = 3;
   string description = 4;
   google.protobuf.Timestamp updated_at = 5;
-  repeated variable.v1.Variable variables = 6;
 }
 
 message CreateEnvironmentRequest {
@@ -68,4 +67,17 @@ message DeleteEnvironmentRequest {
 }
 
 message DeleteEnvironmentResponse {
+}
+
+message GetAllVariablesRequest {
+  string workspace_id = 1;
+}
+
+message VariableWithEnvironments {
+  string variable_key = 1;
+  repeated Environment environment = 2;
+}
+
+message GetAllVariablesResponse {
+  repeated VariableWithEnvironments items = 1;
 }
