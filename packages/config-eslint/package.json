@@ -1,6 +1,6 @@
 {
   "name": "@the-dev-tools/config-eslint",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "scripts": {
     "lint": "eslint ."
   },
