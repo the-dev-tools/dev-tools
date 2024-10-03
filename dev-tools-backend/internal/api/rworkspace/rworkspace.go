@@ -247,10 +247,6 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	if req.Msg.GetName() == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
-	}
-
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
