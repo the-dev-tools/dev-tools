@@ -4,6 +4,7 @@ package workspace.v1;
 option go_package = "dev-tools-services/gen/workspace/v1;workspacev1";
 
 import "google/protobuf/timestamp.proto";
+import "environment/v1/environment.proto";
 
 service WorkspaceService {
   rpc GetWorkspaces(GetWorkspacesRequest) returns (GetWorkspacesResponse);
@@ -21,6 +22,7 @@ message Workspace {
   string id = 1;
   string name = 2;
   google.protobuf.Timestamp updated = 3;
+  environment.v1.Environment environment = 4;
 }
 
 enum Role {
@@ -62,6 +64,7 @@ message CreateWorkspaceResponse {
 message UpdateWorkspaceRequest {
   string id = 1;
   string name = 2;
+  string env_id = 3;
 }
 
 message UpdateWorkspaceResponse {
