@@ -454,19 +454,42 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	}
 
 	var selectedEnv *menv.Env
+	var globalEnv *menv.Env
 	if len(env) != 0 {
+		for _, e := range env {
+			if e.Type == menv.EnvGlobal {
+				globalEnv = &e
+			}
+			if e.Active {
+				selectedEnv = &e
+			}
+		}
+
 		tempEnv := env[0]
 		selectedEnv = &tempEnv
 	}
 
 	var varMap *varsystem.VarMap
 	if selectedEnv != nil {
-		vars, err := c.vs.GetVariableByEnvID(ctx, selectedEnv.ID)
+		currentVars, err := c.vs.GetVariableByEnvID(ctx, selectedEnv.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		tempVarMap := varsystem.NewVarMap(vars)
+		globalVars, err := c.vs.GetVariableByEnvID(ctx, globalEnv.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		tempVarMap := varsystem.NewVarMap(varsystem.MergeVars(globalVars, currentVars))
+
 		varMap = &tempVarMap
+	}
+
+	if varsystem.CheckStringHasAnyVarKey(itemApiCall.Url) {
+		itemApiCall.Url, err = varMap.ReplaceVars(itemApiCall.Url)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+
 	}
 
 	reqHeaders, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
@@ -477,19 +500,19 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 	compressType := compress.CompressTypeNone
 	if varMap != nil {
 		// TODO implement var system
-		for _, query := range reqQueries {
+		for i, query := range reqQueries {
 			if varsystem.CheckIsVar(query.Value) {
 				key := varsystem.GetVarKeyFromRaw(query.Value)
 				val, ok := varMap.Get(key)
 				if ok {
-					query.Value = val.Value
+					reqQueries[i].Value = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
 		}
 
-		for _, header := range reqHeaders {
+		for i, header := range reqHeaders {
 			if header.HeaderKey == "Content-Encoding" {
 				switch strings.ToLower(header.Value) {
 				case "gzip":
@@ -513,7 +536,7 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 				if !ok {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
-				header.Value = val.Value
+				reqHeaders[i].Value = val.Value
 			}
 		}
 	}

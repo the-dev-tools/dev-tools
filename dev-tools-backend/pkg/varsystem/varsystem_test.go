@@ -42,3 +42,66 @@ func TestMergeVars(t *testing.T) {
 		t.Errorf("Expected size of %d, got %d", expectedSize, len(c))
 	}
 }
+
+func TestGetVars(t *testing.T) {
+	const key1 = "key1"
+	const value1 = "value1"
+
+	vs := varsystem.NewVarMap([]mvar.Var{
+		{ID: idwrap.NewNow(), VarKey: key1, EnvID: idwrap.NewNow(), Value: value1},
+	})
+
+	t.Run("raw var", func(t *testing.T) {
+		raw := fmt.Sprintf("{{%s}}", key1)
+		result := varsystem.GetVarKeyFromRaw(raw)
+		if result != key1 {
+			t.Errorf("Expected %s, got %s", key1, result)
+		}
+	})
+
+	t.Run("non-raw var", func(t *testing.T) {
+		wsVar, ok := vs.Get(key1)
+		if !ok {
+			t.Errorf("Expected to get var")
+		}
+		if wsVar.Value != value1 {
+			t.Errorf("Expected %s, got %s", value1, wsVar.Value)
+		}
+	})
+}
+
+func TestLongStringReplace(t *testing.T) {
+	const total_key = 10
+	const total_val = 10
+	const key_prefix = "key_"
+	const val_prefix = "val_"
+
+	const BaseUrl = "https://www.google.com/search?q="
+	var expectedUrl string = BaseUrl
+	var testUrl string = BaseUrl
+	for i := 0; i < total_key; i++ {
+		expectedUrl += fmt.Sprintf("%s%d", val_prefix, i)
+	}
+	for i := 0; i < total_key; i++ {
+		testUrl += fmt.Sprintf("{{%s%d}}", key_prefix, i)
+	}
+
+	a := make([]mvar.Var, total_key)
+	for i := 0; i < total_key; i++ {
+		a[i] = mvar.Var{
+			ID:     idwrap.NewNow(),
+			VarKey: fmt.Sprintf("%s%d", key_prefix, i),
+			EnvID:  idwrap.NewNow(),
+			Value:  fmt.Sprintf("%s%d", val_prefix, i),
+		}
+	}
+
+	vs := varsystem.NewVarMap(a)
+	longUrlNew, err := vs.ReplaceVars(testUrl)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+	if longUrlNew != expectedUrl {
+		t.Errorf("Expected %s , got %s", expectedUrl, longUrlNew)
+	}
+}

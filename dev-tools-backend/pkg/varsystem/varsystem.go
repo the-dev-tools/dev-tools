@@ -3,6 +3,13 @@ package varsystem
 import (
 	"dev-tools-backend/pkg/model/mvar"
 	"dev-tools-backend/pkg/translate/tgeneric"
+	"fmt"
+	"strings"
+)
+
+var (
+	ErrKeyNotFound = fmt.Errorf("key not found")
+	ErrInvalidKey  = fmt.Errorf("invalid key")
 )
 
 type VarMap map[string]mvar.Var
@@ -20,7 +27,7 @@ func (vm VarMap) ToSlice() []mvar.Var {
 }
 
 func (vm VarMap) Get(varKey string) (mvar.Var, bool) {
-	val, ok := vm[varKey]
+	val, ok := vm[strings.TrimSpace(varKey)]
 	if !ok {
 		return mvar.Var{}, false
 	}
@@ -66,4 +73,43 @@ func CheckPrefix(varKey string) bool {
 
 func CheckSuffix(varKey string) bool {
 	return len(varKey) >= mvar.SuffixSize && varKey[len(varKey)-mvar.SuffixSize:] == mvar.Suffix
+}
+
+func CheckStringHasAnyVarKey(raw string) bool {
+	return strings.Contains(raw, mvar.Prefix) && strings.Contains(raw, mvar.Suffix)
+}
+
+// Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
+// returns google.com/api/v1/path
+func (vm VarMap) ReplaceVars(raw string) (string, error) {
+	var result string
+	for {
+		startIndex := strings.Index(raw, mvar.Prefix)
+		if startIndex == -1 {
+			result += raw
+			break
+		}
+
+		endIndex := strings.Index(raw[startIndex:], mvar.Suffix)
+		if endIndex == -1 {
+			return "", ErrInvalidKey
+		}
+
+		key := raw[startIndex : startIndex+endIndex+mvar.SuffixSize]
+		if !CheckIsVar(key) {
+			return "", ErrInvalidKey
+		}
+
+		// Check if key is present in the map
+		key = GetVarKeyFromRaw(key)
+		val, ok := vm.Get(key)
+		if !ok {
+			return "", ErrKeyNotFound
+		}
+
+		result += raw[:startIndex] + val.Value
+		raw = raw[startIndex+mvar.PrefixSize+endIndex:]
+	}
+
+	return result, nil
 }
