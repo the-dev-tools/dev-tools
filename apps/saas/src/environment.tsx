@@ -1,8 +1,10 @@
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
+  createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
+  useTransport,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -17,6 +19,7 @@ import { twJoin } from 'tailwind-merge';
 import { Environment, EnvironmentType } from '@the-dev-tools/protobuf/environment/v1/environment_pb';
 import {
   createEnvironment,
+  getAllVariables,
   getEnvironments,
 } from '@the-dev-tools/protobuf/environment/v1/environment-EnvironmentService_connectquery';
 import { Variable } from '@the-dev-tools/protobuf/variable/v1/variable_pb';
@@ -209,6 +212,11 @@ interface VariablesTableProps extends VariablesTableLoaderProps {
 }
 
 const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
+  const queryClient = useQueryClient();
+  const transport = useTransport();
+
+  const { workspaceId } = workspaceRoute.useParams();
+
   const createMutation = useConnectMutation(createVariable);
   const updateMutation = useConnectMutation(updateVariable);
   const { mutate: deleteMutate } = useConnectMutation(deleteVariable);
@@ -218,6 +226,11 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
   const values = useMemo(() => ({ items: [...variables, makeItem()] }), [makeItem, variables]);
   const { getValues, ...form } = useForm({ values });
   const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+
+  const onChange = useCallback(
+    () => queryClient.invalidateQueries(createQueryOptions(getAllVariables, { workspaceId }, { transport })),
+    [queryClient, transport, workspaceId],
+  );
 
   const columns = useMemo(() => {
     const { accessor, display } = createColumnHelper<Variable>();
@@ -259,6 +272,7 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
               onPress={() => {
                 deleteMutate({ id: getValues(`items.${row.index}.id`) });
                 removeField(row.index);
+                void onChange();
               }}
             >
               <LuTrash2 />
@@ -267,7 +281,7 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
         ),
       }),
     ];
-  }, [form.control, deleteMutate, getValues, removeField]);
+  }, [form.control, deleteMutate, getValues, removeField, onChange]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
@@ -284,6 +298,7 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
     makeItem,
     onCreate: async (variable) => (await createMutation.mutateAsync({ environmentId, variable })).id,
     onUpdate: (variable) => updateMutation.mutateAsync({ variable }),
+    onChange,
   });
 
   return (
