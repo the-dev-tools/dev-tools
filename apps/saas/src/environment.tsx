@@ -29,7 +29,6 @@ import {
   getVariables,
   updateVariable,
 } from '@the-dev-tools/protobuf/variable/v1/variable-VariableService_connectquery';
-import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
 import {
   getWorkspace,
   updateWorkspace,
@@ -75,8 +74,8 @@ export const EnvironmentsWidget = () => {
 
           queryClient.setQueryData(
             createConnectQueryKey(getWorkspace, { id: workspaceId }),
-            createProtobufSafeUpdater(getWorkspace, (_) => ({
-              workspace: new Workspace({ ..._?.workspace, environment }),
+            createProtobufSafeUpdater(getWorkspace, (old) => ({
+              workspace: { ...old?.workspace, environment },
             })),
           );
         }}
@@ -127,9 +126,9 @@ export const EnvironmentsWidget = () => {
 
                         queryClient.setQueryData(
                           createConnectQueryKey(getEnvironments, { workspaceId }),
-                          createProtobufSafeUpdater(getEnvironments, (_) =>
-                            Struct.evolve(_!, { environments: (_) => Array.append(_, environment) }),
-                          ),
+                          createProtobufSafeUpdater(getEnvironments, (old) => ({
+                            environments: Array.append(old?.environments ?? [], environment),
+                          })),
                         );
                       }}
                     >
@@ -291,6 +290,15 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
     columns,
   });
 
+  const setData = useCallback(async () => {
+    await onChange();
+    const variables = Array.dropRight(getValues('items'), 1);
+    queryClient.setQueryData(
+      createConnectQueryKey(getVariables, { environmentId }),
+      createProtobufSafeUpdater(getVariables, { variables }),
+    );
+  }, [environmentId, getValues, onChange, queryClient]);
+
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
@@ -299,6 +307,7 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
     onCreate: async (variable) => (await createMutation.mutateAsync({ environmentId, variable })).id,
     onUpdate: (variable) => updateMutation.mutateAsync({ variable }),
     onChange,
+    setData,
   });
 
   return (

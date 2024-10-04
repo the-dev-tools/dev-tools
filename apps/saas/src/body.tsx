@@ -1,4 +1,6 @@
 import {
+  createConnectQueryKey,
+  createProtobufSafeUpdater,
   createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
@@ -106,7 +108,9 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ body }: FormDataTableProps) => {
-  const { workspaceId, exampleId } = Route.useParams();
+  const queryClient = useQueryClient();
+
+  const { workspaceId, apiCallId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createBodyForm);
   const updateMutation = useConnectMutation(updateBodyForm);
@@ -191,6 +195,20 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
     columns,
   });
 
+  const setData = useCallback(() => {
+    const items = Array.dropRight(getValues('items'), 1);
+    queryClient.setQueryData(
+      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
+      createProtobufSafeUpdater(getApiCall, (old) => ({
+        ...old,
+        example: {
+          ...old?.example,
+          body: new Body({ value: { case: 'forms', value: { items } } }),
+        },
+      })),
+    );
+  }, [apiCallId, exampleId, getValues, queryClient]);
+
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
@@ -198,6 +216,7 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
     makeItem,
     onCreate: async (item) => (await createMutation.mutateAsync({ item })).id,
     onUpdate: (item) => updateMutation.mutateAsync({ item }),
+    setData,
   });
 
   return (
@@ -239,7 +258,9 @@ interface UrlEncodedTableProps {
 }
 
 const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
-  const { workspaceId, exampleId } = Route.useParams();
+  const queryClient = useQueryClient();
+
+  const { workspaceId, apiCallId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createBodyUrlEncoded);
   const updateMutation = useConnectMutation(updateBodyUrlEncoded);
@@ -324,6 +345,20 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
     columns,
   });
 
+  const setData = useCallback(() => {
+    const items = Array.dropRight(getValues('items'), 1);
+    queryClient.setQueryData(
+      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
+      createProtobufSafeUpdater(getApiCall, (old) => ({
+        ...old,
+        example: {
+          ...old?.example,
+          body: new Body({ value: { case: 'forms', value: { items } } }),
+        },
+      })),
+    );
+  }, [apiCallId, exampleId, getValues, queryClient]);
+
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
@@ -331,6 +366,7 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
     makeItem,
     onCreate: async (item) => (await createMutation.mutateAsync({ item })).id,
     onUpdate: (item) => updateMutation.mutateAsync({ item }),
+    setData,
   });
 
   return (

@@ -152,13 +152,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
 
     queryClient.setQueryData(
       createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-      createProtobufSafeUpdater(getApiCall, (_) => ({
-        ..._,
-        example: {
-          ..._!.example,
-          query: newQueryList,
-        },
-      })),
+      createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old?.example, query: newQueryList } })),
     );
   });
 
@@ -207,7 +201,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
                 if (!response) return;
                 queryClient.setQueryData(
                   createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-                  createProtobufSafeUpdater(getApiCall, (_) => ({ ..._, example: { ..._!.example, response } })),
+                  createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old?.example, response } })),
                 );
               }}
             >

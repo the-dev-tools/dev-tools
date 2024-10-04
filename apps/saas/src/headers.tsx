@@ -1,7 +1,13 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import {
+  createConnectQueryKey,
+  createProtobufSafeUpdater,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+} from '@connectrpc/connect-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Struct } from 'effect';
+import { Array, Struct } from 'effect';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
@@ -39,7 +45,9 @@ interface TableProps {
 }
 
 const Table = ({ data }: TableProps) => {
-  const { workspaceId, exampleId } = Route.useParams();
+  const queryClient = useQueryClient();
+
+  const { workspaceId, apiCallId, exampleId } = Route.useParams();
 
   const createMutation = useConnectMutation(createHeader);
   const updateMutation = useConnectMutation(updateHeader);
@@ -124,6 +132,14 @@ const Table = ({ data }: TableProps) => {
     columns,
   });
 
+  const setData = useCallback(() => {
+    const header = Array.dropRight(getValues('items'), 1);
+    queryClient.setQueryData(
+      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
+      createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old!.example, header } })),
+    );
+  }, [apiCallId, exampleId, getValues, queryClient]);
+
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
@@ -131,6 +147,7 @@ const Table = ({ data }: TableProps) => {
     makeItem,
     onCreate: async (header) => (await createMutation.mutateAsync({ header })).id,
     onUpdate: (header) => updateMutation.mutateAsync({ header }),
+    setData,
   });
 
   return (

@@ -1,13 +1,13 @@
 import {
-  createQueryOptions,
+  createConnectQueryKey,
+  createProtobufSafeUpdater,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
-  useTransport,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Struct } from 'effect';
+import { Array, Struct } from 'effect';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
@@ -44,7 +44,6 @@ interface TableProps {
 
 const Table = ({ data }: TableProps) => {
   const queryClient = useQueryClient();
-  const transport = useTransport();
 
   const { workspaceId, apiCallId, exampleId } = Route.useParams();
 
@@ -57,14 +56,17 @@ const Table = ({ data }: TableProps) => {
     [exampleId],
   );
 
-  const onChange = useCallback(
-    () => queryClient.invalidateQueries(createQueryOptions(getApiCall, { id: apiCallId, exampleId }, { transport })),
-    [apiCallId, exampleId, queryClient, transport],
-  );
-
   const values = useMemo(() => ({ items: [...data.example!.query, makeItem()] }), [data.example, makeItem]);
   const { getValues, ...form } = useForm({ values });
   const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+
+  const setData = useCallback(() => {
+    const query = Array.dropRight(getValues('items'), 1);
+    queryClient.setQueryData(
+      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
+      createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old?.example, query } })),
+    );
+  }, [apiCallId, exampleId, getValues, queryClient]);
 
   const columns = useMemo(() => {
     const { accessor, display } = createColumnHelper<Query>();
@@ -118,7 +120,7 @@ const Table = ({ data }: TableProps) => {
               onPress={() => {
                 deleteMutate({ id: getValues(`items.${row.index}.id`) });
                 removeField(row.index);
-                void onChange();
+                void setData();
               }}
             >
               <LuTrash2 />
@@ -127,7 +129,7 @@ const Table = ({ data }: TableProps) => {
         ),
       }),
     ];
-  }, [form.control, workspaceId, deleteMutate, getValues, removeField, onChange]);
+  }, [form.control, workspaceId, deleteMutate, getValues, removeField, setData]);
 
   const table = useReactTable<Query>({
     getCoreRowModel: getCoreRowModel(),
@@ -144,7 +146,8 @@ const Table = ({ data }: TableProps) => {
     makeItem,
     onCreate: async (query) => (await createMutation.mutateAsync({ query })).id,
     onUpdate: (query) => updateMutation.mutateAsync({ query }),
-    onChange,
+    onChange: setData,
+    setData,
   });
 
   return (

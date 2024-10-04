@@ -27,6 +27,7 @@ export interface UseFormTableSyncProps<
   onCreate: (item: TItem) => Promise<string>;
   onUpdate: (item: TItem) => Promise<unknown>;
   onChange?: () => void;
+  setData?: () => void;
 }
 
 export const useFormTableSync = <
@@ -41,6 +42,7 @@ export const useFormTableSync = <
   onUpdate,
   onCreate,
   onChange,
+  setData,
 }: UseFormTableSyncProps<TItem, TField, TFieldValues>) => {
   const isUpdatingItems = useRef(false);
   const updateItemQueueMap = useRef(new Map<string, TItem>());
@@ -89,7 +91,7 @@ export const useFormTableSync = <
     return () => void subscription.unsubscribe();
   }, [field, getValues, updateItems, watch]);
 
-  useEffect(() => () => void updateItems.flush(), [updateItems]);
+  useEffect(() => () => void updateItems.flush()?.then(() => void setData?.()), [setData, updateItems]);
 };
 
 export interface HidePlaceholderCellProps extends ComponentProps<'div'> {
