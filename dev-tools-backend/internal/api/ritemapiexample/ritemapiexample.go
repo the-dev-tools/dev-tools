@@ -459,14 +459,16 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		for _, e := range env {
 			if e.Type == menv.EnvGlobal {
 				globalEnv = &e
+				continue
 			}
 			if e.Active {
 				selectedEnv = &e
+				continue
 			}
 		}
-
-		tempEnv := env[0]
-		selectedEnv = &tempEnv
+	}
+	if selectedEnv == nil {
+		selectedEnv = globalEnv
 	}
 
 	var varMap *varsystem.VarMap
@@ -480,7 +482,6 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		tempVarMap := varsystem.NewVarMap(varsystem.MergeVars(globalVars, currentVars))
-
 		varMap = &tempVarMap
 	}
 
