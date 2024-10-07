@@ -22,11 +22,16 @@ import {
   updateCollection,
 } from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 import { ApiCallMeta } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
-import { createApiCall, deleteApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import {
+  createApiCall,
+  deleteApiCall,
+  dupeApiCall,
+} from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { ApiExampleMeta } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import {
   createExample,
   deleteExample,
+  dupeExample,
 } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
@@ -378,6 +383,7 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
 
   const invalidateList = useInvalidateList();
   const deleteMutation = useConnectMutation(deleteApiCall, { onSuccess: invalidateList });
+  const duplicateMutation = useConnectMutation(dupeApiCall, { onSuccess: invalidateList });
   const createExampleMutation = useConnectMutation(createExample, { onSuccess: invalidateList });
 
   return (
@@ -412,6 +418,8 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
             Add Example
           </MenuItem>
 
+          <MenuItem onAction={() => void duplicateMutation.mutate({ id: meta.id })}>Duplicate</MenuItem>
+
           <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
             Delete
           </MenuItem>
@@ -431,6 +439,7 @@ const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
 
   const invalidateList = useInvalidateList();
   const deleteMutation = useConnectMutation(deleteExample, { onSuccess: invalidateList });
+  const duplicateMutation = useConnectMutation(dupeExample, { onSuccess: invalidateList });
 
   return (
     <TreeItem
@@ -452,6 +461,8 @@ const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
         </Button>
 
         <Menu>
+          <MenuItem onAction={() => void duplicateMutation.mutate({ id: meta.id })}>Duplicate</MenuItem>
+
           <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
             Delete
           </MenuItem>
