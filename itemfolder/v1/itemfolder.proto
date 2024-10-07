@@ -40,11 +40,8 @@ message ItemMeta {
   }
 }
 
-
 message CreateFolderRequest {
-  string name = 1;
-  string collection_id = 2;
-  string parent_id = 3;
+  Folder folder = 1;
 }
 
 message CreateFolderResponse {
