@@ -21,11 +21,11 @@
     "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@types/react": "~18.3.11",
-    "effect": "~3.8.4",
+    "effect": "~3.9.0",
     "react": "~18.3.1",
     "react-dom": "~18.3.1",
     "react-email": "~3.0.1",
-    "tailwind-merge": "~2.5.2",
+    "tailwind-merge": "~2.5.3",
     "tailwindcss": "~3.4.13",
     "typescript": "~5.6.2"
   }
