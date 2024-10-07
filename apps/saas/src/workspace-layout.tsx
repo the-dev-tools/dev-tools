@@ -180,11 +180,19 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
         <Menu>
           <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem onAction={() => void createApiCallMutation.mutate({ collectionId: meta.id, name: 'New API call' })}>
+          <MenuItem
+            onAction={() =>
+              void createApiCallMutation.mutate({ data: { collectionId: meta.id, meta: { name: 'New API call' } } })
+            }
+          >
             Add Request
           </MenuItem>
 
-          <MenuItem onAction={() => void createFolderMutation.mutate({ collectionId: meta.id, name: 'New folder' })}>
+          <MenuItem
+            onAction={() =>
+              void createFolderMutation.mutate({ folder: { collectionId: meta.id, meta: { name: 'New folder' } } })
+            }
+          >
             Add Folder
           </MenuItem>
 
@@ -287,11 +295,19 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
         <Menu>
           <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem onAction={() => void createApiCallMutation.mutate({ collectionId: meta.id, name: 'New API call' })}>
+          <MenuItem
+            onAction={() =>
+              void createApiCallMutation.mutate({ data: { collectionId: meta.id, meta: { name: 'New API call' } } })
+            }
+          >
             Add Request
           </MenuItem>
 
-          <MenuItem onAction={() => void createFolderMutation.mutate({ collectionId: meta.id, name: 'New folder' })}>
+          <MenuItem
+            onAction={() =>
+              void createFolderMutation.mutate({ folder: { collectionId: meta.id, meta: { name: 'New folder' } } })
+            }
+          >
             Add Folder
           </MenuItem>
 
