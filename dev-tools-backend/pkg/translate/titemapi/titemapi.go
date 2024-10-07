@@ -21,22 +21,24 @@ func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
 }
 
 func SeralizeRPCToModelWithoutID(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
+	var parentID *idwrap.IDWrap
+	var meta *itemapiv1.ApiCallMeta
 	if item == nil {
 		item = &itemapiv1.ApiCall{}
-	}
-	meta := item.GetMeta()
-	if meta == nil {
-		meta = &itemapiv1.ApiCallMeta{}
-	}
-
-	var parentID *idwrap.IDWrap = nil
-	parentIDStr := item.GetParentId()
-	if parentIDStr != "" {
-		tempParentID, err := idwrap.NewWithParse(parentIDStr)
-		if err != nil {
-			return nil, err
+	} else {
+		meta := item.GetMeta()
+		if meta == nil {
+			meta = &itemapiv1.ApiCallMeta{}
 		}
-		parentID = &tempParentID
+
+		parentIDStr := item.GetParentId()
+		if parentIDStr != "" {
+			tempParentID, err := idwrap.NewWithParse(parentIDStr)
+			if err != nil {
+				return nil, err
+			}
+			parentID = &tempParentID
+		}
 	}
 
 	collectionID, err := idwrap.NewWithParse(item.GetCollectionId())

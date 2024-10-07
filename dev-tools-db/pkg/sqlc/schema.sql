@@ -246,7 +246,7 @@ CREATE TABLE variable (
     description TEXT NOT NULL,
     UNIQUE (env_id, var_key),
     FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,

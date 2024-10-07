@@ -11,6 +11,7 @@ import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sassert"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
@@ -168,21 +169,15 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	ok, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, itemApiReq.CollectionID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(collection.CheckOwnerCollection(ctx, *c.cs, *c.us, itemApiReq.CollectionID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	if itemApiReq.ParentID != nil {
-		ok, err := ritemfolder.CheckOwnerFolder(ctx, *c.ifs, *c.cs, *c.us, *itemApiReq.ParentID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		if !ok {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		rpcErr := permcheck.CheckPerm(ritemfolder.CheckOwnerFolder(ctx, *c.ifs, *c.cs, *c.us, *itemApiReq.ParentID))
+		if rpcErr != nil {
+			return nil, rpcErr
 		}
 	}
 
@@ -208,8 +203,7 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 	}
 
 	respRaw := &itemapiv1.CreateApiCallResponse{
-		Id:   itemApiReq.ID.String(),
-		Name: req.Msg.GetName(),
+		Id: itemApiReq.ID.String(),
 	}
 	return connect.NewResponse(respRaw), nil
 }
