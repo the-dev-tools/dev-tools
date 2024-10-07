@@ -61,6 +61,9 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 
 func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[itemfolderv1.CreateFolderRequest]) (*connect.Response[itemfolderv1.CreateFolderResponse], error) {
 	reqFolder, err := tfolder.SeralizeRPCToModelWithoutID(req.Msg.Folder)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	reqFolder.ID = idwrap.NewNow()
 
 	rpcErr := permcheck.CheckPerm(collection.CheckOwnerCollection(ctx, c.cs, c.us, reqFolder.CollectionID))

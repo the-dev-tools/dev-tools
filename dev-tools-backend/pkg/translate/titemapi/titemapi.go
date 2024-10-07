@@ -5,6 +5,7 @@ import (
 	"dev-tools-backend/pkg/model/mitemapi"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	"errors"
 )
 
 func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
@@ -21,24 +22,22 @@ func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
 }
 
 func SeralizeRPCToModelWithoutID(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
-	var parentID *idwrap.IDWrap
-	var meta *itemapiv1.ApiCallMeta
 	if item == nil {
-		item = &itemapiv1.ApiCall{}
-	} else {
-		meta := item.GetMeta()
-		if meta == nil {
-			meta = &itemapiv1.ApiCallMeta{}
-		}
+		return nil, errors.New("item is nil")
+	}
+	if item.Meta == nil {
+		return nil, errors.New("meta is nil")
+	}
+	meta := item.Meta
 
-		parentIDStr := item.GetParentId()
-		if parentIDStr != "" {
-			tempParentID, err := idwrap.NewWithParse(parentIDStr)
-			if err != nil {
-				return nil, err
-			}
-			parentID = &tempParentID
+	var parentID *idwrap.IDWrap
+	parentIDStr := item.GetParentId()
+	if parentIDStr != "" {
+		tempParentID, err := idwrap.NewWithParse(parentIDStr)
+		if err != nil {
+			return nil, err
 		}
+		parentID = &tempParentID
 	}
 
 	collectionID, err := idwrap.NewWithParse(item.GetCollectionId())
