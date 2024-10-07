@@ -247,3 +247,25 @@ CREATE TABLE variable (
     UNIQUE (env_id, var_key),
     FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
 )
+
+CREATE TABLE assertion (
+  id BLOB NOT NULL PRIMARY KEY,
+  item_api_id BLOB NOT NULL,
+  collection_id BLOB NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  value TEXT NOT NULL,
+  enable BOOLEAN NOT NULL DEFAULT TRUE,
+  prev BLOB,
+  next BLOB,
+  FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
+  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
+);
+
+CREATE TABLE assertion_result (
+  id BLOB NOT NULL PRIMARY KEY,
+  assertion_id BLOB NOT NULL,
+  result BOOLEAN NOT NULL,
+  asserted_value TEXT NOT NULL,
+  FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
+);

@@ -43,6 +43,64 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 	return column_1, err
 }
 
+const createAssert = `-- name: CreateAssert :exec
+INSERT INTO
+  assertion (id, item_api_id, collection_id, name, description, value, enable, prev, next)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateAssertParams struct {
+	ID           []byte
+	ItemApiID    []byte
+	CollectionID []byte
+	Name         string
+	Description  string
+	Value        string
+	Enable       bool
+	Prev         []byte
+	Next         []byte
+}
+
+func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) error {
+	_, err := q.exec(ctx, q.createAssertStmt, createAssert,
+		arg.ID,
+		arg.ItemApiID,
+		arg.CollectionID,
+		arg.Name,
+		arg.Description,
+		arg.Value,
+		arg.Enable,
+		arg.Prev,
+		arg.Next,
+	)
+	return err
+}
+
+const createAssertResult = `-- name: CreateAssertResult :exec
+INSERT INTO
+  assertion_result (id, assertion_id, result, asserted_value)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateAssertResultParams struct {
+	ID            []byte
+	AssertionID   []byte
+	Result        bool
+	AssertedValue string
+}
+
+func (q *Queries) CreateAssertResult(ctx context.Context, arg CreateAssertResultParams) error {
+	_, err := q.exec(ctx, q.createAssertResultStmt, createAssertResult,
+		arg.ID,
+		arg.AssertionID,
+		arg.Result,
+		arg.AssertedValue,
+	)
+	return err
+}
+
 const createBodyForm = `-- name: CreateBodyForm :exec
 
 INSERT INTO
@@ -1833,6 +1891,28 @@ func (q *Queries) CreateWorkspaceUser(ctx context.Context, arg CreateWorkspaceUs
 	return err
 }
 
+const deleteAssert = `-- name: DeleteAssert :exec
+DELETE FROM assertion
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteAssert(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteAssertStmt, deleteAssert, id)
+	return err
+}
+
+const deleteAssertResult = `-- name: DeleteAssertResult :exec
+DELETE FROM assertion_result
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteAssertResult(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteAssertResultStmt, deleteAssertResult, id)
+	return err
+}
+
 const deleteBodyForm = `-- name: DeleteBodyForm :exec
 DELETE FROM example_body_form
 WHERE
@@ -2047,6 +2127,164 @@ func (q *Queries) GetActiveEnvironmentsByWorkspaceID(ctx context.Context, worksp
 		&i.Description,
 	)
 	return i, err
+}
+
+const getAssert = `-- name: GetAssert :one
+/*
+* INFO: Asserts
+*/
+
+SELECT 
+  id,
+  item_api_id,
+  collection_id,
+  name,
+  description,
+  value,
+  enable,
+  prev,
+  next
+FROM 
+  assertion
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetAssert(ctx context.Context, id []byte) (Assertion, error) {
+	row := q.queryRow(ctx, q.getAssertStmt, getAssert, id)
+	var i Assertion
+	err := row.Scan(
+		&i.ID,
+		&i.ItemApiID,
+		&i.CollectionID,
+		&i.Name,
+		&i.Description,
+		&i.Value,
+		&i.Enable,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
+const getAssertResult = `-- name: GetAssertResult :one
+/*
+* INFO: assert_result
+*/
+
+SELECT 
+  id,
+  assertion_id,
+  result,
+  asserted_value
+FROM 
+  assertion_result
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetAssertResult(ctx context.Context, id []byte) (AssertionResult, error) {
+	row := q.queryRow(ctx, q.getAssertResultStmt, getAssertResult, id)
+	var i AssertionResult
+	err := row.Scan(
+		&i.ID,
+		&i.AssertionID,
+		&i.Result,
+		&i.AssertedValue,
+	)
+	return i, err
+}
+
+const getAssertResultsByAssertID = `-- name: GetAssertResultsByAssertID :many
+SELECT 
+  id,
+  assertion_id,
+  result,
+  asserted_value
+FROM 
+  assertion_result
+WHERE
+  assertion_id = ?
+`
+
+func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID []byte) ([]AssertionResult, error) {
+	rows, err := q.query(ctx, q.getAssertResultsByAssertIDStmt, getAssertResultsByAssertID, assertionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AssertionResult{}
+	for rows.Next() {
+		var i AssertionResult
+		if err := rows.Scan(
+			&i.ID,
+			&i.AssertionID,
+			&i.Result,
+			&i.AssertedValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAssertsByItemApiID = `-- name: GetAssertsByItemApiID :many
+SELECT 
+  id,
+  item_api_id,
+  collection_id,
+  name,
+  description,
+  value,
+  enable,
+  prev,
+  next
+FROM 
+  assertion
+WHERE
+  item_api_id = ?
+`
+
+func (q *Queries) GetAssertsByItemApiID(ctx context.Context, itemApiID []byte) ([]Assertion, error) {
+	rows, err := q.query(ctx, q.getAssertsByItemApiIDStmt, getAssertsByItemApiID, itemApiID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Assertion{}
+	for rows.Next() {
+		var i Assertion
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.Name,
+			&i.Description,
+			&i.Value,
+			&i.Enable,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getBodyForm = `-- name: GetBodyForm :one
@@ -3742,6 +3980,56 @@ type SetQueryEnableParams struct {
 
 func (q *Queries) SetQueryEnable(ctx context.Context, arg SetQueryEnableParams) error {
 	_, err := q.exec(ctx, q.setQueryEnableStmt, setQueryEnable, arg.Enable, arg.ID)
+	return err
+}
+
+const updateAssert = `-- name: UpdateAssert :exec
+UPDATE assertion
+SET
+  name = ?,
+  description = ?,
+  value = ?,
+  enable = ?
+WHERE
+  id = ?
+`
+
+type UpdateAssertParams struct {
+	Name        string
+	Description string
+	Value       string
+	Enable      bool
+	ID          []byte
+}
+
+func (q *Queries) UpdateAssert(ctx context.Context, arg UpdateAssertParams) error {
+	_, err := q.exec(ctx, q.updateAssertStmt, updateAssert,
+		arg.Name,
+		arg.Description,
+		arg.Value,
+		arg.Enable,
+		arg.ID,
+	)
+	return err
+}
+
+const updateAssertResult = `-- name: UpdateAssertResult :exec
+UPDATE assertion_result
+SET
+  result = ?,
+  asserted_value = ?
+WHERE
+  id = ?
+`
+
+type UpdateAssertResultParams struct {
+	Result        bool
+	AssertedValue string
+	ID            []byte
+}
+
+func (q *Queries) UpdateAssertResult(ctx context.Context, arg UpdateAssertResultParams) error {
+	_, err := q.exec(ctx, q.updateAssertResultStmt, updateAssertResult, arg.Result, arg.AssertedValue, arg.ID)
 	return err
 }
 

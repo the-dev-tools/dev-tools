@@ -756,6 +756,19 @@ func CheckOwnerQuery(ctx context.Context, qs sexamplequery.ExampleQueryService, 
 	return CheckOwnerExample(ctx, iaes, cs, us, query.ExampleID)
 }
 
+// Asserts
+func (c ItemAPIExampleRPC) CreateAssert(context.Context, *connect.Request[itemapiexamplev1.CreateAssertRequest]) (*connect.Response[itemapiexamplev1.CreateAssertResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateAssert is not implemented"))
+}
+
+func (c ItemAPIExampleRPC) UpdateAssert(context.Context, *connect.Request[itemapiexamplev1.UpdateAssertRequest]) (*connect.Response[itemapiexamplev1.UpdateAssertResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.UpdateAssert is not implemented"))
+}
+
+func (c ItemAPIExampleRPC) DeleteAssert(context.Context, *connect.Request[itemapiexamplev1.DeleteAssertRequest]) (*connect.Response[itemapiexamplev1.DeleteAssertResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DeleteAssert is not implemented"))
+}
+
 // Headers
 func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
 	headerData := req.Msg.GetHeader()

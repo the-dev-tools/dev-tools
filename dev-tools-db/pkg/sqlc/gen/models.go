@@ -11,6 +11,25 @@ import (
 	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
 )
 
+type Assertion struct {
+	ID           []byte
+	ItemApiID    []byte
+	CollectionID []byte
+	Name         string
+	Description  string
+	Value        string
+	Enable       bool
+	Prev         []byte
+	Next         []byte
+}
+
+type AssertionResult struct {
+	ID            []byte
+	AssertionID   []byte
+	Result        bool
+	AssertedValue string
+}
+
 type Collection struct {
 	ID      idwrap.IDWrap
 	OwnerID idwrap.IDWrap

@@ -1251,3 +1251,107 @@ DELETE FROM example_resp_header
 WHERE
   id = ?;
 
+
+/*
+* INFO: Asserts
+*/
+
+-- name: GetAssert :one
+SELECT 
+  id,
+  item_api_id,
+  collection_id,
+  name,
+  description,
+  value,
+  enable,
+  prev,
+  next
+FROM 
+  assertion
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetAssertsByItemApiID :many
+SELECT 
+  id,
+  item_api_id,
+  collection_id,
+  name,
+  description,
+  value,
+  enable,
+  prev,
+  next
+FROM 
+  assertion
+WHERE
+  item_api_id = ?;
+
+-- name: CreateAssert :exec
+INSERT INTO
+  assertion (id, item_api_id, collection_id, name, description, value, enable, prev, next)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateAssert :exec
+UPDATE assertion
+SET
+  name = ?,
+  description = ?,
+  value = ?,
+  enable = ?
+WHERE
+  id = ?;
+
+-- name: DeleteAssert :exec
+DELETE FROM assertion
+WHERE
+  id = ?;
+
+/*
+* INFO: assert_result
+*/
+
+-- name: GetAssertResult :one
+SELECT 
+  id,
+  assertion_id,
+  result,
+  asserted_value
+FROM 
+  assertion_result
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetAssertResultsByAssertID :many
+SELECT 
+  id,
+  assertion_id,
+  result,
+  asserted_value
+FROM 
+  assertion_result
+WHERE
+  assertion_id = ?;
+
+-- name: CreateAssertResult :exec
+INSERT INTO
+  assertion_result (id, assertion_id, result, asserted_value)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateAssertResult :exec
+UPDATE assertion_result
+SET
+  result = ?,
+  asserted_value = ?
+WHERE
+  id = ?;
+
+-- name: DeleteAssertResult :exec
+DELETE FROM assertion_result
+WHERE
+  id = ?;

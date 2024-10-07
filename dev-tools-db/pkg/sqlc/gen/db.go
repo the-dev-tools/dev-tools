@@ -27,6 +27,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.checkIFWorkspaceUserExistsStmt, err = db.PrepareContext(ctx, checkIFWorkspaceUserExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckIFWorkspaceUserExists: %w", err)
 	}
+	if q.createAssertStmt, err = db.PrepareContext(ctx, createAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateAssert: %w", err)
+	}
+	if q.createAssertResultStmt, err = db.PrepareContext(ctx, createAssertResult); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateAssertResult: %w", err)
+	}
 	if q.createBodyFormStmt, err = db.PrepareContext(ctx, createBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateBodyForm: %w", err)
 	}
@@ -105,6 +111,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createWorkspaceUserStmt, err = db.PrepareContext(ctx, createWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspaceUser: %w", err)
 	}
+	if q.deleteAssertStmt, err = db.PrepareContext(ctx, deleteAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAssert: %w", err)
+	}
+	if q.deleteAssertResultStmt, err = db.PrepareContext(ctx, deleteAssertResult); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAssertResult: %w", err)
+	}
 	if q.deleteBodyFormStmt, err = db.PrepareContext(ctx, deleteBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteBodyForm: %w", err)
 	}
@@ -158,6 +170,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getActiveEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getActiveEnvironmentsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetActiveEnvironmentsByWorkspaceID: %w", err)
+	}
+	if q.getAssertStmt, err = db.PrepareContext(ctx, getAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssert: %w", err)
+	}
+	if q.getAssertResultStmt, err = db.PrepareContext(ctx, getAssertResult); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertResult: %w", err)
+	}
+	if q.getAssertResultsByAssertIDStmt, err = db.PrepareContext(ctx, getAssertResultsByAssertID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertResultsByAssertID: %w", err)
+	}
+	if q.getAssertsByItemApiIDStmt, err = db.PrepareContext(ctx, getAssertsByItemApiID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertsByItemApiID: %w", err)
 	}
 	if q.getBodyFormStmt, err = db.PrepareContext(ctx, getBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyForm: %w", err)
@@ -309,6 +333,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.setQueryEnableStmt, err = db.PrepareContext(ctx, setQueryEnable); err != nil {
 		return nil, fmt.Errorf("error preparing query SetQueryEnable: %w", err)
 	}
+	if q.updateAssertStmt, err = db.PrepareContext(ctx, updateAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAssert: %w", err)
+	}
+	if q.updateAssertResultStmt, err = db.PrepareContext(ctx, updateAssertResult); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAssertResult: %w", err)
+	}
 	if q.updateBodyFormStmt, err = db.PrepareContext(ctx, updateBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateBodyForm: %w", err)
 	}
@@ -371,6 +401,16 @@ func (q *Queries) Close() error {
 	if q.checkIFWorkspaceUserExistsStmt != nil {
 		if cerr := q.checkIFWorkspaceUserExistsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing checkIFWorkspaceUserExistsStmt: %w", cerr)
+		}
+	}
+	if q.createAssertStmt != nil {
+		if cerr := q.createAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createAssertStmt: %w", cerr)
+		}
+	}
+	if q.createAssertResultStmt != nil {
+		if cerr := q.createAssertResultStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createAssertResultStmt: %w", cerr)
 		}
 	}
 	if q.createBodyFormStmt != nil {
@@ -503,6 +543,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.deleteAssertStmt != nil {
+		if cerr := q.deleteAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAssertStmt: %w", cerr)
+		}
+	}
+	if q.deleteAssertResultStmt != nil {
+		if cerr := q.deleteAssertResultStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAssertResultStmt: %w", cerr)
+		}
+	}
 	if q.deleteBodyFormStmt != nil {
 		if cerr := q.deleteBodyFormStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteBodyFormStmt: %w", cerr)
@@ -591,6 +641,26 @@ func (q *Queries) Close() error {
 	if q.getActiveEnvironmentsByWorkspaceIDStmt != nil {
 		if cerr := q.getActiveEnvironmentsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getActiveEnvironmentsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getAssertStmt != nil {
+		if cerr := q.getAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertStmt: %w", cerr)
+		}
+	}
+	if q.getAssertResultStmt != nil {
+		if cerr := q.getAssertResultStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertResultStmt: %w", cerr)
+		}
+	}
+	if q.getAssertResultsByAssertIDStmt != nil {
+		if cerr := q.getAssertResultsByAssertIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertResultsByAssertIDStmt: %w", cerr)
+		}
+	}
+	if q.getAssertsByItemApiIDStmt != nil {
+		if cerr := q.getAssertsByItemApiIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertsByItemApiIDStmt: %w", cerr)
 		}
 	}
 	if q.getBodyFormStmt != nil {
@@ -843,6 +913,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing setQueryEnableStmt: %w", cerr)
 		}
 	}
+	if q.updateAssertStmt != nil {
+		if cerr := q.updateAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAssertStmt: %w", cerr)
+		}
+	}
+	if q.updateAssertResultStmt != nil {
+		if cerr := q.updateAssertResultStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAssertResultStmt: %w", cerr)
+		}
+	}
 	if q.updateBodyFormStmt != nil {
 		if cerr := q.updateBodyFormStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateBodyFormStmt: %w", cerr)
@@ -973,6 +1053,8 @@ type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
+	createAssertStmt                           *sql.Stmt
+	createAssertResultStmt                     *sql.Stmt
 	createBodyFormStmt                         *sql.Stmt
 	createBodyFormBulkStmt                     *sql.Stmt
 	createBodyRawStmt                          *sql.Stmt
@@ -999,6 +1081,8 @@ type Queries struct {
 	createVariableBulkStmt                     *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
+	deleteAssertStmt                           *sql.Stmt
+	deleteAssertResultStmt                     *sql.Stmt
 	deleteBodyFormStmt                         *sql.Stmt
 	deleteBodyRawStmt                          *sql.Stmt
 	deleteBodyURLEncodedStmt                   *sql.Stmt
@@ -1017,6 +1101,10 @@ type Queries struct {
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
 	getActiveEnvironmentsByWorkspaceIDStmt     *sql.Stmt
+	getAssertStmt                              *sql.Stmt
+	getAssertResultStmt                        *sql.Stmt
+	getAssertResultsByAssertIDStmt             *sql.Stmt
+	getAssertsByItemApiIDStmt                  *sql.Stmt
 	getBodyFormStmt                            *sql.Stmt
 	getBodyFormsByExampleIDStmt                *sql.Stmt
 	getBodyRawStmt                             *sql.Stmt
@@ -1067,6 +1155,8 @@ type Queries struct {
 	setBodyFormEnableStmt                      *sql.Stmt
 	setHeaderEnableStmt                        *sql.Stmt
 	setQueryEnableStmt                         *sql.Stmt
+	updateAssertStmt                           *sql.Stmt
+	updateAssertResultStmt                     *sql.Stmt
 	updateBodyFormStmt                         *sql.Stmt
 	updateBodyRawDataStmt                      *sql.Stmt
 	updateBodyUrlEncodedStmt                   *sql.Stmt
@@ -1092,6 +1182,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                         tx,
 		tx:                                         tx,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
+		createAssertStmt:                           q.createAssertStmt,
+		createAssertResultStmt:                     q.createAssertResultStmt,
 		createBodyFormStmt:                         q.createBodyFormStmt,
 		createBodyFormBulkStmt:                     q.createBodyFormBulkStmt,
 		createBodyRawStmt:                          q.createBodyRawStmt,
@@ -1118,6 +1210,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createVariableBulkStmt:                     q.createVariableBulkStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
+		deleteAssertStmt:                           q.deleteAssertStmt,
+		deleteAssertResultStmt:                     q.deleteAssertResultStmt,
 		deleteBodyFormStmt:                         q.deleteBodyFormStmt,
 		deleteBodyRawStmt:                          q.deleteBodyRawStmt,
 		deleteBodyURLEncodedStmt:                   q.deleteBodyURLEncodedStmt,
@@ -1136,6 +1230,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
 		getActiveEnvironmentsByWorkspaceIDStmt:     q.getActiveEnvironmentsByWorkspaceIDStmt,
+		getAssertStmt:                              q.getAssertStmt,
+		getAssertResultStmt:                        q.getAssertResultStmt,
+		getAssertResultsByAssertIDStmt:             q.getAssertResultsByAssertIDStmt,
+		getAssertsByItemApiIDStmt:                  q.getAssertsByItemApiIDStmt,
 		getBodyFormStmt:                            q.getBodyFormStmt,
 		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,
 		getBodyRawStmt:                             q.getBodyRawStmt,
@@ -1186,6 +1284,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		setBodyFormEnableStmt:                      q.setBodyFormEnableStmt,
 		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
 		setQueryEnableStmt:                         q.setQueryEnableStmt,
+		updateAssertStmt:                           q.updateAssertStmt,
+		updateAssertResultStmt:                     q.updateAssertResultStmt,
 		updateBodyFormStmt:                         q.updateBodyFormStmt,
 		updateBodyRawDataStmt:                      q.updateBodyRawDataStmt,
 		updateBodyUrlEncodedStmt:                   q.updateBodyUrlEncodedStmt,
