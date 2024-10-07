@@ -66,6 +66,7 @@ message ApiExample {
   google.protobuf.Timestamp updated = 4;
   body.v1.Body body = 5;
   ApiExampleResponse response = 6;
+  repeated Asssert asserts = 7;
 }
 
 // ## Reponse
