@@ -166,7 +166,7 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
     <TreeItem
       textValue={meta.name}
       childItems={meta.items}
-      childItem={(_) => <FolderItemTree id={_.meta.value!.id} item={_} />}
+      childItem={(_) => <FolderItemTree id={_.meta.value!.id} collectionId={meta.id} item={_} />}
     >
       <Text ref={triggerRef} className='flex-1 truncate'>
         {meta.name}
@@ -248,23 +248,25 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
 
 interface FolderItemTreeProps {
   id: string;
+  collectionId: string;
   item: ItemMeta;
 }
 
-const FolderItemTree = ({ item }: FolderItemTreeProps) =>
+const FolderItemTree = ({ collectionId, item }: FolderItemTreeProps) =>
   pipe(
     item.meta,
     Match.value,
-    Match.when({ case: 'folderMeta' }, (_) => <FolderTree meta={_.value} />),
+    Match.when({ case: 'folderMeta' }, (_) => <FolderTree collectionId={collectionId} meta={_.value} />),
     Match.when({ case: 'apiCallMeta' }, (_) => <ApiCallTree meta={_.value} />),
     Match.orElse(() => null),
   );
 
 interface FolderTreeProps {
+  collectionId: string;
   meta: FolderMeta;
 }
 
-const FolderTree = ({ meta }: FolderTreeProps) => {
+const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
   const invalidateList = useInvalidateList();
   const deleteMutation = useConnectMutation(deleteFolder, { onSuccess: invalidateList });
   const updateMutation = useConnectMutation(updateFolder, { onSuccess: invalidateList });
@@ -279,7 +281,7 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
     <TreeItem
       textValue={meta.name}
       childItems={meta.items}
-      childItem={(_) => <FolderItemTree id={_.meta.value!.id} item={_} />}
+      childItem={(_) => <FolderItemTree id={_.meta.value!.id} collectionId={collectionId} item={_} />}
     >
       <LuFolder />
 
@@ -297,7 +299,9 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createApiCallMutation.mutate({ data: { collectionId: meta.id, meta: { name: 'New API call' } } })
+              void createApiCallMutation.mutate({
+                data: { collectionId, parentId: meta.id, meta: { name: 'New API call' } },
+              })
             }
           >
             Add Request
@@ -305,7 +309,9 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createFolderMutation.mutate({ folder: { collectionId: meta.id, meta: { name: 'New folder' } } })
+              void createFolderMutation.mutate({
+                folder: { collectionId, parentId: meta.id, meta: { name: 'New folder' } },
+              })
             }
           >
             Add Folder
