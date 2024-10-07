@@ -29,14 +29,11 @@ message ApiCall {
 }
 
 message CreateApiCallRequest {
-  string collection_id = 1;
-  string name = 2;
-  ApiCall data = 3;
+  ApiCall data = 1;
 }
 
 message CreateApiCallResponse {
   string id = 1;
-  string name = 2;
 }
 
 message DupeApiCallRequest {
