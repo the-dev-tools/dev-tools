@@ -75,7 +75,33 @@ func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[i
 		return nil, rpcErr
 	}
 
-	err = c.ifs.CreateItemFolder(ctx, reqFolder)
+	folder, err := c.ifs.GetLastFolder(ctx, reqFolder.CollectionID, reqFolder.ParentID, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	reqFolder.Prev = &folder.ID
+	folder.Next = &reqFolder.ID
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	ifsTX, err := sitemfolder.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = ifsTX.UpdateItemFolder(ctx, folder)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = ifsTX.CreateItemFolder(ctx, reqFolder)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

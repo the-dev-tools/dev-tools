@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
+	"errors"
 	"slices"
 )
 
@@ -78,12 +79,134 @@ func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, col
 	return tgeneric.MassConvert(rawFolders, ConvertToModelItemFolder), nil
 }
 
+func (ifs ItemFolderService) UpdateOrder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
+	folders, err := ifs.GetFoldersWithCollectionID(ctx, folder.CollectionID)
+	if err != nil {
+		return err
+	}
+
+	parentIDPtr := folder.ParentID
+	if parentIDPtr == nil {
+		tempID, err := idwrap.NewFromBytes(make([]byte, 0))
+		if err != nil {
+			return err
+		}
+		parentIDPtr = &tempID
+	}
+	parentFolders := make([]mitemfolder.ItemFolder, 0)
+	parentID := *parentIDPtr
+	for _, folder := range folders {
+		if folder.ParentID.Compare(parentID) == 0 {
+			parentFolders = append(parentFolders, folder)
+		}
+	}
+
+	sameLevelFolderMap := make(map[idwrap.IDWrap]mitemfolder.ItemFolder)
+	for _, folder := range parentFolders {
+		sameLevelFolderMap[folder.ID] = folder
+	}
+
+	var folderPrev *mitemfolder.ItemFolder
+	if folder.Prev != nil {
+		parentFolder, ok := sameLevelFolderMap[*folder.Prev]
+		if !ok {
+			return ErrNoItemFolderFound
+		}
+		folderPrev = &parentFolder
+	}
+	var folderNext *mitemfolder.ItemFolder
+	if folder.Next != nil {
+		childFolder, ok := sameLevelFolderMap[*folder.Next]
+		if !ok {
+			return ErrNoItemFolderFound
+		}
+		folderNext = &childFolder
+	}
+
+	if folderPrev != nil {
+		if folderPrev.Next != nil {
+			if folder.Prev != nil {
+				if folderPrev.Next.Compare(*folder.Prev) != 0 {
+					return errors.New("ordering is not right next and prev not match")
+				}
+			} else {
+				return errors.New("ordering is not right next and prev not match")
+			}
+		}
+		if folderPrev.Next != folder.Next {
+			return errors.New("ordering is not right next and prev not match")
+		}
+		folder.Prev = &folderPrev.ID
+		folderPrev.Next = &folder.ID
+	}
+	if folderNext != nil {
+		if folderNext.Prev != nil {
+			if folder.Next != nil {
+				if folderNext.Prev.Compare(*folder.Next) != 0 {
+					return errors.New("ordering is not right next and prev not match")
+				}
+			} else {
+				return errors.New("ordering is not right next and prev not match")
+			}
+		}
+		folder.Next = &folderNext.ID
+		folderNext.Prev = &folder.ID
+	}
+
+	err = ifs.UpdateItemFolder(ctx, folder)
+	if err != nil {
+		return err
+	}
+	err = ifs.UpdateItemFolder(ctx, folderPrev)
+	if err != nil {
+		return err
+	}
+	return ifs.UpdateItemFolder(ctx, folderNext)
+}
+
+func (ifs ItemFolderService) GetLastFolder(ctx context.Context, collectionID idwrap.IDWrap, parentIDPtr, targetIDPtr *idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
+	folders, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	var folderParentSelected []mitemfolder.ItemFolder
+	if parentIDPtr != nil {
+		for _, folder := range folders {
+			if folder.ParentID == nil {
+				folderParentSelected = append(folderParentSelected, folder)
+			}
+		}
+	} else {
+		for _, folder := range folders {
+			if folder.ParentID.Compare(*parentIDPtr) == 0 {
+				folderParentSelected = append(folderParentSelected, folder)
+			}
+		}
+	}
+	if targetIDPtr == nil {
+		for _, folder := range folderParentSelected {
+			if folder.Next == nil {
+				return &folder, nil
+			}
+		}
+	} else {
+		for _, folder := range folderParentSelected {
+			if folder.ID.Compare(*targetIDPtr) == 0 {
+				return &folder, nil
+			}
+		}
+	}
+	return nil, errors.New("no folder found")
+}
+
 func (ifs ItemFolderService) CreateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
 	createParams := gen.CreateItemFolderParams{
 		ID:           folder.ID,
 		Name:         folder.Name,
 		CollectionID: folder.CollectionID,
 		ParentID:     folder.ParentID,
+		Next:         folder.Next,
+		Prev:         folder.Prev,
 	}
 	return ifs.queries.CreateItemFolder(ctx, createParams)
 }
