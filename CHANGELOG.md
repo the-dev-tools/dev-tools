@@ -1,5 +1,14 @@
 # @the-dev-tools/protobuf
 
+## 1.28.0
+
+### Minor Changes
+
+- [`be724c8`](https://github.com/the-dev-tools/dev-tools-proto/commit/be724c8a686db1bf370b81b92b62be0e7e4d9426) Thanks [@ElecTwix](https://github.com/ElecTwix)! - update rpc create signature
+  remove name fields fro rpc create signature
+
+- [`fbe7035`](https://github.com/the-dev-tools/dev-tools-proto/commit/fbe7035943a8c650d1de3de7450f81e6f4e320cf) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add assertions
+
 ## 1.27.0
 
 ### Minor Changes
