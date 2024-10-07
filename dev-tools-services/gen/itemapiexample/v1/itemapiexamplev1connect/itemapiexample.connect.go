@@ -54,6 +54,15 @@ const (
 	// ItemApiExampleServiceRunExampleProcedure is the fully-qualified name of the
 	// ItemApiExampleService's RunExample RPC.
 	ItemApiExampleServiceRunExampleProcedure = "/itemapiexample.v1.ItemApiExampleService/RunExample"
+	// ItemApiExampleServiceCreateAssertProcedure is the fully-qualified name of the
+	// ItemApiExampleService's CreateAssert RPC.
+	ItemApiExampleServiceCreateAssertProcedure = "/itemapiexample.v1.ItemApiExampleService/CreateAssert"
+	// ItemApiExampleServiceUpdateAssertProcedure is the fully-qualified name of the
+	// ItemApiExampleService's UpdateAssert RPC.
+	ItemApiExampleServiceUpdateAssertProcedure = "/itemapiexample.v1.ItemApiExampleService/UpdateAssert"
+	// ItemApiExampleServiceDeleteAssertProcedure is the fully-qualified name of the
+	// ItemApiExampleService's DeleteAssert RPC.
+	ItemApiExampleServiceDeleteAssertProcedure = "/itemapiexample.v1.ItemApiExampleService/DeleteAssert"
 	// ItemApiExampleServiceCreateHeaderProcedure is the fully-qualified name of the
 	// ItemApiExampleService's CreateHeader RPC.
 	ItemApiExampleServiceCreateHeaderProcedure = "/itemapiexample.v1.ItemApiExampleService/CreateHeader"
@@ -84,6 +93,9 @@ var (
 	itemApiExampleServiceUpdateExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateExample")
 	itemApiExampleServiceDeleteExampleMethodDescriptor = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteExample")
 	itemApiExampleServiceRunExampleMethodDescriptor    = itemApiExampleServiceServiceDescriptor.Methods().ByName("RunExample")
+	itemApiExampleServiceCreateAssertMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateAssert")
+	itemApiExampleServiceUpdateAssertMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateAssert")
+	itemApiExampleServiceDeleteAssertMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteAssert")
 	itemApiExampleServiceCreateHeaderMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("CreateHeader")
 	itemApiExampleServiceUpdateHeaderMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("UpdateHeader")
 	itemApiExampleServiceDeleteHeaderMethodDescriptor  = itemApiExampleServiceServiceDescriptor.Methods().ByName("DeleteHeader")
@@ -102,6 +114,10 @@ type ItemApiExampleServiceClient interface {
 	UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error)
 	DeleteExample(context.Context, *connect.Request[v1.DeleteExampleRequest]) (*connect.Response[v1.DeleteExampleResponse], error)
 	RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error)
+	// Assert
+	CreateAssert(context.Context, *connect.Request[v1.CreateAssertRequest]) (*connect.Response[v1.CreateAssertResponse], error)
+	UpdateAssert(context.Context, *connect.Request[v1.UpdateAssertRequest]) (*connect.Response[v1.UpdateAssertResponse], error)
+	DeleteAssert(context.Context, *connect.Request[v1.DeleteAssertRequest]) (*connect.Response[v1.DeleteAssertResponse], error)
 	// Headers
 	CreateHeader(context.Context, *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error)
 	UpdateHeader(context.Context, *connect.Request[v1.UpdateHeaderRequest]) (*connect.Response[v1.UpdateHeaderResponse], error)
@@ -164,6 +180,24 @@ func NewItemApiExampleServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(itemApiExampleServiceRunExampleMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		createAssert: connect.NewClient[v1.CreateAssertRequest, v1.CreateAssertResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceCreateAssertProcedure,
+			connect.WithSchema(itemApiExampleServiceCreateAssertMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateAssert: connect.NewClient[v1.UpdateAssertRequest, v1.UpdateAssertResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceUpdateAssertProcedure,
+			connect.WithSchema(itemApiExampleServiceUpdateAssertMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteAssert: connect.NewClient[v1.DeleteAssertRequest, v1.DeleteAssertResponse](
+			httpClient,
+			baseURL+ItemApiExampleServiceDeleteAssertProcedure,
+			connect.WithSchema(itemApiExampleServiceDeleteAssertMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		createHeader: connect.NewClient[v1.CreateHeaderRequest, v1.CreateHeaderResponse](
 			httpClient,
 			baseURL+ItemApiExampleServiceCreateHeaderProcedure,
@@ -212,6 +246,9 @@ type itemApiExampleServiceClient struct {
 	updateExample *connect.Client[v1.UpdateExampleRequest, v1.UpdateExampleResponse]
 	deleteExample *connect.Client[v1.DeleteExampleRequest, v1.DeleteExampleResponse]
 	runExample    *connect.Client[v1.RunExampleRequest, v1.RunExampleResponse]
+	createAssert  *connect.Client[v1.CreateAssertRequest, v1.CreateAssertResponse]
+	updateAssert  *connect.Client[v1.UpdateAssertRequest, v1.UpdateAssertResponse]
+	deleteAssert  *connect.Client[v1.DeleteAssertRequest, v1.DeleteAssertResponse]
 	createHeader  *connect.Client[v1.CreateHeaderRequest, v1.CreateHeaderResponse]
 	updateHeader  *connect.Client[v1.UpdateHeaderRequest, v1.UpdateHeaderResponse]
 	deleteHeader  *connect.Client[v1.DeleteHeaderRequest, v1.DeleteHeaderResponse]
@@ -255,6 +292,21 @@ func (c *itemApiExampleServiceClient) RunExample(ctx context.Context, req *conne
 	return c.runExample.CallUnary(ctx, req)
 }
 
+// CreateAssert calls itemapiexample.v1.ItemApiExampleService.CreateAssert.
+func (c *itemApiExampleServiceClient) CreateAssert(ctx context.Context, req *connect.Request[v1.CreateAssertRequest]) (*connect.Response[v1.CreateAssertResponse], error) {
+	return c.createAssert.CallUnary(ctx, req)
+}
+
+// UpdateAssert calls itemapiexample.v1.ItemApiExampleService.UpdateAssert.
+func (c *itemApiExampleServiceClient) UpdateAssert(ctx context.Context, req *connect.Request[v1.UpdateAssertRequest]) (*connect.Response[v1.UpdateAssertResponse], error) {
+	return c.updateAssert.CallUnary(ctx, req)
+}
+
+// DeleteAssert calls itemapiexample.v1.ItemApiExampleService.DeleteAssert.
+func (c *itemApiExampleServiceClient) DeleteAssert(ctx context.Context, req *connect.Request[v1.DeleteAssertRequest]) (*connect.Response[v1.DeleteAssertResponse], error) {
+	return c.deleteAssert.CallUnary(ctx, req)
+}
+
 // CreateHeader calls itemapiexample.v1.ItemApiExampleService.CreateHeader.
 func (c *itemApiExampleServiceClient) CreateHeader(ctx context.Context, req *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error) {
 	return c.createHeader.CallUnary(ctx, req)
@@ -296,6 +348,10 @@ type ItemApiExampleServiceHandler interface {
 	UpdateExample(context.Context, *connect.Request[v1.UpdateExampleRequest]) (*connect.Response[v1.UpdateExampleResponse], error)
 	DeleteExample(context.Context, *connect.Request[v1.DeleteExampleRequest]) (*connect.Response[v1.DeleteExampleResponse], error)
 	RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error)
+	// Assert
+	CreateAssert(context.Context, *connect.Request[v1.CreateAssertRequest]) (*connect.Response[v1.CreateAssertResponse], error)
+	UpdateAssert(context.Context, *connect.Request[v1.UpdateAssertRequest]) (*connect.Response[v1.UpdateAssertResponse], error)
+	DeleteAssert(context.Context, *connect.Request[v1.DeleteAssertRequest]) (*connect.Response[v1.DeleteAssertResponse], error)
 	// Headers
 	CreateHeader(context.Context, *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error)
 	UpdateHeader(context.Context, *connect.Request[v1.UpdateHeaderRequest]) (*connect.Response[v1.UpdateHeaderResponse], error)
@@ -354,6 +410,24 @@ func NewItemApiExampleServiceHandler(svc ItemApiExampleServiceHandler, opts ...c
 		connect.WithSchema(itemApiExampleServiceRunExampleMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	itemApiExampleServiceCreateAssertHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceCreateAssertProcedure,
+		svc.CreateAssert,
+		connect.WithSchema(itemApiExampleServiceCreateAssertMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceUpdateAssertHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceUpdateAssertProcedure,
+		svc.UpdateAssert,
+		connect.WithSchema(itemApiExampleServiceUpdateAssertMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	itemApiExampleServiceDeleteAssertHandler := connect.NewUnaryHandler(
+		ItemApiExampleServiceDeleteAssertProcedure,
+		svc.DeleteAssert,
+		connect.WithSchema(itemApiExampleServiceDeleteAssertMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	itemApiExampleServiceCreateHeaderHandler := connect.NewUnaryHandler(
 		ItemApiExampleServiceCreateHeaderProcedure,
 		svc.CreateHeader,
@@ -406,6 +480,12 @@ func NewItemApiExampleServiceHandler(svc ItemApiExampleServiceHandler, opts ...c
 			itemApiExampleServiceDeleteExampleHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceRunExampleProcedure:
 			itemApiExampleServiceRunExampleHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceCreateAssertProcedure:
+			itemApiExampleServiceCreateAssertHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceUpdateAssertProcedure:
+			itemApiExampleServiceUpdateAssertHandler.ServeHTTP(w, r)
+		case ItemApiExampleServiceDeleteAssertProcedure:
+			itemApiExampleServiceDeleteAssertHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceCreateHeaderProcedure:
 			itemApiExampleServiceCreateHeaderHandler.ServeHTTP(w, r)
 		case ItemApiExampleServiceUpdateHeaderProcedure:
@@ -453,6 +533,18 @@ func (UnimplementedItemApiExampleServiceHandler) DeleteExample(context.Context, 
 
 func (UnimplementedItemApiExampleServiceHandler) RunExample(context.Context, *connect.Request[v1.RunExampleRequest]) (*connect.Response[v1.RunExampleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.RunExample is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) CreateAssert(context.Context, *connect.Request[v1.CreateAssertRequest]) (*connect.Response[v1.CreateAssertResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateAssert is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) UpdateAssert(context.Context, *connect.Request[v1.UpdateAssertRequest]) (*connect.Response[v1.UpdateAssertResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.UpdateAssert is not implemented"))
+}
+
+func (UnimplementedItemApiExampleServiceHandler) DeleteAssert(context.Context, *connect.Request[v1.DeleteAssertRequest]) (*connect.Response[v1.DeleteAssertResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DeleteAssert is not implemented"))
 }
 
 func (UnimplementedItemApiExampleServiceHandler) CreateHeader(context.Context, *connect.Request[v1.CreateHeaderRequest]) (*connect.Response[v1.CreateHeaderResponse], error) {
