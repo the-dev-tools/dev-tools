@@ -170,21 +170,15 @@ message Asssert {
   string id = 1;
   string example_id = 2;
   string name = 3;
-  oneof value {
-    int32 int_value = 4;
-    string string_value = 5;
-  }
-  AssertType type = 6;
-  AssertTarget target = 7;
+  string value = 4;
+  AssertType type = 5;
+  AssertTarget target = 6;
 }
 
 message AssertResult {
   Asssert assert = 1;
-  oneof asserted_value {
-    int32 int_value = 2;
-    string string_value = 3;
-  }
-  bool result = 5;
+  string value = 2;
+  bool result = 3;
 }
 
 message CreateAssertRequest {
