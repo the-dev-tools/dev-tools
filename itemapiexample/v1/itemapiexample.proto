@@ -22,7 +22,6 @@ service ItemApiExampleService {
   rpc CreateAssert(CreateAssertRequest) returns (CreateAssertResponse);
   rpc UpdateAssert(UpdateAssertRequest) returns (UpdateAssertResponse);
   rpc DeleteAssert(DeleteAssertRequest) returns (DeleteAssertResponse);
-  rpc GetAssertResults(GetAssertResultsRequest) returns (GetAssertResultsResponse);
 
   // Headers
   rpc CreateHeader(CreateHeaderRequest) returns (CreateHeaderResponse);
@@ -84,6 +83,7 @@ message ApiExampleResponse {
   google.protobuf.Timestamp time = 5;
   int32 duration = 6;
   repeated ResponseHeader headers = 7;
+  repeated AssertResult asserts = 8;
 }
 
 // Messages
@@ -177,6 +177,15 @@ message Asssert {
   AssertTarget target = 7;
 }
 
+message AssertResult {
+  Asssert assert = 1;
+  oneof asserted_value {
+    int32 int_value = 2;
+    string string_value = 3;
+  }
+  bool result = 5;
+}
+
 message CreateAssertRequest {
   Asssert assert = 1;
 }
@@ -200,25 +209,6 @@ message DeleteAssertRequest {
 
 message DeleteAssertResponse {
 }
-
-// // GET RESULTS
-message AssertResult {
-  Asssert assert = 1;
-  oneof asserted_value {
-    int32 int_value = 2;
-    string string_value = 3;
-  }
-  bool result = 5;
-}
-
-message GetAssertResultsRequest {
-  string example_id = 1;
-}
-
-message GetAssertResultsResponse {
-  repeated AssertResult asserts = 1;
-}
-
 
 // Headers
 // // CREATE
