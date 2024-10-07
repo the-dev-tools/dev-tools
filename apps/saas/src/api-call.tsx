@@ -4,13 +4,14 @@ import {
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
+import { makeUrl } from '@effect/platform/UrlParams';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, HashMap, Match, MutableHashMap, Option, pipe } from 'effect';
+import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe } from 'effect';
 import { format as prettierFormat } from 'prettier/standalone';
 import { useMemo, useState } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
@@ -19,7 +20,7 @@ import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 
-import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
+import { ApiCall, GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
 import { getApiCall, updateApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { ApiExampleResponse, Query, ResponseHeader } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import {
@@ -49,11 +50,11 @@ function Page() {
   return <ApiForm data={data} />;
 }
 
-const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
+const methods = ['N/A', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 
 class ApiFormData extends Schema.Class<ApiFormData>('ApiCallFormData')({
   method: Schema.String.pipe(Schema.filter((_) => Array.contains(methods, _) || 'Method is not valid')),
-  url: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'URL must not be empty' })),
+  url: Schema.String,
 }) {}
 
 interface ApiFormProps {
@@ -72,20 +73,24 @@ const ApiForm = ({ data }: ApiFormProps) => {
   const createQueryMutation = useConnectMutation(createQuery);
 
   const values = useMemo(() => {
-    const { origin, pathname } = new URL(data.apiCall!.url);
-    const url = pipe(
-      data.example!.query,
-      Array.filterMap((_) => {
-        if (!_.enabled) return Option.none();
-        else return Option.some([_.key, _.value]);
-      }),
-      (_) => new URLSearchParams(_).toString(),
-      (_) => origin + pathname + '?' + _,
+    return pipe(
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      Option.fromNullable(data.apiCall?.url || undefined),
+      Option.flatMap((url) =>
+        pipe(
+          Array.filterMap(data.example?.query ?? [], (_) => {
+            if (!_.enabled) return Option.none();
+            else return Option.some([_.key, _.value] as const);
+          }),
+          (_) => makeUrl(url, _, Option.none()),
+          Either.getRight,
+        ),
+      ),
+      Option.map((_) => _.toString()),
+      Option.getOrElse(() => data.apiCall?.url ?? ''),
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      (_) => new ApiFormData({ url: _, method: data.apiCall?.meta?.method || 'N/A' }),
     );
-    return new ApiFormData({
-      url,
-      method: data.apiCall!.meta!.method,
-    });
   }, [data.apiCall, data.example]);
 
   const form = useForm({
@@ -94,15 +99,19 @@ const ApiForm = ({ data }: ApiFormProps) => {
   });
 
   const onSubmit = form.handleSubmit(async (formData) => {
-    const { origin, pathname, searchParams } = new URL(formData.url);
+    const {
+      origin = '',
+      pathname = '',
+      searchParams = new URLSearchParams(),
+    } = !formData.url ? {} : new URL(formData.url);
 
-    updateMutation.mutate({
-      apiCall: {
-        ...data.apiCall,
-        url: origin + pathname,
-        meta: { ...data.apiCall?.meta, method: formData.method },
-      },
+    const apiCall = new ApiCall({
+      ...data.apiCall,
+      url: origin + pathname,
+      meta: { ...data.apiCall?.meta, method: formData.method },
     });
+
+    updateMutation.mutate({ apiCall });
 
     const queryMap = pipe(
       searchParams.entries(),
@@ -152,7 +161,10 @@ const ApiForm = ({ data }: ApiFormProps) => {
 
     queryClient.setQueryData(
       createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-      createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old?.example, query: newQueryList } })),
+      createProtobufSafeUpdater(getApiCall, (old) => ({
+        apiCall,
+        example: { ...old?.example, query: newQueryList },
+      })),
     );
   });
 
