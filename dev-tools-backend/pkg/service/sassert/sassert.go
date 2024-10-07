@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/massert"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 )
 
@@ -68,16 +69,12 @@ func (as AssertService) GetAssertByExampleID(ctx context.Context, id idwrap.IDWr
 	if err != nil {
 		return nil, err
 	}
-	var result []massert.Assert
-	for _, assert := range asserts {
-		result = append(result, ConvertAssertDBToModel(assert))
-	}
-	return result, nil
+	return tgeneric.MassConvert(asserts, ConvertAssertDBToModel), nil
 }
 
-func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert) (*massert.Assert, error) {
+func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
-	err := as.queries.UpdateAssert(ctx, gen.UpdateAssertParams{
+	return as.queries.UpdateAssert(ctx, gen.UpdateAssertParams{
 		ID:          arg.ID,
 		Name:        arg.Name,
 		Description: arg.Description,
@@ -86,15 +83,11 @@ func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert)
 		Type:        arg.Type,
 		TargetType:  arg.TargetType,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &assert, nil
 }
 
-func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert) (*massert.Assert, error) {
+func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
-	err := as.queries.CreateAssert(ctx, gen.CreateAssertParams{
+	return as.queries.CreateAssert(ctx, gen.CreateAssertParams{
 		ID:         arg.ID,
 		ExampleID:  arg.ExampleID,
 		Name:       arg.Name,
@@ -102,10 +95,6 @@ func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert)
 		Type:       int8(arg.Type),
 		TargetType: int8(arg.TargetType),
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &assert, nil
 }
 
 func (as AssertService) DeleteAssert(ctx context.Context, id idwrap.IDWrap) error {

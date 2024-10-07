@@ -11,6 +11,7 @@ import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/service/sassert"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
@@ -23,6 +24,7 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tassert"
 	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tbodyurl"
 	"dev-tools-backend/pkg/translate/texample"
@@ -60,6 +62,9 @@ type ItemApiRPC struct {
 	// ExampleResp
 	ers  *sexampleresp.ExampleRespService
 	erhs *sexamplerespheader.ExampleRespHeaderService
+
+	// Assert
+	as *sassert.AssertService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -123,6 +128,11 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	as, err := sassert.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -144,6 +154,8 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		// example
 		ers:  ers,
 		erhs: erhs,
+		// Assert
+		as: as,
 	}
 
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, options...)
@@ -281,6 +293,13 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		}
 	}
 
+	asserts, err := c.as.GetAssertByExampleID(ctx, examplePtr.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rpcAsserts := tgeneric.MassConvert(asserts, tassert.SerializeAssertModelToRPC)
+
 	bodyPtr := &bodyv1.Body{}
 	switch examplePtr.BodyType {
 	case mitemapiexample.BodyTypeRaw:
@@ -350,7 +369,7 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
-	exampleRPC := texample.SerializeModelToRPC(*examplePtr, queries, headers, bodyPtr, resp)
+	exampleRPC := texample.SerializeModelToRPC(*examplePtr, queries, headers, bodyPtr, resp, rpcAsserts)
 
 	apiCall := titemapi.DeseralizeModelToRPC(item, defaultID, metaExamplesRPC)
 	return connect.NewResponse(&itemapiv1.GetApiCallResponse{ApiCall: apiCall, Example: exampleRPC}), nil

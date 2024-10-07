@@ -23,7 +23,7 @@ func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
 
 func SeralizeRPCToModelWithoutID(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
 	if item == nil {
-		return nil, errors.New("item is nil")
+		item = &itemapiv1.ApiCall{}
 	}
 	meta := item.GetMeta()
 	if meta == nil {
@@ -31,8 +31,9 @@ func SeralizeRPCToModelWithoutID(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, er
 	}
 
 	var parentID *idwrap.IDWrap = nil
-	if item.GetParentId() != "" {
-		tempParentID, err := idwrap.NewWithParse(item.GetParentId())
+	parentIDStr := item.GetParentId()
+	if parentIDStr != "" {
+		tempParentID, err := idwrap.NewWithParse(parentIDStr)
 		if err != nil {
 			return nil, err
 		}

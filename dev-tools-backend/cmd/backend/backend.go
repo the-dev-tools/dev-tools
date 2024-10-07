@@ -114,10 +114,13 @@ func NewServiceManager(size int) *ServiceManager {
 }
 
 func (sm *ServiceManager) AddService(s *api.Service, e error) {
-	sm.s = append(sm.s, *s)
 	if e != nil {
-		log.Fatal(e)
+		log.Fatalf("error: %v on %s", e, s.Path)
 	}
+	if s == nil {
+		log.Fatalf("service is nil on %d", len(sm.s))
+	}
+	sm.s = append(sm.s, *s)
 }
 
 func (sm *ServiceManager) GetServices() []api.Service {

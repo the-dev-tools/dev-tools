@@ -22,6 +22,7 @@ import (
 	workspacev1 "dev-tools-services/gen/workspace/v1"
 	"dev-tools-services/gen/workspace/v1/workspacev1connect"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -45,6 +46,7 @@ type WorkspaceServiceRPC struct {
 }
 
 func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service, error) {
+	fmt.Println("CreateService")
 	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
 	if AWS_ACCESS_KEY == "" {
 		log.Fatalf("AWS_ACCESS_KEY is empty")
@@ -77,6 +79,7 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 	if err != nil {
 		log.Fatalf("failed to create email client: %v", err)
 	}
+	fmt.Println("CreateService")
 
 	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
 	if path == "" {
@@ -86,6 +89,7 @@ func CreateService(ctx context.Context, secret []byte, db *sql.DB) (*api.Service
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("CreateService")
 
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))

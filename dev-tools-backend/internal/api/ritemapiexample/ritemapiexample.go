@@ -16,6 +16,8 @@ import (
 	"dev-tools-backend/pkg/model/mexampleresp"
 	"dev-tools-backend/pkg/model/mexamplerespheader"
 	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/service/sassert"
+	"dev-tools-backend/pkg/service/sassertres"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
@@ -30,6 +32,7 @@ import (
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/svar"
+	"dev-tools-backend/pkg/translate/tassert"
 	"dev-tools-backend/pkg/translate/tbodyraw"
 	"dev-tools-backend/pkg/translate/texample"
 	"dev-tools-backend/pkg/translate/texampleresp"
@@ -72,6 +75,10 @@ type ItemAPIExampleRPC struct {
 	// env
 	es senv.EnvService
 	vs svar.VarService
+
+	// assert
+	as  *sassert.AssertService
+	ars *sassertres.AssertResultService
 }
 
 func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
@@ -145,6 +152,16 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		return nil, err
 	}
 
+	as, err := sassert.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	asr, err := sassertres.New(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
@@ -168,6 +185,9 @@ func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service
 		// env
 		es: es,
 		vs: vs,
+		// assert
+		as:  as,
+		ars: asr,
 	}
 
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(server, options...)
@@ -261,6 +281,13 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	asserts, err := c.as.GetAssertByExampleID(ctx, exampleIdWrap)
+	if err != nil && err != sassert.ErrNoAssertFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	assertsRPC := tgeneric.MassConvert(asserts, tassert.SerializeAssertModelToRPC)
+
 	body, err := tbodyraw.SerializeModelToRPC(ctx, *example, c.brs, c.bfs, c.bues)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -286,7 +313,7 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 	}
 
 	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{
-		Example: texample.SerializeModelToRPC(*example, queries, headers, body, resp),
+		Example: texample.SerializeModelToRPC(*example, queries, headers, body, resp, assertsRPC),
 	}), nil
 }
 
@@ -757,16 +784,45 @@ func CheckOwnerQuery(ctx context.Context, qs sexamplequery.ExampleQueryService, 
 }
 
 // Asserts
-func (c ItemAPIExampleRPC) CreateAssert(context.Context, *connect.Request[itemapiexamplev1.CreateAssertRequest]) (*connect.Response[itemapiexamplev1.CreateAssertResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.CreateAssert is not implemented"))
+func (c ItemAPIExampleRPC) CreateAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateAssertRequest]) (*connect.Response[itemapiexamplev1.CreateAssertResponse], error) {
+	assert, err := tassert.SerializeAssertRPCToModelWithoutID(req.Msg.GetAssert())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	assert.ID = idwrap.NewNow()
+	err = c.as.CreateAssert(ctx, assert)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.CreateAssertResponse{Id: assert.ID.String()}), nil
 }
 
-func (c ItemAPIExampleRPC) UpdateAssert(context.Context, *connect.Request[itemapiexamplev1.UpdateAssertRequest]) (*connect.Response[itemapiexamplev1.UpdateAssertResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.UpdateAssert is not implemented"))
+func (c ItemAPIExampleRPC) UpdateAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateAssertRequest]) (*connect.Response[itemapiexamplev1.UpdateAssertResponse], error) {
+	assert, err := tassert.SerializeAssertRPCToModel(req.Msg.GetAssert())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	err = c.as.UpdateAssert(ctx, assert)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.UpdateAssertResponse{}), nil
 }
 
-func (c ItemAPIExampleRPC) DeleteAssert(context.Context, *connect.Request[itemapiexamplev1.DeleteAssertRequest]) (*connect.Response[itemapiexamplev1.DeleteAssertResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("itemapiexample.v1.ItemApiExampleService.DeleteAssert is not implemented"))
+func (c ItemAPIExampleRPC) DeleteAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteAssertRequest]) (*connect.Response[itemapiexamplev1.DeleteAssertResponse], error) {
+	id, err := idwrap.NewWithParse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	err = c.as.DeleteAssert(ctx, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&itemapiexamplev1.DeleteAssertResponse{}), nil
 }
 
 // Headers

@@ -14,10 +14,10 @@ type AssertResultService struct {
 
 func ConvertAssertResultDBToModel(assertResponse gen.AssertionResult) massertres.AssertResult {
 	return massertres.AssertResult{
-		ID:            assertResponse.ID,
-		AssertID:      assertResponse.AssertionID,
-		Result:        assertResponse.Result,
-		AssertedValue: assertResponse.AssertedValue,
+		ID:       assertResponse.ID,
+		AssertID: assertResponse.AssertionID,
+		Result:   assertResponse.Result,
+		Value:    assertResponse.AssertedValue,
 	}
 }
 
@@ -26,7 +26,7 @@ func ConvertAssertResultModelToDB(assertResponse massertres.AssertResult) gen.As
 		ID:            assertResponse.ID,
 		AssertionID:   assertResponse.AssertID,
 		Result:        assertResponse.Result,
-		AssertedValue: assertResponse.AssertedValue,
+		AssertedValue: assertResponse.Value,
 	}
 }
 

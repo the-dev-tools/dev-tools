@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, q []mexamplequery.Query, h []mexampleheader.Header, b *bodyv1.Body, resp *itemapiexamplev1.ApiExampleResponse) *itemapiexamplev1.ApiExample {
+func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, q []mexamplequery.Query, h []mexampleheader.Header, b *bodyv1.Body, resp *itemapiexamplev1.ApiExampleResponse, as []*itemapiexamplev1.Asssert) *itemapiexamplev1.ApiExample {
 	return &itemapiexamplev1.ApiExample{
 		Meta: &itemapiexamplev1.ApiExampleMeta{
 			Id:   ex.ID.String(),
@@ -25,6 +25,7 @@ func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, q []mexamplequery.Qu
 		Updated:  timestamppb.New(ex.Updated),
 		Response: resp,
 		Body:     b,
+		Asserts:  as,
 	}
 }
 
