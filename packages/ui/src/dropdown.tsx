@@ -53,6 +53,9 @@ export const dropdownItemStyles = tv({
   extend: focusRingStyles,
   base: tw`select-none rounded px-3 py-2 text-sm leading-none rac-focus:bg-neutral-400`,
   variants: {
+    variant: {
+      danger: tw`text-red-600`,
+    },
     isDisabled: { false: tw`cursor-pointer` },
   },
 });

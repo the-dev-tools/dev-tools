@@ -22,9 +22,12 @@ import {
   updateCollection,
 } from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
 import { ApiCallMeta } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
-import { deleteApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
+import { createApiCall, deleteApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
 import { ApiExampleMeta } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
-import { deleteExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+import {
+  createExample,
+  deleteExample,
+} from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
 import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
 import {
   createFolder,
@@ -51,6 +54,24 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceId')({
     await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/', throw: true }));
   },
 });
+
+const useInvalidateList = () => {
+  const { workspaceId } = Route.useParams();
+  const queryClient = useQueryClient();
+  const transport = useTransport();
+  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  return () => queryClient.invalidateQueries(listQueryOptions);
+};
+
+const useCreateFolderMutation = () => {
+  const invalidateList = useInvalidateList();
+  return useConnectMutation(createFolder, { onSuccess: invalidateList });
+};
+
+const useCreateApiCallMutation = () => {
+  const invalidateList = useInvalidateList();
+  return useConnectMutation(createApiCall, { onSuccess: invalidateList });
+};
 
 function Layout() {
   const { workspaceId } = Route.useParams();
@@ -95,13 +116,10 @@ function Layout() {
 const CollectionsTree = () => {
   const { workspaceId } = Route.useParams();
 
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const createCollectionMutation = useConnectMutation(createCollection);
   const collectionsQuery = useConnectQuery(listCollections, { workspaceId });
 
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const invalidateList = useInvalidateList();
+  const createCollectionMutation = useConnectMutation(createCollection, { onSuccess: invalidateList });
 
   if (!collectionsQuery.isSuccess) return null;
   const metaCollections = collectionsQuery.data.metaCollections;
@@ -113,10 +131,7 @@ const CollectionsTree = () => {
         <Button
           kind='placeholder'
           variant='placeholder'
-          onPress={async () => {
-            await createCollectionMutation.mutateAsync({ workspaceId, name: 'New collection' });
-            await queryClient.invalidateQueries(listQueryOptions);
-          }}
+          onPress={() => void createCollectionMutation.mutate({ workspaceId, name: 'New collection' })}
           className='flex-1 font-medium'
         >
           <LuPlus />
@@ -137,16 +152,11 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ meta }: CollectionTreeProps) => {
-  const { workspaceId } = Route.useParams();
-
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useConnectMutation(deleteCollection);
-  const updateMutation = useConnectMutation(updateCollection);
-  const createFolderMutation = useConnectMutation(createFolder);
-
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const invalidateList = useInvalidateList();
+  const deleteMutation = useConnectMutation(deleteCollection, { onSuccess: invalidateList });
+  const updateMutation = useConnectMutation(updateCollection, { onSuccess: invalidateList });
+  const createFolderMutation = useCreateFolderMutation();
+  const createApiCallMutation = useCreateApiCallMutation();
 
   const triggerRef = useRef(null);
 
@@ -170,22 +180,16 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
         <Menu>
           <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem
-            onAction={async () => {
-              await deleteMutation.mutateAsync({ id: meta.id });
-              await queryClient.invalidateQueries(listQueryOptions);
-            }}
-          >
-            Delete
+          <MenuItem onAction={() => void createApiCallMutation.mutate({ collectionId: meta.id, name: 'New API call' })}>
+            Add Request
           </MenuItem>
 
-          <MenuItem
-            onAction={async () => {
-              await createFolderMutation.mutateAsync({ collectionId: meta.id, name: 'New folder' });
-              await queryClient.invalidateQueries(listQueryOptions);
-            }}
-          >
-            Create folder
+          <MenuItem onAction={() => void createFolderMutation.mutate({ collectionId: meta.id, name: 'New folder' })}>
+            Add Folder
+          </MenuItem>
+
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
+            Delete
           </MenuItem>
         </Menu>
       </MenuTrigger>
@@ -208,9 +212,7 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              yield* Effect.tryPromise(() => updateMutation.mutateAsync({ id: meta.id, name }));
-
-              yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
+              updateMutation.mutate({ id: meta.id, name });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -255,15 +257,11 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ meta }: FolderTreeProps) => {
-  const { workspaceId } = Route.useParams();
-
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useConnectMutation(deleteFolder);
-  const updateMutation = useConnectMutation(updateFolder);
-
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const invalidateList = useInvalidateList();
+  const deleteMutation = useConnectMutation(deleteFolder, { onSuccess: invalidateList });
+  const updateMutation = useConnectMutation(updateFolder, { onSuccess: invalidateList });
+  const createFolderMutation = useCreateFolderMutation();
+  const createApiCallMutation = useCreateApiCallMutation();
 
   const triggerRef = useRef(null);
 
@@ -289,12 +287,15 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
         <Menu>
           <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem
-            onAction={async () => {
-              await deleteMutation.mutateAsync({ id: meta.id });
-              await queryClient.invalidateQueries(listQueryOptions);
-            }}
-          >
+          <MenuItem onAction={() => void createApiCallMutation.mutate({ collectionId: meta.id, name: 'New API call' })}>
+            Add Request
+          </MenuItem>
+
+          <MenuItem onAction={() => void createFolderMutation.mutate({ collectionId: meta.id, name: 'New folder' })}>
+            Add Folder
+          </MenuItem>
+
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
             Delete
           </MenuItem>
         </Menu>
@@ -318,13 +319,9 @@ const FolderTree = ({ meta }: FolderTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              yield* Effect.tryPromise(() =>
-                updateMutation.mutateAsync({
-                  folder: { meta: Struct.evolve(meta, { name: () => name }) },
-                }),
-              );
-
-              yield* Effect.tryPromise(() => queryClient.invalidateQueries(listQueryOptions));
+              updateMutation.mutate({
+                folder: { meta: Struct.evolve(meta, { name: () => name }) },
+              });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -355,23 +352,19 @@ interface ApiCallTreeProps {
 }
 
 const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
   const match = useMatch({ strict: false });
 
-  const { workspaceId } = Route.useParams();
-
-  const deleteMutation = useConnectMutation(deleteApiCall);
-
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const invalidateList = useInvalidateList();
+  const deleteMutation = useConnectMutation(deleteApiCall, { onSuccess: invalidateList });
+  const createExampleMutation = useConnectMutation(createExample, { onSuccess: invalidateList });
 
   return (
     <TreeItem
       textValue={meta.name}
       href={{
+        from: Route.fullPath,
         to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
-        params: { workspaceId, apiCallId: meta.id, exampleId: meta.defaultExampleId },
+        params: { apiCallId: meta.id, exampleId: meta.defaultExampleId },
       }}
       wrapperIsSelected={match.params.exampleId === meta.defaultExampleId}
       childItems={meta.examples}
@@ -390,11 +383,14 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
 
         <Menu>
           <MenuItem
-            onAction={async () => {
-              await deleteMutation.mutateAsync({ id: meta.id });
-              await queryClient.invalidateQueries(listQueryOptions);
-            }}
+            onAction={() =>
+              void createExampleMutation.mutate({ itemApiId: meta.id, example: { meta: { name: 'New Example' } } })
+            }
           >
+            Add Example
+          </MenuItem>
+
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
             Delete
           </MenuItem>
         </Menu>
@@ -411,18 +407,16 @@ interface ApiExampleItemProps {
 const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
   const match = useMatch({ strict: false });
 
-  const { workspaceId } = Route.useParams();
-
-  const deleteMutation = useConnectMutation(deleteExample);
-
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const invalidateList = useInvalidateList();
+  const deleteMutation = useConnectMutation(deleteExample, { onSuccess: invalidateList });
 
   return (
     <TreeItem
       textValue={meta.name}
       href={{
+        from: Route.fullPath,
         to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
-        params: { workspaceId, apiCallId: apiCallId, exampleId: meta.id },
+        params: { apiCallId: apiCallId, exampleId: meta.id },
       }}
       wrapperIsSelected={match.params.exampleId === meta.id}
     >
@@ -436,12 +430,7 @@ const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
         </Button>
 
         <Menu>
-          <MenuItem
-            onAction={async () => {
-              await deleteMutation.mutateAsync({ id: meta.id });
-              await queryClient.invalidateQueries(listQueryOptions);
-            }}
-          >
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
             Delete
           </MenuItem>
         </Menu>
@@ -453,24 +442,16 @@ const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
 const ImportPostman = () => {
   const { workspaceId } = Route.useParams();
 
-  const transport = useTransport();
-  const queryClient = useQueryClient();
-
-  const createMutation = useConnectMutation(importPostman);
-
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const invalidateList = useInvalidateList();
+  const createMutation = useConnectMutation(importPostman, { onSuccess: invalidateList });
 
   return (
     <FileTrigger
       onSelect={async (_) => {
         const file = _?.item(0);
         if (!file) return;
-        await createMutation.mutateAsync({
-          workspaceId,
-          name: file.name,
-          data: new Uint8Array(await file.arrayBuffer()),
-        });
-        await queryClient.invalidateQueries(listQueryOptions);
+        const data = new Uint8Array(await file.arrayBuffer());
+        createMutation.mutate({ workspaceId, name: file.name, data });
       }}
     >
       <Button kind='placeholder' variant='placeholder' className='flex-1 font-medium'>
