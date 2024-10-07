@@ -250,16 +250,16 @@ CREATE TABLE variable (
 
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
-  item_api_id BLOB NOT NULL,
-  collection_id BLOB NOT NULL,
+  example_id BLOB NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
+  type INT8 NOT NULL,
+  target_type INT8 NOT NULL,
   value TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   prev BLOB,
   next BLOB,
-  FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
-  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
 CREATE TABLE assertion_result (

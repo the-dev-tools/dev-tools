@@ -12,20 +12,21 @@ import (
 )
 
 type Assertion struct {
-	ID           []byte
-	ItemApiID    []byte
-	CollectionID []byte
-	Name         string
-	Description  string
-	Value        string
-	Enable       bool
-	Prev         []byte
-	Next         []byte
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
+	Name        string
+	Description string
+	Type        int8
+	TargetType  int8
+	Value       string
+	Enable      bool
+	Prev        []byte
+	Next        []byte
 }
 
 type AssertionResult struct {
-	ID            []byte
-	AssertionID   []byte
+	ID            idwrap.IDWrap
+	AssertionID   idwrap.IDWrap
 	Result        bool
 	AssertedValue string
 }

@@ -45,30 +45,32 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 
 const createAssert = `-- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, item_api_id, collection_id, name, description, value, enable, prev, next)
+  assertion (id, example_id, name, description, type, target_type, value, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateAssertParams struct {
-	ID           []byte
-	ItemApiID    []byte
-	CollectionID []byte
-	Name         string
-	Description  string
-	Value        string
-	Enable       bool
-	Prev         []byte
-	Next         []byte
+	ID          idwrap.IDWrap
+	ExampleID   idwrap.IDWrap
+	Name        string
+	Description string
+	Type        int8
+	TargetType  int8
+	Value       string
+	Enable      bool
+	Prev        []byte
+	Next        []byte
 }
 
 func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) error {
 	_, err := q.exec(ctx, q.createAssertStmt, createAssert,
 		arg.ID,
-		arg.ItemApiID,
-		arg.CollectionID,
+		arg.ExampleID,
 		arg.Name,
 		arg.Description,
+		arg.Type,
+		arg.TargetType,
 		arg.Value,
 		arg.Enable,
 		arg.Prev,
@@ -85,8 +87,8 @@ VALUES
 `
 
 type CreateAssertResultParams struct {
-	ID            []byte
-	AssertionID   []byte
+	ID            idwrap.IDWrap
+	AssertionID   idwrap.IDWrap
 	Result        bool
 	AssertedValue string
 }
@@ -1897,7 +1899,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteAssert(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteAssert(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteAssertStmt, deleteAssert, id)
 	return err
 }
@@ -1908,7 +1910,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteAssertResult(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteAssertResult(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteAssertResultStmt, deleteAssertResult, id)
 	return err
 }
@@ -2136,10 +2138,11 @@ const getAssert = `-- name: GetAssert :one
 
 SELECT 
   id,
-  item_api_id,
-  collection_id,
+  example_id,
   name,
   description,
+  type,
+  target_type,
   value,
   enable,
   prev,
@@ -2151,15 +2154,16 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetAssert(ctx context.Context, id []byte) (Assertion, error) {
+func (q *Queries) GetAssert(ctx context.Context, id idwrap.IDWrap) (Assertion, error) {
 	row := q.queryRow(ctx, q.getAssertStmt, getAssert, id)
 	var i Assertion
 	err := row.Scan(
 		&i.ID,
-		&i.ItemApiID,
-		&i.CollectionID,
+		&i.ExampleID,
 		&i.Name,
 		&i.Description,
+		&i.Type,
+		&i.TargetType,
 		&i.Value,
 		&i.Enable,
 		&i.Prev,
@@ -2185,7 +2189,7 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetAssertResult(ctx context.Context, id []byte) (AssertionResult, error) {
+func (q *Queries) GetAssertResult(ctx context.Context, id idwrap.IDWrap) (AssertionResult, error) {
 	row := q.queryRow(ctx, q.getAssertResultStmt, getAssertResult, id)
 	var i AssertionResult
 	err := row.Scan(
@@ -2209,7 +2213,7 @@ WHERE
   assertion_id = ?
 `
 
-func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID []byte) ([]AssertionResult, error) {
+func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID idwrap.IDWrap) ([]AssertionResult, error) {
 	rows, err := q.query(ctx, q.getAssertResultsByAssertIDStmt, getAssertResultsByAssertID, assertionID)
 	if err != nil {
 		return nil, err
@@ -2237,13 +2241,14 @@ func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID []
 	return items, nil
 }
 
-const getAssertsByItemApiID = `-- name: GetAssertsByItemApiID :many
+const getAssertsByExampleID = `-- name: GetAssertsByExampleID :many
 SELECT 
   id,
-  item_api_id,
-  collection_id,
+  example_id,
   name,
   description,
+  type,
+  target_type,
   value,
   enable,
   prev,
@@ -2251,11 +2256,11 @@ SELECT
 FROM 
   assertion
 WHERE
-  item_api_id = ?
+  example_id = ?
 `
 
-func (q *Queries) GetAssertsByItemApiID(ctx context.Context, itemApiID []byte) ([]Assertion, error) {
-	rows, err := q.query(ctx, q.getAssertsByItemApiIDStmt, getAssertsByItemApiID, itemApiID)
+func (q *Queries) GetAssertsByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]Assertion, error) {
+	rows, err := q.query(ctx, q.getAssertsByExampleIDStmt, getAssertsByExampleID, exampleID)
 	if err != nil {
 		return nil, err
 	}
@@ -2265,10 +2270,11 @@ func (q *Queries) GetAssertsByItemApiID(ctx context.Context, itemApiID []byte) (
 		var i Assertion
 		if err := rows.Scan(
 			&i.ID,
-			&i.ItemApiID,
-			&i.CollectionID,
+			&i.ExampleID,
 			&i.Name,
 			&i.Description,
+			&i.Type,
+			&i.TargetType,
 			&i.Value,
 			&i.Enable,
 			&i.Prev,
@@ -3988,6 +3994,8 @@ UPDATE assertion
 SET
   name = ?,
   description = ?,
+  type = ?,
+  target_type = ?,
   value = ?,
   enable = ?
 WHERE
@@ -3997,15 +4005,19 @@ WHERE
 type UpdateAssertParams struct {
 	Name        string
 	Description string
+	Type        int8
+	TargetType  int8
 	Value       string
 	Enable      bool
-	ID          []byte
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateAssert(ctx context.Context, arg UpdateAssertParams) error {
 	_, err := q.exec(ctx, q.updateAssertStmt, updateAssert,
 		arg.Name,
 		arg.Description,
+		arg.Type,
+		arg.TargetType,
 		arg.Value,
 		arg.Enable,
 		arg.ID,
@@ -4025,7 +4037,7 @@ WHERE
 type UpdateAssertResultParams struct {
 	Result        bool
 	AssertedValue string
-	ID            []byte
+	ID            idwrap.IDWrap
 }
 
 func (q *Queries) UpdateAssertResult(ctx context.Context, arg UpdateAssertResultParams) error {

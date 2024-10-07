@@ -1259,10 +1259,11 @@ WHERE
 -- name: GetAssert :one
 SELECT 
   id,
-  item_api_id,
-  collection_id,
+  example_id,
   name,
   description,
+  type,
+  target_type,
   value,
   enable,
   prev,
@@ -1273,13 +1274,14 @@ WHERE
   id = ?
 LIMIT 1;
 
--- name: GetAssertsByItemApiID :many
+-- name: GetAssertsByExampleID :many
 SELECT 
   id,
-  item_api_id,
-  collection_id,
+  example_id,
   name,
   description,
+  type,
+  target_type,
   value,
   enable,
   prev,
@@ -1287,19 +1289,21 @@ SELECT
 FROM 
   assertion
 WHERE
-  item_api_id = ?;
+  example_id = ?;
 
 -- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, item_api_id, collection_id, name, description, value, enable, prev, next)
+  assertion (id, example_id, name, description, type, target_type, value, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateAssert :exec
 UPDATE assertion
 SET
   name = ?,
   description = ?,
+  type = ?,
+  target_type = ?,
   value = ?,
   enable = ?
 WHERE

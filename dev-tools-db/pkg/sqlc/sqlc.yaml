@@ -337,3 +337,29 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
+          ## assertion
+          ### id
+          - column: "assertion.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### example_id
+          - column: "assertion.example_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## assertion_result
+          ### id
+          - column: "assertion_result.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### example_id
+          - column: "assertion_result.assertion_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
