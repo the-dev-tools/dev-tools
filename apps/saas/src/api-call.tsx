@@ -171,7 +171,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
   return (
     <PanelGroup direction='vertical'>
       <Panel id='request' order={1} className='flex h-full flex-col'>
-        <form onSubmit={onSubmit} onBlur={onSubmit}>
+        <form onSubmit={onSubmit}>
           <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
             <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
 
@@ -196,6 +196,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
 
             <TextFieldRHF
               control={form.control}
+              onBlur={onSubmit}
               name='url'
               aria-label='URL'
               className={tw`flex-1`}
