@@ -5,7 +5,6 @@ import (
 	"dev-tools-backend/pkg/model/mitemapi"
 	itemapiv1 "dev-tools-services/gen/itemapi/v1"
 	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
-	"errors"
 )
 
 func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
@@ -27,7 +26,7 @@ func SeralizeRPCToModelWithoutID(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, er
 	}
 	meta := item.GetMeta()
 	if meta == nil {
-		return nil, errors.New("meta is nil")
+		meta = &itemapiv1.ApiCallMeta{}
 	}
 
 	var parentID *idwrap.IDWrap = nil
