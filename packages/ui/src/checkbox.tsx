@@ -1,5 +1,6 @@
 import { Struct } from 'effect';
 import { ComponentProps, ForwardedRef, forwardRef } from 'react';
+import { mergeProps } from 'react-aria';
 import {
   Checkbox as AriaCheckbox,
   CheckboxProps as AriaCheckboxProps,
@@ -108,17 +109,7 @@ Checkbox.displayName = 'Checkbox';
 export interface CheckboxRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<
-      CheckboxProps,
-      | ControllerPropKeys
-      | 'name'
-      | 'isSelected'
-      | 'onChange'
-      | 'onBlur'
-      | 'isDisabled'
-      | 'validationBehavior'
-      | 'isInvalid'
-    >,
+> extends Omit<CheckboxProps, ControllerPropKeys>,
     UseControllerProps<TFieldValues, TName> {}
 
 export const CheckboxRHF = <
@@ -129,18 +120,18 @@ export const CheckboxRHF = <
 ) => {
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
+
   const { field, fieldState } = useController(controllerProps);
-  return (
-    <Checkbox
-      {...forwardedProps}
-      ref={field.ref}
-      name={field.name}
-      isSelected={field.value}
-      onChange={field.onChange}
-      onBlur={field.onBlur}
-      isDisabled={field.disabled ?? false}
-      validationBehavior='aria'
-      isInvalid={fieldState.invalid}
-    />
-  );
+
+  const fieldProps: CheckboxProps = {
+    name: field.name,
+    isSelected: field.value,
+    onChange: field.onChange,
+    onBlur: field.onBlur,
+    isDisabled: field.disabled ?? false,
+    validationBehavior: 'aria',
+    isInvalid: fieldState.invalid,
+  };
+
+  return <Checkbox {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
 };

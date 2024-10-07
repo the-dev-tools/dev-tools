@@ -1,5 +1,6 @@
 import { String, Struct } from 'effect';
 import { forwardRef } from 'react';
+import { mergeProps } from 'react-aria';
 import {
   Input as AriaInput,
   TextArea as AriaTextArea,
@@ -94,18 +95,7 @@ TextField.displayName = 'TextField';
 export interface TextFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<
-      TextFieldProps,
-      | ControllerPropKeys
-      | 'name'
-      | 'value'
-      | 'onChange'
-      | 'onBlur'
-      | 'isDisabled'
-      | 'validationBehavior'
-      | 'isInvalid'
-      | 'error'
-    >,
+> extends Omit<TextFieldProps, ControllerPropKeys>,
     UseControllerProps<TFieldValues, TName> {}
 
 export const TextFieldRHF = <
@@ -119,20 +109,18 @@ export const TextFieldRHF = <
 
   const { field, fieldState } = useController(controllerProps);
 
-  return (
-    <TextField
-      {...forwardedProps}
-      ref={field.ref}
-      name={field.name}
-      value={field.value}
-      onChange={field.onChange}
-      onBlur={field.onBlur}
-      isDisabled={field.disabled ?? false}
-      validationBehavior='aria'
-      isInvalid={fieldState.invalid}
-      error={fieldState.error?.message}
-    />
-  );
+  const fieldProps: TextFieldProps = {
+    name: field.name,
+    value: field.value,
+    onChange: field.onChange,
+    onBlur: field.onBlur,
+    isDisabled: field.disabled ?? false,
+    validationBehavior: 'aria',
+    isInvalid: fieldState.invalid,
+    error: fieldState.error?.message,
+  };
+
+  return <TextField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
 };
 
 // Text area field
@@ -167,18 +155,7 @@ TextAreaField.displayName = 'TextAreaField';
 export interface TextAreaFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<
-      TextAreaFieldProps,
-      | ControllerPropKeys
-      | 'name'
-      | 'value'
-      | 'onChange'
-      | 'onBlur'
-      | 'isDisabled'
-      | 'validationBehavior'
-      | 'isInvalid'
-      | 'error'
-    >,
+> extends Omit<TextAreaFieldProps, ControllerPropKeys>,
     UseControllerProps<TFieldValues, TName> {}
 
 export const TextAreaFieldRHF = <
@@ -192,18 +169,16 @@ export const TextAreaFieldRHF = <
 
   const { field, fieldState } = useController(controllerProps);
 
-  return (
-    <TextAreaField
-      {...forwardedProps}
-      ref={field.ref}
-      name={field.name}
-      value={field.value}
-      onChange={field.onChange}
-      onBlur={field.onBlur}
-      isDisabled={field.disabled ?? false}
-      validationBehavior='aria'
-      isInvalid={fieldState.invalid}
-      error={fieldState.error?.message}
-    />
-  );
+  const fieldProps: TextFieldProps = {
+    name: field.name,
+    value: field.value,
+    onChange: field.onChange,
+    onBlur: field.onBlur,
+    isDisabled: field.disabled ?? false,
+    validationBehavior: 'aria',
+    isInvalid: fieldState.invalid,
+    error: fieldState.error?.message,
+  };
+
+  return <TextAreaField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
 };

@@ -1,3 +1,12 @@
-export const controllerPropKeys = ['name', 'control', 'defaultValue', 'rules', 'shouldUnregister', 'disabled'] as const;
+import { UseControllerProps } from 'react-hook-form';
+
+export const controllerPropKeys = [
+  'control',
+  'defaultValue',
+  'disabled',
+  'name',
+  'rules',
+  'shouldUnregister',
+] as const satisfies (keyof UseControllerProps)[];
 
 export type ControllerPropKeys = (typeof controllerPropKeys)[number];

@@ -1,5 +1,6 @@
 import { Struct } from 'effect';
 import { FC, ForwardedRef, forwardRef, RefAttributes } from 'react';
+import { mergeProps } from 'react-aria';
 import {
   Button as AriaButton,
   Select as AriaSelect,
@@ -116,18 +117,7 @@ Select.displayName = 'Select';
 export interface SelectRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<
-      SelectProps<TFieldValues>,
-      | ControllerPropKeys
-      | 'name'
-      | 'selectedKey'
-      | 'onSelectionChange'
-      | 'onBlur'
-      | 'isDisabled'
-      | 'validationBehavior'
-      | 'isInvalid'
-      | 'error'
-    >,
+> extends Omit<SelectProps<TFieldValues>, ControllerPropKeys>,
     UseControllerProps<TFieldValues, TName> {}
 
 export const SelectRHF = <
@@ -138,19 +128,19 @@ export const SelectRHF = <
 ) => {
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
+
   const { field, fieldState } = useController(controllerProps);
-  return (
-    <Select
-      {...forwardedProps}
-      ref={field.ref}
-      name={field.name}
-      selectedKey={field.value}
-      onSelectionChange={field.onChange}
-      onBlur={field.onBlur}
-      isDisabled={field.disabled ?? false}
-      validationBehavior='aria'
-      isInvalid={fieldState.invalid}
-      error={fieldState.error?.message}
-    />
-  );
+
+  const fieldProps: SelectProps<TFieldValues> = {
+    name: field.name,
+    selectedKey: field.value,
+    onSelectionChange: field.onChange,
+    onBlur: field.onBlur,
+    isDisabled: field.disabled ?? false,
+    validationBehavior: 'aria',
+    isInvalid: fieldState.invalid,
+    error: fieldState.error?.message,
+  };
+
+  return <Select {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
 };
