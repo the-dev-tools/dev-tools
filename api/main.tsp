@@ -3,6 +3,8 @@ import "@typespec/openapi";
 
 import "../extensions";
 
+import "./variable.tsp";
+
 using TypeSpec.Http;
 
 @service({
