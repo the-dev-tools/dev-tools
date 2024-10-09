@@ -4,6 +4,7 @@ import "@typespec/openapi";
 import "../extensions";
 
 import "./variable.tsp";
+import "./workspace.tsp";
 
 using TypeSpec.Http;
 
