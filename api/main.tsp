@@ -1,6 +1,8 @@
 import "@typespec/rest";
 import "@typespec/openapi";
 
+import "../extensions";
+
 using TypeSpec.Http;
 
 @service({
