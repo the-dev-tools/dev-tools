@@ -2,9 +2,9 @@ using TypeSpec.Protobuf;
 using TypeSpec.Rest;
 
 @package({
-  name: "workspace",
+  name: "workspace.v1",
   options: {
-    go_package: "dev-tools-services/gen/workspace",
+    go_package: "dev-tools-services/gen/workspace/v1;workspacev1",
   },
 })
 namespace API.Workspace;
@@ -17,9 +17,10 @@ model Workspace {
 }
 
 enum Role {
-  MemberRole: 0,
-  AdminRole: 1,
-  OwnerRole: 2,
+  ROLE_UNSPECIFIED: 0,
+  ROLE_MEMBER: 1,
+  ROLE_ADMIN: 2,
+  ROLE_OWNER: 3,
 }
 
 @parentResource(Workspace)
@@ -43,11 +44,11 @@ model DeleteWorkspaceResponse is Resource.Delete.Response<Workspace>;
 
 @Protobuf.service
 interface WorkspaceService {
-  List(...ListWorkspacesRequest): ListWorkspacesResponse;
-  Get(...GetWorkspaceRequest): GetWorkspaceResponse;
-  Create(...CreateWorkspaceRequest): CreateWorkspaceResponse;
-  Update(...UpdateWorkspaceRequest): UpdateWorkspaceResponse;
-  Delete(...DeleteWorkspaceRequest): DeleteWorkspaceResponse;
+  ListWorkspaces(...ListWorkspacesRequest): ListWorkspacesResponse;
+  GetWorkspace(...GetWorkspaceRequest): GetWorkspaceResponse;
+  CreateWorkspace(...CreateWorkspaceRequest): CreateWorkspaceResponse;
+  UpdateWorkspace(...UpdateWorkspaceRequest): UpdateWorkspaceResponse;
+  DeleteWorkspace(...DeleteWorkspaceRequest): DeleteWorkspaceResponse;
 }
 
 model ListMembersItem is Resource.List.Item<Member>;
@@ -62,8 +63,8 @@ model DeleteMemberResponse is Resource.Delete.Response<Member>;
 
 @Protobuf.service
 interface MemberService {
-  List(...ListMembersRequest): ListMembersResponse;
-  Create(...CreateMemberRequest): CreateMemberResponse;
-  Update(...UpdateMemberRequest): UpdateMemberResponse;
-  Delete(...DeleteMemberRequest): DeleteMemberResponse;
+  ListMembers(...ListMembersRequest): ListMembersResponse;
+  CreateMember(...CreateMemberRequest): CreateMemberResponse;
+  UpdateMember(...UpdateMemberRequest): UpdateMemberResponse;
+  DeleteMember(...DeleteMemberRequest): DeleteMemberResponse;
 }

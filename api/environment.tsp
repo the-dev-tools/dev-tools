@@ -2,9 +2,9 @@ using TypeSpec.Protobuf;
 using TypeSpec.Rest;
 
 @package({
-  name: "environment",
+  name: "environment.v1",
   options: {
-    go_package: "dev-tools-services/gen/environment",
+    go_package: "dev-tools-services/gen/environment/v1;environmentv1",
   },
 })
 namespace API.Environment;
@@ -32,9 +32,9 @@ model DeleteEnvironmentResponse is Resource.Delete.Response<Environment>;
 
 @Protobuf.service
 interface EnvironmentService {
-  List(...ListEnvironmentsRequest): ListEnvironmentsResponse;
-  Get(...GetEnvironmentRequest): GetEnvironmentResponse;
-  Create(...CreateEnvironmentRequest): CreateEnvironmentResponse;
-  Update(...UpdateEnvironmentRequest): UpdateEnvironmentResponse;
-  Delete(...DeleteEnvironmentRequest): DeleteEnvironmentResponse;
+  ListEnvironments(...ListEnvironmentsRequest): ListEnvironmentsResponse;
+  GetEnvironment(...GetEnvironmentRequest): GetEnvironmentResponse;
+  CreateEnvironment(...CreateEnvironmentRequest): CreateEnvironmentResponse;
+  UpdateEnvironment(...UpdateEnvironmentRequest): UpdateEnvironmentResponse;
+  DeleteEnvironment(...DeleteEnvironmentRequest): DeleteEnvironmentResponse;
 }

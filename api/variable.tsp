@@ -2,9 +2,9 @@ using TypeSpec.Protobuf;
 using TypeSpec.Rest;
 
 @package({
-  name: "variable",
+  name: "variable.v1",
   options: {
-    go_package: "dev-tools-services/gen/variable",
+    go_package: "dev-tools-services/gen/variable/v1;variablev1",
   },
 })
 namespace API.Variable;
@@ -32,9 +32,9 @@ model DeleteVariableResponse is Resource.Delete.Response<Variable>;
 
 @Protobuf.service
 interface VariableService {
-  List(...ListVariablesRequest): ListVariablesResponse;
-  Get(...GetVariableRequest): GetVariableResponse;
-  Create(...CreateVariableRequest): CreateVariableResponse;
-  Update(...UpdateVariableRequest): UpdateVariableResponse;
-  Delete(...DeleteVariableRequest): DeleteVariableResponse;
+  ListVariables(...ListVariablesRequest): ListVariablesResponse;
+  GetVariable(...GetVariableRequest): GetVariableResponse;
+  CreateVariable(...CreateVariableRequest): CreateVariableResponse;
+  UpdateVariable(...UpdateVariableRequest): UpdateVariableResponse;
+  DeleteVariable(...DeleteVariableRequest): DeleteVariableResponse;
 }
