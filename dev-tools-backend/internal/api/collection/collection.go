@@ -41,8 +41,36 @@ type CollectionServiceRPC struct {
 	ifs    sitemfolder.ItemFolderService
 	ras    sresultapi.ResultApiService
 	iaes   sitemapiexample.ItemApiExampleService
-	hs     sexampleheader.HeaderService
+	hes    sexampleheader.HeaderService
 	secret []byte
+}
+
+func New(db *sql.DB, cs scollection.CollectionService, ws sworkspace.WorkspaceService,
+	us suser.UserService, ias sitemapi.ItemApiService, ifs sitemfolder.ItemFolderService,
+	ras sresultapi.ResultApiService, iaes sitemapiexample.ItemApiExampleService,
+	hs sexampleheader.HeaderService, secret []byte,
+) CollectionServiceRPC {
+	return CollectionServiceRPC{
+		DB:     db,
+		cs:     cs,
+		ws:     ws,
+		us:     us,
+		ias:    ias,
+		ifs:    ifs,
+		ras:    ras,
+		iaes:   iaes,
+		hes:    hs,
+		secret: secret,
+	}
+}
+
+func CreateService(ctx context.Context, deps CollectionServiceRPC) (*api.Service, error) {
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(deps.secret)))
+	path, handler := collectionv1connect.NewCollectionServiceHandler(&deps, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
@@ -370,68 +398,6 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 	}
 	resp := connect.NewResponse(respRaw)
 	return resp, nil
-}
-
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
-	collectionService, err := scollection.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ias, err := sitemapi.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ifs, err := sitemfolder.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ws, err := sworkspace.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	us, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ras, err := sresultapi.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	iaes, err := sitemapiexample.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	hs, err := sexampleheader.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	server := &CollectionServiceRPC{
-		DB:     db,
-		secret: secret,
-		cs:     *collectionService,
-		ias:    *ias,
-		ifs:    *ifs,
-		ws:     *ws,
-		us:     *us,
-		ras:    *ras,
-		iaes:   *iaes,
-		hs:     *hs,
-	}
-
-	path, handler := collectionv1connect.NewCollectionServiceHandler(server, options...)
-	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {

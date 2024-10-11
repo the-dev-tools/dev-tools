@@ -15,9 +15,21 @@ import (
 	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/internal/api/rvar"
 	"dev-tools-backend/internal/api/rworkspace"
+	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/senv"
+	"dev-tools-backend/pkg/service/sexampleheader"
+	"dev-tools-backend/pkg/service/sitemapi"
+	"dev-tools-backend/pkg/service/sitemapiexample"
+	"dev-tools-backend/pkg/service/sitemfolder"
+	"dev-tools-backend/pkg/service/sresultapi"
+	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/service/sworkspacesusers"
 	devtoolsdb "dev-tools-db"
 	"dev-tools-db/pkg/tursoembedded"
 	"dev-tools-db/pkg/tursolocal"
+	"dev-tools-mail/pkg/emailclient"
+	"dev-tools-mail/pkg/emailinvite"
 	"errors"
 	"fmt"
 	"log"
@@ -27,6 +39,9 @@ import (
 	"time"
 
 	"github.com/bufbuild/httplb"
+	"github.com/magiclabs/magic-admin-go"
+
+	magiccl "github.com/magiclabs/magic-admin-go/client"
 )
 
 func main() {
@@ -73,16 +88,107 @@ func main() {
 	}
 	defer dbCloseFunc()
 
-	client := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
-	defer client.Close()
+	clientHttp := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+	defer clientHttp.Close()
+
+	cs, err := scollection.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ws, err := sworkspace.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	wus, err := sworkspacesusers.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	us, err := suser.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ias, err := sitemapi.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ifs, err := sitemfolder.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ras, err := sresultapi.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	iaes, err := sitemapiexample.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hes, err := sexampleheader.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	es, err := senv.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
+	if magicLinkSecret == "" {
+		log.Fatal("MAGIC_LINK_SECRET env var is required")
+	}
+
+	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
+	MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+	if AWS_ACCESS_KEY == "" {
+		log.Fatalf("AWS_ACCESS_KEY is empty")
+	}
+	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+	if AWS_SECRET_KEY == "" {
+		log.Fatalf("AWS_SECRET_KEY is empty")
+	}
+
+	emailClient, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+	if err != nil {
+		log.Fatalf("failed to create email client: %v", err)
+	}
+
+	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
+	if path == "" {
+		log.Fatalf("EMAIL_INVITE_TEMPLATE_PATH is empty")
+	}
+	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, emailClient)
+	if err != nil {
+		log.Fatalf("failed to create email invite manager: %v", err)
+	}
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
-	newServiceManager.AddService(auth.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(collection.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(node.CreateService(client))
-	newServiceManager.AddService(resultapi.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(rworkspace.CreateService(ctx, hmacSecretBytes, currentDB))
+	authSrv := auth.New(*MagicLinkClient, *us, *ws, *wus, hmacSecretBytes)
+	newServiceManager.AddService(auth.CreateService(ctx, authSrv))
+	collectionSrv := collection.New(currentDB, *cs, *ws,
+		*us, *ias, *ifs, *ras, *iaes, *hes, hmacSecretBytes)
+	newServiceManager.AddService(collection.CreateService(ctx, collectionSrv))
+
+	newServiceManager.AddService(node.CreateService(clientHttp))
+	resultapiSrv := resultapi.New(currentDB, *cs, *ias, *ws, *ras, hmacSecretBytes)
+	newServiceManager.AddService(resultapi.CreateService(ctx, resultapiSrv))
+
+	workspaceSrv := rworkspace.New(currentDB, *ws, *wus, *us, es, *emailClient, emailInviteManager, hmacSecretBytes)
+	newServiceManager.AddService(rworkspace.CreateService(ctx, workspaceSrv))
 	newServiceManager.AddService(ritemapi.CreateService(ctx, currentDB, hmacSecretBytes))
 	newServiceManager.AddService(ritemfolder.CreateService(ctx, currentDB, hmacSecretBytes))
 	newServiceManager.AddService(ritemapiexample.CreateService(ctx, currentDB, hmacSecretBytes))

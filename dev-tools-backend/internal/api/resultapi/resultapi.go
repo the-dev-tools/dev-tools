@@ -21,11 +21,32 @@ import (
 )
 
 type ResultService struct {
-	DB  *sql.DB
-	cs  scollection.CollectionService
-	ias sitemapi.ItemApiService
-	ws  sworkspace.WorkspaceService
-	ras sresultapi.ResultApiService
+	DB   *sql.DB
+	cs   scollection.CollectionService
+	ias  sitemapi.ItemApiService
+	ws   sworkspace.WorkspaceService
+	ras  sresultapi.ResultApiService
+	hmac []byte
+}
+
+func New(db *sql.DB, cs scollection.CollectionService, ias sitemapi.ItemApiService, ws sworkspace.WorkspaceService, ras sresultapi.ResultApiService, hmac []byte) ResultService {
+	return ResultService{
+		DB:   db,
+		cs:   cs,
+		ias:  ias,
+		ws:   ws,
+		ras:  ras,
+		hmac: hmac,
+	}
+}
+
+func CreateService(ctx context.Context, srv ResultService) (*api.Service, error) {
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.hmac)))
+	path, handler := apiresultv1connect.NewApiResultServiceHandler(&srv, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv1.GetRequest]) (*connect.Response[apiresultv1.GetResponse], error) {
@@ -93,39 +114,6 @@ func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[api
 		resultsProto[i] = convertResultToProto(&result)
 	}
 	return connect.NewResponse(&apiresultv1.GetResultsResponse{Results: resultsProto}), nil
-}
-
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
-	ras, err := sresultapi.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-	cs, err := scollection.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-	ias, err := sitemapi.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-	ws, err := sworkspace.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	service := &ResultService{
-		DB:  db,
-		ras: *ras,
-		ias: *ias,
-		ws:  *ws,
-		cs:  *cs,
-	}
-	path, handler := apiresultv1connect.NewApiResultServiceHandler(service, options...)
-	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func convertResultToProto(result *mresultapi.MResultAPI) *apiresultv1.Result {

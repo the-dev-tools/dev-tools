@@ -17,12 +17,10 @@ import (
 	"dev-tools-services/gen/auth/v1/authv1connect"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"connectrpc.com/connect"
 
-	"github.com/magiclabs/magic-admin-go"
 	"github.com/magiclabs/magic-admin-go/client"
 	"github.com/magiclabs/magic-admin-go/token"
 )
@@ -38,6 +36,25 @@ type AuthServer struct {
 	ws          sworkspace.WorkspaceService
 	wus         sworkspacesusers.WorkspaceUserService
 	HmacSecret  []byte
+}
+
+func New(client client.API, us suser.UserService, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, secret []byte) AuthServer {
+	return AuthServer{
+		ClientAPI:   client,
+		userService: us,
+		ws:          ws,
+		wus:         wus,
+		HmacSecret:  secret,
+	}
+}
+
+func CreateService(ctx context.Context, srv AuthServer) (*api.Service, error) {
+	var options []connect.HandlerOption
+	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	options = append(options, connect.WithCompression("gzip", nil, nil))
+
+	path, handler := authv1connect.NewAuthServiceHandler(&srv, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
@@ -138,48 +155,6 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&authv1.AuthServiceRefreshTokenResponse{RefreshToken: newRefreshJWT, AccessToken: newAccessJWT}), nil
-}
-
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
-	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
-	if magicLinkSecret == "" {
-		return nil, errors.New("MAGIC_LINK_SECRET env var is required")
-	}
-
-	userService, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ws, err := sworkspace.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	wus, err := sworkspacesusers.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
-	MagicLinkClient, err := client.New(magicLinkSecret, cl)
-	if err != nil {
-		return nil, err
-	}
-
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-
-	server := &AuthServer{
-		ClientAPI:   *MagicLinkClient,
-		HmacSecret:  secret,
-		userService: *userService,
-		ws:          *ws,
-		wus:         *wus,
-	}
-	path, handler := authv1connect.NewAuthServiceHandler(server, options...)
-	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (a *AuthServer) GetPendingUserByEmail(ctx context.Context, email string) (*muser.User, error) {
