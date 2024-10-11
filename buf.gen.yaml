@@ -1,9 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/buf.gen.json
 version: v2
 
-inputs:
-  - directory: ./dist/@typespec/protobuf
-
 plugins:
   - local: protoc-gen-go
     include_imports: true
