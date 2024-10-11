@@ -14,9 +14,6 @@ importers:
       '@changesets/cli':
         specifier: ^2.27.9
         version: 2.27.9
-      '@typespec/best-practices':
-        specifier: 0.46.0-dev.0
-        version: 0.46.0-dev.0(@typespec/compiler@0.61.0)
       '@typespec/compiler':
         specifier: ^0.61.0
         version: 0.61.0
@@ -139,12 +136,6 @@ packages:
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
-
-  '@typespec/best-practices@0.46.0-dev.0':
-    resolution: {integrity: sha512-jgmHisamuyskmkuQcWdsyVuow7DGlVlX1LFAnwUvd9tZQgYe62tlad+4EvpfacklFvCKyLdrS8oAEEESBfpy1g==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      '@typespec/compiler': ~0.52.0 || >=0.53.0-dev <0.53.0
 
   '@typespec/compiler@0.61.0':
     resolution: {integrity: sha512-sVS8oa6aWAsb2Dy2c4HGn5VOxoYy05bveMn6GRnBA8ZP/wPD3nvJgqWy94AUPezofKoGOfg0Pp/BrrkVyDzCuw==}
@@ -877,10 +868,6 @@ snapshots:
   '@sindresorhus/merge-streams@2.3.0': {}
 
   '@types/node@12.20.55': {}
-
-  '@typespec/best-practices@0.46.0-dev.0(@typespec/compiler@0.61.0)':
-    dependencies:
-      '@typespec/compiler': 0.61.0
 
   '@typespec/compiler@0.61.0':
     dependencies:
