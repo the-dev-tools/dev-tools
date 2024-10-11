@@ -23,6 +23,10 @@
 
         devShells.runner = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
+            # Go tools
+            protoc-gen-connect-go
+            protoc-gen-go
+
             # JS tools
             nodejs
             pnpm_9

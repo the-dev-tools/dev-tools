@@ -2,11 +2,24 @@
 version: '3'
 
 tasks:
+  build:
+    desc: Generate everything
+    cmds:
+      - task: build:typespec
+      - task: build:buf
+
   build:typespec:
     desc: Use TypeSpec to generate Protobuf and JSON Schema
     cmd: pnpm tsp compile api
     sources: [api/**/*]
     generates: [dist/@typespec/**/*]
+
+  build:buf:
+    desc: Use Buf to generate TypeScript and Go code for ConnectRPC
+    deps: [build:typespec]
+    sources: [dist/@typespec/protobuf/**/*]
+    generates: ['dist/{go,typescript}/**/*']
+    cmd: pnpm buf generate
 
   clean:
     desc: Cleanup build files

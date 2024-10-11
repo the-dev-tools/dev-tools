@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://json.schemastore.org/buf.gen.json
+version: v2
+
+inputs:
+  - directory: ./dist/@typespec/protobuf
+
+plugins:
+  - local: protoc-gen-go
+    include_imports: true
+    out: ./dist/go
+    opt: paths=source_relative
+
+  - local: protoc-gen-connect-go
+    include_imports: true
+    out: ./dist/go
+    opt: paths=source_relative
+
+  - local: protoc-gen-es
+    out: ./dist/typescript
+    opt:
+      - target=ts
+      - import_extension=.ts
+
+  - local: protoc-gen-connect-query
+    out: ./dist/typescript
+    opt:
+      - target=ts
+      - import_extension=.ts
