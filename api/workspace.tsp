@@ -13,9 +13,7 @@ model Workspace {
   @field(1) @key workspaceId: string;
   @field(2) name: string;
   @field(3) @visibility("query") updated: WellKnown.Timestamp;
-
-  /** TODO: define proper model */
-  @field(4) @visibility("get") environment: bytes;
+  @field(4) @visibility("get") environment: Environment.Environment;
 }
 
 enum Role {
