@@ -17,9 +17,9 @@ model Workspace {
 }
 
 enum Role {
-  Member: 0,
-  Admin: 1,
-  Owner: 2,
+  MemberRole: 0,
+  AdminRole: 1,
+  OwnerRole: 2,
 }
 
 @parentResource(Workspace)
