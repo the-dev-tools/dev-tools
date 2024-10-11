@@ -6,7 +6,13 @@ tasks:
     desc: Generate everything
     cmds:
       - task: build:typespec
-      - task: build:buf
+      - task: build:step-2
+
+  build:step-2:
+    internal: true
+    deps:
+      - build:buf
+      - build:quicktype:effect
 
   build:typespec:
     desc: Use TypeSpec to generate Protobuf and JSON Schema
@@ -20,6 +26,20 @@ tasks:
     sources: [dist/@typespec/protobuf/**/*]
     generates: ['dist/{go,typescript}/**/*']
     cmd: pnpm buf generate
+
+  build:quicktype:effect:
+    desc: Use Quicktype to generate Effect Schema
+    deps: [build:typespec]
+    sources: [dist/@typespec/json-schema/**/*]
+    generates: ['dist/typescript/effect-schema.ts']
+    cmds:
+      - mkdir -p ./dist/typescript
+      - >-
+        pnpm quicktype \
+          --src-lang=schema \
+          --lang=typescript-effect-schema \
+          --out ./dist/typescript/effect-schema.ts \
+          ./dist/@typespec/json-schema/*
 
   clean:
     desc: Cleanup build files
