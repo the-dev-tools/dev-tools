@@ -26,6 +26,9 @@
             # JS tools
             nodejs
             pnpm_9
+
+            # Other tools
+            go-task
           ];
         };
 

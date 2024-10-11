@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+tasks:
+  build:typespec:
+    desc: Use TypeSpec to generate Protobuf and JSON Schema
+    cmd: pnpm tsp compile api
+    sources: [api/**/*]
+    generates: [dist/@typespec/**/*]
+
+  clean:
+    desc: Cleanup build files
+    cmd: rm -rf .task dist

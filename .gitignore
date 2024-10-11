@@ -1,4 +1,5 @@
 .direnv
+.task
 dist
 node_modules
 tsp-output
