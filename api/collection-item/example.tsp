@@ -2,6 +2,7 @@ import "@typespec/protobuf";
 import "@typespec/rest";
 
 import "./api.tsp";
+import "./request.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -20,6 +21,7 @@ model Example {
   @field(4) @key exampleId: string;
   @field(5) lastResponseId?: string;
   @field(6) name: string;
+  @field(7) bodyKind: Request.BodyKind;
 }
 
 model GetExampleRequest is Resource.Get.Request<Example>;
@@ -32,6 +34,8 @@ model DeleteExampleRequest is Resource.Delete.Request<Example>;
 model DeleteExampleResponse is Resource.Delete.Response<Example>;
 
 model DupliacteExampleRequest is Resource.Get.Request<Example>;
+
+model RunExampleRequest is Resource.Get.Request<Example>;
 
 @Protobuf.service
 interface CollectionItemExampleService {
