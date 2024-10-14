@@ -1,3 +1,5 @@
+import "@typespec/protobuf";
+
 using TypeSpec.Protobuf;
 
 @package({

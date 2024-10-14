@@ -1,3 +1,6 @@
+import "@typespec/protobuf";
+import "@typespec/rest";
+
 using TypeSpec.Protobuf;
 using TypeSpec.Rest.Resource;
 

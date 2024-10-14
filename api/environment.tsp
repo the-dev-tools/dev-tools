@@ -1,3 +1,9 @@
+import "@typespec/protobuf";
+import "@typespec/rest";
+
+import "./resource.tsp";
+import "./workspace.tsp";
+
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
 
