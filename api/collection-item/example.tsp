@@ -3,6 +3,7 @@ import "@typespec/rest";
 
 import "./api.tsp";
 import "./request.tsp";
+import "./response.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -36,6 +37,7 @@ model DeleteExampleResponse is Resource.Delete.Response<Example>;
 model DupliacteExampleRequest is Resource.Get.Request<Example>;
 
 model RunExampleRequest is Resource.Get.Request<Example>;
+model RunExampleResponse is Resource.Get.Request<Response.Response>;
 
 @Protobuf.service
 interface CollectionItemExampleService {
@@ -45,4 +47,6 @@ interface CollectionItemExampleService {
   DeleteExample(...DeleteExampleRequest): DeleteExampleResponse;
 
   DupliacteExample(...DupliacteExampleRequest): {};
+
+  RunExample(...RunExampleRequest): RunExampleResponse;
 }
