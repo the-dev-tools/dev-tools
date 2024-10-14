@@ -8,7 +8,6 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
-	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/rbody"
 	"dev-tools-backend/internal/api/renv"
 	"dev-tools-backend/internal/api/resultapi"
@@ -37,6 +36,7 @@ import (
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
 	devtoolsdb "dev-tools-db"
+	"dev-tools-db/pkg/sqlc/gen"
 	"dev-tools-db/pkg/tursoembedded"
 	"dev-tools-db/pkg/tursolocal"
 	"dev-tools-mail/pkg/emailclient"
@@ -81,6 +81,15 @@ func main() {
 		log.Fatal(errors.New("DB_MODE env var is required"))
 	}
 	fmt.Println("DB_MODE: ", dbMode)
+
+	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+	if AWS_ACCESS_KEY == "" {
+		log.Fatalf("AWS_ACCESS_KEY is empty")
+	}
+	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+	if AWS_SECRET_KEY == "" {
+		log.Fatalf("AWS_SECRET_KEY is empty")
+	}
 
 	var currentDB *sql.DB
 	var dbCloseFunc func()
@@ -159,65 +168,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	eqs, err := sexamplequery.New(ctx, currentDB)
+	queries, err := gen.Prepare(ctx, currentDB)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	brs, err := sbodyraw.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	bfs, err := sbodyform.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	bues, err := sbodyurl.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ers, err := sexampleresp.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	erhs, err := sexamplerespheader.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	as, err := sassert.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ars, err := sassertres.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	vs, err := svar.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	es, err := senv.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
-	if AWS_ACCESS_KEY == "" {
-		log.Fatalf("AWS_ACCESS_KEY is empty")
-	}
-	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
-	if AWS_SECRET_KEY == "" {
-		log.Fatalf("AWS_SECRET_KEY is empty")
-	}
-
+	eqs := sexamplequery.New(queries)
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	as := sassert.New(queries)
+	ars := sassertres.New(queries)
+	vs := svar.New(queries)
+	es := senv.New(queries)
 	emailClient, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
 	if err != nil {
 		log.Fatalf("failed to create email client: %v", err)
@@ -250,7 +215,7 @@ func main() {
 	newServiceManager.AddService(collection.CreateService(collectionSrv, opitonsAll))
 
 	// Node Service
-	newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
+	// newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
 
 	// Result API Service
 	resultapiSrv := resultapi.New(currentDB, cs, ias, ws, ras)

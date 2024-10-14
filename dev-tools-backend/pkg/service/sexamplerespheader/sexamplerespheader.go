@@ -10,17 +10,11 @@ import (
 )
 
 type ExampleRespHeaderService struct {
-	Queries *gen.Queries
+	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (ExampleRespHeaderService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return ExampleRespHeaderService{}, err
-	}
-	return ExampleRespHeaderService{
-		Queries: queries,
-	}, nil
+func New(queries *gen.Queries) ExampleRespHeaderService {
+	return ExampleRespHeaderService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespHeaderService, error) {
@@ -29,7 +23,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespHeaderService, error) {
 		return nil, err
 	}
 	return &ExampleRespHeaderService{
-		Queries: queries,
+		queries: queries,
 	}, nil
 }
 
@@ -53,7 +47,7 @@ func ConvertFromDBExampleRespHeader(item gen.ExampleRespHeader) mexampleresphead
 
 func (s *ExampleRespHeaderService) CreateExampleRespHeader(ctx context.Context, item mexamplerespheader.ExampleRespHeader) error {
 	arg := ConvertToDBExampleRespHeader(item)
-	return s.Queries.CreateExampleRespHeader(ctx, gen.CreateExampleRespHeaderParams{
+	return s.queries.CreateExampleRespHeader(ctx, gen.CreateExampleRespHeaderParams{
 		ID:            arg.ID,
 		ExampleRespID: arg.ExampleRespID,
 		HeaderKey:     arg.HeaderKey,
@@ -74,7 +68,7 @@ func (s *ExampleRespHeaderService) CreateExampleRespHeaderBulk(ctx context.Conte
 }
 
 func (s *ExampleRespHeaderService) GetExampleRespHeader(ctx context.Context, id idwrap.IDWrap) (mexamplerespheader.ExampleRespHeader, error) {
-	item, err := s.Queries.GetExampleRespHeader(ctx, id)
+	item, err := s.queries.GetExampleRespHeader(ctx, id)
 	if err != nil {
 		return mexamplerespheader.ExampleRespHeader{}, err
 	}
@@ -82,7 +76,7 @@ func (s *ExampleRespHeaderService) GetExampleRespHeader(ctx context.Context, id 
 }
 
 func (s *ExampleRespHeaderService) GetHeaderByRespID(ctx context.Context, id idwrap.IDWrap) ([]mexamplerespheader.ExampleRespHeader, error) {
-	items, err := s.Queries.GetExampleRespHeadersByRespID(ctx, id)
+	items, err := s.queries.GetExampleRespHeadersByRespID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mexamplerespheader.ExampleRespHeader{}, nil
@@ -94,7 +88,7 @@ func (s *ExampleRespHeaderService) GetHeaderByRespID(ctx context.Context, id idw
 
 func (s *ExampleRespHeaderService) UpdateExampleRespHeader(ctx context.Context, item mexamplerespheader.ExampleRespHeader) error {
 	arg := ConvertToDBExampleRespHeader(item)
-	return s.Queries.UpdateExampleRespHeader(ctx, gen.UpdateExampleRespHeaderParams{
+	return s.queries.UpdateExampleRespHeader(ctx, gen.UpdateExampleRespHeaderParams{
 		ID:        arg.ID,
 		HeaderKey: arg.HeaderKey,
 		Value:     arg.Value,
@@ -113,7 +107,7 @@ func (s *ExampleRespHeaderService) UpdateExampleRespHeaderBulk(ctx context.Conte
 }
 
 func (s *ExampleRespHeaderService) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap) error {
-	return s.Queries.DeleteExampleRespHeader(ctx, id)
+	return s.queries.DeleteExampleRespHeader(ctx, id)
 }
 
 func (s *ExampleRespHeaderService) DeleteExampleRespHeaderBulk(ctx context.Context, id []idwrap.IDWrap) error {

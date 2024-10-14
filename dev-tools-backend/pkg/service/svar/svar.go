@@ -15,13 +15,8 @@ type VarService struct {
 
 var ErrNoVarFound error = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (VarService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return VarService{}, err
-	}
-	service := VarService{queries: queries}
-	return service, nil
+func New(queries *gen.Queries) VarService {
+	return VarService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*VarService, error) {

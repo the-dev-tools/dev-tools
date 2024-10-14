@@ -14,12 +14,8 @@ type BodyURLEncodedService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (BodyURLEncodedService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return BodyURLEncodedService{}, err
-	}
-	return BodyURLEncodedService{queries: queries}, nil
+func New(queries *gen.Queries) BodyURLEncodedService {
+	return BodyURLEncodedService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {

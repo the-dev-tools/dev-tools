@@ -15,13 +15,8 @@ type EnvService struct {
 
 var ErrNoEnvFound error = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (EnvService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return EnvService{}, err
-	}
-	service := EnvService{queries: queries}
-	return service, nil
+func New(queries *gen.Queries) EnvService {
+	return EnvService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*EnvService, error) {

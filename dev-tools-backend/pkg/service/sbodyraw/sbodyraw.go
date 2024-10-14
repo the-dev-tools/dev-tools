@@ -36,12 +36,8 @@ func ConvertGenToModel(body gen.ExampleBodyRaw) mbodyraw.ExampleBodyRaw {
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (BodyRawService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return BodyRawService{}, err
-	}
-	return BodyRawService{queries: queries}, nil
+func New(queries *gen.Queries) BodyRawService {
+	return BodyRawService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyRawService, error) {
