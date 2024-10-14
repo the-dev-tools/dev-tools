@@ -26,43 +26,28 @@ type VarRPC struct {
 
 	us suser.UserService
 
-	es senv.EnvService
-	vs svar.VarService
+	es     senv.EnvService
+	vs     svar.VarService
+	secret []byte
 }
 
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
+func New(db *sql.DB, us suser.UserService, es senv.EnvService, vs svar.VarService, secret []byte) *VarRPC {
+	return &VarRPC{
+		DB:     db,
+		us:     us,
+		es:     es,
+		vs:     vs,
+		secret: secret,
+	}
+}
+
+func CreateService(ctx context.Context, srv VarRPC) (*api.Service, error) {
 	var options []connect.HandlerOption
-
-	us, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	es, err := senv.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	vs, err := svar.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
 
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	service := &VarRPC{
-		DB: db,
-
-		// Services
-		vs: vs,
-
-		// Dependencies
-		es: es,
-		us: *us,
-	}
-
-	path, handler := variablev1connect.NewVariableServiceHandler(service, options...)
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+	path, handler := variablev1connect.NewVariableServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

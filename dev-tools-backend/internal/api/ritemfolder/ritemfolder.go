@@ -22,40 +22,28 @@ import (
 )
 
 type ItemFolderRPC struct {
-	DB  *sql.DB
-	ifs sitemfolder.ItemFolderService
-	us  suser.UserService
-	cs  scollection.CollectionService
+	DB     *sql.DB
+	ifs    sitemfolder.ItemFolderService
+	us     suser.UserService
+	cs     scollection.CollectionService
+	secret []byte
 }
 
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
-	cs, err := scollection.New(ctx, db)
-	if err != nil {
-		return nil, err
+func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService, secret []byte) *ItemFolderRPC {
+	return &ItemFolderRPC{
+		DB:  db,
+		ifs: ifs,
+		us:  us,
+		cs:  cs,
 	}
+}
 
-	ifs, err := sitemfolder.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	us, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
+func CreateService(ctx context.Context, srv ItemFolderRPC) (*api.Service, error) {
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	server := &ItemFolderRPC{
-		DB:  db,
-		ifs: *ifs,
-		cs:  *cs,
-		us:  *us,
-	}
-
-	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(server, options...)
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

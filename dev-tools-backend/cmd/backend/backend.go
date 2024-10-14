@@ -16,6 +16,7 @@ import (
 	"dev-tools-backend/internal/api/rvar"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/service/sassert"
+	"dev-tools-backend/pkg/service/sassertres"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
@@ -30,6 +31,7 @@ import (
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/service/svar"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
 	devtoolsdb "dev-tools-db"
@@ -143,11 +145,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	es, err := senv.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
 	if magicLinkSecret == "" {
 		log.Fatal("MAGIC_LINK_SECRET env var is required")
@@ -174,7 +171,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bufs, err := sbodyurl.New(ctx, currentDB)
+	bues, err := sbodyurl.New(ctx, currentDB)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -190,6 +187,21 @@ func main() {
 	}
 
 	as, err := sassert.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ars, err := sassertres.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	vs, err := svar.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	es, err := senv.New(ctx, currentDB)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -234,13 +246,25 @@ func main() {
 
 	itemapiSrv := ritemapi.New(currentDB, ias, cs,
 		*ifs, *us, *iaes, ehs, *eqs, *brs,
-		*bfs, *bufs, *ers, *erhs, *as, hmacSecretBytes)
+		*bfs, *bues, *ers, *erhs, *as, hmacSecretBytes)
 	newServiceManager.AddService(ritemapi.CreateService(ctx, *itemapiSrv))
-	newServiceManager.AddService(ritemfolder.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(ritemapiexample.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(rbody.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(renv.CreateService(ctx, currentDB, hmacSecretBytes))
-	newServiceManager.AddService(rvar.CreateService(ctx, currentDB, hmacSecretBytes))
+
+	folderApiSrv := ritemfolder.New(currentDB, *ifs, *us, *cs, hmacSecretBytes)
+	newServiceManager.AddService(ritemfolder.CreateService(ctx, *folderApiSrv))
+
+	itemApiExampleSrv := ritemapiexample.New(currentDB, *iaes, *ias, *ras,
+		*cs, *us, *ehs, *eqs, *bfs, *bues,
+		*brs, *erhs, *ers, es, vs, *as, *ars, hmacSecretBytes)
+	newServiceManager.AddService(ritemapiexample.CreateService(ctx, *itemApiExampleSrv))
+
+	bodySrv := rbody.New(currentDB, *cs, *iaes, *us, *bfs, *bues, *brs, hmacSecretBytes)
+	newServiceManager.AddService(rbody.CreateService(ctx, *bodySrv))
+
+	envSrv := renv.New(currentDB, es, vs, *us, hmacSecretBytes)
+	newServiceManager.AddService(renv.CreateService(ctx, *envSrv))
+
+	varSrv := rvar.New(currentDB, *us, es, vs, hmacSecretBytes)
+	newServiceManager.AddService(rvar.CreateService(ctx, *varSrv))
 
 	// Start services
 	go func() {

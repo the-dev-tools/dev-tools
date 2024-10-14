@@ -24,44 +24,28 @@ import (
 type EnvRPC struct {
 	DB *sql.DB
 
-	es senv.EnvService
-	vs svar.VarService
-	us suser.UserService
+	es     senv.EnvService
+	vs     svar.VarService
+	us     suser.UserService
+	secret []byte
 }
 
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
+func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserService, secret []byte) *EnvRPC {
+	return &EnvRPC{
+		DB:     db,
+		es:     es,
+		vs:     vs,
+		us:     us,
+		secret: secret,
+	}
+}
+
+func CreateService(ctx context.Context, srv EnvRPC) (*api.Service, error) {
 	var options []connect.HandlerOption
-
-	es, err := senv.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	vs, err := svar.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	us, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	service := &EnvRPC{
-		DB: db,
-
-		// Services
-		es: es,
-		vs: vs,
-
-		// Depdenencies
-		us: *us,
-	}
-
-	path, handler := environmentv1connect.NewEnvironmentServiceHandler(service, options...)
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+	path, handler := environmentv1connect.NewEnvironmentServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

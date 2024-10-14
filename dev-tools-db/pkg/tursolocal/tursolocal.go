@@ -3,6 +3,7 @@ package tursolocal
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -18,6 +19,15 @@ func NewTursoLocal(dbName, path, encryptionKey string) (*sql.DB, func(), error) 
 	}
 	if path == "" {
 		return nil, nil, ErrDBNameNotFound
+	}
+
+	// check if the directory exists
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModeAppend)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
 	}
 	dbFilePath := filepath.Join(path, dbName)
 	dbFilePath = fmt.Sprintf("file:%s.db", dbFilePath)
