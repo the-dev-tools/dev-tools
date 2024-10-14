@@ -52,8 +52,8 @@ type ItemApiRPC struct {
 	iaes *sitemapiexample.ItemApiExampleService
 
 	// Sub
-	hs *sexampleheader.HeaderService
-	qs *sexamplequery.ExampleQueryService
+	ehs *sexampleheader.HeaderService
+	eqs *sexamplequery.ExampleQueryService
 
 	// Body
 	brs  *sbodyraw.BodyRawService
@@ -66,100 +66,43 @@ type ItemApiRPC struct {
 
 	// Assert
 	as *sassert.AssertService
+
+	secret []byte
 }
 
-func CreateService(ctx context.Context, db *sql.DB, secret []byte) (*api.Service, error) {
-	ias, err := sitemapi.New(ctx, db)
-	if err != nil {
-		return nil, err
+func New(db *sql.DB, ias *sitemapi.ItemApiService, cs *scollection.CollectionService,
+	ifs sitemfolder.ItemFolderService, us suser.UserService,
+	iaes sitemapiexample.ItemApiExampleService, ehs *sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService,
+	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bufs sbodyurl.BodyURLEncodedService,
+	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
+	as sassert.AssertService, secret []byte,
+) *ItemApiRPC {
+	return &ItemApiRPC{
+		DB:     db,
+		ias:    ias,
+		ifs:    &ifs,
+		cs:     cs,
+		us:     &us,
+		iaes:   &iaes,
+		ehs:    ehs,
+		eqs:    &eqs,
+		brs:    &brs,
+		bfs:    &bfs,
+		bufs:   &bufs,
+		ers:    &ers,
+		erhs:   &erhs,
+		as:     &as,
+		secret: secret,
 	}
+}
 
-	ifs, err := sitemfolder.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	cs, err := scollection.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	us, err := suser.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	iaes, err := sitemapiexample.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	hs, err := sexampleheader.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	qs, err := sexamplequery.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	brs, err := sbodyraw.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	bfs, err := sbodyform.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	bufs, err := sbodyurl.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ers, err := sexampleresp.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	erhs, err := sexamplerespheader.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	as, err := sassert.New(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
+func CreateService(ctx context.Context, srv ItemApiRPC) (*api.Service, error) {
 	var options []connect.HandlerOption
 	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(secret)))
-	server := &ItemApiRPC{
-		DB:   db,
-		ias:  ias,
-		ifs:  ifs,
-		cs:   cs,
-		us:   us,
-		iaes: iaes,
-		// Sub
-		hs: hs,
-		qs: qs,
-		// Body
-		brs:  brs,
-		bfs:  bfs,
-		bufs: bufs,
-		// example
-		ers:  ers,
-		erhs: erhs,
-		// Assert
-		as: as,
-	}
+	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
 
-	path, handler := itemapiv1connect.NewItemApiServiceHandler(server, options...)
+	path, handler := itemapiv1connect.NewItemApiServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
@@ -266,12 +209,12 @@ func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemap
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	headers, err := c.hs.GetHeaderByExampleID(ctx, examplePtr.ID)
+	headers, err := c.ehs.GetHeaderByExampleID(ctx, examplePtr.ID)
 	if err != nil && err == sexampleheader.ErrNoHeaderFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, examplePtr.ID)
+	queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, examplePtr.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

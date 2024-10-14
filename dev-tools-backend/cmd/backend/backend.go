@@ -15,9 +15,16 @@ import (
 	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/internal/api/rvar"
 	"dev-tools-backend/internal/api/rworkspace"
+	"dev-tools-backend/pkg/service/sassert"
+	"dev-tools-backend/pkg/service/sbodyform"
+	"dev-tools-backend/pkg/service/sbodyraw"
+	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/sexampleheader"
+	"dev-tools-backend/pkg/service/sexamplequery"
+	"dev-tools-backend/pkg/service/sexampleresp"
+	"dev-tools-backend/pkg/service/sexamplerespheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -131,7 +138,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	hes, err := sexampleheader.New(ctx, currentDB)
+	ehs, err := sexampleheader.New(ctx, currentDB)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -148,6 +155,41 @@ func main() {
 
 	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
 	MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	eqs, err := sexamplequery.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	brs, err := sbodyraw.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bfs, err := sbodyform.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bufs, err := sbodyurl.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ers, err := sexampleresp.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	erhs, err := sexamplerespheader.New(ctx, currentDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	as, err := sassert.New(ctx, currentDB)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -180,7 +222,7 @@ func main() {
 	authSrv := auth.New(*MagicLinkClient, *us, *ws, *wus, hmacSecretBytes)
 	newServiceManager.AddService(auth.CreateService(ctx, authSrv))
 	collectionSrv := collection.New(currentDB, *cs, *ws,
-		*us, *ias, *ifs, *ras, *iaes, *hes, hmacSecretBytes)
+		*us, *ias, *ifs, *ras, *iaes, *ehs, hmacSecretBytes)
 	newServiceManager.AddService(collection.CreateService(ctx, collectionSrv))
 
 	newServiceManager.AddService(node.CreateService(clientHttp))
@@ -189,7 +231,11 @@ func main() {
 
 	workspaceSrv := rworkspace.New(currentDB, *ws, *wus, *us, es, *emailClient, emailInviteManager, hmacSecretBytes)
 	newServiceManager.AddService(rworkspace.CreateService(ctx, workspaceSrv))
-	newServiceManager.AddService(ritemapi.CreateService(ctx, currentDB, hmacSecretBytes))
+
+	itemapiSrv := ritemapi.New(currentDB, ias, cs,
+		*ifs, *us, *iaes, ehs, *eqs, *brs,
+		*bfs, *bufs, *ers, *erhs, *as, hmacSecretBytes)
+	newServiceManager.AddService(ritemapi.CreateService(ctx, *itemapiSrv))
 	newServiceManager.AddService(ritemfolder.CreateService(ctx, currentDB, hmacSecretBytes))
 	newServiceManager.AddService(ritemapiexample.CreateService(ctx, currentDB, hmacSecretBytes))
 	newServiceManager.AddService(rbody.CreateService(ctx, currentDB, hmacSecretBytes))
