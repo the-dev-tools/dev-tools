@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/permcheck"
@@ -22,14 +20,13 @@ import (
 )
 
 type ItemFolderRPC struct {
-	DB     *sql.DB
-	ifs    sitemfolder.ItemFolderService
-	us     suser.UserService
-	cs     scollection.CollectionService
-	secret []byte
+	DB  *sql.DB
+	ifs sitemfolder.ItemFolderService
+	us  suser.UserService
+	cs  scollection.CollectionService
 }
 
-func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService, secret []byte) *ItemFolderRPC {
+func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService) *ItemFolderRPC {
 	return &ItemFolderRPC{
 		DB:  db,
 		ifs: ifs,
@@ -38,11 +35,7 @@ func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs
 	}
 }
 
-func CreateService(ctx context.Context, srv ItemFolderRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+func CreateService(ctx context.Context, srv ItemFolderRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

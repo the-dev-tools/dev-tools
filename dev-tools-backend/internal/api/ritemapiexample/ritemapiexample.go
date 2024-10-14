@@ -6,8 +6,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/pkg/compress"
 	"dev-tools-backend/pkg/idwrap"
@@ -77,16 +75,14 @@ type ItemAPIExampleRPC struct {
 	vs svar.VarService
 
 	// assert
-	as     *sassert.AssertService
-	ars    *sassertres.AssertResultService
-	secret []byte
+	as  *sassert.AssertService
+	ars *sassertres.AssertResultService
 }
 
 func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService, ras sresultapi.ResultApiService,
 	cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
 	bfs sbodyform.BodyFormService, beus sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, erhs sexamplerespheader.ExampleRespHeaderService,
 	ers sexampleresp.ExampleRespService, es senv.EnvService, vs svar.VarService, as sassert.AssertService, ars sassertres.AssertResultService,
-	secret []byte,
 ) *ItemAPIExampleRPC {
 	return &ItemAPIExampleRPC{
 		DB:   db,
@@ -109,12 +105,7 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 	}
 }
 
-func CreateService(ctx context.Context, srv ItemAPIExampleRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
-
+func CreateService(ctx context.Context, srv ItemAPIExampleRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

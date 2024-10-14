@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/menv"
@@ -24,27 +23,21 @@ import (
 type EnvRPC struct {
 	DB *sql.DB
 
-	es     senv.EnvService
-	vs     svar.VarService
-	us     suser.UserService
-	secret []byte
+	es senv.EnvService
+	vs svar.VarService
+	us suser.UserService
 }
 
-func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserService, secret []byte) *EnvRPC {
+func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserService) *EnvRPC {
 	return &EnvRPC{
-		DB:     db,
-		es:     es,
-		vs:     vs,
-		us:     us,
-		secret: secret,
+		DB: db,
+		es: es,
+		vs: vs,
+		us: us,
 	}
 }
 
-func CreateService(ctx context.Context, srv EnvRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+func CreateService(ctx context.Context, srv EnvRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := environmentv1connect.NewEnvironmentServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

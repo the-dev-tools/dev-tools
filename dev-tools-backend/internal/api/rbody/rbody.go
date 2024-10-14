@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
@@ -32,13 +30,14 @@ type BodyRPC struct {
 	iaes sitemapiexample.ItemApiExampleService
 	us   suser.UserService
 
-	bfs    sbodyform.BodyFormService
-	bues   sbodyurl.BodyURLEncodedService
-	brs    sbodyraw.BodyRawService
-	secret []byte
+	bfs  sbodyform.BodyFormService
+	bues sbodyurl.BodyURLEncodedService
+	brs  sbodyraw.BodyRawService
 }
 
-func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.ItemApiExampleService, us suser.UserService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, secret []byte) *BodyRPC {
+func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.ItemApiExampleService,
+	us suser.UserService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService,
+) *BodyRPC {
 	return &BodyRPC{
 		DB: db,
 		// root
@@ -46,19 +45,13 @@ func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.Item
 		iaes: iaes,
 		us:   us,
 		// body services
-		bfs:    bfs,
-		bues:   bues,
-		brs:    brs,
-		secret: secret,
+		bfs:  bfs,
+		bues: bues,
+		brs:  brs,
 	}
 }
 
-func CreateService(ctx context.Context, srv BodyRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+func CreateService(ctx context.Context, srv BodyRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := bodyv1connect.NewBodyServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

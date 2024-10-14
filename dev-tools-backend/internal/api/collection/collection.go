@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
@@ -33,42 +32,36 @@ import (
 )
 
 type CollectionServiceRPC struct {
-	DB     *sql.DB
-	cs     scollection.CollectionService
-	ws     sworkspace.WorkspaceService
-	us     suser.UserService
-	ias    sitemapi.ItemApiService
-	ifs    sitemfolder.ItemFolderService
-	ras    sresultapi.ResultApiService
-	iaes   sitemapiexample.ItemApiExampleService
-	hes    sexampleheader.HeaderService
-	secret []byte
+	DB   *sql.DB
+	cs   scollection.CollectionService
+	ws   sworkspace.WorkspaceService
+	us   suser.UserService
+	ias  sitemapi.ItemApiService
+	ifs  sitemfolder.ItemFolderService
+	ras  sresultapi.ResultApiService
+	iaes sitemapiexample.ItemApiExampleService
+	hes  sexampleheader.HeaderService
 }
 
 func New(db *sql.DB, cs scollection.CollectionService, ws sworkspace.WorkspaceService,
 	us suser.UserService, ias sitemapi.ItemApiService, ifs sitemfolder.ItemFolderService,
 	ras sresultapi.ResultApiService, iaes sitemapiexample.ItemApiExampleService,
-	hs sexampleheader.HeaderService, secret []byte,
+	hs sexampleheader.HeaderService,
 ) CollectionServiceRPC {
 	return CollectionServiceRPC{
-		DB:     db,
-		cs:     cs,
-		ws:     ws,
-		us:     us,
-		ias:    ias,
-		ifs:    ifs,
-		ras:    ras,
-		iaes:   iaes,
-		hes:    hs,
-		secret: secret,
+		DB:   db,
+		cs:   cs,
+		ws:   ws,
+		us:   us,
+		ias:  ias,
+		ifs:  ifs,
+		ras:  ras,
+		iaes: iaes,
+		hes:  hs,
 	}
 }
 
-func CreateService(ctx context.Context, deps CollectionServiceRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(deps.secret)))
+func CreateService(ctx context.Context, deps CollectionServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := collectionv1connect.NewCollectionServiceHandler(&deps, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

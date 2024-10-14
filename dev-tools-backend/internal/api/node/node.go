@@ -18,6 +18,25 @@ type MasterNodeServer struct {
 	client   nodemasterv1connect.NodeMasterServiceClient
 }
 
+func CreateService(httpClient *httplb.Client, options []connect.HandlerOption) (*api.Service, error) {
+	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
+	if upstream == "" {
+		return nil, errors.New("MASTER_NODE_IP env var is required")
+	}
+
+	client := nodemasterv1connect.NewNodeMasterServiceClient(httpClient, upstream)
+	if client == nil {
+		return nil, errors.New("failed to create client")
+	}
+
+	server := &MasterNodeServer{
+		upstream: upstream,
+		client:   client,
+	}
+	path, handler := nodemasterv1connect.NewNodeMasterServiceHandler(server, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
+}
+
 func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemasterv1.NodeMasterServiceRunRequest], stream *connect.ServerStream[nodemasterv1.NodeMasterServiceRunResponse]) error {
 	client := m.client
 	upstreamReq := connect.NewRequest(req.Msg)
@@ -40,23 +59,4 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 	}
 
 	return nil
-}
-
-func CreateService(httpClient *httplb.Client) (*api.Service, error) {
-	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
-	if upstream == "" {
-		return nil, errors.New("MASTER_NODE_IP env var is required")
-	}
-
-	client := nodemasterv1connect.NewNodeMasterServiceClient(httpClient, upstream)
-	if client == nil {
-		return nil, errors.New("failed to create client")
-	}
-
-	server := &MasterNodeServer{
-		upstream: upstream,
-		client:   client,
-	}
-	path, handler := nodemasterv1connect.NewNodeMasterServiceHandler(server)
-	return &api.Service{Path: path, Handler: handler}, nil
 }

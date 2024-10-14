@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/model/mworkspace"
@@ -48,11 +47,7 @@ func New(client client.API, us suser.UserService, ws sworkspace.WorkspaceService
 	}
 }
 
-func CreateService(ctx context.Context, srv AuthServer) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-
+func CreateService(ctx context.Context, srv AuthServer, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := authv1connect.NewAuthServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

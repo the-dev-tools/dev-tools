@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/renv"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/permcheck"
@@ -26,27 +24,20 @@ type VarRPC struct {
 
 	us suser.UserService
 
-	es     senv.EnvService
-	vs     svar.VarService
-	secret []byte
+	es senv.EnvService
+	vs svar.VarService
 }
 
-func New(db *sql.DB, us suser.UserService, es senv.EnvService, vs svar.VarService, secret []byte) *VarRPC {
+func New(db *sql.DB, us suser.UserService, es senv.EnvService, vs svar.VarService) *VarRPC {
 	return &VarRPC{
-		DB:     db,
-		us:     us,
-		es:     es,
-		vs:     vs,
-		secret: secret,
+		DB: db,
+		us: us,
+		es: es,
+		vs: vs,
 	}
 }
 
-func CreateService(ctx context.Context, srv VarRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+func CreateService(ctx context.Context, srv VarRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := variablev1connect.NewVariableServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

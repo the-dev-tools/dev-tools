@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
@@ -21,30 +20,24 @@ import (
 )
 
 type ResultService struct {
-	DB   *sql.DB
-	cs   scollection.CollectionService
-	ias  sitemapi.ItemApiService
-	ws   sworkspace.WorkspaceService
-	ras  sresultapi.ResultApiService
-	hmac []byte
+	DB  *sql.DB
+	cs  scollection.CollectionService
+	ias sitemapi.ItemApiService
+	ws  sworkspace.WorkspaceService
+	ras sresultapi.ResultApiService
 }
 
-func New(db *sql.DB, cs scollection.CollectionService, ias sitemapi.ItemApiService, ws sworkspace.WorkspaceService, ras sresultapi.ResultApiService, hmac []byte) ResultService {
+func New(db *sql.DB, cs scollection.CollectionService, ias sitemapi.ItemApiService, ws sworkspace.WorkspaceService, ras sresultapi.ResultApiService) ResultService {
 	return ResultService{
-		DB:   db,
-		cs:   cs,
-		ias:  ias,
-		ws:   ws,
-		ras:  ras,
-		hmac: hmac,
+		DB:  db,
+		cs:  cs,
+		ias: ias,
+		ws:  ws,
+		ras: ras,
 	}
 }
 
-func CreateService(ctx context.Context, srv ResultService) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.hmac)))
+func CreateService(ctx context.Context, srv ResultService, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := apiresultv1connect.NewApiResultServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

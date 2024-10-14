@@ -6,6 +6,8 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
+	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/node"
 	"dev-tools-backend/internal/api/rbody"
 	"dev-tools-backend/internal/api/renv"
@@ -47,6 +49,7 @@ import (
 	"syscall"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/bufbuild/httplb"
 	"github.com/magiclabs/magic-admin-go"
 
@@ -229,42 +232,61 @@ func main() {
 		log.Fatalf("failed to create email invite manager: %v", err)
 	}
 
+	var optionsCompress []connect.HandlerOption
+	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
+	var optionsAuth []connect.HandlerOption = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
+	var opitonsAll []connect.HandlerOption = append(optionsAuth, optionsCompress...)
+
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
+	// Auth Service
 	authSrv := auth.New(*MagicLinkClient, *us, *ws, *wus, hmacSecretBytes)
-	newServiceManager.AddService(auth.CreateService(ctx, authSrv))
+	newServiceManager.AddService(auth.CreateService(ctx, authSrv, optionsCompress))
+
+	// Collection Service
 	collectionSrv := collection.New(currentDB, *cs, *ws,
-		*us, *ias, *ifs, *ras, *iaes, *ehs, hmacSecretBytes)
-	newServiceManager.AddService(collection.CreateService(ctx, collectionSrv))
+		*us, *ias, *ifs, *ras, *iaes, *ehs)
+	newServiceManager.AddService(collection.CreateService(ctx, collectionSrv, opitonsAll))
 
-	newServiceManager.AddService(node.CreateService(clientHttp))
-	resultapiSrv := resultapi.New(currentDB, *cs, *ias, *ws, *ras, hmacSecretBytes)
-	newServiceManager.AddService(resultapi.CreateService(ctx, resultapiSrv))
+	// Node Service
+	newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
 
-	workspaceSrv := rworkspace.New(currentDB, *ws, *wus, *us, es, *emailClient, emailInviteManager, hmacSecretBytes)
-	newServiceManager.AddService(rworkspace.CreateService(ctx, workspaceSrv))
+	// Result API Service
+	resultapiSrv := resultapi.New(currentDB, *cs, *ias, *ws, *ras)
+	newServiceManager.AddService(resultapi.CreateService(ctx, resultapiSrv, opitonsAll))
 
+	// Workspace Service
+	workspaceSrv := rworkspace.New(currentDB, *ws, *wus, *us, es, *emailClient, emailInviteManager)
+	newServiceManager.AddService(rworkspace.CreateService(ctx, workspaceSrv, opitonsAll))
+
+	// Item API Service
 	itemapiSrv := ritemapi.New(currentDB, ias, cs,
 		*ifs, *us, *iaes, ehs, *eqs, *brs,
-		*bfs, *bues, *ers, *erhs, *as, hmacSecretBytes)
-	newServiceManager.AddService(ritemapi.CreateService(ctx, *itemapiSrv))
+		*bfs, *bues, *ers, *erhs, *as)
+	newServiceManager.AddService(ritemapi.CreateService(ctx, *itemapiSrv, opitonsAll))
 
-	folderApiSrv := ritemfolder.New(currentDB, *ifs, *us, *cs, hmacSecretBytes)
-	newServiceManager.AddService(ritemfolder.CreateService(ctx, *folderApiSrv))
+	// Folder API Service
+	folderItemSrv := ritemfolder.New(currentDB, *ifs, *us, *cs)
+	newServiceManager.AddService(ritemfolder.CreateService(ctx, *folderItemSrv, opitonsAll))
 
+	// Api Item Example
 	itemApiExampleSrv := ritemapiexample.New(currentDB, *iaes, *ias, *ras,
 		*cs, *us, *ehs, *eqs, *bfs, *bues,
-		*brs, *erhs, *ers, es, vs, *as, *ars, hmacSecretBytes)
-	newServiceManager.AddService(ritemapiexample.CreateService(ctx, *itemApiExampleSrv))
+		*brs, *erhs, *ers, es, vs, *as, *ars)
+	newServiceManager.AddService(ritemapiexample.CreateService(ctx, *itemApiExampleSrv, opitonsAll))
 
-	bodySrv := rbody.New(currentDB, *cs, *iaes, *us, *bfs, *bues, *brs, hmacSecretBytes)
-	newServiceManager.AddService(rbody.CreateService(ctx, *bodySrv))
+	// BodyRaw Service
+	bodySrv := rbody.New(currentDB, *cs, *iaes, *us, *bfs, *bues, *brs)
+	newServiceManager.AddService(rbody.CreateService(ctx, *bodySrv, opitonsAll))
 
-	envSrv := renv.New(currentDB, es, vs, *us, hmacSecretBytes)
-	newServiceManager.AddService(renv.CreateService(ctx, *envSrv))
+	// Env Service
+	envSrv := renv.New(currentDB, es, vs, *us)
+	newServiceManager.AddService(renv.CreateService(ctx, *envSrv, opitonsAll))
 
-	varSrv := rvar.New(currentDB, *us, es, vs, hmacSecretBytes)
-	newServiceManager.AddService(rvar.CreateService(ctx, *varSrv))
+	// Var Service
+	varSrv := rvar.New(currentDB, *us, es, vs)
+	newServiceManager.AddService(rvar.CreateService(ctx, *varSrv, opitonsAll))
 
 	// Start services
 	go func() {

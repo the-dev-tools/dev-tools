@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
@@ -66,8 +64,6 @@ type ItemApiRPC struct {
 
 	// Assert
 	as *sassert.AssertService
-
-	secret []byte
 }
 
 func New(db *sql.DB, ias *sitemapi.ItemApiService, cs *scollection.CollectionService,
@@ -75,33 +71,27 @@ func New(db *sql.DB, ias *sitemapi.ItemApiService, cs *scollection.CollectionSer
 	iaes sitemapiexample.ItemApiExampleService, ehs *sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bufs sbodyurl.BodyURLEncodedService,
 	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
-	as sassert.AssertService, secret []byte,
+	as sassert.AssertService,
 ) *ItemApiRPC {
 	return &ItemApiRPC{
-		DB:     db,
-		ias:    ias,
-		ifs:    &ifs,
-		cs:     cs,
-		us:     &us,
-		iaes:   &iaes,
-		ehs:    ehs,
-		eqs:    &eqs,
-		brs:    &brs,
-		bfs:    &bfs,
-		bufs:   &bufs,
-		ers:    &ers,
-		erhs:   &erhs,
-		as:     &as,
-		secret: secret,
+		DB:   db,
+		ias:  ias,
+		ifs:  &ifs,
+		cs:   cs,
+		us:   &us,
+		iaes: &iaes,
+		ehs:  ehs,
+		eqs:  &eqs,
+		brs:  &brs,
+		bfs:  &bfs,
+		bufs: &bufs,
+		ers:  &ers,
+		erhs: &erhs,
+		as:   &as,
 	}
 }
 
-func CreateService(ctx context.Context, srv ItemApiRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
-
+func CreateService(ctx context.Context, srv ItemApiRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/menv"
@@ -38,29 +37,23 @@ type WorkspaceServiceRPC struct {
 	es senv.EnvService
 
 	// email
-	ec     emailclient.EmailClient
-	eim    *emailinvite.EmailTemplateManager
-	secret []byte
+	ec  emailclient.EmailClient
+	eim *emailinvite.EmailTemplateManager
 }
 
-func New(db *sql.DB, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, us suser.UserService, es senv.EnvService, ec emailclient.EmailClient, eim *emailinvite.EmailTemplateManager, secret []byte) WorkspaceServiceRPC {
+func New(db *sql.DB, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, us suser.UserService, es senv.EnvService, ec emailclient.EmailClient, eim *emailinvite.EmailTemplateManager) WorkspaceServiceRPC {
 	return WorkspaceServiceRPC{
-		DB:     db,
-		ws:     ws,
-		wus:    wus,
-		us:     us,
-		es:     es,
-		ec:     ec,
-		eim:    eim,
-		secret: secret,
+		DB:  db,
+		ws:  ws,
+		wus: wus,
+		us:  us,
+		es:  es,
+		ec:  ec,
+		eim: eim,
 	}
 }
 
-func CreateService(ctx context.Context, srv WorkspaceServiceRPC) (*api.Service, error) {
-	var options []connect.HandlerOption
-	options = append(options, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	options = append(options, connect.WithCompression("gzip", nil, nil))
-	options = append(options, connect.WithInterceptors(mwauth.NewAuthInterceptor(srv.secret)))
+func CreateService(ctx context.Context, srv WorkspaceServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
