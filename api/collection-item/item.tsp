@@ -4,6 +4,7 @@ import "@typespec/rest";
 import "../collection.tsp";
 import "../resource.tsp";
 import "./api.tsp";
+import "./example.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -25,6 +26,7 @@ enum ItemKind {
 }
 
 model ApiItem is Resource.List.Request<Api.Api>;
+model ExampleItem is Resource.List.Request<Example.Example>;
 
 @parentResource(Collection.Collection)
 model Item {
@@ -33,6 +35,7 @@ model Item {
   @field(5) kind: ItemKind;
   @field(6) name: string;
   @field(7) api?: ApiItem;
+  @field(8) example?: ExampleItem;
 }
 
 model ListItemsRequest is Resource.List.Request<Item> {
