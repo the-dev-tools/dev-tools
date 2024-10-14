@@ -32,16 +32,13 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (*WorkspaceService, error) {
+func New(ctx context.Context, db *sql.DB) (WorkspaceService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNoWorkspaceFound
-		}
-		return nil, err
+		return WorkspaceService{}, err
 	}
 
-	return &WorkspaceService{
+	return WorkspaceService{
 		queries: queries,
 	}, nil
 }

@@ -28,8 +28,8 @@ type EnvRPC struct {
 	us suser.UserService
 }
 
-func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserService) *EnvRPC {
-	return &EnvRPC{
+func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserService) EnvRPC {
+	return EnvRPC{
 		DB: db,
 		es: es,
 		vs: vs,
@@ -37,7 +37,7 @@ func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserServic
 	}
 }
 
-func CreateService(ctx context.Context, srv EnvRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv EnvRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := environmentv1connect.NewEnvironmentServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

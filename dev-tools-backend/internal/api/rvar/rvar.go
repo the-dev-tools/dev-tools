@@ -28,8 +28,8 @@ type VarRPC struct {
 	vs svar.VarService
 }
 
-func New(db *sql.DB, us suser.UserService, es senv.EnvService, vs svar.VarService) *VarRPC {
-	return &VarRPC{
+func New(db *sql.DB, us suser.UserService, es senv.EnvService, vs svar.VarService) VarRPC {
+	return VarRPC{
 		DB: db,
 		us: us,
 		es: es,
@@ -37,7 +37,7 @@ func New(db *sql.DB, us suser.UserService, es senv.EnvService, vs svar.VarServic
 	}
 }
 
-func CreateService(ctx context.Context, srv VarRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv VarRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := variablev1connect.NewVariableServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

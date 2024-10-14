@@ -39,13 +39,12 @@ type ExampleQueryService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (*ExampleQueryService, error) {
+func New(ctx context.Context, db *sql.DB) (ExampleQueryService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return ExampleQueryService{}, err
 	}
-	service := ExampleQueryService{queries: queries}
-	return &service, nil
+	return ExampleQueryService{queries: queries}, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleQueryService, error) {

@@ -66,21 +66,21 @@ type ItemApiRPC struct {
 	as *sassert.AssertService
 }
 
-func New(db *sql.DB, ias *sitemapi.ItemApiService, cs *scollection.CollectionService,
+func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionService,
 	ifs sitemfolder.ItemFolderService, us suser.UserService,
-	iaes sitemapiexample.ItemApiExampleService, ehs *sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService,
+	iaes sitemapiexample.ItemApiExampleService, ehs sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bufs sbodyurl.BodyURLEncodedService,
 	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
 	as sassert.AssertService,
-) *ItemApiRPC {
-	return &ItemApiRPC{
+) ItemApiRPC {
+	return ItemApiRPC{
 		DB:   db,
-		ias:  ias,
+		ias:  &ias,
 		ifs:  &ifs,
-		cs:   cs,
+		cs:   &cs,
 		us:   &us,
 		iaes: &iaes,
-		ehs:  ehs,
+		ehs:  &ehs,
 		eqs:  &eqs,
 		brs:  &brs,
 		bfs:  &bfs,
@@ -91,7 +91,7 @@ func New(db *sql.DB, ias *sitemapi.ItemApiService, cs *scollection.CollectionSer
 	}
 }
 
-func CreateService(ctx context.Context, srv ItemApiRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv ItemApiRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := itemapiv1connect.NewItemApiServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

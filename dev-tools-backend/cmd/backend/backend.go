@@ -241,52 +241,52 @@ func main() {
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
 	// Auth Service
-	authSrv := auth.New(*MagicLinkClient, *us, *ws, *wus, hmacSecretBytes)
-	newServiceManager.AddService(auth.CreateService(ctx, authSrv, optionsCompress))
+	authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
+	newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
 
 	// Collection Service
-	collectionSrv := collection.New(currentDB, *cs, *ws,
-		*us, *ias, *ifs, *ras, *iaes, *ehs)
-	newServiceManager.AddService(collection.CreateService(ctx, collectionSrv, opitonsAll))
+	collectionSrv := collection.New(currentDB, cs, ws,
+		us, ias, ifs, ras, iaes, ehs)
+	newServiceManager.AddService(collection.CreateService(collectionSrv, opitonsAll))
 
 	// Node Service
 	newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
 
 	// Result API Service
-	resultapiSrv := resultapi.New(currentDB, *cs, *ias, *ws, *ras)
-	newServiceManager.AddService(resultapi.CreateService(ctx, resultapiSrv, opitonsAll))
+	resultapiSrv := resultapi.New(currentDB, cs, ias, ws, ras)
+	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
 
 	// Workspace Service
-	workspaceSrv := rworkspace.New(currentDB, *ws, *wus, *us, es, *emailClient, emailInviteManager)
-	newServiceManager.AddService(rworkspace.CreateService(ctx, workspaceSrv, opitonsAll))
+	workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es, *emailClient, emailInviteManager)
+	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 
 	// Item API Service
 	itemapiSrv := ritemapi.New(currentDB, ias, cs,
-		*ifs, *us, *iaes, ehs, *eqs, *brs,
-		*bfs, *bues, *ers, *erhs, *as)
-	newServiceManager.AddService(ritemapi.CreateService(ctx, *itemapiSrv, opitonsAll))
+		ifs, us, iaes, ehs, eqs, brs,
+		bfs, bues, ers, erhs, as)
+	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
 
 	// Folder API Service
-	folderItemSrv := ritemfolder.New(currentDB, *ifs, *us, *cs)
-	newServiceManager.AddService(ritemfolder.CreateService(ctx, *folderItemSrv, opitonsAll))
+	folderItemSrv := ritemfolder.New(currentDB, ifs, us, cs)
+	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
 
 	// Api Item Example
-	itemApiExampleSrv := ritemapiexample.New(currentDB, *iaes, *ias, *ras,
-		*cs, *us, *ehs, *eqs, *bfs, *bues,
-		*brs, *erhs, *ers, es, vs, *as, *ars)
-	newServiceManager.AddService(ritemapiexample.CreateService(ctx, *itemApiExampleSrv, opitonsAll))
+	itemApiExampleSrv := ritemapiexample.New(currentDB, iaes, ias, ras,
+		cs, us, ehs, eqs, bfs, bues,
+		brs, erhs, ers, es, vs, as, ars)
+	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
 
 	// BodyRaw Service
-	bodySrv := rbody.New(currentDB, *cs, *iaes, *us, *bfs, *bues, *brs)
-	newServiceManager.AddService(rbody.CreateService(ctx, *bodySrv, opitonsAll))
+	bodySrv := rbody.New(currentDB, cs, iaes, us, bfs, bues, brs)
+	newServiceManager.AddService(rbody.CreateService(bodySrv, opitonsAll))
 
 	// Env Service
-	envSrv := renv.New(currentDB, es, vs, *us)
-	newServiceManager.AddService(renv.CreateService(ctx, *envSrv, opitonsAll))
+	envSrv := renv.New(currentDB, es, vs, us)
+	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
 
 	// Var Service
-	varSrv := rvar.New(currentDB, *us, es, vs)
-	newServiceManager.AddService(rvar.CreateService(ctx, *varSrv, opitonsAll))
+	varSrv := rvar.New(currentDB, us, es, vs)
+	newServiceManager.AddService(rvar.CreateService(varSrv, opitonsAll))
 
 	// Start services
 	go func() {

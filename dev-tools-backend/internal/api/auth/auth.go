@@ -47,7 +47,7 @@ func New(client client.API, us suser.UserService, ws sworkspace.WorkspaceService
 	}
 }
 
-func CreateService(ctx context.Context, srv AuthServer, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv AuthServer, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := authv1connect.NewAuthServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

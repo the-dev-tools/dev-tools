@@ -53,7 +53,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, wus sworkspacesusers.Worksp
 	}
 }
 
-func CreateService(ctx context.Context, srv WorkspaceServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv WorkspaceServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := workspacev1connect.NewWorkspaceServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

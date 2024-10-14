@@ -37,8 +37,8 @@ type BodyRPC struct {
 
 func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.ItemApiExampleService,
 	us suser.UserService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService,
-) *BodyRPC {
-	return &BodyRPC{
+) BodyRPC {
+	return BodyRPC{
 		DB: db,
 		// root
 		cs:   cs,
@@ -51,7 +51,7 @@ func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.Item
 	}
 }
 
-func CreateService(ctx context.Context, srv BodyRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv BodyRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := bodyv1connect.NewBodyServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

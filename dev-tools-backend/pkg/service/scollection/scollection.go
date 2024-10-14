@@ -31,13 +31,12 @@ func ConvertToModelCollection(collection gen.Collection) *mcollection.Collection
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (*CollectionService, error) {
+func New(ctx context.Context, db *sql.DB) (CollectionService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return CollectionService{}, err
 	}
-	service := CollectionService{queries: queries}
-	return &service, nil
+	return CollectionService{queries: queries}, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {

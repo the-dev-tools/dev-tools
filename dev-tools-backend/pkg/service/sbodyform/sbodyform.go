@@ -38,13 +38,12 @@ func DeserializeGenToModel(body gen.ExampleBodyForm) mbodyform.BodyForm {
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (*BodyFormService, error) {
+func New(ctx context.Context, db *sql.DB) (BodyFormService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return BodyFormService{}, err
 	}
-	service := BodyFormService{queries: queries}
-	return &service, nil
+	return BodyFormService{queries: queries}, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyFormService, error) {

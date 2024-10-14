@@ -17,13 +17,12 @@ type HeaderService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (*HeaderService, error) {
+func New(ctx context.Context, db *sql.DB) (HeaderService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return HeaderService{}, err
 	}
-	service := HeaderService{queries: queries}
-	return &service, nil
+	return HeaderService{queries: queries}, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*HeaderService, error) {

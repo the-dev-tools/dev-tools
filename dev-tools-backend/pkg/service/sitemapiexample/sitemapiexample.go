@@ -15,13 +15,13 @@ type ItemApiExampleService struct {
 
 var ErrNoItemApiExampleFound = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (*ItemApiExampleService, error) {
+func New(ctx context.Context, db *sql.DB) (ItemApiExampleService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return ItemApiExampleService{}, err
 	}
 
-	return &ItemApiExampleService{
+	return ItemApiExampleService{
 		Queries: queries,
 	}, nil
 }

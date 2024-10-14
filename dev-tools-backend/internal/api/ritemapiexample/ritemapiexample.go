@@ -83,8 +83,8 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 	cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
 	bfs sbodyform.BodyFormService, beus sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, erhs sexamplerespheader.ExampleRespHeaderService,
 	ers sexampleresp.ExampleRespService, es senv.EnvService, vs svar.VarService, as sassert.AssertService, ars sassertres.AssertResultService,
-) *ItemAPIExampleRPC {
-	return &ItemAPIExampleRPC{
+) ItemAPIExampleRPC {
+	return ItemAPIExampleRPC{
 		DB:   db,
 		iaes: &iaes,
 		ias:  &ias,
@@ -105,7 +105,7 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 	}
 }
 
-func CreateService(ctx context.Context, srv ItemAPIExampleRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv ItemAPIExampleRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

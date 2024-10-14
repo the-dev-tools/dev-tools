@@ -26,8 +26,8 @@ type ItemFolderRPC struct {
 	cs  scollection.CollectionService
 }
 
-func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService) *ItemFolderRPC {
-	return &ItemFolderRPC{
+func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService) ItemFolderRPC {
+	return ItemFolderRPC{
 		DB:  db,
 		ifs: ifs,
 		us:  us,
@@ -35,7 +35,7 @@ func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs
 	}
 }
 
-func CreateService(ctx context.Context, srv ItemFolderRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv ItemFolderRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

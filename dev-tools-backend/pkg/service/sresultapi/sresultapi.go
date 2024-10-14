@@ -42,13 +42,12 @@ func ConvertToModelResultApi(result gen.ResultApi) *mresultapi.MResultAPI {
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (*ResultApiService, error) {
+func New(ctx context.Context, db *sql.DB) (ResultApiService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return ResultApiService{}, err
 	}
-	resultApiService := ResultApiService{db, queries}
-	return &resultApiService, nil
+	return ResultApiService{db, queries}, nil
 }
 
 func (ras ResultApiService) CreateResultApi(ctx context.Context, result *mresultapi.MResultAPI) error {

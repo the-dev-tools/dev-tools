@@ -61,7 +61,7 @@ func New(db *sql.DB, cs scollection.CollectionService, ws sworkspace.WorkspaceSe
 	}
 }
 
-func CreateService(ctx context.Context, deps CollectionServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(deps CollectionServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := collectionv1connect.NewCollectionServiceHandler(&deps, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

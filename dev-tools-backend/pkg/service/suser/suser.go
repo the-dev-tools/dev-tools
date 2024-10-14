@@ -12,13 +12,12 @@ type UserService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (*UserService, error) {
+func New(ctx context.Context, db *sql.DB) (UserService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return UserService{}, err
 	}
-	userService := UserService{queries: queries}
-	return &userService, nil
+	return UserService{queries: queries}, nil
 }
 
 // WARNING: this is also get user password hash do not use for public api

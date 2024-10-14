@@ -11,7 +11,6 @@ import (
 )
 
 type ItemApiService struct {
-	DB      *sql.DB
 	queries *gen.Queries
 }
 
@@ -43,17 +42,16 @@ func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 
 var ErrNoItemApiFound = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (*ItemApiService, error) {
+func New(ctx context.Context, db *sql.DB) (ItemApiService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNoItemApiFound
+			return ItemApiService{}, ErrNoItemApiFound
 		}
-		return nil, err
+		return ItemApiService{}, err
 	}
 
-	return &ItemApiService{
-		DB:      db,
+	return ItemApiService{
 		queries: queries,
 	}, nil
 }

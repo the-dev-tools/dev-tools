@@ -30,13 +30,12 @@ func ConvertAssertResultModelToDB(assertResponse massertres.AssertResult) gen.As
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (*AssertResultService, error) {
+func New(ctx context.Context, db *sql.DB) (AssertResultService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return AssertResultService{}, err
 	}
-	service := AssertResultService{queries: queries}
-	return &service, nil
+	return AssertResultService{queries: queries}, nil
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*AssertResultService, error) {

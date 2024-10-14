@@ -14,12 +14,12 @@ type ExampleRespService struct {
 	Queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (*ExampleRespService, error) {
+func New(ctx context.Context, db *sql.DB) (ExampleRespService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return ExampleRespService{}, err
 	}
-	return &ExampleRespService{
+	return ExampleRespService{
 		Queries: queries,
 	}, nil
 }

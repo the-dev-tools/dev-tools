@@ -37,7 +37,7 @@ func New(db *sql.DB, cs scollection.CollectionService, ias sitemapi.ItemApiServi
 	}
 }
 
-func CreateService(ctx context.Context, srv ResultService, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv ResultService, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := apiresultv1connect.NewApiResultServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }

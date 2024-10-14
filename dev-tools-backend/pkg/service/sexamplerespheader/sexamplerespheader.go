@@ -13,12 +13,12 @@ type ExampleRespHeaderService struct {
 	Queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (*ExampleRespHeaderService, error) {
+func New(ctx context.Context, db *sql.DB) (ExampleRespHeaderService, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
-		return nil, err
+		return ExampleRespHeaderService{}, err
 	}
-	return &ExampleRespHeaderService{
+	return ExampleRespHeaderService{
 		Queries: queries,
 	}, nil
 }
