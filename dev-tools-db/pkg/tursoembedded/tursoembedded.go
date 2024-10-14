@@ -3,6 +3,7 @@ package tursoembedded
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -26,6 +27,14 @@ func NewTursoEmbeded(dbName, username, token, volumePath, encryptionKey string) 
 		return nil, nil, ErrTokenNotFound
 	}
 	url := fmt.Sprintf("libsql://%s-%s.turso.io", dbName, username)
+
+	_, err := os.Stat(volumePath)
+	if os.IsNotExist(err) {
+		err := os.MkdirAll(volumePath, os.ModeDir|os.ModePerm)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
 	dbFilePath := filepath.Join(volumePath, dbName)
 
 	connector, err := libsqlEmbedded.NewEmbeddedReplicaConnector(dbFilePath, url,

@@ -21,7 +21,6 @@ func NewTursoLocal(dbName, path, encryptionKey string) (*sql.DB, func(), error) 
 		return nil, nil, ErrDBNameNotFound
 	}
 
-	// check if the directory exists
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(path, os.ModeAppend)
