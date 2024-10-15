@@ -1,5 +1,17 @@
 # @the-dev-tools/protobuf
 
+## 1.30.0
+
+### Minor Changes
+
+- [`9e5f914`](https://github.com/the-dev-tools/dev-tools-spec/commit/9e5f914fbf08213274c069c281178b814c01bbc9) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Switch to binary IDs
+
+### Patch Changes
+
+- [`d3d44fe`](https://github.com/the-dev-tools/dev-tools-spec/commit/d3d44fe71b17ab795200eeb6c3a6c313dcc814f1) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Fix package.json exports
+
+- [`433650b`](https://github.com/the-dev-tools/dev-tools-spec/commit/433650b7729c2eb16dce8ea7cda2fdf7ad14d752) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Fix Go module
+
 ## 1.29.0
 
 ### Minor Changes
