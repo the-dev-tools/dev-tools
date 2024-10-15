@@ -10,7 +10,7 @@ using TypeSpec.Rest;
 @package({
   name: "variable.v1",
   options: {
-    go_package: "dev-tools-services/gen/variable/v1;variablev1",
+    go_package: "dev-tools-spec/dist/@buf/go/variable/v1;variablev1",
   },
 })
 namespace API.Variable;

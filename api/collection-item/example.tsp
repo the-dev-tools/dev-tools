@@ -12,7 +12,7 @@ using TypeSpec.Rest.Resource;
 @package({
   name: "collection.item.example.v1",
   options: {
-    go_package: "dev-tools-services/gen/collection/item/example/v1;examplev1",
+    go_package: "dev-tools-spec/dist/@buf/go/collection/item/example/v1;examplev1",
   },
 })
 namespace API.CollectionItem.Example;
