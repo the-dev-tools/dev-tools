@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.30.1
+
+### Patch Changes
+
+- [`2140d29`](https://github.com/the-dev-tools/dev-tools-spec/commit/2140d298c466da4fcabe2b99d56c055d02451f4e) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Add Go module files to package.json
+
 ## 1.30.0
 
 ### Minor Changes
