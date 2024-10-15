@@ -27,7 +27,7 @@ enum ItemKind {
 
 @parentResource(Collection.Collection)
 model CollectionItem {
-  @field(3) @key itemId: string;
+  @field(3) @key itemId: Resource.ID;
   @field(4) parentItemId?: string;
   @field(5) kind: ItemKind;
   @field(6) name: string;

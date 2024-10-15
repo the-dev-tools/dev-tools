@@ -17,7 +17,7 @@ namespace API.CollectionItem.Response;
 
 @parentResource(Example.Example)
 model Response {
-  @field(5) @key responseId: string;
+  @field(5) @key responseId: Resource.ID;
   @field(6) status: int32;
   @field(7) body: bytes;
   @field(8) time: WellKnown.Timestamp;
@@ -26,14 +26,14 @@ model Response {
 
 @parentResource(Response)
 model Header {
-  @field(6) @key headerId: string;
+  @field(6) @key headerId: Resource.ID;
   @field(7) key: string;
   @field(8) value: string;
 }
 
 @parentResource(Response)
 model Assert {
-  @field(6) @key assertId: string;
+  @field(6) @key assertId: Resource.ID;
   @field(7) asssert: Request.Assert;
   @field(8) value: string;
   @field(9) result: boolean;

@@ -18,7 +18,7 @@ namespace API.CollectionItem.Api;
 
 @parentResource(Collection.Collection)
 model Api {
-  @field(3) @key apiId: string;
+  @field(3) @key apiId: Resource.ID;
   @field(4) name: string;
   @field(5) method: string;
   @field(6) @visibility("get") url: string;

@@ -17,7 +17,7 @@ namespace API.Collection;
 
 @parentResource(Workspace.Workspace)
 model Collection {
-  @field(2) @key collectionId: string;
+  @field(2) @key collectionId: Resource.ID;
   @field(3) name: string;
 }
 

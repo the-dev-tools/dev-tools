@@ -17,7 +17,7 @@ namespace API.Environment;
 
 @parentResource(Workspace.Workspace)
 model Environment {
-  @field(2) @key environmentId: string;
+  @field(2) @key environmentId: Resource.ID;
   @field(3) name: string;
   @field(4) description: string;
   @field(5) @visibility("query") updated: WellKnown.Timestamp;

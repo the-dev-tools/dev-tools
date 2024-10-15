@@ -16,7 +16,7 @@ namespace API.CollectionItem.Request;
 
 @parentResource(Example.Example)
 model Query {
-  @field(5) @key queryId: string;
+  @field(5) @key queryId: Resource.ID;
   @field(6) key: string;
   @field(7) enabled: boolean;
   @field(8) value: string;
@@ -25,7 +25,7 @@ model Query {
 
 @parentResource(Example.Example)
 model Header {
-  @field(5) @key headerId: string;
+  @field(5) @key headerId: Resource.ID;
   @field(6) key: string;
   @field(7) enabled: boolean;
   @field(8) value: string;
@@ -41,7 +41,7 @@ enum BodyKind {
 
 @parentResource(Example.Example)
 model BodyFormItem {
-  @field(5) @key bodyId: string;
+  @field(5) @key bodyId: Resource.ID;
   @field(6) key: string;
   @field(7) enabled: boolean;
   @field(8) value: string;
@@ -50,7 +50,7 @@ model BodyFormItem {
 
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
-  @field(5) @key bodyId: string;
+  @field(5) @key bodyId: Resource.ID;
   @field(6) key: string;
   @field(7) enabled: boolean;
   @field(8) value: string;
@@ -82,7 +82,7 @@ enum AssertTarget {
 
 @parentResource(Example.Example)
 model Assert {
-  @field(5) @key assertId: string;
+  @field(5) @key assertId: Resource.ID;
   @field(6) name: string;
   @field(7) value: string;
   @field(8) type: AssertType;

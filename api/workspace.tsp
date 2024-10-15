@@ -16,7 +16,7 @@ using TypeSpec.Rest;
 namespace API.Workspace;
 
 model Workspace {
-  @field(1) @key workspaceId: string;
+  @field(1) @key workspaceId: Resource.ID;
   @field(2) name: string;
   @field(3) @visibility("query") updated: WellKnown.Timestamp;
   @field(4) @visibility("get") environment: Environment.Environment;
@@ -31,7 +31,7 @@ enum MemberRole {
 
 @parentResource(Workspace)
 model WorkspaceMember {
-  @field(2) @key memberId: string;
+  @field(2) @key memberId: Resource.ID;
   @field(3) @visibility("create", "query") email: string;
   @field(4) role: MemberRole;
 }

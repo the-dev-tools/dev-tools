@@ -17,7 +17,7 @@ namespace API.CollectionItem.Folder;
 
 @parentResource(Collection.Collection)
 model Folder {
-  @field(3) @key folderId: string;
+  @field(3) @key folderId: Resource.ID;
   @field(4) name: string;
 }
 

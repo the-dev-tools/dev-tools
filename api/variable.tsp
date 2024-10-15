@@ -17,7 +17,7 @@ namespace API.Variable;
 
 @parentResource(Environment.Environment)
 model Variable {
-  @field(3) @key variableId: string;
+  @field(3) @key variableId: Resource.ID;
   @field(4) name: string;
   @field(5) value: string;
   @field(6) enabled: boolean;
