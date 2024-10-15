@@ -22,9 +22,10 @@ model Example {
   @field(4) @key exampleId: string;
   @field(5) lastResponseId?: string;
   @field(6) name: string;
-  @field(7) bodyKind: Request.BodyKind;
+  @field(7) @visibility("get") bodyKind: Request.BodyKind;
 }
 
+model ListExampleItem is Resource.List.Item<Example>;
 model GetExampleRequest is Resource.Get.Request<Example>;
 model GetExampleResponse is Resource.Get.Response<Example>;
 model CreateExampleRequest is Resource.Create.Request<Example>;
@@ -34,9 +35,9 @@ model UpdateExampleResponse is Resource.Update.Response<Example>;
 model DeleteExampleRequest is Resource.Delete.Request<Example>;
 model DeleteExampleResponse is Resource.Delete.Response<Example>;
 
-model DupliacteExampleRequest is Resource.Get.Request<Example>;
+model DupliacteExampleRequest is KeyOf<Example>;
 
-model RunExampleRequest is Resource.Get.Request<Example>;
+model RunExampleRequest is KeyOf<Example>;
 model RunExampleResponse is Resource.Get.Request<Response.Response>;
 
 @Protobuf.service

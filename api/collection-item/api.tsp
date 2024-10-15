@@ -21,9 +21,10 @@ model Api {
   @field(3) @key apiId: string;
   @field(4) name: string;
   @field(5) method: string;
-  @field(6) url: string;
+  @field(6) @visibility("get") url: string;
 }
 
+model ListApiItem is Resource.List.Item<Api>;
 model GetApiRequest is Resource.Get.Request<Api>;
 model GetApiResponse is Resource.Get.Response<Api>;
 model CreateApiRequest is Resource.Create.Request<Api>;
@@ -33,9 +34,7 @@ model UpdateApiResponse is Resource.Update.Response<Api>;
 model DeleteApiRequest is Resource.Delete.Request<Api>;
 model DeleteApiResponse is Resource.Delete.Response<Api>;
 
-model DupliacteApiRequest {
-  ...KeysOf<Api>;
-}
+model DupliacteApiRequest is KeyOf<Api>;
 
 @Protobuf.service
 interface CollectionItemApiService {

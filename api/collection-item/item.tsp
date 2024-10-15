@@ -25,28 +25,25 @@ enum ItemKind {
   ITEM_KIND_EXAMPLE: 3,
 }
 
-model ListApiItem is Resource.List.Item<Api.Api>;
-model ListExampleItem is Resource.List.Item<Example.Example>;
-
 @parentResource(Collection.Collection)
-model ListItem {
+model CollectionItem {
   @field(3) @key itemId: string;
   @field(4) parentItemId?: string;
   @field(5) kind: ItemKind;
   @field(6) name: string;
-  @field(7) api?: ListApiItem;
-  @field(8) example?: ListExampleItem;
+  @field(7) api?: Api.ListApiItem;
+  @field(8) example?: Example.ListExampleItem;
 }
 
-model ListItemsRequest is Resource.List.Request<ListItem> {
-  ...PickProperties<ListItem, "parentItemId">;
+model ListItemsRequest is Resource.List.Request<CollectionItem> {
+  ...PickProperties<CollectionItem, "parentItemId">;
 }
 
-model ListItemsResponse is Resource.List.Response<ListItem>;
+model ListItemsResponse is Resource.List.Response<CollectionItem>;
 
 model MoveItemRequest {
-  ...KeysOf<ListItem>;
-  ...PickProperties<ListItem, "parentItemId">;
+  ...KeyOf<CollectionItem>;
+  ...PickProperties<CollectionItem, "parentItemId">;
   @field(5) previousItemId: string;
   @field(6) nextItemId: string;
 }
