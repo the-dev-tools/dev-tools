@@ -49,6 +49,12 @@ model UpdateWorkspaceResponse is Resource.Update.Response<Workspace>;
 model DeleteWorkspaceRequest is Resource.Delete.Request<Workspace>;
 model DeleteWorkspaceResponse is Resource.Delete.Response<Workspace>;
 
+model SetWorkspaceEnvironmentRequest {
+  ...KeyOf<Workspace>;
+  ...KeyOf<Environment.Environment>;
+}
+model SetWorkspaceEnvironmentResponse {}
+
 // Member
 model ListWorkspaceMembersItem is Resource.List.Item<WorkspaceMember>;
 model ListWorkspaceMembersRequest is Resource.List.Request<WorkspaceMember>;
@@ -68,6 +74,8 @@ interface WorkspaceService {
   CreateWorkspace(...CreateWorkspaceRequest): CreateWorkspaceResponse;
   UpdateWorkspace(...UpdateWorkspaceRequest): UpdateWorkspaceResponse;
   DeleteWorkspace(...DeleteWorkspaceRequest): DeleteWorkspaceResponse;
+
+  SetWorkspaceEnvironment(...SetWorkspaceEnvironmentRequest): SetWorkspaceEnvironmentResponse;
 
   // Member
   ListWorkspaceMembers(...ListWorkspaceMembersRequest): ListWorkspaceMembersResponse;
