@@ -54,5 +54,5 @@ model MoveItemRequest {
 @Protobuf.service
 interface CollectionItemService {
   ListItems(...ListItemsRequest): ListItemsResponse;
-  MoveItem(...MoveItemRequest): void;
+  MoveItem(...MoveItemRequest): {};
 }
