@@ -28,7 +28,7 @@ enum ItemKind {
 @parentResource(Collection.Collection)
 model CollectionItem {
   @field(3) @key itemId: Resource.ID;
-  @field(4) parentItemId?: string;
+  @field(4) parentItemId?: Resource.ID;
   @field(5) kind: ItemKind;
   @field(6) name: string;
   @field(7) api?: Api.ListApiItem;
@@ -44,8 +44,8 @@ model ListItemsResponse is Resource.List.Response<CollectionItem>;
 model MoveItemRequest {
   ...KeyOf<CollectionItem>;
   ...PickProperties<CollectionItem, "parentItemId">;
-  @field(5) previousItemId: string;
-  @field(6) nextItemId: string;
+  @field(5) previousItemId: Resource.ID;
+  @field(6) nextItemId: Resource.ID;
 }
 
 @Protobuf.service

@@ -20,7 +20,7 @@ namespace API.CollectionItem.Example;
 @parentResource(Api.Api)
 model Example {
   @field(4) @key exampleId: Resource.ID;
-  @field(5) lastResponseId?: string;
+  @field(5) lastResponseId?: Resource.ID;
   @field(6) name: string;
   @field(7) @visibility("get") bodyKind: Request.BodyKind;
 }
