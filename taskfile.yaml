@@ -12,7 +12,7 @@ tasks:
     internal: true
     deps:
       - build:buf
-      - build:quicktype:effect
+      # - build:quicktype:effect
 
   build:typespec:
     desc: Use TypeSpec to generate Protobuf and JSON Schema
