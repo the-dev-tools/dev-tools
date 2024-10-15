@@ -140,10 +140,14 @@ model DeleteBodyUrlEncodedItemRequest is Resource.Delete.Request<BodyUrlEncodedI
 model DeleteBodyUrlEncodedItemResponse is Resource.Delete.Response<BodyUrlEncodedItem>;
 
 // Body - Raw
-model GetBodyRawRequest is Resource.Get.Request<BodyRaw>;
+model GetBodyRawRequest is Resource.Get.Request<BodyRaw> {
+  ...ParentKeyOf<BodyRaw>;
+}
 model GetBodyRawResponse is Resource.Get.Response<BodyRaw>;
-model UpdateBodyRawRequest is Resource.Get.Request<BodyRaw>;
-model UpdateBodyRawResponse is Resource.Get.Response<BodyRaw>;
+model UpdateBodyRawRequest is Resource.Update.Request<BodyRaw> {
+  ...ParentKeyOf<BodyRaw>;
+}
+model UpdateBodyRawResponse is Resource.Update.Response<BodyRaw>;
 
 @Protobuf.service
 interface CollectionItemRequestService {
