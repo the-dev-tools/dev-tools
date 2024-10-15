@@ -24,7 +24,7 @@ tasks:
     desc: Use Buf to generate TypeScript and Go code for ConnectRPC
     deps: [build:typespec]
     sources: [dist/@typespec/protobuf/**/*]
-    generates: ['dist/@buf/**/*']
+    generates: ['dist/buf/**/*']
     cmd: pnpm buf generate
 
   build:quicktype:effect:

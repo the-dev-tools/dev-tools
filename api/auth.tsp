@@ -5,7 +5,7 @@ using TypeSpec.Protobuf;
 @package({
   name: "auth.v1",
   options: {
-    go_package: "dev-tools-spec/dist/@buf/go/auth/v1;authv1",
+    go_package: "dev-tools-spec/dist/buf/go/auth/v1;authv1",
   },
 })
 namespace API.Auth;

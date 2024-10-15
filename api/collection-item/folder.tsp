@@ -10,7 +10,7 @@ using TypeSpec.Rest;
 @package({
   name: "collection.item.folder.v1",
   options: {
-    go_package: "dev-tools-spec/dist/@buf/go/collection/item/folder/v1;folderv1",
+    go_package: "dev-tools-spec/dist/buf/go/collection/item/folder/v1;folderv1",
   },
 })
 namespace API.CollectionItem.Folder;

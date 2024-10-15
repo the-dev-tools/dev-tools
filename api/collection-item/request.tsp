@@ -9,7 +9,7 @@ using TypeSpec.Rest;
 @package({
   name: "collection.item.request.v1",
   options: {
-    go_package: "dev-tools-spec/dist/@buf/go/collection/item/request/v1;requestv1",
+    go_package: "dev-tools-spec/dist/buf/go/collection/item/request/v1;requestv1",
   },
 })
 namespace API.CollectionItem.Request;

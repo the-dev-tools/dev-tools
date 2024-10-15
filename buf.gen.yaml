@@ -4,22 +4,22 @@ version: v2
 plugins:
   - local: protoc-gen-go
     include_imports: true
-    out: ./dist/@buf/go
+    out: ./dist/buf/go
     opt: paths=source_relative
 
   - local: protoc-gen-connect-go
     include_imports: true
-    out: ./dist/@buf/go
+    out: ./dist/buf/go
     opt: paths=source_relative
 
   - local: protoc-gen-es
-    out: ./dist/@buf/typescript
+    out: ./dist/buf/typescript
     opt:
       - target=ts
       - import_extension=.ts
 
   - local: protoc-gen-connect-query
-    out: ./dist/@buf/typescript
+    out: ./dist/buf/typescript
     opt:
       - target=ts
       - import_extension=.ts

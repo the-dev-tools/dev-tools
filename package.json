@@ -12,7 +12,7 @@
     "go.sum"
   ],
   "exports": {
-    "./*": "./dist/@buf/typescript/*.ts"
+    "./*": "./dist/buf/typescript/*.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.45.0",
