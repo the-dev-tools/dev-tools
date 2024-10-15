@@ -24,21 +24,21 @@ tasks:
     desc: Use Buf to generate TypeScript and Go code for ConnectRPC
     deps: [build:typespec]
     sources: [dist/@typespec/protobuf/**/*]
-    generates: ['dist/{go,typescript}/**/*']
+    generates: ['dist/@buf/**/*']
     cmd: pnpm buf generate
 
   build:quicktype:effect:
     desc: Use Quicktype to generate Effect Schema
     deps: [build:typespec]
     sources: [dist/@typespec/json-schema/**/*]
-    generates: ['dist/typescript/effect-schema.ts']
+    generates: ['dist/@quicktype/effect-schema.ts']
     cmds:
-      - mkdir -p ./dist/typescript
+      - mkdir -p ./dist/@quicktype
       - >-
         pnpm quicktype \
           --src-lang=schema \
           --lang=typescript-effect-schema \
-          --out ./dist/typescript/effect-schema.ts \
+          --out ./dist/@quicktype/effect-schema.ts \
           ./dist/@typespec/json-schema/*
 
   lint:
