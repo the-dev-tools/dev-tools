@@ -7,7 +7,9 @@
     "url": "https://github.com/the-dev-tools/dev-tools-spec.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "go.mod",
+    "go.sum"
   ],
   "exports": {
     "./*": "./dist/@buf/typescript/*.ts"
