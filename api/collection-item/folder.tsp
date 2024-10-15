@@ -18,9 +18,11 @@ namespace API.CollectionItem.Folder;
 @parentResource(Collection.Collection)
 model Folder {
   @field(3) @key folderId: Resource.ID;
-  @field(4) name: string;
+  @field(4) @visibility("list", "mutate") parentFolderId?: Resource.ID;
+  @field(5) name: string;
 }
 
+model ListFoldersItem is Resource.List.Item<Folder>;
 model CreateFolderRequest is Resource.Create.Request<Folder>;
 model CreateFolderResponse is Resource.Create.Response<Folder>;
 model UpdateFolderRequest is Resource.Update.Request<Folder>;

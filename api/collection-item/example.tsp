@@ -22,10 +22,12 @@ model Example {
   @field(4) @key exampleId: Resource.ID;
   @field(5) lastResponseId?: Resource.ID;
   @field(6) name: string;
-  @field(7) @visibility("get") bodyKind: Request.BodyKind;
+  @field(7) @visibility("get", "mutate") bodyKind: Request.BodyKind;
 }
 
-model ListExampleItem is Resource.List.Item<Example>;
+model ListExamplesItem is Resource.List.Item<Example>;
+model ListExamplesRequest is Resource.List.Request<Example>;
+model ListExamplesResponse is Resource.List.Response<ListExamplesItem>;
 model GetExampleRequest is Resource.Get.Request<Example>;
 model GetExampleResponse is Resource.Get.Response<Example>;
 model CreateExampleRequest is Resource.Create.Request<Example>;
@@ -42,6 +44,7 @@ model RunExampleResponse is Resource.Get.Request<Response.Response>;
 
 @Protobuf.service
 interface CollectionItemExampleService {
+  ListExamples(...ListExamplesRequest): ListExamplesResponse;
   GetExample(...GetExampleRequest): GetExampleResponse;
   CreateExample(...CreateExampleRequest): CreateExampleResponse;
   UpdateExample(...UpdateExampleRequest): UpdateExampleResponse;

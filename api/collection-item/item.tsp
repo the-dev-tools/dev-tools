@@ -5,6 +5,7 @@ import "../collection.tsp";
 import "../resource.tsp";
 import "./api.tsp";
 import "./example.tsp";
+import "./folder.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -22,30 +23,29 @@ enum ItemKind {
   ITEM_KIND_UNSPECIFIED: 0,
   ITEM_KIND_FOLDER: 1,
   ITEM_KIND_API: 2,
-  ITEM_KIND_EXAMPLE: 3,
 }
 
 @parentResource(Collection.Collection)
 model CollectionItem {
-  @field(3) @key itemId: Resource.ID;
-  @field(4) parentItemId?: Resource.ID;
-  @field(5) kind: ItemKind;
-  @field(6) name: string;
-  @field(7) api?: Api.ListApiItem;
-  @field(8) example?: Example.ListExampleItem;
+  @field(3) kind: ItemKind;
+  @field(4) folder?: Folder.ListFoldersItem;
+  @field(5) api?: Api.ListApisItem;
+  @field(6) example?: Example.ListExamplesItem;
 }
 
 model ListItemsRequest is Resource.List.Request<CollectionItem> {
-  ...PickProperties<CollectionItem, "parentItemId">;
+  @field(3) folderId?: Resource.ID;
 }
 
 model ListItemsResponse is Resource.List.Response<CollectionItem>;
 
 model MoveItemRequest {
-  ...KeyOf<CollectionItem>;
-  ...PickProperties<CollectionItem, "parentItemId">;
-  @field(5) previousItemId: Resource.ID;
-  @field(6) nextItemId: Resource.ID;
+  ...ParentKeyOf<CollectionItem>;
+  @field(3) itemId: Resource.ID;
+  @field(4) kind: ItemKind;
+  @field(5) parentFolderId?: Resource.ID;
+  @field(6) previousItemId: Resource.ID;
+  @field(7) nextItemId: Resource.ID;
 }
 
 @Protobuf.service
