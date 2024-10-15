@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.30.2
+
+### Patch Changes
+
+- [`02bfde1`](https://github.com/the-dev-tools/dev-tools-spec/commit/02bfde1a65f04d467d17fe64def9c748777548df) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Remove @ from Go module paths
+
 ## 1.30.1
 
 ### Patch Changes
