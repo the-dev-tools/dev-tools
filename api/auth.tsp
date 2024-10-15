@@ -15,9 +15,19 @@ model AuthTokens {
   @field(2) refreshToken: string;
 }
 
+model AuthMagicLinkRequest {
+  /** https://magic.link/docs/authentication/features/decentralized-id */
+  @field(1) didToken: string;
+}
+model AuthMagicLinkResponse is AuthTokens;
+
+model AuthRefreshRequest {
+  @field(1) refreshToken: string;
+}
+model AuthRefreshResponse is AuthTokens;
+
 @Protobuf.service
 interface AuthService {
-  /** https://magic.link/docs/authentication/features/decentralized-id */
-  AuthMagicLink(@field(1) didToken: string): AuthTokens;
-  AuthRefresh(@field(1) refreshToken: string): AuthTokens;
+  AuthMagicLink(...AuthMagicLinkRequest): AuthMagicLinkResponse;
+  AuthRefresh(...AuthRefreshRequest): AuthRefreshResponse;
 }
