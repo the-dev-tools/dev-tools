@@ -1,5 +1,6 @@
 import "@typespec/protobuf";
-import "@typespec/rest";
+
+import "../lib";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest.Resource;
@@ -8,12 +9,13 @@ namespace API.Resource;
 
 namespace List {
   @withVisibility("query", "list")
+  @withDefaultKeyVisibility("query")
   model Item<Resource> {
     ...Resource;
   }
 
   model Request<Resource> {
-    ...ParentKeysOf<Resource>;
+    ...ParentKeyOf<Resource>;
   }
 
   model Response<Item> {
@@ -23,29 +25,35 @@ namespace List {
 
 namespace Get {
   model Request<Resource> {
-    ...KeysOf<Resource>;
+    ...KeyOf<Resource>;
   }
 
   @withVisibility("query", "get")
+  @withDefaultKeyVisibility("query")
   model Response<Resource> {
     ...Resource;
   }
 }
 
 namespace Create {
-  model Request<Resource extends {}> {
-    ...ResourceCreateModel<Resource>;
+  @withVisibility("mutate", "create")
+  @withDefaultKeyVisibility("mutate")
+  model Request<Resource> {
+    ...ParentKeyOf<Resource>;
+    ...OmitKey<Resource>;
   }
 
   model Response<Resource> {
-    ...KeysOf<Resource>;
+    ...KeyOf<Resource>;
   }
 }
 
 namespace Update {
+  @withVisibility("mutate", "update")
+  @withDefaultKeyVisibility("mutate")
   model Request<Resource extends {}> {
-    ...KeysOf<Resource>;
-    ...ResourceCreateOrUpdateModel<Resource>;
+    ...KeyOf<Resource>;
+    ...OptionalProperties<OmitKey<Resource>>;
   }
 
   model Response<Resource> {}
@@ -53,7 +61,7 @@ namespace Update {
 
 namespace Delete {
   model Request<Resource> {
-    ...KeysOf<Resource>;
+    ...KeyOf<Resource>;
   }
 
   model Response<Resource> {}
