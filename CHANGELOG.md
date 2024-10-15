@@ -1,5 +1,13 @@
 # @the-dev-tools/protobuf
 
+## 1.29.0
+
+### Minor Changes
+
+- [#20](https://github.com/the-dev-tools/dev-tools-spec/pull/20) [`250c500`](https://github.com/the-dev-tools/dev-tools-spec/commit/250c500eb6e56d578cc33ad15a8919e111876514) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Rewrite Protobuf into TypeSpec, adding the possibility of emitting JSON Schema later
+
+- [#20](https://github.com/the-dev-tools/dev-tools-spec/pull/20) [`250c500`](https://github.com/the-dev-tools/dev-tools-spec/commit/250c500eb6e56d578cc33ad15a8919e111876514) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Restructure all API services
+
 ## 1.28.0
 
 ### Minor Changes
