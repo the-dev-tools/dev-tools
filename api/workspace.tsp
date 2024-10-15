@@ -22,20 +22,21 @@ model Workspace {
   @field(4) @visibility("get") environment: Environment.Environment;
 }
 
-enum Role {
-  ROLE_UNSPECIFIED: 0,
-  ROLE_MEMBER: 1,
-  ROLE_ADMIN: 2,
-  ROLE_OWNER: 3,
+enum MemberRole {
+  MEMBER_ROLE_UNSPECIFIED: 0,
+  MEMBER_ROLE_BASIC: 1,
+  MEMBER_ROLE_ADMIN: 2,
+  MEMBER_ROLE_OWNER: 3,
 }
 
 @parentResource(Workspace)
-model Member {
+model WorkspaceMember {
   @field(2) @key memberId: string;
   @field(3) @visibility("create", "query") email: string;
-  @field(4) role: Role;
+  @field(4) role: MemberRole;
 }
 
+// Workspace
 model ListWorkspacesItem is Resource.List.Item<Workspace>;
 model ListWorkspacesRequest is Resource.List.Request<Workspace>;
 model ListWorkspacesResponse is Resource.List.Response<ListWorkspacesItem>;
@@ -48,29 +49,29 @@ model UpdateWorkspaceResponse is Resource.Update.Response<Workspace>;
 model DeleteWorkspaceRequest is Resource.Delete.Request<Workspace>;
 model DeleteWorkspaceResponse is Resource.Delete.Response<Workspace>;
 
+// Member
+model ListWorkspaceMembersItem is Resource.List.Item<WorkspaceMember>;
+model ListWorkspaceMembersRequest is Resource.List.Request<WorkspaceMember>;
+model ListWorkspaceMembersResponse is Resource.List.Response<ListWorkspaceMembersItem>;
+model CreateWorkspaceMemberRequest is Resource.Create.Request<WorkspaceMember>;
+model CreateWorkspaceMemberResponse is Resource.Create.Response<WorkspaceMember>;
+model UpdateWorkspaceMemberRequest is Resource.Update.Request<WorkspaceMember>;
+model UpdateWorkspaceMemberResponse is Resource.Update.Response<WorkspaceMember>;
+model DeleteWorkspaceMemberRequest is Resource.Delete.Request<WorkspaceMember>;
+model DeleteWorkspaceMemberResponse is Resource.Delete.Response<WorkspaceMember>;
+
 @Protobuf.service
 interface WorkspaceService {
+  // Workspace
   ListWorkspaces(...ListWorkspacesRequest): ListWorkspacesResponse;
   GetWorkspace(...GetWorkspaceRequest): GetWorkspaceResponse;
   CreateWorkspace(...CreateWorkspaceRequest): CreateWorkspaceResponse;
   UpdateWorkspace(...UpdateWorkspaceRequest): UpdateWorkspaceResponse;
   DeleteWorkspace(...DeleteWorkspaceRequest): DeleteWorkspaceResponse;
-}
 
-model ListMembersItem is Resource.List.Item<Member>;
-model ListMembersRequest is Resource.List.Request<Member>;
-model ListMembersResponse is Resource.List.Response<ListMembersItem>;
-model CreateMemberRequest is Resource.Create.Request<Member>;
-model CreateMemberResponse is Resource.Create.Response<Member>;
-model UpdateMemberRequest is Resource.Update.Request<Member>;
-model UpdateMemberResponse is Resource.Update.Response<Member>;
-model DeleteMemberRequest is Resource.Delete.Request<Member>;
-model DeleteMemberResponse is Resource.Delete.Response<Member>;
-
-@Protobuf.service
-interface MemberService {
-  ListMembers(...ListMembersRequest): ListMembersResponse;
-  CreateMember(...CreateMemberRequest): CreateMemberResponse;
-  UpdateMember(...UpdateMemberRequest): UpdateMemberResponse;
-  DeleteMember(...DeleteMemberRequest): DeleteMemberResponse;
+  // Member
+  ListWorkspaceMembers(...ListWorkspaceMembersRequest): ListWorkspaceMembersResponse;
+  CreateWorkspaceMember(...CreateWorkspaceMemberRequest): CreateWorkspaceMemberResponse;
+  UpdateWorkspaceMember(...UpdateWorkspaceMemberRequest): UpdateWorkspaceMemberResponse;
+  DeleteWorkspaceMember(...DeleteWorkspaceMemberRequest): DeleteWorkspaceMemberResponse;
 }

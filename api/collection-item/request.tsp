@@ -90,8 +90,9 @@ model Assert {
 }
 
 // Query
-model ListQuerysRequest is Resource.List.Request<Query>;
-model ListQuerysResponse is Resource.List.Response<Query>;
+model ListQueriesItem is Resource.List.Item<Query>;
+model ListQueriesRequest is Resource.List.Request<ListQueriesItem>;
+model ListQueriesResponse is Resource.List.Response<Query>;
 model CreateQueryRequest is Resource.Create.Request<Query>;
 model CreateQueryResponse is Resource.Create.Response<Query>;
 model UpdateQueryRequest is Resource.Update.Request<Query>;
@@ -100,7 +101,8 @@ model DeleteQueryRequest is Resource.Delete.Request<Query>;
 model DeleteQueryResponse is Resource.Delete.Response<Query>;
 
 // Header
-model ListHeadersRequest is Resource.List.Request<Header>;
+model ListHeadersItem is Resource.List.Item<Header>;
+model ListHeadersRequest is Resource.List.Request<ListHeadersItem>;
 model ListHeadersResponse is Resource.List.Response<Header>;
 model CreateHeaderRequest is Resource.Create.Request<Header>;
 model CreateHeaderResponse is Resource.Create.Response<Header>;
@@ -110,7 +112,8 @@ model DeleteHeaderRequest is Resource.Delete.Request<Header>;
 model DeleteHeaderResponse is Resource.Delete.Response<Header>;
 
 // Assert
-model ListAssertsRequest is Resource.List.Request<Assert>;
+model ListAssertsItem is Resource.List.Item<Assert>;
+model ListAssertsRequest is Resource.List.Request<ListAssertsItem>;
 model ListAssertsResponse is Resource.List.Response<Assert>;
 model CreateAssertRequest is Resource.Create.Request<Assert>;
 model CreateAssertResponse is Resource.Create.Response<Assert>;
@@ -120,7 +123,8 @@ model DeleteAssertRequest is Resource.Delete.Request<Assert>;
 model DeleteAssertResponse is Resource.Delete.Response<Assert>;
 
 // Body - Form Array
-model ListBodyFormItemsRequest is Resource.List.Request<BodyFormItem>;
+model ListBodyFormItemsItem is Resource.List.Item<BodyFormItem>;
+model ListBodyFormItemsRequest is Resource.List.Request<ListBodyFormItemsItem>;
 model ListBodyFormItemsResponse is Resource.List.Response<BodyFormItem>;
 model CreateBodyFormItemRequest is Resource.Create.Request<BodyFormItem>;
 model CreateBodyFormItemResponse is Resource.Create.Response<BodyFormItem>;
@@ -130,7 +134,8 @@ model DeleteBodyFormItemRequest is Resource.Delete.Request<BodyFormItem>;
 model DeleteBodyFormItemResponse is Resource.Delete.Response<BodyFormItem>;
 
 // Body - URL Encoded Array
-model ListBodyUrlEncodedItemsRequest is Resource.List.Request<BodyUrlEncodedItem>;
+model ListBodyUrlEncodedItemsItem is Resource.List.Item<BodyUrlEncodedItem>;
+model ListBodyUrlEncodedItemsRequest is Resource.List.Request<ListBodyUrlEncodedItemsItem>;
 model ListBodyUrlEncodedItemsResponse is Resource.List.Response<BodyUrlEncodedItem>;
 model CreateBodyUrlEncodedItemRequest is Resource.Create.Request<BodyUrlEncodedItem>;
 model CreateBodyUrlEncodedItemResponse is Resource.Create.Response<BodyUrlEncodedItem>;
@@ -152,7 +157,7 @@ model UpdateBodyRawResponse is Resource.Update.Response<BodyRaw>;
 @Protobuf.service
 interface CollectionItemRequestService {
   // Query
-  ListQuerys(...ListQuerysRequest): ListQuerysResponse;
+  ListQueries(...ListQueriesRequest): ListQueriesResponse;
   CreateQuery(...CreateQueryRequest): CreateQueryResponse;
   UpdateQuery(...UpdateQueryRequest): UpdateQueryResponse;
   DeleteQuery(...DeleteQueryRequest): DeleteQueryResponse;

@@ -42,10 +42,12 @@ model Assert {
 model GetResponseRequest is Resource.Get.Request<Response>;
 model GetResponseResponse is Resource.Get.Response<Response>;
 
-model ListHeadersRequest is Resource.List.Request<Header>;
+model ListHeadersItem is Resource.List.Item<Header>;
+model ListHeadersRequest is Resource.List.Request<ListHeadersItem>;
 model ListHeadersResponse is Resource.List.Response<Header>;
 
-model ListAssertsRequest is Resource.List.Request<Assert>;
+model ListAssertsItem is Resource.List.Item<Assert>;
+model ListAssertsRequest is Resource.List.Request<ListAssertsItem>;
 model ListAssertsResponse is Resource.List.Response<Assert>;
 
 @Protobuf.service
