@@ -26,7 +26,7 @@ model Environment {
 
 model ListEnvironmentsItem is Resource.List.Item<Environment>;
 model ListEnvironmentsRequest is Resource.List.Request<Environment>;
-model ListEnvironmentsResponse is Resource.List.Response<Environment, ListEnvironmentsItem>;
+model ListEnvironmentsResponse is Resource.List.Response<ListEnvironmentsItem>;
 model GetEnvironmentRequest is Resource.Get.Request<Environment>;
 model GetEnvironmentResponse is Resource.Get.Response<Environment>;
 model CreateEnvironmentRequest is Resource.Create.Request<Environment>;

@@ -18,7 +18,7 @@ namespace List {
   }
 
   @friendlyName("List{name}Response", Resource)
-  model Response<Resource, Item> {
+  model Response<Item> {
     @field(1) items: Item[];
   }
 }

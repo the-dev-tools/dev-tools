@@ -23,7 +23,7 @@ model Collection {
 
 model ListCollectionsItem is Resource.List.Item<Collection>;
 model ListCollectionsRequest is Resource.List.Request<Collection>;
-model ListCollectionsResponse is Resource.List.Response<Collection, ListCollectionsItem>;
+model ListCollectionsResponse is Resource.List.Response<ListCollectionsItem>;
 model GetCollectionRequest is Resource.Get.Request<Collection>;
 model GetCollectionResponse is Resource.Get.Response<Collection>;
 model CreateCollectionRequest is Resource.Create.Request<Collection>;

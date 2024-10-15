@@ -26,7 +26,7 @@ model Variable {
 
 model ListVariablesItem is Resource.List.Item<Variable>;
 model ListVariablesRequest is Resource.List.Request<Variable>;
-model ListVariablesResponse is Resource.List.Response<Variable, ListVariablesItem>;
+model ListVariablesResponse is Resource.List.Response<ListVariablesItem>;
 model GetVariableRequest is Resource.Get.Request<Variable>;
 model GetVariableResponse is Resource.Get.Response<Variable>;
 model CreateVariableRequest is Resource.Create.Request<Variable>;

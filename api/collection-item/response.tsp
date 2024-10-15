@@ -43,10 +43,10 @@ model GetResponseRequest is Resource.Get.Request<Response>;
 model GetResponseResponse is Resource.Get.Response<Response>;
 
 model ListHeadersRequest is Resource.List.Request<Header>;
-model ListHeadersResponse is Resource.List.Response<Header, Header>;
+model ListHeadersResponse is Resource.List.Response<Header>;
 
 model ListAssertsRequest is Resource.List.Request<Assert>;
-model ListAssertsResponse is Resource.List.Response<Assert, Assert>;
+model ListAssertsResponse is Resource.List.Response<Assert>;
 
 @Protobuf.service
 interface CollectionItemResponseService {

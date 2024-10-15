@@ -38,7 +38,7 @@ model Member {
 
 model ListWorkspacesItem is Resource.List.Item<Workspace>;
 model ListWorkspacesRequest is Resource.List.Request<Workspace>;
-model ListWorkspacesResponse is Resource.List.Response<Workspace, ListWorkspacesItem>;
+model ListWorkspacesResponse is Resource.List.Response<ListWorkspacesItem>;
 model GetWorkspaceRequest is Resource.Get.Request<Workspace>;
 model GetWorkspaceResponse is Resource.Get.Response<Workspace>;
 model CreateWorkspaceRequest is Resource.Create.Request<Workspace>;
@@ -59,7 +59,7 @@ interface WorkspaceService {
 
 model ListMembersItem is Resource.List.Item<Member>;
 model ListMembersRequest is Resource.List.Request<Member>;
-model ListMembersResponse is Resource.List.Response<Member, ListMembersItem>;
+model ListMembersResponse is Resource.List.Response<ListMembersItem>;
 model CreateMemberRequest is Resource.Create.Request<Member>;
 model CreateMemberResponse is Resource.Create.Response<Member>;
 model UpdateMemberRequest is Resource.Update.Request<Member>;

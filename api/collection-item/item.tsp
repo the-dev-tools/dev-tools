@@ -42,7 +42,7 @@ model ListItemsRequest is Resource.List.Request<Item> {
   ...PickProperties<Item, "parentItemId">;
 }
 
-model ListItemsResponse is Resource.List.Response<Item, Item>;
+model ListItemsResponse is Resource.List.Response<Item>;
 
 model MoveItemRequest {
   ...KeysOf<Item>;

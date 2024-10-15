@@ -91,7 +91,7 @@ model Assert {
 
 // Query
 model ListQuerysRequest is Resource.List.Request<Query>;
-model ListQuerysResponse is Resource.List.Response<Query, Query>;
+model ListQuerysResponse is Resource.List.Response<Query>;
 model CreateQueryRequest is Resource.Create.Request<Query>;
 model CreateQueryResponse is Resource.Create.Response<Query>;
 model UpdateQueryRequest is Resource.Update.Request<Query>;
@@ -101,7 +101,7 @@ model DeleteQueryResponse is Resource.Delete.Response<Query>;
 
 // Header
 model ListHeadersRequest is Resource.List.Request<Header>;
-model ListHeadersResponse is Resource.List.Response<Header, Header>;
+model ListHeadersResponse is Resource.List.Response<Header>;
 model CreateHeaderRequest is Resource.Create.Request<Header>;
 model CreateHeaderResponse is Resource.Create.Response<Header>;
 model UpdateHeaderRequest is Resource.Update.Request<Header>;
@@ -111,7 +111,7 @@ model DeleteHeaderResponse is Resource.Delete.Response<Header>;
 
 // Assert
 model ListAssertsRequest is Resource.List.Request<Assert>;
-model ListAssertsResponse is Resource.List.Response<Assert, Assert>;
+model ListAssertsResponse is Resource.List.Response<Assert>;
 model CreateAssertRequest is Resource.Create.Request<Assert>;
 model CreateAssertResponse is Resource.Create.Response<Assert>;
 model UpdateAssertRequest is Resource.Update.Request<Assert>;
@@ -121,7 +121,7 @@ model DeleteAssertResponse is Resource.Delete.Response<Assert>;
 
 // Body - Form Array
 model ListBodyFormItemsRequest is Resource.List.Request<BodyFormItem>;
-model ListBodyFormItemsResponse is Resource.List.Response<BodyFormItem, BodyFormItem>;
+model ListBodyFormItemsResponse is Resource.List.Response<BodyFormItem>;
 model CreateBodyFormItemRequest is Resource.Create.Request<BodyFormItem>;
 model CreateBodyFormItemResponse is Resource.Create.Response<BodyFormItem>;
 model UpdateBodyFormItemRequest is Resource.Update.Request<BodyFormItem>;
@@ -131,7 +131,7 @@ model DeleteBodyFormItemResponse is Resource.Delete.Response<BodyFormItem>;
 
 // Body - URL Encoded Array
 model ListBodyUrlEncodedItemsRequest is Resource.List.Request<BodyUrlEncodedItem>;
-model ListBodyUrlEncodedItemsResponse is Resource.List.Response<BodyUrlEncodedItem, BodyUrlEncodedItem>;
+model ListBodyUrlEncodedItemsResponse is Resource.List.Response<BodyUrlEncodedItem>;
 model CreateBodyUrlEncodedItemRequest is Resource.Create.Request<BodyUrlEncodedItem>;
 model CreateBodyUrlEncodedItemResponse is Resource.Create.Response<BodyUrlEncodedItem>;
 model UpdateBodyUrlEncodedItemRequest is Resource.Update.Request<BodyUrlEncodedItem>;
