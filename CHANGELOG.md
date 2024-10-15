@@ -1,5 +1,15 @@
 # @the-dev-tools/protobuf
 
+## 1.30.3
+
+### Patch Changes
+
+- [`847fcdc`](https://github.com/the-dev-tools/dev-tools-spec/commit/847fcdc286ebc252be60add192f0d721c233f0b5) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Fix list resources
+
+- [`42fd510`](https://github.com/the-dev-tools/dev-tools-spec/commit/42fd510edded3959bf8978cf7022816732151619) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Fix ID types
+
+- [`eba7685`](https://github.com/the-dev-tools/dev-tools-spec/commit/eba768591c415361b3babfee7fd459f34ffd23d9) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Fix collection item list operations
+
 ## 1.30.2
 
 ### Patch Changes
