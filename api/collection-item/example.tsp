@@ -35,7 +35,7 @@ model UpdateExampleResponse is Resource.Update.Response<Example>;
 model DeleteExampleRequest is Resource.Delete.Request<Example>;
 model DeleteExampleResponse is Resource.Delete.Response<Example>;
 
-model DupliacteExampleRequest is KeyOf<Example>;
+model DuplicateExampleRequest is KeyOf<Example>;
 
 model RunExampleRequest is KeyOf<Example>;
 model RunExampleResponse is Resource.Get.Request<Response.Response>;
@@ -47,7 +47,7 @@ interface CollectionItemExampleService {
   UpdateExample(...UpdateExampleRequest): UpdateExampleResponse;
   DeleteExample(...DeleteExampleRequest): DeleteExampleResponse;
 
-  DupliacteExample(...DupliacteExampleRequest): {};
+  DuplicateExample(...DuplicateExampleRequest): {};
 
   RunExample(...RunExampleRequest): RunExampleResponse;
 }

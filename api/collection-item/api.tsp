@@ -34,7 +34,7 @@ model UpdateApiResponse is Resource.Update.Response<Api>;
 model DeleteApiRequest is Resource.Delete.Request<Api>;
 model DeleteApiResponse is Resource.Delete.Response<Api>;
 
-model DupliacteApiRequest is KeyOf<Api>;
+model DuplicateApiRequest is KeyOf<Api>;
 
 @Protobuf.service
 interface CollectionItemApiService {
@@ -43,5 +43,5 @@ interface CollectionItemApiService {
   UpdateApi(...UpdateApiRequest): UpdateApiResponse;
   DeleteApi(...DeleteApiRequest): DeleteApiResponse;
 
-  DupliacteApi(...DupliacteApiRequest): {};
+  DuplicateApi(...DuplicateApiRequest): {};
 }
