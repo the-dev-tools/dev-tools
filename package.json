@@ -1,10 +1,10 @@
 {
-  "name": "@the-dev-tools/schema",
+  "name": "@the-dev-tools/spec",
   "type": "module",
   "version": "1.28.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/the-dev-tools/dev-tools-schema.git"
+    "url": "https://github.com/the-dev-tools/dev-tools-spec.git"
   },
   "files": [
     "dist"
