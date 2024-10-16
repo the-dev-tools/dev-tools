@@ -2,48 +2,40 @@ package texample
 
 import (
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexampleheader"
-	"dev-tools-backend/pkg/model/mexamplequery"
 	"dev-tools-backend/pkg/model/mitemapiexample"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/translate/theader"
-	"dev-tools-backend/pkg/translate/tquery"
-	bodyv1 "dev-tools-services/gen/body/v1"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
+	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
+	examplev1 "dev-tools-spec/dist/buf/go/collection/item/example/v1"
 )
 
-func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, q []mexamplequery.Query, h []mexampleheader.Header, b *bodyv1.Body, resp *itemapiexamplev1.ApiExampleResponse, as []*itemapiexamplev1.Asssert) *itemapiexamplev1.ApiExample {
-	return &itemapiexamplev1.ApiExample{
-		Meta: &itemapiexamplev1.ApiExampleMeta{
-			Id:   ex.ID.String(),
-			Name: ex.Name,
-		},
-		Query:    tgeneric.MassConvert(q, tquery.SerializeQueryModelToRPC),
-		Header:   tgeneric.MassConvert(h, theader.SerializeHeaderModelToRPC),
-		Updated:  timestamppb.New(ex.Updated),
-		Response: resp,
-		Body:     b,
-		Asserts:  as,
+func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp idwrap.IDWrap) *examplev1.Example {
+	return &examplev1.Example{
+		ExampleId:      ex.ID.Bytes(),
+		Name:           ex.Name,
+		BodyKind:       bodyv1.BodyKind(ex.BodyType),
+		LastResponseId: lastResp.Bytes(),
 	}
 }
 
-func DeserializeRPCToModel(ex *itemapiexamplev1.ApiExample) (mitemapiexample.ItemApiExample, error) {
+func SerializeModelToRPCItem(ex mitemapiexample.ItemApiExample, lastResp idwrap.IDWrap) *examplev1.ExampleListItem {
+	return &examplev1.ExampleListItem{
+		ExampleId:      ex.ID.Bytes(),
+		Name:           ex.Name,
+		LastResponseId: lastResp.Bytes(),
+	}
+}
+
+func DeserializeRPCToModel(ex *examplev1.Example) (mitemapiexample.ItemApiExample, error) {
 	if ex == nil {
 		return mitemapiexample.ItemApiExample{}, nil
 	}
-	if ex.Meta == nil {
-		return mitemapiexample.ItemApiExample{}, nil
-	}
-	id, err := idwrap.NewWithParse(ex.Meta.Id)
+	id, err := idwrap.NewFromBytes(ex.GetExampleId())
 	if err != nil {
 		return mitemapiexample.ItemApiExample{}, err
 	}
 
 	return mitemapiexample.ItemApiExample{
-		ID:      id,
-		Name:    ex.Meta.Name,
-		Updated: ex.Updated.AsTime(),
+		ID:       id,
+		BodyType: mitemapiexample.BodyType(ex.BodyKind),
+		Name:     ex.Name,
 	}, nil
 }
