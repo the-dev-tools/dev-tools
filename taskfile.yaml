@@ -28,7 +28,9 @@ tasks:
     deps: [build:typespec]
     sources: [dist/@typespec/protobuf/**/*]
     generates: ['dist/buf/**/*']
-    cmd: pnpm buf generate
+    cmds:
+      - pnpm buf generate
+      - node lib/collect-file-descriptors.js
 
   build:quicktype:effect:
     desc: Use Quicktype to generate Effect Schema
