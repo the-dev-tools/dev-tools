@@ -61,9 +61,13 @@ model WorkspaceMemberListRequest is Resource.List.Request<WorkspaceMember>;
 model WorkspaceMemberListResponse is Resource.List.Response<WorkspaceMemberListItem>;
 model WorkspaceMemberCreateRequest is Resource.Create.Request<WorkspaceMember>;
 model WorkspaceMemberCreateResponse is Resource.Create.Response<WorkspaceMember>;
-model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember>;
+model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember> {
+  ...ParentKeyOf<WorkspaceMember>;
+}
 model WorkspaceMemberUpdateResponse is Resource.Update.Response<WorkspaceMember>;
-model WorkspaceMemberDeleteRequest is Resource.Delete.Request<WorkspaceMember>;
+model WorkspaceMemberDeleteRequest is Resource.Delete.Request<WorkspaceMember> {
+  ...ParentKeyOf<WorkspaceMember>;
+}
 model WorkspaceMemberDeleteResponse is Resource.Delete.Response<WorkspaceMember>;
 
 @Protobuf.service
