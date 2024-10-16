@@ -1,5 +1,25 @@
 # @the-dev-tools/protobuf
 
+## 1.31.0
+
+### Minor Changes
+
+- [`bc6813e`](https://github.com/the-dev-tools/dev-tools-spec/commit/bc6813e2507d4b5c497a2a2bebe544a628bf6d1e) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Implement automatic field numbering
+
+- [`e3029fa`](https://github.com/the-dev-tools/dev-tools-spec/commit/e3029fa75137528f4c162193a057689f374029a9) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Rename Api to Endpoint for clarity
+
+- [`74ca81e`](https://github.com/the-dev-tools/dev-tools-spec/commit/74ca81e981da4253354d158aabf3ec8f06273a42) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Change naming order convention
+
+### Patch Changes
+
+- [`d25139c`](https://github.com/the-dev-tools/dev-tools-spec/commit/d25139c39fca84f140922abdfc71712f099defdf) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Increase Buf lint strictness
+
+- [`2ffd989`](https://github.com/the-dev-tools/dev-tools-spec/commit/2ffd989a3c091da9de26eff6a213831b57331460) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Add parent keys to workspace member mutations
+
+- [`d25139c`](https://github.com/the-dev-tools/dev-tools-spec/commit/d25139c39fca84f140922abdfc71712f099defdf) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Patch Protobuf paths to fit the conventions
+
+  https://buf.build/docs/lint/rules#minimal
+
 ## 1.30.3
 
 ### Patch Changes

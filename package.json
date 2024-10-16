@@ -1,7 +1,7 @@
 {
   "name": "@the-dev-tools/spec",
   "type": "module",
-  "version": "1.30.3",
+  "version": "1.31.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/the-dev-tools/dev-tools-spec.git"
