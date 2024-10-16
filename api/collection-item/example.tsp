@@ -25,32 +25,32 @@ model Example {
   @field(7) @visibility("get", "mutate") bodyKind: Request.BodyKind;
 }
 
-model ListExamplesItem is Resource.List.Item<Example>;
-model ListExamplesRequest is Resource.List.Request<Example>;
-model ListExamplesResponse is Resource.List.Response<ListExamplesItem>;
-model GetExampleRequest is Resource.Get.Request<Example>;
-model GetExampleResponse is Resource.Get.Response<Example>;
-model CreateExampleRequest is Resource.Create.Request<Example>;
-model CreateExampleResponse is Resource.Create.Response<Example>;
-model UpdateExampleRequest is Resource.Update.Request<Example>;
-model UpdateExampleResponse is Resource.Update.Response<Example>;
-model DeleteExampleRequest is Resource.Delete.Request<Example>;
-model DeleteExampleResponse is Resource.Delete.Response<Example>;
+model ExampleListItem is Resource.List.Item<Example>;
+model ExampleListRequest is Resource.List.Request<Example>;
+model ExampleListResponse is Resource.List.Response<ExampleListItem>;
+model ExampleGetRequest is Resource.Get.Request<Example>;
+model ExampleGetResponse is Resource.Get.Response<Example>;
+model ExampleCreateRequest is Resource.Create.Request<Example>;
+model ExampleCreateResponse is Resource.Create.Response<Example>;
+model ExampleUpdateRequest is Resource.Update.Request<Example>;
+model ExampleUpdateResponse is Resource.Update.Response<Example>;
+model ExampleDeleteRequest is Resource.Delete.Request<Example>;
+model ExampleDeleteResponse is Resource.Delete.Response<Example>;
 
-model DuplicateExampleRequest is KeyOf<Example>;
+model ExampleDuplicateRequest is KeyOf<Example>;
 
-model RunExampleRequest is KeyOf<Example>;
-model RunExampleResponse is Resource.Get.Request<Response.Response>;
+model ExampleRunRequest is KeyOf<Example>;
+model ExampleRunResponse is Resource.Get.Request<Response.Response>;
 
 @Protobuf.service
-interface CollectionItemExampleService {
-  ListExamples(...ListExamplesRequest): ListExamplesResponse;
-  GetExample(...GetExampleRequest): GetExampleResponse;
-  CreateExample(...CreateExampleRequest): CreateExampleResponse;
-  UpdateExample(...UpdateExampleRequest): UpdateExampleResponse;
-  DeleteExample(...DeleteExampleRequest): DeleteExampleResponse;
+interface ExampleService {
+  ExampleList(...ExampleListRequest): ExampleListResponse;
+  ExampleGet(...ExampleGetRequest): ExampleGetResponse;
+  ExampleCreate(...ExampleCreateRequest): ExampleCreateResponse;
+  ExampleUpdate(...ExampleUpdateRequest): ExampleUpdateResponse;
+  ExampleDelete(...ExampleDeleteRequest): ExampleDeleteResponse;
 
-  DuplicateExample(...DuplicateExampleRequest): {};
+  ExampleDuplicate(...ExampleDuplicateRequest): {};
 
-  RunExample(...RunExampleRequest): RunExampleResponse;
+  ExampleRun(...ExampleRunRequest): ExampleRunResponse;
 }

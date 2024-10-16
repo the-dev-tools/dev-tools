@@ -21,31 +21,31 @@ model Collection {
   @field(3) name: string;
 }
 
-model ListCollectionsItem is Resource.List.Item<Collection>;
-model ListCollectionsRequest is Resource.List.Request<Collection>;
-model ListCollectionsResponse is Resource.List.Response<ListCollectionsItem>;
-model GetCollectionRequest is Resource.Get.Request<Collection>;
-model GetCollectionResponse is Resource.Get.Response<Collection>;
-model CreateCollectionRequest is Resource.Create.Request<Collection>;
-model CreateCollectionResponse is Resource.Create.Response<Collection>;
-model UpdateCollectionRequest is Resource.Update.Request<Collection>;
-model UpdateCollectionResponse is Resource.Update.Response<Collection>;
-model DeleteCollectionRequest is Resource.Delete.Request<Collection>;
-model DeleteCollectionResponse is Resource.Delete.Response<Collection>;
+model CollectionListItem is Resource.List.Item<Collection>;
+model CollectionListRequest is Resource.List.Request<Collection>;
+model CollectionListResponse is Resource.List.Response<CollectionListItem>;
+model CollectionGetRequest is Resource.Get.Request<Collection>;
+model CollectionGetResponse is Resource.Get.Response<Collection>;
+model CollectionCreateRequest is Resource.Create.Request<Collection>;
+model CollectionCreateResponse is Resource.Create.Response<Collection>;
+model CollectionUpdateRequest is Resource.Update.Request<Collection>;
+model CollectionUpdateResponse is Resource.Update.Response<Collection>;
+model CollectionDeleteRequest is Resource.Delete.Request<Collection>;
+model CollectionDeleteResponse is Resource.Delete.Response<Collection>;
 
-model ImportPostmanRequest {
+model CollectionImportPostmanRequest {
   ...Resource.Create.Request<Collection>;
   @field(4) data: bytes;
 }
-model ImportPostmanResponse is Resource.Create.Response<Collection>;
+model CollectionImportPostmanResponse is Resource.Create.Response<Collection>;
 
 @Protobuf.service
 interface CollectionService {
-  ListCollections(...ListCollectionsRequest): ListCollectionsResponse;
-  GetCollection(...GetCollectionRequest): GetCollectionResponse;
-  CreateCollection(...CreateCollectionRequest): CreateCollectionResponse;
-  UpdateCollection(...UpdateCollectionRequest): UpdateCollectionResponse;
-  DeleteCollection(...DeleteCollectionRequest): DeleteCollectionResponse;
+  CollectionList(...CollectionListRequest): CollectionListResponse;
+  CollectionGet(...CollectionGetRequest): CollectionGetResponse;
+  CollectionCreate(...CollectionCreateRequest): CollectionCreateResponse;
+  CollectionUpdate(...CollectionUpdateRequest): CollectionUpdateResponse;
+  CollectionDelete(...CollectionDeleteRequest): CollectionDeleteResponse;
 
-  ImportPostman(...ImportPostmanRequest): ImportPostmanResponse;
+  CollectionImportPostman(...CollectionImportPostmanRequest): CollectionImportPostmanResponse;
 }

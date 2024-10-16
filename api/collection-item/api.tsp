@@ -25,24 +25,24 @@ model Api {
   @field(7) @visibility("get", "mutate") url: string;
 }
 
-model ListApisItem is Resource.List.Item<Api>;
-model GetApiRequest is Resource.Get.Request<Api>;
-model GetApiResponse is Resource.Get.Response<Api>;
-model CreateApiRequest is Resource.Create.Request<Api>;
-model CreateApiResponse is Resource.Create.Response<Api>;
-model UpdateApiRequest is Resource.Update.Request<Api>;
-model UpdateApiResponse is Resource.Update.Response<Api>;
-model DeleteApiRequest is Resource.Delete.Request<Api>;
-model DeleteApiResponse is Resource.Delete.Response<Api>;
+model ApiListItem is Resource.List.Item<Api>;
+model ApiGetRequest is Resource.Get.Request<Api>;
+model ApiGetResponse is Resource.Get.Response<Api>;
+model ApiCreateRequest is Resource.Create.Request<Api>;
+model ApiCreateResponse is Resource.Create.Response<Api>;
+model ApiUpdateRequest is Resource.Update.Request<Api>;
+model ApiUpdateResponse is Resource.Update.Response<Api>;
+model ApiDeleteRequest is Resource.Delete.Request<Api>;
+model ApiDeleteResponse is Resource.Delete.Response<Api>;
 
-model DuplicateApiRequest is KeyOf<Api>;
+model ApiDuplicateRequest is KeyOf<Api>;
 
 @Protobuf.service
-interface CollectionItemApiService {
-  GetApi(...GetApiRequest): GetApiResponse;
-  CreateApi(...CreateApiRequest): CreateApiResponse;
-  UpdateApi(...UpdateApiRequest): UpdateApiResponse;
-  DeleteApi(...DeleteApiRequest): DeleteApiResponse;
+interface ApiService {
+  ApiGet(...ApiGetRequest): ApiGetResponse;
+  ApiCreate(...ApiCreateRequest): ApiCreateResponse;
+  ApiUpdate(...ApiUpdateRequest): ApiUpdateResponse;
+  ApiDelete(...ApiDeleteRequest): ApiDeleteResponse;
 
-  DuplicateApi(...DuplicateApiRequest): {};
+  ApiDuplicate(...ApiDuplicateRequest): {};
 }

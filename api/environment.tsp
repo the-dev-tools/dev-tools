@@ -24,23 +24,23 @@ model Environment {
   @field(6) @visibility("query") isGlobal: boolean;
 }
 
-model ListEnvironmentsItem is Resource.List.Item<Environment>;
-model ListEnvironmentsRequest is Resource.List.Request<Environment>;
-model ListEnvironmentsResponse is Resource.List.Response<ListEnvironmentsItem>;
-model GetEnvironmentRequest is Resource.Get.Request<Environment>;
-model GetEnvironmentResponse is Resource.Get.Response<Environment>;
-model CreateEnvironmentRequest is Resource.Create.Request<Environment>;
-model CreateEnvironmentResponse is Resource.Create.Response<Environment>;
-model UpdateEnvironmentRequest is Resource.Update.Request<Environment>;
-model UpdateEnvironmentResponse is Resource.Update.Response<Environment>;
-model DeleteEnvironmentRequest is Resource.Delete.Request<Environment>;
-model DeleteEnvironmentResponse is Resource.Delete.Response<Environment>;
+model EnvironmentListItem is Resource.List.Item<Environment>;
+model EnvironmentListRequest is Resource.List.Request<Environment>;
+model EnvironmentListResponse is Resource.List.Response<EnvironmentListItem>;
+model EnvironmentGetRequest is Resource.Get.Request<Environment>;
+model EnvironmentGetResponse is Resource.Get.Response<Environment>;
+model EnvironmentCreateRequest is Resource.Create.Request<Environment>;
+model EnvironmentCreateResponse is Resource.Create.Response<Environment>;
+model EnvironmentUpdateRequest is Resource.Update.Request<Environment>;
+model EnvironmentUpdateResponse is Resource.Update.Response<Environment>;
+model EnvironmentDeleteRequest is Resource.Delete.Request<Environment>;
+model EnvironmentDeleteResponse is Resource.Delete.Response<Environment>;
 
 @Protobuf.service
 interface EnvironmentService {
-  ListEnvironments(...ListEnvironmentsRequest): ListEnvironmentsResponse;
-  GetEnvironment(...GetEnvironmentRequest): GetEnvironmentResponse;
-  CreateEnvironment(...CreateEnvironmentRequest): CreateEnvironmentResponse;
-  UpdateEnvironment(...UpdateEnvironmentRequest): UpdateEnvironmentResponse;
-  DeleteEnvironment(...DeleteEnvironmentRequest): DeleteEnvironmentResponse;
+  EnvironmentList(...EnvironmentListRequest): EnvironmentListResponse;
+  EnvironmentGet(...EnvironmentGetRequest): EnvironmentGetResponse;
+  EnvironmentCreate(...EnvironmentCreateRequest): EnvironmentCreateResponse;
+  EnvironmentUpdate(...EnvironmentUpdateRequest): EnvironmentUpdateResponse;
+  EnvironmentDelete(...EnvironmentDeleteRequest): EnvironmentDeleteResponse;
 }

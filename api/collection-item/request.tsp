@@ -90,103 +90,103 @@ model Assert {
 }
 
 // Query
-model ListQueriesItem is Resource.List.Item<Query>;
-model ListQueriesRequest is Resource.List.Request<Query>;
-model ListQueriesResponse is Resource.List.Response<ListQueriesItem>;
-model CreateQueryRequest is Resource.Create.Request<Query>;
-model CreateQueryResponse is Resource.Create.Response<Query>;
-model UpdateQueryRequest is Resource.Update.Request<Query>;
-model UpdateQueryResponse is Resource.Update.Response<Query>;
-model DeleteQueryRequest is Resource.Delete.Request<Query>;
-model DeleteQueryResponse is Resource.Delete.Response<Query>;
+model QueryListItem is Resource.List.Item<Query>;
+model QueryListRequest is Resource.List.Request<Query>;
+model QueryListResponse is Resource.List.Response<QueryListItem>;
+model QueryCreateRequest is Resource.Create.Request<Query>;
+model QueryCreateResponse is Resource.Create.Response<Query>;
+model QueryUpdateRequest is Resource.Update.Request<Query>;
+model QueryUpdateResponse is Resource.Update.Response<Query>;
+model QueryDeleteRequest is Resource.Delete.Request<Query>;
+model QueryDeleteResponse is Resource.Delete.Response<Query>;
 
 // Header
-model ListHeadersItem is Resource.List.Item<Header>;
-model ListHeadersRequest is Resource.List.Request<Header>;
-model ListHeadersResponse is Resource.List.Response<ListHeadersItem>;
-model CreateHeaderRequest is Resource.Create.Request<Header>;
-model CreateHeaderResponse is Resource.Create.Response<Header>;
-model UpdateHeaderRequest is Resource.Update.Request<Header>;
-model UpdateHeaderResponse is Resource.Update.Response<Header>;
-model DeleteHeaderRequest is Resource.Delete.Request<Header>;
-model DeleteHeaderResponse is Resource.Delete.Response<Header>;
+model HeaderListItem is Resource.List.Item<Header>;
+model HeaderListRequest is Resource.List.Request<Header>;
+model HeaderListResponse is Resource.List.Response<HeaderListItem>;
+model HeaderCreateRequest is Resource.Create.Request<Header>;
+model HeaderCreateResponse is Resource.Create.Response<Header>;
+model HeaderUpdateRequest is Resource.Update.Request<Header>;
+model HeaderUpdateResponse is Resource.Update.Response<Header>;
+model HeaderDeleteRequest is Resource.Delete.Request<Header>;
+model HeaderDeleteResponse is Resource.Delete.Response<Header>;
 
 // Assert
-model ListAssertsItem is Resource.List.Item<Assert>;
-model ListAssertsRequest is Resource.List.Request<Assert>;
-model ListAssertsResponse is Resource.List.Response<ListAssertsItem>;
-model CreateAssertRequest is Resource.Create.Request<Assert>;
-model CreateAssertResponse is Resource.Create.Response<Assert>;
-model UpdateAssertRequest is Resource.Update.Request<Assert>;
-model UpdateAssertResponse is Resource.Update.Response<Assert>;
-model DeleteAssertRequest is Resource.Delete.Request<Assert>;
-model DeleteAssertResponse is Resource.Delete.Response<Assert>;
+model AssertListItem is Resource.List.Item<Assert>;
+model AssertListRequest is Resource.List.Request<Assert>;
+model AssertListResponse is Resource.List.Response<AssertListItem>;
+model AssertCreateRequest is Resource.Create.Request<Assert>;
+model AssertCreateResponse is Resource.Create.Response<Assert>;
+model AssertUpdateRequest is Resource.Update.Request<Assert>;
+model AssertUpdateResponse is Resource.Update.Response<Assert>;
+model AssertDeleteRequest is Resource.Delete.Request<Assert>;
+model AssertDeleteResponse is Resource.Delete.Response<Assert>;
 
 // Body - Form Array
-model ListBodyFormItemsItem is Resource.List.Item<BodyFormItem>;
-model ListBodyFormItemsRequest is Resource.List.Request<BodyFormItem>;
-model ListBodyFormItemsResponse is Resource.List.Response<ListBodyFormItemsItem>;
-model CreateBodyFormItemRequest is Resource.Create.Request<BodyFormItem>;
-model CreateBodyFormItemResponse is Resource.Create.Response<BodyFormItem>;
-model UpdateBodyFormItemRequest is Resource.Update.Request<BodyFormItem>;
-model UpdateBodyFormItemResponse is Resource.Update.Response<BodyFormItem>;
-model DeleteBodyFormItemRequest is Resource.Delete.Request<BodyFormItem>;
-model DeleteBodyFormItemResponse is Resource.Delete.Response<BodyFormItem>;
+model BodyFormItemListItem is Resource.List.Item<BodyFormItem>;
+model BodyFormItemListRequest is Resource.List.Request<BodyFormItem>;
+model BodyFormItemListResponse is Resource.List.Response<BodyFormItemListItem>;
+model BodyFormItemCreateRequest is Resource.Create.Request<BodyFormItem>;
+model BodyFormItemCreateResponse is Resource.Create.Response<BodyFormItem>;
+model BodyFormItemUpdateRequest is Resource.Update.Request<BodyFormItem>;
+model BodyFormItemUpdateResponse is Resource.Update.Response<BodyFormItem>;
+model BodyFormItemDeleteRequest is Resource.Delete.Request<BodyFormItem>;
+model BodyFormItemDeleteResponse is Resource.Delete.Response<BodyFormItem>;
 
 // Body - URL Encoded Array
-model ListBodyUrlEncodedItemsItem is Resource.List.Item<BodyUrlEncodedItem>;
-model ListBodyUrlEncodedItemsRequest is Resource.List.Request<BodyUrlEncodedItem>;
-model ListBodyUrlEncodedItemsResponse is Resource.List.Response<ListBodyUrlEncodedItemsItem>;
-model CreateBodyUrlEncodedItemRequest is Resource.Create.Request<BodyUrlEncodedItem>;
-model CreateBodyUrlEncodedItemResponse is Resource.Create.Response<BodyUrlEncodedItem>;
-model UpdateBodyUrlEncodedItemRequest is Resource.Update.Request<BodyUrlEncodedItem>;
-model UpdateBodyUrlEncodedItemResponse is Resource.Update.Response<BodyUrlEncodedItem>;
-model DeleteBodyUrlEncodedItemRequest is Resource.Delete.Request<BodyUrlEncodedItem>;
-model DeleteBodyUrlEncodedItemResponse is Resource.Delete.Response<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemListItem is Resource.List.Item<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemListRequest is Resource.List.Request<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemListResponse is Resource.List.Response<BodyUrlEncodedItemListItem>;
+model BodyUrlEncodedItemCreateRequest is Resource.Create.Request<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemCreateResponse is Resource.Create.Response<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemUpdateRequest is Resource.Update.Request<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemUpdateResponse is Resource.Update.Response<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemDeleteRequest is Resource.Delete.Request<BodyUrlEncodedItem>;
+model BodyUrlEncodedItemDeleteResponse is Resource.Delete.Response<BodyUrlEncodedItem>;
 
 // Body - Raw
-model GetBodyRawRequest is Resource.Get.Request<BodyRaw> {
+model BodyRawGetRequest is Resource.Get.Request<BodyRaw> {
   ...ParentKeyOf<BodyRaw>;
 }
-model GetBodyRawResponse is Resource.Get.Response<BodyRaw>;
-model UpdateBodyRawRequest is Resource.Update.Request<BodyRaw> {
+model BodyRawGetResponse is Resource.Get.Response<BodyRaw>;
+model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw> {
   ...ParentKeyOf<BodyRaw>;
 }
-model UpdateBodyRawResponse is Resource.Update.Response<BodyRaw>;
+model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
 
 @Protobuf.service
-interface CollectionItemRequestService {
+interface RequestService {
   // Query
-  ListQueries(...ListQueriesRequest): ListQueriesResponse;
-  CreateQuery(...CreateQueryRequest): CreateQueryResponse;
-  UpdateQuery(...UpdateQueryRequest): UpdateQueryResponse;
-  DeleteQuery(...DeleteQueryRequest): DeleteQueryResponse;
+  QueryList(...QueryListRequest): QueryListResponse;
+  QueryCreate(...QueryCreateRequest): QueryCreateResponse;
+  QueryUpdate(...QueryUpdateRequest): QueryUpdateResponse;
+  QueryDelete(...QueryDeleteRequest): QueryDeleteResponse;
 
   // Header
-  ListHeaders(...ListHeadersRequest): ListHeadersResponse;
-  CreateHeader(...CreateHeaderRequest): CreateHeaderResponse;
-  UpdateHeader(...UpdateHeaderRequest): UpdateHeaderResponse;
-  DeleteHeader(...DeleteHeaderRequest): DeleteHeaderResponse;
+  HeaderList(...HeaderListRequest): HeaderListResponse;
+  HeaderCreate(...HeaderCreateRequest): HeaderCreateResponse;
+  HeaderUpdate(...HeaderUpdateRequest): HeaderUpdateResponse;
+  HeaderDelete(...HeaderDeleteRequest): HeaderDeleteResponse;
 
   // Assert
-  ListAsserts(...ListAssertsRequest): ListAssertsResponse;
-  CreateAssert(...CreateAssertRequest): CreateAssertResponse;
-  UpdateAssert(...UpdateAssertRequest): UpdateAssertResponse;
-  DeleteAssert(...DeleteAssertRequest): DeleteAssertResponse;
+  AssertList(...AssertListRequest): AssertListResponse;
+  AssertCreate(...AssertCreateRequest): AssertCreateResponse;
+  AssertUpdate(...AssertUpdateRequest): AssertUpdateResponse;
+  AssertDelete(...AssertDeleteRequest): AssertDeleteResponse;
 
   // Body - Form Array
-  ListBodyFormItems(...ListBodyFormItemsRequest): ListBodyFormItemsResponse;
-  CreateBodyFormItem(...CreateBodyFormItemRequest): CreateBodyFormItemResponse;
-  UpdateBodyFormItem(...UpdateBodyFormItemRequest): UpdateBodyFormItemResponse;
-  DeleteBodyFormItem(...DeleteBodyFormItemRequest): DeleteBodyFormItemResponse;
+  BodyFormItemList(...BodyFormItemListRequest): BodyFormItemListResponse;
+  BodyFormItemCreate(...BodyFormItemCreateRequest): BodyFormItemCreateResponse;
+  BodyFormItemUpdate(...BodyFormItemUpdateRequest): BodyFormItemUpdateResponse;
+  BodyFormItemDelete(...BodyFormItemDeleteRequest): BodyFormItemDeleteResponse;
 
   // Body - URL Encoded Array
-  ListBodyUrlEncodedItems(...ListBodyUrlEncodedItemsRequest): ListBodyUrlEncodedItemsResponse;
-  CreateBodyUrlEncodedItem(...CreateBodyUrlEncodedItemRequest): CreateBodyUrlEncodedItemResponse;
-  UpdateBodyUrlEncodedItem(...UpdateBodyUrlEncodedItemRequest): UpdateBodyUrlEncodedItemResponse;
-  DeleteBodyUrlEncodedItem(...DeleteBodyUrlEncodedItemRequest): DeleteBodyUrlEncodedItemResponse;
+  BodyUrlEncodedItemList(...BodyUrlEncodedItemListRequest): BodyUrlEncodedItemListResponse;
+  BodyUrlEncodedItemCreate(...BodyUrlEncodedItemCreateRequest): BodyUrlEncodedItemCreateResponse;
+  BodyUrlEncodedItemUpdate(...BodyUrlEncodedItemUpdateRequest): BodyUrlEncodedItemUpdateResponse;
+  BodyUrlEncodedItemDelete(...BodyUrlEncodedItemDeleteRequest): BodyUrlEncodedItemDeleteResponse;
 
   // Body - Raw
-  GetBodyRaw(...GetBodyRawRequest): GetBodyRawResponse;
-  UpdateBodyRaw(...UpdateBodyRawRequest): UpdateBodyRawResponse;
+  BodyRawGet(...BodyRawGetRequest): BodyRawGetResponse;
+  BodyRawUpdate(...BodyRawUpdateRequest): BodyRawUpdateResponse;
 }

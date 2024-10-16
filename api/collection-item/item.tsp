@@ -28,18 +28,18 @@ enum ItemKind {
 @parentResource(Collection.Collection)
 model CollectionItem {
   @field(3) kind: ItemKind;
-  @field(4) folder?: Folder.ListFoldersItem;
-  @field(5) api?: Api.ListApisItem;
-  @field(6) example?: Example.ListExamplesItem;
+  @field(4) folder?: Folder.FolderListItem;
+  @field(5) api?: Api.ApiListItem;
+  @field(6) example?: Example.ExampleListItem;
 }
 
-model ListItemsRequest is Resource.List.Request<CollectionItem> {
+model CollectionItemListRequest is Resource.List.Request<CollectionItem> {
   @field(3) folderId?: Resource.ID;
 }
 
-model ListItemsResponse is Resource.List.Response<CollectionItem>;
+model CollectionItemListResponse is Resource.List.Response<CollectionItem>;
 
-model MoveItemRequest {
+model CollectionItemMoveRequest {
   ...ParentKeyOf<CollectionItem>;
   @field(3) itemId: Resource.ID;
   @field(4) kind: ItemKind;
@@ -50,6 +50,6 @@ model MoveItemRequest {
 
 @Protobuf.service
 interface CollectionItemService {
-  ListItems(...ListItemsRequest): ListItemsResponse;
-  MoveItem(...MoveItemRequest): {};
+  CollectionItemList(...CollectionItemListRequest): CollectionItemListResponse;
+  CollectionItemMove(...CollectionItemMoveRequest): {};
 }

@@ -22,17 +22,17 @@ model Folder {
   @field(5) name: string;
 }
 
-model ListFoldersItem is Resource.List.Item<Folder>;
-model CreateFolderRequest is Resource.Create.Request<Folder>;
-model CreateFolderResponse is Resource.Create.Response<Folder>;
-model UpdateFolderRequest is Resource.Update.Request<Folder>;
-model UpdateFolderResponse is Resource.Update.Response<Folder>;
-model DeleteFolderRequest is Resource.Delete.Request<Folder>;
-model DeleteFolderResponse is Resource.Delete.Response<Folder>;
+model FolderListItem is Resource.List.Item<Folder>;
+model FolderCreateRequest is Resource.Create.Request<Folder>;
+model FolderCreateResponse is Resource.Create.Response<Folder>;
+model FolderUpdateRequest is Resource.Update.Request<Folder>;
+model FolderUpdateResponse is Resource.Update.Response<Folder>;
+model FolderDeleteRequest is Resource.Delete.Request<Folder>;
+model FolderDeleteResponse is Resource.Delete.Response<Folder>;
 
 @Protobuf.service
 interface FolderService {
-  CreateFolder(...CreateFolderRequest): CreateFolderResponse;
-  UpdateFolder(...UpdateFolderRequest): UpdateFolderResponse;
-  DeleteFolder(...DeleteFolderRequest): DeleteFolderResponse;
+  FolderCreate(...FolderCreateRequest): FolderCreateResponse;
+  FolderUpdate(...FolderUpdateRequest): FolderUpdateResponse;
+  FolderDelete(...FolderDeleteRequest): FolderDeleteResponse;
 }

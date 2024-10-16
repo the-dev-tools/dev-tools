@@ -25,36 +25,32 @@ model Response {
 }
 
 @parentResource(Response)
-model Header {
-  @field(6) @key headerId: Resource.ID;
+model ResponseHeader {
+  @field(6) @key ResponseheaderId: Resource.ID;
   @field(7) key: string;
   @field(8) value: string;
 }
 
 @parentResource(Response)
-model Assert {
-  @field(6) @key assertId: Resource.ID;
-  @field(7) asssert: Request.Assert;
-  @field(8) value: string;
-  @field(9) result: boolean;
+model ResponseAssert {
+  @field(6) asssert: Request.Assert;
+  @field(7) result: boolean;
 }
 
-model GetResponseRequest is Resource.Get.Request<Response>;
-model GetResponseResponse is Resource.Get.Response<Response>;
+model ResponseGetRequest is Resource.Get.Request<Response>;
+model ResponseGetResponse is Resource.Get.Response<Response>;
 
-model ListHeadersItem is Resource.List.Item<Header>;
-model ListHeadersRequest is Resource.List.Request<Header>;
-model ListHeadersResponse is Resource.List.Response<ListHeadersItem>;
+model ResponseHeaderListItem is Resource.List.Item<ResponseHeader>;
+model ResponseHeaderListRequest is Resource.List.Request<ResponseHeader>;
+model ResponseHeaderListResponse is Resource.List.Response<ResponseHeaderListItem>;
 
-model ListAssertsItem is Resource.List.Item<Assert>;
-model ListAssertsRequest is Resource.List.Request<Assert>;
-model ListAssertsResponse is Resource.List.Response<ListAssertsItem>;
+model ResponseAssertListItem is Resource.List.Item<ResponseAssert>;
+model ResponseAssertListRequest is Resource.List.Request<ResponseAssert>;
+model ResponseAssertListResponse is Resource.List.Response<ResponseAssertListItem>;
 
 @Protobuf.service
-interface CollectionItemResponseService {
-  GetResponse(...GetResponseRequest): GetResponseResponse;
-
-  ListHeaders(...ListHeadersRequest): ListHeadersResponse;
-
-  ListAsserts(...ListAssertsRequest): ListAssertsResponse;
+interface ResponseService {
+  ResponseGet(...ResponseGetRequest): ResponseGetResponse;
+  ResponseHeaderList(...ResponseHeaderListRequest): ResponseHeaderListResponse;
+  ResponseAssertList(...ResponseAssertListRequest): ResponseAssertListResponse;
 }

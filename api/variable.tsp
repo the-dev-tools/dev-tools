@@ -24,23 +24,23 @@ model Variable {
   @field(7) description: string;
 }
 
-model ListVariablesItem is Resource.List.Item<Variable>;
-model ListVariablesRequest is Resource.List.Request<Variable>;
-model ListVariablesResponse is Resource.List.Response<ListVariablesItem>;
-model GetVariableRequest is Resource.Get.Request<Variable>;
-model GetVariableResponse is Resource.Get.Response<Variable>;
-model CreateVariableRequest is Resource.Create.Request<Variable>;
-model CreateVariableResponse is Resource.Create.Response<Variable>;
-model UpdateVariableRequest is Resource.Update.Request<Variable>;
-model UpdateVariableResponse is Resource.Update.Response<Variable>;
-model DeleteVariableRequest is Resource.Delete.Request<Variable>;
-model DeleteVariableResponse is Resource.Delete.Response<Variable>;
+model VariableListItem is Resource.List.Item<Variable>;
+model VariableListRequest is Resource.List.Request<Variable>;
+model VariableListResponse is Resource.List.Response<VariableListItem>;
+model VariableGetRequest is Resource.Get.Request<Variable>;
+model VariableGetResponse is Resource.Get.Response<Variable>;
+model VariableCreateRequest is Resource.Create.Request<Variable>;
+model VariableCreateResponse is Resource.Create.Response<Variable>;
+model VariableUpdateRequest is Resource.Update.Request<Variable>;
+model VariableUpdateResponse is Resource.Update.Response<Variable>;
+model VariableDeleteRequest is Resource.Delete.Request<Variable>;
+model VariableDeleteResponse is Resource.Delete.Response<Variable>;
 
 @Protobuf.service
 interface VariableService {
-  ListVariables(...ListVariablesRequest): ListVariablesResponse;
-  GetVariable(...GetVariableRequest): GetVariableResponse;
-  CreateVariable(...CreateVariableRequest): CreateVariableResponse;
-  UpdateVariable(...UpdateVariableRequest): UpdateVariableResponse;
-  DeleteVariable(...DeleteVariableRequest): DeleteVariableResponse;
+  VariableList(...VariableListRequest): VariableListResponse;
+  VariableGet(...VariableGetRequest): VariableGetResponse;
+  VariableCreate(...VariableCreateRequest): VariableCreateResponse;
+  VariableUpdate(...VariableUpdateRequest): VariableUpdateResponse;
+  VariableDelete(...VariableDeleteRequest): VariableDeleteResponse;
 }

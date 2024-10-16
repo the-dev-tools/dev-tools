@@ -17,9 +17,9 @@ namespace API.Workspace;
 
 model Workspace {
   @field(1) @key workspaceId: Resource.ID;
-  @field(2) name: string;
-  @field(3) @visibility("query") updated: WellKnown.Timestamp;
-  @field(4) @visibility("get") environment: Environment.Environment;
+  @field(3) name: string;
+  @field(4) @visibility("query") updated: WellKnown.Timestamp;
+  @field(5) @visibility("get") environment: Environment.Environment;
 }
 
 enum MemberRole {
@@ -37,49 +37,43 @@ model WorkspaceMember {
 }
 
 // Workspace
-model ListWorkspacesItem is Resource.List.Item<Workspace>;
-model ListWorkspacesRequest is Resource.List.Request<Workspace>;
-model ListWorkspacesResponse is Resource.List.Response<ListWorkspacesItem>;
-model GetWorkspaceRequest is Resource.Get.Request<Workspace>;
-model GetWorkspaceResponse is Resource.Get.Response<Workspace>;
-model CreateWorkspaceRequest is Resource.Create.Request<Workspace>;
-model CreateWorkspaceResponse is Resource.Create.Response<Workspace>;
-model UpdateWorkspaceRequest is Resource.Update.Request<Workspace>;
-model UpdateWorkspaceResponse is Resource.Update.Response<Workspace>;
-model DeleteWorkspaceRequest is Resource.Delete.Request<Workspace>;
-model DeleteWorkspaceResponse is Resource.Delete.Response<Workspace>;
-
-model SetWorkspaceEnvironmentRequest {
-  ...KeyOf<Workspace>;
+model WorkspaceListItem is Resource.List.Item<Workspace>;
+model WorkspaceListRequest is Resource.List.Request<Workspace>;
+model WorkspaceListResponse is Resource.List.Response<WorkspaceListItem>;
+model WorkspaceGetRequest is Resource.Get.Request<Workspace>;
+model WorkspaceGetResponse is Resource.Get.Response<Workspace>;
+model WorkspaceCreateRequest is Resource.Create.Request<Workspace>;
+model WorkspaceCreateResponse is Resource.Create.Response<Workspace>;
+model WorkspaceUpdateRequest is Resource.Update.Request<Workspace> {
   ...KeyOf<Environment.Environment>;
 }
-model SetWorkspaceEnvironmentResponse {}
+model WorkspaceUpdateResponse is Resource.Update.Response<Workspace>;
+model WorkspaceDeleteRequest is Resource.Delete.Request<Workspace>;
+model WorkspaceDeleteResponse is Resource.Delete.Response<Workspace>;
 
 // Member
-model ListWorkspaceMembersItem is Resource.List.Item<WorkspaceMember>;
-model ListWorkspaceMembersRequest is Resource.List.Request<WorkspaceMember>;
-model ListWorkspaceMembersResponse is Resource.List.Response<ListWorkspaceMembersItem>;
-model CreateWorkspaceMemberRequest is Resource.Create.Request<WorkspaceMember>;
-model CreateWorkspaceMemberResponse is Resource.Create.Response<WorkspaceMember>;
-model UpdateWorkspaceMemberRequest is Resource.Update.Request<WorkspaceMember>;
-model UpdateWorkspaceMemberResponse is Resource.Update.Response<WorkspaceMember>;
-model DeleteWorkspaceMemberRequest is Resource.Delete.Request<WorkspaceMember>;
-model DeleteWorkspaceMemberResponse is Resource.Delete.Response<WorkspaceMember>;
+model WorkspaceMemberListItem is Resource.List.Item<WorkspaceMember>;
+model WorkspaceMemberListRequest is Resource.List.Request<WorkspaceMember>;
+model WorkspaceMemberListResponse is Resource.List.Response<WorkspaceMemberListItem>;
+model WorkspaceMemberCreateRequest is Resource.Create.Request<WorkspaceMember>;
+model WorkspaceMemberCreateResponse is Resource.Create.Response<WorkspaceMember>;
+model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember>;
+model WorkspaceMemberUpdateResponse is Resource.Update.Response<WorkspaceMember>;
+model WorkspaceMemberDeleteRequest is Resource.Delete.Request<WorkspaceMember>;
+model WorkspaceMemberDeleteResponse is Resource.Delete.Response<WorkspaceMember>;
 
 @Protobuf.service
 interface WorkspaceService {
   // Workspace
-  ListWorkspaces(...ListWorkspacesRequest): ListWorkspacesResponse;
-  GetWorkspace(...GetWorkspaceRequest): GetWorkspaceResponse;
-  CreateWorkspace(...CreateWorkspaceRequest): CreateWorkspaceResponse;
-  UpdateWorkspace(...UpdateWorkspaceRequest): UpdateWorkspaceResponse;
-  DeleteWorkspace(...DeleteWorkspaceRequest): DeleteWorkspaceResponse;
-
-  SetWorkspaceEnvironment(...SetWorkspaceEnvironmentRequest): SetWorkspaceEnvironmentResponse;
+  WorkspaceList(...WorkspaceListRequest): WorkspaceListResponse;
+  WorkspaceGet(...WorkspaceGetRequest): WorkspaceGetResponse;
+  WorkspaceCreate(...WorkspaceCreateRequest): WorkspaceCreateResponse;
+  WorkspaceUpdate(...WorkspaceUpdateRequest): WorkspaceUpdateResponse;
+  WorkspaceDelete(...WorkspaceDeleteRequest): WorkspaceDeleteResponse;
 
   // Member
-  ListWorkspaceMembers(...ListWorkspaceMembersRequest): ListWorkspaceMembersResponse;
-  CreateWorkspaceMember(...CreateWorkspaceMemberRequest): CreateWorkspaceMemberResponse;
-  UpdateWorkspaceMember(...UpdateWorkspaceMemberRequest): UpdateWorkspaceMemberResponse;
-  DeleteWorkspaceMember(...DeleteWorkspaceMemberRequest): DeleteWorkspaceMemberResponse;
+  WorkspaceMemberList(...WorkspaceMemberListRequest): WorkspaceMemberListResponse;
+  WorkspaceMemberCreate(...WorkspaceMemberCreateRequest): WorkspaceMemberCreateResponse;
+  WorkspaceMemberUpdate(...WorkspaceMemberUpdateRequest): WorkspaceMemberUpdateResponse;
+  WorkspaceMemberDelete(...WorkspaceMemberDeleteRequest): WorkspaceMemberDeleteResponse;
 }
