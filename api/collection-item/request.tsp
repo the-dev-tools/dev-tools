@@ -36,39 +36,6 @@ model Header {
   description: string;
 }
 
-enum BodyKind {
-  BODY_KIND_UNSPECIFIED: 0,
-  BODY_KIND_FORM_ARRAY: 1,
-  BODY_KIND_URL_ENCODED_ARRAY: 2,
-  BODY_KIND_RAW: 3,
-}
-
-@autoFields
-@parentResource(Example.Example)
-model BodyFormItem {
-  @key bodyId: Resource.ID;
-  key: string;
-  enabled: boolean;
-  value: string;
-  description: string;
-}
-
-@autoFields
-@parentResource(Example.Example)
-model BodyUrlEncodedItem {
-  @key bodyId: Resource.ID;
-  key: string;
-  enabled: boolean;
-  value: string;
-  description: string;
-}
-
-@autoFields
-@parentResource(Example.Example)
-model BodyRaw {
-  data: bytes;
-}
-
 enum AssertType {
   ASSERT_TYPE_UNSPECIFIED: 0,
   ASSERT_TYPE_EQUAL: 1,
@@ -130,38 +97,6 @@ model AssertUpdateResponse is Resource.Update.Response<Assert>;
 model AssertDeleteRequest is Resource.Delete.Request<Assert>;
 model AssertDeleteResponse is Resource.Delete.Response<Assert>;
 
-// Body - Form Array
-model BodyFormItemListItem is Resource.List.Item<BodyFormItem>;
-model BodyFormItemListRequest is Resource.List.Request<BodyFormItem>;
-model BodyFormItemListResponse is Resource.List.Response<BodyFormItemListItem>;
-model BodyFormItemCreateRequest is Resource.Create.Request<BodyFormItem>;
-model BodyFormItemCreateResponse is Resource.Create.Response<BodyFormItem>;
-model BodyFormItemUpdateRequest is Resource.Update.Request<BodyFormItem>;
-model BodyFormItemUpdateResponse is Resource.Update.Response<BodyFormItem>;
-model BodyFormItemDeleteRequest is Resource.Delete.Request<BodyFormItem>;
-model BodyFormItemDeleteResponse is Resource.Delete.Response<BodyFormItem>;
-
-// Body - URL Encoded Array
-model BodyUrlEncodedItemListItem is Resource.List.Item<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemListRequest is Resource.List.Request<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemListResponse is Resource.List.Response<BodyUrlEncodedItemListItem>;
-model BodyUrlEncodedItemCreateRequest is Resource.Create.Request<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemCreateResponse is Resource.Create.Response<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemUpdateRequest is Resource.Update.Request<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemUpdateResponse is Resource.Update.Response<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemDeleteRequest is Resource.Delete.Request<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemDeleteResponse is Resource.Delete.Response<BodyUrlEncodedItem>;
-
-// Body - Raw
-model BodyRawGetRequest is Resource.Get.Request<BodyRaw> {
-  ...ParentKeyOf<BodyRaw>;
-}
-model BodyRawGetResponse is Resource.Get.Response<BodyRaw>;
-model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw> {
-  ...ParentKeyOf<BodyRaw>;
-}
-model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
-
 @Protobuf.service
 interface RequestService {
   // Query
@@ -181,20 +116,4 @@ interface RequestService {
   AssertCreate(...AssertCreateRequest): AssertCreateResponse;
   AssertUpdate(...AssertUpdateRequest): AssertUpdateResponse;
   AssertDelete(...AssertDeleteRequest): AssertDeleteResponse;
-
-  // Body - Form Array
-  BodyFormItemList(...BodyFormItemListRequest): BodyFormItemListResponse;
-  BodyFormItemCreate(...BodyFormItemCreateRequest): BodyFormItemCreateResponse;
-  BodyFormItemUpdate(...BodyFormItemUpdateRequest): BodyFormItemUpdateResponse;
-  BodyFormItemDelete(...BodyFormItemDeleteRequest): BodyFormItemDeleteResponse;
-
-  // Body - URL Encoded Array
-  BodyUrlEncodedItemList(...BodyUrlEncodedItemListRequest): BodyUrlEncodedItemListResponse;
-  BodyUrlEncodedItemCreate(...BodyUrlEncodedItemCreateRequest): BodyUrlEncodedItemCreateResponse;
-  BodyUrlEncodedItemUpdate(...BodyUrlEncodedItemUpdateRequest): BodyUrlEncodedItemUpdateResponse;
-  BodyUrlEncodedItemDelete(...BodyUrlEncodedItemDeleteRequest): BodyUrlEncodedItemDeleteResponse;
-
-  // Body - Raw
-  BodyRawGet(...BodyRawGetRequest): BodyRawGetResponse;
-  BodyRawUpdate(...BodyRawUpdateRequest): BodyRawUpdateResponse;
 }

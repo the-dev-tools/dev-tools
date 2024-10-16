@@ -3,6 +3,7 @@ import "@typespec/rest";
 
 import "../../lib";
 
+import "./body.tsp";
 import "./endpoint.tsp";
 import "./request.tsp";
 import "./response.tsp";
@@ -25,7 +26,7 @@ model Example {
   @key exampleId: Resource.ID;
   lastResponseId?: Resource.ID;
   name: string;
-  @visibility("get", "mutate") bodyKind: Request.BodyKind;
+  @visibility("get", "mutate") bodyKind: Body.BodyKind;
 }
 
 model ExampleListItem is Resource.List.Item<Example>;
