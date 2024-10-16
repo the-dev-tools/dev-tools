@@ -20,8 +20,9 @@ namespace List {
     ...ParentKeyOf<Resource>;
   }
 
+  @autoFields
   model Response<Item> {
-    @field(1) items: Item[];
+    items: Item[];
   }
 }
 

@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../../lib";
+
 import "./example.tsp";
 
 using TypeSpec.Protobuf;
@@ -14,22 +16,24 @@ using TypeSpec.Rest;
 })
 namespace API.CollectionItem.Request;
 
+@autoFields
 @parentResource(Example.Example)
 model Query {
-  @field(5) @key queryId: Resource.ID;
-  @field(6) key: string;
-  @field(7) enabled: boolean;
-  @field(8) value: string;
-  @field(9) description: string;
+  @key queryId: Resource.ID;
+  key: string;
+  enabled: boolean;
+  value: string;
+  description: string;
 }
 
+@autoFields
 @parentResource(Example.Example)
 model Header {
-  @field(5) @key headerId: Resource.ID;
-  @field(6) key: string;
-  @field(7) enabled: boolean;
-  @field(8) value: string;
-  @field(9) description: string;
+  @key headerId: Resource.ID;
+  key: string;
+  enabled: boolean;
+  value: string;
+  description: string;
 }
 
 enum BodyKind {
@@ -39,27 +43,30 @@ enum BodyKind {
   BODY_KIND_RAW: 3,
 }
 
+@autoFields
 @parentResource(Example.Example)
 model BodyFormItem {
-  @field(5) @key bodyId: Resource.ID;
-  @field(6) key: string;
-  @field(7) enabled: boolean;
-  @field(8) value: string;
-  @field(9) description: string;
+  @key bodyId: Resource.ID;
+  key: string;
+  enabled: boolean;
+  value: string;
+  description: string;
 }
 
+@autoFields
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
-  @field(5) @key bodyId: Resource.ID;
-  @field(6) key: string;
-  @field(7) enabled: boolean;
-  @field(8) value: string;
-  @field(9) description: string;
+  @key bodyId: Resource.ID;
+  key: string;
+  enabled: boolean;
+  value: string;
+  description: string;
 }
 
+@autoFields
 @parentResource(Example.Example)
 model BodyRaw {
-  @field(6) data: bytes;
+  data: bytes;
 }
 
 enum AssertType {
@@ -80,13 +87,14 @@ enum AssertTarget {
   ASSERT_TARGET_BODY: 2,
 }
 
+@autoFields
 @parentResource(Example.Example)
 model Assert {
-  @field(5) @key assertId: Resource.ID;
-  @field(6) name: string;
-  @field(7) value: string;
-  @field(8) type: AssertType;
-  @field(9) target: AssertTarget;
+  @key assertId: Resource.ID;
+  name: string;
+  value: string;
+  type: AssertType;
+  target: AssertTarget;
 }
 
 // Query

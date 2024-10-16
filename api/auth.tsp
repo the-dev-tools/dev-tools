@@ -1,5 +1,7 @@
 import "@typespec/protobuf";
 
+import "../lib";
+
 using TypeSpec.Protobuf;
 
 @package({
@@ -10,19 +12,22 @@ using TypeSpec.Protobuf;
 })
 namespace API.Auth;
 
+@autoFields
 model AuthTokens {
-  @field(1) accessToken: string;
-  @field(2) refreshToken: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
+@autoFields
 model AuthMagicLinkRequest {
   /** https://magic.link/docs/authentication/features/decentralized-id */
-  @field(1) didToken: string;
+  didToken: string;
 }
 model AuthMagicLinkResponse is AuthTokens;
 
+@autoFields
 model AuthRefreshRequest {
-  @field(1) refreshToken: string;
+  refreshToken: string;
 }
 model AuthRefreshResponse is AuthTokens;
 

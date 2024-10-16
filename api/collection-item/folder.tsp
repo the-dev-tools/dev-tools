@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../../lib";
+
 import "../collection.tsp";
 import "../resource.tsp";
 
@@ -15,11 +17,12 @@ using TypeSpec.Rest;
 })
 namespace API.CollectionItem.Folder;
 
+@autoFields
 @parentResource(Collection.Collection)
 model Folder {
-  @field(3) @key folderId: Resource.ID;
-  @field(4) @visibility("list", "mutate") parentFolderId?: Resource.ID;
-  @field(5) name: string;
+  @key folderId: Resource.ID;
+  @visibility("list", "mutate") parentFolderId?: Resource.ID;
+  name: string;
 }
 
 model FolderListItem is Resource.List.Item<Folder>;

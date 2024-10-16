@@ -26,6 +26,7 @@
     "@typespec/prettier-plugin-typespec": "^0.61.0",
     "@typespec/protobuf": "^0.61.0",
     "@typespec/rest": "^0.61.0",
+    "effect": "^3.9.2",
     "prettier": "^3.3.3",
     "quicktype": "^23.0.170"
   }

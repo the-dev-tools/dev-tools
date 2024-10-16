@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../lib";
+
 import "./environment.tsp";
 import "./resource.tsp";
 
@@ -15,13 +17,14 @@ using TypeSpec.Rest;
 })
 namespace API.Variable;
 
+@autoFields
 @parentResource(Environment.Environment)
 model Variable {
-  @field(3) @key variableId: Resource.ID;
-  @field(4) name: string;
-  @field(5) value: string;
-  @field(6) enabled: boolean;
-  @field(7) description: string;
+  @key variableId: Resource.ID;
+  name: string;
+  value: string;
+  enabled: boolean;
+  description: string;
 }
 
 model VariableListItem is Resource.List.Item<Variable>;

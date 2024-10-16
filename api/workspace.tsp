@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../lib";
+
 import "./environment.tsp";
 import "./resource.tsp";
 
@@ -15,11 +17,12 @@ using TypeSpec.Rest;
 })
 namespace API.Workspace;
 
+@autoFields
 model Workspace {
-  @field(1) @key workspaceId: Resource.ID;
-  @field(3) name: string;
-  @field(4) @visibility("query") updated: WellKnown.Timestamp;
-  @field(5) @visibility("get") environment: Environment.Environment;
+  @key workspaceId: Resource.ID;
+  name: string;
+  @visibility("query") updated: WellKnown.Timestamp;
+  @visibility("get") environment: Environment.Environment;
 }
 
 enum MemberRole {
@@ -29,11 +32,12 @@ enum MemberRole {
   MEMBER_ROLE_OWNER: 3,
 }
 
+@autoFields
 @parentResource(Workspace)
 model WorkspaceMember {
-  @field(2) @key memberId: Resource.ID;
-  @field(3) @visibility("create", "query") email: string;
-  @field(4) role: MemberRole;
+  @key memberId: Resource.ID;
+  @visibility("create", "query") email: string;
+  role: MemberRole;
 }
 
 // Workspace

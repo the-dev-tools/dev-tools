@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../../lib";
+
 import "../collection.tsp";
 import "../resource.tsp";
 
@@ -16,13 +18,14 @@ using TypeSpec.Rest.Resource;
 })
 namespace API.CollectionItem.Endpoint;
 
+@autoFields
 @parentResource(Collection.Collection)
 model Endpoint {
-  @field(3) @key endpointId: Resource.ID;
-  @field(4) @visibility("list", "mutate") parentFolderId?: Resource.ID;
-  @field(5) name: string;
-  @field(6) method: string;
-  @field(7) @visibility("get", "mutate") url: string;
+  @key endpointId: Resource.ID;
+  @visibility("list", "mutate") parentFolderId?: Resource.ID;
+  name: string;
+  method: string;
+  @visibility("get", "mutate") url: string;
 }
 
 model EndpointListItem is Resource.List.Item<Endpoint>;

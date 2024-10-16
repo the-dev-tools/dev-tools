@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../lib";
+
 import "./resource.tsp";
 import "./workspace.tsp";
 
@@ -15,10 +17,11 @@ using TypeSpec.Rest;
 })
 namespace API.Collection;
 
+@autoFields
 @parentResource(Workspace.Workspace)
 model Collection {
-  @field(2) @key collectionId: Resource.ID;
-  @field(3) name: string;
+  @key collectionId: Resource.ID;
+  name: string;
 }
 
 model CollectionListItem is Resource.List.Item<Collection>;
@@ -33,9 +36,10 @@ model CollectionUpdateResponse is Resource.Update.Response<Collection>;
 model CollectionDeleteRequest is Resource.Delete.Request<Collection>;
 model CollectionDeleteResponse is Resource.Delete.Response<Collection>;
 
+@autoFields
 model CollectionImportPostmanRequest {
   ...Resource.Create.Request<Collection>;
-  @field(4) data: bytes;
+  data: bytes;
 }
 model CollectionImportPostmanResponse is Resource.Create.Response<Collection>;
 

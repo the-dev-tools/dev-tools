@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../../lib";
+
 import "../collection.tsp";
 import "../resource.tsp";
 import "./endpoint.tsp";
@@ -25,27 +27,30 @@ enum ItemKind {
   ITEM_KIND_ENDPOINT: 2,
 }
 
+@autoFields
 @parentResource(Collection.Collection)
 model CollectionItem {
-  @field(3) kind: ItemKind;
-  @field(4) folder?: Folder.FolderListItem;
-  @field(5) endpoint?: Endpoint.EndpointListItem;
-  @field(6) example?: Example.ExampleListItem;
+  kind: ItemKind;
+  folder?: Folder.FolderListItem;
+  endpoint?: Endpoint.EndpointListItem;
+  example?: Example.ExampleListItem;
 }
 
+@autoFields
 model CollectionItemListRequest is Resource.List.Request<CollectionItem> {
-  @field(3) folderId?: Resource.ID;
+  folderId?: Resource.ID;
 }
 
 model CollectionItemListResponse is Resource.List.Response<CollectionItem>;
 
+@autoFields
 model CollectionItemMoveRequest {
   ...ParentKeyOf<CollectionItem>;
-  @field(3) itemId: Resource.ID;
-  @field(4) kind: ItemKind;
-  @field(5) parentFolderId?: Resource.ID;
-  @field(6) previousItemId: Resource.ID;
-  @field(7) nextItemId: Resource.ID;
+  itemId: Resource.ID;
+  kind: ItemKind;
+  parentFolderId?: Resource.ID;
+  previousItemId: Resource.ID;
+  nextItemId: Resource.ID;
 }
 
 @Protobuf.service

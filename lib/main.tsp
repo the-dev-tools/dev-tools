@@ -20,3 +20,5 @@ extern dec omitKey(target: Model);
 model OmitKey<Resource> {
   ...Resource;
 }
+
+extern dec autoFields(target: Model);

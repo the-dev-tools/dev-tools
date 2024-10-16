@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../../lib";
+
 import "./example.tsp";
 import "./request.tsp";
 
@@ -15,26 +17,29 @@ using TypeSpec.Rest;
 })
 namespace API.CollectionItem.Response;
 
+@autoFields
 @parentResource(Example.Example)
 model Response {
-  @field(5) @key responseId: Resource.ID;
-  @field(6) status: int32;
-  @field(7) body: bytes;
-  @field(8) time: WellKnown.Timestamp;
-  @field(9) duration: int32;
+  @key responseId: Resource.ID;
+  status: int32;
+  body: bytes;
+  time: WellKnown.Timestamp;
+  duration: int32;
 }
 
+@autoFields
 @parentResource(Response)
 model ResponseHeader {
-  @field(6) @key ResponseheaderId: Resource.ID;
-  @field(7) key: string;
-  @field(8) value: string;
+  @key ResponseheaderId: Resource.ID;
+  key: string;
+  value: string;
 }
 
+@autoFields
 @parentResource(Response)
 model ResponseAssert {
-  @field(6) asssert: Request.Assert;
-  @field(7) result: boolean;
+  asssert: Request.Assert;
+  result: boolean;
 }
 
 model ResponseGetRequest is Resource.Get.Request<Response>;

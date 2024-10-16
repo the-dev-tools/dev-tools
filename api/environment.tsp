@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../lib";
+
 import "./resource.tsp";
 import "./workspace.tsp";
 
@@ -15,13 +17,14 @@ using TypeSpec.Rest;
 })
 namespace API.Environment;
 
+@autoFields
 @parentResource(Workspace.Workspace)
 model Environment {
-  @field(2) @key environmentId: Resource.ID;
-  @field(3) name: string;
-  @field(4) description: string;
-  @field(5) @visibility("query") updated: WellKnown.Timestamp;
-  @field(6) @visibility("query") isGlobal: boolean;
+  @key environmentId: Resource.ID;
+  name: string;
+  description: string;
+  @visibility("query") updated: WellKnown.Timestamp;
+  @visibility("query") isGlobal: boolean;
 }
 
 model EnvironmentListItem is Resource.List.Item<Environment>;

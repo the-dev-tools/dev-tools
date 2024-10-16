@@ -1,6 +1,8 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
+import "../../lib";
+
 import "./endpoint.tsp";
 import "./request.tsp";
 import "./response.tsp";
@@ -17,12 +19,13 @@ using TypeSpec.Rest.Resource;
 })
 namespace API.CollectionItem.Example;
 
+@autoFields
 @parentResource(Endpoint.Endpoint)
 model Example {
-  @field(4) @key exampleId: Resource.ID;
-  @field(5) lastResponseId?: Resource.ID;
-  @field(6) name: string;
-  @field(7) @visibility("get", "mutate") bodyKind: Request.BodyKind;
+  @key exampleId: Resource.ID;
+  lastResponseId?: Resource.ID;
+  name: string;
+  @visibility("get", "mutate") bodyKind: Request.BodyKind;
 }
 
 model ExampleListItem is Resource.List.Item<Example>;
