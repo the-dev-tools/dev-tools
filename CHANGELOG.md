@@ -1,5 +1,13 @@
 # @the-dev-tools/protobuf
 
+## 1.31.1
+
+### Patch Changes
+
+- [`bf4e770`](https://github.com/the-dev-tools/dev-tools-spec/commit/bf4e770531e1f84c0699b6824230f4df83931179) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Enable Protobuf-ES JSON types
+
+  https://github.com/bufbuild/protobuf-es/blob/main/MANUAL.md#json-types
+
 ## 1.31.0
 
 ### Minor Changes
