@@ -1,7 +1,7 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
-import "./api.tsp";
+import "./endpoint.tsp";
 import "./request.tsp";
 import "./response.tsp";
 
@@ -17,7 +17,7 @@ using TypeSpec.Rest.Resource;
 })
 namespace API.CollectionItem.Example;
 
-@parentResource(Api.Api)
+@parentResource(Endpoint.Endpoint)
 model Example {
   @field(4) @key exampleId: Resource.ID;
   @field(5) lastResponseId?: Resource.ID;

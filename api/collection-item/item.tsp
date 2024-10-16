@@ -3,7 +3,7 @@ import "@typespec/rest";
 
 import "../collection.tsp";
 import "../resource.tsp";
-import "./api.tsp";
+import "./endpoint.tsp";
 import "./example.tsp";
 import "./folder.tsp";
 
@@ -22,14 +22,14 @@ namespace API.CollectionItem.Item;
 enum ItemKind {
   ITEM_KIND_UNSPECIFIED: 0,
   ITEM_KIND_FOLDER: 1,
-  ITEM_KIND_API: 2,
+  ITEM_KIND_ENDPOINT: 2,
 }
 
 @parentResource(Collection.Collection)
 model CollectionItem {
   @field(3) kind: ItemKind;
   @field(4) folder?: Folder.FolderListItem;
-  @field(5) api?: Api.ApiListItem;
+  @field(5) endpoint?: Endpoint.EndpointListItem;
   @field(6) example?: Example.ExampleListItem;
 }
 
