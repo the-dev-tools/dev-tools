@@ -6,17 +6,17 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/result/mresultapi"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/sworkspace"
-	apiresultv1 "dev-tools-services/gen/apiresult/v1"
-	"dev-tools-services/gen/apiresult/v1/apiresultv1connect"
+	responsev1 "dev-tools-spec/dist/buf/go/collection/item/response/v1"
+	"dev-tools-spec/dist/buf/go/collection/item/response/v1/responsev1connect"
 	"errors"
 	"strings"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ResultService struct {
@@ -38,12 +38,12 @@ func New(db *sql.DB, cs scollection.CollectionService, ias sitemapi.ItemApiServi
 }
 
 func CreateService(srv ResultService, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := apiresultv1connect.NewApiResultServiceHandler(&srv, options...)
+	path, handler := responsev1connect.NewResponseServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv1.GetRequest]) (*connect.Response[apiresultv1.GetResponse], error) {
-	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[responsev1.ResponseGetRequest]) (*connect.Response[responsev1.ResponseGetResponse], error) {
+	ulidID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -71,11 +71,26 @@ func (c *ResultService) Get(ctx context.Context, req *connect.Request[apiresultv
 	for k, v := range result.HttpResp.Header {
 		headers[k] = strings.Join(v, ",")
 	}
-	protoResult := convertResultToProto(result)
+	respRPC := &responsev1.ResponseGetResponse{
+		ResponseId: ulidID.Bytes(),
+		Status:     int32(result.HttpResp.StatusCode),
+		Body:       result.HttpResp.Body,
+		Time:       timestamppb.New(result.Time),
+		Duration:   int32(result.Duration.Milliseconds()),
+	}
 
-	return connect.NewResponse(&apiresultv1.GetResponse{Result: protoResult}), nil
+	return connect.NewResponse(respRPC), nil
 }
 
+func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Request[responsev1.ResponseHeaderListRequest]) (*connect.Response[responsev1.ResponseHeaderListResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Request[responsev1.ResponseAssertListRequest]) (*connect.Response[responsev1.ResponseAssertListResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+/*
 func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[apiresultv1.GetResultsRequest]) (*connect.Response[apiresultv1.GetResultsResponse], error) {
 	ulidID, err := idwrap.NewWithParse(req.Msg.GetTriggerBy())
 	if err != nil {
@@ -133,6 +148,7 @@ func convertResultToProto(result *mresultapi.MResultAPI) *apiresultv1.Result {
 		},
 	}
 }
+*/
 
 func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (bool, error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)

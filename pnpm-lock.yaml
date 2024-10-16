@@ -11,12 +11,37 @@ importers:
       '@the-dev-tools/email':
         specifier: ^0.1.1
         version: 0.1.1
+      '@the-dev-tools/protobuf':
+        specifier: 1.28.0
+        version: 1.28.0
+      '@the-dev-tools/spec':
+        specifier: 1.30.2
+        version: 1.30.2
+      install:
+        specifier: ^0.13.0
+        version: 0.13.0
 
 packages:
 
   '@the-dev-tools/email@0.1.1':
     resolution: {integrity: sha512-/pNEfTd8Jqq5SYkFcnY0tPQFfmJ5/cj1I0quzyR8buVqeoTmUEP/DhRaga2+iQtJ7eQlBEjLWgJ4CVoHo+Py6g==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/email/0.1.1/a344de538f74ac50e35ccd287e87cad436604f24}
 
+  '@the-dev-tools/protobuf@1.28.0':
+    resolution: {integrity: sha512-gpX8WUSNBNM/XEpn0gZAsxK4qvAPbkTlW9xX2xthBOg9N3Vm83pfazEbMVDCWdQDMabChPWXr+0RCdAy9ceUNQ==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.28.0/8cd90605860e62caaa53be294a3fa06a6438d679}
+
+  '@the-dev-tools/spec@1.30.2':
+    resolution: {integrity: sha512-z+csdJauhDjqsP3uGEs014uT5V+gDaGCG0tPHyHM6keOavpZQNooNkiiQeJrfGngjyrHnbB/C4sRIz4BpyNWqQ==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/spec/1.30.2/80ed028b1b875ae1dd070d1144a310a8742a97af}
+
+  install@0.13.0:
+    resolution: {integrity: sha512-zDml/jzr2PKU9I8J/xyZBQn8rPCAY//UOYNmR01XwNwyfhEWObo2SWfSl1+0tm1u6PhxLwDnfsT/6jB7OUxqFA==}
+    engines: {node: '>= 0.10'}
+
 snapshots:
 
   '@the-dev-tools/email@0.1.1': {}
+
+  '@the-dev-tools/protobuf@1.28.0': {}
+
+  '@the-dev-tools/spec@1.30.2': {}
+
+  install@0.13.0: {}

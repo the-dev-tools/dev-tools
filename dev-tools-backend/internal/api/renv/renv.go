@@ -14,8 +14,9 @@ import (
 	"dev-tools-backend/pkg/service/svar"
 	"dev-tools-backend/pkg/translate/tenv"
 	"dev-tools-backend/pkg/translate/tgeneric"
-	environmentv1 "dev-tools-services/gen/environment/v1"
-	"dev-tools-services/gen/environment/v1/environmentv1connect"
+	environmentv1 "dev-tools-spec/dist/buf/go/environment/v1"
+	"dev-tools-spec/dist/buf/go/environment/v1/environmentv1connect"
+	"time"
 
 	"connectrpc.com/connect"
 )
@@ -42,13 +43,19 @@ func CreateService(srv EnvRPC, options []connect.HandlerOption) (*api.Service, e
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (e *EnvRPC) CreateEnvironment(ctx context.Context, req *connect.Request[environmentv1.CreateEnvironmentRequest]) (*connect.Response[environmentv1.CreateEnvironmentResponse], error) {
-	workspaceID, err := idwrap.NewWithParse(req.Msg.WorkspaceId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentCreateRequest]) (*connect.Response[environmentv1.EnvironmentCreateResponse], error) {
+	ReqEnv := req.Msg
+	workspaceID, err := idwrap.NewFromBytes(ReqEnv.WorkspaceId)
+	envReq := menv.Env{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Active:      true,
+		Type:        menv.EnvNormal,
+		Description: ReqEnv.Description,
+		Name:        ReqEnv.Name,
+		Updated:     time.Now(),
 	}
-	envReq := tenv.DeseralizeRPCToModelWithID(idwrap.NewNow(), req.Msg.GetEnvironment())
-	envReq.WorkspaceID = workspaceID
+
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, envReq.WorkspaceID))
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -57,11 +64,33 @@ func (e *EnvRPC) CreateEnvironment(ctx context.Context, req *connect.Request[env
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&environmentv1.CreateEnvironmentResponse{Id: envReq.ID.String()}), nil
+	envResp := &environmentv1.EnvironmentCreateResponse{
+		EnvironmentId: envReq.ID.Bytes(),
+	}
+
+	return connect.NewResponse(envResp), nil
 }
 
-func (e *EnvRPC) GetEnvironment(ctx context.Context, req *connect.Request[environmentv1.GetEnvironmentRequest]) (*connect.Response[environmentv1.GetEnvironmentResponse], error) {
-	id, err := idwrap.NewWithParse(req.Msg.Id)
+func (e *EnvRPC) EnvironmentList(ctx context.Context, req *connect.Request[environmentv1.EnvironmentListRequest]) (*connect.Response[environmentv1.EnvironmentListResponse], error) {
+	workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	envs, err := e.es.GetByWorkspace(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	resp := tgeneric.MassConvert(envs, tenv.SeralizeModelToRPCItem)
+	return connect.NewResponse(&environmentv1.EnvironmentListResponse{Items: resp}), nil
+}
+
+func (e *EnvRPC) EnvironmentGet(ctx context.Context, req *connect.Request[environmentv1.EnvironmentGetRequest]) (*connect.Response[environmentv1.EnvironmentGetResponse], error) {
+	id, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -81,29 +110,20 @@ func (e *EnvRPC) GetEnvironment(ctx context.Context, req *connect.Request[enviro
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	resp := tenv.SeralizeModelToRPC(*env)
-	return connect.NewResponse(&environmentv1.GetEnvironmentResponse{Environment: resp}), nil
+	respRaw := &environmentv1.EnvironmentGetResponse{
+		EnvironmentId: resp.EnvironmentId,
+		Name:          resp.Name,
+		Description:   resp.Description,
+		Updated:       resp.Updated,
+		IsGlobal:      resp.IsGlobal,
+	}
+	return connect.NewResponse(respRaw), nil
 }
 
-func (e *EnvRPC) GetEnvironments(ctx context.Context, req *connect.Request[environmentv1.GetEnvironmentsRequest]) (*connect.Response[environmentv1.GetEnvironmentsResponse], error) {
-	workspaceID, err := idwrap.NewWithParse(req.Msg.WorkspaceId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	envs, err := e.es.GetByWorkspace(ctx, workspaceID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	resp := tgeneric.MassConvert(envs, tenv.SeralizeModelToRPC)
-	return connect.NewResponse(&environmentv1.GetEnvironmentsResponse{Environments: resp}), nil
-}
-
-func (e *EnvRPC) UpdateEnvironment(ctx context.Context, req *connect.Request[environmentv1.UpdateEnvironmentRequest]) (*connect.Response[environmentv1.UpdateEnvironmentResponse], error) {
-	envReq, err := tenv.DeserializeRPCToModel(req.Msg.GetEnvironment())
+func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentUpdateRequest]) (*connect.Response[environmentv1.EnvironmentUpdateResponse], error) {
+	msg := req.Msg
+	env := &environmentv1.Environment{EnvironmentId: msg.EnvironmentId, Name: msg.Name, Description: msg.Description}
+	envReq, err := tenv.DeserializeRPCToModel(env)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -116,11 +136,11 @@ func (e *EnvRPC) UpdateEnvironment(ctx context.Context, req *connect.Request[env
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&environmentv1.UpdateEnvironmentResponse{}), nil
+	return connect.NewResponse(&environmentv1.EnvironmentUpdateResponse{}), nil
 }
 
-func (e *EnvRPC) DeleteEnvironment(ctx context.Context, req *connect.Request[environmentv1.DeleteEnvironmentRequest]) (*connect.Response[environmentv1.DeleteEnvironmentResponse], error) {
-	id, err := idwrap.NewWithParse(req.Msg.Id)
+func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[environmentv1.EnvironmentDeleteRequest]) (*connect.Response[environmentv1.EnvironmentDeleteResponse], error) {
+	id, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -132,42 +152,7 @@ func (e *EnvRPC) DeleteEnvironment(ctx context.Context, req *connect.Request[env
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&environmentv1.DeleteEnvironmentResponse{}), nil
-}
-
-func (e *EnvRPC) GetAllVariables(ctx context.Context, req *connect.Request[environmentv1.GetAllVariablesRequest]) (*connect.Response[environmentv1.GetAllVariablesResponse], error) {
-	workspaceID, err := idwrap.NewWithParse(req.Msg.WorkspaceId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	envs, err := e.es.GetByWorkspace(ctx, workspaceID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	varMap := make(map[string][]menv.Env)
-	for _, env := range envs {
-		vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		for _, v := range vars {
-			mapVars, ok := varMap[v.VarKey]
-			if !ok {
-				varMap[v.VarKey] = []menv.Env{env}
-			} else {
-				varMap[v.VarKey] = append(mapVars, env)
-			}
-		}
-	}
-	var envsRPC []*environmentv1.VariableWithEnvironments
-	for key, envs := range varMap {
-		envsRPC = append(envsRPC, tenv.SeralizeModelToGroupRPC(key, envs))
-	}
-	return connect.NewResponse(&environmentv1.GetAllVariablesResponse{Items: envsRPC}), nil
+	return connect.NewResponse(&environmentv1.EnvironmentDeleteResponse{}), nil
 }
 
 func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService, envid idwrap.IDWrap) (bool, error) {

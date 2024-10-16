@@ -20,12 +20,10 @@ import (
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
-	"dev-tools-backend/pkg/translate/tcollection"
 	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/translate/titemnest"
 	"dev-tools-backend/pkg/translate/tpostman"
-	collectionv1 "dev-tools-services/gen/collection/v1"
-	"dev-tools-services/gen/collection/v1/collectionv1connect"
+	collectionv1 "dev-tools-spec/dist/buf/go/collection/v1"
+	"dev-tools-spec/dist/buf/go/collection/v1/collectionv1connect"
 	"errors"
 
 	"connectrpc.com/connect"
@@ -66,8 +64,8 @@ func CreateService(deps CollectionServiceRPC, options []connect.HandlerOption) (
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect.Request[collectionv1.ListCollectionsRequest]) (*connect.Response[collectionv1.ListCollectionsResponse], error) {
-	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+func (c *CollectionServiceRPC) CollectionList(ctx context.Context, req *connect.Request[collectionv1.CollectionListRequest]) (*connect.Response[collectionv1.CollectionListResponse], error) {
+	workspaceUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -90,33 +88,26 @@ func (c *CollectionServiceRPC) ListCollections(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// TODO: make it simpler
 	rpcCollections, err := tgeneric.MassConvertWithErr(simpleCollections,
-		func(collection mcollection.Collection) (*collectionv1.CollectionMeta, error) {
-			t, err := tcollection.NewWithFunc(ctx, collection.ID,
-				c.ifs.GetFoldersWithCollectionID,
-				c.ias.GetApisWithCollectionID,
-				c.iaes.GetApiExampleByCollection)
-			if err != nil {
-				return &collectionv1.CollectionMeta{}, connect.NewError(connect.CodeInternal, err)
-			}
-			return &collectionv1.CollectionMeta{
-				Id:    collection.ID.String(),
-				Name:  collection.Name,
-				Items: t.GetItems(),
+		func(collection mcollection.Collection) (*collectionv1.CollectionListItem, error) {
+			return &collectionv1.CollectionListItem{
+				CollectionId: collection.ID.Bytes(),
+				Name:         collection.Name,
 			}, nil
 		})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	respRaw := &collectionv1.ListCollectionsResponse{
-		MetaCollections: rpcCollections,
+	respRaw := &collectionv1.CollectionListResponse{
+		Items: rpcCollections,
 	}
 	return connect.NewResponse(respRaw), nil
 }
 
-func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connect.Request[collectionv1.CreateCollectionRequest]) (*connect.Response[collectionv1.CreateCollectionResponse], error) {
-	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connect.Request[collectionv1.CollectionCreateRequest]) (*connect.Response[collectionv1.CollectionCreateResponse], error) {
+	workspaceUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -145,15 +136,13 @@ func (c *CollectionServiceRPC) CreateCollection(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&collectionv1.CreateCollectionResponse{
-		Id:   collectionID.String(),
-		Name: name,
+	return connect.NewResponse(&collectionv1.CollectionCreateResponse{
+		CollectionId: collectionID.Bytes(),
 	}), nil
 }
 
-// GetCollection calls collection.v1.CollectionService.GetCollection.
-func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.Request[collectionv1.GetCollectionRequest]) (*connect.Response[collectionv1.GetCollectionResponse], error) {
-	idWrap, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *CollectionServiceRPC) CollectionGet(ctx context.Context, req *connect.Request[collectionv1.CollectionGetRequest]) (*connect.Response[collectionv1.CollectionGetResponse], error) {
+	idWrap, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -170,40 +159,40 @@ func (c *CollectionServiceRPC) GetCollection(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	/*
 
-	folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, idWrap)
-	if err != nil && err != sitemfolder.ErrNoItemFolderFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, idWrap)
+		if err != nil && err != sitemfolder.ErrNoItemFolderFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	apiItems, err := c.ias.GetApisWithCollectionID(ctx, idWrap)
-	if err != nil && err != sitemapi.ErrNoItemApiFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		apiItems, err := c.ias.GetApisWithCollectionID(ctx, idWrap)
+		if err != nil && err != sitemapi.ErrNoItemApiFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, idWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, idWrap)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems, apiExampleItems)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	items := pair.GetItemsFull()
+		pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems, apiExampleItems)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		items := pair.GetItemsFull()
+	*/
 
-	respRaw := &collectionv1.GetCollectionResponse{
-		Id:    collection.ID.String(),
-		Name:  collection.Name,
-		Items: items,
+	respRaw := &collectionv1.CollectionGetResponse{
+		CollectionId: collection.ID.Bytes(),
+		Name:         collection.Name,
 	}
 
 	return connect.NewResponse(respRaw), nil
 }
 
-// UpdateCollection calls collection.v1.CollectionService.UpdateCollection.
-func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connect.Request[collectionv1.UpdateCollectionRequest]) (*connect.Response[collectionv1.UpdateCollectionResponse], error) {
-	idWrap, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *CollectionServiceRPC) CollectionUpdate(ctx context.Context, req *connect.Request[collectionv1.CollectionUpdateRequest]) (*connect.Response[collectionv1.CollectionUpdateResponse], error) {
+	idWrap, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -230,12 +219,11 @@ func (c *CollectionServiceRPC) UpdateCollection(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&collectionv1.UpdateCollectionResponse{}), nil
+	return connect.NewResponse(&collectionv1.CollectionUpdateResponse{}), nil
 }
 
-// DeleteCollection calls collection.v1.CollectionService.DeleteCollection.
-func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connect.Request[collectionv1.DeleteCollectionRequest]) (*connect.Response[collectionv1.DeleteCollectionResponse], error) {
-	idWrap, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *CollectionServiceRPC) CollectionDelete(ctx context.Context, req *connect.Request[collectionv1.CollectionDeleteRequest]) (*connect.Response[collectionv1.CollectionDeleteResponse], error) {
+	idWrap, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -252,12 +240,12 @@ func (c *CollectionServiceRPC) DeleteCollection(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&collectionv1.DeleteCollectionResponse{}), nil
+	return connect.NewResponse(&collectionv1.CollectionDeleteResponse{}), nil
 }
 
 // ImportPostman calls collection.v1.CollectionService.ImportPostman.
-func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.Request[collectionv1.ImportPostmanRequest]) (*connect.Response[collectionv1.ImportPostmanResponse], error) {
-	wsUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req *connect.Request[collectionv1.CollectionImportPostmanRequest]) (*connect.Response[collectionv1.CollectionImportPostmanResponse], error) {
+	wsUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -386,8 +374,8 @@ func (c *CollectionServiceRPC) ImportPostman(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	respRaw := &collectionv1.ImportPostmanResponse{
-		Id: collectionidWrap.String(),
+	respRaw := &collectionv1.CollectionImportPostmanResponse{
+		CollectionId: collectionidWrap.Bytes(),
 	}
 	resp := connect.NewResponse(respRaw)
 	return resp, nil

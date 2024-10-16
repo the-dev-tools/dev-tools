@@ -5,7 +5,7 @@ import (
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/stoken"
-	authv1 "dev-tools-services/gen/auth/v1"
+	authv1 "dev-tools-spec/dist/buf/go/auth/v1"
 	"testing"
 	"time"
 
@@ -31,13 +31,13 @@ func TestRefreshToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := &connect.Request[authv1.AuthServiceRefreshTokenRequest]{
-		Msg: &authv1.AuthServiceRefreshTokenRequest{
+	req := &connect.Request[authv1.AuthRefreshRequest]{
+		Msg: &authv1.AuthRefreshRequest{
 			RefreshToken: tk,
 		},
 	}
 
-	resp, err := sv.RefreshToken(ctx, req)
+	resp, err := sv.AuthRefresh(ctx, req)
 	if err != nil {
 		t.Fatal(err)
 	}

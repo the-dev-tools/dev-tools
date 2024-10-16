@@ -15,14 +15,18 @@ import (
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
+	"dev-tools-backend/pkg/translate/tenv"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tworkspace"
 	"dev-tools-mail/pkg/emailclient"
 	"dev-tools-mail/pkg/emailinvite"
-	workspacev1 "dev-tools-services/gen/workspace/v1"
-	"dev-tools-services/gen/workspace/v1/workspacev1connect"
+	workspacev1 "dev-tools-spec/dist/buf/go/workspace/v1"
+	"dev-tools-spec/dist/buf/go/workspace/v1/workspacev1connect"
 	"errors"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var ErrWorkspaceNotFound = errors.New("workspace not found")
@@ -58,8 +62,8 @@ func CreateService(srv WorkspaceServiceRPC, options []connect.HandlerOption) (*a
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.GetWorkspaceRequest]) (*connect.Response[workspacev1.GetWorkspaceResponse], error) {
-	wsID, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Request[workspacev1.WorkspaceGetRequest]) (*connect.Response[workspacev1.WorkspaceGetResponse], error) {
+	wsID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -84,14 +88,17 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		}
 	}
 
-	resp := &workspacev1.GetWorkspaceResponse{
-		Workspace: tworkspace.SeralizeWorkspace(*ws, env),
+	resp := &workspacev1.WorkspaceGetResponse{
+		WorkspaceId: ws.ID.Bytes(),
+		Name:        ws.Name,
+		Updated:     timestamppb.New(ws.Updated),
+		Environment: tenv.SeralizeModelToRPC(*env),
 	}
 
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Request[workspacev1.GetWorkspacesRequest]) (*connect.Response[workspacev1.GetWorkspacesResponse], error) {
+func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[workspacev1.WorkspaceListResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -105,24 +112,57 @@ func (c *WorkspaceServiceRPC) GetWorkspaces(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	respOrgs := make([]*workspacev1.Workspace, len(workspaces))
-	for i, ws := range workspaces {
-		env, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
-		if err != nil {
-			if !errors.Is(err, senv.ErrNoEnvFound) {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
-		respOrgs[i] = tworkspace.SeralizeWorkspace(ws, env)
-	}
-
-	resp := &workspacev1.GetWorkspacesResponse{
-		Workspaces: respOrgs,
+	rpcWorkspaces := tgeneric.MassConvert(workspaces, tworkspace.SeralizeWorkspaceItem)
+	resp := &workspacev1.WorkspaceListResponse{
+		Items: rpcWorkspaces,
 	}
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.Request[workspacev1.CreateWorkspaceRequest]) (*connect.Response[workspacev1.CreateWorkspaceResponse], error) {
+func (c *WorkspaceServiceRPC) WorkspaceGet(ctx context.Context, req *connect.Request[workspacev1.WorkspaceGetRequest]) (*connect.Response[workspacev1.WorkspaceGetResponse], error) {
+	workspaceID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+
+	permc, err := c.us.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !permc {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+
+	workspaces, err := c.ws.Get(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	env, err := c.es.GetActiveByWorkspace(ctx, workspaces.ID)
+	if err != nil {
+		if !errors.Is(err, senv.ErrNoEnvFound) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	resp := &workspacev1.WorkspaceGetResponse{
+		WorkspaceId: workspaces.ID.Bytes(),
+		Name:        workspaces.Name,
+		Updated:     timestamppb.New(workspaces.Updated),
+		Environment: tenv.SeralizeModelToRPC(*env),
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.Request[workspacev1.WorkspaceCreateRequest]) (*connect.Response[workspacev1.WorkspaceCreateResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -132,16 +172,16 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	workspaceUlid := idwrap.NewNow()
+	workspaceidWrap := idwrap.NewNow()
 	ws := &mworkspace.Workspace{
-		ID:      workspaceUlid,
+		ID:      workspaceidWrap,
 		Name:    name,
 		Updated: dbtime.DBNow(),
 	}
 
 	wsEnv := menv.Env{
 		ID:          idwrap.NewNow(),
-		WorkspaceID: workspaceUlid,
+		WorkspaceID: workspaceidWrap,
 		Name:        "default",
 		Active:      true,
 		Type:        menv.EnvGlobal,
@@ -149,7 +189,7 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 
 	wsUser := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
-		WorkspaceID: workspaceUlid,
+		WorkspaceID: workspaceidWrap,
 		UserID:      userID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
@@ -191,14 +231,14 @@ func (c *WorkspaceServiceRPC) CreateWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := &workspacev1.CreateWorkspaceResponse{
-		Workspace: tworkspace.SeralizeWorkspace(*ws, nil),
+	resp := &workspacev1.WorkspaceCreateResponse{
+		WorkspaceId: workspaceidWrap.Bytes(),
 	}
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.Request[workspacev1.UpdateWorkspaceRequest]) (*connect.Response[workspacev1.UpdateWorkspaceResponse], error) {
-	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.Request[workspacev1.WorkspaceUpdateRequest]) (*connect.Response[workspacev1.WorkspaceUpdateResponse], error) {
+	workspaceUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -223,10 +263,10 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 		}
 	}
 
-	reqUpdateEnvIDStr := req.Msg.GetEnvId()
+	reqEnvIDRaw := req.Msg.GetEnvironmentId()
 	var envID *idwrap.IDWrap
-	if reqUpdateEnvIDStr != "" {
-		tempEnvID, err := idwrap.NewWithParse(reqUpdateEnvIDStr)
+	if reqEnvIDRaw != nil {
+		tempEnvID, err := idwrap.NewFromBytes(reqEnvIDRaw)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -270,16 +310,16 @@ func (c *WorkspaceServiceRPC) UpdateWorkspace(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&workspacev1.UpdateWorkspaceResponse{}), nil
+	return connect.NewResponse(&workspacev1.WorkspaceUpdateResponse{}), nil
 }
 
-func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.Request[workspacev1.DeleteWorkspaceRequest]) (*connect.Response[workspacev1.DeleteWorkspaceResponse], error) {
+func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.Request[workspacev1.WorkspaceDeleteRequest]) (*connect.Response[workspacev1.WorkspaceDeleteResponse], error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetId())
+	workspaceUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -300,15 +340,15 @@ func (c *WorkspaceServiceRPC) DeleteWorkspace(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&workspacev1.DeleteWorkspaceResponse{}), nil
+	return connect.NewResponse(&workspacev1.WorkspaceDeleteResponse{}), nil
 }
 
-func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Request[workspacev1.ListUsersRequest]) (*connect.Response[workspacev1.ListUsersResponse], error) {
+func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberListRequest]) (*connect.Response[workspacev1.WorkspaceMemberListResponse], error) {
 	actionUserUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	workspaceUlid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+	workspaceUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 	}
 	ok, err := c.us.CheckUserBelongsToWorkspace(ctx, actionUserUlid, workspaceUlid)
@@ -324,27 +364,27 @@ func (c *WorkspaceServiceRPC) ListUsers(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcUser := make([]*workspacev1.User, len(wsUsers))
+	rpcUser := make([]*workspacev1.WorkspaceMemberListItem, len(wsUsers))
 	for i, wsUser := range wsUsers {
 		user, err := c.us.GetUser(ctx, wsUser.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		rpcUser[i] = &workspacev1.User{
-			Id:    wsUser.UserID.String(),
-			Email: user.Email,
-			Role:  workspacev1.Role(wsUser.Role),
+		rpcUser[i] = &workspacev1.WorkspaceMemberListItem{
+			MemberId: wsUser.UserID.Bytes(),
+			Email:    user.Email,
+			Role:     workspacev1.MemberRole(wsUser.Role),
 		}
 	}
 
-	return connect.NewResponse(&workspacev1.ListUsersResponse{Users: rpcUser}), nil
+	return connect.NewResponse(&workspacev1.WorkspaceMemberListResponse{Items: rpcUser}), nil
 }
 
 // TODO: I'm not sure this is the correct implementation of this function
 // Will talk with the team about this on the next meeting
-func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Request[workspacev1.InviteUserRequest]) (*connect.Response[workspacev1.InviteUserResponse], error) {
-	wid, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+func (c *WorkspaceServiceRPC) WorkspaceMemberCreate(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberCreateRequest]) (*connect.Response[workspacev1.WorkspaceMemberCreateResponse], error) {
+	wid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -415,13 +455,13 @@ func (c *WorkspaceServiceRPC) InviteUser(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&workspacev1.InviteUserResponse{
-		UserId: invitedUser.ID.String(),
+	return connect.NewResponse(&workspacev1.WorkspaceMemberCreateResponse{
+		MemberId: invitedUser.ID.Bytes(),
 	}), nil
 }
 
-func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Request[workspacev1.RemoveUserRequest]) (*connect.Response[workspacev1.RemoveUserResponse], error) {
-	workspaceULID, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+func (c *WorkspaceServiceRPC) WorkspaceMemberDelete(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberDeleteRequest]) (*connect.Response[workspacev1.WorkspaceMemberDeleteResponse], error) {
+	workspaceULID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -429,7 +469,7 @@ func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := idwrap.NewWithParse(req.Msg.GetUserId())
+	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.GetMemberId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
@@ -456,11 +496,11 @@ func (c *WorkspaceServiceRPC) RemoveUser(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&workspacev1.RemoveUserResponse{}), nil
+	return connect.NewResponse(&workspacev1.WorkspaceMemberDeleteResponse{}), nil
 }
 
-func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.Request[workspacev1.UpdateUserRoleRequest]) (*connect.Response[workspacev1.UpdateUserRoleResponse], error) {
-	workspaceULID, err := idwrap.NewWithParse(req.Msg.GetWorkspaceId())
+func (c *WorkspaceServiceRPC) WorkspaceMemberUpdate(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberUpdateRequest]) (*connect.Response[workspacev1.WorkspaceMemberUpdateResponse], error) {
+	workspaceULID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -468,7 +508,7 @@ func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := idwrap.NewWithParse(req.Msg.GetUserId())
+	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.GetMemberId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
@@ -497,7 +537,7 @@ func (c *WorkspaceServiceRPC) UpdateUserRole(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&workspacev1.UpdateUserRoleResponse{}), nil
+	return connect.NewResponse(&workspacev1.WorkspaceMemberUpdateResponse{}), nil
 }
 
 func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {

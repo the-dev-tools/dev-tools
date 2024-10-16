@@ -8,6 +8,6 @@ use (
 	./dev-tools-masternode
 	./dev-tools-nodes
 	./dev-tools-platform
-	./dev-tools-services
 	./dev-tools-slave
+	./dev-tools-spec
 )

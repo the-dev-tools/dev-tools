@@ -1,5 +1,6 @@
 package node
 
+/*
 import (
 	"context"
 	"dev-tools-backend/internal/api"
@@ -60,3 +61,4 @@ func (m MasterNodeServer) Run(ctx context.Context, req *connect.Request[nodemast
 
 	return nil
 }
+*/
