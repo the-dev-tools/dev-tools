@@ -12,8 +12,8 @@ import (
 	"dev-tools-backend/pkg/service/svar"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tvar"
-	variablev1 "dev-tools-services/gen/variable/v1"
-	"dev-tools-services/gen/variable/v1/variablev1connect"
+	variablev1 "dev-tools-spec/dist/buf/go/variable/v1"
+	"dev-tools-spec/dist/buf/go/variable/v1/variablev1connect"
 	"sort"
 
 	"connectrpc.com/connect"
@@ -42,44 +42,8 @@ func CreateService(srv VarRPC, options []connect.HandlerOption) (*api.Service, e
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (v *VarRPC) CreateVariable(ctx context.Context, req *connect.Request[variablev1.CreateVariableRequest]) (*connect.Response[variablev1.CreateVariableResponse], error) {
-	envID, err := idwrap.NewWithParse(req.Msg.EnvironmentId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(renv.CheckOwnerEnv(ctx, v.us, v.es, envID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	varReq := tvar.DeserializeRPCToModelWithID(idwrap.NewNow(), envID, req.Msg.GetVariable())
-	err = v.vs.Create(ctx, varReq)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	varReq.EnvID = envID
-
-	return connect.NewResponse(&variablev1.CreateVariableResponse{Id: varReq.ID.String()}), nil
-}
-
-func (v *VarRPC) GetVariable(ctx context.Context, req *connect.Request[variablev1.GetVariableRequest]) (*connect.Response[variablev1.GetVariableResponse], error) {
-	id, err := idwrap.NewWithParse(req.Msg.Id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, v.us, v.vs, v.es, id))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	varible, err := v.vs.Get(ctx, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&variablev1.GetVariableResponse{Variable: tvar.SerializeModelToRPC(*varible)}), nil
-}
-
-func (v *VarRPC) GetVariables(ctx context.Context, req *connect.Request[variablev1.GetVariablesRequest]) (*connect.Response[variablev1.GetVariablesResponse], error) {
-	envID, err := idwrap.NewWithParse(req.Msg.EnvironmentId)
+func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variablev1.VariableListRequest]) (*connect.Response[variablev1.VariableListResponse], error) {
+	envID, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -94,12 +58,70 @@ func (v *VarRPC) GetVariables(ctx context.Context, req *connect.Request[variable
 	sort.Slice(variables, func(i, j int) bool {
 		return variables[i].ID.Compare(variables[j].ID) < 0
 	})
-	rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPC)
-	return connect.NewResponse(&variablev1.GetVariablesResponse{Variables: rpcVars}), nil
+	rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPCItem)
+	return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
 }
 
-func (c *VarRPC) UpdateVariable(ctx context.Context, req *connect.Request[variablev1.UpdateVariableRequest]) (*connect.Response[variablev1.UpdateVariableResponse], error) {
-	varReq, err := tvar.DeserializeRPCToModel(req.Msg.GetVariable())
+func (v *VarRPC) VariableGet(ctx context.Context, req *connect.Request[variablev1.VariableGetRequest]) (*connect.Response[variablev1.VariableGetResponse], error) {
+	id, err := idwrap.NewFromBytes(req.Msg.VariableId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, v.us, v.vs, v.es, id))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	varible, err := v.vs.Get(ctx, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rpcVar := tvar.SerializeModelToRPC(*varible)
+	rpcRawResp := &variablev1.VariableGetResponse{
+		VariableId:  rpcVar.VariableId,
+		Name:        rpcVar.Name,
+		Value:       rpcVar.Value,
+		Enabled:     rpcVar.Enabled,
+		Description: rpcVar.Description,
+	}
+	return connect.NewResponse(rpcRawResp), nil
+}
+
+func (v *VarRPC) VariableCreate(ctx context.Context, req *connect.Request[variablev1.VariableCreateRequest]) (*connect.Response[variablev1.VariableCreateResponse], error) {
+	envID, err := idwrap.NewFromBytes(req.Msg.GetEnvironmentId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(renv.CheckOwnerEnv(ctx, v.us, v.es, envID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	rpcVar := variablev1.Variable{
+		Name:        req.Msg.Name,
+		Value:       req.Msg.Value,
+		Enabled:     req.Msg.Enabled,
+		Description: req.Msg.Description,
+	}
+
+	varReq := tvar.DeserializeRPCToModelWithID(idwrap.NewNow(), envID, &rpcVar)
+	err = v.vs.Create(ctx, varReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	varReq.EnvID = envID
+
+	return connect.NewResponse(&variablev1.VariableCreateResponse{VariableId: varReq.ID.Bytes()}), nil
+}
+
+func (c *VarRPC) VariableUpdate(ctx context.Context, req *connect.Request[variablev1.VariableUpdateRequest]) (*connect.Response[variablev1.VariableUpdateResponse], error) {
+	varConverted := &variablev1.Variable{
+		VariableId:  req.Msg.GetVariableId(),
+		Name:        req.Msg.Name,
+		Value:       req.Msg.Value,
+		Enabled:     req.Msg.Enabled,
+		Description: req.Msg.Description,
+	}
+	varReq, err := tvar.DeserializeRPCToModel(varConverted)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -111,11 +133,11 @@ func (c *VarRPC) UpdateVariable(ctx context.Context, req *connect.Request[variab
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&variablev1.UpdateVariableResponse{}), nil
+	return connect.NewResponse(&variablev1.VariableUpdateResponse{}), nil
 }
 
-func (c *VarRPC) DeleteVariable(ctx context.Context, req *connect.Request[variablev1.DeleteVariableRequest]) (*connect.Response[variablev1.DeleteVariableResponse], error) {
-	id, err := idwrap.NewWithParse(req.Msg.Id)
+func (c *VarRPC) VariableDelete(ctx context.Context, req *connect.Request[variablev1.VariableDeleteRequest]) (*connect.Response[variablev1.VariableDeleteResponse], error) {
+	id, err := idwrap.NewFromBytes(req.Msg.GetVariableId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -127,7 +149,7 @@ func (c *VarRPC) DeleteVariable(ctx context.Context, req *connect.Request[variab
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&variablev1.DeleteVariableResponse{}), nil
+	return connect.NewResponse(&variablev1.VariableDeleteResponse{}), nil
 }
 
 func CheckOwnerVar(ctx context.Context, us suser.UserService, vs svar.VarService, es senv.EnvService, varID idwrap.IDWrap) (bool, error) {

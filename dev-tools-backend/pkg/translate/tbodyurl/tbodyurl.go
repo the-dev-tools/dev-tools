@@ -3,13 +3,12 @@ package tbodyurl
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyurl"
-	bodyv1 "dev-tools-services/gen/body/v1"
+	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
 )
 
 func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedItem {
 	return &bodyv1.BodyUrlEncodedItem{
-		Id:          urlEncoded.ID.String(),
-		ExampleId:   urlEncoded.ExampleID.String(),
+		BodyId:      urlEncoded.ID.Bytes(),
 		Key:         urlEncoded.BodyKey,
 		Enabled:     urlEncoded.Enable,
 		Value:       urlEncoded.Value,
@@ -17,33 +16,19 @@ func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlE
 	}
 }
 
-func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncodedItem) (*mbodyurl.BodyURLEncoded, error) {
-	ID, err := idwrap.NewWithParse(urlEncoded.GetId())
+func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
+	b, err := SeralizeURLRPCToModelWithoutID(urlEncoded, exampleID)
+	ID, err := idwrap.NewFromBytes(urlEncoded.GetBodyId())
 	if err != nil {
 		return nil, err
 	}
-	ExampleID, err := idwrap.NewWithParse(urlEncoded.GetExampleId())
-	if err != nil {
-		return nil, err
-	}
-
-	return &mbodyurl.BodyURLEncoded{
-		ID:          ID,
-		ExampleID:   ExampleID,
-		BodyKey:     urlEncoded.Key,
-		Description: urlEncoded.Description,
-		Enable:      urlEncoded.Enabled,
-		Value:       urlEncoded.Value,
-	}, nil
+	b.ID = ID
+	return b, nil
 }
 
-func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncodedItem) (*mbodyurl.BodyURLEncoded, error) {
-	ExampleID, err := idwrap.NewWithParse(urlEncoded.GetExampleId())
-	if err != nil {
-		return nil, err
-	}
+func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
 	return &mbodyurl.BodyURLEncoded{
-		ExampleID:   ExampleID,
+		ExampleID:   exampleID,
 		BodyKey:     urlEncoded.Key,
 		Description: urlEncoded.Description,
 		Enable:      urlEncoded.Enabled,

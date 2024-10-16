@@ -7,6 +7,7 @@ import (
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyraw"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
@@ -16,8 +17,8 @@ import (
 	"dev-tools-backend/pkg/translate/tbodyform"
 	"dev-tools-backend/pkg/translate/tbodyurl"
 	"dev-tools-backend/pkg/zstdcompress"
-	bodyv1 "dev-tools-services/gen/body/v1"
-	"dev-tools-services/gen/body/v1/bodyv1connect"
+	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
+	"dev-tools-spec/dist/buf/go/collection/item/body/v1/bodyv1connect"
 	"errors"
 
 	"connectrpc.com/connect"
@@ -52,17 +53,27 @@ func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.Item
 }
 
 func CreateService(srv BodyRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := bodyv1connect.NewBodyServiceHandler(&srv, options...)
+	path, handler := bodyv1connect.NewRequestServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c BodyRPC) CreateBodyForm(ctx context.Context, req *connect.Request[bodyv1.CreateBodyFormRequest]) (*connect.Response[bodyv1.CreateBodyFormResponse], error) {
-	bodyData := req.Msg.GetItem()
-	if bodyData == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
+func (c *BodyRPC) BodyFormItemList(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemListRequest]) (*connect.Response[bodyv1.BodyFormItemListResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (c BodyRPC) BodyFormItemCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemCreateRequest]) (*connect.Response[bodyv1.BodyFormItemCreateResponse], error) {
+	ExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcBody := &bodyv1.BodyFormItem{
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
 	}
 
-	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(bodyData)
+	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(rpcBody, ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -80,32 +91,25 @@ func (c BodyRPC) CreateBodyForm(ctx context.Context, req *connect.Request[bodyv1
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.CreateBodyFormResponse{Id: bodyForm.ID.String()}), nil
+	return connect.NewResponse(&bodyv1.BodyFormItemCreateResponse{BodyId: bodyForm.ID.Bytes()}), nil
 }
 
-func (c BodyRPC) UpdateBodyForm(ctx context.Context, req *connect.Request[bodyv1.UpdateBodyFormRequest]) (*connect.Response[bodyv1.UpdateBodyFormResponse], error) {
-	bodyData := req.Msg.GetItem()
-	if bodyData == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
+func (c BodyRPC) BodyFormItemUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemUpdateRequest]) (*connect.Response[bodyv1.BodyFormItemUpdateResponse], error) {
+	rpcBody := &bodyv1.BodyFormItem{
+		BodyId:      req.Msg.GetBodyId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
 	}
-	BodyForm, err := tbodyform.SerializeFormRPCtoModel(bodyData)
+	BodyForm, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	ok, err := CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, BodyForm.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no body form found"))
-	}
-	ok, err = ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, BodyForm.ExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, BodyForm.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	err = c.bfs.UpdateBodyForm(ctx, BodyForm)
@@ -113,11 +117,11 @@ func (c BodyRPC) UpdateBodyForm(ctx context.Context, req *connect.Request[bodyv1
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.UpdateBodyFormResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyFormItemUpdateResponse{}), nil
 }
 
-func (c BodyRPC) DeleteBodyForm(ctx context.Context, req *connect.Request[bodyv1.DeleteBodyFormRequest]) (*connect.Response[bodyv1.DeleteBodyFormResponse], error) {
-	ID, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c BodyRPC) BodyFormItemDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemDeleteRequest]) (*connect.Response[bodyv1.BodyFormItemDeleteResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -135,15 +139,25 @@ func (c BodyRPC) DeleteBodyForm(ctx context.Context, req *connect.Request[bodyv1
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.DeleteBodyFormResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyFormItemDeleteResponse{}), nil
 }
 
-func (c BodyRPC) CreateBodyUrlEncoded(ctx context.Context, req *connect.Request[bodyv1.CreateBodyUrlEncodedRequest]) (*connect.Response[bodyv1.CreateBodyUrlEncodedResponse], error) {
-	bodyData := req.Msg.GetItem()
-	if bodyData == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
+func (c *BodyRPC) BodyUrlEncodedItemList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemListResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (c BodyRPC) BodyUrlEncodedItemCreate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemCreateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemCreateResponse], error) {
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(bodyData)
+	bodyData := &bodyv1.BodyUrlEncodedItem{
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(bodyData, exampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -162,16 +176,18 @@ func (c BodyRPC) CreateBodyUrlEncoded(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.CreateBodyUrlEncodedResponse{Id: bodyUrl.ID.String()}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemCreateResponse{BodyId: bodyUrl.ID.Bytes()}), nil
 }
 
-func (c BodyRPC) UpdateBodyUrlEncoded(ctx context.Context, req *connect.Request[bodyv1.UpdateBodyUrlEncodedRequest]) (*connect.Response[bodyv1.UpdateBodyUrlEncodedResponse], error) {
-	bodyData := req.Msg.GetItem()
-	if bodyData == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("body form is nil"))
+func (c BodyRPC) BodyUrlEncodedItemUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemUpdateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemUpdateResponse], error) {
+	bodyData := &bodyv1.BodyUrlEncodedItem{
+		BodyId:      req.Msg.GetBodyId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
 	}
-
-	bodyURL, err := tbodyurl.SerializeURLRPCtoModel(bodyData)
+	bodyURL, err := tbodyurl.SerializeURLRPCtoModel(bodyData, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -195,21 +211,18 @@ func (c BodyRPC) UpdateBodyUrlEncoded(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.UpdateBodyUrlEncodedResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemUpdateResponse{}), nil
 }
 
-func (c BodyRPC) DeleteBodyUrlEncoded(ctx context.Context, req *connect.Request[bodyv1.DeleteBodyUrlEncodedRequest]) (*connect.Response[bodyv1.DeleteBodyUrlEncodedResponse], error) {
-	ID, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c BodyRPC) BodyUrlEncodedItemDelete(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemDeleteRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemDeleteResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	ok, err := CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no body form found"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	err = c.bues.DeleteBodyURLEncoded(ctx, ID)
@@ -217,11 +230,15 @@ func (c BodyRPC) DeleteBodyUrlEncoded(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.DeleteBodyUrlEncodedResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemDeleteResponse{}), nil
 }
 
-func (c BodyRPC) UpdateBodyRaw(ctx context.Context, req *connect.Request[bodyv1.UpdateBodyRawRequest]) (*connect.Response[bodyv1.UpdateBodyRawResponse], error) {
-	exampleID, err := idwrap.NewWithParse(req.Msg.GetExampleId())
+func (c BodyRPC) BodyRawGet(ctx context.Context, req *connect.Request[bodyv1.BodyRawGetRequest]) (*connect.Response[bodyv1.BodyRawGetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (c BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyRawUpdateRequest]) (*connect.Response[bodyv1.BodyRawUpdateResponse], error) {
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -240,7 +257,7 @@ func (c BodyRPC) UpdateBodyRaw(ctx context.Context, req *connect.Request[bodyv1.
 	rawBody := mbodyraw.ExampleBodyRaw{
 		ID:           bodyRawID.ID,
 		CompressType: mbodyraw.CompressTypeNone,
-		Data:         req.Msg.GetBodyBytes(),
+		Data:         req.Msg.GetData(),
 	}
 	if len(rawBody.Data) > zstdcompress.CompressThreshold {
 		rawBody.CompressType = mbodyraw.CompressTypeZstd
@@ -251,7 +268,7 @@ func (c BodyRPC) UpdateBodyRaw(ctx context.Context, req *connect.Request[bodyv1.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&bodyv1.UpdateBodyRawResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyRawUpdateResponse{}), nil
 }
 
 func CheckOwnerBodyForm(ctx context.Context, bfs sbodyform.BodyFormService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, bodyFormUlid idwrap.IDWrap) (bool, error) {

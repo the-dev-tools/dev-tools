@@ -12,8 +12,8 @@ import (
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/translate/tfolder"
-	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
-	"dev-tools-services/gen/itemfolder/v1/itemfolderv1connect"
+	folderv1 "dev-tools-spec/dist/buf/go/collection/item/folder/v1"
+	"dev-tools-spec/dist/buf/go/collection/item/folder/v1/folderv1connect"
 	"errors"
 
 	"connectrpc.com/connect"
@@ -36,12 +36,21 @@ func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs
 }
 
 func CreateService(srv ItemFolderRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := itemfolderv1connect.NewItemFolderServiceHandler(&srv, options...)
+	path, handler := folderv1connect.NewFolderServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[itemfolderv1.CreateFolderRequest]) (*connect.Response[itemfolderv1.CreateFolderResponse], error) {
-	reqFolder, err := tfolder.SeralizeRPCToModelWithoutID(req.Msg.Folder)
+func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[folderv1.FolderCreateRequest]) (*connect.Response[folderv1.FolderCreateResponse], error) {
+	collectionID, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	folderConv := &folderv1.Folder{
+		Name:           req.Msg.GetName(),
+		ParentFolderId: req.Msg.GetParentFolderId(),
+	}
+
+	reqFolder, err := tfolder.SeralizeRPCToModelWithoutID(folderConv, collectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -87,13 +96,14 @@ func (c *ItemFolderRPC) CreateFolder(ctx context.Context, req *connect.Request[i
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	respRaw := &itemfolderv1.CreateFolderResponse{
-		Id: reqFolder.ID.String(),
+	respRaw := &folderv1.FolderCreateResponse{
+		FolderId: reqFolder.ID.Bytes(),
 	}
 	return connect.NewResponse(respRaw), nil
 }
 
-func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[itemfolderv1.GetFolderRequest]) (*connect.Response[itemfolderv1.GetFolderResponse], error) {
+/*
+func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[folderv1.Folder]) (*connect.Response[itemfolderv1.GetFolderResponse], error) {
 	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -125,46 +135,39 @@ func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[item
 
 	return connect.NewResponse(respRaw), nil
 }
+*/
 
-func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[itemfolderv1.UpdateFolderRequest]) (*connect.Response[itemfolderv1.UpdateFolderResponse], error) {
-	ulidID, err := idwrap.NewWithParse(req.Msg.GetFolder().GetMeta().GetId())
+func (c *ItemFolderRPC) FolderUpdate(ctx context.Context, req *connect.Request[folderv1.FolderUpdateRequest]) (*connect.Response[folderv1.FolderUpdateResponse], error) {
+	folderID, err := idwrap.NewFromBytes(req.Msg.GetFolderId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	collectionID, err := idwrap.NewWithParse(req.Msg.GetFolder().GetCollectionId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	isOwner, err := CheckOwnerFolder(ctx, c.ifs, c.cs, c.us, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerFolder(ctx, c.ifs, c.cs, c.us, folderID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	var parentUlidIDPtr *idwrap.IDWrap = nil
-	if req.Msg.GetFolder().GetParentId() != "" {
-		parentUlidID, err := idwrap.NewWithParse(req.Msg.GetFolder().GetParentId())
+	if req.Msg.FolderId != nil && len(req.Msg.FolderId) > 0 {
+		parentUlidID, err := idwrap.NewFromBytes(req.Msg.FolderId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		checkfolder, err := c.ifs.GetFolder(ctx, parentUlidID)
+		rpcErr = permcheck.CheckPerm(CheckOwnerFolder(ctx, c.ifs, c.cs, c.us, parentUlidID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		_, err = c.ifs.GetFolder(ctx, parentUlidID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		if checkfolder.CollectionID.Compare(collectionID) != 0 {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 		}
 		parentUlidIDPtr = &parentUlidID
 	}
 
 	folder := mitemfolder.ItemFolder{
-		ID:           ulidID,
-		CollectionID: collectionID,
-		Name:         req.Msg.GetFolder().GetMeta().GetName(),
-		ParentID:     parentUlidIDPtr,
+		ID:       folderID,
+		Name:     req.Msg.GetName(),
+		ParentID: parentUlidIDPtr,
 	}
 
 	err = c.ifs.UpdateItemFolder(ctx, &folder)
@@ -172,12 +175,11 @@ func (c *ItemFolderRPC) UpdateFolder(ctx context.Context, req *connect.Request[i
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemfolderv1.UpdateFolderResponse{}), nil
+	return connect.NewResponse(&folderv1.FolderUpdateResponse{}), nil
 }
 
-// DeleteFolder calls collection.v1.CollectionService.DeleteFolder.
-func (c *ItemFolderRPC) DeleteFolder(ctx context.Context, req *connect.Request[itemfolderv1.DeleteFolderRequest]) (*connect.Response[itemfolderv1.DeleteFolderResponse], error) {
-	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[folderv1.FolderDeleteRequest]) (*connect.Response[folderv1.FolderDeleteResponse], error) {
+	ulidID, err := idwrap.NewFromBytes(req.Msg.GetFolderId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -195,11 +197,7 @@ func (c *ItemFolderRPC) DeleteFolder(ctx context.Context, req *connect.Request[i
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemfolderv1.DeleteFolderResponse{}), nil
-}
-
-func (c *ItemFolderRPC) MoveFolder(context.Context, *connect.Request[itemfolderv1.MoveFolderRequest]) (*connect.Response[itemfolderv1.MoveFolderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	return connect.NewResponse(&folderv1.FolderDeleteResponse{}), nil
 }
 
 func CheckOwnerFolder(ctx context.Context, ifs sitemfolder.ItemFolderService, cs scollection.CollectionService, us suser.UserService, folderID idwrap.IDWrap) (bool, error) {

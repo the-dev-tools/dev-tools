@@ -3,13 +3,12 @@ package tbodyform
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mbodyform"
-	bodyv1 "dev-tools-services/gen/body/v1"
+	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
 )
 
 func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
 	return &bodyv1.BodyFormItem{
-		Id:          form.ID.String(),
-		ExampleId:   form.ExampleID.String(),
+		BodyId:      form.ID.Bytes(),
 		Key:         form.BodyKey,
 		Enabled:     form.Enable,
 		Value:       form.Value,
@@ -17,31 +16,20 @@ func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
 	}
 }
 
-func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem) (*mbodyform.BodyForm, error) {
-	ID, err := idwrap.NewWithParse(form.GetId())
+func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem, ExampleID idwrap.IDWrap) (*mbodyform.BodyForm, error) {
+	b, err := SeralizeFormRPCToModelWithoutID(form, ExampleID)
 	if err != nil {
 		return nil, err
 	}
-	ExampleID, err := idwrap.NewWithParse(form.GetExampleId())
+	ID, err := idwrap.NewFromBytes(form.GetBodyId())
 	if err != nil {
 		return nil, err
 	}
-
-	return &mbodyform.BodyForm{
-		ID:          ID,
-		ExampleID:   ExampleID,
-		BodyKey:     form.Key,
-		Description: form.Description,
-		Enable:      form.Enabled,
-		Value:       form.Value,
-	}, nil
+	b.ID = ID
+	return b, nil
 }
 
-func SeralizeFormRPCToModelWithoutID(form *bodyv1.BodyFormItem) (*mbodyform.BodyForm, error) {
-	ExampleID, err := idwrap.NewWithParse(form.GetExampleId())
-	if err != nil {
-		return nil, err
-	}
+func SeralizeFormRPCToModelWithoutID(form *bodyv1.BodyFormItem, ExampleID idwrap.IDWrap) (*mbodyform.BodyForm, error) {
 	return &mbodyform.BodyForm{
 		ExampleID:   ExampleID,
 		BodyKey:     form.Key,
