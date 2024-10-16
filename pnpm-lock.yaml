@@ -26,6 +26,9 @@ importers:
       '@connectrpc/protoc-gen-connect-query':
         specifier: 2.0.0-beta.2
         version: 2.0.0-beta.2(@bufbuild/protoc-gen-es@2.2.0(@bufbuild/protobuf@2.2.0))
+      '@types/node':
+        specifier: ^22.7.5
+        version: 22.7.5
       '@typespec/compiler':
         specifier: ^0.61.1
         version: 0.61.1
@@ -263,6 +266,9 @@ packages:
 
   '@types/node@16.18.113':
     resolution: {integrity: sha512-4jHxcEzSXpF1cBNxogs5FVbVSFSKo50sFCn7Xg7vmjJTbWFWgeuHW3QnoINlfmfG++MFR/q97RZE5RQXKeT+jg==}
+
+  '@types/node@22.7.5':
+    resolution: {integrity: sha512-jML7s2NAzMWc//QSJ1a3prpk78cOPchGvXJsC3C6R6PSMoooztvRVQEz89gmBTBY1SPMaqo5teB4uNHPdetShQ==}
 
   '@typescript/vfs@1.6.0':
     resolution: {integrity: sha512-hvJUjNVeBMp77qPINuUvYXj4FyWeeMMKZkxEATEU3hqBAQ7qdTBCUFT7Sp0Zu0faeEtFf+ldXxMEDr/bk73ISg==}
@@ -992,6 +998,9 @@ packages:
     resolution: {integrity: sha512-W1+HdVRUl8fS3MZ9ogD51GOb46xMmhAZzR0WPw5jcgIZQJVvkddYzAl4YTU6g5w33Y1iRQLdIi2/1jhi2RNL0g==}
     engines: {node: '>=12.17'}
 
+  undici-types@6.19.8:
+    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
+
   unicode-properties@1.4.1:
     resolution: {integrity: sha512-CLjCCLQ6UuMxWnbIylkisbRj31qxHPAurvena/0iwSVbQ2G1VY5/HjV0IRabOEbDHlzZlRdCrD4NhB0JtU40Pg==}
 
@@ -1385,6 +1394,10 @@ snapshots:
   '@types/node@12.20.55': {}
 
   '@types/node@16.18.113': {}
+
+  '@types/node@22.7.5':
+    dependencies:
+      undici-types: 6.19.8
 
   '@typescript/vfs@1.6.0(typescript@5.4.5)':
     dependencies:
@@ -2071,6 +2084,8 @@ snapshots:
   typical@4.0.0: {}
 
   typical@7.2.0: {}
+
+  undici-types@6.19.8: {}
 
   unicode-properties@1.4.1:
     dependencies:

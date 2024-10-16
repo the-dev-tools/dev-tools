@@ -16,7 +16,10 @@ tasks:
 
   build:typespec:
     desc: Use TypeSpec to generate Protobuf and JSON Schema
-    cmd: pnpm tsp compile api
+    cmds:
+      - rm -rf dist/@typespec
+      - pnpm tsp compile api
+      - node lib/patch-paths.js
     sources: [api/**/*]
     generates: [dist/@typespec/**/*]
 
