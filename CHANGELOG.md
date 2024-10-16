@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.31.2
+
+### Patch Changes
+
+- [`b08f6b2`](https://github.com/the-dev-tools/dev-tools-spec/commit/b08f6b2ba513ac30e1af89c380fea87e1e21a48e) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Collect and export an array of file descriptors
+
 ## 1.31.1
 
 ### Patch Changes
