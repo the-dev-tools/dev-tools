@@ -20,9 +20,9 @@ namespace API.Workspace;
 @autoFields
 model Workspace {
   @key workspaceId: Resource.ID;
+  selectedEnvironmentId: Resource.ID;
   name: string;
   @visibility("query") updated: WellKnown.Timestamp;
-  @visibility("get") environment: Environment.Environment;
 }
 
 enum MemberRole {
@@ -48,9 +48,7 @@ model WorkspaceGetRequest is Resource.Get.Request<Workspace>;
 model WorkspaceGetResponse is Resource.Get.Response<Workspace>;
 model WorkspaceCreateRequest is Resource.Create.Request<Workspace>;
 model WorkspaceCreateResponse is Resource.Create.Response<Workspace>;
-model WorkspaceUpdateRequest is Resource.Update.Request<Workspace> {
-  ...KeyOf<Environment.Environment>;
-}
+model WorkspaceUpdateRequest is Resource.Update.Request<Workspace>;
 model WorkspaceUpdateResponse is Resource.Update.Response<Workspace>;
 model WorkspaceDeleteRequest is Resource.Delete.Request<Workspace>;
 model WorkspaceDeleteResponse is Resource.Delete.Response<Workspace>;
