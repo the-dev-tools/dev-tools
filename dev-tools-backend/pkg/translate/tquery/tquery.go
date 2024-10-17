@@ -1,5 +1,7 @@
 package tquery
 
+/*
+
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexamplequery"
@@ -49,3 +51,4 @@ func SerlializeQueryRPCtoModelNoID(query *itemapiexamplev1.Query) (mexamplequery
 		Value:       query.GetValue(),
 	}, nil
 }
+*/

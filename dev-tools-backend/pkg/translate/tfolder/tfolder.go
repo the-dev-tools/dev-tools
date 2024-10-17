@@ -8,8 +8,8 @@ import (
 	"errors"
 )
 
-func SeralizeRPCToModel(item *folderv1.Folder) (*mitemfolder.ItemFolder, error) {
-	modelItem, err := SeralizeRPCToModelWithoutID(item)
+func SeralizeRPCToModel(item *folderv1.Folder, collectionID idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
+	modelItem, err := SeralizeRPCToModelWithoutID(item, collectionID)
 	if err != nil {
 		return nil, err
 	}

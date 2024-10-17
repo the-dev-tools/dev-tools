@@ -1,5 +1,7 @@
 package tassert
 
+/*
+
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/massert"
@@ -52,3 +54,4 @@ func SerializeAssertRPCToModelWithoutID(a *itemapiexamplev1.Asssert) (massert.As
 		Target:    massert.AssertTarget(a.Target),
 	}, nil
 }
+*/

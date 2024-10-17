@@ -1,5 +1,7 @@
 package theader
 
+/*
+
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexampleheader"
@@ -57,3 +59,4 @@ func SerlializeHeaderRPCtoModelNoID(header *itemapiexamplev1.Header) (mexamplehe
 		Value:       header.GetValue(),
 	}, nil
 }
+*/

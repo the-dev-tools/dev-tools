@@ -1,5 +1,6 @@
 package texampleresp
 
+/*
 import (
 	"dev-tools-backend/pkg/model/mexampleresp"
 	"dev-tools-backend/pkg/model/mexamplerespheader"
@@ -38,3 +39,5 @@ func SeralizeModelToRPC(e mexampleresp.ExampleResp, h []mexamplerespheader.Examp
 		Headers:   tgeneric.MassConvert(h, SeralizeHeaderModelToRPC),
 	}, nil
 }
+
+*/
