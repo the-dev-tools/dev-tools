@@ -9,5 +9,5 @@ use (
 	./dev-tools-nodes
 	./dev-tools-platform
 	./dev-tools-slave
-	./dev-tools-spec
+	./node_modules/@the-dev-tools/spec
 )
