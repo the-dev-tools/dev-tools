@@ -598,22 +598,6 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 	return collection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }
 
-func CheckOwnerHeader(ctx context.Context, hs sexampleheader.HeaderService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, headerUlid idwrap.IDWrap) (bool, error) {
-	header, err := hs.GetHeaderByID(ctx, headerUlid)
-	if err != nil {
-		return false, err
-	}
-	return CheckOwnerExample(ctx, iaes, cs, us, header.ExampleID)
-}
-
-func CheckOwnerQuery(ctx context.Context, qs sexamplequery.ExampleQueryService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, queryUlid idwrap.IDWrap) (bool, error) {
-	query, err := qs.GetExampleQuery(ctx, queryUlid)
-	if err != nil {
-		return false, err
-	}
-	return CheckOwnerExample(ctx, iaes, cs, us, query.ExampleID)
-}
-
 /*
 // Asserts
 func (c ItemAPIExampleRPC) CreateAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateAssertRequest]) (*connect.Response[itemapiexamplev1.CreateAssertResponse], error) {
