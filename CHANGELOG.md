@@ -1,5 +1,13 @@
 # @the-dev-tools/protobuf
 
+## 1.31.3
+
+### Patch Changes
+
+- [`2860f6d`](https://github.com/the-dev-tools/dev-tools-spec/commit/2860f6d1eee354321895ae4f8fea1343269cc16c) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Allow getting variable list by workspace
+
+- [`729566b`](https://github.com/the-dev-tools/dev-tools-spec/commit/729566b81ae452410b4c832869b269bd3436a836) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Switch selected environment to id instead of full model
+
 ## 1.31.2
 
 ### Patch Changes
