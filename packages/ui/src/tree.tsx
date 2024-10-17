@@ -84,9 +84,15 @@ export interface TreeItemProps<T extends object>
     MixinProps<'child', Omit<CollectionProps<T>, 'children'>> {
   children?: AriaTreeItemContentProps['children'];
   childItem?: CollectionProps<T>['children'];
+  expandButtonIsForced?: boolean;
 }
 
-export const TreeItem = <T extends object>({ children, childItem, ...mixProps }: TreeItemProps<T>) => {
+export const TreeItem = <T extends object>({
+  children,
+  childItem,
+  expandButtonIsForced,
+  ...mixProps
+}: TreeItemProps<T>) => {
   const props = splitProps(mixProps, 'content', 'wrapper', 'expandButton', 'expandIndicator', 'child');
   return (
     <TreeItemRoot {...props.rest}>
@@ -96,7 +102,7 @@ export const TreeItem = <T extends object>({ children, childItem, ...mixProps }:
             {...Struct.pick(renderProps, 'level', ...treeItemWrapperStyles.variantKeys)}
             {...props.wrapper}
           >
-            {renderProps.hasChildRows && (
+            {(renderProps.hasChildRows || expandButtonIsForced) && (
               <Button kind='placeholder' variant='placeholder ghost' slot='chevron' {...props.expandButton}>
                 <LuChevronRight
                   {...props.expandIndicator}

@@ -107,7 +107,7 @@ export const TextFieldRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController(controllerProps);
+  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextFieldProps = {
     name: field.name,
@@ -167,7 +167,7 @@ export const TextAreaFieldRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController(controllerProps);
+  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextFieldProps = {
     name: field.name,

@@ -121,7 +121,7 @@ export const CheckboxRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController(controllerProps);
+  const { field, fieldState } = useController({ defaultValue: false as never, ...controllerProps });
 
   const fieldProps: CheckboxProps = {
     name: field.name,

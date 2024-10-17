@@ -129,7 +129,7 @@ export const SelectRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController(controllerProps);
+  const { field, fieldState } = useController({ defaultValue: null as never, ...controllerProps });
 
   const fieldProps: SelectProps<TFieldValues> = {
     name: field.name,
