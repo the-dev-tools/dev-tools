@@ -1,5 +1,7 @@
 package tbodyraw
 
+/*
+
 import (
 	"context"
 	"dev-tools-backend/pkg/model/mbodyraw"
@@ -70,3 +72,4 @@ func SerializeModelToRPC(ctx context.Context, ex mitemapiexample.ItemApiExample,
 	}
 	return body, nil
 }
+*/

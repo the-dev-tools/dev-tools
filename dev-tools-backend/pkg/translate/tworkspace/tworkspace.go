@@ -5,8 +5,8 @@ import (
 	"dev-tools-backend/pkg/model/menv"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/translate/tenv"
-	environmentv1 "dev-tools-services/gen/environment/v1"
-	workspacev1 "dev-tools-services/gen/workspace/v1"
+	environmentv1 "dev-tools-spec/dist/buf/go/environment/v1"
+	workspacev1 "dev-tools-spec/dist/buf/go/workspace/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -18,15 +18,22 @@ func SeralizeWorkspace(ws mworkspace.Workspace, env *menv.Env) *workspacev1.Work
 	}
 
 	return &workspacev1.Workspace{
-		Id:          ws.ID.String(),
+		WorkspaceId: ws.ID.Bytes(),
 		Name:        ws.Name,
 		Updated:     timestamppb.New(ws.Updated),
 		Environment: rpcEnv,
 	}
 }
 
+func SeralizeWorkspaceItem(ws mworkspace.Workspace) *workspacev1.WorkspaceListItem {
+	return &workspacev1.WorkspaceListItem{
+		Name:    ws.Name,
+		Updated: timestamppb.New(ws.Updated),
+	}
+}
+
 func DeserializeWorkspace(ws *workspacev1.Workspace) (mworkspace.Workspace, error) {
-	id, err := idwrap.NewWithParse(ws.Id)
+	id, err := idwrap.NewFromBytes(ws.WorkspaceId)
 	if err != nil {
 		return mworkspace.Workspace{}, err
 	}

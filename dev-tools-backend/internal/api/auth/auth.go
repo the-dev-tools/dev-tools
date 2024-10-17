@@ -12,8 +12,8 @@ import (
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
 	"dev-tools-backend/pkg/stoken"
-	authv1 "dev-tools-services/gen/auth/v1"
-	"dev-tools-services/gen/auth/v1/authv1connect"
+	authv1 "dev-tools-spec/dist/buf/go/auth/v1"
+	"dev-tools-spec/dist/buf/go/auth/v1/authv1connect"
 	"errors"
 	"fmt"
 	"time"
@@ -52,7 +52,7 @@ func CreateService(srv AuthServer, options []connect.HandlerOption) (*api.Servic
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthServiceDIDRequest]) (*connect.Response[authv1.AuthServiceDIDResponse], error) {
+func (a *AuthServer) AuthMagicLink(ctx context.Context, req *connect.Request[authv1.AuthMagicLinkRequest]) (*connect.Response[authv1.AuthMagicLinkResponse], error) {
 	if req.Msg.GetDidToken() == "" {
 		return nil, errors.New("did token is required")
 	}
@@ -114,7 +114,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 		return nil, err
 	}
 
-	respRaw := &authv1.AuthServiceDIDResponse{
+	respRaw := &authv1.AuthMagicLinkResponse{
 		RefreshToken: jwtToken,
 		AccessToken:  accessToken,
 	}
@@ -123,7 +123,7 @@ func (a *AuthServer) DID(ctx context.Context, req *connect.Request[authv1.AuthSe
 	return resp, nil
 }
 
-func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[authv1.AuthServiceRefreshTokenRequest]) (*connect.Response[authv1.AuthServiceRefreshTokenResponse], error) {
+func (a *AuthServer) AuthRefresh(ctx context.Context, req *connect.Request[authv1.AuthRefreshRequest]) (*connect.Response[authv1.AuthRefreshResponse], error) {
 	if req.Msg.GetRefreshToken() == "" {
 		// connect invalid token error
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
@@ -149,7 +149,7 @@ func (a *AuthServer) RefreshToken(ctx context.Context, req *connect.Request[auth
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&authv1.AuthServiceRefreshTokenResponse{RefreshToken: newRefreshJWT, AccessToken: newAccessJWT}), nil
+	return connect.NewResponse(&authv1.AuthRefreshResponse{RefreshToken: newRefreshJWT, AccessToken: newAccessJWT}), nil
 }
 
 func (a *AuthServer) GetPendingUserByEmail(ctx context.Context, email string) (*muser.User, error) {

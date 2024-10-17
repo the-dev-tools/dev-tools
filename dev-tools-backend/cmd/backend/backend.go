@@ -14,6 +14,7 @@ import (
 	"dev-tools-backend/internal/api/ritemapi"
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/internal/api/ritemfolder"
+	"dev-tools-backend/internal/api/rrequest"
 	"dev-tools-backend/internal/api/rvar"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/service/sassert"
@@ -183,6 +184,7 @@ func main() {
 	ars := sassertres.New(queries)
 	vs := svar.New(queries)
 	es := senv.New(queries)
+
 	emailClient, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
 	if err != nil {
 		log.Fatalf("failed to create email client: %v", err)
@@ -240,6 +242,9 @@ func main() {
 		cs, us, ehs, eqs, bfs, bues,
 		brs, erhs, ers, es, vs, as, ars)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
+
+	requestSrv := rrequest.New(currentDB, cs, us, iaes, ehs, eqs, as)
+	newServiceManager.AddService(rrequest.CreateService(requestSrv, opitonsAll))
 
 	// BodyRaw Service
 	bodySrv := rbody.New(currentDB, cs, iaes, us, bfs, bues, brs)

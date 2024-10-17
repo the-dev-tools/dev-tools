@@ -14,6 +14,7 @@ import (
 	"dev-tools-backend/pkg/model/mexampleresp"
 	"dev-tools-backend/pkg/model/mexamplerespheader"
 	"dev-tools-backend/pkg/model/mitemapiexample"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sassert"
 	"dev-tools-backend/pkg/service/sassertres"
 	"dev-tools-backend/pkg/service/sbodyform"
@@ -30,19 +31,13 @@ import (
 	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/svar"
-	"dev-tools-backend/pkg/translate/tassert"
-	"dev-tools-backend/pkg/translate/tbodyraw"
 	"dev-tools-backend/pkg/translate/texample"
-	"dev-tools-backend/pkg/translate/texampleresp"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/translate/theader"
-	"dev-tools-backend/pkg/translate/tquery"
 	"dev-tools-backend/pkg/varsystem"
 	"dev-tools-backend/pkg/zstdcompress"
 	"dev-tools-nodes/pkg/httpclient"
-	bodyv1 "dev-tools-services/gen/body/v1"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
-	"dev-tools-services/gen/itemapiexample/v1/itemapiexamplev1connect"
+	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
+	examplev1 "dev-tools-spec/dist/buf/go/collection/item/example/v1"
+	"dev-tools-spec/dist/buf/go/collection/item/example/v1/examplev1connect"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -51,7 +46,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ItemAPIExampleRPC struct {
@@ -106,22 +100,19 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 }
 
 func CreateService(srv ItemAPIExampleRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := itemapiexamplev1connect.NewItemApiExampleServiceHandler(&srv, options...)
+	path, handler := examplev1connect.NewExampleServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Request[itemapiexamplev1.GetExamplesRequest]) (*connect.Response[itemapiexamplev1.GetExamplesResponse], error) {
-	apiUlid, err := idwrap.NewWithParse(req.Msg.GetItemApiId())
+func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Request[examplev1.ExampleListRequest]) (*connect.Response[examplev1.ExampleListResponse], error) {
+	apiUlid, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	ok, err := ritemapi.CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found api"))
+	rpcErr := permcheck.CheckPerm(ritemapi.CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	examples, err := c.iaes.GetApiExamples(ctx, apiUlid)
@@ -129,46 +120,20 @@ func (c *ItemAPIExampleRPC) GetExamples(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcExamples := make([]*itemapiexamplev1.ApiExample, len(examples))
-	for i, example := range examples {
-		header, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
-		if err != nil && err != sexampleheader.ErrNoHeaderFound {
+	var respsRpc []*examplev1.ExampleListItem
+	for _, example := range examples {
+		exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		respsRpc = append(respsRpc, texample.SerializeModelToRPCItem(example, exampleResp.ID))
 
-		query, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
-		if err != nil && err != sexamplequery.ErrNoQueryFound {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		rpcHeaders := tgeneric.MassConvert(header, theader.SerializeHeaderModelToRPC)
-		rpcQueries := tgeneric.MassConvert(query, tquery.SerializeQueryModelToRPC)
-
-		rpcExamples[i] = &itemapiexamplev1.ApiExample{
-			Meta: &itemapiexamplev1.ApiExampleMeta{
-				Id:   example.ID.String(),
-				Name: example.Name,
-			},
-			Header: rpcHeaders,
-			Query:  rpcQueries,
-			Body: &bodyv1.Body{
-				Value: &bodyv1.Body_Raw{
-					Raw: &bodyv1.BodyRaw{
-						BodyBytes: nil,
-					},
-				},
-			},
-			Updated: timestamppb.New(example.Updated),
-		}
 	}
-
-	return connect.NewResponse(&itemapiexamplev1.GetExamplesResponse{
-		Examples: rpcExamples,
-	}), nil
+	return connect.NewResponse(&examplev1.ExampleListResponse{Items: respsRpc}), nil
 }
 
-func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request[itemapiexamplev1.GetExampleRequest]) (*connect.Response[itemapiexamplev1.GetExampleResponse], error) {
-	exampleIdWrap, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request[examplev1.ExampleGetRequest]) (*connect.Response[examplev1.ExampleGetResponse], error) {
+	exampleIdWrap, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
@@ -187,58 +152,24 @@ func (c *ItemAPIExampleRPC) GetExample(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	headers, err := c.hs.GetHeaderByExampleID(ctx, exampleIdWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleIdWrap)
-	if err != nil && err != sexamplequery.ErrNoQueryFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	asserts, err := c.as.GetAssertByExampleID(ctx, exampleIdWrap)
-	if err != nil && err != sassert.ErrNoAssertFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	assertsRPC := tgeneric.MassConvert(asserts, tassert.SerializeAssertModelToRPC)
-
-	body, err := tbodyraw.SerializeModelToRPC(ctx, *example, c.brs, c.bfs, c.bues)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	var resp *itemapiexamplev1.ApiExampleResponse = nil
-
+	// TODO: this can fail fix this
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleIdWrap)
 	if err != nil && err != sexampleresp.ErrNoRespFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if exampleResp != nil {
-		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		resp, err = texampleresp.SeralizeModelToRPC(*exampleResp, respHeaders)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	resp := &examplev1.ExampleGetResponse{
+		ExampleId:      example.ID.Bytes(),
+		LastResponseId: exampleResp.ID.Bytes(),
+		Name:           example.Name,
+		BodyKind:       bodyv1.BodyKind(example.BodyType),
 	}
 
-	return connect.NewResponse(&itemapiexamplev1.GetExampleResponse{
-		Example: texample.SerializeModelToRPC(*example, queries, headers, body, resp, assertsRPC),
-	}), nil
+	return connect.NewResponse(resp), nil
 }
 
-func (c *ItemAPIExampleRPC) DupeExample(ctx context.Context, req *connect.Request[itemapiexamplev1.DupeExampleRequest]) (*connect.Response[itemapiexamplev1.DupeExampleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("unimplemented"))
-}
-
-func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateExampleRequest]) (*connect.Response[itemapiexamplev1.CreateExampleResponse], error) {
-	apiIDWrap, err := idwrap.NewWithParse(req.Msg.GetItemApiId())
+func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Request[examplev1.ExampleCreateRequest]) (*connect.Response[examplev1.ExampleCreateResponse], error) {
+	apiIDWrap, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
@@ -257,13 +188,11 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 
 	// TODO: make this a transaction
 	ExampleIDWrapNew := idwrap.NewNow()
-	exampleRPC := req.Msg.Example
-	metaRPC := exampleRPC.GetMeta()
 	ex := &mitemapiexample.ItemApiExample{
 		ID:           ExampleIDWrapNew,
 		ItemApiID:    apiIDWrap,
 		CollectionID: itemApi.CollectionID,
-		Name:         metaRPC.GetName(),
+		Name:         req.Msg.Name,
 		BodyType:     mitemapiexample.BodyTypeNone,
 		IsDefault:    false,
 	}
@@ -284,13 +213,13 @@ func (c *ItemAPIExampleRPC) CreateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemapiexamplev1.CreateExampleResponse{
-		Id: ExampleIDWrapNew.String(),
+	return connect.NewResponse(&examplev1.ExampleCreateResponse{
+		ExampleId: ExampleIDWrapNew.Bytes(),
 	}), nil
 }
 
-func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateExampleRequest]) (*connect.Response[itemapiexamplev1.UpdateExampleResponse], error) {
-	exampleIDWrap, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Request[examplev1.ExampleUpdateRequest]) (*connect.Response[examplev1.ExampleUpdateResponse], error) {
+	exampleIDWrap, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
@@ -304,23 +233,11 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
 	}
 
-	bodyType := mitemapiexample.BodyTypeUndefined
-	switch req.Msg.BodyType.Value.(type) {
-	case *bodyv1.Body_None:
-		bodyType = mitemapiexample.BodyTypeNone
-	case *bodyv1.Body_Raw:
-		bodyType = mitemapiexample.BodyTypeRaw
-	case *bodyv1.Body_Forms:
-		bodyType = mitemapiexample.BodyTypeForm
-	case *bodyv1.Body_UrlEncodeds:
-		bodyType = mitemapiexample.BodyTypeUrlencoded
-	}
-
 	exRPC := req.Msg
 	ex := &mitemapiexample.ItemApiExample{
 		ID:       exampleIDWrap,
 		Name:     exRPC.GetName(),
-		BodyType: bodyType,
+		BodyType: mitemapiexample.BodyType(exRPC.GetBodyKind()),
 	}
 
 	err = c.iaes.UpdateItemApiExample(ctx, ex)
@@ -328,11 +245,11 @@ func (c *ItemAPIExampleRPC) UpdateExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemapiexamplev1.UpdateExampleResponse{}), nil
+	return connect.NewResponse(&examplev1.ExampleUpdateResponse{}), nil
 }
 
-func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteExampleRequest]) (*connect.Response[itemapiexamplev1.DeleteExampleResponse], error) {
-	exampleUlid, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Request[examplev1.ExampleDeleteRequest]) (*connect.Response[examplev1.ExampleDeleteResponse], error) {
+	exampleUlid, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
@@ -351,11 +268,15 @@ func (c *ItemAPIExampleRPC) DeleteExample(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemapiexamplev1.DeleteExampleResponse{}), nil
+	return connect.NewResponse(&examplev1.ExampleDeleteResponse{}), nil
 }
 
-func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request[itemapiexamplev1.RunExampleRequest]) (*connect.Response[itemapiexamplev1.RunExampleResponse], error) {
-	exampleUlid, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.Request[examplev1.ExampleDuplicateRequest]) (*connect.Response[examplev1.ExampleDuplicateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request[examplev1.ExampleRunRequest]) (*connect.Response[examplev1.ExampleRunResponse], error) {
+	exampleUlid, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -658,17 +579,11 @@ func (c *ItemAPIExampleRPC) RunExample(ctx context.Context, req *connect.Request
 		}
 	}
 
-	currentHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	rpcExampleResp, err := texampleresp.SeralizeModelToRPC(*exampleResp, currentHeaders)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	rpcResponse := connect.NewResponse(&itemapiexamplev1.RunExampleResponse{
-		Response: rpcExampleResp,
+	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
+		ResponseId: exampleResp.ID.Bytes(),
 	})
 	rpcResponse.Header().Set("Cache-Control", "max-age=0")
 
@@ -683,22 +598,7 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 	return collection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }
 
-func CheckOwnerHeader(ctx context.Context, hs sexampleheader.HeaderService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, headerUlid idwrap.IDWrap) (bool, error) {
-	header, err := hs.GetHeaderByID(ctx, headerUlid)
-	if err != nil {
-		return false, err
-	}
-	return CheckOwnerExample(ctx, iaes, cs, us, header.ExampleID)
-}
-
-func CheckOwnerQuery(ctx context.Context, qs sexamplequery.ExampleQueryService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, queryUlid idwrap.IDWrap) (bool, error) {
-	query, err := qs.GetExampleQuery(ctx, queryUlid)
-	if err != nil {
-		return false, err
-	}
-	return CheckOwnerExample(ctx, iaes, cs, us, query.ExampleID)
-}
-
+/*
 // Asserts
 func (c ItemAPIExampleRPC) CreateAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateAssertRequest]) (*connect.Response[itemapiexamplev1.CreateAssertResponse], error) {
 	assert, err := tassert.SerializeAssertRPCToModelWithoutID(req.Msg.GetAssert())
@@ -868,3 +768,4 @@ func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Reques
 	}
 	return connect.NewResponse(&itemapiexamplev1.DeleteQueryResponse{}), nil
 }
+*/

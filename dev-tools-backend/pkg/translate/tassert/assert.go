@@ -3,52 +3,45 @@ package tassert
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/massert"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
 )
 
-func SerializeAssertModelToRPC(a massert.Assert) *itemapiexamplev1.Asssert {
-	return &itemapiexamplev1.Asssert{
-		Id:        a.ID.String(),
-		ExampleId: a.ExampleID.String(),
-		Name:      a.Name,
-		Value:     a.Value,
-		Type:      itemapiexamplev1.AssertType(a.Type),
-		Target:    itemapiexamplev1.AssertTarget(a.Target),
+func SerializeAssertModelToRPC(a massert.Assert) *requestv1.Assert {
+	return &requestv1.Assert{
+		AssertId: a.ID.Bytes(),
+		Name:     a.Name,
+		Value:    a.Value,
+		Type:     requestv1.AssertType(a.Type),
+		Target:   requestv1.AssertTarget(a.Target),
 	}
 }
 
-func SerializeAssertRPCToModel(a *itemapiexamplev1.Asssert) (massert.Assert, error) {
-	id, err := idwrap.NewWithParse(a.GetId())
-	if err != nil {
-		return massert.Assert{}, err
+func SerializeAssertModelToRPCItem(a massert.Assert) *requestv1.AssertListItem {
+	return &requestv1.AssertListItem{
+		AssertId: a.ID.Bytes(),
+		Name:     a.Name,
+		Value:    a.Value,
+		Type:     requestv1.AssertType(a.Type),
+		Target:   requestv1.AssertTarget(a.Target),
 	}
-
-	exampleID, err := idwrap.NewWithParse(a.GetExampleId())
-	if err != nil {
-		return massert.Assert{}, err
-	}
-
-	return massert.Assert{
-		ID:        id,
-		ExampleID: exampleID,
-		Name:      a.Name,
-		Value:     a.Value,
-		Type:      massert.AssertType(a.Type),
-		Target:    massert.AssertTarget(a.Target),
-	}, nil
 }
 
-func SerializeAssertRPCToModelWithoutID(a *itemapiexamplev1.Asssert) (massert.Assert, error) {
-	exampleID, err := idwrap.NewWithParse(a.GetExampleId())
+func SerializeAssertRPCToModel(assert *requestv1.Assert, exampleID idwrap.IDWrap) (massert.Assert, error) {
+	id, err := idwrap.NewFromBytes(assert.GetAssertId())
 	if err != nil {
 		return massert.Assert{}, err
 	}
+	a := SerializeAssertRPCToModelWithoutID(assert, exampleID)
+	a.ID = id
+	return a, nil
+}
 
+func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.IDWrap) massert.Assert {
 	return massert.Assert{
 		ExampleID: exampleID,
 		Name:      a.Name,
 		Value:     a.Value,
 		Type:      massert.AssertType(a.Type),
 		Target:    massert.AssertTarget(a.Target),
-	}, nil
+	}
 }

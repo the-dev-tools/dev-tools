@@ -7,7 +7,6 @@ import (
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/ritemfolder"
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sassert"
@@ -23,20 +22,10 @@ import (
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
-	"dev-tools-backend/pkg/translate/tassert"
-	"dev-tools-backend/pkg/translate/tbodyform"
-	"dev-tools-backend/pkg/translate/tbodyurl"
-	"dev-tools-backend/pkg/translate/texample"
-	"dev-tools-backend/pkg/translate/texampleresp"
-	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/titemapi"
-	"dev-tools-backend/pkg/zstdcompress"
-	bodyv1 "dev-tools-services/gen/body/v1"
-	itemapiv1 "dev-tools-services/gen/itemapi/v1"
-	"dev-tools-services/gen/itemapi/v1/itemapiv1connect"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	endpointv1 "dev-tools-spec/dist/buf/go/collection/item/endpoint/v1"
+	"dev-tools-spec/dist/buf/go/collection/item/endpoint/v1/endpointv1connect"
 	"errors"
-	"sort"
 
 	"connectrpc.com/connect"
 )
@@ -92,12 +81,24 @@ func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionServi
 }
 
 func CreateService(srv ItemApiRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := itemapiv1connect.NewItemApiServiceHandler(&srv, options...)
+	path, handler := endpointv1connect.NewEndpointServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[itemapiv1.CreateApiCallRequest]) (*connect.Response[itemapiv1.CreateApiCallResponse], error) {
-	itemApiReq, err := titemapi.SeralizeRPCToModelWithoutID(req.Msg.Data)
+func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[endpointv1.EndpointCreateRequest]) (*connect.Response[endpointv1.EndpointCreateResponse], error) {
+	collectionID, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	msg := req.Msg
+	endpointReq := &endpointv1.Endpoint{
+		Name:           msg.GetName(),
+		Method:         msg.GetMethod(),
+		Url:            msg.GetUrl(),
+		ParentFolderId: msg.GetParentFolderId(),
+	}
+	itemApiReq, err := titemapi.SeralizeRPCToModelWithoutID(endpointReq, collectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -135,193 +136,55 @@ func (c *ItemApiRPC) CreateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	respRaw := &itemapiv1.CreateApiCallResponse{
-		Id: itemApiReq.ID.String(),
+	respRaw := &endpointv1.EndpointCreateResponse{
+		EndpointId: itemApiReq.ID.Bytes(),
 	}
 	return connect.NewResponse(respRaw), nil
 }
 
-func (c *ItemApiRPC) DupeApiCall(ctx context.Context, req *connect.Request[itemapiv1.DupeApiCallRequest]) (*connect.Response[itemapiv1.DupeApiCallResponse], error) {
+func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request[endpointv1.EndpointDuplicateRequest]) (*connect.Response[endpointv1.EndpointDuplicateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
-func (c *ItemApiRPC) GetApiCall(ctx context.Context, req *connect.Request[itemapiv1.GetApiCallRequest]) (*connect.Response[itemapiv1.GetApiCallResponse], error) {
-	apiUlid, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemApiRPC) EndpointGet(ctx context.Context, req *connect.Request[endpointv1.EndpointGetRequest]) (*connect.Response[endpointv1.EndpointGetResponse], error) {
+	apiUlid, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isDefaultExample := false
-	var exampleIDPtr *idwrap.IDWrap = nil
-	rawExampleID := req.Msg.GetExampleId()
-	if rawExampleID == "" {
-		isDefaultExample = true
-	} else {
-		exampleID, err := idwrap.NewWithParse(req.Msg.GetExampleId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		exampleIDPtr = &exampleID
+	rpcErr := permcheck.CheckPerm(CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
-	item, err := c.ias.GetItemApi(ctx, apiUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	api, err := c.ias.GetItemApi(ctx, apiUlid)
+
+	apiCall := titemapi.DeseralizeModelToRPC(api)
+	resp := &endpointv1.EndpointGetResponse{
+		EndpointId: apiCall.EndpointId,
+		Name:       apiCall.Name,
+		Method:     apiCall.Method,
+		Url:        apiCall.Url,
 	}
-
-	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
-	}
-
-	defaultExample, err := c.iaes.GetDefaultApiExample(ctx, apiUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	defaultID := defaultExample.ID
-	var examplePtr *mitemapiexample.ItemApiExample = nil
-	if isDefaultExample {
-		examplePtr = defaultExample
-	} else {
-		examplePtr, err = c.iaes.GetApiExample(ctx, *exampleIDPtr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	// TODO: it is overfetching the data change it
-	examples, err := c.iaes.GetApiExamples(ctx, apiUlid)
-	if err != nil && err == sitemapiexample.ErrNoItemApiExampleFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	headers, err := c.ehs.GetHeaderByExampleID(ctx, examplePtr.ID)
-	if err != nil && err == sexampleheader.ErrNoHeaderFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, examplePtr.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// TODO: it is overfetching the data change it
-	metaExamplesRPC := make([]*itemapiexamplev1.ApiExampleMeta, len(examples))
-
-	// TODO: simplify this
-	for i, example := range examples {
-		metaExamplesRPC[i] = &itemapiexamplev1.ApiExampleMeta{
-			Id:   example.ID.String(),
-			Name: example.Name,
-		}
-	}
-
-	asserts, err := c.as.GetAssertByExampleID(ctx, examplePtr.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	rpcAsserts := tgeneric.MassConvert(asserts, tassert.SerializeAssertModelToRPC)
-
-	bodyPtr := &bodyv1.Body{}
-	switch examplePtr.BodyType {
-	case mitemapiexample.BodyTypeRaw:
-		body, err := c.brs.GetBodyRawByExampleID(ctx, examplePtr.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		data := body.Data
-		if body.CompressType == mbodyraw.CompressTypeZstd {
-			body.Data, err = zstdcompress.Decompress(data)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
-		bodyPtr = &bodyv1.Body{
-			Value: &bodyv1.Body_Raw{
-				Raw: &bodyv1.BodyRaw{
-					BodyBytes: body.Data,
-				},
-			},
-		}
-	case mitemapiexample.BodyTypeForm:
-		body, err := c.bfs.GetBodyFormsByExampleID(ctx, examplePtr.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		sort.Slice(body, func(i, j int) bool {
-			return body[i].ID.Compare(body[j].ID) < 0
-		})
-		bodyPtr = &bodyv1.Body{
-			Value: &bodyv1.Body_Forms{
-				Forms: &bodyv1.BodyFormArray{
-					Items: tgeneric.MassConvert(body, tbodyform.SerializeFormModelToRPC),
-				},
-			},
-		}
-	case mitemapiexample.BodyTypeUrlencoded:
-		body, err := c.bufs.GetBodyURLEncodedByExampleID(ctx, examplePtr.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		sort.Slice(body, func(i, j int) bool {
-			return body[i].ID.Compare(body[j].ID) < 0
-		})
-		bodyPtr = &bodyv1.Body{
-			Value: &bodyv1.Body_UrlEncodeds{
-				UrlEncodeds: &bodyv1.BodyUrlEncodedArray{
-					Items: tgeneric.MassConvert(body, tbodyurl.SerializeURLModelToRPC),
-				},
-			},
-		}
-	}
-
-	var resp *itemapiexamplev1.ApiExampleResponse = nil
-	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, examplePtr.ID)
-	if err != nil && err != sexampleresp.ErrNoRespFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if exampleResp != nil {
-		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		resp, err = texampleresp.SeralizeModelToRPC(*exampleResp, respHeaders)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-	exampleRPC := texample.SerializeModelToRPC(*examplePtr, queries, headers, bodyPtr, resp, rpcAsserts)
-
-	apiCall := titemapi.DeseralizeModelToRPC(item, defaultID, metaExamplesRPC)
-	return connect.NewResponse(&itemapiv1.GetApiCallResponse{ApiCall: apiCall, Example: exampleRPC}), nil
+	return connect.NewResponse(resp), nil
 }
 
-func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[itemapiv1.UpdateApiCallRequest]) (*connect.Response[itemapiv1.UpdateApiCallResponse], error) {
-	apiCall, err := titemapi.SeralizeRPCToModel(req.Msg.GetApiCall())
+func (c *ItemApiRPC) EndpointUpdate(ctx context.Context, req *connect.Request[endpointv1.EndpointUpdateRequest]) (*connect.Response[endpointv1.EndpointUpdateResponse], error) {
+	endpointReq := &endpointv1.Endpoint{
+		EndpointId:     req.Msg.GetEndpointId(),
+		ParentFolderId: req.Msg.GetParentFolderId(),
+		Name:           req.Msg.GetName(),
+		Method:         req.Msg.GetMethod(),
+		Url:            req.Msg.GetUrl(),
+	}
+	apiCall, err := titemapi.SeralizeRPCToModel(endpointReq, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiCall.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
-	}
-
-	checkOwner, err := collection.CheckOwnerCollection(ctx, *c.cs, *c.us, apiCall.CollectionID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !checkOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiCall.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	if apiCall.ParentID != nil {
@@ -339,34 +202,26 @@ func (c *ItemApiRPC) UpdateApiCall(ctx context.Context, req *connect.Request[ite
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemapiv1.UpdateApiCallResponse{}), nil
+	return connect.NewResponse(&endpointv1.EndpointUpdateResponse{}), nil
 }
 
-func (c *ItemApiRPC) MoveApiCall(ctx context.Context, req *connect.Request[itemapiv1.MoveApiCallRequest]) (*connect.Response[itemapiv1.MoveApiCallResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
-}
-
-func (c *ItemApiRPC) DeleteApiCall(ctx context.Context, req *connect.Request[itemapiv1.DeleteApiCallRequest]) (*connect.Response[itemapiv1.DeleteApiCallResponse], error) {
-	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
+func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[endpointv1.EndpointDeleteRequest]) (*connect.Response[endpointv1.EndpointDeleteResponse], error) {
+	id, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, id))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
-	// TODO: need a check for ownerID
-	err = c.ias.DeleteItemApi(ctx, ulidID)
+	err = c.ias.DeleteItemApi(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&itemapiv1.DeleteApiCallResponse{}), nil
+	return connect.NewResponse(&endpointv1.EndpointDeleteResponse{}), nil
 }
 
 func CheckOwnerApi(ctx context.Context, ias sitemapi.ItemApiService, cs scollection.CollectionService, us suser.UserService, apiID idwrap.IDWrap) (bool, error) {

@@ -3,51 +3,62 @@ package tenv
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/menv"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	environmentv1 "dev-tools-services/gen/environment/v1"
+	environmentv1 "dev-tools-spec/dist/buf/go/environment/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func SeralizeModelToRPC(e menv.Env) *environmentv1.Environment {
-	rpcEnvType := environmentv1.EnvironmentType(e.Type)
-
 	return &environmentv1.Environment{
-		Id:          e.ID.String(),
-		Name:        e.Name,
-		Type:        rpcEnvType,
-		Description: e.Description,
-		UpdatedAt:   timestamppb.New(e.Updated),
+		EnvironmentId: e.ID.Bytes(),
+		Name:          e.Name,
+		IsGlobal:      e.Type == menv.EnvGlobal,
+		Description:   e.Description,
+		Updated:       timestamppb.New(e.Updated),
 	}
 }
 
 func DeserializeRPCToModel(e *environmentv1.Environment) (menv.Env, error) {
-	id, err := idwrap.NewWithParse(e.Id)
+	id, err := idwrap.NewFromBytes(e.EnvironmentId)
 	if err != nil {
 		return menv.Env{}, err
 	}
-	return menv.Env{
-		ID:          id,
-		Name:        e.Name,
-		Type:        menv.EnvType(e.Type),
-		Description: e.Description,
-		Updated:     e.UpdatedAt.AsTime(),
-	}, nil
+
+	return DeseralizeRPCToModelWithID(id, e), nil
 }
 
-func DeseralizeRPCToModelWithID(id idwrap.IDWrap, e *environmentv1.Environment) menv.Env {
-	return menv.Env{
-		ID:          id,
-		Name:        e.Name,
-		Type:        menv.EnvType(e.Type),
-		Description: e.Description,
-		Updated:     e.UpdatedAt.AsTime(),
+func SeralizeModelToRPCItem(e menv.Env) *environmentv1.EnvironmentListItem {
+	return &environmentv1.EnvironmentListItem{
+		EnvironmentId: e.ID.Bytes(),
+		Name:          e.Name,
+		IsGlobal:      e.Type == menv.EnvGlobal,
+		Description:   e.Description,
+		Updated:       timestamppb.New(e.Updated),
 	}
 }
 
-func SeralizeModelToGroupRPC(key string, envs []menv.Env) *environmentv1.VariableWithEnvironments {
-	return &environmentv1.VariableWithEnvironments{
+func DeseralizeRPCToModelWithID(id idwrap.IDWrap, e *environmentv1.Environment) menv.Env {
+	var typ menv.EnvType
+	if e.IsGlobal {
+		typ = menv.EnvGlobal
+	} else {
+		typ = menv.EnvNormal
+	}
+
+	return menv.Env{
+		ID:          id,
+		Name:        e.Name,
+		Type:        typ,
+		Description: e.Description,
+		Updated:     e.Updated.AsTime(),
+	}
+}
+
+/*
+func SeralizeModelToGroupRPC(key string, envs []menv.Env) *variablev1.Variable {
+	return &environmentv1.EnvironmentListItem{
 		VariableKey: key,
 		Environment: tgeneric.MassConvert(envs, SeralizeModelToRPC),
 	}
 }
+*/

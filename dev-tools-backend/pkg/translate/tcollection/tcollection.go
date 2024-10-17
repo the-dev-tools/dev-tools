@@ -1,5 +1,7 @@
 package tcollection
 
+/*
+
 import (
 	"context"
 	"dev-tools-backend/pkg/idwrap"
@@ -8,8 +10,6 @@ import (
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/translate/titemnest"
-	collectionv1 "dev-tools-services/gen/collection/v1"
-	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
 )
 
 type CollectionTranslateService struct {
@@ -80,3 +80,4 @@ func (c CollectionTranslateService) GetItems() []*itemfolderv1.ItemMeta {
 	a, _ := titemnest.TranslateItemFolderNested(c.folders, c.apis, c.examples)
 	return a.GetItemsMeta()
 }
+*/

@@ -1,3 +1,0 @@
-[submodule "dev-tools-services/dev-tools-proto"]
-	path = dev-tools-services/dev-tools-proto
-	url = git@github.com:DevToolsGit/dev-tools-proto.git

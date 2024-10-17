@@ -3,17 +3,16 @@ package titemapi
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapi"
-	itemapiv1 "dev-tools-services/gen/itemapi/v1"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	endpointv1 "dev-tools-spec/dist/buf/go/collection/item/endpoint/v1"
 	"errors"
 )
 
-func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
-	modelItem, err := SeralizeRPCToModelWithoutID(item)
+func SeralizeRPCToModel(item *endpointv1.Endpoint, collectionID idwrap.IDWrap) (*mitemapi.ItemApi, error) {
+	modelItem, err := SeralizeRPCToModelWithoutID(item, collectionID)
 	if err != nil {
 		return nil, err
 	}
-	id, err := idwrap.NewWithParse(item.Meta.GetId())
+	id, err := idwrap.NewFromBytes(item.GetEndpointId())
 	if err != nil {
 		return nil, err
 	}
@@ -21,53 +20,52 @@ func SeralizeRPCToModel(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
 	return modelItem, nil
 }
 
-func SeralizeRPCToModelWithoutID(item *itemapiv1.ApiCall) (*mitemapi.ItemApi, error) {
+func SeralizeRPCToModelWithoutID(item *endpointv1.Endpoint, collectionID idwrap.IDWrap) (*mitemapi.ItemApi, error) {
 	if item == nil {
 		return nil, errors.New("item is nil")
 	}
-	if item.Meta == nil {
-		return nil, errors.New("meta is nil")
-	}
-	meta := item.Meta
-
 	var parentID *idwrap.IDWrap
-	parentIDStr := item.GetParentId()
-	if parentIDStr != "" {
-		tempParentID, err := idwrap.NewWithParse(parentIDStr)
+	parentIDBytes := item.GetParentFolderId()
+	if parentIDBytes != nil && len(parentIDBytes) > 0 {
+		tempParentID, err := idwrap.NewFromBytes(parentIDBytes)
 		if err != nil {
 			return nil, err
 		}
 		parentID = &tempParentID
 	}
 
-	collectionID, err := idwrap.NewWithParse(item.GetCollectionId())
-	if err != nil {
-		return nil, err
-	}
-
 	return &mitemapi.ItemApi{
 		CollectionID: collectionID,
 		ParentID:     parentID,
 		Url:          item.GetUrl(),
-		Name:         meta.GetName(),
-		Method:       meta.GetMethod(),
+		Name:         item.GetName(),
+		Method:       item.GetMethod(),
 	}, nil
 }
 
-func DeseralizeModelToRPC(item *mitemapi.ItemApi, defaultExampleID idwrap.IDWrap, examples []*itemapiexamplev1.ApiExampleMeta) *itemapiv1.ApiCall {
-	var parentID string
+func DeseralizeModelToRPC(item *mitemapi.ItemApi) *endpointv1.Endpoint {
+	var parentID []byte = nil
 	if item.ParentID != nil {
-		parentID = item.ParentID.String()
+		parentID = item.ParentID.Bytes()
 	}
-	return &itemapiv1.ApiCall{
-		Meta: &itemapiv1.ApiCallMeta{
-			Id:       item.ID.String(),
-			Name:     item.Name,
-			Method:   item.Method,
-			Examples: examples,
-		},
-		CollectionId: item.CollectionID.String(),
-		ParentId:     parentID,
-		Url:          item.Url,
+	return &endpointv1.Endpoint{
+		EndpointId:     item.ID.Bytes(),
+		ParentFolderId: parentID,
+		Name:           item.Name,
+		Method:         item.Method,
+		Url:            item.Url,
+	}
+}
+
+func DeseralizeModelToRPCItem(item *mitemapi.ItemApi) *endpointv1.EndpointListItem {
+	var parentID []byte = nil
+	if item.ParentID != nil {
+		parentID = item.ParentID.Bytes()
+	}
+	return &endpointv1.EndpointListItem{
+		EndpointId:     item.ID.Bytes(),
+		ParentFolderId: parentID,
+		Name:           item.Name,
+		Method:         item.Method,
 	}
 }

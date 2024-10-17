@@ -1,0 +1,343 @@
+package rrequest
+
+import (
+	"context"
+	"database/sql"
+	"dev-tools-backend/internal/api"
+	"dev-tools-backend/internal/api/ritemapiexample"
+	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/permcheck"
+	"dev-tools-backend/pkg/service/sassert"
+	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/sexampleheader"
+	"dev-tools-backend/pkg/service/sexamplequery"
+	"dev-tools-backend/pkg/service/sitemapiexample"
+	"dev-tools-backend/pkg/service/suser"
+	"dev-tools-backend/pkg/translate/tassert"
+	"dev-tools-backend/pkg/translate/tgeneric"
+	"dev-tools-backend/pkg/translate/theader"
+	"dev-tools-backend/pkg/translate/tquery"
+	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
+	"dev-tools-spec/dist/buf/go/collection/item/request/v1/requestv1connect"
+
+	"connectrpc.com/connect"
+)
+
+type RequestRPC struct {
+	DB   *sql.DB
+	cs   scollection.CollectionService
+	us   suser.UserService
+	iaes sitemapiexample.ItemApiExampleService
+
+	// Sub
+	ehs sexampleheader.HeaderService
+	eqs sexamplequery.ExampleQueryService
+
+	// Assert
+	as sassert.AssertService
+}
+
+func New(db *sql.DB, cs scollection.CollectionService, us suser.UserService, iaes sitemapiexample.ItemApiExampleService,
+	ehs sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService, as sassert.AssertService,
+) RequestRPC {
+	return RequestRPC{
+		DB:   db,
+		cs:   cs,
+		us:   us,
+		iaes: iaes,
+		ehs:  ehs,
+		eqs:  eqs,
+		as:   as,
+	}
+}
+
+func CreateService(srv RequestRPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := requestv1connect.NewRequestServiceHandler(&srv, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
+}
+
+func CheckOwnerHeader(ctx context.Context, hs sexampleheader.HeaderService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, headerUlid idwrap.IDWrap) (bool, error) {
+	header, err := hs.GetHeaderByID(ctx, headerUlid)
+	if err != nil {
+		return false, err
+	}
+	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, header.ExampleID)
+}
+
+func CheckOwnerQuery(ctx context.Context, qs sexamplequery.ExampleQueryService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, queryUlid idwrap.IDWrap) (bool, error) {
+	query, err := qs.GetExampleQuery(ctx, queryUlid)
+	if err != nil {
+		return false, err
+	}
+	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, query.ExampleID)
+}
+
+func CheckOwnerAssert(ctx context.Context, as sassert.AssertService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, assertUlid idwrap.IDWrap) (bool, error) {
+	assert, err := as.GetAssert(ctx, assertUlid)
+	if err != nil {
+		return false, err
+	}
+	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, assert.ExampleID)
+}
+
+func (c RequestRPC) QueryList(ctx context.Context, req *connect.Request[requestv1.QueryListRequest]) (*connect.Response[requestv1.QueryListResponse], error) {
+	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	rpcQueries := tgeneric.MassConvert(queries, tquery.SerializeQueryModelToRPCItem)
+	resp := &requestv1.QueryListResponse{
+		Items: rpcQueries,
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (c RequestRPC) QueryCreate(ctx context.Context, req *connect.Request[requestv1.QueryCreateRequest]) (*connect.Response[requestv1.QueryCreateResponse], error) {
+	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(
+		ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	reqQuery := requestv1.Query{
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	queryID := idwrap.NewNow()
+	query := tquery.SerlializeQueryRPCtoModelNoID(&reqQuery, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	query.ID = queryID
+
+	err = c.eqs.CreateExampleQuery(ctx, query)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&requestv1.QueryCreateResponse{QueryId: queryID.Bytes()}), nil
+}
+
+func (c RequestRPC) QueryUpdate(ctx context.Context, req *connect.Request[requestv1.QueryUpdateRequest]) (*connect.Response[requestv1.QueryUpdateResponse], error) {
+	reqQuery := requestv1.Query{
+		QueryId:     req.Msg.GetQueryId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	query, err := tquery.SerlializeQueryRPCtoModel(&reqQuery, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, query.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	err = c.eqs.UpdateExampleQuery(ctx, query)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&requestv1.QueryUpdateResponse{}), nil
+}
+
+func (c RequestRPC) QueryDelete(ctx context.Context, req *connect.Request[requestv1.QueryDeleteRequest]) (*connect.Response[requestv1.QueryDeleteResponse], error) {
+	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	err = c.eqs.DeleteExampleQuery(ctx, queryID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&requestv1.QueryDeleteResponse{}), nil
+}
+
+func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[requestv1.HeaderListRequest]) (*connect.Response[requestv1.HeaderListResponse], error) {
+	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	headers, err := c.ehs.GetHeaderByExampleID(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rpcHeaders := tgeneric.MassConvert(headers, theader.SerializeHeaderModelToRPCItem)
+	resp := &requestv1.HeaderListResponse{
+		Items: rpcHeaders,
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (c RequestRPC) HeaderCreate(ctx context.Context, req *connect.Request[requestv1.HeaderCreateRequest]) (*connect.Response[requestv1.HeaderCreateResponse], error) {
+	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	rpcHeader := requestv1.Header{
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	headerID := idwrap.NewNow()
+	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID)
+	header.ID = headerID
+	err = c.ehs.CreateHeader(ctx, header)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&requestv1.HeaderCreateResponse{HeaderId: headerID.Bytes()}), nil
+}
+
+func (c RequestRPC) HeaderUpdate(ctx context.Context, req *connect.Request[requestv1.HeaderUpdateRequest]) (*connect.Response[requestv1.HeaderUpdateResponse], error) {
+	rpcHeader := requestv1.Header{
+		HeaderId:    req.Msg.GetHeaderId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	header, err := theader.SerlializeHeaderRPCtoModel(&rpcHeader, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, header.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.ehs.UpdateHeader(ctx, header)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&requestv1.HeaderUpdateResponse{}), nil
+}
+
+func (c RequestRPC) HeaderDelete(ctx context.Context, req *connect.Request[requestv1.HeaderDeleteRequest]) (*connect.Response[requestv1.HeaderDeleteResponse], error) {
+	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.ehs.DeleteHeader(ctx, headerID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&requestv1.HeaderDeleteResponse{}), nil
+}
+
+func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[requestv1.AssertListRequest]) (*connect.Response[requestv1.AssertListResponse], error) {
+	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	asserts, err := c.as.GetAssertByExampleID(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rpcAssserts := tgeneric.MassConvert(asserts, tassert.SerializeAssertModelToRPCItem)
+	resp := &requestv1.AssertListResponse{
+		Items: rpcAssserts,
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[requestv1.AssertCreateRequest]) (*connect.Response[requestv1.AssertCreateResponse], error) {
+	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	rpcAssert := requestv1.Assert{
+		Name:   req.Msg.GetName(),
+		Value:  req.Msg.GetValue(),
+		Type:   req.Msg.GetType(),
+		Target: req.Msg.GetTarget(),
+	}
+	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID)
+	err = c.as.CreateAssert(ctx, assert)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&requestv1.AssertCreateResponse{AssertId: assert.ID.Bytes()}), nil
+}
+
+func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[requestv1.AssertUpdateRequest]) (*connect.Response[requestv1.AssertUpdateResponse], error) {
+	rpcAssert := requestv1.Assert{
+		AssertId: req.Msg.GetAssertId(),
+		Name:     req.Msg.GetName(),
+		Value:    req.Msg.GetValue(),
+		Type:     req.Msg.GetType(),
+		Target:   req.Msg.GetTarget(),
+	}
+	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerAssert(ctx, c.as, c.iaes, c.cs, c.us, assert.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.as.UpdateAssert(ctx, assert)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&requestv1.AssertUpdateResponse{}), nil
+}
+
+func (c RequestRPC) AssertDelete(ctx context.Context, req *connect.Request[requestv1.AssertDeleteRequest]) (*connect.Response[requestv1.AssertDeleteResponse], error) {
+	assertID, err := idwrap.NewFromBytes(req.Msg.GetAssertId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerAssert(ctx, c.as, c.iaes, c.cs, c.us, assertID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.as.DeleteAssert(ctx, assertID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&requestv1.AssertDeleteResponse{}), nil
+}
