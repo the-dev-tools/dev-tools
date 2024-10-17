@@ -25,10 +25,9 @@ type Assertion struct {
 }
 
 type AssertionResult struct {
-	ID            idwrap.IDWrap
-	AssertionID   idwrap.IDWrap
-	Result        bool
-	AssertedValue string
+	ID          idwrap.IDWrap
+	AssertionID idwrap.IDWrap
+	Result      bool
 }
 
 type Collection struct {

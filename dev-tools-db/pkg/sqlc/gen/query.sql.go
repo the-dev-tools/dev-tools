@@ -81,25 +81,19 @@ func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) erro
 
 const createAssertResult = `-- name: CreateAssertResult :exec
 INSERT INTO
-  assertion_result (id, assertion_id, result, asserted_value)
+  assertion_result (id, assertion_id, result)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?)
 `
 
 type CreateAssertResultParams struct {
-	ID            idwrap.IDWrap
-	AssertionID   idwrap.IDWrap
-	Result        bool
-	AssertedValue string
+	ID          idwrap.IDWrap
+	AssertionID idwrap.IDWrap
+	Result      bool
 }
 
 func (q *Queries) CreateAssertResult(ctx context.Context, arg CreateAssertResultParams) error {
-	_, err := q.exec(ctx, q.createAssertResultStmt, createAssertResult,
-		arg.ID,
-		arg.AssertionID,
-		arg.Result,
-		arg.AssertedValue,
-	)
+	_, err := q.exec(ctx, q.createAssertResultStmt, createAssertResult, arg.ID, arg.AssertionID, arg.Result)
 	return err
 }
 
@@ -2180,8 +2174,7 @@ const getAssertResult = `-- name: GetAssertResult :one
 SELECT 
   id,
   assertion_id,
-  result,
-  asserted_value
+  result
 FROM 
   assertion_result
 WHERE
@@ -2192,12 +2185,7 @@ LIMIT 1
 func (q *Queries) GetAssertResult(ctx context.Context, id idwrap.IDWrap) (AssertionResult, error) {
 	row := q.queryRow(ctx, q.getAssertResultStmt, getAssertResult, id)
 	var i AssertionResult
-	err := row.Scan(
-		&i.ID,
-		&i.AssertionID,
-		&i.Result,
-		&i.AssertedValue,
-	)
+	err := row.Scan(&i.ID, &i.AssertionID, &i.Result)
 	return i, err
 }
 
@@ -2205,8 +2193,7 @@ const getAssertResultsByAssertID = `-- name: GetAssertResultsByAssertID :many
 SELECT 
   id,
   assertion_id,
-  result,
-  asserted_value
+  result
 FROM 
   assertion_result
 WHERE
@@ -2222,12 +2209,7 @@ func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID id
 	items := []AssertionResult{}
 	for rows.Next() {
 		var i AssertionResult
-		if err := rows.Scan(
-			&i.ID,
-			&i.AssertionID,
-			&i.Result,
-			&i.AssertedValue,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.AssertionID, &i.Result); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -4028,20 +4010,18 @@ func (q *Queries) UpdateAssert(ctx context.Context, arg UpdateAssertParams) erro
 const updateAssertResult = `-- name: UpdateAssertResult :exec
 UPDATE assertion_result
 SET
-  result = ?,
-  asserted_value = ?
+  result = ?
 WHERE
   id = ?
 `
 
 type UpdateAssertResultParams struct {
-	Result        bool
-	AssertedValue string
-	ID            idwrap.IDWrap
+	Result bool
+	ID     idwrap.IDWrap
 }
 
 func (q *Queries) UpdateAssertResult(ctx context.Context, arg UpdateAssertResultParams) error {
-	_, err := q.exec(ctx, q.updateAssertResultStmt, updateAssertResult, arg.Result, arg.AssertedValue, arg.ID)
+	_, err := q.exec(ctx, q.updateAssertResultStmt, updateAssertResult, arg.Result, arg.ID)
 	return err
 }
 

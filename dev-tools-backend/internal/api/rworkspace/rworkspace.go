@@ -15,7 +15,6 @@ import (
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
-	"dev-tools-backend/pkg/translate/tenv"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tworkspace"
 	"dev-tools-mail/pkg/emailclient"
@@ -89,10 +88,10 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 	}
 
 	resp := &workspacev1.WorkspaceGetResponse{
-		WorkspaceId: ws.ID.Bytes(),
-		Name:        ws.Name,
-		Updated:     timestamppb.New(ws.Updated),
-		Environment: tenv.SeralizeModelToRPC(*env),
+		WorkspaceId:           ws.ID.Bytes(),
+		Name:                  ws.Name,
+		Updated:               timestamppb.New(ws.Updated),
+		SelectedEnvironmentId: env.ID.Bytes(),
 	}
 
 	return connect.NewResponse(resp), nil
@@ -154,10 +153,10 @@ func (c *WorkspaceServiceRPC) WorkspaceGet(ctx context.Context, req *connect.Req
 	}
 
 	resp := &workspacev1.WorkspaceGetResponse{
-		WorkspaceId: workspaces.ID.Bytes(),
-		Name:        workspaces.Name,
-		Updated:     timestamppb.New(workspaces.Updated),
-		Environment: tenv.SeralizeModelToRPC(*env),
+		WorkspaceId:           workspaces.ID.Bytes(),
+		Name:                  workspaces.Name,
+		Updated:               timestamppb.New(workspaces.Updated),
+		SelectedEnvironmentId: env.ID.Bytes(),
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -263,7 +262,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 		}
 	}
 
-	reqEnvIDRaw := req.Msg.GetEnvironmentId()
+	reqEnvIDRaw := req.Msg.GetSelectedEnvironmentId()
 	var envID *idwrap.IDWrap
 	if reqEnvIDRaw != nil {
 		tempEnvID, err := idwrap.NewFromBytes(reqEnvIDRaw)

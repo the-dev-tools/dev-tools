@@ -9,15 +9,7 @@ import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mitemapiexample"
 	"dev-tools-backend/pkg/permcheck"
-	"dev-tools-backend/pkg/service/sassert"
-	"dev-tools-backend/pkg/service/sbodyform"
-	"dev-tools-backend/pkg/service/sbodyraw"
-	"dev-tools-backend/pkg/service/sbodyurl"
 	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/sexampleheader"
-	"dev-tools-backend/pkg/service/sexamplequery"
-	"dev-tools-backend/pkg/service/sexampleresp"
-	"dev-tools-backend/pkg/service/sexamplerespheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -37,46 +29,18 @@ type ItemApiRPC struct {
 	cs   *scollection.CollectionService
 	us   *suser.UserService
 	iaes *sitemapiexample.ItemApiExampleService
-
-	// Sub
-	ehs *sexampleheader.HeaderService
-	eqs *sexamplequery.ExampleQueryService
-
-	// Body
-	brs  *sbodyraw.BodyRawService
-	bfs  *sbodyform.BodyFormService
-	bufs *sbodyurl.BodyURLEncodedService
-
-	// ExampleResp
-	ers  *sexampleresp.ExampleRespService
-	erhs *sexamplerespheader.ExampleRespHeaderService
-
-	// Assert
-	as *sassert.AssertService
 }
 
 func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionService,
 	ifs sitemfolder.ItemFolderService, us suser.UserService,
-	iaes sitemapiexample.ItemApiExampleService, ehs sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService,
-	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bufs sbodyurl.BodyURLEncodedService,
-	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
-	as sassert.AssertService,
+	iaes sitemapiexample.ItemApiExampleService,
 ) ItemApiRPC {
 	return ItemApiRPC{
-		DB:   db,
-		ias:  &ias,
-		ifs:  &ifs,
-		cs:   &cs,
-		us:   &us,
-		iaes: &iaes,
-		ehs:  &ehs,
-		eqs:  &eqs,
-		brs:  &brs,
-		bfs:  &bfs,
-		bufs: &bufs,
-		ers:  &ers,
-		erhs: &erhs,
-		as:   &as,
+		DB:  db,
+		ias: &ias,
+		ifs: &ifs,
+		cs:  &cs,
+		us:  &us,
 	}
 }
 

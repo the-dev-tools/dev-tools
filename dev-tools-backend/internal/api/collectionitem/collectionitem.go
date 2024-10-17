@@ -76,6 +76,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// TODO: make this more efficient
 	var items []*itemv1.CollectionItem
 	if folderidPtr != nil {
 		for _, folder := range folders {
@@ -97,7 +98,6 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		}
 
 	} else {
-
 		for _, folder := range folders {
 			if folder.ParentID == nil {
 				items = append(items, &itemv1.CollectionItem{

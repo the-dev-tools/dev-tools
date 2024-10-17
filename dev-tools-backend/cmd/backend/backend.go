@@ -202,8 +202,8 @@ func main() {
 	var optionsCompress []connect.HandlerOption
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
-	var optionsAuth []connect.HandlerOption = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
-	var opitonsAll []connect.HandlerOption = append(optionsAuth, optionsCompress...)
+	optionsAuth := append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
+	opitonsAll := append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
@@ -213,7 +213,7 @@ func main() {
 
 	// Collection Service
 	collectionSrv := collection.New(currentDB, cs, ws,
-		us, ias, ifs, ras, iaes, ehs)
+		us)
 	newServiceManager.AddService(collection.CreateService(collectionSrv, opitonsAll))
 
 	// Node Service
@@ -229,8 +229,7 @@ func main() {
 
 	// Item API Service
 	itemapiSrv := ritemapi.New(currentDB, ias, cs,
-		ifs, us, iaes, ehs, eqs, brs,
-		bfs, bues, ers, erhs, as)
+		ifs, us, iaes)
 	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
 
 	// Folder API Service

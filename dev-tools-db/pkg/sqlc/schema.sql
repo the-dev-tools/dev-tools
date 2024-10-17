@@ -266,6 +266,5 @@ CREATE TABLE assertion_result (
   id BLOB NOT NULL PRIMARY KEY,
   assertion_id BLOB NOT NULL,
   result BOOLEAN NOT NULL,
-  asserted_value TEXT NOT NULL,
   FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
 );

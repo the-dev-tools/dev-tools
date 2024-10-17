@@ -55,10 +55,9 @@ func (ars AssertResultService) GetAssertResult(ctx context.Context, id idwrap.ID
 func (ars AssertResultService) CreateAssertResult(ctx context.Context, assertResult massertres.AssertResult) error {
 	assertResultDB := ConvertAssertResultModelToDB(assertResult)
 	return ars.queries.CreateAssertResult(ctx, gen.CreateAssertResultParams{
-		ID:            assertResultDB.ID,
-		AssertionID:   assertResultDB.AssertionID,
-		Result:        assertResultDB.Result,
-		AssertedValue: assertResultDB.AssertedValue,
+		ID:          assertResultDB.ID,
+		AssertionID: assertResultDB.AssertionID,
+		Result:      assertResultDB.Result,
 	})
 }
 

@@ -1322,8 +1322,7 @@ WHERE
 SELECT 
   id,
   assertion_id,
-  result,
-  asserted_value
+  result
 FROM 
   assertion_result
 WHERE
@@ -1334,8 +1333,7 @@ LIMIT 1;
 SELECT 
   id,
   assertion_id,
-  result,
-  asserted_value
+  result
 FROM 
   assertion_result
 WHERE
@@ -1343,15 +1341,14 @@ WHERE
 
 -- name: CreateAssertResult :exec
 INSERT INTO
-  assertion_result (id, assertion_id, result, asserted_value)
+  assertion_result (id, assertion_id, result)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateAssertResult :exec
 UPDATE assertion_result
 SET
-  result = ?,
-  asserted_value = ?
+  result = ?
 WHERE
   id = ?;
 

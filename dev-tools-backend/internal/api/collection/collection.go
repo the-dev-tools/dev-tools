@@ -17,7 +17,6 @@ import (
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/sitemfolder"
-	"dev-tools-backend/pkg/service/sresultapi"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/translate/tgeneric"
@@ -30,32 +29,20 @@ import (
 )
 
 type CollectionServiceRPC struct {
-	DB   *sql.DB
-	cs   scollection.CollectionService
-	ws   sworkspace.WorkspaceService
-	us   suser.UserService
-	ias  sitemapi.ItemApiService
-	ifs  sitemfolder.ItemFolderService
-	ras  sresultapi.ResultApiService
-	iaes sitemapiexample.ItemApiExampleService
-	hes  sexampleheader.HeaderService
+	DB *sql.DB
+	cs scollection.CollectionService
+	ws sworkspace.WorkspaceService
+	us suser.UserService
 }
 
 func New(db *sql.DB, cs scollection.CollectionService, ws sworkspace.WorkspaceService,
-	us suser.UserService, ias sitemapi.ItemApiService, ifs sitemfolder.ItemFolderService,
-	ras sresultapi.ResultApiService, iaes sitemapiexample.ItemApiExampleService,
-	hs sexampleheader.HeaderService,
+	us suser.UserService,
 ) CollectionServiceRPC {
 	return CollectionServiceRPC{
-		DB:   db,
-		cs:   cs,
-		ws:   ws,
-		us:   us,
-		ias:  ias,
-		ifs:  ifs,
-		ras:  ras,
-		iaes: iaes,
-		hes:  hs,
+		DB: db,
+		cs: cs,
+		ws: ws,
+		us: us,
 	}
 }
 
@@ -159,30 +146,6 @@ func (c *CollectionServiceRPC) CollectionGet(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	/*
-
-		folderItems, err := c.ifs.GetFoldersWithCollectionID(ctx, idWrap)
-		if err != nil && err != sitemfolder.ErrNoItemFolderFound {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		apiItems, err := c.ias.GetApisWithCollectionID(ctx, idWrap)
-		if err != nil && err != sitemapi.ErrNoItemApiFound {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		apiExampleItems, err := c.iaes.GetApiExampleByCollection(ctx, idWrap)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		pair, err := titemnest.TranslateItemFolderNested(folderItems, apiItems, apiExampleItems)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		items := pair.GetItemsFull()
-	*/
-
 	respRaw := &collectionv1.CollectionGetResponse{
 		CollectionId: collection.ID.Bytes(),
 		Name:         collection.Name,
