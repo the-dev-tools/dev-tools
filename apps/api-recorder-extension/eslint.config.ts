@@ -1,8 +1,8 @@
-import * as TS from 'typescript-eslint';
+import { config } from 'typescript-eslint';
 
 import { eslintReactConfig } from '@the-dev-tools/config-eslint';
 
-export default TS.config(...eslintReactConfig, {
+export default config(...eslintReactConfig, {
   rules: {
     // https://github.com/typescript-eslint/typescript-eslint/issues/9902
     // https://github.com/typescript-eslint/typescript-eslint/issues/9899

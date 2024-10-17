@@ -1,4 +1,6 @@
 {
+  "eslint.options": { "flags": ["unstable_ts_config"] },
+  "eslint.workingDirectories": [{ "mode": "auto" }],
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
@@ -8,5 +10,6 @@
     // https://github.com/tailwindlabs/tailwindcss/issues/7553#issuecomment-735915659
     "tw`([^`]*)"
   ],
+  "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.tsdk": "node_modules/typescript/lib"
 }

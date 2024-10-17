@@ -2,7 +2,7 @@
   "name": "@the-dev-tools/api",
   "version": "0.3.7",
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint --flag unstable_ts_config ."
   },
   "exports": {
     "./*": "./src/*.ts"
@@ -11,18 +11,18 @@
     "@bufbuild/protobuf": "2.2.0",
     "@connectrpc/connect": "2.0.0-beta.2",
     "@connectrpc/connect-web": "2.0.0-beta.2",
-    "@effect/platform": "0.67.0",
-    "@effect/schema": "0.75.0",
+    "@effect/platform": "0.68.6",
+    "@effect/schema": "0.75.5",
     "@the-dev-tools/spec": "1.31.3",
     "@the-dev-tools/utils": "workspace:^",
-    "effect": "3.9.0",
-    "id128": "^1.6.6",
-    "jose": "5.9.3",
-    "magic-sdk": "28.11.0"
+    "effect": "3.9.2",
+    "id128": "1.6.6",
+    "jose": "5.9.4",
+    "magic-sdk": "28.12.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "typescript": "~5.6.2"
+    "typescript": "~5.6.3"
   }
 }

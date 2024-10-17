@@ -2,18 +2,18 @@
   "name": "@the-dev-tools/utils",
   "version": "0.1.5",
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint --flag unstable_ts_config ."
   },
   "exports": {
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "effect": "3.9.0"
+    "effect": "3.9.2"
   },
   "devDependencies": {
     "@faker-js/faker": "~9.0.3",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "typescript": "~5.6.2"
+    "typescript": "~5.6.3"
   }
 }

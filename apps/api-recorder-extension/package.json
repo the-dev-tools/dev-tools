@@ -6,19 +6,19 @@
   "scripts": {
     "build": "plasmo build --build-path=dist --zip",
     "dev": "plasmo dev --build-path=dist",
-    "lint": "eslint ."
+    "lint": "eslint --flag unstable_ts_config ."
   },
   "dependencies": {
-    "@effect/schema": "0.75.0",
+    "@effect/schema": "0.75.5",
     "@plasmohq/storage": "1.12.0",
-    "effect": "3.9.0",
-    "magic-sdk": "28.11.0",
-    "plasmo": "0.89.2",
+    "effect": "3.9.2",
+    "magic-sdk": "28.12.0",
+    "plasmo": "0.89.3",
     "react": "18.3.1",
-    "react-aria-components": "1.4.0",
+    "react-aria-components": "1.4.1",
     "react-dom": "18.3.1",
     "react-icons": "5.3.0",
-    "tailwind-merge": "2.5.3",
+    "tailwind-merge": "2.5.4",
     "tailwind-variants": "0.2.1",
     "uuid": "10.0.0"
   },
@@ -28,17 +28,17 @@
     "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/chrome": "~0.0.277",
-    "@types/node": "~22.7.4",
+    "@types/chrome": "~0.0.278",
+    "@types/node": "~22.7.6",
     "@types/react": "~18.3.11",
-    "@types/react-dom": "~18.3.0",
+    "@types/react-dom": "~18.3.1",
     "@types/uuid": "~10.0.0",
     "autoprefixer": "~10.4.20",
-    "devtools-protocol": "~0.0.1363470",
+    "devtools-protocol": "~0.0.1368592",
     "postcss": "~8.4.47",
-    "tailwindcss": "~3.4.13",
-    "typescript": "~5.6.2",
-    "typescript-eslint": "~8.8.0"
+    "tailwindcss": "~3.4.14",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "~8.9.0"
   },
   "manifest": {
     "host_permissions": [
