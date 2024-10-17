@@ -56,3 +56,16 @@ func DeseralizeModelToRPC(item *mitemapi.ItemApi) *endpointv1.Endpoint {
 		Url:            item.Url,
 	}
 }
+
+func DeseralizeModelToRPCItem(item *mitemapi.ItemApi) *endpointv1.EndpointListItem {
+	var parentID []byte = nil
+	if item.ParentID != nil {
+		parentID = item.ParentID.Bytes()
+	}
+	return &endpointv1.EndpointListItem{
+		EndpointId:     item.ID.Bytes(),
+		ParentFolderId: parentID,
+		Name:           item.Name,
+		Method:         item.Method,
+	}
+}

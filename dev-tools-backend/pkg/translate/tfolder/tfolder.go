@@ -2,7 +2,6 @@ package tfolder
 
 import (
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemfolder"
 	folderv1 "dev-tools-spec/dist/buf/go/collection/item/folder/v1"
 	"errors"
@@ -45,8 +44,16 @@ func SeralizeRPCToModelWithoutID(item *folderv1.Folder, collectionID idwrap.IDWr
 	}, nil
 }
 
-func DeseralizeModelToRPC(item *mitemapi.ItemApi) *folderv1.Folder {
+func DeseralizeModelToRPC(item *mitemfolder.ItemFolder) *folderv1.Folder {
 	return &folderv1.Folder{
+		FolderId:       item.ID.Bytes(),
+		ParentFolderId: item.ParentID.Bytes(),
+		Name:           item.Name,
+	}
+}
+
+func DeseralizeModelToRPCItem(item *mitemfolder.ItemFolder) *folderv1.FolderListItem {
+	return &folderv1.FolderListItem{
 		FolderId:       item.ID.Bytes(),
 		ParentFolderId: item.ParentID.Bytes(),
 		Name:           item.Name,
