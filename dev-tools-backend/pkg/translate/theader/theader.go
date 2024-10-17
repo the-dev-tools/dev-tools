@@ -1,62 +1,47 @@
 package theader
 
-/*
-
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexampleheader"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
-	"errors"
+	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
 )
 
-func SerializeHeaderModelToRPC(header mexampleheader.Header) *itemapiexamplev1.Header {
-	return &itemapiexamplev1.Header{
-		Id:          header.ID.String(),
-		ExampleId:   header.ExampleID.String(),
+func SerializeHeaderModelToRPC(header mexampleheader.Header) *requestv1.Header {
+	return &requestv1.Header{
+		HeaderId:    header.ID.Bytes(),
 		Key:         header.HeaderKey,
 		Enabled:     header.Enable,
-		Description: header.Description,
 		Value:       header.Value,
+		Description: header.Description,
 	}
 }
 
-func SerlializeHeaderRPCtoModel(header *itemapiexamplev1.Header) (mexampleheader.Header, error) {
-	if header == nil {
-		return mexampleheader.Header{}, errors.New("header is nil")
+func SerializeHeaderModelToRPCItem(header mexampleheader.Header) *requestv1.HeaderListItem {
+	return &requestv1.HeaderListItem{
+		HeaderId:    header.ID.Bytes(),
+		Key:         header.HeaderKey,
+		Enabled:     header.Enable,
+		Value:       header.Value,
+		Description: header.Description,
 	}
-	headerId, err := idwrap.NewWithParse(header.GetId())
-	if err != nil {
-		return mexampleheader.Header{}, err
-	}
-	exampleId, err := idwrap.NewWithParse(header.GetExampleId())
-	if err != nil {
-		return mexampleheader.Header{}, err
-	}
-
-	return mexampleheader.Header{
-		ID:          headerId,
-		ExampleID:   exampleId,
-		HeaderKey:   header.GetKey(),
-		Enable:      header.GetEnabled(),
-		Description: header.GetDescription(),
-		Value:       header.GetValue(),
-	}, nil
 }
 
-func SerlializeHeaderRPCtoModelNoID(header *itemapiexamplev1.Header) (mexampleheader.Header, error) {
-	if header == nil {
-		return mexampleheader.Header{}, errors.New("header is nil")
-	}
-	exampleId, err := idwrap.NewWithParse(header.GetExampleId())
+func SerlializeHeaderRPCtoModel(header *requestv1.Header, exampleID idwrap.IDWrap) (mexampleheader.Header, error) {
+	h := SerlializeHeaderRPCtoModelNoID(header, exampleID)
+	headerId, err := idwrap.NewFromBytes(header.GetHeaderId())
 	if err != nil {
 		return mexampleheader.Header{}, err
 	}
+	h.ID = headerId
+	return h, nil
+}
+
+func SerlializeHeaderRPCtoModelNoID(header *requestv1.Header, exampleID idwrap.IDWrap) mexampleheader.Header {
 	return mexampleheader.Header{
-		ExampleID:   exampleId,
+		ExampleID:   exampleID,
 		HeaderKey:   header.GetKey(),
 		Description: header.GetDescription(),
 		Enable:      header.GetEnabled(),
 		Value:       header.GetValue(),
-	}, nil
+	}
 }
-*/

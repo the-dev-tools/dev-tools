@@ -1,17 +1,14 @@
 package tquery
 
-/*
-
 import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mexamplequery"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
 )
 
-func SerializeQueryModelToRPC(query mexamplequery.Query) *itemapiexamplev1.Query {
-	return &itemapiexamplev1.Query{
-		Id:          query.ID.String(),
-		ExampleId:   query.ExampleID.String(),
+func SerializeQueryModelToRPC(query mexamplequery.Query) *requestv1.Query {
+	return &requestv1.Query{
+		QueryId:     query.ID.Bytes(),
 		Key:         query.QueryKey,
 		Enabled:     query.Enable,
 		Description: query.Description,
@@ -19,36 +16,32 @@ func SerializeQueryModelToRPC(query mexamplequery.Query) *itemapiexamplev1.Query
 	}
 }
 
-func SerlializeQueryRPCtoModel(query *itemapiexamplev1.Query) (mexamplequery.Query, error) {
-	queryId, err := idwrap.NewWithParse(query.GetId())
-	if err != nil {
-		return mexamplequery.Query{}, err
+func SerializeQueryModelToRPCItem(query mexamplequery.Query) *requestv1.QueryListItem {
+	return &requestv1.QueryListItem{
+		QueryId:     query.ID.Bytes(),
+		Key:         query.QueryKey,
+		Enabled:     query.Enable,
+		Description: query.Description,
+		Value:       query.Value,
 	}
-	exampleID, err := idwrap.NewWithParse(query.GetExampleId())
-	if err != nil {
-		return mexamplequery.Query{}, err
-	}
-	return mexamplequery.Query{
-		ID:          queryId,
-		ExampleID:   exampleID,
-		QueryKey:    query.GetKey(),
-		Enable:      query.GetEnabled(),
-		Description: query.GetDescription(),
-		Value:       query.GetValue(),
-	}, nil
 }
 
-func SerlializeQueryRPCtoModelNoID(query *itemapiexamplev1.Query) (mexamplequery.Query, error) {
-	exampleID, err := idwrap.NewWithParse(query.GetExampleId())
+func SerlializeQueryRPCtoModel(query *requestv1.Query, exID idwrap.IDWrap) (mexamplequery.Query, error) {
+	q := SerlializeQueryRPCtoModelNoID(query, exID)
+	queryId, err := idwrap.NewFromBytes(query.GetQueryId())
 	if err != nil {
 		return mexamplequery.Query{}, err
 	}
+	q.ID = queryId
+	return q, nil
+}
+
+func SerlializeQueryRPCtoModelNoID(query *requestv1.Query, exID idwrap.IDWrap) mexamplequery.Query {
 	return mexamplequery.Query{
 		QueryKey:    query.GetKey(),
-		ExampleID:   exampleID,
+		ExampleID:   exID,
 		Enable:      query.GetEnabled(),
 		Description: query.GetDescription(),
 		Value:       query.GetValue(),
-	}, nil
+	}
 }
-*/
