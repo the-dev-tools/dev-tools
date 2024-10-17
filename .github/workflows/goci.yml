@@ -18,6 +18,10 @@ jobs:
       modules: ${{ steps.set-modules.outputs.modules }}
     steps:
       - uses: actions/checkout@v4
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
