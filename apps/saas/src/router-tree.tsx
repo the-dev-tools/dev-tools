@@ -17,7 +17,7 @@ import { Route as dashboardImport } from './dashboard';
 import { Route as workspaceLayoutImport } from './workspace-layout';
 import { Route as workspaceListImport } from './workspace-list';
 import { Route as workspaceMembersImport } from './workspace-members';
-import { Route as apiCallImport } from './api-call';
+import { Route as endpointImport } from './endpoint';
 import { Route as headersImport } from './headers';
 import { Route as bodyImport } from './body';
 import { Route as queryImport } from './query';
@@ -40,7 +40,7 @@ const dashboardRoute = dashboardImport.update({
 } as any);
 
 const workspaceLayoutRoute = workspaceLayoutImport.update({
-  path: '/workspace/$workspaceId',
+  path: '/workspace/$workspaceIdCan',
   getParentRoute: () => authorizedRoute,
 } as any);
 
@@ -54,24 +54,24 @@ const workspaceMembersRoute = workspaceMembersImport.update({
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
 
-const apiCallRoute = apiCallImport.update({
-  path: '/api-call/$apiCallId/example/$exampleId',
+const endpointRoute = endpointImport.update({
+  path: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
 
 const headersRoute = headersImport.update({
   path: '/headers',
-  getParentRoute: () => apiCallRoute,
+  getParentRoute: () => endpointRoute,
 } as any);
 
 const bodyRoute = bodyImport.update({
   path: '/body',
-  getParentRoute: () => apiCallRoute,
+  getParentRoute: () => endpointRoute,
 } as any);
 
 const queryRoute = queryImport.update({
   path: '/',
-  getParentRoute: () => apiCallRoute,
+  getParentRoute: () => endpointRoute,
 } as any);
 
 // Populate the FileRoutesByPath interface
@@ -106,47 +106,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof workspaceListImport;
       parentRoute: typeof dashboardImport;
     };
-    '/_authorized/workspace/$workspaceId': {
-      id: '/_authorized/workspace/$workspaceId';
-      path: '/workspace/$workspaceId';
-      fullPath: '/workspace/$workspaceId';
+    '/_authorized/workspace/$workspaceIdCan': {
+      id: '/_authorized/workspace/$workspaceIdCan';
+      path: '/workspace/$workspaceIdCan';
+      fullPath: '/workspace/$workspaceIdCan';
       preLoaderRoute: typeof workspaceLayoutImport;
       parentRoute: typeof authorizedImport;
     };
-    '/_authorized/workspace/$workspaceId/members': {
-      id: '/_authorized/workspace/$workspaceId/members';
+    '/_authorized/workspace/$workspaceIdCan/members': {
+      id: '/_authorized/workspace/$workspaceIdCan/members';
       path: '/members';
-      fullPath: '/workspace/$workspaceId/members';
+      fullPath: '/workspace/$workspaceIdCan/members';
       preLoaderRoute: typeof workspaceMembersImport;
       parentRoute: typeof workspaceLayoutImport;
     };
-    '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId': {
-      id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId';
-      path: '/api-call/$apiCallId/example/$exampleId';
-      fullPath: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId';
-      preLoaderRoute: typeof apiCallImport;
+    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': {
+      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
+      path: '/endpoint/$endpointIdCan/example/$exampleIdCan';
+      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
+      preLoaderRoute: typeof endpointImport;
       parentRoute: typeof workspaceLayoutImport;
     };
-    '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/': {
-      id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/';
+    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/': {
+      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/';
       path: '/';
-      fullPath: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/';
+      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/';
       preLoaderRoute: typeof queryImport;
-      parentRoute: typeof apiCallImport;
+      parentRoute: typeof endpointImport;
     };
-    '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body': {
-      id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body';
+    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': {
+      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body';
       path: '/body';
-      fullPath: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body';
+      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body';
       preLoaderRoute: typeof bodyImport;
-      parentRoute: typeof apiCallImport;
+      parentRoute: typeof endpointImport;
     };
-    '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers': {
-      id: '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers';
+    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': {
+      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
       path: '/headers';
-      fullPath: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers';
+      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
       preLoaderRoute: typeof headersImport;
-      parentRoute: typeof apiCallImport;
+      parentRoute: typeof endpointImport;
     };
   }
 }
@@ -165,29 +165,30 @@ const dashboardRouteWithChildren = dashboardRoute._addFileChildren(
   dashboardRouteChildren,
 );
 
-interface apiCallRouteChildren {
+interface endpointRouteChildren {
   queryRoute: typeof queryRoute;
   bodyRoute: typeof bodyRoute;
   headersRoute: typeof headersRoute;
 }
 
-const apiCallRouteChildren: apiCallRouteChildren = {
+const endpointRouteChildren: endpointRouteChildren = {
   queryRoute: queryRoute,
   bodyRoute: bodyRoute,
   headersRoute: headersRoute,
 };
 
-const apiCallRouteWithChildren =
-  apiCallRoute._addFileChildren(apiCallRouteChildren);
+const endpointRouteWithChildren = endpointRoute._addFileChildren(
+  endpointRouteChildren,
+);
 
 interface workspaceLayoutRouteChildren {
   workspaceMembersRoute: typeof workspaceMembersRoute;
-  apiCallRoute: typeof apiCallRouteWithChildren;
+  endpointRoute: typeof endpointRouteWithChildren;
 }
 
 const workspaceLayoutRouteChildren: workspaceLayoutRouteChildren = {
   workspaceMembersRoute: workspaceMembersRoute,
-  apiCallRoute: apiCallRouteWithChildren,
+  endpointRoute: endpointRouteWithChildren,
 };
 
 const workspaceLayoutRouteWithChildren = workspaceLayoutRoute._addFileChildren(
@@ -212,23 +213,23 @@ export interface FileRoutesByFullPath {
   '': typeof dashboardRouteWithChildren;
   '/login': typeof loginRoute;
   '/': typeof workspaceListRoute;
-  '/workspace/$workspaceId': typeof workspaceLayoutRouteWithChildren;
-  '/workspace/$workspaceId/members': typeof workspaceMembersRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId': typeof apiCallRouteWithChildren;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/': typeof queryRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body': typeof bodyRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers': typeof headersRoute;
+  '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRouteWithChildren;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/': typeof queryRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': typeof bodyRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': typeof headersRoute;
 }
 
 export interface FileRoutesByTo {
   '': typeof authorizedRouteWithChildren;
   '/login': typeof loginRoute;
   '/': typeof workspaceListRoute;
-  '/workspace/$workspaceId': typeof workspaceLayoutRouteWithChildren;
-  '/workspace/$workspaceId/members': typeof workspaceMembersRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId': typeof queryRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body': typeof bodyRoute;
-  '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers': typeof headersRoute;
+  '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof queryRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': typeof bodyRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': typeof headersRoute;
 }
 
 export interface FileRoutesById {
@@ -237,12 +238,12 @@ export interface FileRoutesById {
   '/login': typeof loginRoute;
   '/_authorized/_dashboard': typeof dashboardRouteWithChildren;
   '/_authorized/_dashboard/': typeof workspaceListRoute;
-  '/_authorized/workspace/$workspaceId': typeof workspaceLayoutRouteWithChildren;
-  '/_authorized/workspace/$workspaceId/members': typeof workspaceMembersRoute;
-  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId': typeof apiCallRouteWithChildren;
-  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/': typeof queryRoute;
-  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body': typeof bodyRoute;
-  '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers': typeof headersRoute;
+  '/_authorized/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/_authorized/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRouteWithChildren;
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/': typeof queryRoute;
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': typeof bodyRoute;
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': typeof headersRoute;
 }
 
 export interface FileRouteTypes {
@@ -251,34 +252,34 @@ export interface FileRouteTypes {
     | ''
     | '/login'
     | '/'
-    | '/workspace/$workspaceId'
-    | '/workspace/$workspaceId/members'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers';
+    | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/members'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
   fileRoutesByTo: FileRoutesByTo;
   to:
     | ''
     | '/login'
     | '/'
-    | '/workspace/$workspaceId'
-    | '/workspace/$workspaceId/members'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body'
-    | '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers';
+    | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/members'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
   id:
     | '__root__'
     | '/_authorized'
     | '/login'
     | '/_authorized/_dashboard'
     | '/_authorized/_dashboard/'
-    | '/_authorized/workspace/$workspaceId'
-    | '/_authorized/workspace/$workspaceId/members'
-    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
-    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/'
-    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body'
-    | '/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers';
+    | '/_authorized/workspace/$workspaceIdCan'
+    | '/_authorized/workspace/$workspaceIdCan/members'
+    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
+    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/'
+    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body'
+    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
   fileRoutesById: FileRoutesById;
 }
 
@@ -312,7 +313,7 @@ export const routeTree = rootRoute
       "filePath": "authorized.tsx",
       "children": [
         "/_authorized/_dashboard",
-        "/_authorized/workspace/$workspaceId"
+        "/_authorized/workspace/$workspaceIdCan"
       ]
     },
     "/login": {
@@ -329,38 +330,38 @@ export const routeTree = rootRoute
       "filePath": "workspace-list.tsx",
       "parent": "/_authorized/_dashboard"
     },
-    "/_authorized/workspace/$workspaceId": {
+    "/_authorized/workspace/$workspaceIdCan": {
       "filePath": "workspace-layout.tsx",
       "parent": "/_authorized",
       "children": [
-        "/_authorized/workspace/$workspaceId/members",
-        "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId"
+        "/_authorized/workspace/$workspaceIdCan/members",
+        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
       ]
     },
-    "/_authorized/workspace/$workspaceId/members": {
+    "/_authorized/workspace/$workspaceIdCan/members": {
       "filePath": "workspace-members.tsx",
-      "parent": "/_authorized/workspace/$workspaceId"
+      "parent": "/_authorized/workspace/$workspaceIdCan"
     },
-    "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId": {
-      "filePath": "api-call.tsx",
-      "parent": "/_authorized/workspace/$workspaceId",
+    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan": {
+      "filePath": "endpoint.tsx",
+      "parent": "/_authorized/workspace/$workspaceIdCan",
       "children": [
-        "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/",
-        "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body",
-        "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers"
+        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/",
+        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body",
+        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers"
       ]
     },
-    "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/": {
+    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/": {
       "filePath": "query.tsx",
-      "parent": "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId"
+      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
     },
-    "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body": {
+    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body": {
       "filePath": "body.tsx",
-      "parent": "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId"
+      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
     },
-    "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/headers": {
+    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers": {
       "filePath": "headers.tsx",
-      "parent": "/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId"
+      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
     }
   }
 }

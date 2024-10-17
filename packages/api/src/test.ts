@@ -1,26 +1,18 @@
-import { createRouterTransport } from '@connectrpc/connect';
+import { create, DescEnum, DescField, DescMessage, Message, ScalarType } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+import { createRouterTransport, ServiceImpl } from '@connectrpc/connect';
 import { Schema } from '@effect/schema';
-import { Context, DateTime, Effect, flow, Layer, Match, pipe, Ref, Runtime, String } from 'effect';
+import { Context, DateTime, Effect, flow, Layer, pipe, Record, Ref, Runtime } from 'effect';
+import { Ulid } from 'id128';
 import { UnsecuredJWT } from 'jose';
 import { Magic, PromiEvent } from 'magic-sdk';
 
-import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
-import { AuthServiceDIDResponse } from '@the-dev-tools/protobuf/auth/v1/auth_pb';
-import { CollectionService } from '@the-dev-tools/protobuf/collection/v1/collection_connect';
 import {
-  GetCollectionRequest,
-  GetCollectionResponse,
-  ListCollectionsResponse,
-} from '@the-dev-tools/protobuf/collection/v1/collection_pb';
-import { ApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
-import { Folder, Item } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
-import { WorkspaceService } from '@the-dev-tools/protobuf/workspace/v1/workspace_connect';
-import {
-  GetWorkspaceRequest,
-  GetWorkspaceResponse,
-  GetWorkspacesResponse,
-  Workspace,
-} from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
+  AuthMagicLinkResponseSchema,
+  AuthRefreshResponseSchema,
+  AuthService,
+} from '@the-dev-tools/spec/auth/v1/auth_pb';
+import { files } from '@the-dev-tools/spec/files';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
@@ -41,8 +33,18 @@ const AuthTransportTest = Layer.effect(
     return createRouterTransport(
       (router) => {
         router.service(AuthService, {
-          dID: () => Runtime.runPromise(runtime)(tokens),
-          refreshToken: () => Runtime.runPromise(runtime)(tokens),
+          authMagicLink: () =>
+            pipe(
+              tokens,
+              Effect.map((_) => create(AuthMagicLinkResponseSchema, _)),
+              Runtime.runPromise(runtime),
+            ),
+          authRefresh: () =>
+            pipe(
+              tokens,
+              Effect.map((_) => create(AuthRefreshResponseSchema, _)),
+              Runtime.runPromise(runtime),
+            ),
         });
       },
       { transport: { interceptors: [yield* effectInterceptor(mockInterceptor)] } },
@@ -70,21 +72,98 @@ const MagicClientTest = Layer.effect(
   }),
 );
 
+const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field: DescField) => {
+  if (field.name.endsWith('Id')) {
+    const id = Ulid.generate({ time: faker.date.anytime() });
+    return id.bytes;
+  }
+
+  // https://github.com/bufbuild/protobuf-es/blob/main/MANUAL.md#scalar-fields
+  switch (scalar) {
+    case ScalarType.STRING:
+      return faker.word.words();
+
+    case ScalarType.BOOL:
+      return faker.datatype.boolean();
+
+    case ScalarType.BYTES:
+      return new Uint8Array();
+
+    case ScalarType.DOUBLE:
+    case ScalarType.FLOAT:
+      return faker.number.float();
+
+    case ScalarType.INT32:
+    case ScalarType.UINT32:
+    case ScalarType.SINT32:
+    case ScalarType.FIXED32:
+    case ScalarType.SFIXED32:
+      return faker.number.int({ min: 0, max: 2 ** 32 / 2 - 1 });
+
+    case ScalarType.INT64:
+    case ScalarType.UINT64:
+    case ScalarType.SINT64:
+    case ScalarType.FIXED64:
+    case ScalarType.SFIXED64:
+      return faker.number.bigInt({ min: 0, max: 2n ** 64n / 2n - 1n });
+  }
+};
+
+const fakeEnum = (faker: (typeof Faker)['Service'], enum_: DescEnum) =>
+  faker.number.int({
+    min: 0,
+    max: enum_.values.length - 1,
+  });
+
+const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Message => {
+  if (message.typeName === 'google.protobuf.Timestamp') {
+    return timestampFromDate(faker.date.anytime());
+  }
+
+  const value = Record.map(message.field, (field) => {
+    switch (field.fieldKind) {
+      case 'message':
+        return fakeMessage(faker, field.message);
+
+      case 'scalar':
+        return fakeScalar(faker, field.scalar, field);
+
+      case 'enum':
+        return fakeEnum(faker, field.enum);
+
+      case 'list':
+        return faker.helpers.multiple(() => {
+          switch (field.listKind) {
+            case 'message':
+              return fakeMessage(faker, field.message);
+
+            case 'scalar':
+              return fakeScalar(faker, field.scalar, field);
+
+            case 'enum':
+              return fakeEnum(faker, field.enum);
+          }
+        });
+
+      default:
+        throw new Error('Unimplemented field kind');
+    }
+  });
+
+  return create(message, value);
+};
+
 const ApiTransportTest = Layer.effect(
   ApiTransport,
   Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<Faker>();
+    const faker = yield* Faker;
     return createRouterTransport(
       (router) => {
-        router.service(CollectionService, {
-          listCollections: flow(listCollections, Runtime.runPromise(runtime)),
-          getCollection: flow(getCollection, Runtime.runPromise(runtime)),
-          // runApiCall: flow(runApiCall, Runtime.runPromise(runtime)),
-        });
-
-        router.service(WorkspaceService, {
-          getWorkspaces: flow(getWorkspaces, Runtime.runPromise(runtime)),
-          getWorkspace: flow(getWorkspace, Runtime.runPromise(runtime)),
+        files.forEach((file) => {
+          file.services.forEach((service) => {
+            const methods = Record.map(service.method, (method) => () => fakeMessage(faker, method.output));
+            router.service(service, methods as ServiceImpl<never>);
+          });
         });
       },
       {
@@ -137,104 +216,5 @@ const tokens = Effect.gen(function* () {
     Effect.map((_) => new UnsecuredJWT(_).encode()),
   );
 
-  return new AuthServiceDIDResponse({ accessToken, refreshToken });
+  return { accessToken, refreshToken };
 });
-
-const listCollections = () =>
-  Effect.gen(function* () {
-    const faker = yield* Faker;
-    const metaCollections = yield* pipe(
-      faker.helpers.multiple(() => meta(), { count: 10 }),
-      Effect.all,
-    );
-    return new ListCollectionsResponse({ metaCollections });
-  });
-
-const getCollection = (request: GetCollectionRequest) =>
-  Effect.gen(function* () {
-    const meta_ = yield* meta(request.id);
-    return new GetCollectionResponse({
-      ...meta_,
-      items: yield* items(meta_.id, undefined, 3),
-    });
-  });
-
-const meta = (id?: string) =>
-  Effect.gen(function* () {
-    const faker = yield* Faker;
-    return {
-      // TODO: Replace with ULID once implemented upstream to better match the backend
-      // https://github.com/faker-js/faker/pull/2524
-      id: id ?? faker.string.uuid(),
-      name: pipe(faker.word.words({ count: { min: 1, max: 3 } }), String.capitalize),
-    };
-  });
-
-const item = (collectionId: string, parentId: string | undefined, depth: number): Effect.Effect<Item, never, Faker> =>
-  Effect.gen(function* () {
-    const faker = yield* Faker;
-    const case_ = depth > 0 ? faker.helpers.arrayElement(['apiCall', 'folder'] as const) : 'apiCall';
-    const value = yield* pipe(
-      Match.value(case_),
-      Match.when('apiCall', () => apiCall),
-      Match.when('folder', () => folder(collectionId, parentId, depth - 1)),
-      Match.exhaustive,
-    );
-    return new Item({ data: { case: case_, value } });
-  });
-
-const items = (collectionId: string, parentId: string | undefined, depth: number) =>
-  Effect.gen(function* () {
-    const faker = yield* Faker;
-    return yield* pipe(
-      faker.helpers.multiple(() => item(collectionId, parentId, depth), { count: { min: 3, max: 10 } }),
-      Effect.all,
-    );
-  });
-
-const apiCall = Effect.gen(function* () {
-  const faker = yield* Faker;
-  return new ApiCall({
-    meta: {
-      ...(yield* meta()),
-      method: faker.internet.httpMethod(),
-    },
-    collectionId: '',
-    parentId: '',
-    url: faker.internet.url(),
-  });
-});
-
-const folder = (collectionId: string, parentId: string | undefined, depth: number) =>
-  Effect.gen(function* () {
-    const meta_ = yield* meta();
-    return new Folder({
-      meta: meta_,
-      collectionId,
-      ...(parentId ? { parentId } : {}),
-      items: yield* items(collectionId, meta_.id, depth),
-    });
-  });
-
-const workspace = (id?: string) =>
-  Effect.gen(function* () {
-    const faker = yield* Faker;
-    return new Workspace({
-      id: id ?? faker.string.uuid(),
-      name: faker.word.sample(),
-    });
-  });
-
-const getWorkspaces = () =>
-  Effect.gen(function* () {
-    return new GetWorkspacesResponse({
-      workspaces: [yield* workspace()],
-    });
-  });
-
-const getWorkspace = (request: GetWorkspaceRequest) =>
-  Effect.gen(function* () {
-    return new GetWorkspaceResponse({
-      workspace: yield* workspace(request.id),
-    });
-  });

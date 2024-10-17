@@ -7,39 +7,43 @@ import {
 import { Schema } from '@effect/schema';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-router';
-import { Effect, Match, pipe, Struct } from 'effect';
-import { useRef, useState } from 'react';
+import { Effect, Match, pipe } from 'effect';
+import { Ulid } from 'id128';
+import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
-import { LuFolder, LuImport, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
+import { LuFolder, LuImport, LuLoader, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
-import { CollectionMeta } from '@the-dev-tools/protobuf/collection/v1/collection_pb';
+import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
-  createCollection,
-  deleteCollection,
-  importPostman,
-  listCollections,
-  updateCollection,
-} from '@the-dev-tools/protobuf/collection/v1/collection-CollectionService_connectquery';
-import { ApiCallMeta } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
+  endpointCreate,
+  endpointDelete,
+  endpointDuplicate,
+} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
+import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
-  createApiCall,
-  deleteApiCall,
-  dupeApiCall,
-} from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
-import { ApiExampleMeta } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
+  exampleCreate,
+  exampleDelete,
+  exampleDuplicate,
+  exampleList,
+} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
 import {
-  createExample,
-  deleteExample,
-  dupeExample,
-} from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
-import { FolderMeta, ItemMeta } from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder_pb';
+  folderCreate,
+  folderDelete,
+  folderUpdate,
+} from '@the-dev-tools/spec/collection/item/folder/v1/folder-FolderService_connectquery';
+import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
+import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
+import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import {
-  createFolder,
-  deleteFolder,
-  updateFolder,
-} from '@the-dev-tools/protobuf/itemfolder/v1/itemfolder-ItemFolderService_connectquery';
-import { getWorkspace } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
+  collectionCreate,
+  collectionDelete,
+  collectionImportPostman,
+  collectionList,
+  collectionUpdate,
+} from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
@@ -52,49 +56,66 @@ import { DashboardLayout } from './authorized';
 import { EnvironmentsWidget } from './environment';
 import { queryClient, Runtime, transport } from './runtime';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId')({
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   component: Layout,
-  loader: async ({ params: { workspaceId } }) => {
-    const options = createQueryOptions(getWorkspace, { id: workspaceId }, { transport });
+  loader: async ({ params: { workspaceIdCan } }) => {
+    const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
+    const options = createQueryOptions(workspaceGet, { workspaceId }, { transport });
     await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/', throw: true }));
+    return { workspaceId };
   },
 });
 
 const useInvalidateList = () => {
-  const { workspaceId } = Route.useParams();
+  const { workspaceId } = Route.useLoaderData();
   const queryClient = useQueryClient();
   const transport = useTransport();
-  const listQueryOptions = createQueryOptions(listCollections, { workspaceId }, { transport });
+  const listQueryOptions = createQueryOptions(collectionList, { workspaceId }, { transport });
   return () => queryClient.invalidateQueries(listQueryOptions);
 };
 
 const useCreateFolderMutation = () => {
   const invalidateList = useInvalidateList();
-  return useConnectMutation(createFolder, { onSuccess: invalidateList });
+  return useConnectMutation(folderCreate, { onSuccess: invalidateList });
 };
 
-const useCreateApiCallMutation = () => {
+const useCreateEndpointMutation = () => {
   const invalidateList = useInvalidateList();
-  return useConnectMutation(createApiCall, { onSuccess: invalidateList });
+  return useConnectMutation(endpointCreate, { onSuccess: invalidateList });
 };
 
 function Layout() {
-  const { workspaceId } = Route.useParams();
+  const { workspaceId } = Route.useLoaderData();
+  const { workspaceIdCan } = Route.useParams();
 
-  const query = useConnectQuery(getWorkspace, { id: workspaceId });
+  const query = useConnectQuery(workspaceGet, { workspaceId });
   if (!query.isSuccess) return;
-  const { workspace } = query.data;
+  const workspace = query.data;
 
   return (
     <DashboardLayout
       leftChildren={
         <MenuTrigger>
           <Button kind='placeholder' className='bg-transparent text-white' variant='placeholder'>
-            {workspace!.name}
+            {workspace.name}
           </Button>
           <Menu>
-            <MenuItem href={{ to: '/workspace/$workspaceId', params: { workspaceId } }}>Home</MenuItem>
-            <MenuItem href={{ to: '/workspace/$workspaceId/members', params: { workspaceId } }}>Members</MenuItem>
+            <MenuItem
+              href={{
+                to: '/workspace/$workspaceIdCan',
+                params: { workspaceIdCan },
+              }}
+            >
+              Home
+            </MenuItem>
+            <MenuItem
+              href={{
+                to: '/workspace/$workspaceIdCan/members',
+                params: { workspaceIdCan },
+              }}
+            >
+              Members
+            </MenuItem>
           </Menu>
         </MenuTrigger>
       }
@@ -119,15 +140,17 @@ function Layout() {
 }
 
 const CollectionsTree = () => {
-  const { workspaceId } = Route.useParams();
+  const { workspaceId } = Route.useLoaderData();
 
-  const collectionsQuery = useConnectQuery(listCollections, { workspaceId });
+  const collectionsQuery = useConnectQuery(collectionList, { workspaceId });
 
   const invalidateList = useInvalidateList();
-  const createCollectionMutation = useConnectMutation(createCollection, { onSuccess: invalidateList });
+  const createCollectionMutation = useConnectMutation(collectionCreate, {
+    onSuccess: invalidateList,
+  });
 
   if (!collectionsQuery.isSuccess) return null;
-  const metaCollections = collectionsQuery.data.metaCollections;
+  const collections = collectionsQuery.data.items;
 
   return (
     <>
@@ -136,7 +159,12 @@ const CollectionsTree = () => {
         <Button
           kind='placeholder'
           variant='placeholder'
-          onPress={() => void createCollectionMutation.mutate({ workspaceId, name: 'New collection' })}
+          onPress={() =>
+            void createCollectionMutation.mutate({
+              workspaceId,
+              name: 'New collection',
+            })
+          }
           className='flex-1 font-medium'
         >
           <LuPlus />
@@ -144,8 +172,11 @@ const CollectionsTree = () => {
         </Button>
         <ImportPostman />
       </div>
-      <Tree aria-label='Collections' items={metaCollections}>
-        {(_) => <CollectionTree id={_.id} meta={_} />}
+      <Tree aria-label='Collections' items={collections}>
+        {(_) => {
+          const collectionIdCan = Ulid.construct(_.collectionId).toCanonical();
+          return <CollectionTree id={collectionIdCan} collection={_} />;
+        }}
       </Tree>
     </>
   );
@@ -153,28 +184,49 @@ const CollectionsTree = () => {
 
 interface CollectionTreeProps {
   id: string;
-  meta: CollectionMeta;
+  collection: CollectionListItem;
 }
 
-const CollectionTree = ({ meta }: CollectionTreeProps) => {
+const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(deleteCollection, { onSuccess: invalidateList });
-  const updateMutation = useConnectMutation(updateCollection, { onSuccess: invalidateList });
+  const deleteMutation = useConnectMutation(collectionDelete, {
+    onSuccess: invalidateList,
+  });
+  const updateMutation = useConnectMutation(collectionUpdate, {
+    onSuccess: invalidateList,
+  });
   const createFolderMutation = useCreateFolderMutation();
-  const createApiCallMutation = useCreateApiCallMutation();
+  const createEndpointMutation = useCreateEndpointMutation();
+
+  const { collectionId } = collection;
+  const [enabled, setEnabled] = useState(false);
+  const itemsQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
 
   const triggerRef = useRef(null);
 
   const [isRenaming, setIsRenaming] = useState(false);
 
+  const childItems = useMemo(
+    () => (itemsQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
+    [itemsQuery.data?.items],
+  );
+
   return (
     <TreeItem
-      textValue={meta.name}
-      childItems={meta.items}
-      childItem={(_) => <FolderItemTree id={_.meta.value!.id} collectionId={meta.id} item={_} />}
+      textValue={collection.name}
+      childItems={childItems}
+      childItem={mapCollectionItemTree(collectionId)}
+      expandButtonIsForced={!enabled}
+      expandButtonOnPress={() => void setEnabled(true)}
     >
+      {itemsQuery.isLoading && (
+        <Button kind='placeholder' variant='placeholder ghost' isDisabled>
+          <LuLoader className='animate-spin' />
+        </Button>
+      )}
+
       <Text ref={triggerRef} className='flex-1 truncate'>
-        {meta.name}
+        {collection.name}
       </Text>
 
       <MenuTrigger>
@@ -187,7 +239,10 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createApiCallMutation.mutate({ data: { collectionId: meta.id, meta: { name: 'New API call' } } })
+              void createEndpointMutation.mutate({
+                collectionId,
+                name: 'New API call',
+              })
             }
           >
             Add Request
@@ -195,13 +250,16 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createFolderMutation.mutate({ folder: { collectionId: meta.id, meta: { name: 'New folder' } } })
+              void createFolderMutation.mutate({
+                collectionId,
+                name: 'New folder',
+              })
             }
           >
             Add Folder
           </MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ collectionId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -225,7 +283,7 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              updateMutation.mutate({ id: meta.id, name });
+              updateMutation.mutate({ collectionId, name });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -233,7 +291,7 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
         >
           <TextField
             name='name'
-            defaultValue={meta.name}
+            defaultValue={collection.name}
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             label='New name:'
@@ -251,47 +309,68 @@ const CollectionTree = ({ meta }: CollectionTreeProps) => {
   );
 };
 
-interface FolderItemTreeProps {
-  id: string;
-  collectionId: string;
-  item: ItemMeta;
-}
-
-const FolderItemTree = ({ collectionId, item }: FolderItemTreeProps) =>
+const mapCollectionItemTree = (collectionId: Collection['collectionId']) => (item: CollectionItem) =>
   pipe(
-    item.meta,
-    Match.value,
-    Match.when({ case: 'folderMeta' }, (_) => <FolderTree collectionId={collectionId} meta={_.value} />),
-    Match.when({ case: 'apiCallMeta' }, (_) => <ApiCallTree meta={_.value} />),
+    Match.value(item),
+    Match.when({ kind: ItemKind.FOLDER }, (_) => {
+      const folderIdCan = Ulid.construct(_.folder!.folderId).toCanonical();
+      return <FolderTree id={folderIdCan} collectionId={collectionId} folder={_.folder!} />;
+    }),
+    Match.when({ kind: ItemKind.ENDPOINT }, (_) => {
+      const endpointIdCan = Ulid.construct(_.endpoint!.endpointId).toCanonical();
+      return <EndpointTree id={endpointIdCan} endpoint={_.endpoint!} example={_.example!} />;
+    }),
     Match.orElse(() => null),
   );
 
 interface FolderTreeProps {
-  collectionId: string;
-  meta: FolderMeta;
+  id: string;
+  collectionId: Collection['collectionId'];
+  folder: FolderListItem;
 }
 
-const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
+const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
   const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(deleteFolder, { onSuccess: invalidateList });
-  const updateMutation = useConnectMutation(updateFolder, { onSuccess: invalidateList });
+  const deleteMutation = useConnectMutation(folderDelete, {
+    onSuccess: invalidateList,
+  });
+  const updateMutation = useConnectMutation(folderUpdate, {
+    onSuccess: invalidateList,
+  });
   const createFolderMutation = useCreateFolderMutation();
-  const createApiCallMutation = useCreateApiCallMutation();
+  const createEndpointCallMutation = useCreateEndpointMutation();
+
+  const { folderId } = folder;
+  const [enabled, setEnabled] = useState(false);
+  const itemsQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
 
   const triggerRef = useRef(null);
 
   const [isRenaming, setIsRenaming] = useState(false);
 
+  const childItems = useMemo(
+    () => (itemsQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
+    [itemsQuery.data?.items],
+  );
+
   return (
     <TreeItem
-      textValue={meta.name}
-      childItems={meta.items}
-      childItem={(_) => <FolderItemTree id={_.meta.value!.id} collectionId={collectionId} item={_} />}
+      textValue={folder.name}
+      childItems={childItems}
+      childItem={mapCollectionItemTree(collectionId)}
+      expandButtonIsForced={!enabled}
+      expandButtonOnPress={() => void setEnabled(true)}
     >
+      {itemsQuery.isLoading && (
+        <Button kind='placeholder' variant='placeholder ghost' isDisabled>
+          <LuLoader className='animate-spin' />
+        </Button>
+      )}
+
       <LuFolder />
 
       <Text ref={triggerRef} className='flex-1 truncate'>
-        {meta.name}
+        {folder.name}
       </Text>
 
       <MenuTrigger>
@@ -304,8 +383,10 @@ const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createApiCallMutation.mutate({
-                data: { collectionId, parentId: meta.id, meta: { name: 'New API call' } },
+              void createEndpointCallMutation.mutate({
+                collectionId,
+                parentFolderId: folderId,
+                name: 'New API call',
               })
             }
           >
@@ -315,14 +396,16 @@ const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
           <MenuItem
             onAction={() =>
               void createFolderMutation.mutate({
-                folder: { collectionId, parentId: meta.id, meta: { name: 'New folder' } },
+                collectionId,
+                parentFolderId: folderId,
+                name: 'New folder',
               })
             }
           >
             Add Folder
           </MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ folderId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -346,9 +429,7 @@ const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              updateMutation.mutate({
-                folder: { meta: Struct.evolve(meta, { name: () => name }) },
-              });
+              updateMutation.mutate({ folderId, name });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -356,7 +437,7 @@ const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
         >
           <TextField
             name='name'
-            defaultValue={meta.name}
+            defaultValue={folder.name}
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             label='New name:'
@@ -374,35 +455,58 @@ const FolderTree = ({ collectionId, meta }: FolderTreeProps) => {
   );
 };
 
-interface ApiCallTreeProps {
-  meta: ApiCallMeta;
+interface EndpointTreeProps {
+  id: string;
+  endpoint: EndpointListItem;
+  example: ExampleListItem;
 }
 
-const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
+const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProps) => {
   const match = useMatch({ strict: false });
 
   const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(deleteApiCall, { onSuccess: invalidateList });
-  const duplicateMutation = useConnectMutation(dupeApiCall, { onSuccess: invalidateList });
-  const createExampleMutation = useConnectMutation(createExample, { onSuccess: invalidateList });
+  const deleteMutation = useConnectMutation(endpointDelete, {
+    onSuccess: invalidateList,
+  });
+  const duplicateMutation = useConnectMutation(endpointDuplicate, {
+    onSuccess: invalidateList,
+  });
+  const createExampleMutation = useConnectMutation(exampleCreate, {
+    onSuccess: invalidateList,
+  });
+
+  const exampleIdCan = Ulid.construct(example.exampleId).toCanonical();
+  const { endpointId, method } = endpoint;
+
+  const [enabled, setEnabled] = useState(false);
+  const examplesQuery = useConnectQuery(exampleList, { endpointId }, { enabled });
 
   return (
     <TreeItem
-      textValue={meta.name}
+      textValue={endpoint.name}
       href={{
         from: Route.fullPath,
-        to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
-        params: { apiCallId: meta.id, exampleId: meta.defaultExampleId },
+        to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+        params: { endpointIdCan, exampleIdCan },
       }}
-      wrapperIsSelected={match.params.exampleId === meta.defaultExampleId}
-      childItems={meta.examples}
-      childItem={(_) => <ApiExampleItem apiCallId={meta.id} meta={_} />}
+      wrapperIsSelected={match.params.exampleIdCan === exampleIdCan}
+      childItems={examplesQuery.data?.items ?? []}
+      childItem={(_) => {
+        const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
+        return <ExampleItem id={exampleIdCan} endpointIdCan={endpointIdCan} example={_} />;
+      }}
+      expandButtonIsForced={!enabled}
+      expandButtonOnPress={() => void setEnabled(true)}
     >
-      {!meta.examples.length && <div />}
+      {examplesQuery.isLoading && (
+        <Button kind='placeholder' variant='placeholder ghost' isDisabled>
+          <LuLoader className='animate-spin' />
+        </Button>
+      )}
 
-      <div className='text-sm font-bold'>{meta.method}</div>
+      <div className='text-sm font-bold'>{method}</div>
 
-      <Text className='flex-1 truncate'>{meta.name}</Text>
+      <Text className='flex-1 truncate'>{endpoint.name}</Text>
 
       <MenuTrigger>
         <Button kind='placeholder' variant='placeholder ghost'>
@@ -412,15 +516,18 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
         <Menu>
           <MenuItem
             onAction={() =>
-              void createExampleMutation.mutate({ itemApiId: meta.id, example: { meta: { name: 'New Example' } } })
+              void createExampleMutation.mutate({
+                endpointId,
+                name: 'New Example',
+              })
             }
           >
             Add Example
           </MenuItem>
 
-          <MenuItem onAction={() => void duplicateMutation.mutate({ id: meta.id })}>Duplicate</MenuItem>
+          <MenuItem onAction={() => void duplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ endpointId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -429,31 +536,38 @@ const ApiCallTree = ({ meta }: ApiCallTreeProps) => {
   );
 };
 
-interface ApiExampleItemProps {
-  apiCallId: string;
-  meta: ApiExampleMeta;
+interface ExampleItemProps {
+  id: string;
+  endpointIdCan: string;
+  example: ExampleListItem;
 }
 
-const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
+const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemProps) => {
   const match = useMatch({ strict: false });
 
   const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(deleteExample, { onSuccess: invalidateList });
-  const duplicateMutation = useConnectMutation(dupeExample, { onSuccess: invalidateList });
+  const deleteMutation = useConnectMutation(exampleDelete, {
+    onSuccess: invalidateList,
+  });
+  const duplicateMutation = useConnectMutation(exampleDuplicate, {
+    onSuccess: invalidateList,
+  });
+
+  const { exampleId } = example;
 
   return (
     <TreeItem
-      textValue={meta.name}
+      textValue={example.name}
       href={{
         from: Route.fullPath,
-        to: '/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId',
-        params: { apiCallId: apiCallId, exampleId: meta.id },
+        to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+        params: { endpointIdCan, exampleIdCan },
       }}
-      wrapperIsSelected={match.params.exampleId === meta.id}
+      wrapperIsSelected={match.params.exampleIdCan === exampleIdCan}
     >
       <div />
 
-      <Text className='flex-1 truncate'>{meta.name}</Text>
+      <Text className='flex-1 truncate'>{example.name}</Text>
 
       <MenuTrigger>
         <Button kind='placeholder' variant='placeholder ghost'>
@@ -461,9 +575,9 @@ const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
         </Button>
 
         <Menu>
-          <MenuItem onAction={() => void duplicateMutation.mutate({ id: meta.id })}>Duplicate</MenuItem>
+          <MenuItem onAction={() => void duplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ id: meta.id })}>
+          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ exampleId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -473,10 +587,12 @@ const ApiExampleItem = ({ apiCallId, meta }: ApiExampleItemProps) => {
 };
 
 const ImportPostman = () => {
-  const { workspaceId } = Route.useParams();
+  const { workspaceId } = Route.useLoaderData();
 
   const invalidateList = useInvalidateList();
-  const createMutation = useConnectMutation(importPostman, { onSuccess: invalidateList });
+  const createMutation = useConnectMutation(collectionImportPostman, {
+    onSuccess: invalidateList,
+  });
 
   return (
     <FileTrigger

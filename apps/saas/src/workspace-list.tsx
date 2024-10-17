@@ -2,17 +2,18 @@ import { createQueryOptions, useMutation as useConnectMutation, useTransport } f
 import { Schema } from '@effect/schema';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { Effect, pipe, Struct } from 'effect';
+import { Effect, pipe } from 'effect';
+import { Ulid } from 'id128';
 import { useState } from 'react';
 import { Form } from 'react-aria-components';
 
-import { Workspace } from '@the-dev-tools/protobuf/workspace/v1/workspace_pb';
+import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import {
-  createWorkspace,
-  deleteWorkspace,
-  getWorkspaces,
-  updateWorkspace,
-} from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
+  workspaceCreate,
+  workspaceDelete,
+  workspaceList,
+  workspaceUpdate,
+} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -30,12 +31,12 @@ function Page() {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
-  const queryOptions = createQueryOptions(getWorkspaces, undefined, { transport });
+  const queryOptions = createQueryOptions(workspaceList, undefined, { transport });
   const query = useQuery({ ...queryOptions, enabled: true });
-  const createMutation = useConnectMutation(createWorkspace);
+  const createMutation = useConnectMutation(workspaceCreate);
 
   if (!query.isSuccess) return null;
-  const { workspaces } = query.data;
+  const { items: workspaces } = query.data;
 
   return (
     <div className='flex size-full flex-col items-center justify-center gap-4'>
@@ -52,27 +53,31 @@ function Page() {
         </Button>
       </div>
 
-      {workspaces.map((_) => (
-        <Row key={_.id} workspace={_} />
-      ))}
+      {workspaces.map((_) => {
+        const workspaceIdCan = Ulid.construct(_.workspaceId).toCanonical();
+        return <Row key={workspaceIdCan} workspaceIdCan={workspaceIdCan} workspace={_} />;
+      })}
     </div>
   );
 }
 
 interface RowProps {
-  workspace: Workspace;
+  workspaceIdCan: string;
+  workspace: WorkspaceListItem;
 }
 
-const Row = ({ workspace }: RowProps) => {
+const Row = ({ workspaceIdCan, workspace }: RowProps) => {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
+  const { workspaceId } = workspace;
+
   const [renaming, setRenaming] = useState(false);
 
-  const queryOptions = createQueryOptions(getWorkspaces, undefined, { transport });
+  const queryOptions = createQueryOptions(workspaceList, undefined, { transport });
 
-  const updateMutation = useConnectMutation(updateWorkspace);
-  const deleteMutation = useConnectMutation(deleteWorkspace);
+  const updateMutation = useConnectMutation(workspaceUpdate);
+  const deleteMutation = useConnectMutation(workspaceDelete);
 
   return (
     <div className='flex gap-4'>
@@ -89,8 +94,8 @@ const Row = ({ workspace }: RowProps) => {
                 Schema.decode(RenameForm),
               );
 
-              const data = Struct.evolve(workspace, { name: () => name });
-              yield* Effect.tryPromise(() => updateMutation.mutateAsync(data));
+              updateMutation.mutate({ workspaceId, name });
+
               yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
 
               setRenaming(false);
@@ -108,7 +113,7 @@ const Row = ({ workspace }: RowProps) => {
           <ButtonAsLink
             kind='placeholder'
             variant='placeholder'
-            href={{ to: '/workspace/$workspaceId', params: { workspaceId: workspace.id } }}
+            href={{ to: '/workspace/$workspaceIdCan', params: { workspaceIdCan } }}
           >
             {workspace.name}
           </ButtonAsLink>
@@ -121,7 +126,7 @@ const Row = ({ workspace }: RowProps) => {
         kind='placeholder'
         variant='placeholder'
         onPress={async () => {
-          await deleteMutation.mutateAsync({ id: workspace.id });
+          await deleteMutation.mutateAsync({ workspaceId });
           await queryClient.invalidateQueries(queryOptions);
         }}
       >

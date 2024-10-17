@@ -5,7 +5,7 @@ import { Context, DateTime, Effect, pipe } from 'effect';
 import { decodeJwt } from 'jose';
 import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 
-import { AuthService } from '@the-dev-tools/protobuf/auth/v1/auth_connect';
+import { AuthService } from '@the-dev-tools/spec/auth/v1/auth_pb';
 
 import { accessTokenKey, AccessTokenPayload, JWTPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
 import { AnyFnEffect, Request } from './transport';
@@ -26,7 +26,7 @@ export const login = (configuration: LoginWithMagicLinkConfiguration) =>
     // Authorize
     const authTransport = yield* AuthTransport;
     const loginResponse = yield* Effect.tryPromise((signal) =>
-      authTransport.unary(AuthService, AuthService.methods.dID, signal, undefined, undefined, { didToken }),
+      authTransport.unary(AuthService.method.authMagicLink, signal, undefined, undefined, { didToken }),
     );
     const { accessToken, refreshToken } = loginResponse.message;
 
@@ -79,7 +79,7 @@ const accessToken = Effect.gen(function* () {
 
   const transport = yield* AuthTransport;
   const response = yield* Effect.tryPromise((signal) =>
-    transport.unary(AuthService, AuthService.methods.refreshToken, signal, undefined, undefined, {
+    transport.unary(AuthService.method.authRefresh, signal, undefined, undefined, {
       refreshToken,
     }),
   );

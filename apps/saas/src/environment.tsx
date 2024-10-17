@@ -1,3 +1,4 @@
+import { create, fromJson, toJson } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
@@ -9,30 +10,43 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Array, Struct } from 'effect';
+import { Array, pipe } from 'effect';
+import { Ulid } from 'id128';
 import { useCallback, useMemo } from 'react';
 import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuBraces, LuClipboardList, LuPlus, LuTrash2, LuX } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
-import { Environment, EnvironmentType } from '@the-dev-tools/protobuf/environment/v1/environment_pb';
 import {
-  createEnvironment,
-  getAllVariables,
-  getEnvironments,
-} from '@the-dev-tools/protobuf/environment/v1/environment-EnvironmentService_connectquery';
-import { Variable } from '@the-dev-tools/protobuf/variable/v1/variable_pb';
+  Environment,
+  EnvironmentJson,
+  EnvironmentListItemSchema,
+  EnvironmentListResponseSchema,
+} from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
-  createVariable,
-  deleteVariable,
-  getVariables,
-  updateVariable,
-} from '@the-dev-tools/protobuf/variable/v1/variable-VariableService_connectquery';
+  environmentCreate,
+  environmentList,
+} from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
 import {
-  getWorkspace,
-  updateWorkspace,
-} from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
+  VariableCreateResponseSchema,
+  VariableJson,
+  VariableListItem,
+  VariableListItemSchema,
+  VariableListResponseSchema,
+  VariableSchema,
+  VariableUpdateRequestSchema,
+} from '@the-dev-tools/spec/variable/v1/variable_pb';
+import {
+  variableCreate,
+  variableDelete,
+  variableList,
+  variableUpdate,
+} from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
+import {
+  workspaceGet,
+  workspaceUpdate,
+} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
@@ -43,58 +57,59 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
 
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceId');
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const EnvironmentsWidget = () => {
   const queryClient = useQueryClient();
 
-  const { workspaceId } = workspaceRoute.useParams();
+  const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const workspaceQuery = useConnectQuery(getWorkspace, { id: workspaceId });
-  const updateWorkspaceMutation = useConnectMutation(updateWorkspace);
+  const workspaceQuery = useConnectQuery(workspaceGet, { workspaceId });
+  const updateWorkspaceMutation = useConnectMutation(workspaceUpdate);
 
-  const environmentsQuery = useConnectQuery(getEnvironments, { workspaceId });
-  const createEnvironmentMutation = useConnectMutation(createEnvironment);
+  const environmentsQuery = useConnectQuery(environmentList, { workspaceId });
+  const createEnvironmentMutation = useConnectMutation(environmentCreate);
 
   if (!environmentsQuery.isSuccess || !workspaceQuery.isSuccess) return null;
 
-  const { environments } = environmentsQuery.data;
-  const { workspace } = workspaceQuery.data;
+  const environments = environmentsQuery.data.items;
+  const { selectedEnvironmentId } = workspaceQuery.data;
+  const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
   return (
     <div className='flex justify-between border-b border-black p-2'>
       <Select
         aria-label='Environment'
-        selectedKey={workspace?.environment?.id ?? null}
-        onSelectionChange={async (key) => {
-          const environment = environments.find(({ id }) => id === key);
-          if (!environment) return;
-
-          await updateWorkspaceMutation.mutateAsync({ id: workspaceId, envId: environment.id });
+        selectedKey={selectedEnvironmentIdCan}
+        onSelectionChange={async (selectedEnvironmentIdCan) => {
+          const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
+          await updateWorkspaceMutation.mutateAsync({ workspaceId, selectedEnvironmentId });
 
           queryClient.setQueryData(
-            createConnectQueryKey(getWorkspace, { id: workspaceId }),
-            createProtobufSafeUpdater(getWorkspace, (old) => ({
-              workspace: { ...old?.workspace, environment },
-            })),
+            createConnectQueryKey({ schema: workspaceGet, cardinality: 'finite', input: { workspaceId } }),
+            createProtobufSafeUpdater(workspaceGet, (old) => {
+              if (old === undefined) return undefined;
+              return { ...old, selectedEnvironmentId };
+            }),
           );
         }}
         triggerClassName={tw`justify-start`}
         triggerVariant='placeholder ghost'
         listBoxItems={environments}
       >
-        {(item) => (
-          <DropdownItem id={item.id} textValue={item.name}>
-            <div className='flex items-center gap-2 text-sm'>
-              <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
-                {item.type === EnvironmentType.GLOBAL ? <LuBraces /> : item.name[0]}
+        {(item) => {
+          const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
+          return (
+            <DropdownItem id={environmentIdCan} textValue={item.name}>
+              <div className='flex items-center gap-2 text-sm'>
+                <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
+                  {item.isGlobal ? <LuBraces /> : item.name[0]}
+                </div>
+                <span className='font-semibold'>{item.isGlobal ? 'Global Environment' : item.name}</span>
               </div>
-              <span className='font-semibold'>
-                {item.type === EnvironmentType.GLOBAL ? 'Global Environment' : item.name}
-              </span>
-            </div>
-          </DropdownItem>
-        )}
+            </DropdownItem>
+          );
+        }}
       </Select>
 
       <DialogTrigger>
@@ -120,15 +135,26 @@ export const EnvironmentsWidget = () => {
                       variant='placeholder'
                       className='p-1'
                       onPress={async () => {
-                        const environment = new Environment({ name: 'New Environment' });
-                        const { id } = await createEnvironmentMutation.mutateAsync({ workspaceId, environment });
-                        environment.id = id;
+                        const environment = { name: 'New Environment' } satisfies EnvironmentJson;
+                        const { environmentId } = await createEnvironmentMutation.mutateAsync({
+                          ...environment,
+                          workspaceId,
+                        });
 
                         queryClient.setQueryData(
-                          createConnectQueryKey(getEnvironments, { workspaceId }),
-                          createProtobufSafeUpdater(getEnvironments, (old) => ({
-                            environments: Array.append(old?.environments ?? [], environment),
-                          })),
+                          createConnectQueryKey({
+                            schema: environmentList,
+                            cardinality: 'finite',
+                            input: { workspaceId },
+                          }),
+                          createProtobufSafeUpdater(environmentList, (old) =>
+                            create(EnvironmentListResponseSchema, {
+                              items: Array.append(
+                                old?.items ?? [],
+                                create(EnvironmentListItemSchema, { ...environment, environmentId }),
+                              ),
+                            }),
+                          ),
                         );
                       }}
                     >
@@ -137,55 +163,59 @@ export const EnvironmentsWidget = () => {
                   </div>
 
                   <TabList className='contents' items={environments}>
-                    {(item) => (
-                      <Tab
-                        id={item.id}
-                        className={({ isSelected }) =>
-                          twJoin(
-                            tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
-                            isSelected && tw`bg-neutral-400`,
-                            item.type === EnvironmentType.GLOBAL && tw`-order-2`,
-                          )
-                        }
-                      >
-                        <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>
-                          {item.type === EnvironmentType.GLOBAL ? <LuBraces /> : item.name[0]}
-                        </div>
-                        <span>{item.type === EnvironmentType.GLOBAL ? 'Global Variables' : item.name}</span>
-                      </Tab>
-                    )}
+                    {(item) => {
+                      const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
+                      return (
+                        <Tab
+                          id={environmentIdCan}
+                          className={({ isSelected }) =>
+                            twJoin(
+                              tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
+                              isSelected && tw`bg-neutral-400`,
+                              item.isGlobal && tw`-order-2`,
+                            )
+                          }
+                        >
+                          <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>
+                            {item.isGlobal ? <LuBraces /> : item.name[0]}
+                          </div>
+                          <span>{item.isGlobal ? 'Global Variables' : item.name}</span>
+                        </Tab>
+                      );
+                    }}
                   </TabList>
                 </div>
 
                 <Collection items={environments}>
-                  {(item) => (
-                    <TabPanel id={item.id} className='flex h-full min-w-0 flex-1 flex-col'>
-                      <div className='px-6 py-4'>
-                        <div className='mb-4 flex items-start'>
-                          <div className='flex-1'>
-                            <h1 className='text-xl font-medium'>
-                              {item.type === EnvironmentType.GLOBAL ? 'Global Variables' : item.name}
-                            </h1>
-                            {item.description && <span className='text-sm font-light'>{item.description}</span>}
+                  {(item) => {
+                    const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
+                    return (
+                      <TabPanel id={environmentIdCan} className='flex h-full min-w-0 flex-1 flex-col'>
+                        <div className='px-6 py-4'>
+                          <div className='mb-4 flex items-start'>
+                            <div className='flex-1'>
+                              <h1 className='text-xl font-medium'>{item.isGlobal ? 'Global Variables' : item.name}</h1>
+                              {item.description && <span className='text-sm font-light'>{item.description}</span>}
+                            </div>
+
+                            <Button variant='placeholder ghost' kind='placeholder' onPress={close}>
+                              <LuX />
+                            </Button>
                           </div>
 
-                          <Button variant='placeholder ghost' kind='placeholder' onPress={close}>
-                            <LuX />
-                          </Button>
+                          <VariablesTableLoader environmentId={item.environmentId} />
                         </div>
 
-                        <VariablesTableLoader environmentId={item.id} />
-                      </div>
+                        <div className='flex-1' />
 
-                      <div className='flex-1' />
-
-                      <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
-                        <Button kind='placeholder' variant='placeholder' onPress={close}>
-                          Save
-                        </Button>
-                      </div>
-                    </TabPanel>
-                  )}
+                        <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
+                          <Button kind='placeholder' variant='placeholder' onPress={close}>
+                            Save
+                          </Button>
+                        </div>
+                      </TabPanel>
+                    );
+                  }}
                 </Collection>
               </Tabs>
             )}
@@ -197,42 +227,51 @@ export const EnvironmentsWidget = () => {
 };
 
 interface VariablesTableLoaderProps {
-  environmentId: string;
+  environmentId: Environment['environmentId'];
 }
 
 const VariablesTableLoader = ({ environmentId }: VariablesTableLoaderProps) => {
-  const { data, isSuccess } = useConnectQuery(getVariables, { environmentId });
+  const { data, isSuccess } = useConnectQuery(variableList, { environmentId });
   if (!isSuccess) return;
-  return <VariablesTable environmentId={environmentId} variables={data.variables} />;
+  return <VariablesTable environmentId={environmentId} items={data.items} />;
 };
 
 interface VariablesTableProps extends VariablesTableLoaderProps {
-  variables: Variable[];
+  items: VariableListItem[];
 }
 
-const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
+const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
   const queryClient = useQueryClient();
   const transport = useTransport();
 
-  const { workspaceId } = workspaceRoute.useParams();
+  const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const createMutation = useConnectMutation(createVariable);
-  const updateMutation = useConnectMutation(updateVariable);
-  const { mutate: deleteMutate } = useConnectMutation(deleteVariable);
+  const createMutation = useConnectMutation(variableCreate);
+  const updateMutation = useConnectMutation(variableUpdate);
+  const { mutate: deleteMutate } = useConnectMutation(variableDelete);
 
-  const makeItem = useCallback((item?: Partial<Variable>) => new Variable({ ...item, enabled: true }), []);
-
-  const values = useMemo(() => ({ items: [...variables, makeItem()] }), [makeItem, variables]);
+  const makeItem = useCallback(
+    (variableId?: string, item?: VariableJson) => ({ ...item, variableId: variableId ?? '', enabled: true }),
+    [],
+  );
+  const values = useMemo(
+    () => ({ items: [...items.map((_): VariableJson => toJson(VariableListItemSchema, _)), makeItem()] }),
+    [items, makeItem],
+  );
   const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+  const { remove: removeField, ...fieldArray } = useFieldArray({
+    control: form.control,
+    name: 'items',
+    keyName: 'variableId',
+  });
 
   const onChange = useCallback(
-    () => queryClient.invalidateQueries(createQueryOptions(getAllVariables, { workspaceId }, { transport })),
+    () => queryClient.invalidateQueries(createQueryOptions(variableList, { workspaceId }, { transport })),
     [queryClient, transport, workspaceId],
   );
 
   const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<Variable>();
+    const { accessor, display } = createColumnHelper<VariableJson>();
     return [
       accessor('enabled', {
         header: '',
@@ -269,7 +308,10 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
               kind='placeholder'
               variant='placeholder ghost'
               onPress={() => {
-                deleteMutate({ id: getValues(`items.${row.index}.id`) });
+                const variableIdJson = getValues(`items.${row.index}.variableId`);
+                if (variableIdJson === undefined) return;
+                const { variableId } = fromJson(VariableSchema, { variableId: variableIdJson });
+                deleteMutate({ variableId });
                 removeField(row.index);
                 void onChange();
               }}
@@ -284,7 +326,7 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
-    getRowId: Struct.get('id'),
+    getRowId: (_) => _.variableId ?? '',
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
     columns,
@@ -292,20 +334,28 @@ const VariablesTable = ({ environmentId, variables }: VariablesTableProps) => {
 
   const setData = useCallback(async () => {
     await onChange();
-    const variables = Array.dropRight(getValues('items'), 1);
-    queryClient.setQueryData(
-      createConnectQueryKey(getVariables, { environmentId }),
-      createProtobufSafeUpdater(getVariables, { variables }),
+    const items = pipe(
+      getValues('items'),
+      Array.dropRight(1),
+      Array.map((_) => fromJson(VariableListItemSchema, _)),
     );
-  }, [environmentId, getValues, onChange, queryClient]);
+    queryClient.setQueryData(
+      createConnectQueryKey({ schema: variableList, cardinality: 'finite', input: { items } }),
+      createProtobufSafeUpdater(variableList, () => create(VariableListResponseSchema, { items })),
+    );
+  }, [getValues, onChange, queryClient]);
 
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
     fieldArray,
     makeItem,
-    onCreate: async (variable) => (await createMutation.mutateAsync({ environmentId, variable })).id,
-    onUpdate: (variable) => updateMutation.mutateAsync({ variable }),
+    getRowId: (_) => _.variableId,
+    onCreate: async (variable) => {
+      const response = await createMutation.mutateAsync({ ...variable, environmentId });
+      return toJson(VariableCreateResponseSchema, response).variableId ?? '';
+    },
+    onUpdate: (variable) => updateMutation.mutateAsync(fromJson(VariableUpdateRequestSchema, variable)),
     onChange,
     setData,
   });

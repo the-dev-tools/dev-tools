@@ -1,6 +1,8 @@
+import { create } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
+  createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
@@ -8,10 +10,11 @@ import { makeUrl } from '@effect/platform/UrlParams';
 import { Schema } from '@effect/schema';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Link, Outlet, redirect } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe } from 'effect';
+import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Struct } from 'effect';
+import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { useMemo, useState } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
@@ -20,14 +23,39 @@ import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 
-import { ApiCall, GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
-import { getApiCall, updateApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
-import { ApiExampleResponse, Query, ResponseHeader } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
+import { EndpointGetResponse } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
-  createQuery,
-  runExample,
-  updateQuery,
-} from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+  endpointGet,
+  endpointUpdate,
+} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
+import { ExampleGetResponse } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
+import {
+  exampleGet,
+  exampleRun,
+} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import {
+  QueryCreateRequest,
+  QueryCreateRequestSchema,
+  QueryListItemSchema,
+  QueryListResponse,
+  QueryListResponseSchema,
+  QueryUpdateRequest,
+  QueryUpdateRequestSchema,
+} from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import {
+  queryCreate,
+  queryList,
+  queryUpdate,
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
+import {
+  Response,
+  ResponseGetResponse,
+  ResponseHeaderListItem,
+} from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
+import {
+  responseGet,
+  responseHeaderList,
+} from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -35,50 +63,84 @@ import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId')({
+import { queryClient, transport } from './runtime';
+
+export const Route = createFileRoute(
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+)({
   component: Page,
+  loader: async ({ params: { workspaceIdCan, endpointIdCan, exampleIdCan } }) => {
+    const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
+    const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;
+
+    try {
+      const [{ lastResponseId }] = await Promise.all([
+        queryClient.ensureQueryData(createQueryOptions(exampleGet, { exampleId }, { transport })),
+        queryClient.ensureQueryData(createQueryOptions(endpointGet, { endpointId }, { transport })),
+        queryClient.ensureQueryData(createQueryOptions(queryList, { exampleId }, { transport })),
+      ]);
+
+      if (lastResponseId.byteLength > 0) {
+        await queryClient.ensureQueryData(
+          createQueryOptions(responseGet, { responseId: lastResponseId }, { transport }),
+        );
+      }
+    } catch {
+      redirect({
+        to: '/workspace/$workspaceIdCan',
+        params: { workspaceIdCan },
+        throw: true,
+      });
+    }
+
+    return { endpointId, exampleId };
+  },
 });
 
 function Page() {
-  const { apiCallId, exampleId } = Route.useParams();
+  const { endpointId, exampleId } = Route.useLoaderData();
 
-  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
+  const endpointQuery = useConnectQuery(endpointGet, { endpointId });
+  const exampleQuery = useConnectQuery(exampleGet, { exampleId });
+  const listQueriesQuery = useConnectQuery(queryList, { exampleId });
 
-  if (!query.isSuccess) return null;
-  const { data } = query;
+  if (!endpointQuery.isSuccess || !exampleQuery.isSuccess || !listQueriesQuery.isSuccess) return null;
 
-  return <ApiForm data={data} />;
+  return (
+    <EndpointForm endpoint={endpointQuery.data} example={exampleQuery.data} queries={listQueriesQuery.data.items} />
+  );
 }
 
 const methods = ['N/A', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 
-class ApiFormData extends Schema.Class<ApiFormData>('ApiCallFormData')({
-  method: Schema.String.pipe(Schema.filter((_) => Array.contains(methods, _) || 'Method is not valid')),
+class EndpointFormData extends Schema.Class<EndpointFormData>('EndpointFormData')({
+  method: Schema.String,
   url: Schema.String,
 }) {}
 
-interface ApiFormProps {
-  data: GetApiCallResponse;
+interface EndpointFormProps {
+  endpoint: EndpointGetResponse;
+  example: ExampleGetResponse;
+  queries: QueryListResponse['items'];
 }
 
-const ApiForm = ({ data }: ApiFormProps) => {
-  const { apiCallId, exampleId } = Route.useParams();
+const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
+  const { endpointId, exampleId } = Route.useLoaderData();
 
   const queryClient = useQueryClient();
 
-  const updateMutation = useConnectMutation(updateApiCall);
-  const runMutation = useConnectMutation(runExample);
+  const updateMutation = useConnectMutation(endpointUpdate);
+  const runMutation = useConnectMutation(exampleRun);
 
-  const updateQueryMutation = useConnectMutation(updateQuery);
-  const createQueryMutation = useConnectMutation(createQuery);
+  const updateQueryMutation = useConnectMutation(queryUpdate);
+  const createQueryMutation = useConnectMutation(queryCreate);
 
   const values = useMemo(() => {
     return pipe(
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      Option.fromNullable(data.apiCall?.url || undefined),
+      Option.fromNullable(endpoint.url || null),
       Option.flatMap((url) =>
         pipe(
-          Array.filterMap(data.example?.query ?? [], (_) => {
+          Array.filterMap(queries, (_) => {
             if (!_.enabled) return Option.none();
             else return Option.some([_.key, _.value] as const);
           }),
@@ -87,84 +149,91 @@ const ApiForm = ({ data }: ApiFormProps) => {
         ),
       ),
       Option.map((_) => _.toString()),
-      Option.getOrElse(() => data.apiCall?.url ?? ''),
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      (_) => new ApiFormData({ url: _, method: data.apiCall?.meta?.method || 'N/A' }),
+      Option.getOrElse(() => endpoint.url),
+      (_) =>
+        new EndpointFormData({
+          url: _,
+          method: Array.contains(methods, endpoint.method) ? endpoint.method : 'N/A',
+        }),
     );
-  }, [data.apiCall, data.example]);
+  }, [endpoint.method, endpoint.url, queries]);
 
   const form = useForm({
-    resolver: effectTsResolver(ApiFormData),
+    resolver: effectTsResolver(EndpointFormData),
     values,
   });
 
-  const onSubmit = form.handleSubmit(async (formData) => {
-    const {
-      origin = '',
-      pathname = '',
-      searchParams = new URLSearchParams(),
-    } = !formData.url ? {} : new URL(formData.url);
+  const onSubmit = form.handleSubmit(async ({ method, url: urlString }) => {
+    const { origin = '', pathname = '', searchParams = new URLSearchParams() } = !urlString ? {} : new URL(urlString);
 
-    const apiCall = new ApiCall({
-      ...data.apiCall,
-      url: origin + pathname,
-      meta: { ...data.apiCall?.meta, method: formData.method },
-    });
-
-    updateMutation.mutate({ apiCall });
+    updateMutation.mutate({ endpointId, method, url: origin + pathname });
 
     const queryMap = pipe(
       searchParams.entries(),
       Array.fromIterable,
-      Array.map(([key, value]) => [key + value, new Query({ key, value, enabled: true, exampleId })] as const),
+      Array.map(([key, value]): [string, QueryCreateRequest | QueryUpdateRequest] => [
+        key + value,
+        create(QueryCreateRequestSchema, { key, value }),
+      ]),
       MutableHashMap.fromIterable,
     );
 
-    data.example!.query.forEach((query) => {
+    queries.forEach(({ queryId, key, value, enabled }) => {
       MutableHashMap.modifyAt(
         queryMap,
-        query.key + query.value,
+        key + value,
         Option.match({
           onSome: () => {
-            if (query.enabled) return Option.none();
-            else return Option.some(new Query({ ...query, enabled: true }));
+            if (enabled) return Option.none();
+            return Option.some(create(QueryUpdateRequestSchema, { queryId, enabled: true }));
           },
           onNone: () => {
-            if (!query.enabled) return Option.none();
-            return Option.some(new Query({ ...query, exampleId, enabled: false }));
+            if (!enabled) return Option.none();
+            return Option.some(create(QueryUpdateRequestSchema, { queryId, enabled: false }));
           },
         }),
       );
     });
 
     const queryIdIndexMap = pipe(
-      data.example!.query,
-      Array.map(({ id }, index) => [id, index] as const),
+      queries,
+      Array.map(({ queryId }, index) => [queryId, index] as const),
       HashMap.fromIterable,
     );
 
-    const newQueryList = [...data.example!.query];
+    const newQueryList = Array.copy(queries);
     await pipe(
       Array.fromIterable(queryMap),
       Array.map(async ([_, query]) => {
-        if (query.id) {
-          await updateQueryMutation.mutateAsync({ query });
-          const index = HashMap.unsafeGet(queryIdIndexMap, query.id);
-          newQueryList[index] = query;
+        if (query.$typeName === 'collection.item.request.v1.QueryUpdateRequest') {
+          await updateQueryMutation.mutateAsync(query);
+          const index = HashMap.unsafeGet(queryIdIndexMap, query.queryId);
+          const oldQuery = newQueryList[index];
+          if (!oldQuery) return;
+          newQueryList[index] = create(QueryListItemSchema, {
+            ...oldQuery,
+            ...Struct.omit(query, '$typeName'),
+          });
         } else {
-          const { id } = await createQueryMutation.mutateAsync({ query });
-          newQueryList.push(new Query({ ...query, id }));
+          const { queryId } = await createQueryMutation.mutateAsync(query);
+          newQueryList.push(
+            create(QueryListItemSchema, {
+              queryId,
+              ...Struct.omit(query, '$typeName'),
+            }),
+          );
         }
       }),
       (_) => Promise.allSettled(_),
     );
 
     queryClient.setQueryData(
-      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-      createProtobufSafeUpdater(getApiCall, (old) => ({
-        apiCall,
-        example: { ...old?.example, query: newQueryList },
-      })),
+      createConnectQueryKey({
+        schema: queryList,
+        cardinality: 'finite',
+        input: { exampleId },
+      }),
+      createProtobufSafeUpdater(queryList, () => create(QueryListResponseSchema, { items: newQueryList })),
     );
   });
 
@@ -173,7 +242,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <form onSubmit={onSubmit}>
           <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
-            <h2 className='flex-1 truncate text-sm font-bold'>{data.apiCall!.meta!.name}</h2>
+            <h2 className='flex-1 truncate text-sm font-bold'>{example.name}</h2>
 
             <Button kind='placeholder' variant='placeholder' type='submit'>
               <LuSave /> Save
@@ -203,18 +272,25 @@ const ApiForm = ({ data }: ApiFormProps) => {
               inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
             />
 
-            {/* TODO: implement */}
             <Button
               kind='placeholder'
               variant='placeholder'
               className='rounded-l-none border-l-0 bg-black text-white'
               onPress={async () => {
                 await onSubmit();
-                const { response } = await runMutation.mutateAsync({ id: exampleId });
-                if (!response) return;
+                const { responseId } = await runMutation.mutateAsync({
+                  exampleId,
+                });
                 queryClient.setQueryData(
-                  createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-                  createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old?.example, response } })),
+                  createConnectQueryKey({
+                    schema: exampleGet,
+                    cardinality: 'finite',
+                    input: { exampleId },
+                  }),
+                  createProtobufSafeUpdater(exampleGet, (old) => {
+                    if (old === undefined) return undefined;
+                    return { ...old, lastResponseId: responseId };
+                  }),
                 );
               }}
             >
@@ -229,7 +305,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
               activeProps={{ className: tw`border-b-black` }}
               activeOptions={{ exact: true }}
-              from='/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
+              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='.'
             >
               Params
@@ -237,7 +313,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
             <Link
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
               activeProps={{ className: tw`border-b-black` }}
-              from='/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
+              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='headers'
             >
               Headers
@@ -245,7 +321,7 @@ const ApiForm = ({ data }: ApiFormProps) => {
             <Link
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
               activeProps={{ className: tw`border-b-black` }}
-              from='/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId'
+              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='body'
             >
               Body
@@ -255,11 +331,11 @@ const ApiForm = ({ data }: ApiFormProps) => {
           <Outlet />
         </div>
       </Panel>
-      {data.example?.response && (
+      {example.lastResponseId.byteLength > 0 && (
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
-            <ResponsePanel response={data.example.response} />
+            <ResponsePanelLoader responseId={example.lastResponseId} />
           </Panel>
         </>
       )}
@@ -267,11 +343,23 @@ const ApiForm = ({ data }: ApiFormProps) => {
   );
 };
 
+interface ResponsePanelLoaderProps {
+  responseId: Response['responseId'];
+}
+
+const ResponsePanelLoader = ({ responseId }: ResponsePanelLoaderProps) => {
+  const responseQuery = useConnectQuery(responseGet, { responseId });
+  if (!responseQuery.isSuccess) return null;
+  return <ResponsePanel response={responseQuery.data} />;
+};
+
 interface ResponsePanelProps {
-  response: ApiExampleResponse;
+  response: ResponseGetResponse;
 }
 
 const ResponsePanel = ({ response }: ResponsePanelProps) => {
+  const { responseId } = response;
+
   return (
     <Tabs className='flex h-full flex-col'>
       <div className='flex items-center gap-2 border-b border-black pl-2 pr-4 text-sm text-neutral-500'>
@@ -317,7 +405,7 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
         </TabPanel>
 
         <TabPanel id='headers' className='p-4'>
-          <ResponseHeadersTable headers={response.headers} />
+          <ResponseHeaderTableLoader responseId={responseId} />
         </TabPanel>
       </div>
     </Tabs>
@@ -453,13 +541,23 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
   );
 };
 
+interface ResponseHeaderTableLoaderProps {
+  responseId: Response['responseId'];
+}
+
+const ResponseHeaderTableLoader = ({ responseId }: ResponseHeaderTableLoaderProps) => {
+  const query = useConnectQuery(responseHeaderList, { responseId });
+  if (!query.isSuccess) return null;
+  return <ResponseHeadersTable headers={query.data.items} />;
+};
+
 interface ResponseHeadersTableProps {
-  headers: ResponseHeader[];
+  headers: ResponseHeaderListItem[];
 }
 
 const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
   const columns = useMemo(() => {
-    const { accessor } = createColumnHelper<ResponseHeader>();
+    const { accessor } = createColumnHelper<ResponseHeaderListItem>();
     return [accessor('key', {}), accessor('value', {})];
   }, []);
 
@@ -479,7 +577,9 @@ const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
                 <th
                   key={header.id}
                   className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
+                  style={{
+                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
+                  }}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>

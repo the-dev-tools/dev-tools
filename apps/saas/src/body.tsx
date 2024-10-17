@@ -1,39 +1,52 @@
+import { create, fromJson, toJson } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
-  createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
-  useTransport,
 } from '@connectrpc/connect-query';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Match, pipe, Struct } from 'effect';
+import { Array, Match, pipe } from 'effect';
 import { useCallback, useMemo, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 
 import {
-  Body,
-  BodyFormArray,
-  BodyFormItem,
-  BodyRaw,
-  BodyUrlEncodedArray,
-  BodyUrlEncodedItem,
-} from '@the-dev-tools/protobuf/body/v1/body_pb';
+  BodyFormItemCreateResponseSchema,
+  BodyFormItemJson,
+  BodyFormItemListItem,
+  BodyFormItemListItemSchema,
+  BodyFormItemListResponseSchema,
+  BodyFormItemSchema,
+  BodyFormItemUpdateRequestSchema,
+  BodyKind,
+  BodyUrlEncodedItemCreateResponseSchema,
+  BodyUrlEncodedItemJson,
+  BodyUrlEncodedItemListItem,
+  BodyUrlEncodedItemListItemSchema,
+  BodyUrlEncodedItemListResponseSchema,
+  BodyUrlEncodedItemSchema,
+  BodyUrlEncodedItemUpdateRequestSchema,
+} from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import {
-  createBodyForm,
-  createBodyUrlEncoded,
-  deleteBodyForm,
-  deleteBodyUrlEncoded,
-  updateBodyForm,
-  updateBodyRaw,
-  updateBodyUrlEncoded,
-} from '@the-dev-tools/protobuf/body/v1/body-BodyService_connectquery';
-import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
-import { updateExample } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+  bodyFormItemCreate,
+  bodyFormItemDelete,
+  bodyFormItemList,
+  bodyFormItemUpdate,
+  bodyRawGet,
+  bodyRawUpdate,
+  bodyUrlEncodedItemCreate,
+  bodyUrlEncodedItemDelete,
+  bodyUrlEncodedItemList,
+  bodyUrlEncodedItemUpdate,
+} from '@the-dev-tools/spec/collection/item/body/v1/body-RequestService_connectquery';
+import {
+  exampleGet,
+  exampleUpdate,
+} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
@@ -45,23 +58,25 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/body')(
-  {
-    component: Tab,
-  },
+export const Route = createFileRoute(
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body',
+)({ component: Tab });
+
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+const endpointRoute = getRouteApi(
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 );
 
 function Tab() {
   const queryClient = useQueryClient();
-  const transport = useTransport();
 
-  const { apiCallId, exampleId } = Route.useParams();
+  const { exampleId } = endpointRoute.useLoaderData();
 
-  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
-  const updateMutation = useConnectMutation(updateExample);
+  const query = useConnectQuery(exampleGet, { exampleId });
+  const updateMutation = useConnectMutation(exampleUpdate);
 
   if (!query.isSuccess) return null;
-  const body = query.data.example!.body!.value;
+  const { bodyKind } = query.data;
 
   return (
     <div className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
@@ -69,64 +84,85 @@ function Tab() {
         aria-label='Body type'
         className='h-7 justify-center'
         orientation='horizontal'
-        value={body.case ?? 'none'}
-        onChange={async (kind) => {
-          await updateMutation.mutateAsync({
-            id: query.data.example!.meta!.id,
-            bodyType: new Body({
-              value: {
-                case: kind as Exclude<Body['value']['case'], undefined>,
-                value: {},
-              },
-            }),
-          });
+        value={bodyKind.toString()}
+        onChange={async (key) => {
+          const bodyKind = parseInt(key);
+          await updateMutation.mutateAsync({ exampleId, bodyKind });
 
-          await queryClient.invalidateQueries(
-            createQueryOptions(getApiCall, { id: apiCallId, exampleId }, { transport }),
+          await queryClient.setQueryData(
+            createConnectQueryKey({
+              schema: exampleGet,
+              cardinality: 'finite',
+              input: { exampleId },
+            }),
+            createProtobufSafeUpdater(exampleGet, (old) => {
+              if (old === undefined) return undefined;
+              return { ...old, bodyKind };
+            }),
           );
         }}
       >
-        <Radio value='none'>none</Radio>
-        <Radio value='forms'>form-data</Radio>
-        <Radio value='urlEncodeds'>x-www-form-urlencoded</Radio>
-        <Radio value='raw'>raw</Radio>
+        <Radio value={BodyKind.UNSPECIFIED.toString()}>none</Radio>
+        <Radio value={BodyKind.FORM_ARRAY.toString()}>form-data</Radio>
+        <Radio value={BodyKind.URL_ENCODED_ARRAY.toString()}>x-www-form-urlencoded</Radio>
+        <Radio value={BodyKind.RAW.toString()}>raw</Radio>
       </RadioGroup>
 
       {pipe(
-        Match.value(body),
-        Match.when({ case: 'forms' }, ({ value }) => <FormDataTable body={value} />),
-        Match.when({ case: 'urlEncodeds' }, ({ value }) => <UrlEncodedTable body={value} />),
-        Match.when({ case: 'raw' }, ({ value }) => <RawForm body={value} />),
+        Match.value(bodyKind),
+        Match.when(BodyKind.FORM_ARRAY, () => <FormDataTableLoader />),
+        Match.when(BodyKind.URL_ENCODED_ARRAY, () => <UrlEncodedTableLoader />),
+        Match.when(BodyKind.RAW, () => <RawFormLoader />),
         Match.orElse(() => null),
       )}
     </div>
   );
 }
 
+const FormDataTableLoader = () => {
+  const { exampleId } = endpointRoute.useLoaderData();
+  const query = useConnectQuery(bodyFormItemList, { exampleId });
+  if (!query.isSuccess) return null;
+  return <FormDataTable items={query.data.items} />;
+};
+
 interface FormDataTableProps {
-  body: BodyFormArray;
+  items: BodyFormItemListItem[];
 }
 
-const FormDataTable = ({ body }: FormDataTableProps) => {
+const FormDataTable = ({ items }: FormDataTableProps) => {
   const queryClient = useQueryClient();
 
-  const { workspaceId, apiCallId, exampleId } = Route.useParams();
+  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { exampleId } = endpointRoute.useLoaderData();
 
-  const createMutation = useConnectMutation(createBodyForm);
-  const updateMutation = useConnectMutation(updateBodyForm);
-  const { mutate: deleteMutate } = useConnectMutation(deleteBodyForm);
+  const createMutation = useConnectMutation(bodyFormItemCreate);
+  const updateMutation = useConnectMutation(bodyFormItemUpdate);
+  const { mutate: deleteMutate } = useConnectMutation(bodyFormItemDelete);
 
   const makeItem = useCallback(
-    (item?: Partial<BodyFormItem>) => new BodyFormItem({ ...item, enabled: true, exampleId }),
-    [exampleId],
+    (bodyId?: string, item?: BodyFormItemJson) => ({
+      ...item,
+      bodyId: bodyId ?? '',
+      enabled: true,
+    }),
+    [],
   );
-
-  const values = useMemo(() => ({ items: [...body.items, makeItem()] }), [body.items, makeItem]);
+  const values = useMemo(
+    () => ({
+      items: [...items.map((_): BodyFormItemJson => toJson(BodyFormItemListItemSchema, _)), makeItem()],
+    }),
+    [items, makeItem],
+  );
   const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+  const { remove: removeField, ...fieldArray } = useFieldArray({
+    control: form.control,
+    name: 'items',
+    keyName: 'bodyId',
+  });
 
   const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<BodyFormItem>();
+    const { accessor, display } = createColumnHelper<BodyFormItemJson>();
     return [
       accessor('enabled', {
         header: '',
@@ -175,7 +211,12 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
               kind='placeholder'
               variant='placeholder ghost'
               onPress={() => {
-                deleteMutate({ id: getValues(`items.${row.index}.id`) });
+                const bodyIdJson = getValues(`items.${row.index}.bodyId`);
+                if (bodyIdJson === undefined) return;
+                const { bodyId } = fromJson(BodyFormItemSchema, {
+                  bodyId: bodyIdJson,
+                });
+                deleteMutate({ bodyId });
                 removeField(row.index);
               }}
             >
@@ -189,33 +230,39 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
-    getRowId: Struct.get('id'),
+    getRowId: (_) => _.bodyId ?? '',
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
     columns,
   });
 
   const setData = useCallback(() => {
-    const items = Array.dropRight(getValues('items'), 1);
-    queryClient.setQueryData(
-      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-      createProtobufSafeUpdater(getApiCall, (old) => ({
-        ...old,
-        example: {
-          ...old?.example,
-          body: new Body({ value: { case: 'forms', value: { items } } }),
-        },
-      })),
+    const items = pipe(
+      getValues('items'),
+      Array.dropRight(1),
+      Array.map((_) => fromJson(BodyFormItemListItemSchema, _)),
     );
-  }, [apiCallId, exampleId, getValues, queryClient]);
+    queryClient.setQueryData(
+      createConnectQueryKey({
+        schema: bodyFormItemList,
+        cardinality: 'finite',
+        input: { items },
+      }),
+      createProtobufSafeUpdater(bodyFormItemList, () => create(BodyFormItemListResponseSchema, { items })),
+    );
+  }, [getValues, queryClient]);
 
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
     fieldArray,
     makeItem,
-    onCreate: async (item) => (await createMutation.mutateAsync({ item })).id,
-    onUpdate: (item) => updateMutation.mutateAsync({ item }),
+    getRowId: (_) => _.bodyId,
+    onCreate: async (body) => {
+      const response = await createMutation.mutateAsync({ ...body, exampleId });
+      return toJson(BodyFormItemCreateResponseSchema, response).bodyId ?? '';
+    },
+    onUpdate: (body) => updateMutation.mutateAsync(fromJson(BodyFormItemUpdateRequestSchema, body)),
     setData,
   });
 
@@ -229,7 +276,9 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
                 <th
                   key={header.id}
                   className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
+                  style={{
+                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
+                  }}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
@@ -253,30 +302,50 @@ const FormDataTable = ({ body }: FormDataTableProps) => {
   );
 };
 
+const UrlEncodedTableLoader = () => {
+  const { exampleId } = endpointRoute.useLoaderData();
+  const query = useConnectQuery(bodyUrlEncodedItemList, { exampleId });
+  if (!query.isSuccess) return null;
+  return <UrlEncodedTable items={query.data.items} />;
+};
+
 interface UrlEncodedTableProps {
-  body: BodyUrlEncodedArray;
+  items: BodyUrlEncodedItemListItem[];
 }
 
-const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
+const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
   const queryClient = useQueryClient();
 
-  const { workspaceId, apiCallId, exampleId } = Route.useParams();
+  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { exampleId } = endpointRoute.useLoaderData();
 
-  const createMutation = useConnectMutation(createBodyUrlEncoded);
-  const updateMutation = useConnectMutation(updateBodyUrlEncoded);
-  const { mutate: deleteMutate } = useConnectMutation(deleteBodyUrlEncoded);
+  const createMutation = useConnectMutation(bodyUrlEncodedItemCreate);
+  const updateMutation = useConnectMutation(bodyUrlEncodedItemUpdate);
+  const { mutate: deleteMutate } = useConnectMutation(bodyUrlEncodedItemDelete);
 
   const makeItem = useCallback(
-    (item?: Partial<BodyUrlEncodedItem>) => new BodyUrlEncodedItem({ ...item, enabled: true, exampleId }),
-    [exampleId],
+    (bodyId?: string, item?: BodyUrlEncodedItemJson) => ({
+      ...item,
+      bodyId: bodyId ?? '',
+      enabled: true,
+    }),
+    [],
   );
-
-  const values = useMemo(() => ({ items: [...body.items, makeItem()] }), [body.items, makeItem]);
+  const values = useMemo(
+    () => ({
+      items: [...items.map((_): BodyUrlEncodedItemJson => toJson(BodyUrlEncodedItemListItemSchema, _)), makeItem()],
+    }),
+    [items, makeItem],
+  );
   const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+  const { remove: removeField, ...fieldArray } = useFieldArray({
+    control: form.control,
+    name: 'items',
+    keyName: 'bodyId',
+  });
 
   const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<BodyUrlEncodedItem>();
+    const { accessor, display } = createColumnHelper<BodyUrlEncodedItemJson>();
     return [
       accessor('enabled', {
         header: '',
@@ -325,7 +394,12 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
               kind='placeholder'
               variant='placeholder ghost'
               onPress={() => {
-                deleteMutate({ id: getValues(`items.${row.index}.id`) });
+                const bodyIdJson = getValues(`items.${row.index}.bodyId`);
+                if (bodyIdJson === undefined) return;
+                const { bodyId } = fromJson(BodyUrlEncodedItemSchema, {
+                  bodyId: bodyIdJson,
+                });
+                deleteMutate({ bodyId });
                 removeField(row.index);
               }}
             >
@@ -339,33 +413,39 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
-    getRowId: Struct.get('id'),
+    getRowId: (_) => _.bodyId ?? '',
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
     columns,
   });
 
   const setData = useCallback(() => {
-    const items = Array.dropRight(getValues('items'), 1);
-    queryClient.setQueryData(
-      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-      createProtobufSafeUpdater(getApiCall, (old) => ({
-        ...old,
-        example: {
-          ...old?.example,
-          body: new Body({ value: { case: 'forms', value: { items } } }),
-        },
-      })),
+    const items = pipe(
+      getValues('items'),
+      Array.dropRight(1),
+      Array.map((_) => fromJson(BodyUrlEncodedItemListItemSchema, _)),
     );
-  }, [apiCallId, exampleId, getValues, queryClient]);
+    queryClient.setQueryData(
+      createConnectQueryKey({
+        schema: bodyUrlEncodedItemList,
+        cardinality: 'finite',
+        input: { items },
+      }),
+      createProtobufSafeUpdater(bodyUrlEncodedItemList, () => create(BodyUrlEncodedItemListResponseSchema, { items })),
+    );
+  }, [getValues, queryClient]);
 
   useFormTableSync({
     field: 'items',
     form: { ...form, getValues },
     fieldArray,
     makeItem,
-    onCreate: async (item) => (await createMutation.mutateAsync({ item })).id,
-    onUpdate: (item) => updateMutation.mutateAsync({ item }),
+    getRowId: (_) => _.bodyId,
+    onCreate: async (body) => {
+      const response = await createMutation.mutateAsync({ ...body, exampleId });
+      return toJson(BodyUrlEncodedItemCreateResponseSchema, response).bodyId ?? '';
+    },
+    onUpdate: (body) => updateMutation.mutateAsync(fromJson(BodyUrlEncodedItemUpdateRequestSchema, body)),
     setData,
   });
 
@@ -379,7 +459,9 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
                 <th
                   key={header.id}
                   className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
+                  style={{
+                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
+                  }}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
@@ -404,16 +486,25 @@ const UrlEncodedTable = ({ body }: UrlEncodedTableProps) => {
 };
 
 const languages = ['text', 'json', 'html', 'xml'] as const;
+
+const RawFormLoader = () => {
+  const { exampleId } = endpointRoute.useLoaderData();
+  const query = useConnectQuery(bodyRawGet, { exampleId });
+  if (!query.isSuccess) return null;
+  const body = new TextDecoder().decode(query.data.data);
+  return <RawForm body={body} />;
+};
+
 interface RawFormProps {
-  body: BodyRaw;
+  body: string;
 }
 
 const RawForm = ({ body }: RawFormProps) => {
-  const { exampleId } = Route.useParams();
+  const { exampleId } = endpointRoute.useLoaderData();
 
-  const updateMutation = useConnectMutation(updateBodyRaw);
+  const updateMutation = useConnectMutation(bodyRawUpdate);
 
-  const [value, setValue] = useState(new TextDecoder().decode(body.bodyBytes));
+  const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<(typeof languages)[number]>('text');
 
   const { data: extensions } = useQuery({
@@ -451,7 +542,12 @@ const RawForm = ({ body }: RawFormProps) => {
       <CodeMirror
         value={value}
         onChange={setValue}
-        onBlur={() => void updateMutation.mutate({ exampleId, bodyBytes: new TextEncoder().encode(value) })}
+        onBlur={() =>
+          void updateMutation.mutate({
+            exampleId,
+            data: new TextEncoder().encode(value),
+          })
+        }
         height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}

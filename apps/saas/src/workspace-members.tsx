@@ -1,27 +1,29 @@
 import { useMutation as useConnectMutation } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe } from 'effect';
 import { Form } from 'react-aria-components';
 
-import { inviteUser } from '@the-dev-tools/protobuf/workspace/v1/workspace-WorkspaceService_connectquery';
+import { workspaceMemberCreate } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { Runtime } from './runtime';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/members')({
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/members')({
   component: Page,
 });
+
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
   email: Schema.String,
 }) {}
 
 function Page() {
-  const { workspaceId } = Route.useParams();
+  const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const inviteUserMutation = useConnectMutation(inviteUser);
+  const createMemberMutation = useConnectMutation(workspaceMemberCreate);
 
   return (
     <div className='p-4'>
@@ -38,7 +40,7 @@ function Page() {
               Schema.decode(InviteForm),
             );
 
-            yield* Effect.tryPromise(() => inviteUserMutation.mutateAsync({ workspaceId, email }));
+            createMemberMutation.mutate({ workspaceId, email });
           }).pipe(Runtime.runPromise)
         }
       >

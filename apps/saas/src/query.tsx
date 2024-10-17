@@ -1,3 +1,4 @@
+import { create, fromJson, toJson } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
@@ -5,21 +6,28 @@ import {
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Array, Struct } from 'effect';
+import { Array, pipe } from 'effect';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 
-import { GetApiCallResponse } from '@the-dev-tools/protobuf/itemapi/v1/itemapi_pb';
-import { getApiCall } from '@the-dev-tools/protobuf/itemapi/v1/itemapi-ItemApiService_connectquery';
-import { Query } from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample_pb';
 import {
-  createQuery,
-  deleteQuery,
-  updateQuery,
-} from '@the-dev-tools/protobuf/itemapiexample/v1/itemapiexample-ItemApiExampleService_connectquery';
+  QueryCreateResponseSchema,
+  QueryJson,
+  QueryListItem,
+  QueryListItemSchema,
+  QueryListResponseSchema,
+  QuerySchema,
+  QueryUpdateRequestSchema,
+} from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import {
+  queryCreate,
+  queryDelete,
+  queryList,
+  queryUpdate,
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
@@ -27,49 +35,77 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceId/api-call/$apiCallId/example/$exampleId/')({
+export const Route = createFileRoute(
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/',
+)({
   component: Tab,
 });
 
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+const endpointRoute = getRouteApi(
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+);
+
 function Tab() {
-  const { apiCallId, exampleId } = Route.useParams();
-  const query = useConnectQuery(getApiCall, { id: apiCallId, exampleId });
+  const { exampleId } = endpointRoute.useLoaderData();
+  const query = useConnectQuery(queryList, { exampleId });
   if (!query.isSuccess) return null;
-  return <Table data={query.data} />;
+  return <Table items={query.data.items} />;
 }
 
 interface TableProps {
-  data: GetApiCallResponse;
+  items: QueryListItem[];
 }
 
-const Table = ({ data }: TableProps) => {
+const Table = ({ items }: TableProps) => {
   const queryClient = useQueryClient();
 
-  const { workspaceId, apiCallId, exampleId } = Route.useParams();
+  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { exampleId } = endpointRoute.useLoaderData();
 
-  const createMutation = useConnectMutation(createQuery);
-  const updateMutation = useConnectMutation(updateQuery);
-  const { mutate: deleteMutate } = useConnectMutation(deleteQuery);
+  const createMutation = useConnectMutation(queryCreate);
+  const updateMutation = useConnectMutation(queryUpdate);
+  const { mutate: deleteMutate } = useConnectMutation(queryDelete);
 
   const makeItem = useCallback(
-    (item?: Partial<Query>) => new Query({ ...item, enabled: true, exampleId }),
-    [exampleId],
+    (queryId?: string, item?: QueryJson) => ({
+      ...item,
+      queryId: queryId ?? '',
+      enabled: true,
+    }),
+    [],
   );
-
-  const values = useMemo(() => ({ items: [...data.example!.query, makeItem()] }), [data.example, makeItem]);
+  const values = useMemo(
+    () => ({
+      items: [...items.map((_): QueryJson => toJson(QueryListItemSchema, _)), makeItem()],
+    }),
+    [items, makeItem],
+  );
   const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({ control: form.control, name: 'items' });
+  const { remove: removeField, ...fieldArray } = useFieldArray({
+    control: form.control,
+    name: 'items',
+    keyName: 'queryId',
+  });
 
   const setData = useCallback(() => {
-    const query = Array.dropRight(getValues('items'), 1);
-    queryClient.setQueryData(
-      createConnectQueryKey(getApiCall, { id: apiCallId, exampleId }),
-      createProtobufSafeUpdater(getApiCall, (old) => ({ ...old, example: { ...old?.example, query } })),
+    const items = pipe(
+      getValues('items'),
+      Array.dropRight(1),
+      Array.map((_) => fromJson(QueryListItemSchema, _)),
     );
-  }, [apiCallId, exampleId, getValues, queryClient]);
+    queryClient.setQueryData(
+      createConnectQueryKey({
+        schema: queryList,
+        cardinality: 'finite',
+        input: { items },
+      }),
+      createProtobufSafeUpdater(queryList, () => create(QueryListResponseSchema, { items })),
+    );
+  }, [getValues, queryClient]);
 
   const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<Query>();
+    const { accessor, display } = createColumnHelper<QueryJson>();
     return [
       accessor('enabled', {
         header: '',
@@ -118,7 +154,12 @@ const Table = ({ data }: TableProps) => {
               kind='placeholder'
               variant='placeholder ghost'
               onPress={() => {
-                deleteMutate({ id: getValues(`items.${row.index}.id`) });
+                const queryIdJson = getValues(`items.${row.index}.queryId`);
+                if (queryIdJson === undefined) return;
+                const { queryId } = fromJson(QuerySchema, {
+                  queryId: queryIdJson,
+                });
+                deleteMutate({ queryId });
                 removeField(row.index);
                 void setData();
               }}
@@ -131,9 +172,9 @@ const Table = ({ data }: TableProps) => {
     ];
   }, [form.control, workspaceId, deleteMutate, getValues, removeField, setData]);
 
-  const table = useReactTable<Query>({
+  const table = useReactTable<QueryJson>({
     getCoreRowModel: getCoreRowModel(),
-    getRowId: Struct.get('id'),
+    getRowId: (_) => _.queryId ?? '',
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
     columns,
@@ -144,8 +185,15 @@ const Table = ({ data }: TableProps) => {
     form: { ...form, getValues },
     fieldArray,
     makeItem,
-    onCreate: async (query) => (await createMutation.mutateAsync({ query })).id,
-    onUpdate: (query) => updateMutation.mutateAsync({ query }),
+    getRowId: (_) => _.queryId,
+    onCreate: async (query) => {
+      const response = await createMutation.mutateAsync({
+        ...query,
+        exampleId,
+      });
+      return toJson(QueryCreateResponseSchema, response).queryId ?? '';
+    },
+    onUpdate: (query) => updateMutation.mutateAsync(fromJson(QueryUpdateRequestSchema, query)),
     onChange: setData,
     setData,
   });
