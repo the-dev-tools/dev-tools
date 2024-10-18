@@ -16,12 +16,12 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
-import { twMerge } from 'tailwind-merge';
+import { twJoin, twMerge } from 'tailwind-merge';
 
 import { EndpointGetResponse } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
@@ -49,10 +49,12 @@ import {
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {
   Response,
+  ResponseAssertListItem,
   ResponseGetResponse,
   ResponseHeaderListItem,
 } from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
 import {
+  responseAssertList,
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
@@ -386,6 +388,17 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
           >
             Headers
           </Tab>
+          <Tab
+            id='asserts'
+            className={({ isSelected }) =>
+              twMerge(
+                tw`cursor-pointer border-b-2 border-transparent p-2 transition-colors`,
+                isSelected && tw`border-black text-black`,
+              )
+            }
+          >
+            Test Results
+          </Tab>
         </TabList>
 
         <div className='flex-1' />
@@ -406,6 +419,10 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
 
         <TabPanel id='headers' className='p-4'>
           <ResponseHeaderTableLoader responseId={responseId} />
+        </TabPanel>
+
+        <TabPanel id='asserts' className='p-4'>
+          <ResponseAssertsTableLoader responseId={responseId} />
         </TabPanel>
       </div>
     </Tabs>
@@ -602,3 +619,40 @@ const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
     </div>
   );
 };
+
+interface ResponseAssertsTableLoaderProps {
+  responseId: Response['responseId'];
+}
+
+const ResponseAssertsTableLoader = ({ responseId }: ResponseAssertsTableLoaderProps) => {
+  const query = useConnectQuery(responseAssertList, { responseId });
+  if (!query.isSuccess) return null;
+  return <ResponseAssertsTable asserts={query.data.items} />;
+};
+
+interface ResponseAssertsTableProps {
+  asserts: ResponseAssertListItem[];
+}
+
+const ResponseAssertsTable = ({ asserts }: ResponseAssertsTableProps) => (
+  <div className={tw`grid grid-cols-[auto_1fr] items-center gap-2 text-sm`}>
+    {asserts.map(({ asssert, result }) => {
+      if (!asssert) return null;
+      const assertIdCan = Ulid.construct(asssert.assertId).toCanonical();
+      return (
+        <Fragment key={assertIdCan}>
+          <div
+            className={twJoin(
+              tw`rounded px-2 py-1 text-center font-light uppercase text-white`,
+              result ? tw`bg-green-600` : tw`bg-red-600`,
+            )}
+          >
+            {result ? 'Pass' : 'Fail'}
+          </div>
+
+          <span>{asssert.name}</span>
+        </Fragment>
+      );
+    })}
+  </div>
+);
