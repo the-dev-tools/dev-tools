@@ -71,6 +71,7 @@ export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 )({
   component: Page,
+  pendingComponent: () => 'Loading example...',
   loader: async ({ params: { workspaceIdCan, endpointIdCan, exampleIdCan } }) => {
     const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
     const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;

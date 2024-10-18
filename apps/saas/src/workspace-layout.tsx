@@ -58,6 +58,7 @@ import { queryClient, Runtime, transport } from './runtime';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   component: Layout,
+  pendingComponent: () => 'Loading workspace...',
   loader: async ({ params: { workspaceIdCan } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
     const options = createQueryOptions(workspaceGet, { workspaceId }, { transport });
