@@ -81,12 +81,16 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 	// TODO: add queries to just get root folders
 	folders, err := c.ifs.GetFoldersWithCollectionID(ctx, collectionID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		if err != sitemfolder.ErrNoItemFolderFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	endpoints, err := c.ias.GetApisWithCollectionID(ctx, collectionID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		if err != sitemapi.ErrNoItemApiFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	// TODO: make this more efficient
@@ -109,6 +113,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 				}
 				resp, err := c.res.GetExampleRespByExampleID(ctx, ex.ID)
 				var respID *idwrap.IDWrap = nil
+
 				if err != nil {
 					if err != sql.ErrNoRows {
 						return nil, connect.NewError(connect.CodeInternal, err)

@@ -36,11 +36,12 @@ func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionServi
 	iaes sitemapiexample.ItemApiExampleService,
 ) ItemApiRPC {
 	return ItemApiRPC{
-		DB:  db,
-		ias: &ias,
-		ifs: &ifs,
-		cs:  &cs,
-		us:  &us,
+		DB:   db,
+		ias:  &ias,
+		ifs:  &ifs,
+		cs:   &cs,
+		us:   &us,
+		iaes: &iaes,
 	}
 }
 
@@ -94,6 +95,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		CollectionID: itemApiReq.CollectionID,
 		IsDefault:    true,
 		Name:         "Default",
+		BodyType:     mitemapiexample.BodyTypeNone,
 	}
 	err = c.iaes.CreateApiExample(ctx, example)
 	if err != nil {
