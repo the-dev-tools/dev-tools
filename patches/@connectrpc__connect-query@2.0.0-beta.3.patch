@@ -1,0 +1,33 @@
+# Remove once updated upstream
+# https://github.com/connectrpc/connect-query-es/pull/461
+diff --git a/dist/esm/create-query-options.d.ts b/dist/esm/create-query-options.d.ts
+index 4e488a72452bd553c4cb8fb2f0fcca49b6135d97..59f802201c8ba24b4c2ee3749e9eb7696bbba1ac 100644
+--- a/dist/esm/create-query-options.d.ts
++++ b/dist/esm/create-query-options.d.ts
+@@ -1,6 +1,6 @@
+ import type { DescMessage, DescMethodUnary, MessageInitShape, MessageShape } from "@bufbuild/protobuf";
+ import type { Transport } from "@connectrpc/connect";
+-import type { QueryFunction, QueryKey, SkipToken } from "@tanstack/react-query";
++import type { QueryFunction, SkipToken } from "@tanstack/react-query";
+ import type { ConnectQueryKey } from "./connect-query-key.js";
+ /**
+  * Creates all options required to make a query. Useful in combination with `useQueries` from tanstack/react-query.
+@@ -11,6 +11,5 @@ export declare function createQueryOptions<I extends DescMessage, O extends Desc
+     queryKey: ConnectQueryKey;
+     queryFn: QueryFunction<MessageShape<O>, ConnectQueryKey> | SkipToken;
+     structuralSharing: (oldData: unknown, newData: unknown) => unknown;
+-    queryKeyHashFn: (queryKey: QueryKey) => string;
+ };
+ //# sourceMappingURL=create-query-options.d.ts.map
+diff --git a/dist/esm/create-query-options.js b/dist/esm/create-query-options.js
+index 2c6584c0348b1280d805cb22743728a10337fed2..67a87df4f6a954560e11c12e9510fcf0daa27f15 100644
+--- a/dist/esm/create-query-options.js
++++ b/dist/esm/create-query-options.js
+@@ -41,7 +41,6 @@ export function createQueryOptions(schema, input, { transport, }) {
+         queryKey,
+         queryFn,
+         structuralSharing,
+-        queryKeyHashFn: JSON.stringify,
+     };
+ }
+ //# sourceMappingURL=create-query-options.js.map

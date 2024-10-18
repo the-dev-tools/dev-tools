@@ -26,6 +26,9 @@
     },
     "overrides": {
       "sharp": "0.33.5"
+    },
+    "patchedDependencies": {
+      "@connectrpc/connect-query@2.0.0-beta.3": "patches/@connectrpc__connect-query@2.0.0-beta.3.patch"
     }
   }
 }
