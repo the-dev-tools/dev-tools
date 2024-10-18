@@ -2,36 +2,33 @@ package assertsys
 
 import (
 	"dev-tools-backend/pkg/model/massert"
-	"net/http"
+	"errors"
+	"strings"
 )
 
-func AssertTarget(assertType massert.AssertType, resp http.Response, assertValue, assertKey string) bool {
-	switch assertType {
-	case massert.AssertTypeEqual:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeNotEqual:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeContains:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeNotContains:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeGreater:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeLess:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeGreaterOrEqual:
-		return target == massert.AssertTargetBody
-	case massert.AssertTypeLessOrEqual:
-		return target == massert.AssertTargetBody
-	default:
-		return false
-	}
+type AssertSys struct{}
+
+func New() AssertSys {
+	return AssertSys{}
 }
 
-func RespToMap(resp http.Response) map[string]interface{} {
-	return map[string]interface{}{
-		"status": resp.Status,
-		"header": resp.Header,
-		"body":   resp.Body,
+var (
+	validFirstKeys     = map[string]massert.AssertTarget{"header": massert.AssertTargetHeader, "body": massert.AssertTargetBody}
+	ErrInvalidFirstKey = errors.New("invalid first key")
+)
+
+type Resource struct {
+	AssertType      int8
+	AssertTargetKey int8
+}
+
+func GetResource(jsondothpath string) (Resource, error) {
+	keys := strings.Split(jsondothpath, ".")
+	if len(keys) < 2 {
+		return Resource{}, ErrInvalidFirstKey
+	}
+	_, ok := validFirstKeys[keys[0]]
+	if !ok {
+		return Resource{}, ErrInvalidFirstKey
 	}
 }

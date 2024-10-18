@@ -18,17 +18,19 @@ func SeralizeWorkspace(ws mworkspace.Workspace, env *menv.Env) *workspacev1.Work
 	}
 
 	return &workspacev1.Workspace{
-		WorkspaceId: ws.ID.Bytes(),
-		Name:        ws.Name,
-		Updated:     timestamppb.New(ws.Updated),
-		Environment: rpcEnv,
+		WorkspaceId:           ws.ID.Bytes(),
+		Name:                  ws.Name,
+		Updated:               timestamppb.New(ws.Updated),
+		SelectedEnvironmentId: rpcEnv.EnvironmentId,
 	}
 }
 
-func SeralizeWorkspaceItem(ws mworkspace.Workspace) *workspacev1.WorkspaceListItem {
+func SeralizeWorkspaceItem(ws mworkspace.Workspace, env *menv.Env) *workspacev1.WorkspaceListItem {
 	return &workspacev1.WorkspaceListItem{
-		Name:    ws.Name,
-		Updated: timestamppb.New(ws.Updated),
+		WorkspaceId:           ws.ID.Bytes(),
+		SelectedEnvironmentId: env.ID.Bytes(),
+		Name:                  ws.Name,
+		Updated:               timestamppb.New(ws.Updated),
 	}
 }
 

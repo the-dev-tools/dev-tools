@@ -123,10 +123,15 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 	var respsRpc []*examplev1.ExampleListItem
 	for _, example := range examples {
 		exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		var exampleRespID *idwrap.IDWrap
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			if err != sql.ErrNoRows {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		} else {
+			exampleRespID = &exampleResp.ID
 		}
-		respsRpc = append(respsRpc, texample.SerializeModelToRPCItem(example, exampleResp.ID))
+		respsRpc = append(respsRpc, texample.SerializeModelToRPCItem(example, exampleRespID))
 
 	}
 	return connect.NewResponse(&examplev1.ExampleListResponse{Items: respsRpc}), nil
@@ -153,14 +158,18 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 	}
 
 	// TODO: this can fail fix this
+	var parentExampleIdWrap []byte = nil
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleIdWrap)
 	if err != nil && err != sexampleresp.ErrNoRespFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if err == nil && exampleResp != nil {
+		parentExampleIdWrap = exampleResp.ID.Bytes()
+	}
 
 	resp := &examplev1.ExampleGetResponse{
 		ExampleId:      example.ID.Bytes(),
-		LastResponseId: exampleResp.ID.Bytes(),
+		LastResponseId: parentExampleIdWrap,
 		Name:           example.Name,
 		BodyKind:       bodyv1.BodyKind(example.BodyType),
 	}

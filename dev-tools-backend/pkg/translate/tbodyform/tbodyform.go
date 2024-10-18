@@ -16,6 +16,16 @@ func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
 	}
 }
 
+func SerializeFormModelToRPCItem(form mbodyform.BodyForm) *bodyv1.BodyFormItemListItem {
+	return &bodyv1.BodyFormItemListItem{
+		BodyId:      form.ID.Bytes(),
+		Key:         form.BodyKey,
+		Enabled:     form.Enable,
+		Value:       form.Value,
+		Description: form.Description,
+	}
+}
+
 func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem, ExampleID idwrap.IDWrap) (*mbodyform.BodyForm, error) {
 	b, err := SeralizeFormRPCToModelWithoutID(form, ExampleID)
 	if err != nil {

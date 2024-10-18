@@ -6,6 +6,7 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/auth"
 	"dev-tools-backend/internal/api/collection"
+	"dev-tools-backend/internal/api/collectionitem"
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/middleware/mwcompress"
 	"dev-tools-backend/internal/api/rbody"
@@ -184,6 +185,7 @@ func main() {
 	ars := sassertres.New(queries)
 	vs := svar.New(queries)
 	es := senv.New(queries)
+	res := sexampleresp.New(queries)
 
 	emailClient, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
 	if err != nil {
@@ -216,11 +218,15 @@ func main() {
 		us)
 	newServiceManager.AddService(collection.CreateService(collectionSrv, opitonsAll))
 
+	// Collection Item Service
+	collectionItemSrv := collectionitem.New(currentDB, cs, us, ifs, ias, iaes, res)
+	newServiceManager.AddService(collectionitem.CreateService(collectionItemSrv, opitonsAll))
+
 	// Node Service
 	// newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
 
 	// Result API Service
-	resultapiSrv := resultapi.New(currentDB, cs, ias, ws, ras)
+	resultapiSrv := resultapi.New(currentDB, us, cs, ias, iaes, ws, ers)
 	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
 
 	// Workspace Service

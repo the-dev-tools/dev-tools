@@ -16,6 +16,16 @@ func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlE
 	}
 }
 
+func SerializeURLModelToRPCItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedItemListItem {
+	return &bodyv1.BodyUrlEncodedItemListItem{
+		BodyId:      urlEncoded.ID.Bytes(),
+		Key:         urlEncoded.BodyKey,
+		Enabled:     urlEncoded.Enable,
+		Value:       urlEncoded.Value,
+		Description: urlEncoded.Description,
+	}
+}
+
 func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
 	b, err := SeralizeURLRPCToModelWithoutID(urlEncoded, exampleID)
 	ID, err := idwrap.NewFromBytes(urlEncoded.GetBodyId())

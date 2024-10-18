@@ -16,11 +16,16 @@ func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp idwrap.IDWr
 	}
 }
 
-func SerializeModelToRPCItem(ex mitemapiexample.ItemApiExample, lastResp idwrap.IDWrap) *examplev1.ExampleListItem {
+func SerializeModelToRPCItem(ex mitemapiexample.ItemApiExample, lastRespID *idwrap.IDWrap) *examplev1.ExampleListItem {
+	var lastResp []byte = nil
+	if lastRespID != nil {
+		lastResp = lastRespID.Bytes()
+	}
+
 	return &examplev1.ExampleListItem{
 		ExampleId:      ex.ID.Bytes(),
 		Name:           ex.Name,
-		LastResponseId: lastResp.Bytes(),
+		LastResponseId: lastResp,
 	}
 }
 

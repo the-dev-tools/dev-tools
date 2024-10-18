@@ -17,16 +17,14 @@ func ConvertAssertResultDBToModel(assertResponse gen.AssertionResult) massertres
 		ID:       assertResponse.ID,
 		AssertID: assertResponse.AssertionID,
 		Result:   assertResponse.Result,
-		Value:    assertResponse.AssertedValue,
 	}
 }
 
 func ConvertAssertResultModelToDB(assertResponse massertres.AssertResult) gen.AssertionResult {
 	return gen.AssertionResult{
-		ID:            assertResponse.ID,
-		AssertionID:   assertResponse.AssertID,
-		Result:        assertResponse.Result,
-		AssertedValue: assertResponse.Value,
+		ID:          assertResponse.ID,
+		AssertionID: assertResponse.AssertID,
+		Result:      assertResponse.Result,
 	}
 }
 
@@ -64,9 +62,8 @@ func (ars AssertResultService) CreateAssertResult(ctx context.Context, assertRes
 func (ars AssertResultService) UpdateAssertResult(ctx context.Context, assertResult massertres.AssertResult) error {
 	assertResultDB := ConvertAssertResultModelToDB(assertResult)
 	return ars.queries.UpdateAssertResult(ctx, gen.UpdateAssertResultParams{
-		ID:            assertResultDB.ID,
-		Result:        assertResultDB.Result,
-		AssertedValue: assertResultDB.AssertedValue,
+		ID:     assertResultDB.ID,
+		Result: assertResultDB.Result,
 	})
 }
 

@@ -44,18 +44,26 @@ func SeralizeRPCToModelWithoutID(item *folderv1.Folder, collectionID idwrap.IDWr
 	}, nil
 }
 
-func DeseralizeModelToRPC(item *mitemfolder.ItemFolder) *folderv1.Folder {
+func DeseralizeModelToRPC(item mitemfolder.ItemFolder) *folderv1.Folder {
+	var parentIDBytes []byte = nil
+	if item.ParentID != nil {
+		parentIDBytes = item.ParentID.Bytes()
+	}
 	return &folderv1.Folder{
 		FolderId:       item.ID.Bytes(),
-		ParentFolderId: item.ParentID.Bytes(),
+		ParentFolderId: parentIDBytes,
 		Name:           item.Name,
 	}
 }
 
-func DeseralizeModelToRPCItem(item *mitemfolder.ItemFolder) *folderv1.FolderListItem {
+func DeseralizeModelToRPCItem(item mitemfolder.ItemFolder) *folderv1.FolderListItem {
+	var parentIDBytes []byte = nil
+	if item.ParentID != nil {
+		parentIDBytes = item.ParentID.Bytes()
+	}
 	return &folderv1.FolderListItem{
 		FolderId:       item.ID.Bytes(),
-		ParentFolderId: item.ParentID.Bytes(),
+		ParentFolderId: parentIDBytes,
 		Name:           item.Name,
 	}
 }

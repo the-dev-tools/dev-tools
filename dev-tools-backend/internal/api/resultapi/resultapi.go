@@ -5,35 +5,42 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/middleware/mwauth"
+	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/scollection"
+	"dev-tools-backend/pkg/service/sexampleresp"
 	"dev-tools-backend/pkg/service/sitemapi"
-	"dev-tools-backend/pkg/service/sresultapi"
+	"dev-tools-backend/pkg/service/sitemapiexample"
+	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/translate/texampleresp"
 	responsev1 "dev-tools-spec/dist/buf/go/collection/item/response/v1"
 	"dev-tools-spec/dist/buf/go/collection/item/response/v1/responsev1connect"
 	"errors"
-	"strings"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ResultService struct {
-	DB  *sql.DB
-	cs  scollection.CollectionService
-	ias sitemapi.ItemApiService
-	ws  sworkspace.WorkspaceService
-	ras sresultapi.ResultApiService
+	DB   *sql.DB
+	us   suser.UserService
+	cs   scollection.CollectionService
+	ias  sitemapi.ItemApiService
+	iaes sitemapiexample.ItemApiExampleService
+	ws   sworkspace.WorkspaceService
+	ers  sexampleresp.ExampleRespService
 }
 
-func New(db *sql.DB, cs scollection.CollectionService, ias sitemapi.ItemApiService, ws sworkspace.WorkspaceService, ras sresultapi.ResultApiService) ResultService {
+func New(db *sql.DB, us suser.UserService, cs scollection.CollectionService, ias sitemapi.ItemApiService, iaes sitemapiexample.ItemApiExampleService, ws sworkspace.WorkspaceService, ers sexampleresp.ExampleRespService) ResultService {
 	return ResultService{
-		DB:  db,
-		cs:  cs,
-		ias: ias,
-		ws:  ws,
-		ras: ras,
+		DB:   db,
+		us:   us,
+		cs:   cs,
+		ias:  ias,
+		iaes: iaes,
+		ws:   ws,
+		ers:  ers,
 	}
 }
 
@@ -43,43 +50,34 @@ func CreateService(srv ResultService, options []connect.HandlerOption) (*api.Ser
 }
 
 func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[responsev1.ResponseGetRequest]) (*connect.Response[responsev1.ResponseGetResponse], error) {
-	ulidID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
+	ResponseID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	workspaceID, err := c.ras.GetWorkspaceID(ctx, ulidID, c.cs, c.ias)
+	result, err := c.ers.GetExampleResp(ctx, ResponseID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	userUlid, err := mwauth.GetContextUserID(ctx)
+	exampleID := result.ExampleID
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	rpcResp, err := texampleresp.SeralizeModelToRPC(*result)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	_, err = c.ws.GetByIDandUserID(ctx, workspaceID, userUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
+	resp := &responsev1.ResponseGetResponse{
+		ResponseId: rpcResp.ResponseId,
+		Status:     rpcResp.Status,
+		Body:       rpcResp.Body,
+		Time:       rpcResp.Time,
+		Duration:   rpcResp.Duration,
 	}
 
-	result, err := c.ras.GetResultApi(ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	headers := make(map[string]string, len(result.HttpResp.Header))
-	for k, v := range result.HttpResp.Header {
-		headers[k] = strings.Join(v, ",")
-	}
-	respRPC := &responsev1.ResponseGetResponse{
-		ResponseId: ulidID.Bytes(),
-		Status:     int32(result.HttpResp.StatusCode),
-		Body:       result.HttpResp.Body,
-		Time:       timestamppb.New(result.Time),
-		Duration:   int32(result.Duration.Milliseconds()),
-	}
-
-	return connect.NewResponse(respRPC), nil
+	return connect.NewResponse(resp), nil
 }
 
 func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Request[responsev1.ResponseHeaderListRequest]) (*connect.Response[responsev1.ResponseHeaderListResponse], error) {

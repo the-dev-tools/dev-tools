@@ -15,7 +15,6 @@ import (
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
-	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tworkspace"
 	"dev-tools-mail/pkg/emailclient"
 	"dev-tools-mail/pkg/emailinvite"
@@ -111,7 +110,17 @@ func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcWorkspaces := tgeneric.MassConvert(workspaces, tworkspace.SeralizeWorkspaceItem)
+	var rpcWorkspaces []*workspacev1.WorkspaceListItem
+	for _, workspace := range workspaces {
+		env, err := c.es.GetActiveByWorkspace(ctx, workspace.ID)
+		if err != nil {
+			if !errors.Is(err, senv.ErrNoEnvFound) {
+			}
+		}
+		rpcworkspace := tworkspace.SeralizeWorkspaceItem(workspace, env)
+		rpcWorkspaces = append(rpcWorkspaces, rpcworkspace)
+
+	}
 	resp := &workspacev1.WorkspaceListResponse{
 		Items: rpcWorkspaces,
 	}

@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/renv"
+	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mvar"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/suser"
@@ -14,6 +16,7 @@ import (
 	"dev-tools-backend/pkg/translate/tvar"
 	variablev1 "dev-tools-spec/dist/buf/go/variable/v1"
 	"dev-tools-spec/dist/buf/go/variable/v1/variablev1connect"
+	"errors"
 	"sort"
 
 	"connectrpc.com/connect"
@@ -43,23 +46,55 @@ func CreateService(srv VarRPC, options []connect.HandlerOption) (*api.Service, e
 }
 
 func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variablev1.VariableListRequest]) (*connect.Response[variablev1.VariableListResponse], error) {
-	envID, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	envIDRaw, workspaceIDRaw := req.Msg.GetEnvironmentId(), req.Msg.GetWorkspaceId()
+	if len(envIDRaw) != 0 {
+		envID, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		rpcErr := permcheck.CheckPerm(renv.CheckOwnerEnv(ctx, v.us, v.es, envID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		variables, err := v.vs.GetVariableByEnvID(ctx, envID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		sort.Slice(variables, func(i, j int) bool {
+			return variables[i].ID.Compare(variables[j].ID) < 0
+		})
+		rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPCItem)
+		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
+
+	} else if len(workspaceIDRaw) != 0 {
+		workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, v.us, workspaceID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		envs, err := v.es.GetByWorkspace(ctx, workspaceID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		variables := make([]mvar.Var, 0)
+		for _, env := range envs {
+			envVars, err := v.vs.GetVariableByEnvID(ctx, env.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			variables = append(variables, envVars...)
+		}
+
+		sort.Slice(variables, func(i, j int) bool {
+			return variables[i].ID.Compare(variables[j].ID) < 0
+		})
+		rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPCItem)
+		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
 	}
-	rpcErr := permcheck.CheckPerm(renv.CheckOwnerEnv(ctx, v.us, v.es, envID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	variables, err := v.vs.GetVariableByEnvID(ctx, envID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	sort.Slice(variables, func(i, j int) bool {
-		return variables[i].ID.Compare(variables[j].ID) < 0
-	})
-	rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPCItem)
-	return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
+	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("workspace id or env ID is required"))
 }
 
 func (v *VarRPC) VariableGet(ctx context.Context, req *connect.Request[variablev1.VariableGetRequest]) (*connect.Response[variablev1.VariableGetResponse], error) {
