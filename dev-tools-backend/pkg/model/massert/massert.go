@@ -4,6 +4,10 @@ import "dev-tools-backend/pkg/idwrap"
 
 type AssertType int8
 
+type AssertService interface {
+	Get(key, value string) (interface{}, error)
+}
+
 const (
 	AssertTypeUndefined      AssertType = 0
 	AssertTypeEqual          AssertType = 1
@@ -16,12 +20,28 @@ const (
 	AssertTypeLessOrEqual    AssertType = 8
 )
 
-type AssertTarget int8
+func MapAssertType() map[AssertType]string {
+	return map[AssertType]string{
+		AssertTypeUndefined:      "undefined",
+		AssertTypeEqual:          "==",
+		AssertTypeNotEqual:       "!=",
+		AssertTypeContains:       "contains",
+		AssertTypeNotContains:    "not contains",
+		AssertTypeGreater:        ">",
+		AssertTypeLess:           "<",
+		AssertTypeGreaterOrEqual: ">=",
+		AssertTypeLessOrEqual:    "<=",
+	}
+}
 
+type AssertDotPath string
+
+// Dot notation paths keys
+// Root
 const (
-	AssertTargetUndefined AssertTarget = 0
-	AssertTargetHeader    AssertTarget = 1
-	AssertTargetBody      AssertTarget = 2
+	RDNResp   = "response"
+	RDNBody   = "body"
+	RDNHeader = "header"
 )
 
 type Assert struct {
@@ -29,7 +49,6 @@ type Assert struct {
 	ExampleID idwrap.IDWrap
 	Name      string
 
-	Value  string
-	Type   AssertType
-	Target AssertTarget
+	Value string
+	Type  AssertType
 }
