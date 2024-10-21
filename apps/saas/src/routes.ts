@@ -10,6 +10,7 @@ export const routes = rootRoute('root.tsx', [
         index('query.tsx'),
         route('headers', 'headers.tsx'),
         route('body', 'body.tsx'),
+        route('assertions', 'assertions.tsx'),
       ]),
     ]),
   ]),

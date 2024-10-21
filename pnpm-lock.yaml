@@ -173,7 +173,7 @@ importers:
         version: 5.59.15(react@18.3.1)
       '@tanstack/react-router':
         specifier: 1.73.0
-        version: 1.73.0(@tanstack/router-generator@1.69.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.73.0(@tanstack/router-generator@1.74.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-table':
         specifier: 8.20.5
         version: 8.20.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -184,8 +184,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/api
       '@the-dev-tools/spec':
-        specifier: 1.31.3
-        version: 1.31.3
+        specifier: 1.31.4
+        version: 1.31.4
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -243,7 +243,7 @@ importers:
         version: 5.59.15(@tanstack/react-query@5.59.15(react@18.3.1))(react@18.3.1)
       '@tanstack/router-devtools':
         specifier: ~1.73.0
-        version: 1.73.0(@tanstack/react-router@1.73.0(@tanstack/router-generator@1.69.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.73.0(@tanstack/react-router@1.73.0(@tanstack/router-generator@1.74.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/router-plugin':
         specifier: ~1.69.1
         version: 1.69.1(@rsbuild/core@1.0.15)(webpack-sources@3.2.3)(webpack@5.95.0(esbuild@0.17.19))
@@ -296,8 +296,8 @@ importers:
         specifier: 0.75.5
         version: 0.75.5(effect@3.9.2)
       '@the-dev-tools/spec':
-        specifier: 1.31.3
-        version: 1.31.3
+        specifier: 1.31.4
+        version: 1.31.4
       '@the-dev-tools/utils':
         specifier: workspace:^
         version: link:../utils
@@ -463,7 +463,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       react-email:
         specifier: ~3.0.1
-        version: 3.0.1(bufferutil@4.0.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.2)(utf-8-validate@6.0.4)
+        version: 3.0.1(bufferutil@4.0.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.3)(utf-8-validate@6.0.4)
       tailwind-merge:
         specifier: ~2.5.4
         version: 2.5.4
@@ -851,6 +851,9 @@ packages:
 
   '@codemirror/commands@6.7.0':
     resolution: {integrity: sha512-+cduIZ2KbesDhbykV02K25A5xIVrquSPz4UxxYBemRlAT2aW8dhwUgLDwej7q/RJUHKk4nALYcR1puecDvbdqw==}
+
+  '@codemirror/commands@6.7.1':
+    resolution: {integrity: sha512-llTrboQYw5H4THfhN4U3qCnSZ1SOJ60ohhz+SzU0ADGtwlc533DtklQP0vSFaQuCPDn3BPpOd1GbbnUtwNjsrw==}
 
   '@codemirror/lang-css@6.3.0':
     resolution: {integrity: sha512-CyR4rUNG9OYcXDZwMPvJdtb6PHbBDKUc/6Na2BIwZ6dKab1JQqKa4di+RNRY9Myn7JB81vayKwJeQ7jEdmNVDA==}
@@ -3825,6 +3828,10 @@ packages:
     resolution: {integrity: sha512-llWfYf2oEgSC8QoO0uSov1SGC9/5r4oED7k07AAnfDMQ/jdXU4g0OdJlu2se7m5a17GgN2lEkaz/ZjmgM/tQrA==}
     engines: {node: '>=12'}
 
+  '@tanstack/router-generator@1.74.2':
+    resolution: {integrity: sha512-S69fXvYcL+tQsO5Fe9ju/XVa/hZvk4pCaWbtoR2MNjIgR2RmjiFKOgXYeLRMNom/IpP/HAQmQ3m1DwU9jjSUKA==}
+    engines: {node: '>=12'}
+
   '@tanstack/router-plugin@1.69.1':
     resolution: {integrity: sha512-GM7qUwtyUPpC1uP6bgIkK6IipKUfdahv7PUyhyK8JhCsgWiymf8X5LuMwgLIKa6G3qr9Hm0DZnbGaAlirFqYFQ==}
     engines: {node: '>=12'}
@@ -3851,8 +3858,8 @@ packages:
     resolution: {integrity: sha512-soW+gE9QTmMaqXM17r7y1p8NiQVIIECjdTaYla8BKL5Flj030m3KuxEQoiG1XgjtA0O7ayznFz2YvPcXIy3qDg==}
     engines: {node: '>=12'}
 
-  '@the-dev-tools/spec@1.31.3':
-    resolution: {integrity: sha512-9seH/wKrkt9Kylcu7jm80dI1i68yw5Y/neW3DTNXR0tozKM5QXUYE6XzLKzIfTdRqM4mG4kUJ5ASSe5FVSd+eg==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/spec/1.31.3/f8df486daf30f01920ea0d9f1a2f4ee1d617412a}
+  '@the-dev-tools/spec@1.31.4':
+    resolution: {integrity: sha512-PzXYAKqBrAhFDptmJmJ02YfcFUqZMIp+29dYYtcQwn4uCObiT05lsIj6np21wDf8d2MHF8D+5EnKH2WbD9aB3A==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/spec/1.31.4/69f3b38087ab1d62fd7e19852f1aac624b759490}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -3941,6 +3948,9 @@ packages:
 
   '@types/node@22.7.6':
     resolution: {integrity: sha512-/d7Rnj0/ExXDMcioS78/kf1lMzYk4BZV8MZGTBKzTGZ6/406ukkbYlIsZmMPhcR5KlkunDHQLrtAVmSq7r+mSw==}
+
+  '@types/node@22.7.7':
+    resolution: {integrity: sha512-SRxCrrg9CL/y54aiMCG3edPKdprgMVGDXjA3gB8UmmBW5TcXzRUYAh8EWzTnSJFAd1rgImPELza+A3bJ+qxz8Q==}
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
@@ -7054,8 +7064,8 @@ packages:
     engines: {node: '>=14.0.0'}
     hasBin: true
 
-  sass@1.80.2:
-    resolution: {integrity: sha512-9wXY8cGBlUmoUoT+vwOZOFCiS+naiWVjqlreN9ar9PudXbGwlMTFwCR5K9kB4dFumJ6ib98wZyAObJKsWf1nAA==}
+  sass@1.80.3:
+    resolution: {integrity: sha512-ptDWyVmDMVielpz/oWy3YP3nfs7LpJTHIJZboMVs8GEC9eUmtZTZhMHlTW98wY4aEorDfjN38+Wr/XjskFWcfA==}
     engines: {node: '>=14.0.0'}
     hasBin: true
 
@@ -8454,6 +8464,13 @@ snapshots:
       '@codemirror/state': 6.4.1
       '@codemirror/view': 6.34.1
       '@lezer/common': 1.2.2
+
+  '@codemirror/commands@6.7.1':
+    dependencies:
+      '@codemirror/language': 6.10.3
+      '@codemirror/state': 6.4.1
+      '@codemirror/view': 6.34.1
+      '@lezer/common': 1.2.3
 
   '@codemirror/lang-css@6.3.0(@codemirror/view@6.34.0)':
     dependencies:
@@ -11965,7 +11982,7 @@ snapshots:
       '@tanstack/query-core': 5.59.13
       react: 18.3.1
 
-  '@tanstack/react-router@1.73.0(@tanstack/router-generator@1.69.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/react-router@1.73.0(@tanstack/router-generator@1.74.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/history': 1.61.1
       '@tanstack/react-store': 0.5.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -11974,7 +11991,7 @@ snapshots:
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
     optionalDependencies:
-      '@tanstack/router-generator': 1.69.1
+      '@tanstack/router-generator': 1.74.2
 
   '@tanstack/react-store@0.5.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -11989,9 +12006,9 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@tanstack/router-devtools@1.73.0(@tanstack/react-router@1.73.0(@tanstack/router-generator@1.69.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/router-devtools@1.73.0(@tanstack/react-router@1.73.0(@tanstack/router-generator@1.74.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@tanstack/react-router': 1.73.0(@tanstack/router-generator@1.69.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/react-router': 1.73.0(@tanstack/router-generator@1.74.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       clsx: 2.1.1
       goober: 2.1.16(csstype@3.1.3)
       react: 18.3.1
@@ -12005,6 +12022,14 @@ snapshots:
       prettier: 3.3.3
       tsx: 4.19.1
       zod: 3.23.8
+
+  '@tanstack/router-generator@1.74.2':
+    dependencies:
+      '@tanstack/virtual-file-routes': 1.64.0
+      prettier: 3.3.3
+      tsx: 4.19.1
+      zod: 3.23.8
+    optional: true
 
   '@tanstack/router-plugin@1.69.1(@rsbuild/core@1.0.15)(webpack-sources@3.2.3)(webpack@5.95.0(esbuild@0.17.19))':
     dependencies:
@@ -12039,7 +12064,7 @@ snapshots:
 
   '@tanstack/virtual-file-routes@1.64.0': {}
 
-  '@the-dev-tools/spec@1.31.3': {}
+  '@the-dev-tools/spec@1.31.4': {}
 
   '@trysound/sax@0.2.0': {}
 
@@ -12138,6 +12163,11 @@ snapshots:
   '@types/node@22.7.6':
     dependencies:
       undici-types: 6.19.8
+
+  '@types/node@22.7.7':
+    dependencies:
+      undici-types: 6.19.8
+    optional: true
 
   '@types/parse-json@4.0.2': {}
 
@@ -12944,7 +12974,7 @@ snapshots:
   codemirror@6.0.1(@lezer/common@1.2.1):
     dependencies:
       '@codemirror/autocomplete': 6.18.1(@codemirror/language@6.10.3)(@codemirror/state@6.4.1)(@codemirror/view@6.34.1)(@lezer/common@1.2.1)
-      '@codemirror/commands': 6.7.0
+      '@codemirror/commands': 6.7.1
       '@codemirror/language': 6.10.3
       '@codemirror/lint': 6.8.2
       '@codemirror/search': 6.5.6
@@ -14547,7 +14577,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 22.7.6
+      '@types/node': 22.7.7
       merge-stream: 2.0.0
       supports-color: 8.1.1
     optional: true
@@ -15026,7 +15056,7 @@ snapshots:
 
   next-tick@1.1.0: {}
 
-  next@14.2.3(@babel/core@7.24.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.2):
+  next@14.2.3(@babel/core@7.24.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.3):
     dependencies:
       '@next/env': 14.2.3
       '@swc/helpers': 0.5.5
@@ -15047,7 +15077,7 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 14.2.3
       '@next/swc-win32-ia32-msvc': 14.2.3
       '@next/swc-win32-x64-msvc': 14.2.3
-      sass: 1.80.2
+      sass: 1.80.3
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
@@ -15616,7 +15646,7 @@ snapshots:
       react: 18.3.1
       scheduler: 0.23.2
 
-  react-email@3.0.1(bufferutil@4.0.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.2)(utf-8-validate@6.0.4):
+  react-email@3.0.1(bufferutil@4.0.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.3)(utf-8-validate@6.0.4):
     dependencies:
       '@babel/core': 7.24.5
       '@babel/parser': 7.24.5
@@ -15628,7 +15658,7 @@ snapshots:
       glob: 10.3.4
       log-symbols: 4.1.0
       mime-types: 2.1.35
-      next: 14.2.3(@babel/core@7.24.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.2)
+      next: 14.2.3(@babel/core@7.24.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.80.3)
       normalize-path: 3.0.0
       ora: 5.4.1
       socket.io: 4.7.5(bufferutil@4.0.8)(utf-8-validate@6.0.4)
@@ -15871,7 +15901,7 @@ snapshots:
       immutable: 4.3.7
       source-map-js: 1.2.1
 
-  sass@1.80.2:
+  sass@1.80.3:
     dependencies:
       '@parcel/watcher': 2.4.1
       chokidar: 4.0.1

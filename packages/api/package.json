@@ -14,7 +14,7 @@
     "@connectrpc/connect-web": "2.0.0-rc.1",
     "@effect/platform": "0.68.6",
     "@effect/schema": "0.75.5",
-    "@the-dev-tools/spec": "1.31.3",
+    "@the-dev-tools/spec": "1.31.4",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.9.2",
     "id128": "1.6.6",

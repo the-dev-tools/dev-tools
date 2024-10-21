@@ -329,6 +329,14 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
             >
               Body
             </Link>
+            <Link
+              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
+              activeProps={{ className: tw`border-b-black` }}
+              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
+              to='assertions'
+            >
+              Assertion
+            </Link>
           </div>
 
           <Outlet />
