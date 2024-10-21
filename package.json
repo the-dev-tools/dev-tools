@@ -13,7 +13,7 @@
     "jiti": "~2.3.3",
     "prettier": "~3.3.3",
     "syncpack": "~13.0.0",
-    "turbo": "~2.2.0",
+    "turbo": "~2.2.3",
     "typescript": "~5.6.3",
     "wrangler": "~3.81.0"
   },
