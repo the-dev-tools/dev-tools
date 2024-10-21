@@ -1,5 +1,7 @@
 package nodeloop
 
+/*
+
 import (
 	"dev-tools-nodes/pkg/convert"
 	"dev-tools-nodes/pkg/model/medge"
@@ -198,3 +200,4 @@ func ForRemoteLoop(nm *mnodemaster.NodeMaster) error {
 
 	return nil
 }
+*/

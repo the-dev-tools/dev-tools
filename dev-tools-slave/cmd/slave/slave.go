@@ -1,13 +1,6 @@
 package main
 
-import (
-	"dev-tools-slave/internal/api"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-)
-
+/*
 func main() {
 	// Start the slave
 	sc := make(chan os.Signal, 1)
@@ -25,3 +18,4 @@ func main() {
 
 	<-sc
 }
+*/

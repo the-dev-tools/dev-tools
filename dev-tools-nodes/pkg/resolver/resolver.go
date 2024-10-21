@@ -1,5 +1,7 @@
 package resolver
 
+/*
+
 import (
 	"dev-tools-nodes/pkg/model/mnodedata"
 	"dev-tools-nodes/pkg/model/mnodemaster"
@@ -71,3 +73,4 @@ func ConvertProtoMsg(msg proto.Message) (interface{}, error) {
 		return msgType, ErrInvalidDataType
 	}
 }
+*/

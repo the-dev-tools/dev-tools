@@ -1,5 +1,7 @@
 package api
 
+/*
+
 import (
 	"context"
 	"dev-tools-nodes/pkg/convert"
@@ -112,7 +114,6 @@ func (m MultiNodeRunner) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMa
 		return nil
 	}
 
-	/*
 		// TODO: move to a function
 		statusUpdate := mstatus.NodeStatus{
 			Type: mstatus.StatusTypeNextNode,
@@ -124,7 +125,6 @@ func (m MultiNodeRunner) ExecuteNode(ctx context.Context, nm *mnodemaster.NodeMa
 		if nm.StateChan != nil {
 			nm.StateChan <- statusUpdate
 		}
-	*/
 
 	node, err := nodemaster.GetNodeByID(nm, nm.NextNodeID)
 	if err != nil {
@@ -150,3 +150,4 @@ func ListenMasterNodeService(port string) error {
 		}),
 	)
 }
+*/

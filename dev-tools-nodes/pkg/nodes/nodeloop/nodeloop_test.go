@@ -1,5 +1,7 @@
 package nodeloop_test
 
+/*
+
 import (
 	"dev-tools-nodes/pkg/model/medge"
 	"dev-tools-nodes/pkg/model/mnode"
@@ -79,3 +81,4 @@ func TestLoopNode(t *testing.T) {
 		t.Errorf("unexpected totalResolve: %d", totalResolve)
 	}
 }
+*/

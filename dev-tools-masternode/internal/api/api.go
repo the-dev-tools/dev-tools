@@ -1,5 +1,7 @@
 package api
 
+/*
+
 import (
 	"context"
 	"dev-tools-nodes/pkg/convert"
@@ -192,3 +194,4 @@ func ListenMasterNodeService(port string) error {
 	)
 	return err
 }
+*/

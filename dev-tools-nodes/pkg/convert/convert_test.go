@@ -1,10 +1,6 @@
 package convert_test
 
-import (
-	"dev-tools-nodes/pkg/convert"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"testing"
-)
+/*
 
 func TestConvertStructToMsg(t *testing.T) {
 	t.Run("Test unsupported type", func(t *testing.T) {
@@ -74,3 +70,4 @@ func TestConvertStructToMsg(t *testing.T) {
 		}
 	})
 }
+*/

@@ -1,5 +1,7 @@
 package main
 
+/*
+
 import (
 	"context"
 	"dev-tools-mail/pkg/emailclient"
@@ -233,23 +235,19 @@ func PostManCollection() {
 
 	ctx := context.Background()
 
-	/*
 		createReqRaw := &collectionv1.CreateCollectionRequest{
 			Name: "test",
 		}
-	*/
 
 	// createReq := connect.NewRequest(createReqRaw)
 
 	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	client := collectionv1connect.NewCollectionServiceClient(httpClient, *addr)
 
-	/*
 		createResp, err := client.CreateCollection(ctx, createReq)
 		if err != nil {
 			log.Fatalf("service returns error: %v", err)
 		}
-	*/
 
 	data, err := os.ReadFile("/home/electwix/dev/work/devtools-go-mono/dev-tools-cli/postman.json")
 	if err != nil {
@@ -326,7 +324,6 @@ func RecursivePrint(item *itemfolderv1.Item) {
 	}
 }
 
-/*
 func RunApi() {
 	addr := flag.String("addr", "", "address of the node master service")
 	flag.Parse()
@@ -347,7 +344,6 @@ func RunApi() {
 
 	fmt.Println("Run Response: ", resp.Msg)
 }
-*/
 
 func RunEmail() {
 	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
@@ -378,5 +374,7 @@ func RunEmail() {
 		})
 	if err != nil {
 		log.Fatalf("failed to send email: %v", err)
+
 	}
 }
+*/

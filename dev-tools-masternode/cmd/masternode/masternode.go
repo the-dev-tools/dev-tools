@@ -1,12 +1,6 @@
 package main
 
-import (
-	"dev-tools-masternode/internal/api"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-)
+/*
 
 func main() {
 	sc := make(chan os.Signal, 1)
@@ -24,3 +18,4 @@ func main() {
 
 	<-sc
 }
+*/

@@ -1,5 +1,7 @@
 package convert
 
+/*
+
 import (
 	"dev-tools-nodes/pkg/model/medge"
 	"dev-tools-nodes/pkg/model/mnode"
@@ -170,3 +172,4 @@ func ConvertMsgNodeToNode(node *nodemasterv1.Node, resolverFunc mresolver.Resolv
 	tempNode := mnode.Node{ID: node.Id, Type: node.Type, Data: castedData, OwnerID: node.OwnerId, GroupID: node.GroupId, Edges: medge.Edges{OutNodes: node.Edges.OutNodes}}
 	return &tempNode, nil
 }
+*/
