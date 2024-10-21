@@ -45,32 +45,28 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 
 const createAssert = `-- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, example_id, name, description, type, target_type, value, enable, prev, next)
+  assertion (id, example_id, type, path, value, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateAssertParams struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	Name        string
-	Description string
-	Type        int8
-	TargetType  int8
-	Value       string
-	Enable      bool
-	Prev        []byte
-	Next        []byte
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+	Type      int8
+	Path      string
+	Value     string
+	Enable    bool
+	Prev      []byte
+	Next      []byte
 }
 
 func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) error {
 	_, err := q.exec(ctx, q.createAssertStmt, createAssert,
 		arg.ID,
 		arg.ExampleID,
-		arg.Name,
-		arg.Description,
 		arg.Type,
-		arg.TargetType,
+		arg.Path,
 		arg.Value,
 		arg.Enable,
 		arg.Prev,
@@ -2133,10 +2129,8 @@ const getAssert = `-- name: GetAssert :one
 SELECT 
   id,
   example_id,
-  name,
-  description,
   type,
-  target_type,
+  path,
   value,
   enable,
   prev,
@@ -2154,10 +2148,8 @@ func (q *Queries) GetAssert(ctx context.Context, id idwrap.IDWrap) (Assertion, e
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
-		&i.Name,
-		&i.Description,
 		&i.Type,
-		&i.TargetType,
+		&i.Path,
 		&i.Value,
 		&i.Enable,
 		&i.Prev,
@@ -2227,10 +2219,8 @@ const getAssertsByExampleID = `-- name: GetAssertsByExampleID :many
 SELECT 
   id,
   example_id,
-  name,
-  description,
   type,
-  target_type,
+  path,
   value,
   enable,
   prev,
@@ -2253,10 +2243,8 @@ func (q *Queries) GetAssertsByExampleID(ctx context.Context, exampleID idwrap.ID
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
-			&i.Name,
-			&i.Description,
 			&i.Type,
-			&i.TargetType,
+			&i.Path,
 			&i.Value,
 			&i.Enable,
 			&i.Prev,
@@ -3974,10 +3962,8 @@ func (q *Queries) SetQueryEnable(ctx context.Context, arg SetQueryEnableParams) 
 const updateAssert = `-- name: UpdateAssert :exec
 UPDATE assertion
 SET
-  name = ?,
-  description = ?,
   type = ?,
-  target_type = ?,
+  path = ?,
   value = ?,
   enable = ?
 WHERE
@@ -3985,21 +3971,17 @@ WHERE
 `
 
 type UpdateAssertParams struct {
-	Name        string
-	Description string
-	Type        int8
-	TargetType  int8
-	Value       string
-	Enable      bool
-	ID          idwrap.IDWrap
+	Type   int8
+	Path   string
+	Value  string
+	Enable bool
+	ID     idwrap.IDWrap
 }
 
 func (q *Queries) UpdateAssert(ctx context.Context, arg UpdateAssertParams) error {
 	_, err := q.exec(ctx, q.updateAssertStmt, updateAssert,
-		arg.Name,
-		arg.Description,
 		arg.Type,
-		arg.TargetType,
+		arg.Path,
 		arg.Value,
 		arg.Enable,
 		arg.ID,

@@ -251,10 +251,8 @@ CREATE TABLE variable (
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
   type INT8 NOT NULL,
-  target_type INT8 NOT NULL,
+  path TEXT NOT NULL,
   value TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   prev BLOB,

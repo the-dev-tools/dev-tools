@@ -1260,10 +1260,8 @@ WHERE
 SELECT 
   id,
   example_id,
-  name,
-  description,
   type,
-  target_type,
+  path,
   value,
   enable,
   prev,
@@ -1278,10 +1276,8 @@ LIMIT 1;
 SELECT 
   id,
   example_id,
-  name,
-  description,
   type,
-  target_type,
+  path,
   value,
   enable,
   prev,
@@ -1293,17 +1289,15 @@ WHERE
 
 -- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, example_id, name, description, type, target_type, value, enable, prev, next)
+  assertion (id, example_id, type, path, value, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateAssert :exec
 UPDATE assertion
 SET
-  name = ?,
-  description = ?,
   type = ?,
-  target_type = ?,
+  path = ?,
   value = ?,
   enable = ?
 WHERE

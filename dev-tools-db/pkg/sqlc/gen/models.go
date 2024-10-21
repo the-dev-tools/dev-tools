@@ -12,16 +12,14 @@ import (
 )
 
 type Assertion struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	Name        string
-	Description string
-	Type        int8
-	TargetType  int8
-	Value       string
-	Enable      bool
-	Prev        []byte
-	Next        []byte
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+	Type      int8
+	Path      string
+	Value     string
+	Enable    bool
+	Prev      []byte
+	Next      []byte
 }
 
 type AssertionResult struct {

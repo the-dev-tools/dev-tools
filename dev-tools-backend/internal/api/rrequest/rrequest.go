@@ -115,9 +115,6 @@ func (c RequestRPC) QueryCreate(ctx context.Context, req *connect.Request[reques
 	}
 	queryID := idwrap.NewNow()
 	query := tquery.SerlializeQueryRPCtoModelNoID(&reqQuery, exID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 	query.ID = queryID
 
 	err = c.eqs.CreateExampleQuery(ctx, query)
@@ -288,12 +285,12 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 		return nil, rpcErr
 	}
 	rpcAssert := requestv1.Assert{
-		Name:   req.Msg.GetName(),
-		Value:  req.Msg.GetValue(),
-		Type:   req.Msg.GetType(),
-		Target: req.Msg.GetTarget(),
+		Path:  req.Msg.GetPath(),
+		Value: req.Msg.GetValue(),
+		Type:  req.Msg.GetType(),
 	}
 	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID)
+	assert.ID = idwrap.NewNow()
 	err = c.as.CreateAssert(ctx, assert)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -304,10 +301,9 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[requestv1.AssertUpdateRequest]) (*connect.Response[requestv1.AssertUpdateResponse], error) {
 	rpcAssert := requestv1.Assert{
 		AssertId: req.Msg.GetAssertId(),
-		Name:     req.Msg.GetName(),
+		Path:     req.Msg.GetPath(),
 		Value:    req.Msg.GetValue(),
 		Type:     req.Msg.GetType(),
-		Target:   req.Msg.GetTarget(),
 	}
 	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
 	if err != nil {
