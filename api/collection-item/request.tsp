@@ -48,20 +48,13 @@ enum AssertType {
   ASSERT_TYPE_LESS_OR_EQUAL: 8,
 }
 
-enum AssertTarget {
-  ASSERT_TARGET_UNSPECIFIED: 0,
-  ASSERT_TARGET_HEADER: 1,
-  ASSERT_TARGET_BODY: 2,
-}
-
 @autoFields
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.ID;
-  name: string;
+  path: string;
   value: string;
   type: AssertType;
-  target: AssertTarget;
 }
 
 // Query
