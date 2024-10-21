@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.31.4
+
+### Patch Changes
+
+- [`a45c1e7`](https://github.com/the-dev-tools/dev-tools-spec/commit/a45c1e79142c5b31ef61d909524cf1afa8cee857) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Remove assert target in favor of path property
+
 ## 1.31.3
 
 ### Patch Changes
