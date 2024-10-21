@@ -6,5 +6,4 @@ type AssertResult struct {
 	ID       idwrap.IDWrap
 	AssertID idwrap.IDWrap
 	Result   bool
-	Value    string
 }

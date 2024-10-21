@@ -3,9 +3,9 @@ package assertsys
 import (
 	"context"
 	"dev-tools-backend/pkg/model/massert"
+	"dev-tools-nodes/pkg/httpclient"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"unicode"
 
@@ -23,15 +23,20 @@ func New() AssertSys {
 	}
 }
 
-func (c AssertSys) Eval(respHttp http.Response, at massert.AssertType, jsondothpath, val string) (bool, error) {
+func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jsondothpath, val string) (bool, error) {
 	bodyMap := make(map[string]interface{})
 	// turn response body into map
-	err := json.NewDecoder(respHttp.Body).Decode(&bodyMap)
+	err := json.Unmarshal(respHttp.Body, &bodyMap)
 
 	headerMap := make(map[string]interface{})
 	// turn response header into map
-	for k, v := range respHttp.Header {
-		headerMap[k] = strings.Join(v, ",")
+	for _, v := range respHttp.Headers {
+		val, ok := headerMap[v.HeaderKey]
+		if ok {
+			headerMap[v.HeaderKey] = []string{val.(string), v.Value}
+		} else {
+			headerMap[v.HeaderKey] = v.Value
+		}
 	}
 
 	respMap := make(map[string]interface{})

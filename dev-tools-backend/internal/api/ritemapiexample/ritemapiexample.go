@@ -7,8 +7,10 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/internal/api/ritemapi"
+	"dev-tools-backend/pkg/assertsys"
 	"dev-tools-backend/pkg/compress"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/massertres"
 	"dev-tools-backend/pkg/model/mbodyraw"
 	"dev-tools-backend/pkg/model/menv"
 	"dev-tools-backend/pkg/model/mexampleresp"
@@ -588,9 +590,25 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
+	assertions, err := c.as.GetAssertByExampleID(ctx, example.ItemApiID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	for _, assertion := range assertions {
+		if assertion.Enable {
+			assertionResult, err := assertsys.New().Eval(respHttp, assertion.Type, assertion.Path, assertion.Value)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			res := massertres.AssertResult{
+				ID:       idwrap.NewNow(),
+				AssertID: assertion.ID,
+				Result:   assertionResult,
+			}
+			err = c.ars.CreateAssertResult(ctx, res)
+		}
+	}
+
 	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
 	})

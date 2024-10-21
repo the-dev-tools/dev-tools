@@ -1,25 +1,18 @@
 package assertsys_test
 
 import (
-	"bytes"
 	"dev-tools-backend/pkg/assertsys"
 	"dev-tools-backend/pkg/model/massert"
-	"io"
-	"net/http"
+	"dev-tools-backend/pkg/model/mexamplerespheader"
+	"dev-tools-nodes/pkg/httpclient"
 	"testing"
 )
 
 func TestAssertSys_Eval_EqualTrue(t *testing.T) {
 	statuscode := 200
-
-	stringReader := bytes.NewBufferString("shiny!")
-	stringReadCloser := io.NopCloser(stringReader)
-
-	respHttp := http.Response{
+	respHttp := httpclient.Response{
 		StatusCode: statuscode,
-		Body:       stringReadCloser,
 	}
-
 	assertSys := assertsys.New()
 
 	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, "response.status", "200")
@@ -33,14 +26,8 @@ func TestAssertSys_Eval_EqualTrue(t *testing.T) {
 
 func TestAssertSys_Eval_EqualFalse(t *testing.T) {
 	statuscode := 400
-
-	jsonBytes := []byte(`{"name":"John","age":30,"city":"New York"}`)
-	stringReader := bytes.NewBuffer(jsonBytes)
-	stringReadCloser := io.NopCloser(stringReader)
-
-	respHttp := http.Response{
+	respHttp := httpclient.Response{
 		StatusCode: statuscode,
-		Body:       stringReadCloser,
 	}
 
 	assertSys := assertsys.New()
@@ -56,10 +43,8 @@ func TestAssertSys_Eval_EqualFalse(t *testing.T) {
 
 func TestAssertSys_Eval_ContainsTrue(t *testing.T) {
 	jsonBytes := []byte(`{"name":"John","age":30,"city":"New York"}`)
-	stringReader := bytes.NewBuffer(jsonBytes)
-	stringReadCloser := io.NopCloser(stringReader)
-	respHttp := http.Response{
-		Body: stringReadCloser,
+	respHttp := httpclient.Response{
+		Body: jsonBytes,
 	}
 	assertSys := assertsys.New()
 	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.body", "John")
@@ -73,10 +58,8 @@ func TestAssertSys_Eval_ContainsTrue(t *testing.T) {
 
 func TestAssertSys_Eval_ContainsFalse(t *testing.T) {
 	jsonBytes := []byte(`{"name":"John","age":30,"city":"New York"}`)
-	stringReader := bytes.NewBuffer(jsonBytes)
-	stringReadCloser := io.NopCloser(stringReader)
-	respHttp := http.Response{
-		Body: stringReadCloser,
+	respHttp := httpclient.Response{
+		Body: jsonBytes,
 	}
 	assertSys := assertsys.New()
 	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.body", "Doe")
@@ -89,15 +72,11 @@ func TestAssertSys_Eval_ContainsFalse(t *testing.T) {
 }
 
 func TestAssertSys_Eval_HeadersContainsTrue(t *testing.T) {
-	header := map[string][]string{
-		"Content-Type": {"application/json"},
+	headers := []mexamplerespheader.ExampleRespHeader{
+		{HeaderKey: "Content-Type", Value: "application/json"},
 	}
-	jsonBytes := []byte(`{"name":"John","age":30,"city":"New York"}`)
-	stringReader := bytes.NewBuffer(jsonBytes)
-	stringReadCloser := io.NopCloser(stringReader)
-	respHttp := http.Response{
-		Header: header,
-		Body:   stringReadCloser,
+	respHttp := httpclient.Response{
+		Headers: headers,
 	}
 	assertSys := assertsys.New()
 	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.header", "Content-Type")
@@ -110,16 +89,11 @@ func TestAssertSys_Eval_HeadersContainsTrue(t *testing.T) {
 }
 
 func TestAssertSys_Eval_HeadersContainsFalse(t *testing.T) {
-	header := map[string][]string{
-		"Content-Type": {"application/json"},
+	headers := []mexamplerespheader.ExampleRespHeader{
+		{HeaderKey: "Content-Type", Value: "application/json"},
 	}
-
-	jsonBytes := []byte(`{"name":"John","age":30,"city":"New York"}`)
-	stringReader := bytes.NewBuffer(jsonBytes)
-	stringReadCloser := io.NopCloser(stringReader)
-	respHttp := http.Response{
-		Header: header,
-		Body:   stringReadCloser,
+	respHttp := httpclient.Response{
+		Headers: headers,
 	}
 	assertSys := assertsys.New()
 	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.header", "Content-Length")
@@ -132,15 +106,11 @@ func TestAssertSys_Eval_HeadersContainsFalse(t *testing.T) {
 }
 
 func TestAssertSys_Eval_HeadersEqualsTrue(t *testing.T) {
-	header := map[string][]string{
-		"Content-Type": {"application/json"},
+	headers := []mexamplerespheader.ExampleRespHeader{
+		{HeaderKey: "Content-Type", Value: "application/json"},
 	}
-	jsonBytes := []byte(`{"name":"John","age":30,"city":"New York"}`)
-	stringReader := bytes.NewBuffer(jsonBytes)
-	stringReadCloser := io.NopCloser(stringReader)
-	respHttp := http.Response{
-		Header: header,
-		Body:   stringReadCloser,
+	respHttp := httpclient.Response{
+		Headers: headers,
 	}
 	assertSys := assertsys.New()
 	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, "response.header.Content-Type", "application/json")
