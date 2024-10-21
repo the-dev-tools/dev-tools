@@ -38,7 +38,7 @@ model ResponseHeader {
 @autoFields
 @parentResource(Response)
 model ResponseAssert {
-  asssert: Request.Assert;
+  assert: Request.Assert;
   result: boolean;
 }
 
