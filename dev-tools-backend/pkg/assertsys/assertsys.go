@@ -27,6 +27,9 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 	bodyMap := make(map[string]interface{})
 	// turn response body into map
 	err := json.Unmarshal(respHttp.Body, &bodyMap)
+	if err != nil {
+		return false, err
+	}
 
 	headerMap := make(map[string]interface{})
 	// turn response header into map

@@ -357,6 +357,12 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
+          ### response_id
+          - column: "assertion_result.response_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
           ### example_id
           - column: "assertion_result.assertion_id"
             go_type:

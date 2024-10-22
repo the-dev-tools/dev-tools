@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/massertres"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 )
 
@@ -14,15 +15,17 @@ type AssertResultService struct {
 
 func ConvertAssertResultDBToModel(assertResponse gen.AssertionResult) massertres.AssertResult {
 	return massertres.AssertResult{
-		ID:       assertResponse.ID,
-		AssertID: assertResponse.AssertionID,
-		Result:   assertResponse.Result,
+		ID:         assertResponse.ID,
+		ResponseID: assertResponse.ResponseID,
+		AssertID:   assertResponse.AssertionID,
+		Result:     assertResponse.Result,
 	}
 }
 
 func ConvertAssertResultModelToDB(assertResponse massertres.AssertResult) gen.AssertionResult {
 	return gen.AssertionResult{
 		ID:          assertResponse.ID,
+		ResponseID:  assertResponse.ResponseID,
 		AssertionID: assertResponse.AssertID,
 		Result:      assertResponse.Result,
 	}
@@ -48,6 +51,14 @@ func (ars AssertResultService) GetAssertResult(ctx context.Context, id idwrap.ID
 	}
 	a := ConvertAssertResultDBToModel(assertResult)
 	return &a, nil
+}
+
+func (ars AssertResultService) GetAssertResultsByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]massertres.AssertResult, error) {
+	assertResaultsRaw, err := ars.queries.GetAssertResultsByResponseID(ctx, responseID)
+	if err != nil {
+		return nil, err
+	}
+	return tgeneric.MassConvert(assertResaultsRaw, ConvertAssertResultDBToModel), nil
 }
 
 func (ars AssertResultService) CreateAssertResult(ctx context.Context, assertResult massertres.AssertResult) error {

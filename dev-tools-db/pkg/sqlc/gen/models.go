@@ -24,6 +24,7 @@ type Assertion struct {
 
 type AssertionResult struct {
 	ID          idwrap.IDWrap
+	ResponseID  idwrap.IDWrap
 	AssertionID idwrap.IDWrap
 	Result      bool
 }

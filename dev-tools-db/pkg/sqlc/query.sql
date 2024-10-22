@@ -71,7 +71,6 @@ VALUES
 -- name: UpdateItemApi :exec
 UPDATE item_api
 SET
-  collection_id = ?,
   parent_id = ?,
   name = ?,
   url = ?,
@@ -1315,6 +1314,7 @@ WHERE
 -- name: GetAssertResult :one
 SELECT 
   id,
+  response_id,
   assertion_id,
   result
 FROM 
@@ -1326,6 +1326,7 @@ LIMIT 1;
 -- name: GetAssertResultsByAssertID :many
 SELECT 
   id,
+  response_id,
   assertion_id,
   result
 FROM 
@@ -1333,11 +1334,22 @@ FROM
 WHERE
   assertion_id = ?;
 
+-- name: GetAssertResultsByResponseID :many
+SELECT 
+  id,
+  response_id,
+  assertion_id,
+  result
+FROM 
+  assertion_result
+WHERE
+  response_id = ?;
+
 -- name: CreateAssertResult :exec
 INSERT INTO
-  assertion_result (id, assertion_id, result)
+  assertion_result (id, response_id, assertion_id, result)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateAssertResult :exec
 UPDATE assertion_result

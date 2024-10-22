@@ -606,6 +606,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				Result:   assertionResult,
 			}
 			err = c.ars.CreateAssertResult(ctx, res)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
 		}
 	}
 

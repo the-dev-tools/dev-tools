@@ -28,6 +28,9 @@ func SerializeURLModelToRPCItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.Body
 
 func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
 	b, err := SeralizeURLRPCToModelWithoutID(urlEncoded, exampleID)
+	if err != nil {
+		return nil, err
+	}
 	ID, err := idwrap.NewFromBytes(urlEncoded.GetBodyId())
 	if err != nil {
 		return nil, err

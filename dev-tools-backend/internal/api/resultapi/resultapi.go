@@ -8,12 +8,16 @@ import (
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/permcheck"
+	"dev-tools-backend/pkg/service/sassert"
+	"dev-tools-backend/pkg/service/sassertres"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sexampleresp"
+	"dev-tools-backend/pkg/service/sexamplerespheader"
 	"dev-tools-backend/pkg/service/sitemapi"
 	"dev-tools-backend/pkg/service/sitemapiexample"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/translate/tassert"
 	"dev-tools-backend/pkg/translate/texampleresp"
 	responsev1 "dev-tools-spec/dist/buf/go/collection/item/response/v1"
 	"dev-tools-spec/dist/buf/go/collection/item/response/v1/responsev1connect"
@@ -29,10 +33,21 @@ type ResultService struct {
 	ias  sitemapi.ItemApiService
 	iaes sitemapiexample.ItemApiExampleService
 	ws   sworkspace.WorkspaceService
+
+	// Response
 	ers  sexampleresp.ExampleRespService
+	erhs sexamplerespheader.ExampleRespHeaderService
+
+	// Assert
+	as   sassert.AssertService
+	asrs sassertres.AssertResultService
 }
 
-func New(db *sql.DB, us suser.UserService, cs scollection.CollectionService, ias sitemapi.ItemApiService, iaes sitemapiexample.ItemApiExampleService, ws sworkspace.WorkspaceService, ers sexampleresp.ExampleRespService) ResultService {
+func New(db *sql.DB, us suser.UserService, cs scollection.CollectionService, ias sitemapi.ItemApiService,
+	iaes sitemapiexample.ItemApiExampleService, ws sworkspace.WorkspaceService,
+	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
+	as sassert.AssertService, asrs sassertres.AssertResultService,
+) ResultService {
 	return ResultService{
 		DB:   db,
 		us:   us,
@@ -41,6 +56,9 @@ func New(db *sql.DB, us suser.UserService, cs scollection.CollectionService, ias
 		iaes: iaes,
 		ws:   ws,
 		ers:  ers,
+		erhs: erhs,
+		as:   as,
+		asrs: asrs,
 	}
 }
 
@@ -81,11 +99,57 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 }
 
 func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Request[responsev1.ResponseHeaderListRequest]) (*connect.Response[responsev1.ResponseHeaderListResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	ResponseID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	headers, err := c.erhs.GetHeaderByRespID(ctx, ResponseID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// TODO: move to translate package
+	var rpcHeaders []*responsev1.ResponseHeaderListItem
+	for _, header := range headers {
+		rpcHeader := &responsev1.ResponseHeaderListItem{
+			ResponseheaderId: header.ID.Bytes(),
+			Key:              header.HeaderKey,
+			Value:            header.Value,
+		}
+		rpcHeaders = append(rpcHeaders, rpcHeader)
+	}
+
+	return connect.NewResponse(&responsev1.ResponseHeaderListResponse{Items: rpcHeaders}), nil
 }
 
 func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Request[responsev1.ResponseAssertListRequest]) (*connect.Response[responsev1.ResponseAssertListResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	ResponseID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	assertResponse, err := c.asrs.GetAssertResultsByResponseID(ctx, ResponseID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// TODO: move to translate package
+	var rpcAssertResponses []*responsev1.ResponseAssertListItem
+	for _, assertResp := range assertResponse {
+		assert, err := c.as.GetAssert(ctx, assertResp.AssertID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		rpcAssertResp := &responsev1.ResponseAssertListItem{
+			Assert: tassert.SerializeAssertModelToRPC(*assert),
+			Result: assertResp.Result,
+		}
+		rpcAssertResponses = append(rpcAssertResponses, rpcAssertResp)
+	}
+
+	return connect.NewResponse(&responsev1.ResponseAssertListResponse{Items: rpcAssertResponses}), nil
 }
 
 /*

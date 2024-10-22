@@ -226,7 +226,7 @@ func main() {
 	// newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
 
 	// Result API Service
-	resultapiSrv := resultapi.New(currentDB, us, cs, ias, iaes, ws, ers)
+	resultapiSrv := resultapi.New(currentDB, us, cs, ias, iaes, ws, ers, erhs, as, ars)
 	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
 
 	// Workspace Service

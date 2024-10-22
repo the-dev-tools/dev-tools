@@ -124,6 +124,9 @@ func (c *ItemApiRPC) EndpointGet(ctx context.Context, req *connect.Request[endpo
 	}
 
 	api, err := c.ias.GetItemApi(ctx, apiUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	apiCall := titemapi.DeseralizeModelToRPC(api)
 	resp := &endpointv1.EndpointGetResponse{

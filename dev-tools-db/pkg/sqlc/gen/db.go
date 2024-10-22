@@ -180,6 +180,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAssertResultsByAssertIDStmt, err = db.PrepareContext(ctx, getAssertResultsByAssertID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssertResultsByAssertID: %w", err)
 	}
+	if q.getAssertResultsByResponseIDStmt, err = db.PrepareContext(ctx, getAssertResultsByResponseID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertResultsByResponseID: %w", err)
+	}
 	if q.getAssertsByExampleIDStmt, err = db.PrepareContext(ctx, getAssertsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssertsByExampleID: %w", err)
 	}
@@ -658,6 +661,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAssertResultsByAssertIDStmt: %w", cerr)
 		}
 	}
+	if q.getAssertResultsByResponseIDStmt != nil {
+		if cerr := q.getAssertResultsByResponseIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertResultsByResponseIDStmt: %w", cerr)
+		}
+	}
 	if q.getAssertsByExampleIDStmt != nil {
 		if cerr := q.getAssertsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAssertsByExampleIDStmt: %w", cerr)
@@ -1104,6 +1112,7 @@ type Queries struct {
 	getAssertStmt                              *sql.Stmt
 	getAssertResultStmt                        *sql.Stmt
 	getAssertResultsByAssertIDStmt             *sql.Stmt
+	getAssertResultsByResponseIDStmt           *sql.Stmt
 	getAssertsByExampleIDStmt                  *sql.Stmt
 	getBodyFormStmt                            *sql.Stmt
 	getBodyFormsByExampleIDStmt                *sql.Stmt
@@ -1233,6 +1242,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAssertStmt:                              q.getAssertStmt,
 		getAssertResultStmt:                        q.getAssertResultStmt,
 		getAssertResultsByAssertIDStmt:             q.getAssertResultsByAssertIDStmt,
+		getAssertResultsByResponseIDStmt:           q.getAssertResultsByResponseIDStmt,
 		getAssertsByExampleIDStmt:                  q.getAssertsByExampleIDStmt,
 		getBodyFormStmt:                            q.getBodyFormStmt,
 		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,

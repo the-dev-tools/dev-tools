@@ -234,12 +234,11 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 
 func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
 	err := ias.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
-		ID:           item.ID,
-		CollectionID: item.CollectionID,
-		ParentID:     item.ParentID,
-		Name:         item.Name,
-		Url:          item.Url,
-		Method:       item.Method,
+		ID:       item.ID,
+		ParentID: item.ParentID,
+		Name:     item.Name,
+		Url:      item.Url,
+		Method:   item.Method,
 	})
 	if err == sql.ErrNoRows {
 		return ErrNoItemApiFound

@@ -83,6 +83,7 @@ func (s *ExampleRespHeaderService) GetHeaderByRespID(ctx context.Context, id idw
 		}
 		return nil, err
 	}
+
 	return tgeneric.MassConvert(items, ConvertFromDBExampleRespHeader), nil
 }
 

@@ -46,6 +46,9 @@ func CreateService(srv EnvRPC, options []connect.HandlerOption) (*api.Service, e
 func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentCreateRequest]) (*connect.Response[environmentv1.EnvironmentCreateResponse], error) {
 	ReqEnv := req.Msg
 	workspaceID, err := idwrap.NewFromBytes(ReqEnv.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	envReq := menv.Env{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,

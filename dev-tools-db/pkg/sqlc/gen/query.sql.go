@@ -77,19 +77,25 @@ func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) erro
 
 const createAssertResult = `-- name: CreateAssertResult :exec
 INSERT INTO
-  assertion_result (id, assertion_id, result)
+  assertion_result (id, response_id, assertion_id, result)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateAssertResultParams struct {
 	ID          idwrap.IDWrap
+	ResponseID  idwrap.IDWrap
 	AssertionID idwrap.IDWrap
 	Result      bool
 }
 
 func (q *Queries) CreateAssertResult(ctx context.Context, arg CreateAssertResultParams) error {
-	_, err := q.exec(ctx, q.createAssertResultStmt, createAssertResult, arg.ID, arg.AssertionID, arg.Result)
+	_, err := q.exec(ctx, q.createAssertResultStmt, createAssertResult,
+		arg.ID,
+		arg.ResponseID,
+		arg.AssertionID,
+		arg.Result,
+	)
 	return err
 }
 
@@ -2165,6 +2171,7 @@ const getAssertResult = `-- name: GetAssertResult :one
 
 SELECT 
   id,
+  response_id,
   assertion_id,
   result
 FROM 
@@ -2177,13 +2184,19 @@ LIMIT 1
 func (q *Queries) GetAssertResult(ctx context.Context, id idwrap.IDWrap) (AssertionResult, error) {
 	row := q.queryRow(ctx, q.getAssertResultStmt, getAssertResult, id)
 	var i AssertionResult
-	err := row.Scan(&i.ID, &i.AssertionID, &i.Result)
+	err := row.Scan(
+		&i.ID,
+		&i.ResponseID,
+		&i.AssertionID,
+		&i.Result,
+	)
 	return i, err
 }
 
 const getAssertResultsByAssertID = `-- name: GetAssertResultsByAssertID :many
 SELECT 
   id,
+  response_id,
   assertion_id,
   result
 FROM 
@@ -2201,7 +2214,52 @@ func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID id
 	items := []AssertionResult{}
 	for rows.Next() {
 		var i AssertionResult
-		if err := rows.Scan(&i.ID, &i.AssertionID, &i.Result); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.AssertionID,
+			&i.Result,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAssertResultsByResponseID = `-- name: GetAssertResultsByResponseID :many
+SELECT 
+  id,
+  response_id,
+  assertion_id,
+  result
+FROM 
+  assertion_result
+WHERE
+  response_id = ?
+`
+
+func (q *Queries) GetAssertResultsByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]AssertionResult, error) {
+	rows, err := q.query(ctx, q.getAssertResultsByResponseIDStmt, getAssertResultsByResponseID, responseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AssertionResult{}
+	for rows.Next() {
+		var i AssertionResult
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.AssertionID,
+			&i.Result,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -4217,7 +4275,6 @@ func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) erro
 const updateItemApi = `-- name: UpdateItemApi :exec
 UPDATE item_api
 SET
-  collection_id = ?,
   parent_id = ?,
   name = ?,
   url = ?,
@@ -4227,17 +4284,15 @@ WHERE
 `
 
 type UpdateItemApiParams struct {
-	CollectionID idwrap.IDWrap
-	ParentID     *idwrap.IDWrap
-	Name         string
-	Url          string
-	Method       string
-	ID           idwrap.IDWrap
+	ParentID *idwrap.IDWrap
+	Name     string
+	Url      string
+	Method   string
+	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) error {
 	_, err := q.exec(ctx, q.updateItemApiStmt, updateItemApi,
-		arg.CollectionID,
 		arg.ParentID,
 		arg.Name,
 		arg.Url,

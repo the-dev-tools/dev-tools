@@ -262,7 +262,9 @@ CREATE TABLE assertion (
 
 CREATE TABLE assertion_result (
   id BLOB NOT NULL PRIMARY KEY,
+  response_id BLOB NOT NULL,
   assertion_id BLOB NOT NULL,
   result BOOLEAN NOT NULL,
+  FOREIGN KEY (response_id) REFERENCES example_resp (id) ON DELETE CASCADE,
   FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
 );
