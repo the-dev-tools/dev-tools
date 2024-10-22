@@ -184,7 +184,7 @@ func (a AuthServer) handleUserNotFound(ctx context.Context, email, ProviderID st
 		ProviderID:   &ProviderID,
 	}
 
-	_, err = a.userService.CreateUser(ctx, user)
+	err = a.userService.CreateUser(ctx, user)
 	if err != nil {
 		return nil, err
 	}

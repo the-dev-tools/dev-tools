@@ -42,18 +42,8 @@ func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 
 var ErrNoItemApiFound = sql.ErrNoRows
 
-func New(ctx context.Context, db *sql.DB) (ItemApiService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return ItemApiService{}, ErrNoItemApiFound
-		}
-		return ItemApiService{}, err
-	}
-
-	return ItemApiService{
-		queries: queries,
-	}, nil
+func New(ctx context.Context, queries *gen.Queries) ItemApiService {
+	return ItemApiService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*ItemApiService, error) {

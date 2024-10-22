@@ -32,15 +32,8 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (WorkspaceService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return WorkspaceService{}, err
-	}
-
-	return WorkspaceService{
-		queries: queries,
-	}, nil
+func New(ctx context.Context, queries *gen.Queries) WorkspaceService {
+	return WorkspaceService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {

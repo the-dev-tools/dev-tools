@@ -1718,7 +1718,7 @@ func (q *Queries) CreateResultApi(ctx context.Context, arg CreateResultApiParams
 	return err
 }
 
-const createUser = `-- name: CreateUser :one
+const createUser = `-- name: CreateUser :exec
 INSERT INTO
   users (
     id,
@@ -1728,7 +1728,7 @@ INSERT INTO
     provider_id
   )
 VALUES
-  (?, ?, ?, ?, ?) RETURNING id, email, password_hash, provider_type, provider_id, status
+  (?, ?, ?, ?, ?)
 `
 
 type CreateUserParams struct {
@@ -1739,24 +1739,15 @@ type CreateUserParams struct {
 	ProviderID   sql.NullString
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.queryRow(ctx, q.createUserStmt, createUser,
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
+	_, err := q.exec(ctx, q.createUserStmt, createUser,
 		arg.ID,
 		arg.Email,
 		arg.PasswordHash,
 		arg.ProviderType,
 		arg.ProviderID,
 	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.ProviderType,
-		&i.ProviderID,
-		&i.Status,
-	)
-	return i, err
+	return err
 }
 
 const createVariable = `-- name: CreateVariable :exec

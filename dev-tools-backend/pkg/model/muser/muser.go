@@ -9,6 +9,7 @@ var (
 	NoProvider ProviderType = 1
 	MagicLink  ProviderType = 2
 	Google     ProviderType = 3
+	Local      ProviderType = 16
 )
 
 type UserStatus int8

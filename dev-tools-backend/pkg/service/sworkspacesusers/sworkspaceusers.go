@@ -34,14 +34,8 @@ type WorkspaceUserService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (WorkspaceUserService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return WorkspaceUserService{}, err
-	}
-	return WorkspaceUserService{
-		queries: queries,
-	}, nil
+func New(ctx context.Context, queries *gen.Queries) WorkspaceUserService {
+	return WorkspaceUserService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceUserService, error) {

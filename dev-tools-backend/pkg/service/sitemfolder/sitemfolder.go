@@ -35,15 +35,8 @@ func ConvertToModelItemFolder(folder gen.ItemFolder) mitemfolder.ItemFolder {
 	}
 }
 
-func New(ctx context.Context, db *sql.DB) (ItemFolderService, error) {
-	q, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return ItemFolderService{}, err
-	}
-
-	return ItemFolderService{
-		queries: q,
-	}, nil
+func New(ctx context.Context, queries *gen.Queries) ItemFolderService {
+	return ItemFolderService{queries: queries}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*ItemFolderService, error) {

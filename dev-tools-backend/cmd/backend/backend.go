@@ -114,51 +114,6 @@ func main() {
 	clientHttp := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	defer clientHttp.Close()
 
-	cs, err := scollection.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ws, err := sworkspace.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	wus, err := sworkspacesusers.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	us, err := suser.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ias, err := sitemapi.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ifs, err := sitemfolder.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ras, err := sresultapi.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	iaes, err := sitemapiexample.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ehs, err := sexampleheader.New(ctx, currentDB)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
 	if magicLinkSecret == "" {
 		log.Fatal("MAGIC_LINK_SECRET env var is required")
@@ -175,6 +130,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	cs := scollection.New(ctx, queries)
+	ws := sworkspace.New(ctx, queries)
+	wus := sworkspacesusers.New(ctx, queries)
+	us := suser.New(ctx, queries)
+	ias := sitemapi.New(ctx, queries)
+	ifs := sitemfolder.New(ctx, queries)
+	ras := sresultapi.New(ctx, queries)
+	iaes := sitemapiexample.New(ctx, queries)
+	ehs := sexampleheader.New(ctx, queries)
 	eqs := sexamplequery.New(queries)
 	brs := sbodyraw.New(queries)
 	bfs := sbodyform.New(queries)

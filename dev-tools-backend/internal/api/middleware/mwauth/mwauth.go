@@ -46,6 +46,10 @@ type AuthInterceptorData struct {
 	secret []byte
 }
 
+func CreateAuthedContext(ctx context.Context, userID idwrap.IDWrap) context.Context {
+	return context.WithValue(ctx, UserIDKeyCtx, userID)
+}
+
 func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (connect.AnyResponse, error) {
 	headerValue := req.Header().Get(stoken.TokenHeaderKey)
 	if headerValue == "" {
@@ -72,9 +76,7 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ID)
-
-	return next(CtxWithValue, req)
+	return next(CreateAuthedContext(ctx, ID), req)
 }
 
 func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (resp connect.AnyResponse, err error) {

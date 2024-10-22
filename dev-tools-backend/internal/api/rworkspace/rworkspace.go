@@ -423,14 +423,15 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberCreate(ctx context.Context, req *co
 	invitedUser, err := c.us.GetUserByEmail(ctx, req.Msg.GetEmail())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			invitedUser, err = c.us.CreateUser(ctx, &muser.User{
+			invitedUser = &muser.User{
 				ID:           idwrap.NewNow(),
 				Email:        req.Msg.GetEmail(),
 				Password:     nil,
 				ProviderType: muser.Unknown,
 				ProviderID:   nil,
 				Status:       muser.Pending,
-			})
+			}
+			err = c.us.CreateUser(ctx, invitedUser)
 		}
 		return nil, err
 	}

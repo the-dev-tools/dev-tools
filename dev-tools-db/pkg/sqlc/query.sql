@@ -333,7 +333,7 @@ WHERE
 LIMIT
   1;
 
--- name: CreateUser :one
+-- name: CreateUser :exec
 INSERT INTO
   users (
     id,
@@ -343,7 +343,7 @@ INSERT INTO
     provider_id
   )
 VALUES
-  (?, ?, ?, ?, ?) RETURNING *;
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateUser :exec
 UPDATE users

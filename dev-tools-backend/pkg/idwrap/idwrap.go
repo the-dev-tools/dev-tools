@@ -45,8 +45,8 @@ func (u IDWrap) Bytes() []byte {
 	return u.ulid[:]
 }
 
-func (u IDWrap) Compare(ulid IDWrap) int {
-	return u.ulid.Compare(ulid.ulid)
+func (u IDWrap) Compare(id IDWrap) int {
+	return u.ulid.Compare(id.ulid)
 }
 
 func (u IDWrap) Time() time.Time {

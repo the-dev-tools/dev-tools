@@ -12,12 +12,8 @@ type UserService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, db *sql.DB) (UserService, error) {
-	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return UserService{}, err
-	}
-	return UserService{queries: queries}, nil
+func New(ctx context.Context, queries *gen.Queries) UserService {
+	return UserService{queries: queries}
 }
 
 // WARNING: this is also get user password hash do not use for public api
@@ -58,7 +54,7 @@ func (us UserService) GetUserByEmail(ctx context.Context, email string) (*muser.
 	}, nil
 }
 
-func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.User, error) {
+func (us UserService) CreateUser(ctx context.Context, user *muser.User) error {
 	var ProviderID sql.NullString
 	if user.ProviderID != nil {
 		ProviderID = sql.NullString{
@@ -71,23 +67,13 @@ func (us UserService) CreateUser(ctx context.Context, user *muser.User) (*muser.
 		}
 	}
 
-	newUser, err := us.queries.CreateUser(ctx, gen.CreateUserParams{
+	return us.queries.CreateUser(ctx, gen.CreateUserParams{
 		ID:           user.ID,
 		Email:        user.Email,
 		PasswordHash: user.Password,
 		ProviderType: int8(user.ProviderType),
 		ProviderID:   ProviderID,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &muser.User{
-		ID:           newUser.ID,
-		Email:        newUser.Email,
-		Password:     newUser.PasswordHash,
-		ProviderType: muser.ProviderType(newUser.ProviderType),
-		ProviderID:   &newUser.ProviderID.String,
-	}, nil
 }
 
 func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
