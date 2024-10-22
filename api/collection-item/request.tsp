@@ -36,6 +36,19 @@ model Header {
   description: string;
 }
 
+enum PathKind {
+  PATH_KIND_UNSPECIFIED: 0,
+  PATH_KIND_INDEX: 1,
+  PATH_KIND_INDEX_ANY: 2,
+}
+
+@autoFields
+model PathKey {
+  kind: PathKind;
+  key?: string;
+  index?: int32;
+}
+
 enum AssertKind {
   ASSERT_KIND_UNSPECIFIED: 0,
   ASSERT_KIND_EQUAL: 1,
@@ -52,7 +65,7 @@ enum AssertKind {
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.ID;
-  path: string;
+  path: PathKey[];
   value: string;
   type: AssertKind;
 }
