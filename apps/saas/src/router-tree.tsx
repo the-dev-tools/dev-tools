@@ -26,6 +26,7 @@ import { Route as queryImport } from './query';
 // Create/Update Routes
 
 const loginRoute = loginImport.update({
+  id: '/login',
   path: '/login',
   getParentRoute: () => rootRoute,
 } as any);
@@ -41,41 +42,49 @@ const dashboardRoute = dashboardImport.update({
 } as any);
 
 const workspaceLayoutRoute = workspaceLayoutImport.update({
+  id: '/workspace/$workspaceIdCan',
   path: '/workspace/$workspaceIdCan',
   getParentRoute: () => authorizedRoute,
 } as any);
 
 const workspaceListRoute = workspaceListImport.update({
+  id: '/',
   path: '/',
   getParentRoute: () => dashboardRoute,
 } as any);
 
 const workspaceMembersRoute = workspaceMembersImport.update({
+  id: '/members',
   path: '/members',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
 
 const endpointRoute = endpointImport.update({
+  id: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   path: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
 
 const headersRoute = headersImport.update({
+  id: '/headers',
   path: '/headers',
   getParentRoute: () => endpointRoute,
 } as any);
 
 const bodyRoute = bodyImport.update({
+  id: '/body',
   path: '/body',
   getParentRoute: () => endpointRoute,
 } as any);
 
 const assertionsRoute = assertionsImport.update({
+  id: '/assertions',
   path: '/assertions',
   getParentRoute: () => endpointRoute,
 } as any);
 
 const queryRoute = queryImport.update({
+  id: '/',
   path: '/',
   getParentRoute: () => endpointRoute,
 } as any);

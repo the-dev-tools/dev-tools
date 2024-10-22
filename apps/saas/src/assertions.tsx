@@ -1,9 +1,24 @@
+import { create, fromJson, toJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { Array, pipe, Predicate, Record } from 'effect';
-import { Collection, UNSTABLE_Tree, UNSTABLE_TreeItem, UNSTABLE_TreeItemContent } from 'react-aria-components';
+import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
+import { useMemo } from 'react';
+import {
+  Collection as AriaCollection,
+  UNSTABLE_Tree as AriaTree,
+  UNSTABLE_TreeItem as AriaTreeItem,
+  UNSTABLE_TreeItemContent as AriaTreeItemContent,
+} from 'react-aria-components';
+import { LuChevronRight } from 'react-icons/lu';
+import { twJoin } from 'tailwind-merge';
 
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import {
+  PathKey,
+  PathKeyJson,
+  PathKeySchema,
+  PathKind,
+} from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
   responseGet,
   responseHeaderList,
@@ -50,71 +65,128 @@ export function Tab() {
     Record.fromEntries,
   );
 
+  const items = pipe(
+    Array.fromRecord({ body, headers }),
+    Array.map(([key, data]) => {
+      const path = Array.make(create(PathKeySchema, { key }));
+      const ids = path.map((_) => toJson(PathKeySchema, _));
+      return { id: JSON.stringify(ids), data, path };
+    }),
+  );
+
   return (
-    <UNSTABLE_Tree items={Array.fromRecord({ body, headers })} className={tw`flex flex-col gap-1`}>
-      {function renderItem(
-        [key, value]: readonly [string, unknown],
-        parentKey?: string,
-        parentKind?: 'object' | 'array',
-      ) {
-        const data = (() => {
-          if (Predicate.isRecord(value)) {
-            return { items: Array.fromRecord(value), kind: 'object' as const };
-          } else if (Predicate.isIterable(value)) {
-            return {
-              items: Array.fromIterable(value).map((value, index) => [index.toString(), value] as const),
-              kind: 'array' as const,
-            };
-          }
-          return undefined;
-        })();
-
-        let keyDisplay: string | undefined = undefined;
-        if (parentKind === 'array') keyDisplay = undefined;
-        else keyDisplay = JSON.stringify(key);
-
-        let tag: string | undefined = undefined;
-        if (data?.kind !== undefined) tag = data.kind;
-        else if (parentKind === 'array') tag = 'entry';
-        if (parentKind === 'array') tag = `${tag} ${key}`;
-
-        let quantity: string | undefined = undefined;
-        if (data?.kind === 'object') quantity = `${data.items.length} keys`;
-        else if (data?.kind === 'array') quantity = `${data.items.length} entries`;
-
-        let valueDisplay: string | undefined = undefined;
-        if (data?.kind === undefined) valueDisplay = JSON.stringify(value);
-
-        return (
-          <UNSTABLE_TreeItem id={`${parentKey} ${key}`} textValue={key}>
-            <UNSTABLE_TreeItemContent>
-              {({ level }) => (
-                <div
-                  className={tw`flex items-center gap-2`}
-                  style={{ marginInlineStart: (level - 1).toString() + 'rem' }}
-                >
-                  {(data?.items.length ?? 0) > 0 && (
-                    <Button slot='chevron' variant='placeholder ghost' kind='placeholder'>
-                      +
-                    </Button>
-                  )}
-
-                  {keyDisplay && <span className={tw`font-mono text-red-700`}>{keyDisplay}</span>}
-                  {tag && <span className={tw`bg-gray-300 p-1`}>{tag}</span>}
-                  {quantity && <span className={tw`text-gray-700`}>{quantity}</span>}
-
-                  {valueDisplay && (
-                    <>
-                      : <span className={tw`font-mono text-blue-700`}>{valueDisplay}</span>
-                    </>
-                  )}
-                </div>
-              )}
-            </UNSTABLE_TreeItemContent>
-            {<Collection items={data?.items ?? []}>{(_) => renderItem(_, key, data?.kind)}</Collection>}
-          </UNSTABLE_TreeItem>
+    <AriaTree
+      items={items}
+      className={tw`flex flex-col gap-1`}
+      onAction={(id) => {
+        if (typeof id !== 'string') return;
+        const path = pipe(
+          JSON.parse(id) as PathKeyJson[],
+          Array.map((_) => fromJson(PathKeySchema, _)),
         );
+        console.log(...path);
       }}
-    </UNSTABLE_Tree>
+    >
+      {({ id, data, path }) => <PathTreeItem id={id} data={data} path={path} />}
+    </AriaTree>
   );
 }
+
+interface PathTreeItemProps {
+  id: string;
+  data: unknown;
+  path: Array.NonEmptyArray<PathKey>;
+}
+
+const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
+  const value = useMemo(
+    () =>
+      pipe(
+        Match.value(data),
+        Match.when(Predicate.isRecord, (_) => ({
+          kind: 'object' as const,
+          items: pipe(Array.fromRecord(_), Array.map(Tuple.mapFirst((_) => create(PathKeySchema, { key: _ })))),
+        })),
+        Match.when(Predicate.isIterable, (_) => ({
+          kind: 'array' as const,
+          items: pipe(
+            Array.fromIterable(_),
+            Array.map((data, index) => [create(PathKeySchema, { kind: PathKind.INDEX, index }), data] as const),
+            // Array.prepend([create(PathKeySchema, { kind: PathKind.INDEX_ANY }), null] as const), // TODO: construct 'any' object
+          ),
+        })),
+        Match.orElse((_) => ({ kind: 'unknown' as const, value: _ })),
+      ),
+    [data],
+  );
+
+  const items = useMemo(
+    () =>
+      pipe(
+        value.kind !== 'unknown' ? value.items : [],
+        Array.map(([key, data]) => {
+          const itemPath = Array.append(path, key);
+          const ids = itemPath.map((_) => toJson(PathKeySchema, _));
+          return { id: JSON.stringify(ids), data, path: itemPath };
+        }),
+      ),
+    [path, value],
+  );
+
+  const key = Array.lastNonEmpty(path);
+
+  const keyDisplay = pipe(
+    Match.value(key),
+    Match.when({ kind: PathKind.UNSPECIFIED }, (_) => JSON.stringify(_.key)),
+    Match.orElse(() => undefined),
+  );
+
+  let tag: string | undefined = undefined;
+  if (value.kind !== 'unknown') tag = value.kind;
+  else if (key.kind !== PathKind.UNSPECIFIED) tag = 'entry';
+  if (key.kind !== PathKind.UNSPECIFIED) tag = `${tag} ${key.index}`;
+
+  const quantity = pipe(
+    Match.value(value),
+    Match.when({ kind: 'object' }, (_) => `${_.items.length} keys`),
+    Match.when({ kind: 'array' }, (_) => `${_.items.length} entries`),
+    Match.orElse(() => undefined),
+  );
+
+  const valueDisplay = pipe(
+    Match.value(value),
+    Match.when({ kind: 'unknown' }, (_) => JSON.stringify(_.value)),
+    Match.orElse(() => undefined),
+  );
+
+  return (
+    <AriaTreeItem id={id} textValue={valueDisplay ?? tag ?? ''}>
+      <AriaTreeItemContent>
+        {({ level, isExpanded }) => (
+          <div className={tw`flex items-center gap-2`} style={{ marginInlineStart: (level - 1).toString() + 'rem' }}>
+            {items.length > 0 && (
+              <Button kind='placeholder' variant='placeholder ghost' slot='chevron'>
+                <LuChevronRight
+                  className={twJoin(tw`transition-transform`, !isExpanded ? tw`rotate-0` : tw`rotate-90`)}
+                />
+              </Button>
+            )}
+
+            {keyDisplay && <span className={tw`font-mono text-red-700`}>{keyDisplay}</span>}
+            {tag && <span className={tw`bg-gray-300 p-1`}>{tag}</span>}
+            {quantity && <span className={tw`text-gray-700`}>{quantity}</span>}
+
+            {valueDisplay && (
+              <>
+                : <span className={tw`flex-1 break-all font-mono text-blue-700`}>{valueDisplay}</span>
+              </>
+            )}
+          </div>
+        )}
+      </AriaTreeItemContent>
+      <AriaCollection items={items}>
+        {({ id, data, path }) => <PathTreeItem id={id} data={data} path={path} />}
+      </AriaCollection>
+    </AriaTreeItem>
+  );
+};
