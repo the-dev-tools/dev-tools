@@ -36,16 +36,16 @@ model Header {
   description: string;
 }
 
-enum AssertType {
-  ASSERT_TYPE_UNSPECIFIED: 0,
-  ASSERT_TYPE_EQUAL: 1,
-  ASSERT_TYPE_NOT_EQUAL: 2,
-  ASSERT_TYPE_CONTAINS: 3,
-  ASSERT_TYPE_NOT_CONTAINS: 4,
-  ASSERT_TYPE_GREATER: 5,
-  ASSERT_TYPE_ASSERT_TYPE_LESS: 6,
-  ASSERT_TYPE_GREATER_OR_EQUAL: 7,
-  ASSERT_TYPE_LESS_OR_EQUAL: 8,
+enum AssertKind {
+  ASSERT_KIND_UNSPECIFIED: 0,
+  ASSERT_KIND_EQUAL: 1,
+  ASSERT_KIND_NOT_EQUAL: 2,
+  ASSERT_KIND_CONTAINS: 3,
+  ASSERT_KIND_NOT_CONTAINS: 4,
+  ASSERT_KIND_GREATER: 5,
+  ASSERT_KIND_LESS: 6,
+  ASSERT_KIND_GREATER_OR_EQUAL: 7,
+  ASSERT_KIND_LESS_OR_EQUAL: 8,
 }
 
 @autoFields
@@ -54,7 +54,7 @@ model Assert {
   @key assertId: Resource.ID;
   path: string;
   value: string;
-  type: AssertType;
+  type: AssertKind;
 }
 
 // Query
