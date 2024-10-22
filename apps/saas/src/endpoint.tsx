@@ -645,9 +645,9 @@ interface ResponseAssertsTableProps {
 
 const ResponseAssertsTable = ({ asserts }: ResponseAssertsTableProps) => (
   <div className={tw`grid grid-cols-[auto_1fr] items-center gap-2 text-sm`}>
-    {asserts.map(({ asssert, result }) => {
-      if (!asssert) return null;
-      const assertIdCan = Ulid.construct(asssert.assertId).toCanonical();
+    {asserts.map(({ assert, result }) => {
+      if (!assert) return null;
+      const assertIdCan = Ulid.construct(assert.assertId).toCanonical();
       return (
         <Fragment key={assertIdCan}>
           <div
@@ -659,7 +659,7 @@ const ResponseAssertsTable = ({ asserts }: ResponseAssertsTableProps) => (
             {result ? 'Pass' : 'Fail'}
           </div>
 
-          <span>{asssert.name}</span>
+          <span>{assert.path}</span>
         </Fragment>
       );
     })}
