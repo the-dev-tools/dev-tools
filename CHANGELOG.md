@@ -1,5 +1,15 @@
 # @the-dev-tools/protobuf
 
+## 1.32.0
+
+### Minor Changes
+
+- [`f2a776c`](https://github.com/the-dev-tools/dev-tools-spec/commit/f2a776c75656d60335efe09a20cdc06d1dd0c36e) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Add `PathKey` model for better assert path representation
+
+### Patch Changes
+
+- [`02d19b3`](https://github.com/the-dev-tools/dev-tools-spec/commit/02d19b3e8ac51a13069873bcbe5b758f508a62cf) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Rename `AssertType` to `AssertKind` for consistency
+
 ## 1.31.4
 
 ### Patch Changes
