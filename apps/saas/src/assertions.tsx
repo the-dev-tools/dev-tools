@@ -17,6 +17,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
+  AssertKind,
   AssertListItem,
   AssertListItemSchema,
   AssertUpdateRequestSchema,
@@ -35,8 +36,11 @@ import {
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Popover } from '@the-dev-tools/ui/popover';
+import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextAreaFieldRHF } from '@the-dev-tools/ui/text-field';
 
 export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions',
@@ -115,13 +119,38 @@ const Tab = ({ data, items }: TabProps) => {
   return (
     <>
       {fieldArray.fields.map((item, index) => (
-        <div key={item.id}>
+        <div key={item.id} className={tw`flex items-center gap-2`}>
+          <span>Target object</span>
+
           <Controller
             control={form.control}
             name={`items.${index}.path`}
             render={({ field }) => (
               <PathPicker data={data} selectedPath={field.value!} onSelectionChange={field.onChange} />
             )}
+          />
+
+          <SelectRHF
+            control={form.control}
+            name={`items.${index}.type`}
+            className={tw`h-full flex-1`}
+            triggerClassName={tw`h-full`}
+          >
+            <DropdownItem id={AssertKind.EQUAL.valueOf()}>is equal to</DropdownItem>
+            <DropdownItem id={AssertKind.NOT_EQUAL.valueOf()}>is not equal to</DropdownItem>
+            <DropdownItem id={AssertKind.CONTAINS.valueOf()}>contains</DropdownItem>
+            <DropdownItem id={AssertKind.NOT_CONTAINS.valueOf()}>does not contain</DropdownItem>
+            <DropdownItem id={AssertKind.GREATER.valueOf()}>is greater than</DropdownItem>
+            <DropdownItem id={AssertKind.GREATER_OR_EQUAL.valueOf()}>is greater or equal to</DropdownItem>
+            <DropdownItem id={AssertKind.LESS.valueOf()}>is less than</DropdownItem>
+            <DropdownItem id={AssertKind.LESS_OR_EQUAL.valueOf()}>is less or equal to</DropdownItem>
+          </SelectRHF>
+
+          <TextAreaFieldRHF
+            control={form.control}
+            name={`items.${index}.value`}
+            className={tw`h-full flex-[2]`}
+            areaClassName={tw`h-full`}
           />
         </div>
       ))}
@@ -146,17 +175,17 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
         fromJson(PathKeySchema, _),
         Match.value,
         Match.when({ kind: PathKind.UNSPECIFIED }, (_) => (
-          <span key={`${index} ${_.key}`} className={tw`py-1`}>
+          <span key={`${index} ${_.key}`} className={tw`flex-none py-1`}>
             {_.key}
           </span>
         )),
         Match.when({ kind: PathKind.INDEX }, (_) => (
-          <span key={`${index} ${_.index}`} className={tw`bg-gray-300 p-1`}>
+          <span key={`${index} ${_.index}`} className={tw`flex-none bg-gray-300 p-1`}>
             entry {_.index}
           </span>
         )),
         Match.when({ kind: PathKind.INDEX_ANY }, () => (
-          <span key={`${index} any`} className={tw`bg-gray-300 p-1`}>
+          <span key={`${index} any`} className={tw`flex-none bg-gray-300 p-1`}>
             any entry
           </span>
         )),
@@ -177,7 +206,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
 
   return (
     <DialogTrigger>
-      <Button kind='placeholder' variant='placeholder'>
+      <Button kind='placeholder' variant='placeholder' className={tw`h-full flex-[2] flex-wrap justify-start`}>
         {valueDisplay.length > 0 ? valueDisplay : <span className={tw`p-1`}>Select JSON path</span>}
       </Button>
       <Popover className={tw`h-full w-1/2`}>
