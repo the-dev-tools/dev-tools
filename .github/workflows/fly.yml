@@ -2,8 +2,6 @@ name: Fly Deploy
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "dev-tools-*/v[0-9]+.[0-9]+.[0-9]+"
 
