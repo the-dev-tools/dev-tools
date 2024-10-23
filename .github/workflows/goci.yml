@@ -26,8 +26,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - id: set-modules
-        ## it shouldn't get any "spec"
-        run: echo "modules=$(go list -m -json | jq -s '.' | jq '.[] | select(.Path != "node_modules")' | jq -c '[.[].Dir]')" >> $GITHUB_OUTPUT
+        run: |
+          echo "modules=$(go list -m -json | jq -s '.' | jq -c '[.[].Dir]')" >> $GITHUB_OUTPUT
+          echo $GITHUB_OUTPUT
+
   go-test:
     needs: detect-modules
     runs-on: ubuntu-latest
