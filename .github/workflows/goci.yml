@@ -26,10 +26,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - id: set-modules
-        run: |
-          echo "modules=$(go list -m -json | jq -s '.' | jq -c '[.[].Dir]')" >> $GITHUB_OUTPUT
-          echo $GITHUB_OUTPUT
-
+        run: | # Use a multi-line string for readability
+          modules=$(go list -m -json | jq -s '.' | jq '.[] | {Dir: .} | select(.Dir | tostring | split("/") | index("node_modules") == null)' | jq -c '[.[].Dir]')
+          echo "::set-output name=modules::$modules"
   go-test:
     needs: detect-modules
     runs-on: ubuntu-latest
