@@ -5,6 +5,7 @@ import (
 	"dev-tools-backend/pkg/model/massert"
 	"dev-tools-nodes/pkg/httpclient"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
@@ -16,6 +17,21 @@ type AssertSys struct {
 	assertMap map[massert.AssertType]string
 }
 
+type CustomMap map[string]interface{}
+
+func (s CustomMap) SelectGVal(ctx context.Context, k string) (interface{}, error) {
+	val, ok := s[k]
+	if ok {
+		return val, nil
+	}
+	// TODO: try copy
+	if k == "any" {
+		return s, nil
+	}
+
+	return nil, errors.New("key not found")
+}
+
 func New() AssertSys {
 	mapAssertType := massert.MapAssertType()
 	return AssertSys{
@@ -24,14 +40,18 @@ func New() AssertSys {
 }
 
 func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jsondothpath, val string) (bool, error) {
-	bodyMap := make(map[string]interface{})
+	bodyMap := make(CustomMap)
 	// turn response body into map
-	err := json.Unmarshal(respHttp.Body, &bodyMap)
-	if err != nil {
-		return false, err
+	//
+	ok := json.Valid(respHttp.Body)
+	if ok {
+		err := json.Unmarshal(respHttp.Body, &bodyMap)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	headerMap := make(map[string]interface{})
+	headerMap := make(CustomMap)
 	// turn response header into map
 	for _, v := range respHttp.Headers {
 		val, ok := headerMap[v.HeaderKey]
@@ -42,12 +62,12 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 		}
 	}
 
-	respMap := make(map[string]interface{})
+	respMap := make(CustomMap)
 	respMap["body"] = bodyMap
 	respMap["header"] = headerMap
 	respMap["status"] = respHttp.StatusCode
 
-	rootMap := make(map[string]interface{})
+	rootMap := make(CustomMap)
 	rootMap["response"] = respMap
 
 	gvalFunc := gval.Function("contains", func(args ...interface{}) (bool, error) {
@@ -58,7 +78,7 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 		if a == nil || b == nil {
 			return false, nil
 		}
-		aMap, ok := a.(map[string]interface{})
+		aMap, ok := a.(CustomMap)
 		if !ok {
 			return false, fmt.Errorf("a invalid type %T", a)
 		}
@@ -89,6 +109,7 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 	options := []gval.Language{gvalFunc, dashOption}
 
 	var evalOuputVal interface{}
+	var err error
 	a, ok := c.assertMap[at]
 	if at == massert.AssertTypeContains || at == massert.AssertTypeNotContains {
 		if !ok {

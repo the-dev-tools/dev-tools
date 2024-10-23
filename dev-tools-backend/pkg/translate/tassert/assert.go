@@ -15,7 +15,7 @@ func SerializeAssertModelToRPC(a massert.Assert) *requestv1.Assert {
 			Key:   s,
 			Index: int32(i),
 		}
-		if s != "*" {
+		if s != "any" {
 			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
 		} else {
 			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX_ANY
@@ -39,7 +39,7 @@ func SerializeAssertModelToRPCItem(a massert.Assert) *requestv1.AssertListItem {
 			Key:   s,
 			Index: int32(i),
 		}
-		if s != "*" {
+		if s != "any" {
 			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
 		} else {
 			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX_ANY
