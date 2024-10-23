@@ -127,6 +127,6 @@ func TestCreateCollection(t *testing.T) {
 	}
 
 	if msg.Name != collectionData.Name {
-		t.Error("CollectionGet failed: invalid response")
+		t.Error("CollectionGet failed: name mismatch")
 	}
 }
