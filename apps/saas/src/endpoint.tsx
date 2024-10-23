@@ -1,4 +1,4 @@
-import { create } from '@bufbuild/protobuf';
+import { create, toJson } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
@@ -34,6 +34,7 @@ import {
   exampleRun,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
+  PathKeySchema,
   QueryCreateRequest,
   QueryCreateRequestSchema,
   QueryListItemSchema,
@@ -659,7 +660,7 @@ const ResponseAssertsTable = ({ asserts }: ResponseAssertsTableProps) => (
             {result ? 'Pass' : 'Fail'}
           </div>
 
-          <span>{assert.path}</span>
+          <span>{assert.path.map((_) => JSON.stringify(toJson(PathKeySchema, _))).join(' ')}</span>
         </Fragment>
       );
     })}
