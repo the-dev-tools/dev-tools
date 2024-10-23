@@ -123,10 +123,10 @@ func TestCreateCollection(t *testing.T) {
 	}
 
 	if collectionID.Compare(respCollectionID) != 0 {
-		t.Fatalf("CollectionGet failed: id mismatch")
+		t.Error("CollectionGet failed: id mismatch")
 	}
 
 	if msg.Name != collectionData.Name {
-		t.Fatalf("CollectionGet failed: invalid response")
+		t.Error("CollectionGet failed: invalid response")
 	}
 }
