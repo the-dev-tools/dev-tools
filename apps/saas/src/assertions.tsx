@@ -1,8 +1,8 @@
 import { create, fromJson, toJson } from '@bufbuild/protobuf';
-import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Collection as AriaCollection,
   UNSTABLE_Tree as AriaTree,
@@ -10,16 +10,26 @@ import {
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
   DialogTrigger,
 } from 'react-aria-components';
+import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { LuChevronRight } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
+  AssertListItem,
+  AssertListItemSchema,
+  AssertUpdateRequestSchema,
   PathKey,
   PathKeyJson,
   PathKeySchema,
   PathKind,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import {
+  assertCreate,
+  assertList,
+  assertUpdate,
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {
   responseGet,
   responseHeaderList,
@@ -31,14 +41,14 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions',
 )({
-  component: Tab,
+  component: TabLoader,
 });
 
 const endpointRoute = getRouteApi(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 );
 
-export function Tab() {
+export function TabLoader() {
   const { exampleId } = endpointRoute.useLoaderData();
 
   const exampleQuery = useConnectQuery(exampleGet, { exampleId });
@@ -50,9 +60,9 @@ export function Tab() {
   const responseQuery = useConnectQuery(responseGet, input, { enabled: hasResponse });
   const headersQuery = useConnectQuery(responseHeaderList, input, { enabled: hasResponse });
 
-  const [selectedPath, setSelectedPath] = useState<PathKey[]>([]);
+  const assertListQuery = useConnectQuery(assertList, { exampleId });
 
-  if (!responseQuery.isSuccess || !headersQuery.isSuccess) return null;
+  if (!responseQuery.isSuccess || !headersQuery.isSuccess || !assertListQuery.data) return null;
 
   let body;
   try {
@@ -69,20 +79,72 @@ export function Tab() {
     Record.fromEntries,
   );
 
-  return <PathPicker data={{ body, headers }} selectedPath={selectedPath} onSelectionChange={setSelectedPath} />;
+  return <Tab data={{ body, headers }} items={assertListQuery.data.items} />;
 }
+
+interface TabProps {
+  data: Record<string, unknown>;
+  items: AssertListItem[];
+}
+
+const Tab = ({ data, items }: TabProps) => {
+  const { exampleId } = endpointRoute.useLoaderData();
+
+  const form = useForm({ values: { items: items.map((_) => toJson(AssertListItemSchema, _)) } });
+  const fieldArray = useFieldArray({ control: form.control, name: 'items' });
+
+  const assertCreateMutation = useConnectMutation(assertCreate);
+  const assertUpdateMutation = useConnectMutation(assertUpdate);
+
+  const assertUpdateCallback = useDebouncedCallback(
+    form.handleSubmit(async ({ items }) => {
+      const updates = items.map((_) => {
+        const request = fromJson(AssertUpdateRequestSchema, _);
+        return assertUpdateMutation.mutateAsync(request);
+      });
+      await Promise.allSettled(updates);
+    }),
+    500,
+  );
+
+  useEffect(() => {
+    const subscription = form.watch(() => void assertUpdateCallback());
+    return () => void subscription.unsubscribe();
+  }, [assertUpdateCallback, form]);
+
+  return (
+    <>
+      {fieldArray.fields.map((item, index) => (
+        <div key={item.id}>
+          <Controller
+            control={form.control}
+            name={`items.${index}.path`}
+            render={({ field }) => (
+              <PathPicker data={data} selectedPath={field.value!} onSelectionChange={field.onChange} />
+            )}
+          />
+        </div>
+      ))}
+
+      <Button kind='placeholder' variant='placeholder' onPress={() => void assertCreateMutation.mutate({ exampleId })}>
+        New Assertion
+      </Button>
+    </>
+  );
+};
 
 interface PathPickerProps {
   data: Record<string, unknown>;
-  selectedPath: PathKey[];
-  onSelectionChange: (path: PathKey[]) => void;
+  selectedPath: PathKeyJson[];
+  onSelectionChange: (path: PathKeyJson[]) => void;
 }
 
 const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) => {
   const valueDisplay = pipe(
     selectedPath.map((_, index) =>
       pipe(
-        Match.value(_),
+        fromJson(PathKeySchema, _),
+        Match.value,
         Match.when({ kind: PathKind.UNSPECIFIED }, (_) => (
           <span key={`${index} ${_.key}`} className={tw`py-1`}>
             {_.key}
@@ -115,7 +177,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
 
   return (
     <DialogTrigger>
-      <Button className={tw`gap-0`}>
+      <Button kind='placeholder' variant='placeholder'>
         {valueDisplay.length > 0 ? valueDisplay : <span className={tw`p-1`}>Select JSON path</span>}
       </Button>
       <Popover className={tw`h-full w-1/2`}>
@@ -125,11 +187,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
             className={tw`flex flex-col gap-1`}
             onAction={(id) => {
               if (typeof id !== 'string') return;
-              const path = pipe(
-                JSON.parse(id) as PathKeyJson[],
-                Array.map((_) => fromJson(PathKeySchema, _)),
-              );
-              onSelectionChange(path);
+              onSelectionChange(JSON.parse(id) as PathKeyJson[]);
               close();
             }}
           >
@@ -212,7 +270,10 @@ const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
     <AriaTreeItem id={id} textValue={valueDisplay ?? tag ?? ''}>
       <AriaTreeItemContent>
         {({ level, isExpanded }) => (
-          <div className={tw`flex items-center gap-2`} style={{ marginInlineStart: (level - 1).toString() + 'rem' }}>
+          <div
+            className={tw`flex cursor-pointer items-center gap-2`}
+            style={{ marginInlineStart: (level - 1).toString() + 'rem' }}
+          >
             {items.length > 0 && (
               <Button kind='placeholder' variant='placeholder ghost' slot='chevron'>
                 <LuChevronRight

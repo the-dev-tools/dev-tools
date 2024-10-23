@@ -16,7 +16,7 @@ import { composeRenderPropsTV } from './utils';
 // Popover
 
 export const dropdownPopoverStyles = tv({
-  base: tw`min-w-[--trigger-width]`,
+  base: tw`max-h-full min-w-[--trigger-width]`,
 });
 
 export interface DropdownPopoverProps extends AriaPopoverProps, VariantProps<typeof dropdownPopoverStyles> {}
@@ -32,7 +32,7 @@ export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) =
 // List box
 
 export const dropdownListBoxStyles = tv({
-  base: tw`flex flex-col gap-2 rounded border border-black bg-white p-2 outline-none`,
+  base: tw`flex max-h-full flex-col gap-2 overflow-auto rounded border border-black bg-white p-2 outline-none`,
 });
 
 export interface DropdownListBoxProps<T extends object>
