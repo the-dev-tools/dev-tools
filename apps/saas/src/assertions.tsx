@@ -2,12 +2,13 @@ import { create, fromJson, toJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Collection as AriaCollection,
   UNSTABLE_Tree as AriaTree,
   UNSTABLE_TreeItem as AriaTreeItem,
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
+  DialogTrigger,
 } from 'react-aria-components';
 import { LuChevronRight } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
@@ -24,6 +25,7 @@ import {
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { Popover } from '@the-dev-tools/ui/popover';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 export const Route = createFileRoute(
@@ -48,6 +50,8 @@ export function Tab() {
   const responseQuery = useConnectQuery(responseGet, input, { enabled: hasResponse });
   const headersQuery = useConnectQuery(responseHeaderList, input, { enabled: hasResponse });
 
+  const [selectedPath, setSelectedPath] = useState<PathKey[]>([]);
+
   if (!responseQuery.isSuccess || !headersQuery.isSuccess) return null;
 
   let body;
@@ -65,8 +69,43 @@ export function Tab() {
     Record.fromEntries,
   );
 
+  return <PathPicker data={{ body, headers }} selectedPath={selectedPath} onSelectionChange={setSelectedPath} />;
+}
+
+interface PathPickerProps {
+  data: Record<string, unknown>;
+  selectedPath: PathKey[];
+  onSelectionChange: (path: PathKey[]) => void;
+}
+
+const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) => {
+  const valueDisplay = pipe(
+    selectedPath.map((_, index) =>
+      pipe(
+        Match.value(_),
+        Match.when({ kind: PathKind.UNSPECIFIED }, (_) => (
+          <span key={`${index} ${_.key}`} className={tw`py-1`}>
+            {_.key}
+          </span>
+        )),
+        Match.when({ kind: PathKind.INDEX }, (_) => (
+          <span key={`${index} ${_.index}`} className={tw`bg-gray-300 p-1`}>
+            entry {_.index}
+          </span>
+        )),
+        Match.when({ kind: PathKind.INDEX_ANY }, () => (
+          <span key={`${index} any`} className={tw`bg-gray-300 p-1`}>
+            any entry
+          </span>
+        )),
+        Match.orElseAbsurd,
+      ),
+    ),
+    Array.intersperse('.'),
+  );
+
   const items = pipe(
-    Array.fromRecord({ body, headers }),
+    Array.fromRecord(data),
     Array.map(([key, data]) => {
       const path = Array.make(create(PathKeySchema, { key }));
       const ids = path.map((_) => toJson(PathKeySchema, _));
@@ -75,22 +114,32 @@ export function Tab() {
   );
 
   return (
-    <AriaTree
-      items={items}
-      className={tw`flex flex-col gap-1`}
-      onAction={(id) => {
-        if (typeof id !== 'string') return;
-        const path = pipe(
-          JSON.parse(id) as PathKeyJson[],
-          Array.map((_) => fromJson(PathKeySchema, _)),
-        );
-        console.log(...path);
-      }}
-    >
-      {({ id, data, path }) => <PathTreeItem id={id} data={data} path={path} />}
-    </AriaTree>
+    <DialogTrigger>
+      <Button className={tw`gap-0`}>
+        {valueDisplay.length > 0 ? valueDisplay : <span className={tw`p-1`}>Select JSON path</span>}
+      </Button>
+      <Popover className={tw`h-full w-1/2`}>
+        {({ close }) => (
+          <AriaTree
+            items={items}
+            className={tw`flex flex-col gap-1`}
+            onAction={(id) => {
+              if (typeof id !== 'string') return;
+              const path = pipe(
+                JSON.parse(id) as PathKeyJson[],
+                Array.map((_) => fromJson(PathKeySchema, _)),
+              );
+              onSelectionChange(path);
+              close();
+            }}
+          >
+            {({ id, data, path }) => <PathTreeItem id={id} data={data} path={path} />}
+          </AriaTree>
+        )}
+      </Popover>
+    </DialogTrigger>
   );
-}
+};
 
 interface PathTreeItemProps {
   id: string;
