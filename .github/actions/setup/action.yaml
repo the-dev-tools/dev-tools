@@ -4,8 +4,7 @@ description: Load runner shell environment, setup cache, install dependencies
 runs:
   using: composite
   steps:
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/magic-nix-cache-action@main
+    - uses: nixbuild/nix-quick-install-action@v28
     - name: Load Nix runner shell environment
       shell: bash
       run: nix run .#gha-nix-develop -- .#runner
