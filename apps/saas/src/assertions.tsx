@@ -1,4 +1,4 @@
-import { create, fromJson, toJson } from '@bufbuild/protobuf';
+import { create, enumToJson, fromJson, toJson } from '@bufbuild/protobuf';
 import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
@@ -19,6 +19,7 @@ import { useCreateMutation } from '@the-dev-tools/api/query';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   AssertKind,
+  AssertKindSchema,
   AssertListItem,
   AssertListItemSchema,
   AssertUpdateRequestSchema,
@@ -132,8 +133,9 @@ const Tab = ({ data, items }: TabProps) => {
           <Controller
             control={form.control}
             name={`items.${index}.path`}
+            defaultValue={[]}
             render={({ field }) => (
-              <PathPicker data={data} selectedPath={field.value!} onSelectionChange={field.onChange} />
+              <PathPicker data={data} selectedPath={field.value ?? []} onSelectionChange={field.onChange} />
             )}
           />
 
@@ -143,14 +145,16 @@ const Tab = ({ data, items }: TabProps) => {
             className={tw`h-full flex-1`}
             triggerClassName={tw`h-full`}
           >
-            <DropdownItem id={AssertKind.EQUAL.valueOf()}>is equal to</DropdownItem>
-            <DropdownItem id={AssertKind.NOT_EQUAL.valueOf()}>is not equal to</DropdownItem>
-            <DropdownItem id={AssertKind.CONTAINS.valueOf()}>contains</DropdownItem>
-            <DropdownItem id={AssertKind.NOT_CONTAINS.valueOf()}>does not contain</DropdownItem>
-            <DropdownItem id={AssertKind.GREATER.valueOf()}>is greater than</DropdownItem>
-            <DropdownItem id={AssertKind.GREATER_OR_EQUAL.valueOf()}>is greater or equal to</DropdownItem>
-            <DropdownItem id={AssertKind.LESS.valueOf()}>is less than</DropdownItem>
-            <DropdownItem id={AssertKind.LESS_OR_EQUAL.valueOf()}>is less or equal to</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.EQUAL)}>is equal to</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.NOT_EQUAL)}>is not equal to</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.CONTAINS)}>contains</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.NOT_CONTAINS)}>does not contain</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.GREATER)}>is greater than</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.GREATER_OR_EQUAL)}>
+              is greater or equal to
+            </DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.LESS)}>is less than</DropdownItem>
+            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.LESS_OR_EQUAL)}>is less or equal to</DropdownItem>
           </SelectRHF>
 
           <TextAreaFieldRHF
