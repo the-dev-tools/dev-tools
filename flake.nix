@@ -41,6 +41,7 @@
               ]
               ++ (with pkgs; [
                 dotenvx
+                go
               ]);
           };
 
