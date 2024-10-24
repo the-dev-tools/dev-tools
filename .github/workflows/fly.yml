@@ -1,9 +1,9 @@
 name: Fly Deploy
 
 on:
-  create:
+  push:
     tags:
-      - "*"
+      - "dev-tools-backend/*"
 
 jobs:
   deploy:

@@ -38,10 +38,10 @@ jobs:
         uses: ./.github/actions/setup
         env:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
-      - name: Unit Test
-        working-directory: ${{ matrix.module }}
-        run: |
-          go test -v ./...
+      - name: Test
+        uses: robherley/go-test-action@v0
+        with:
+          moduleDirectory: ${{ matrix.module }}
   golangci-lint:
     needs: detect-modules
     runs-on: ubuntu-latest
