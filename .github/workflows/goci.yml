@@ -23,8 +23,9 @@ jobs:
         env:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - id: set-modules
-        run: | # Use a multi-line string for readability
-          echo "modules=$(go list -m -json | jq -s '.' | jq '.[] | {Dir: .} | select(.Dir | tostring | split("/") | index("node_modules") == null)' | jq -c '[.[].Dir]')" >> $GITHUB_OUTPUT
+        run: |
+          modules=$(go list -m -json | jq -s '.' | jq -c '[.[].Dir | select(index("node_modules") | not)]')
+          echo "modules=$modules" >> $GITHUB_OUTPUT
   go-test:
     needs: detect-modules
     runs-on: ubuntu-latest

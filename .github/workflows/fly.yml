@@ -3,7 +3,7 @@ name: Fly Deploy
 on:
   push:
     tags:
-      - "dev-tools-*/v[0-9]+.[0-9]+.[0-9]+"
+      - "*"
 
 jobs:
   deploy:
