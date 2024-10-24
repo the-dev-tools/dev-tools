@@ -34,6 +34,10 @@ jobs:
         module: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - name: Unit Test
         working-directory: ${{ matrix.module }}
         run: |
@@ -46,6 +50,10 @@ jobs:
         module: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - name: golangci-lint ${{ matrix.module }}
         uses: golangci/golangci-lint-action@v6
         with:

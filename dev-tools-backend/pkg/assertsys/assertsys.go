@@ -13,6 +13,7 @@ import (
 	"github.com/PaesslerAG/gval"
 )
 
+// TODO: move to model
 const (
 	HeaderKey = "headers"
 	BodyKey   = "body"
