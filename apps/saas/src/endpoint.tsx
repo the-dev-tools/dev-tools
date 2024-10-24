@@ -23,6 +23,7 @@ import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
+import { useCreateMutation } from '@the-dev-tools/api/query';
 import { EndpointGetResponse } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointGet,
@@ -104,14 +105,14 @@ export const Route = createFileRoute(
 function Page() {
   const { endpointId, exampleId } = Route.useLoaderData();
 
-  const endpointQuery = useConnectQuery(endpointGet, { endpointId });
-  const exampleQuery = useConnectQuery(exampleGet, { exampleId });
-  const listQueriesQuery = useConnectQuery(queryList, { exampleId });
+  const endpointGetQuery = useConnectQuery(endpointGet, { endpointId });
+  const exampleGetQuery = useConnectQuery(exampleGet, { exampleId });
+  const queryListQuery = useConnectQuery(queryList, { exampleId });
 
-  if (!endpointQuery.isSuccess || !exampleQuery.isSuccess || !listQueriesQuery.isSuccess) return null;
+  if (!endpointGetQuery.isSuccess || !exampleGetQuery.isSuccess || !queryListQuery.isSuccess) return null;
 
   return (
-    <EndpointForm endpoint={endpointQuery.data} example={exampleQuery.data} queries={listQueriesQuery.data.items} />
+    <EndpointForm endpoint={endpointGetQuery.data} example={exampleGetQuery.data} queries={queryListQuery.data.items} />
   );
 }
 
@@ -133,11 +134,15 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
 
   const queryClient = useQueryClient();
 
-  const updateMutation = useConnectMutation(endpointUpdate);
-  const runMutation = useConnectMutation(exampleRun);
+  const endpointUpdateMutation = useConnectMutation(endpointUpdate);
+  const exampleRunMutation = useConnectMutation(exampleRun);
 
-  const updateQueryMutation = useConnectMutation(queryUpdate);
-  const createQueryMutation = useConnectMutation(queryCreate);
+  const queryUpdateMutation = useConnectMutation(queryUpdate);
+  const queryCreateMutation = useCreateMutation(queryCreate, {
+    key: 'queryId',
+    listQuery: queryList,
+    listInput: { exampleId },
+  });
 
   const values = useMemo(() => {
     return pipe(
@@ -170,7 +175,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
   const onSubmit = form.handleSubmit(async ({ method, url: urlString }) => {
     const { origin = '', pathname = '', searchParams = new URLSearchParams() } = !urlString ? {} : new URL(urlString);
 
-    updateMutation.mutate({ endpointId, method, url: origin + pathname });
+    endpointUpdateMutation.mutate({ endpointId, method, url: origin + pathname });
 
     const queryMap = pipe(
       searchParams.entries(),
@@ -210,7 +215,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
       Array.fromIterable(queryMap),
       Array.map(async ([_, query]) => {
         if (query.$typeName === 'collection.item.request.v1.QueryUpdateRequest') {
-          await updateQueryMutation.mutateAsync(query);
+          await queryUpdateMutation.mutateAsync(query);
           const index = HashMap.unsafeGet(queryIdIndexMap, query.queryId);
           const oldQuery = newQueryList[index];
           if (!oldQuery) return;
@@ -219,7 +224,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
             ...Struct.omit(query, '$typeName'),
           });
         } else {
-          const { queryId } = await createQueryMutation.mutateAsync(query);
+          const { queryId } = await queryCreateMutation.mutateAsync(query);
           newQueryList.push(
             create(QueryListItemSchema, {
               queryId,
@@ -282,7 +287,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
               className='rounded-l-none border-l-0 bg-black text-white'
               onPress={async () => {
                 await onSubmit();
-                const { responseId } = await runMutation.mutateAsync({
+                const { responseId } = await exampleRunMutation.mutateAsync({
                   exampleId,
                 });
                 queryClient.setQueryData(
@@ -360,9 +365,9 @@ interface ResponsePanelLoaderProps {
 }
 
 const ResponsePanelLoader = ({ responseId }: ResponsePanelLoaderProps) => {
-  const responseQuery = useConnectQuery(responseGet, { responseId });
-  if (!responseQuery.isSuccess) return null;
-  return <ResponsePanel response={responseQuery.data} />;
+  const responseGetQuery = useConnectQuery(responseGet, { responseId });
+  if (!responseGetQuery.isSuccess) return null;
+  return <ResponsePanel response={responseGetQuery.data} />;
 };
 
 interface ResponsePanelProps {
@@ -573,9 +578,9 @@ interface ResponseHeaderTableLoaderProps {
 }
 
 const ResponseHeaderTableLoader = ({ responseId }: ResponseHeaderTableLoaderProps) => {
-  const query = useConnectQuery(responseHeaderList, { responseId });
-  if (!query.isSuccess) return null;
-  return <ResponseHeadersTable headers={query.data.items} />;
+  const responseHeaderListQuery = useConnectQuery(responseHeaderList, { responseId });
+  if (!responseHeaderListQuery.isSuccess) return null;
+  return <ResponseHeadersTable headers={responseHeaderListQuery.data.items} />;
 };
 
 interface ResponseHeadersTableProps {
@@ -635,9 +640,9 @@ interface ResponseAssertsTableLoaderProps {
 }
 
 const ResponseAssertsTableLoader = ({ responseId }: ResponseAssertsTableLoaderProps) => {
-  const query = useConnectQuery(responseAssertList, { responseId });
-  if (!query.isSuccess) return null;
-  return <ResponseAssertsTable asserts={query.data.items} />;
+  const responseAssertListQuery = useConnectQuery(responseAssertList, { responseId });
+  if (!responseAssertListQuery.isSuccess) return null;
+  return <ResponseAssertsTable asserts={responseAssertListQuery.data.items} />;
 };
 
 interface ResponseAssertsTableProps {

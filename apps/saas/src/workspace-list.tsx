@@ -1,12 +1,18 @@
-import { createQueryOptions, useMutation as useConnectMutation, useTransport } from '@connectrpc/connect-query';
+import {
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+  useTransport,
+} from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { Effect, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useState } from 'react';
 import { Form } from 'react-aria-components';
 
+import { useCreateMutation } from '@the-dev-tools/api/query';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import {
   workspaceCreate,
@@ -28,15 +34,11 @@ class RenameForm extends Schema.Class<RenameForm>('WorkspaceRenameForm')({
 }) {}
 
 function Page() {
-  const queryClient = useQueryClient();
-  const transport = useTransport();
+  const workspaceListQuery = useConnectQuery(workspaceList);
+  const workspaceCreateMutation = useCreateMutation(workspaceCreate, { key: 'workspaceId', listQuery: workspaceList });
 
-  const queryOptions = createQueryOptions(workspaceList, undefined, { transport });
-  const query = useQuery({ ...queryOptions, enabled: true });
-  const createMutation = useConnectMutation(workspaceCreate);
-
-  if (!query.isSuccess) return null;
-  const { items: workspaces } = query.data;
+  if (!workspaceListQuery.isSuccess) return null;
+  const { items: workspaces } = workspaceListQuery.data;
 
   return (
     <div className='flex size-full flex-col items-center justify-center gap-4'>
@@ -44,10 +46,7 @@ function Page() {
         <Button
           kind='placeholder'
           variant='placeholder'
-          onPress={async () => {
-            await createMutation.mutateAsync({ name: 'New workspace' });
-            await queryClient.invalidateQueries(queryOptions);
-          }}
+          onPress={() => void workspaceCreateMutation.mutate({ name: 'New workspace' })}
         >
           Create workspace
         </Button>
@@ -76,8 +75,8 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
 
   const queryOptions = createQueryOptions(workspaceList, undefined, { transport });
 
-  const updateMutation = useConnectMutation(workspaceUpdate);
-  const deleteMutation = useConnectMutation(workspaceDelete);
+  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
+  const workspaceDeleteMutation = useConnectMutation(workspaceDelete);
 
   return (
     <div className='flex gap-4'>
@@ -94,7 +93,7 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
                 Schema.decode(RenameForm),
               );
 
-              updateMutation.mutate({ workspaceId, name });
+              workspaceUpdateMutation.mutate({ workspaceId, name });
 
               yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
 
@@ -126,7 +125,7 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
         kind='placeholder'
         variant='placeholder'
         onPress={async () => {
-          await deleteMutation.mutateAsync({ workspaceId });
+          await workspaceDeleteMutation.mutateAsync({ workspaceId });
           await queryClient.invalidateQueries(queryOptions);
         }}
       >

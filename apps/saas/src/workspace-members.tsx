@@ -1,10 +1,13 @@
-import { useMutation as useConnectMutation } from '@connectrpc/connect-query';
 import { Schema } from '@effect/schema';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe } from 'effect';
 import { Form } from 'react-aria-components';
 
-import { workspaceMemberCreate } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import { useCreateMutation } from '@the-dev-tools/api/query';
+import {
+  workspaceMemberCreate,
+  workspaceMemberList,
+} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -23,7 +26,11 @@ class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
 function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const createMemberMutation = useConnectMutation(workspaceMemberCreate);
+  const workspaceMemberCreateMutation = useCreateMutation(workspaceMemberCreate, {
+    key: 'memberId',
+    listQuery: workspaceMemberList,
+    listInput: { workspaceId },
+  });
 
   return (
     <div className='p-4'>
@@ -40,7 +47,7 @@ function Page() {
               Schema.decode(InviteForm),
             );
 
-            createMemberMutation.mutate({ workspaceId, email });
+            workspaceMemberCreateMutation.mutate({ workspaceId, email });
           }).pipe(Runtime.runPromise)
         }
       >

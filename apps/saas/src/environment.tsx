@@ -18,12 +18,8 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { LuBraces, LuClipboardList, LuPlus, LuTrash2, LuX } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
-import {
-  Environment,
-  EnvironmentJson,
-  EnvironmentListItemSchema,
-  EnvironmentListResponseSchema,
-} from '@the-dev-tools/spec/environment/v1/environment_pb';
+import { useCreateMutation } from '@the-dev-tools/api/query';
+import { Environment } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
   environmentCreate,
   environmentList,
@@ -64,16 +60,21 @@ export const EnvironmentsWidget = () => {
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const workspaceQuery = useConnectQuery(workspaceGet, { workspaceId });
-  const updateWorkspaceMutation = useConnectMutation(workspaceUpdate);
+  const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
+  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
 
-  const environmentsQuery = useConnectQuery(environmentList, { workspaceId });
-  const createEnvironmentMutation = useConnectMutation(environmentCreate);
+  const environmentListInput = { workspaceId };
+  const environmentListQuery = useConnectQuery(environmentList, environmentListInput);
+  const environmentCreateMutation = useCreateMutation(environmentCreate, {
+    key: 'environmentId',
+    listQuery: environmentList,
+    listInput: environmentListInput,
+  });
 
-  if (!environmentsQuery.isSuccess || !workspaceQuery.isSuccess) return null;
+  if (!environmentListQuery.isSuccess || !workspaceGetQuery.isSuccess) return null;
 
-  const environments = environmentsQuery.data.items;
-  const { selectedEnvironmentId } = workspaceQuery.data;
+  const environments = environmentListQuery.data.items;
+  const { selectedEnvironmentId } = workspaceGetQuery.data;
   const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
   return (
@@ -83,7 +84,7 @@ export const EnvironmentsWidget = () => {
         selectedKey={selectedEnvironmentIdCan}
         onSelectionChange={async (selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
-          await updateWorkspaceMutation.mutateAsync({ workspaceId, selectedEnvironmentId });
+          await workspaceUpdateMutation.mutateAsync({ workspaceId, selectedEnvironmentId });
 
           queryClient.setQueryData(
             createConnectQueryKey({ schema: workspaceGet, cardinality: 'finite', input: { workspaceId } }),
@@ -134,29 +135,7 @@ export const EnvironmentsWidget = () => {
                       kind='placeholder'
                       variant='placeholder'
                       className='p-1'
-                      onPress={async () => {
-                        const environment = { name: 'New Environment' } satisfies EnvironmentJson;
-                        const { environmentId } = await createEnvironmentMutation.mutateAsync({
-                          ...environment,
-                          workspaceId,
-                        });
-
-                        queryClient.setQueryData(
-                          createConnectQueryKey({
-                            schema: environmentList,
-                            cardinality: 'finite',
-                            input: { workspaceId },
-                          }),
-                          createProtobufSafeUpdater(environmentList, (old) =>
-                            create(EnvironmentListResponseSchema, {
-                              items: Array.append(
-                                old?.items ?? [],
-                                create(EnvironmentListItemSchema, { ...environment, environmentId }),
-                              ),
-                            }),
-                          ),
-                        );
-                      }}
+                      onPress={() => void environmentCreateMutation.mutate({ workspaceId, name: 'New Environment' })}
                     >
                       <LuPlus />
                     </Button>
@@ -231,9 +210,9 @@ interface VariablesTableLoaderProps {
 }
 
 const VariablesTableLoader = ({ environmentId }: VariablesTableLoaderProps) => {
-  const { data, isSuccess } = useConnectQuery(variableList, { environmentId });
-  if (!isSuccess) return;
-  return <VariablesTable environmentId={environmentId} items={data.items} />;
+  const variableListQuery = useConnectQuery(variableList, { environmentId });
+  if (!variableListQuery.isSuccess) return;
+  return <VariablesTable environmentId={environmentId} items={variableListQuery.data.items} />;
 };
 
 interface VariablesTableProps extends VariablesTableLoaderProps {
@@ -246,9 +225,9 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const createMutation = useConnectMutation(variableCreate);
-  const updateMutation = useConnectMutation(variableUpdate);
-  const { mutate: deleteMutate } = useConnectMutation(variableDelete);
+  const variableCreateMutation = useConnectMutation(variableCreate);
+  const variableUpdateMutation = useConnectMutation(variableUpdate);
+  const { mutate: variableDeleteMutate } = useConnectMutation(variableDelete);
 
   const makeItem = useCallback(
     (variableId?: string, item?: VariableJson) => ({ ...item, variableId: variableId ?? '', enabled: true }),
@@ -311,7 +290,7 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
                 const variableIdJson = getValues(`items.${row.index}.variableId`);
                 if (variableIdJson === undefined) return;
                 const { variableId } = fromJson(VariableSchema, { variableId: variableIdJson });
-                deleteMutate({ variableId });
+                variableDeleteMutate({ variableId });
                 removeField(row.index);
                 void onChange();
               }}
@@ -322,7 +301,7 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
         ),
       }),
     ];
-  }, [form.control, deleteMutate, getValues, removeField, onChange]);
+  }, [form.control, variableDeleteMutate, getValues, removeField, onChange]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
@@ -340,10 +319,10 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
       Array.map((_) => fromJson(VariableListItemSchema, _)),
     );
     queryClient.setQueryData(
-      createConnectQueryKey({ schema: variableList, cardinality: 'finite', input: { items } }),
+      createConnectQueryKey({ schema: variableList, cardinality: 'finite', input: { workspaceId }, transport }),
       createProtobufSafeUpdater(variableList, () => create(VariableListResponseSchema, { items })),
     );
-  }, [getValues, onChange, queryClient]);
+  }, [getValues, onChange, queryClient, transport, workspaceId]);
 
   useFormTableSync({
     field: 'items',
@@ -352,10 +331,10 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
     makeItem,
     getRowId: (_) => _.variableId,
     onCreate: async (variable) => {
-      const response = await createMutation.mutateAsync({ ...variable, environmentId });
+      const response = await variableCreateMutation.mutateAsync({ ...variable, environmentId });
       return toJson(VariableCreateResponseSchema, response).variableId ?? '';
     },
-    onUpdate: (variable) => updateMutation.mutateAsync(fromJson(VariableUpdateRequestSchema, variable)),
+    onUpdate: (variable) => variableUpdateMutation.mutateAsync(fromJson(VariableUpdateRequestSchema, variable)),
     onChange,
     setData,
   });

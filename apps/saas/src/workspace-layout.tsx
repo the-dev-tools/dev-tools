@@ -14,6 +14,7 @@ import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { LuFolder, LuImport, LuLoader, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
+import { useCreateMutation } from '@the-dev-tools/api/query';
 import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointCreate,
@@ -67,31 +68,21 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   },
 });
 
-const useInvalidateList = () => {
+const useInvalidateCollectionListQuery = () => {
   const { workspaceId } = Route.useLoaderData();
   const queryClient = useQueryClient();
   const transport = useTransport();
-  const listQueryOptions = createQueryOptions(collectionList, { workspaceId }, { transport });
-  return () => queryClient.invalidateQueries(listQueryOptions);
-};
-
-const useCreateFolderMutation = () => {
-  const invalidateList = useInvalidateList();
-  return useConnectMutation(folderCreate, { onSuccess: invalidateList });
-};
-
-const useCreateEndpointMutation = () => {
-  const invalidateList = useInvalidateList();
-  return useConnectMutation(endpointCreate, { onSuccess: invalidateList });
+  const collectionListQueryOptions = createQueryOptions(collectionList, { workspaceId }, { transport });
+  return () => queryClient.invalidateQueries(collectionListQueryOptions);
 };
 
 function Layout() {
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
-  const query = useConnectQuery(workspaceGet, { workspaceId });
-  if (!query.isSuccess) return;
-  const workspace = query.data;
+  const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
+  if (!workspaceGetQuery.isSuccess) return;
+  const workspace = workspaceGetQuery.data;
 
   return (
     <DashboardLayout
@@ -143,15 +134,17 @@ function Layout() {
 const CollectionsTree = () => {
   const { workspaceId } = Route.useLoaderData();
 
-  const collectionsQuery = useConnectQuery(collectionList, { workspaceId });
+  const collectionListInput = { workspaceId };
+  const collectionListQuery = useConnectQuery(collectionList, collectionListInput);
 
-  const invalidateList = useInvalidateList();
-  const createCollectionMutation = useConnectMutation(collectionCreate, {
-    onSuccess: invalidateList,
+  const collectionCreateMutation = useCreateMutation(collectionCreate, {
+    key: 'collectionId',
+    listQuery: collectionList,
+    listInput: collectionListInput,
   });
 
-  if (!collectionsQuery.isSuccess) return null;
-  const collections = collectionsQuery.data.items;
+  if (!collectionListQuery.isSuccess) return null;
+  const collections = collectionListQuery.data.items;
 
   return (
     <>
@@ -161,7 +154,7 @@ const CollectionsTree = () => {
           kind='placeholder'
           variant='placeholder'
           onPress={() =>
-            void createCollectionMutation.mutate({
+            void collectionCreateMutation.mutate({
               workspaceId,
               name: 'New collection',
             })
@@ -189,27 +182,42 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
-  const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(collectionDelete, {
-    onSuccess: invalidateList,
-  });
-  const updateMutation = useConnectMutation(collectionUpdate, {
-    onSuccess: invalidateList,
-  });
-  const createFolderMutation = useCreateFolderMutation();
-  const createEndpointMutation = useCreateEndpointMutation();
+  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
 
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
-  const itemsQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
+
+  const collectionItemListInput = { collectionId };
+  const collectionItemListQuery = useConnectQuery(collectionItemList, collectionItemListInput, { enabled });
+
+  const collectionDeleteMutation = useConnectMutation(collectionDelete, {
+    onSuccess: invalidateCollectionListQuery,
+  });
+  const collectionUpdateMutation = useConnectMutation(collectionUpdate, {
+    onSuccess: invalidateCollectionListQuery,
+  });
+
+  const folderCreateMutation = useCreateMutation(folderCreate, {
+    // TODO: fix incorrect key id
+    key: 'folderId',
+    listQuery: collectionItemList,
+    listInput: collectionItemListInput,
+  });
+
+  const endpointCreateMutation = useCreateMutation(endpointCreate, {
+    // TODO: fix incorrect key id
+    key: 'endpointId',
+    listQuery: collectionItemList,
+    listInput: collectionItemListInput,
+  });
 
   const triggerRef = useRef(null);
 
   const [isRenaming, setIsRenaming] = useState(false);
 
   const childItems = useMemo(
-    () => (itemsQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
-    [itemsQuery.data?.items],
+    () => (collectionItemListQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
+    [collectionItemListQuery.data?.items],
   );
 
   return (
@@ -220,7 +228,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
     >
-      {itemsQuery.isLoading && (
+      {collectionItemListQuery.isLoading && (
         <Button kind='placeholder' variant='placeholder ghost' isDisabled>
           <LuLoader className='animate-spin' />
         </Button>
@@ -240,7 +248,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createEndpointMutation.mutate({
+              void endpointCreateMutation.mutate({
                 collectionId,
                 name: 'New API call',
               })
@@ -251,7 +259,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createFolderMutation.mutate({
+              void folderCreateMutation.mutate({
                 collectionId,
                 name: 'New folder',
               })
@@ -260,7 +268,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
             Add Folder
           </MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ collectionId })}>
+          <MenuItem variant='danger' onAction={() => void collectionDeleteMutation.mutate({ collectionId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -284,7 +292,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              updateMutation.mutate({ collectionId, name });
+              collectionUpdateMutation.mutate({ collectionId, name });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -331,27 +339,41 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
-  const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(folderDelete, {
-    onSuccess: invalidateList,
+  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
+  const folderDeleteMutation = useConnectMutation(folderDelete, {
+    onSuccess: invalidateCollectionListQuery,
   });
-  const updateMutation = useConnectMutation(folderUpdate, {
-    onSuccess: invalidateList,
+  const folderUpdateMutation = useConnectMutation(folderUpdate, {
+    onSuccess: invalidateCollectionListQuery,
   });
-  const createFolderMutation = useCreateFolderMutation();
-  const createEndpointCallMutation = useCreateEndpointMutation();
 
   const { folderId } = folder;
   const [enabled, setEnabled] = useState(false);
-  const itemsQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
+
+  const collectionItemListInput = { collectionId, folderId };
+  const collectionItemListQuery = useConnectQuery(collectionItemList, collectionItemListInput, { enabled });
+
+  const folderCreateMutation = useCreateMutation(folderCreate, {
+    // TODO: fix incorrect key id
+    key: 'folderId',
+    listQuery: collectionItemList,
+    listInput: collectionItemListInput,
+  });
+
+  const endpointCreateMutation = useCreateMutation(endpointCreate, {
+    // TODO: fix incorrect key id
+    key: 'endpointId',
+    listQuery: collectionItemList,
+    listInput: collectionItemListInput,
+  });
 
   const triggerRef = useRef(null);
 
   const [isRenaming, setIsRenaming] = useState(false);
 
   const childItems = useMemo(
-    () => (itemsQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
-    [itemsQuery.data?.items],
+    () => (collectionItemListQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
+    [collectionItemListQuery.data?.items],
   );
 
   return (
@@ -362,7 +384,7 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
     >
-      {itemsQuery.isLoading && (
+      {collectionItemListQuery.isLoading && (
         <Button kind='placeholder' variant='placeholder ghost' isDisabled>
           <LuLoader className='animate-spin' />
         </Button>
@@ -384,7 +406,7 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createEndpointCallMutation.mutate({
+              void endpointCreateMutation.mutate({
                 collectionId,
                 parentFolderId: folderId,
                 name: 'New API call',
@@ -396,7 +418,7 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
 
           <MenuItem
             onAction={() =>
-              void createFolderMutation.mutate({
+              void folderCreateMutation.mutate({
                 collectionId,
                 parentFolderId: folderId,
                 name: 'New folder',
@@ -406,7 +428,7 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
             Add Folder
           </MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ folderId })}>
+          <MenuItem variant='danger' onAction={() => void folderDeleteMutation.mutate({ folderId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -430,7 +452,7 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              updateMutation.mutate({ folderId, name });
+              folderUpdateMutation.mutate({ folderId, name });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -465,22 +487,28 @@ interface EndpointTreeProps {
 const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProps) => {
   const match = useMatch({ strict: false });
 
-  const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(endpointDelete, {
-    onSuccess: invalidateList,
-  });
-  const duplicateMutation = useConnectMutation(endpointDuplicate, {
-    onSuccess: invalidateList,
-  });
-  const createExampleMutation = useConnectMutation(exampleCreate, {
-    onSuccess: invalidateList,
-  });
-
   const exampleIdCan = Ulid.construct(example.exampleId).toCanonical();
   const { endpointId, method } = endpoint;
 
   const [enabled, setEnabled] = useState(false);
-  const examplesQuery = useConnectQuery(exampleList, { endpointId }, { enabled });
+
+  const exampleListInput = { endpointId };
+  const exampleListQuery = useConnectQuery(exampleList, exampleListInput, { enabled });
+
+  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
+
+  const endpointDeleteMutation = useConnectMutation(endpointDelete, {
+    onSuccess: invalidateCollectionListQuery,
+  });
+  const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
+    onSuccess: invalidateCollectionListQuery,
+  });
+
+  const exampleCreateMutation = useCreateMutation(exampleCreate, {
+    key: 'exampleId',
+    listQuery: exampleList,
+    listInput: exampleListInput,
+  });
 
   return (
     <TreeItem
@@ -491,7 +519,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
         params: { endpointIdCan, exampleIdCan },
       }}
       wrapperIsSelected={match.params.exampleIdCan === exampleIdCan}
-      childItems={examplesQuery.data?.items ?? []}
+      childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
         return <ExampleItem id={exampleIdCan} endpointIdCan={endpointIdCan} example={_} />;
@@ -499,7 +527,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
     >
-      {examplesQuery.isLoading && (
+      {exampleListQuery.isLoading && (
         <Button kind='placeholder' variant='placeholder ghost' isDisabled>
           <LuLoader className='animate-spin' />
         </Button>
@@ -517,7 +545,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
         <Menu>
           <MenuItem
             onAction={() =>
-              void createExampleMutation.mutate({
+              void exampleCreateMutation.mutate({
                 endpointId,
                 name: 'New Example',
               })
@@ -526,9 +554,9 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
             Add Example
           </MenuItem>
 
-          <MenuItem onAction={() => void duplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
+          <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ endpointId })}>
+          <MenuItem variant='danger' onAction={() => void endpointDeleteMutation.mutate({ endpointId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -546,12 +574,12 @@ interface ExampleItemProps {
 const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemProps) => {
   const match = useMatch({ strict: false });
 
-  const invalidateList = useInvalidateList();
-  const deleteMutation = useConnectMutation(exampleDelete, {
-    onSuccess: invalidateList,
+  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
+  const exampleDeleteMutation = useConnectMutation(exampleDelete, {
+    onSuccess: invalidateCollectionListQuery,
   });
-  const duplicateMutation = useConnectMutation(exampleDuplicate, {
-    onSuccess: invalidateList,
+  const exampleDuplicateMutation = useConnectMutation(exampleDuplicate, {
+    onSuccess: invalidateCollectionListQuery,
   });
 
   const { exampleId } = example;
@@ -576,9 +604,9 @@ const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemPr
         </Button>
 
         <Menu>
-          <MenuItem onAction={() => void duplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
+          <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void deleteMutation.mutate({ exampleId })}>
+          <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ exampleId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -590,9 +618,10 @@ const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemPr
 const ImportPostman = () => {
   const { workspaceId } = Route.useLoaderData();
 
-  const invalidateList = useInvalidateList();
-  const createMutation = useConnectMutation(collectionImportPostman, {
-    onSuccess: invalidateList,
+  const collectionImportPostmanMutation = useCreateMutation(collectionImportPostman, {
+    key: 'collectionId',
+    listQuery: collectionList,
+    listInput: { workspaceId },
   });
 
   return (
@@ -601,7 +630,7 @@ const ImportPostman = () => {
         const file = _?.item(0);
         if (!file) return;
         const data = new Uint8Array(await file.arrayBuffer());
-        createMutation.mutate({ workspaceId, name: file.name, data });
+        collectionImportPostmanMutation.mutate({ workspaceId, name: file.name, data });
       }}
     >
       <Button kind='placeholder' variant='placeholder' className='flex-1 font-medium'>

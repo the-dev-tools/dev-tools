@@ -15,6 +15,7 @@ import { LuChevronRight } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useCreateMutation } from '@the-dev-tools/api/query';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   AssertKind,
@@ -55,22 +56,22 @@ const endpointRoute = getRouteApi(
 export function TabLoader() {
   const { exampleId } = endpointRoute.useLoaderData();
 
-  const exampleQuery = useConnectQuery(exampleGet, { exampleId });
+  const exampleGetQuery = useConnectQuery(exampleGet, { exampleId });
 
-  const responseId = exampleQuery.data?.lastResponseId;
+  const responseId = exampleGetQuery.data?.lastResponseId;
   const hasResponse = responseId !== undefined;
   const input = hasResponse ? { responseId } : {};
 
-  const responseQuery = useConnectQuery(responseGet, input, { enabled: hasResponse });
-  const headersQuery = useConnectQuery(responseHeaderList, input, { enabled: hasResponse });
+  const responseGetQuery = useConnectQuery(responseGet, input, { enabled: hasResponse });
+  const responseHeaderListQuery = useConnectQuery(responseHeaderList, input, { enabled: hasResponse });
 
   const assertListQuery = useConnectQuery(assertList, { exampleId });
 
-  if (!responseQuery.isSuccess || !headersQuery.isSuccess || !assertListQuery.data) return null;
+  if (!responseGetQuery.isSuccess || !responseHeaderListQuery.isSuccess || !assertListQuery.data) return null;
 
   let body;
   try {
-    body = new TextDecoder().decode(responseQuery.data.body);
+    body = new TextDecoder().decode(responseGetQuery.data.body);
     body = JSON.parse(body) as unknown;
     if (typeof body !== 'object') body = null;
   } catch {
@@ -78,7 +79,7 @@ export function TabLoader() {
   }
 
   const headers = pipe(
-    headersQuery.data.items,
+    responseHeaderListQuery.data.items,
     Array.map((_) => [_.key, _.value] as const),
     Record.fromEntries,
   );
@@ -94,10 +95,16 @@ interface TabProps {
 const Tab = ({ data, items }: TabProps) => {
   const { exampleId } = endpointRoute.useLoaderData();
 
-  const form = useForm({ values: { items: items.map((_) => toJson(AssertListItemSchema, _)) } });
+  const form = useForm({
+    values: { items: items.map((_) => toJson(AssertListItemSchema, _)) },
+  });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const assertCreateMutation = useConnectMutation(assertCreate);
+  const assertCreateMutation = useCreateMutation(assertCreate, {
+    key: 'assertId',
+    listQuery: assertList,
+    listInput: { exampleId },
+  });
   const assertUpdateMutation = useConnectMutation(assertUpdate);
 
   const assertUpdateCallback = useDebouncedCallback(
