@@ -590,7 +590,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
-	assertions, err := c.as.GetAssertByExampleID(ctx, example.ItemApiID)
+	assertions, err := c.as.GetAssertByExampleID(ctx, example.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -601,9 +601,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			res := massertres.AssertResult{
-				ID:       idwrap.NewNow(),
-				AssertID: assertion.ID,
-				Result:   assertionResult,
+				ID:         idwrap.NewNow(),
+				ResponseID: exampleResp.ID,
+				AssertID:   assertion.ID,
+				Result:     assertionResult,
 			}
 			err = c.ars.CreateAssertResult(ctx, res)
 			if err != nil {

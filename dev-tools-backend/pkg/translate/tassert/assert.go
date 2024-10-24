@@ -4,19 +4,32 @@ import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/massert"
 	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
+	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
-func SerializeAssertModelToRPC(a massert.Assert) *requestv1.Assert {
+func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 	var pathKeys []*requestv1.PathKey
-	str := strings.Split(a.Path, ",")
-	for i, s := range str {
+	str := strings.Split(a.Path, ".")
+	arrayRegex := regexp.MustCompile(`\[(\d+)\]`)
+	for _, s := range str {
 		pathKey := requestv1.PathKey{
-			Key:   s,
-			Index: int32(i),
+			Key: s,
+		}
+		arr := arrayRegex.MatchString(s)
+		if arr {
+			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
+			path := arrayRegex.FindStringSubmatch(s)[1]
+			pathInt, err := strconv.Atoi(path)
+			if err != nil {
+				return nil, err
+			}
+			pathKey.Index = int32(pathInt)
 		}
 		if s != "any" {
-			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
+			pathKey.Kind = requestv1.PathKind_PATH_KIND_UNSPECIFIED
 		} else {
 			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX_ANY
 		}
@@ -28,19 +41,29 @@ func SerializeAssertModelToRPC(a massert.Assert) *requestv1.Assert {
 		Path:     pathKeys,
 		Value:    a.Value,
 		Type:     requestv1.AssertKind(a.Type),
-	}
+	}, nil
 }
 
-func SerializeAssertModelToRPCItem(a massert.Assert) *requestv1.AssertListItem {
+func SerializeAssertModelToRPCItem(a massert.Assert) (*requestv1.AssertListItem, error) {
 	var pathKeys []*requestv1.PathKey
-	str := strings.Split(a.Path, ",")
-	for i, s := range str {
+	str := strings.Split(a.Path, ".")
+	arrayRegex := regexp.MustCompile(`\[(\d+)\]`)
+	for _, s := range str {
 		pathKey := requestv1.PathKey{
-			Key:   s,
-			Index: int32(i),
+			Key: s,
+		}
+		arr := arrayRegex.MatchString(s)
+		if arr {
+			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
+			path := arrayRegex.FindStringSubmatch(s)[1]
+			pathInt, err := strconv.Atoi(path)
+			if err != nil {
+				return nil, err
+			}
+			pathKey.Index = int32(pathInt)
 		}
 		if s != "any" {
-			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
+			pathKey.Kind = requestv1.PathKind_PATH_KIND_UNSPECIFIED
 		} else {
 			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX_ANY
 		}
@@ -52,7 +75,7 @@ func SerializeAssertModelToRPCItem(a massert.Assert) *requestv1.AssertListItem {
 		Path:     pathKeys,
 		Value:    a.Value,
 		Type:     requestv1.AssertKind(a.Type),
-	}
+	}, nil
 }
 
 func SerializeAssertRPCToModel(assert *requestv1.Assert, exampleID idwrap.IDWrap) (massert.Assert, error) {
@@ -68,12 +91,16 @@ func SerializeAssertRPCToModel(assert *requestv1.Assert, exampleID idwrap.IDWrap
 func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.IDWrap) massert.Assert {
 	path := ""
 	for _, p := range a.Path {
-		if p.Kind == requestv1.PathKind_PATH_KIND_INDEX {
-			path += p.Key + ","
-		} else {
-			path += "*,"
+		switch p.Kind {
+		case requestv1.PathKind_PATH_KIND_UNSPECIFIED:
+			path += "." + p.Key
+		case requestv1.PathKind_PATH_KIND_INDEX:
+			path += fmt.Sprintf("[%d]", p.Index)
+		case requestv1.PathKind_PATH_KIND_INDEX_ANY:
+			path += ".any"
 		}
 	}
+	path = strings.TrimLeft(path, ".")
 
 	return massert.Assert{
 		ExampleID: exampleID,

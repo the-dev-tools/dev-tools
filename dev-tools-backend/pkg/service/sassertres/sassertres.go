@@ -65,6 +65,7 @@ func (ars AssertResultService) CreateAssertResult(ctx context.Context, assertRes
 	assertResultDB := ConvertAssertResultModelToDB(assertResult)
 	return ars.queries.CreateAssertResult(ctx, gen.CreateAssertResultParams{
 		ID:          assertResultDB.ID,
+		ResponseID:  assertResultDB.ResponseID,
 		AssertionID: assertResultDB.AssertionID,
 		Result:      assertResultDB.Result,
 	})

@@ -142,8 +142,13 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		a, err := tassert.SerializeAssertModelToRPC(*assert)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		rpcAssertResp := &responsev1.ResponseAssertListItem{
-			Assert: tassert.SerializeAssertModelToRPC(*assert),
+			Assert: a,
 			Result: assertResp.Result,
 		}
 		rpcAssertResponses = append(rpcAssertResponses, rpcAssertResp)

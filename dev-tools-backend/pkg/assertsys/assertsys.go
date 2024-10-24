@@ -13,6 +13,12 @@ import (
 	"github.com/PaesslerAG/gval"
 )
 
+const (
+	HeaderKey = "headers"
+	BodyKey   = "body"
+	StatusKey = "status"
+)
+
 type AssertSys struct {
 	assertMap map[massert.AssertType]string
 }
@@ -63,12 +69,9 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 	}
 
 	respMap := make(CustomMap)
-	respMap["body"] = bodyMap
-	respMap["header"] = headerMap
-	respMap["status"] = respHttp.StatusCode
-
-	rootMap := make(CustomMap)
-	rootMap["response"] = respMap
+	respMap[BodyKey] = bodyMap
+	respMap[HeaderKey] = headerMap
+	respMap[StatusKey] = respHttp.StatusCode
 
 	gvalFunc := gval.Function("contains", func(args ...interface{}) (bool, error) {
 		if len(args) != 2 {
@@ -117,7 +120,7 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 		}
 		// TODO: fix this string manipulation
 		evalQuery := fmt.Sprintf("%s(%s, \"%s\")", a, jsondothpath, val)
-		evalOuputVal, err = gval.Evaluate(evalQuery, rootMap, options...)
+		evalOuputVal, err = gval.Evaluate(evalQuery, respMap, options...)
 		if err != nil {
 			return false, err
 		}
@@ -125,7 +128,7 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 	} else {
 		// TODO: fix this string manipulation
 		evalQuery := fmt.Sprintf("%s %s \"%s\"", jsondothpath, a, val)
-		evalOuputVal, err = gval.Evaluate(evalQuery, rootMap, options...)
+		evalOuputVal, err = gval.Evaluate(evalQuery, respMap, options...)
 	}
 	if err != nil {
 		fmt.Println(err)

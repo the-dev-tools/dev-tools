@@ -6,6 +6,7 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/ritemapiexample"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/massert"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sassert"
 	"dev-tools-backend/pkg/service/scollection"
@@ -268,7 +269,16 @@ func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcAssserts := tgeneric.MassConvert(asserts, tassert.SerializeAssertModelToRPCItem)
+
+	var rpcAssserts []*requestv1.AssertListItem
+	for _, a := range asserts {
+		rpcAssert, err := tassert.SerializeAssertModelToRPCItem(a)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		rpcAssserts = append(rpcAssserts, rpcAssert)
+	}
+
 	resp := &requestv1.AssertListResponse{
 		Items: rpcAssserts,
 	}
@@ -290,6 +300,7 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 		Type:  req.Msg.GetType(),
 	}
 	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID)
+	assert.Enable = true
 	assert.ID = idwrap.NewNow()
 	err = c.as.CreateAssert(ctx, assert)
 	if err != nil {
@@ -306,9 +317,24 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 		Type:     req.Msg.GetType(),
 	}
 	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
+	assert.Enable = true
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	assertDB, err := c.as.GetAssert(ctx, assert.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if assert.Type == massert.AssertType(requestv1.AssertKind_ASSERT_KIND_UNSPECIFIED) {
+		assert.Type = assertDB.Type
+	}
+
+	for i, pathKey := range rpcAssert.Path {
+		if pathKey.GetKind() == requestv1.PathKind_PATH_KIND_UNSPECIFIED {
+			rpcAssert.Path[i].Kind = requestv1.PathKind_PATH_KIND_INDEX
+		}
+	}
+
 	rpcErr := permcheck.CheckPerm(CheckOwnerAssert(ctx, c.as, c.iaes, c.cs, c.us, assert.ID))
 	if rpcErr != nil {
 		return nil, rpcErr

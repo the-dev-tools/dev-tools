@@ -5,7 +5,14 @@ import (
 	"dev-tools-backend/pkg/model/massert"
 	"dev-tools-backend/pkg/model/mexamplerespheader"
 	"dev-tools-nodes/pkg/httpclient"
+	"fmt"
 	"testing"
+)
+
+var (
+	HeaderPath = fmt.Sprintf("%s", assertsys.HeaderKey)
+	BodyPath   = fmt.Sprintf("%s", assertsys.BodyKey)
+	StatusPath = fmt.Sprintf("%s", assertsys.StatusKey)
 )
 
 func TestAssertSys_Eval_EqualTrue(t *testing.T) {
@@ -15,7 +22,7 @@ func TestAssertSys_Eval_EqualTrue(t *testing.T) {
 	}
 	assertSys := assertsys.New()
 
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, "response.status", "200")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, StatusPath, "200")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -32,7 +39,7 @@ func TestAssertSys_Eval_EqualFalse(t *testing.T) {
 
 	assertSys := assertsys.New()
 
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, "response.status", "200")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, StatusPath, "200")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -47,7 +54,7 @@ func TestAssertSys_Eval_ContainsTrue(t *testing.T) {
 		Body: jsonBytes,
 	}
 	assertSys := assertsys.New()
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.body", "John")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, BodyPath, "John")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -62,7 +69,7 @@ func TestAssertSys_Eval_ContainsFalse(t *testing.T) {
 		Body: jsonBytes,
 	}
 	assertSys := assertsys.New()
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.body", "Doe")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, BodyPath, "Doe")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -79,7 +86,7 @@ func TestAssertSys_Eval_HeadersContainsTrue(t *testing.T) {
 		Headers: headers,
 	}
 	assertSys := assertsys.New()
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.header", "Content-Type")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, HeaderPath, "Content-Type")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -96,7 +103,7 @@ func TestAssertSys_Eval_HeadersContainsFalse(t *testing.T) {
 		Headers: headers,
 	}
 	assertSys := assertsys.New()
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.header", "Content-Length")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, HeaderPath, "Content-Length")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -113,7 +120,7 @@ func TestAssertSys_Eval_HeadersEqualsTrue(t *testing.T) {
 		Headers: headers,
 	}
 	assertSys := assertsys.New()
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, "response.header.Content-Type", "application/json")
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeEqual, HeaderPath+".Content-Type", "application/json")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
@@ -135,7 +142,7 @@ func TestAssertSys_Eval_HeadersAnyEqualsTrue(t *testing.T) {
 		Headers: headers,
 	}
 	assertSys := assertsys.New()
-	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, "response.header.any", header1Value)
+	ok, err := assertSys.Eval(respHttp, massert.AssertTypeContains, HeaderPath+".any", header1Value)
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
