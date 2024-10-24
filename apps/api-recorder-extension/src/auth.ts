@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema';
-import { Effect, Option } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { Magic } from 'magic-sdk';
 
 import * as Storage from '~storage';

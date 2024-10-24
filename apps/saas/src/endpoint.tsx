@@ -7,13 +7,11 @@ import {
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
-import { Schema } from '@effect/schema';
-import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet, redirect } from '@tanstack/react-router';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Struct } from 'effect';
+import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, useMemo, useState } from 'react';
@@ -168,7 +166,9 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
   }, [endpoint.method, endpoint.url, queries]);
 
   const form = useForm({
-    resolver: effectTsResolver(EndpointFormData),
+    // TODO: use Effect resolver once it's updated
+    // https://github.com/react-hook-form/resolvers/pull/720
+    // resolver: effectTsResolver(EndpointFormData),
     values,
   });
 

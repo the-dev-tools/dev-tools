@@ -1,4 +1,4 @@
-import * as S from '@effect/schema/Schema';
+import * as S from 'effect/Schema';
 
 // Generated using: https://app.quicktype.io
 // Documentation: https://learning.postman.com/collection-format

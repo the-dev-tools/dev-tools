@@ -17,7 +17,6 @@
     "@connectrpc/connect-web": "2.0.0-rc.1",
     "@effect/platform": "0.69.6",
     "@effect/platform-browser": "0.48.6",
-    "@effect/schema": "0.75.5",
     "@hookform/resolvers": "3.9.0",
     "@prettier/plugin-xml": "3.4.1",
     "@react-aria/collections": "3.0.0-alpha.5",

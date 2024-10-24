@@ -1,8 +1,7 @@
 import { create, DescEnum, DescField, DescMessage, Message, ScalarType } from '@bufbuild/protobuf';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { createRouterTransport, ServiceImpl } from '@connectrpc/connect';
-import { Schema } from '@effect/schema';
-import { Context, DateTime, Effect, flow, Layer, pipe, Record, Ref, Runtime } from 'effect';
+import { Context, DateTime, Effect, flow, Layer, pipe, Record, Ref, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { UnsecuredJWT } from 'jose';
 import { Magic, PromiEvent } from 'magic-sdk';

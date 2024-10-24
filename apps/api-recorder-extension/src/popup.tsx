@@ -1,8 +1,21 @@
 import '@the-dev-tools/ui/fonts';
 import '~styles.css';
 
-import { Schema } from '@effect/schema';
-import { Array, Clock, Duration, Effect, flow, HashMap, Match, Option, pipe, String, Struct, Tuple } from 'effect';
+import {
+  Array,
+  Clock,
+  Duration,
+  Effect,
+  flow,
+  HashMap,
+  Match,
+  Option,
+  pipe,
+  Schema,
+  String,
+  Struct,
+  Tuple,
+} from 'effect';
 import * as React from 'react';
 import * as RAC from 'react-aria-components';
 import * as FeatherIcons from 'react-icons/fi';

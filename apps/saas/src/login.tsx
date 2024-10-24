@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
-import { Effect, pipe } from 'effect';
+import { Effect, pipe, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';

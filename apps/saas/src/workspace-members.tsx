@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { Effect, pipe } from 'effect';
+import { Effect, pipe, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
 import { useCreateMutation } from '@the-dev-tools/api/query';

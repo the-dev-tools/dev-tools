@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema';
-import { Effect, Option, pipe } from 'effect';
+import { Effect, Option, pipe, Schema } from 'effect';
 import * as React from 'react';
 
 import * as PlasmoStorage from '@plasmohq/storage';

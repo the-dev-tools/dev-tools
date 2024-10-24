@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema';
 import * as Devtools from 'devtools-protocol';
-import { Array, Effect, flow, MutableHashMap, Option, pipe, Record, Struct } from 'effect';
+import { Array, Effect, flow, MutableHashMap, Option, pipe, Record, Schema, Struct } from 'effect';
 import * as React from 'react';
 import * as Uuid from 'uuid';
 

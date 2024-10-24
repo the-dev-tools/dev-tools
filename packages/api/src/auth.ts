@@ -1,7 +1,6 @@
 import { Transport } from '@connectrpc/connect';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
-import { Schema } from '@effect/schema';
-import { Context, DateTime, Effect, pipe } from 'effect';
+import { Context, DateTime, Effect, pipe, Schema } from 'effect';
 import { decodeJwt } from 'jose';
 import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 

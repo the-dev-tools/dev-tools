@@ -4,10 +4,9 @@ import {
   useQuery as useConnectQuery,
   useTransport,
 } from '@connectrpc/connect-query';
-import { Schema } from '@effect/schema';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { Effect, pipe } from 'effect';
+import { Effect, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useState } from 'react';
 import { Form } from 'react-aria-components';
