@@ -144,6 +144,7 @@ const Tab = ({ data, items }: TabProps) => {
             name={`items.${index}.type`}
             className={tw`h-full flex-1`}
             triggerClassName={tw`h-full`}
+            aria-label='Comparison Method'
           >
             <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.EQUAL)}>is equal to</DropdownItem>
             <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.NOT_EQUAL)}>is not equal to</DropdownItem>
@@ -223,6 +224,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
       <Popover className={tw`h-full w-1/2`}>
         {({ close }) => (
           <AriaTree
+            aria-label='Path Picker'
             items={items}
             className={tw`flex flex-col gap-1`}
             onAction={(id) => {
