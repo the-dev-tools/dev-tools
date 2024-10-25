@@ -136,10 +136,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
   const exampleRunMutation = useConnectMutation(exampleRun);
 
   const queryUpdateMutation = useConnectMutation(queryUpdate);
-  const queryCreateMutation = useCreateMutation(queryCreate, {
-    listQuery: queryList,
-    listInput: { exampleId },
-  });
+  const queryCreateMutation = useCreateMutation(queryCreate, { listQuery: queryList });
 
   const values = useMemo(() => {
     return pipe(

@@ -63,12 +63,8 @@ export const EnvironmentsWidget = () => {
   const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
   const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
 
-  const environmentListInput = { workspaceId };
-  const environmentListQuery = useConnectQuery(environmentList, environmentListInput);
-  const environmentCreateMutation = useCreateMutation(environmentCreate, {
-    listQuery: environmentList,
-    listInput: environmentListInput,
-  });
+  const environmentListQuery = useConnectQuery(environmentList, { workspaceId });
+  const environmentCreateMutation = useCreateMutation(environmentCreate, { listQuery: environmentList });
 
   if (!environmentListQuery.isSuccess || !workspaceGetQuery.isSuccess) return null;
 

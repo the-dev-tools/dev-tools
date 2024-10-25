@@ -25,10 +25,7 @@ class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
 function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const workspaceMemberCreateMutation = useCreateMutation(workspaceMemberCreate, {
-    listQuery: workspaceMemberList,
-    listInput: { workspaceId },
-  });
+  const workspaceMemberCreateMutation = useCreateMutation(workspaceMemberCreate, { listQuery: workspaceMemberList });
 
   return (
     <div className='p-4'>

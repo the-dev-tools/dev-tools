@@ -133,13 +133,9 @@ function Layout() {
 const CollectionsTree = () => {
   const { workspaceId } = Route.useLoaderData();
 
-  const collectionListInput = { workspaceId };
-  const collectionListQuery = useConnectQuery(collectionList, collectionListInput);
+  const collectionListQuery = useConnectQuery(collectionList, { workspaceId });
 
-  const collectionCreateMutation = useCreateMutation(collectionCreate, {
-    listQuery: collectionList,
-    listInput: collectionListInput,
-  });
+  const collectionCreateMutation = useCreateMutation(collectionCreate, { listQuery: collectionList });
 
   if (!collectionListQuery.isSuccess) return null;
   const collections = collectionListQuery.data.items;
@@ -185,8 +181,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
 
-  const collectionItemListInput = { collectionId };
-  const collectionItemListQuery = useConnectQuery(collectionItemList, collectionItemListInput, { enabled });
+  const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
 
   const collectionDeleteMutation = useConnectMutation(collectionDelete, {
     onSuccess: invalidateCollectionListQuery,
@@ -197,20 +192,20 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   const folderCreateMutation = useCreateMutation(folderCreate, {
     listQuery: collectionItemList,
-    listInput: collectionItemListInput,
-    toListItem: (input, output) => ({
+    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
+    toListItem: (input, { folderId }) => ({
       kind: ItemKind.FOLDER,
-      folder: { ...input, folderId: output.folderId },
+      folder: { ...input, folderId },
     }),
   });
 
   const endpointCreateMutation = useCreateMutation(endpointCreate, {
     listQuery: collectionItemList,
-    listInput: collectionItemListInput,
-    toListItem: (input, output) => ({
+    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
+    toListItem: (input, { endpointId, exampleId }) => ({
       kind: ItemKind.ENDPOINT,
-      endpoint: { ...input, endpointId: output.endpointId },
-      example: { exampleId: output.exampleId },
+      endpoint: { ...input, endpointId },
+      example: { exampleId },
     }),
   });
 
@@ -353,25 +348,24 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
   const { folderId } = folder;
   const [enabled, setEnabled] = useState(false);
 
-  const collectionItemListInput = { collectionId, folderId };
-  const collectionItemListQuery = useConnectQuery(collectionItemList, collectionItemListInput, { enabled });
+  const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
 
   const folderCreateMutation = useCreateMutation(folderCreate, {
     listQuery: collectionItemList,
-    listInput: collectionItemListInput,
-    toListItem: (input, output) => ({
+    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
+    toListItem: (input, { folderId }) => ({
       kind: ItemKind.FOLDER,
-      folder: { ...input, folderId: output.folderId },
+      folder: { ...input, folderId },
     }),
   });
 
   const endpointCreateMutation = useCreateMutation(endpointCreate, {
     listQuery: collectionItemList,
-    listInput: collectionItemListInput,
-    toListItem: (input, output) => ({
+    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
+    toListItem: (input, { endpointId, exampleId }) => ({
       kind: ItemKind.ENDPOINT,
-      endpoint: { ...input, endpointId: output.endpointId },
-      example: { exampleId: output.exampleId },
+      endpoint: { ...input, endpointId },
+      example: { exampleId },
     }),
   });
 
@@ -500,8 +494,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
 
   const [enabled, setEnabled] = useState(false);
 
-  const exampleListInput = { endpointId };
-  const exampleListQuery = useConnectQuery(exampleList, exampleListInput, { enabled });
+  const exampleListQuery = useConnectQuery(exampleList, { endpointId }, { enabled });
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
 
@@ -512,10 +505,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
     onSuccess: invalidateCollectionListQuery,
   });
 
-  const exampleCreateMutation = useCreateMutation(exampleCreate, {
-    listQuery: exampleList,
-    listInput: exampleListInput,
-  });
+  const exampleCreateMutation = useCreateMutation(exampleCreate, { listQuery: exampleList });
 
   return (
     <TreeItem
@@ -625,10 +615,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemPr
 const ImportPostman = () => {
   const { workspaceId } = Route.useLoaderData();
 
-  const collectionImportPostmanMutation = useCreateMutation(collectionImportPostman, {
-    listQuery: collectionList,
-    listInput: { workspaceId },
-  });
+  const collectionImportPostmanMutation = useCreateMutation(collectionImportPostman, { listQuery: collectionList });
 
   return (
     <FileTrigger
