@@ -196,15 +196,22 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   });
 
   const folderCreateMutation = useCreateMutation(folderCreate, {
-    // TODO: fix incorrect key id
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
+    toListItem: (input, output) => ({
+      kind: ItemKind.FOLDER,
+      folder: { ...input, folderId: output.folderId },
+    }),
   });
 
   const endpointCreateMutation = useCreateMutation(endpointCreate, {
-    // TODO: fix incorrect key id
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
+    toListItem: (input, output) => ({
+      kind: ItemKind.ENDPOINT,
+      endpoint: { ...input, endpointId: output.endpointId },
+      example: { exampleId: output.exampleId },
+    }),
   });
 
   const triggerRef = useRef(null);
@@ -350,15 +357,22 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
   const collectionItemListQuery = useConnectQuery(collectionItemList, collectionItemListInput, { enabled });
 
   const folderCreateMutation = useCreateMutation(folderCreate, {
-    // TODO: fix incorrect key id
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
+    toListItem: (input, output) => ({
+      kind: ItemKind.FOLDER,
+      folder: { ...input, folderId: output.folderId },
+    }),
   });
 
   const endpointCreateMutation = useCreateMutation(endpointCreate, {
-    // TODO: fix incorrect key id
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
+    toListItem: (input, output) => ({
+      kind: ItemKind.ENDPOINT,
+      endpoint: { ...input, endpointId: output.endpointId },
+      example: { exampleId: output.exampleId },
+    }),
   });
 
   const triggerRef = useRef(null);
