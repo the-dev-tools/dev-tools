@@ -117,6 +117,9 @@ func TestCreateCollection(t *testing.T) {
 	}
 
 	respCollectionID, err := idwrap.NewFromBytes(msg.CollectionId)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if collectionID.Compare(respCollectionID) != 0 {
 		t.Fatalf("CollectionGet failed: id mismatch")
