@@ -26,7 +26,6 @@ function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const workspaceMemberCreateMutation = useCreateMutation(workspaceMemberCreate, {
-    key: 'memberId',
     listQuery: workspaceMemberList,
     listInput: { workspaceId },
   });

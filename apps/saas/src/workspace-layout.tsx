@@ -137,7 +137,6 @@ const CollectionsTree = () => {
   const collectionListQuery = useConnectQuery(collectionList, collectionListInput);
 
   const collectionCreateMutation = useCreateMutation(collectionCreate, {
-    key: 'collectionId',
     listQuery: collectionList,
     listInput: collectionListInput,
   });
@@ -198,14 +197,12 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   const folderCreateMutation = useCreateMutation(folderCreate, {
     // TODO: fix incorrect key id
-    key: 'folderId',
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
   });
 
   const endpointCreateMutation = useCreateMutation(endpointCreate, {
     // TODO: fix incorrect key id
-    key: 'endpointId',
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
   });
@@ -354,14 +351,12 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
 
   const folderCreateMutation = useCreateMutation(folderCreate, {
     // TODO: fix incorrect key id
-    key: 'folderId',
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
   });
 
   const endpointCreateMutation = useCreateMutation(endpointCreate, {
     // TODO: fix incorrect key id
-    key: 'endpointId',
     listQuery: collectionItemList,
     listInput: collectionItemListInput,
   });
@@ -504,7 +499,6 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
   });
 
   const exampleCreateMutation = useCreateMutation(exampleCreate, {
-    key: 'exampleId',
     listQuery: exampleList,
     listInput: exampleListInput,
   });
@@ -618,7 +612,6 @@ const ImportPostman = () => {
   const { workspaceId } = Route.useLoaderData();
 
   const collectionImportPostmanMutation = useCreateMutation(collectionImportPostman, {
-    key: 'collectionId',
     listQuery: collectionList,
     listInput: { workspaceId },
   });

@@ -9,20 +9,30 @@ import {
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 
+type ListItem<ListOutput> =
+  ListOutput extends GenMessage<
+    Message & {
+      items: (infer Item)[];
+    }
+  >
+    ? Item
+    : never;
+
 export const useCreateMutation = <
-  BaseData extends Record<string, unknown>,
-  ListData extends BaseData,
-  CreateInput extends GenMessage<Message & BaseData>,
-  CreateOutput extends GenMessage<Message & ListData>,
+  CreateInput extends DescMessage,
+  CreateOutput extends DescMessage,
   ListInput extends DescMessage,
-  ListOutput extends GenMessage<Message & { items: ListData[] }>,
+  ListOutput extends GenMessage<Message & { items: unknown[] }>,
   Context = unknown,
 >(
   createMutation: DescMethodUnary<CreateInput, CreateOutput>,
   updateOptions: {
-    key: Exclude<keyof MessageShape<CreateOutput>, keyof Message>;
     listQuery: DescMethodUnary<ListInput, ListOutput>;
     listInput?: MessageInitShape<ListInput>;
+    toListItem?: (
+      input: Omit<MessageInitShape<CreateInput>, keyof Message>,
+      output: Omit<MessageShape<CreateOutput>, keyof Message>,
+    ) => MessageInitShape<GenMessage<Message & ListItem<ListOutput>>>;
   },
   mutationOptions?: UseMutationOptions<CreateInput, CreateOutput, Context>,
 ) => {
@@ -42,10 +52,10 @@ export const useCreateMutation = <
         transport,
       });
 
-      const listItem = create(updateOptions.listQuery.output.field.items.message!, {
-        ...input,
-        [updateOptions.key]: output[updateOptions.key],
-      });
+      const listItem = create(
+        updateOptions.listQuery.output.field.items.message!,
+        updateOptions.toListItem?.(input, output) ?? { ...input, ...output },
+      );
 
       const updater = createProtobufSafeUpdater(updateOptions.listQuery, (old) =>
         create(updateOptions.listQuery.output, {

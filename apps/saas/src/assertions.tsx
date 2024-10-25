@@ -102,7 +102,6 @@ const Tab = ({ data, items }: TabProps) => {
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
   const assertCreateMutation = useCreateMutation(assertCreate, {
-    key: 'assertId',
     listQuery: assertList,
     listInput: { exampleId },
   });

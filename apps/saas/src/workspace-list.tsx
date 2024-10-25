@@ -34,7 +34,7 @@ class RenameForm extends Schema.Class<RenameForm>('WorkspaceRenameForm')({
 
 function Page() {
   const workspaceListQuery = useConnectQuery(workspaceList);
-  const workspaceCreateMutation = useCreateMutation(workspaceCreate, { key: 'workspaceId', listQuery: workspaceList });
+  const workspaceCreateMutation = useCreateMutation(workspaceCreate, { listQuery: workspaceList });
 
   if (!workspaceListQuery.isSuccess) return null;
   const { items: workspaces } = workspaceListQuery.data;
