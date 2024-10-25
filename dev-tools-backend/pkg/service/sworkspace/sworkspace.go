@@ -32,7 +32,7 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 	}
 }
 
-func New(ctx context.Context, queries *gen.Queries) WorkspaceService {
+func New(queries *gen.Queries) WorkspaceService {
 	return WorkspaceService{queries: queries}
 }
 

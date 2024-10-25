@@ -1782,34 +1782,37 @@ const createVariableBulk = `-- name: CreateVariableBulk :exec
 INSERT INTO
   variable (id, env_id, var_key, value, enabled, description)
 VALUES
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateVariableBulkParams struct {
-	ID       idwrap.IDWrap
-	EnvID    idwrap.IDWrap
-	VarKey   string
-	Value    string
-	ID_2     idwrap.IDWrap
-	EnvID_2  idwrap.IDWrap
-	VarKey_2 string
-	Value_2  string
-	ID_3     idwrap.IDWrap
-	EnvID_3  idwrap.IDWrap
-	VarKey_3 string
-	Value_3  string
-	ID_4     idwrap.IDWrap
-	EnvID_4  idwrap.IDWrap
-	VarKey_4 string
-	Value_4  string
-	ID_5     idwrap.IDWrap
-	EnvID_5  idwrap.IDWrap
-	VarKey_5 string
-	Value_5  string
+	ID            idwrap.IDWrap
+	EnvID         idwrap.IDWrap
+	VarKey        string
+	Value         string
+	Enabled       bool
+	Description   string
+	ID_2          idwrap.IDWrap
+	EnvID_2       idwrap.IDWrap
+	VarKey_2      string
+	Value_2       string
+	Enabled_2     bool
+	Description_2 string
+	ID_3          idwrap.IDWrap
+	EnvID_3       idwrap.IDWrap
+	VarKey_3      string
+	Value_3       string
+	Enabled_3     bool
+	Description_3 string
+	ID_4          idwrap.IDWrap
+	EnvID_4       idwrap.IDWrap
+	VarKey_4      string
+	Value_4       string
+	Enabled_4     bool
+	Description_4 string
 }
 
 func (q *Queries) CreateVariableBulk(ctx context.Context, arg CreateVariableBulkParams) error {
@@ -1818,22 +1821,26 @@ func (q *Queries) CreateVariableBulk(ctx context.Context, arg CreateVariableBulk
 		arg.EnvID,
 		arg.VarKey,
 		arg.Value,
+		arg.Enabled,
+		arg.Description,
 		arg.ID_2,
 		arg.EnvID_2,
 		arg.VarKey_2,
 		arg.Value_2,
+		arg.Enabled_2,
+		arg.Description_2,
 		arg.ID_3,
 		arg.EnvID_3,
 		arg.VarKey_3,
 		arg.Value_3,
+		arg.Enabled_3,
+		arg.Description_3,
 		arg.ID_4,
 		arg.EnvID_4,
 		arg.VarKey_4,
 		arg.Value_4,
-		arg.ID_5,
-		arg.EnvID_5,
-		arg.VarKey_5,
-		arg.Value_5,
+		arg.Enabled_4,
+		arg.Description_4,
 	)
 	return err
 }

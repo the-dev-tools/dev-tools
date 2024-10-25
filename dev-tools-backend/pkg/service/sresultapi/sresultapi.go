@@ -42,7 +42,7 @@ func ConvertToModelResultApi(result gen.ResultApi) *mresultapi.MResultAPI {
 	}
 }
 
-func New(ctx context.Context, queries *gen.Queries) ResultApiService {
+func New(queries *gen.Queries) ResultApiService {
 	return ResultApiService{queries: queries}
 }
 

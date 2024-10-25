@@ -17,7 +17,7 @@ type HeaderService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, queries *gen.Queries) HeaderService {
+func New(queries *gen.Queries) HeaderService {
 	return HeaderService{queries: queries}
 }
 

@@ -232,12 +232,3 @@ func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID idw
 	}
 	return true, nil
 }
-
-func (c *ResultService) CheckOwnerCollection(ctx context.Context, collectionID idwrap.IDWrap) (bool, error) {
-	workspaceID, err := c.cs.GetOwner(ctx, collectionID)
-	if err != nil {
-		return false, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return c.CheckOwnerWorkspace(ctx, workspaceID)
-}

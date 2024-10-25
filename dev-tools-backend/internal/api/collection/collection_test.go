@@ -35,11 +35,10 @@ func TestCreateCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	cs := sqlc.GetService(ctx, queries, scollection.New)
-	ws := sqlc.GetService(ctx, queries, sworkspace.New)
-	wus := sqlc.GetService(ctx, queries, sworkspacesusers.New)
-	us := sqlc.GetService(ctx, queries, suser.New)
+	cs := scollection.New(queries)
+	ws := sworkspace.New(queries)
+	wus := sworkspacesusers.New(queries)
+	us := suser.New(queries)
 
 	serviceRPC := collection.New(db, cs, ws, us)
 
@@ -118,15 +117,12 @@ func TestCreateCollection(t *testing.T) {
 	}
 
 	respCollectionID, err := idwrap.NewFromBytes(msg.CollectionId)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	if collectionID.Compare(respCollectionID) != 0 {
-		t.Error("CollectionGet failed: id mismatch")
+		t.Fatalf("CollectionGet failed: id mismatch")
 	}
 
 	if msg.Name != collectionData.Name {
-		t.Error("CollectionGet failed: name mismatch")
+		t.Fatalf("CollectionGet failed: invalid response")
 	}
 }

@@ -42,7 +42,7 @@ func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 
 var ErrNoItemApiFound = sql.ErrNoRows
 
-func New(ctx context.Context, queries *gen.Queries) ItemApiService {
+func New(queries *gen.Queries) ItemApiService {
 	return ItemApiService{queries: queries}
 }
 

@@ -31,7 +31,7 @@ func ConvertToModelCollection(collection gen.Collection) *mcollection.Collection
 	}
 }
 
-func New(ctx context.Context, queries *gen.Queries) CollectionService {
+func New(queries *gen.Queries) CollectionService {
 	return CollectionService{queries: queries}
 }
 

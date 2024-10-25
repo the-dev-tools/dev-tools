@@ -365,6 +365,10 @@ func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID 
 func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService, us suser.UserService, collectionID idwrap.IDWrap) (bool, error) {
 	workspaceID, err := cs.GetOwner(ctx, collectionID)
 	if err != nil {
+		if err == scollection.ErrNoCollectionFound {
+			err = errors.New("collection not found")
+			return false, connect.NewError(connect.CodePermissionDenied, err)
+		}
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
 

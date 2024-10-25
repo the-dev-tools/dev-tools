@@ -34,7 +34,7 @@ type WorkspaceUserService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, queries *gen.Queries) WorkspaceUserService {
+func New(queries *gen.Queries) WorkspaceUserService {
 	return WorkspaceUserService{queries: queries}
 }
 

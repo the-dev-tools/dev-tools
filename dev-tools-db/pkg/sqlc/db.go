@@ -44,6 +44,6 @@ func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
 	return prepared, nil
 }
 
-func GetService[I any](ctx context.Context, queries *gen.Queries, serviceFunc func(context.Context, *gen.Queries) I) I {
-	return serviceFunc(ctx, queries)
+func GetService[I any](queries *gen.Queries, serviceFunc func(*gen.Queries) I) I {
+	return serviceFunc(queries)
 }

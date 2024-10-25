@@ -12,7 +12,7 @@ type UserService struct {
 	queries *gen.Queries
 }
 
-func New(ctx context.Context, queries *gen.Queries) UserService {
+func New(queries *gen.Queries) UserService {
 	return UserService{queries: queries}
 }
 

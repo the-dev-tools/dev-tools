@@ -15,7 +15,7 @@ type ItemApiExampleService struct {
 
 var ErrNoItemApiExampleFound = sql.ErrNoRows
 
-func New(ctx context.Context, queries *gen.Queries) ItemApiExampleService {
+func New(queries *gen.Queries) ItemApiExampleService {
 	return ItemApiExampleService{Queries: queries}
 }
 

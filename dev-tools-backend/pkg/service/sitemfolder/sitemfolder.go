@@ -35,7 +35,7 @@ func ConvertToModelItemFolder(folder gen.ItemFolder) mitemfolder.ItemFolder {
 	}
 }
 
-func New(ctx context.Context, queries *gen.Queries) ItemFolderService {
+func New(queries *gen.Queries) ItemFolderService {
 	return ItemFolderService{queries: queries}
 }
 
