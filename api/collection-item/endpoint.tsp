@@ -5,6 +5,7 @@ import "../../lib";
 
 import "../collection.tsp";
 import "../resource.tsp";
+import "./example.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -32,7 +33,9 @@ model EndpointListItem is Resource.List.Item<Endpoint>;
 model EndpointGetRequest is Resource.Get.Request<Endpoint>;
 model EndpointGetResponse is Resource.Get.Response<Endpoint>;
 model EndpointCreateRequest is Resource.Create.Request<Endpoint>;
-model EndpointCreateResponse is Resource.Create.Response<Endpoint>;
+model EndpointCreateResponse is Resource.Create.Response<Endpoint> {
+  ...KeyOf<Example.Example>;
+}
 model EndpointUpdateRequest is Resource.Update.Request<Endpoint>;
 model EndpointUpdateResponse is Resource.Update.Response<Endpoint>;
 model EndpointDeleteRequest is Resource.Delete.Request<Endpoint>;
