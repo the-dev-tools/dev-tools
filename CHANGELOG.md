@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.32.1
+
+### Patch Changes
+
+- [`65e1c48`](https://github.com/the-dev-tools/dev-tools-spec/commit/65e1c48989e574aa815934d353f2bcb81b51d896) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Output default example id on endpoint creation
+
 ## 1.32.0
 
 ### Minor Changes
