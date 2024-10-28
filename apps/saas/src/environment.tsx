@@ -20,6 +20,7 @@ import { twJoin } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { environmentCreateSpec } from '@the-dev-tools/api/spec/environment';
+import { workspaceUpdateSpec } from '@the-dev-tools/api/spec/workspace';
 import { Environment } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import { environmentList } from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
 import {
@@ -37,10 +38,7 @@ import {
   variableList,
   variableUpdate,
 } from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
-import {
-  workspaceGet,
-  workspaceUpdate,
-} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
@@ -54,12 +52,10 @@ import { HidePlaceholderCell, useFormTableSync } from './form-table';
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const EnvironmentsWidget = () => {
-  const queryClient = useQueryClient();
-
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
-  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
+  const workspaceUpdateMutation = useSpecMutation(workspaceUpdateSpec);
 
   const environmentListQuery = useConnectQuery(environmentList, { workspaceId });
   const environmentCreateMutation = useSpecMutation(environmentCreateSpec);
@@ -75,17 +71,9 @@ export const EnvironmentsWidget = () => {
       <Select
         aria-label='Environment'
         selectedKey={selectedEnvironmentIdCan}
-        onSelectionChange={async (selectedEnvironmentIdCan) => {
+        onSelectionChange={(selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
-          await workspaceUpdateMutation.mutateAsync({ workspaceId, selectedEnvironmentId });
-
-          queryClient.setQueryData(
-            createConnectQueryKey({ schema: workspaceGet, cardinality: 'finite', input: { workspaceId } }),
-            createProtobufSafeUpdater(workspaceGet, (old) => {
-              if (old === undefined) return undefined;
-              return { ...old, selectedEnvironmentId };
-            }),
-          );
+          workspaceUpdateMutation.mutate({ workspaceId, selectedEnvironmentId });
         }}
         triggerClassName={tw`justify-start`}
         triggerVariant='placeholder ghost'

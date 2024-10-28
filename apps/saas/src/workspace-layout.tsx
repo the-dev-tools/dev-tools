@@ -14,34 +14,31 @@ import { LuFolder, LuImport, LuLoader, LuMoreHorizontal, LuPlus } from 'react-ic
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
-import { collectionCreateSpec, collectionImportPostmanSpec } from '@the-dev-tools/api/spec/collection';
-import { endpointCreateSpec } from '@the-dev-tools/api/spec/collection/item/endpoint';
-import { exampleCreateSpec } from '@the-dev-tools/api/spec/collection/item/example';
-import { folderCreateSpec } from '@the-dev-tools/api/spec/collection/item/folder';
+import {
+  collectionCreateSpec,
+  collectionDeleteSpec,
+  collectionImportPostmanSpec,
+  collectionUpdateSpec,
+} from '@the-dev-tools/api/spec/collection';
+import { endpointCreateSpec, endpointDeleteSpec } from '@the-dev-tools/api/spec/collection/item/endpoint';
+import { exampleCreateSpec, exampleDeleteSpec } from '@the-dev-tools/api/spec/collection/item/example';
+import { folderCreateSpec, folderDeleteSpec, folderUpdateSpec } from '@the-dev-tools/api/spec/collection/item/folder';
+import {
+  endpointDuplicate
+} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
-  endpointDelete,
-  endpointDuplicate,
-} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
-import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import {
-  exampleDelete,
   exampleDuplicate,
-  exampleList,
+  exampleList
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
-import {
-  folderDelete,
-  folderUpdate,
-} from '@the-dev-tools/spec/collection/item/folder/v1/folder-FolderService_connectquery';
-import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
-import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
+import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import {
-  collectionDelete,
-  collectionList,
-  collectionUpdate,
+  collectionList
 } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
@@ -175,20 +172,12 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
-  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
-
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
 
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
-
-  const collectionDeleteMutation = useConnectMutation(collectionDelete, {
-    onSuccess: invalidateCollectionListQuery,
-  });
-  const collectionUpdateMutation = useConnectMutation(collectionUpdate, {
-    onSuccess: invalidateCollectionListQuery,
-  });
-
+  const collectionDeleteMutation = useSpecMutation(collectionDeleteSpec);
+  const collectionUpdateMutation = useSpecMutation(collectionUpdateSpec);
   const folderCreateMutation = useSpecMutation(folderCreateSpec);
   const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
 
@@ -320,13 +309,8 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
-  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
-  const folderDeleteMutation = useConnectMutation(folderDelete, {
-    onSuccess: invalidateCollectionListQuery,
-  });
-  const folderUpdateMutation = useConnectMutation(folderUpdate, {
-    onSuccess: invalidateCollectionListQuery,
-  });
+  const folderDeleteMutation = useSpecMutation(folderDeleteSpec);
+  const folderUpdateMutation = useSpecMutation(folderUpdateSpec);
 
   const { folderId } = folder;
   const [enabled, setEnabled] = useState(false);
@@ -465,9 +449,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
 
-  const endpointDeleteMutation = useConnectMutation(endpointDelete, {
-    onSuccess: invalidateCollectionListQuery,
-  });
+  const endpointDeleteMutation = useSpecMutation(endpointDeleteSpec);
   const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
@@ -539,9 +521,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemPr
   const match = useMatch({ strict: false });
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
-  const exampleDeleteMutation = useConnectMutation(exampleDelete, {
-    onSuccess: invalidateCollectionListQuery,
-  });
+  const exampleDeleteMutation = useSpecMutation(exampleDeleteSpec);
   const exampleDuplicateMutation = useConnectMutation(exampleDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });

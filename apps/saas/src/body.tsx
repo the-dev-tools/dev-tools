@@ -14,6 +14,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { bodyRawUpdateSpec } from '@the-dev-tools/api/spec/collection/item/body';
+import { exampleUpdateSpec } from '@the-dev-tools/api/spec/collection/item/example';
 import {
   BodyFormItemCreateResponseSchema,
   BodyFormItemJson,
@@ -37,16 +40,12 @@ import {
   bodyFormItemList,
   bodyFormItemUpdate,
   bodyRawGet,
-  bodyRawUpdate,
   bodyUrlEncodedItemCreate,
   bodyUrlEncodedItemDelete,
   bodyUrlEncodedItemList,
   bodyUrlEncodedItemUpdate,
 } from '@the-dev-tools/spec/collection/item/body/v1/body-RequestService_connectquery';
-import {
-  exampleGet,
-  exampleUpdate,
-} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
@@ -68,12 +67,10 @@ const endpointRoute = getRouteApi(
 );
 
 function Tab() {
-  const queryClient = useQueryClient();
-
   const { exampleId } = endpointRoute.useLoaderData();
 
   const query = useConnectQuery(exampleGet, { exampleId });
-  const updateMutation = useConnectMutation(exampleUpdate);
+  const updateMutation = useSpecMutation(exampleUpdateSpec);
 
   if (!query.isSuccess) return null;
   const { bodyKind } = query.data;
@@ -85,22 +82,7 @@ function Tab() {
         className='h-7 justify-center'
         orientation='horizontal'
         value={bodyKind.toString()}
-        onChange={async (key) => {
-          const bodyKind = parseInt(key);
-          await updateMutation.mutateAsync({ exampleId, bodyKind });
-
-          await queryClient.setQueryData(
-            createConnectQueryKey({
-              schema: exampleGet,
-              cardinality: 'finite',
-              input: { exampleId },
-            }),
-            createProtobufSafeUpdater(exampleGet, (old) => {
-              if (old === undefined) return undefined;
-              return { ...old, bodyKind };
-            }),
-          );
-        }}
+        onChange={(key) => void updateMutation.mutate({ exampleId, bodyKind: parseInt(key) })}
       >
         <Radio value={BodyKind.UNSPECIFIED.toString()}>none</Radio>
         <Radio value={BodyKind.FORM_ARRAY.toString()}>form-data</Radio>
@@ -502,7 +484,7 @@ interface RawFormProps {
 const RawForm = ({ body }: RawFormProps) => {
   const { exampleId } = endpointRoute.useLoaderData();
 
-  const updateMutation = useConnectMutation(bodyRawUpdate);
+  const updateMutation = useSpecMutation(bodyRawUpdateSpec);
 
   const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<(typeof languages)[number]>('text');

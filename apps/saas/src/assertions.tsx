@@ -1,5 +1,5 @@
 import { create, enumToJson, fromJson, toJson } from '@bufbuild/protobuf';
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
 import { useEffect, useMemo } from 'react';
@@ -16,8 +16,11 @@ import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
-import { assertCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
+import { assertCreateSpec, assertUpdateSpec } from '@the-dev-tools/api/spec/collection/item/request';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import {
+  assertList
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {
   AssertKind,
   AssertKindSchema,
@@ -29,10 +32,6 @@ import {
   PathKeySchema,
   PathKind,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import {
-  assertList,
-  assertUpdate,
-} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {
   responseGet,
   responseHeaderList,
@@ -102,7 +101,7 @@ const Tab = ({ data, items }: TabProps) => {
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
   const assertCreateMutation = useSpecMutation(assertCreateSpec);
-  const assertUpdateMutation = useConnectMutation(assertUpdate);
+  const assertUpdateMutation = useSpecMutation(assertUpdateSpec);
 
   const assertUpdateCallback = useDebouncedCallback(
     form.handleSubmit(async ({ items }) => {
