@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api/collection"
-	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
 	"dev-tools-backend/pkg/model/muser"
@@ -28,7 +27,6 @@ type BaseDBQueries struct {
 }
 
 type BaseTestServices struct {
-	Ctx context.Context
 	DB  *sql.DB
 	Cs  scollection.CollectionService
 	Us  suser.UserService
@@ -61,10 +59,6 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 		Ws:  ws,
 		Wus: wus,
 	}
-}
-
-func (c BaseTestServices) CreateAuthedCtx(userID idwrap.IDWrap) context.Context {
-	return mwauth.CreateAuthedContext(c.Ctx, userID)
 }
 
 func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context, wsID, wuID, userID, collectionID idwrap.IDWrap) {
