@@ -12,12 +12,12 @@
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/node": "~22.8.0",
+    "@types/node": "~22.8.1",
     "effect": "~3.10.4",
     "tailwindcss": "~3.4.14",
     "tailwindcss-animate": "~1.0.7",
     "tailwindcss-react-aria-components": "~1.1.6",
-    "tsx": "~4.19.1",
+    "tsx": "~4.19.2",
     "typescript": "~5.6.3"
   }
 }
