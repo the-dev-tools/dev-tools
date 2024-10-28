@@ -38,7 +38,10 @@ model EndpointCreateResponse is Resource.Create.Response<Endpoint> {
 }
 model EndpointUpdateRequest is Resource.Update.Request<Endpoint>;
 model EndpointUpdateResponse is Resource.Update.Response<Endpoint>;
-model EndpointDeleteRequest is Resource.Delete.Request<Endpoint>;
+@autoFields
+model EndpointDeleteRequest is Resource.Delete.Request<Endpoint> {
+  parentFolderId?: Resource.ID;
+}
 model EndpointDeleteResponse is Resource.Delete.Response<Endpoint>;
 
 model EndpointDuplicateRequest is KeyOf<Endpoint>;
