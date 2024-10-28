@@ -76,7 +76,12 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	return next(CreateAuthedContext(ctx, ID), req)
+	CtxWithValue := context.WithValue(ctx, UserIDKeyCtx, ID)
+	if CtxWithValue == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create context"))
+	}
+
+	return next(CtxWithValue, req)
 }
 
 func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (resp connect.AnyResponse, err error) {
