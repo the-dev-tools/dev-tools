@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.32.5
+
+### Patch Changes
+
+- [`fe96190`](https://github.com/the-dev-tools/dev-tools-spec/commit/fe961908146bb2fda66dbbe992cff8e76b8eeaac) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Add another missing parentFolderId field
+
 ## 1.32.4
 
 ### Patch Changes
