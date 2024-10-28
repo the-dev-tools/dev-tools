@@ -146,7 +146,7 @@ func (c *WorkspaceServiceRPC) WorkspaceGet(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
 
-	workspaces, err := c.ws.Get(ctx, workspaceID)
+	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -154,18 +154,20 @@ func (c *WorkspaceServiceRPC) WorkspaceGet(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	env, err := c.es.GetActiveByWorkspace(ctx, workspaces.ID)
+	env, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
 	if err != nil {
 		if !errors.Is(err, senv.ErrNoEnvFound) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
+	rpcWs := tworkspace.SeralizeWorkspace(*ws, env)
+
 	resp := &workspacev1.WorkspaceGetResponse{
-		WorkspaceId:           workspaces.ID.Bytes(),
-		Name:                  workspaces.Name,
-		Updated:               timestamppb.New(workspaces.Updated),
-		SelectedEnvironmentId: env.ID.Bytes(),
+		WorkspaceId:           rpcWs.WorkspaceId,
+		Name:                  rpcWs.Name,
+		Updated:               rpcWs.Updated,
+		SelectedEnvironmentId: rpcWs.SelectedEnvironmentId,
 	}
 	return connect.NewResponse(resp), nil
 }

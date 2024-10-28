@@ -4,31 +4,34 @@ import (
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/menv"
 	"dev-tools-backend/pkg/model/mworkspace"
-	"dev-tools-backend/pkg/translate/tenv"
-	environmentv1 "dev-tools-spec/dist/buf/go/environment/v1"
 	workspacev1 "dev-tools-spec/dist/buf/go/workspace/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func SeralizeWorkspace(ws mworkspace.Workspace, env *menv.Env) *workspacev1.Workspace {
-	var rpcEnv *environmentv1.Environment
+	var selectedEnvID []byte = nil
 	if env != nil {
-		rpcEnv = tenv.SeralizeModelToRPC(*env)
+		selectedEnvID = env.ID.Bytes()
 	}
 
 	return &workspacev1.Workspace{
 		WorkspaceId:           ws.ID.Bytes(),
 		Name:                  ws.Name,
 		Updated:               timestamppb.New(ws.Updated),
-		SelectedEnvironmentId: rpcEnv.EnvironmentId,
+		SelectedEnvironmentId: selectedEnvID,
 	}
 }
 
 func SeralizeWorkspaceItem(ws mworkspace.Workspace, env *menv.Env) *workspacev1.WorkspaceListItem {
+	var selectedEnvID []byte = nil
+	if env != nil {
+		selectedEnvID = env.ID.Bytes()
+	}
+
 	return &workspacev1.WorkspaceListItem{
 		WorkspaceId:           ws.ID.Bytes(),
-		SelectedEnvironmentId: env.ID.Bytes(),
+		SelectedEnvironmentId: selectedEnvID,
 		Name:                  ws.Name,
 		Updated:               timestamppb.New(ws.Updated),
 	}
