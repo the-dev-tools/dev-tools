@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.32.6
+
+### Patch Changes
+
+- [`e477a3f`](https://github.com/the-dev-tools/dev-tools-spec/commit/e477a3f6b67c674611828c77fa6f349ae416c19d) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Revert including all parent keys (only include direct parent)
+
 ## 1.32.5
 
 ### Patch Changes
