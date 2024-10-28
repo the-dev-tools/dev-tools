@@ -17,7 +17,7 @@ namespace List {
   }
 
   model Request<Resource> {
-    ...ParentKeyOf<Resource>;
+    ...ParentKeysOf<Resource>;
   }
 
   @autoFields
@@ -28,7 +28,7 @@ namespace List {
 
 namespace Get {
   model Request<Resource> {
-    ...KeyOf<Resource>;
+    ...KeysOf<Resource>;
   }
 
   @withVisibility("query", "get")
@@ -42,7 +42,7 @@ namespace Create {
   @withVisibility("mutate", "create")
   @withDefaultKeyVisibility("mutate")
   model Request<Resource> {
-    ...ParentKeyOf<Resource>;
+    ...ParentKeysOf<Resource>;
     ...OmitKey<Resource>;
   }
 

@@ -72,9 +72,7 @@ model BodyUrlEncodedItemDeleteRequest is Resource.Delete.Request<BodyUrlEncodedI
 model BodyUrlEncodedItemDeleteResponse is Resource.Delete.Response<BodyUrlEncodedItem>;
 
 // Raw
-model BodyRawGetRequest is Resource.Get.Request<BodyRaw> {
-  ...ParentKeyOf<BodyRaw>;
-}
+model BodyRawGetRequest is Resource.Get.Request<BodyRaw>;
 model BodyRawGetResponse is Resource.Get.Response<BodyRaw>;
 model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw>;
 model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
