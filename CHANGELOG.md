@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.32.7
+
+### Patch Changes
+
+- [`1c8fd7d`](https://github.com/the-dev-tools/dev-tools-spec/commit/1c8fd7d84c79656fedef87876302ed51f72be147) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Revert removal of some ID fields
+
 ## 1.32.6
 
 ### Patch Changes
