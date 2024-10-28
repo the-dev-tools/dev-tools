@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.32.3
+
+### Patch Changes
+
+- [`2f8dff0`](https://github.com/the-dev-tools/dev-tools-spec/commit/2f8dff0da0ffebcbc7a5e68d04ec52e3f22f5928) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Include all parent keys in queries and create mutations instead of only direct parent
+
 ## 1.32.2
 
 ### Patch Changes
