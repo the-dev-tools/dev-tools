@@ -13,23 +13,24 @@ import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
 import { LuFolder, LuImport, LuLoader, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
-import { useCreateMutation } from '@the-dev-tools/api/query';
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { collectionCreateSpec, collectionImportPostmanSpec } from '@the-dev-tools/api/spec/collection';
+import { endpointCreateSpec } from '@the-dev-tools/api/spec/collection/item/endpoint';
+import { exampleCreateSpec } from '@the-dev-tools/api/spec/collection/item/example';
+import { folderCreateSpec } from '@the-dev-tools/api/spec/collection/item/folder';
 import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
-  endpointCreate,
   endpointDelete,
   endpointDuplicate,
 } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
-  exampleCreate,
   exampleDelete,
   exampleDuplicate,
   exampleList,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
 import {
-  folderCreate,
   folderDelete,
   folderUpdate,
 } from '@the-dev-tools/spec/collection/item/folder/v1/folder-FolderService_connectquery';
@@ -37,9 +38,7 @@ import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1
 import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import {
-  collectionCreate,
   collectionDelete,
-  collectionImportPostman,
   collectionList,
   collectionUpdate,
 } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
@@ -135,7 +134,7 @@ const CollectionsTree = () => {
 
   const collectionListQuery = useConnectQuery(collectionList, { workspaceId });
 
-  const collectionCreateMutation = useCreateMutation(collectionCreate, { listQuery: collectionList });
+  const collectionCreateMutation = useSpecMutation(collectionCreateSpec);
 
   if (!collectionListQuery.isSuccess) return null;
   const collections = collectionListQuery.data.items;
@@ -190,24 +189,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
     onSuccess: invalidateCollectionListQuery,
   });
 
-  const folderCreateMutation = useCreateMutation(folderCreate, {
-    listQuery: collectionItemList,
-    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
-    toListItem: (input, { folderId }) => ({
-      kind: ItemKind.FOLDER,
-      folder: { ...input, folderId },
-    }),
-  });
-
-  const endpointCreateMutation = useCreateMutation(endpointCreate, {
-    listQuery: collectionItemList,
-    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
-    toListItem: (input, { endpointId, exampleId }) => ({
-      kind: ItemKind.ENDPOINT,
-      endpoint: { ...input, endpointId },
-      example: { exampleId },
-    }),
-  });
+  const folderCreateMutation = useSpecMutation(folderCreateSpec);
+  const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
 
   const triggerRef = useRef(null);
 
@@ -350,24 +333,8 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
 
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
 
-  const folderCreateMutation = useCreateMutation(folderCreate, {
-    listQuery: collectionItemList,
-    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
-    toListItem: (input, { folderId }) => ({
-      kind: ItemKind.FOLDER,
-      folder: { ...input, folderId },
-    }),
-  });
-
-  const endpointCreateMutation = useCreateMutation(endpointCreate, {
-    listQuery: collectionItemList,
-    toListInput: (_) => ({ collectionId: _.collectionId!, folderId: _.parentFolderId! }),
-    toListItem: (input, { endpointId, exampleId }) => ({
-      kind: ItemKind.ENDPOINT,
-      endpoint: { ...input, endpointId },
-      example: { exampleId },
-    }),
-  });
+  const folderCreateMutation = useSpecMutation(folderCreateSpec);
+  const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
 
   const triggerRef = useRef(null);
 
@@ -505,7 +472,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
     onSuccess: invalidateCollectionListQuery,
   });
 
-  const exampleCreateMutation = useCreateMutation(exampleCreate, { listQuery: exampleList });
+  const exampleCreateMutation = useSpecMutation(exampleCreateSpec);
 
   return (
     <TreeItem
@@ -615,7 +582,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemPr
 const ImportPostman = () => {
   const { workspaceId } = Route.useLoaderData();
 
-  const collectionImportPostmanMutation = useCreateMutation(collectionImportPostman, { listQuery: collectionList });
+  const collectionImportPostmanMutation = useSpecMutation(collectionImportPostmanSpec);
 
   return (
     <FileTrigger

@@ -15,7 +15,8 @@ import { LuChevronRight } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useCreateMutation } from '@the-dev-tools/api/query';
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { assertCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   AssertKind,
@@ -29,7 +30,6 @@ import {
   PathKind,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
-  assertCreate,
   assertList,
   assertUpdate,
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
@@ -101,7 +101,7 @@ const Tab = ({ data, items }: TabProps) => {
   });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const assertCreateMutation = useCreateMutation(assertCreate, { listQuery: assertList });
+  const assertCreateMutation = useSpecMutation(assertCreateSpec);
   const assertUpdateMutation = useConnectMutation(assertUpdate);
 
   const assertUpdateCallback = useDebouncedCallback(

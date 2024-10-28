@@ -2,11 +2,8 @@ import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
-import { useCreateMutation } from '@the-dev-tools/api/query';
-import {
-  workspaceMemberCreate,
-  workspaceMemberList,
-} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { workspaceMemberCreateSpec } from '@the-dev-tools/api/spec/workspace';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -25,7 +22,7 @@ class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
 function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const workspaceMemberCreateMutation = useCreateMutation(workspaceMemberCreate, { listQuery: workspaceMemberList });
+  const workspaceMemberCreateMutation = useSpecMutation(workspaceMemberCreateSpec);
 
   return (
     <div className='p-4'>

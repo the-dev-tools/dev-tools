@@ -21,7 +21,8 @@ import { LuSave, LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { useCreateMutation } from '@the-dev-tools/api/query';
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { queryCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
 import { EndpointGetResponse } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointGet,
@@ -43,7 +44,6 @@ import {
   QueryUpdateRequestSchema,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
-  queryCreate,
   queryList,
   queryUpdate,
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
@@ -136,7 +136,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
   const exampleRunMutation = useConnectMutation(exampleRun);
 
   const queryUpdateMutation = useConnectMutation(queryUpdate);
-  const queryCreateMutation = useCreateMutation(queryCreate, { listQuery: queryList });
+  const queryCreateMutation = useSpecMutation(queryCreateSpec);
 
   const values = useMemo(() => {
     return pipe(

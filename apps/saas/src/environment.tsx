@@ -18,12 +18,10 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { LuBraces, LuClipboardList, LuPlus, LuTrash2, LuX } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
-import { useCreateMutation } from '@the-dev-tools/api/query';
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { environmentCreateSpec } from '@the-dev-tools/api/spec/environment';
 import { Environment } from '@the-dev-tools/spec/environment/v1/environment_pb';
-import {
-  environmentCreate,
-  environmentList,
-} from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
+import { environmentList } from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
 import {
   VariableCreateResponseSchema,
   VariableJson,
@@ -64,7 +62,7 @@ export const EnvironmentsWidget = () => {
   const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
 
   const environmentListQuery = useConnectQuery(environmentList, { workspaceId });
-  const environmentCreateMutation = useCreateMutation(environmentCreate, { listQuery: environmentList });
+  const environmentCreateMutation = useSpecMutation(environmentCreateSpec);
 
   if (!environmentListQuery.isSuccess || !workspaceGetQuery.isSuccess) return null;
 

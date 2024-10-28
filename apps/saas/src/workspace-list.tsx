@@ -1,24 +1,14 @@
-import {
-  createQueryOptions,
-  useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
-  useTransport,
-} from '@connectrpc/connect-query';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { Effect, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useState } from 'react';
 import { Form } from 'react-aria-components';
 
-import { useCreateMutation } from '@the-dev-tools/api/query';
+import { useSpecMutation } from '@the-dev-tools/api/query';
+import { workspaceCreateSpec, workspaceDeleteSpec, workspaceUpdateSpec } from '@the-dev-tools/api/spec/workspace';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
-import {
-  workspaceCreate,
-  workspaceDelete,
-  workspaceList,
-  workspaceUpdate,
-} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import { workspaceList } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -34,7 +24,7 @@ class RenameForm extends Schema.Class<RenameForm>('WorkspaceRenameForm')({
 
 function Page() {
   const workspaceListQuery = useConnectQuery(workspaceList);
-  const workspaceCreateMutation = useCreateMutation(workspaceCreate, { listQuery: workspaceList });
+  const workspaceCreateMutation = useSpecMutation(workspaceCreateSpec);
 
   if (!workspaceListQuery.isSuccess) return null;
   const { items: workspaces } = workspaceListQuery.data;
@@ -65,17 +55,12 @@ interface RowProps {
 }
 
 const Row = ({ workspaceIdCan, workspace }: RowProps) => {
-  const queryClient = useQueryClient();
-  const transport = useTransport();
-
   const { workspaceId } = workspace;
 
   const [renaming, setRenaming] = useState(false);
 
-  const queryOptions = createQueryOptions(workspaceList, undefined, { transport });
-
-  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
-  const workspaceDeleteMutation = useConnectMutation(workspaceDelete);
+  const workspaceUpdateMutation = useSpecMutation(workspaceUpdateSpec);
+  const workspaceDeleteMutation = useSpecMutation(workspaceDeleteSpec);
 
   return (
     <div className='flex gap-4'>
@@ -93,8 +78,6 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
               );
 
               workspaceUpdateMutation.mutate({ workspaceId, name });
-
-              yield* Effect.tryPromise(() => queryClient.invalidateQueries(queryOptions));
 
               setRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -123,10 +106,7 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
       <Button
         kind='placeholder'
         variant='placeholder'
-        onPress={async () => {
-          await workspaceDeleteMutation.mutateAsync({ workspaceId });
-          await queryClient.invalidateQueries(queryOptions);
-        }}
+        onPress={() => void workspaceDeleteMutation.mutate({ workspaceId })}
       >
         Delete
       </Button>
