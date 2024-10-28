@@ -19,9 +19,6 @@ import { useSpecMutation } from '@the-dev-tools/api/query';
 import { assertCreateSpec, assertUpdateSpec } from '@the-dev-tools/api/spec/collection/item/request';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
-  assertList
-} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
-import {
   AssertKind,
   AssertKindSchema,
   AssertListItem,
@@ -32,6 +29,7 @@ import {
   PathKeySchema,
   PathKind,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import { assertList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {
   responseGet,
   responseHeaderList,
@@ -107,7 +105,7 @@ const Tab = ({ data, items }: TabProps) => {
     form.handleSubmit(async ({ items }) => {
       const updates = items.map((_) => {
         const request = fromJson(AssertUpdateRequestSchema, _);
-        return assertUpdateMutation.mutateAsync(request);
+        return assertUpdateMutation.mutateAsync({ ...request, exampleId });
       });
       await Promise.allSettled(updates);
     }),

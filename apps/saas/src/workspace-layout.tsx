@@ -23,22 +23,18 @@ import {
 import { endpointCreateSpec, endpointDeleteSpec } from '@the-dev-tools/api/spec/collection/item/endpoint';
 import { exampleCreateSpec, exampleDeleteSpec } from '@the-dev-tools/api/spec/collection/item/example';
 import { folderCreateSpec, folderDeleteSpec, folderUpdateSpec } from '@the-dev-tools/api/spec/collection/item/folder';
-import {
-  endpointDuplicate
-} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
-import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
+import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
+import { endpointDuplicate } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
+import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
   exampleDuplicate,
-  exampleList
+  exampleList,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
-import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import { FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
-import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
+import { Folder, FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
 import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
-import {
-  collectionList
-} from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
+import { collectionList } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
@@ -172,12 +168,15 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
+  const { workspaceId } = Route.useLoaderData();
+
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
 
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
   const collectionDeleteMutation = useSpecMutation(collectionDeleteSpec);
   const collectionUpdateMutation = useSpecMutation(collectionUpdateSpec);
+
   const folderCreateMutation = useSpecMutation(folderCreateSpec);
   const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
 
@@ -216,29 +215,18 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
         <Menu>
           <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem
-            onAction={() =>
-              void endpointCreateMutation.mutate({
-                collectionId,
-                name: 'New API call',
-              })
-            }
-          >
+          <MenuItem onAction={() => void endpointCreateMutation.mutate({ collectionId, name: 'New API call' })}>
             Add Request
           </MenuItem>
 
-          <MenuItem
-            onAction={() =>
-              void folderCreateMutation.mutate({
-                collectionId,
-                name: 'New folder',
-              })
-            }
-          >
+          <MenuItem onAction={() => void folderCreateMutation.mutate({ collectionId, name: 'New folder' })}>
             Add Folder
           </MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void collectionDeleteMutation.mutate({ collectionId })}>
+          <MenuItem
+            variant='danger'
+            onAction={() => void collectionDeleteMutation.mutate({ workspaceId, collectionId })}
+          >
             Delete
           </MenuItem>
         </Menu>
@@ -262,7 +250,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              collectionUpdateMutation.mutate({ collectionId, name });
+              collectionUpdateMutation.mutate({ workspaceId, collectionId, name });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -288,52 +276,64 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   );
 };
 
-const mapCollectionItemTree = (collectionId: Collection['collectionId']) => (item: CollectionItem) =>
-  pipe(
-    Match.value(item),
-    Match.when({ kind: ItemKind.FOLDER }, (_) => {
-      const folderIdCan = Ulid.construct(_.folder!.folderId).toCanonical();
-      return <FolderTree id={folderIdCan} collectionId={collectionId} folder={_.folder!} />;
-    }),
-    Match.when({ kind: ItemKind.ENDPOINT }, (_) => {
-      const endpointIdCan = Ulid.construct(_.endpoint!.endpointId).toCanonical();
-      return <EndpointTree id={endpointIdCan} endpoint={_.endpoint!} example={_.example!} />;
-    }),
-    Match.orElse(() => null),
-  );
+const mapCollectionItemTree =
+  (collectionId: Collection['collectionId'], parentFolderId?: Folder['folderId']) => (item: CollectionItem) =>
+    pipe(
+      Match.value(item),
+      Match.when({ kind: ItemKind.FOLDER }, (_) => {
+        const folderIdCan = Ulid.construct(_.folder!.folderId).toCanonical();
+        return (
+          <FolderTree id={folderIdCan} collectionId={collectionId} parentFolderId={parentFolderId} folder={_.folder!} />
+        );
+      }),
+      Match.when({ kind: ItemKind.ENDPOINT }, (_) => {
+        const endpointIdCan = Ulid.construct(_.endpoint!.endpointId).toCanonical();
+        return (
+          <EndpointTree
+            id={endpointIdCan}
+            collectionId={collectionId}
+            parentFolderId={parentFolderId}
+            endpoint={_.endpoint!}
+            example={_.example!}
+          />
+        );
+      }),
+      Match.orElse(() => null),
+    );
 
 interface FolderTreeProps {
   id: string;
   collectionId: Collection['collectionId'];
+  parentFolderId: Folder['folderId'] | undefined;
   folder: FolderListItem;
 }
 
-const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
-  const folderDeleteMutation = useSpecMutation(folderDeleteSpec);
-  const folderUpdateMutation = useSpecMutation(folderUpdateSpec);
-
+const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) => {
   const { folderId } = folder;
   const [enabled, setEnabled] = useState(false);
 
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
-
-  const folderCreateMutation = useSpecMutation(folderCreateSpec);
-  const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
-
-  const triggerRef = useRef(null);
-
-  const [isRenaming, setIsRenaming] = useState(false);
 
   const childItems = useMemo(
     () => (collectionItemListQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
     [collectionItemListQuery.data?.items],
   );
 
+  const folderCreateMutation = useSpecMutation(folderCreateSpec);
+  const folderUpdateMutation = useSpecMutation(folderUpdateSpec);
+  const folderDeleteMutation = useSpecMutation(folderDeleteSpec);
+
+  const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
+
+  const triggerRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+
   return (
     <TreeItem
       textValue={folder.name}
       childItems={childItems}
-      childItem={mapCollectionItemTree(collectionId)}
+      childItem={mapCollectionItemTree(collectionId, folderId)}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
     >
@@ -381,7 +381,12 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
             Add Folder
           </MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void folderDeleteMutation.mutate({ folderId })}>
+          <MenuItem
+            variant='danger'
+            onAction={() =>
+              void folderDeleteMutation.mutate({ collectionId, folderId, parentFolderId: parentFolderId! })
+            }
+          >
             Delete
           </MenuItem>
         </Menu>
@@ -405,7 +410,12 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
                 Schema.decode(Schema.Struct({ name: Schema.String })),
               );
 
-              folderUpdateMutation.mutate({ folderId, name });
+              folderUpdateMutation.mutate({
+                collectionId,
+                folderId,
+                name,
+                parentFolderId: parentFolderId!,
+              });
 
               setIsRenaming(false);
             }).pipe(Runtime.runPromise)
@@ -433,11 +443,13 @@ const FolderTree = ({ collectionId, folder }: FolderTreeProps) => {
 
 interface EndpointTreeProps {
   id: string;
+  collectionId: Collection['collectionId'];
+  parentFolderId: Folder['folderId'] | undefined;
   endpoint: EndpointListItem;
   example: ExampleListItem;
 }
 
-const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProps) => {
+const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoint, example }: EndpointTreeProps) => {
   const match = useMatch({ strict: false });
 
   const exampleIdCan = Ulid.construct(example.exampleId).toCanonical();
@@ -449,12 +461,11 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
 
+  const exampleCreateMutation = useSpecMutation(exampleCreateSpec);
   const endpointDeleteMutation = useSpecMutation(endpointDeleteSpec);
   const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
-
-  const exampleCreateMutation = useSpecMutation(exampleCreateSpec);
 
   return (
     <TreeItem
@@ -468,7 +479,7 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
       childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
-        return <ExampleItem id={exampleIdCan} endpointIdCan={endpointIdCan} example={_} />;
+        return <ExampleItem id={exampleIdCan} endpointId={endpointId} example={_} />;
       }}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
@@ -502,7 +513,16 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
 
           <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void endpointDeleteMutation.mutate({ endpointId })}>
+          <MenuItem
+            variant='danger'
+            onAction={() =>
+              void endpointDeleteMutation.mutate({
+                collectionId,
+                endpointId,
+                parentFolderId: parentFolderId!,
+              })
+            }
+          >
             Delete
           </MenuItem>
         </Menu>
@@ -513,12 +533,14 @@ const EndpointTree = ({ id: endpointIdCan, endpoint, example }: EndpointTreeProp
 
 interface ExampleItemProps {
   id: string;
-  endpointIdCan: string;
+  endpointId: Endpoint['endpointId'];
   example: ExampleListItem;
 }
 
-const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemProps) => {
+const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps) => {
   const match = useMatch({ strict: false });
+
+  const endpointIdCan = Ulid.construct(endpointId).toCanonical();
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
   const exampleDeleteMutation = useSpecMutation(exampleDeleteSpec);
@@ -550,7 +572,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointIdCan, example }: ExampleItemPr
         <Menu>
           <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ exampleId })}>
+          <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
             Delete
           </MenuItem>
         </Menu>

@@ -67,7 +67,7 @@ const endpointRoute = getRouteApi(
 );
 
 function Tab() {
-  const { exampleId } = endpointRoute.useLoaderData();
+  const { endpointId, exampleId } = endpointRoute.useLoaderData();
 
   const query = useConnectQuery(exampleGet, { exampleId });
   const updateMutation = useSpecMutation(exampleUpdateSpec);
@@ -82,7 +82,7 @@ function Tab() {
         className='h-7 justify-center'
         orientation='horizontal'
         value={bodyKind.toString()}
-        onChange={(key) => void updateMutation.mutate({ exampleId, bodyKind: parseInt(key) })}
+        onChange={(key) => void updateMutation.mutate({ endpointId, exampleId, bodyKind: parseInt(key) })}
       >
         <Radio value={BodyKind.UNSPECIFIED.toString()}>none</Radio>
         <Radio value={BodyKind.FORM_ARRAY.toString()}>form-data</Radio>
@@ -524,12 +524,7 @@ const RawForm = ({ body }: RawFormProps) => {
       <CodeMirror
         value={value}
         onChange={setValue}
-        onBlur={() =>
-          void updateMutation.mutate({
-            exampleId,
-            data: new TextEncoder().encode(value),
-          })
-        }
+        onBlur={() => void updateMutation.mutate({ exampleId, data: new TextEncoder().encode(value) })}
         height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}

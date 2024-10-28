@@ -8,9 +8,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Array, Function, HashMap, Option, pipe, Struct, Tuple } from 'effect';
 
-import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
-import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import { FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
+import { EndpointListItem, EndpointListItemSchema } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
+import { ExampleListItem, ExampleListItemSchema } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
+import { FolderListItem, FolderListItemSchema } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
 import { CollectionItemSchema, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 
 import {
@@ -181,14 +181,10 @@ const queryListDeleteItemCache: SpecOnSuccessFn = (args) => {
   });
 };
 
-const queryInputCollectionItemList: SpecQueryInputFn = ({ input, spec: { parentKeys } }) => {
-  const queryInput = {
-    ...Struct.pick(input, ...(parentKeys ?? [])),
-    folderId: input['parentFolderId'],
-  };
-  console.log('queryInputCollectionItemList', queryInput);
-  return queryInput;
-};
+const queryInputCollectionItemList: SpecQueryInputFn = ({ input, spec: { parentKeys } }) => ({
+  ...Struct.pick(input, ...(parentKeys ?? [])),
+  folderId: input['parentFolderId'],
+});
 
 const compareItemCollectionItemEndpoint: SpecCompareItemFn =
   ({ input }) =>
@@ -205,8 +201,8 @@ const createItemCollectionItemEndpoint: SpecCreateItemFn =
     return create(CollectionItemSchema, {
       ...old!,
       kind: ItemKind.ENDPOINT,
-      endpoint: data as EndpointListItem,
-      example: data as ExampleListItem,
+      endpoint: create(EndpointListItemSchema, data as EndpointListItem),
+      example: create(ExampleListItemSchema, data as ExampleListItem),
     });
   };
 
@@ -224,7 +220,7 @@ const createItemCollectionItemFolder: SpecCreateItemFn =
     return create(CollectionItemSchema, {
       ...old!,
       kind: ItemKind.FOLDER,
-      folder: { ...input, ...output } as FolderListItem,
+      folder: create(FolderListItemSchema, { ...input, ...output } as FolderListItem),
     });
   };
 
