@@ -1,4 +1,4 @@
-import { create, DescMessage, Message } from '@bufbuild/protobuf';
+import { create, DescMessage, Message, MessageShape } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   useMutation as useConnectMutation,
@@ -6,15 +6,33 @@ import {
   useTransport,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { Array, HashMap, Option, pipe, Struct, Tuple } from 'effect';
+import { Array, Function, HashMap, Option, pipe, Struct, Tuple } from 'effect';
 
-import { MutationSpec, SpecFn, SpecFnArgs } from './query.internal';
+import {
+  MutationSpec,
+  SpecCompareItemFn,
+  SpecCreateItemFn,
+  SpecFnArgs,
+  SpecOnSuccessFn,
+  SpecQueryInputFn,
+} from './query.internal';
 
-const queryGetSetup = ({ input, params: { query }, spec: { key }, transport }: SpecFnArgs) => {
+const queryGetSetup = (args: SpecFnArgs) => {
+  const {
+    input,
+    params: { query, queryInputFn },
+    spec: { key },
+    transport,
+  } = args;
+
   if (query === undefined) return undefined;
   if (key === undefined) return undefined;
 
-  const keyInput = Struct.pick(input, key);
+  const keyInput = pipe(
+    HashMap.get(queryInputFnMap, queryInputFn),
+    Option.map(Function.apply(args)),
+    Option.getOrElse(() => Struct.pick(input, key)),
+  );
 
   const queryKey = createConnectQueryKey({
     schema: query,
@@ -26,7 +44,7 @@ const queryGetSetup = ({ input, params: { query }, spec: { key }, transport }: S
   return { query, queryKey };
 };
 
-const queryGetAddCache: SpecFn = (args) => {
+const queryGetAddCache: SpecOnSuccessFn = (args) => {
   const { input, output, queryClient } = args;
 
   const setup = queryGetSetup(args);
@@ -37,7 +55,7 @@ const queryGetAddCache: SpecFn = (args) => {
   queryClient.setQueryData(queryKey, create(query.output, { ...input, ...output }));
 };
 
-const queryGetUpdateCache: SpecFn = (args) => {
+const queryGetUpdateCache: SpecOnSuccessFn = (args) => {
   const { input, output, queryClient } = args;
 
   const setup = queryGetSetup(args);
@@ -50,7 +68,7 @@ const queryGetUpdateCache: SpecFn = (args) => {
   );
 };
 
-const queryGetDeleteCache: SpecFn = (args) => {
+const queryGetDeleteCache: SpecOnSuccessFn = (args) => {
   const { queryClient } = args;
 
   const setup = queryGetSetup(args);
@@ -61,14 +79,26 @@ const queryGetDeleteCache: SpecFn = (args) => {
   queryClient.removeQueries({ queryKey, exact: true });
 };
 
-const queryListSetup = ({ input, params: { query }, spec: { parentKeys, key }, transport }: SpecFnArgs) => {
+const queryListSetup = (args: SpecFnArgs) => {
+  const {
+    input,
+    output,
+    params: { query, queryInputFn, compareItemFn, createItemFn },
+    spec: { parentKeys, key },
+    transport,
+  } = args;
+
   if (query === undefined) return;
   if (key === undefined) return;
 
   const itemField = query.output.field['items'];
   if (itemField?.fieldKind !== 'list' || itemField.message === undefined) return;
 
-  const keyInput = Struct.pick(input, ...(parentKeys ?? []));
+  const keyInput = pipe(
+    HashMap.get(queryInputFnMap, queryInputFn),
+    Option.map(Function.apply(args)),
+    Option.getOrElse(() => Struct.pick(input, ...(parentKeys ?? []))),
+  );
 
   const queryKey = createConnectQueryKey({
     schema: query,
@@ -77,54 +107,78 @@ const queryListSetup = ({ input, params: { query }, spec: { parentKeys, key }, t
     transport,
   });
 
-  return { query, queryKey, key, itemSchema: itemField.message };
+  const compareItem = pipe(
+    HashMap.get(compareItemFnMap, compareItemFn),
+    Option.map(Function.apply(args)),
+    Option.getOrElse<ReturnType<SpecCompareItemFn>>(() => (a) => (b) => a[key] === b[key]),
+  );
+
+  const createItem = pipe(
+    HashMap.get(createItemFnMap, createItemFn),
+    Option.map(Function.apply(args)),
+    Option.getOrElse<ReturnType<SpecCreateItemFn>>(
+      () => (old) => create(itemField.message, { ...old, ...input, ...output }),
+    ),
+  );
+
+  return {
+    compareItem,
+    createItem,
+    query,
+    queryKey,
+  };
 };
 
-const queryListAddItemCache: SpecFn = (args) => {
-  const { input, output, queryClient } = args;
+const queryListAddItemCache: SpecOnSuccessFn = (args) => {
+  const { queryClient } = args;
 
   const setup = queryListSetup(args);
   if (setup === undefined) return;
 
-  const { query, queryKey, itemSchema } = setup;
+  const { createItem, query, queryKey } = setup;
 
-  queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: unknown[] })) => {
-    const item = create(itemSchema, { ...input, ...output });
-    return create(query.output, { items: [...(old?.items ?? []), item] });
-  });
+  queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: unknown[] })) =>
+    create(query.output, { items: [...(old?.items ?? []), createItem()] }),
+  );
 };
 
-const queryListUpdateItemCache: SpecFn = (args) => {
-  const { input, output, queryClient } = args;
-
-  const setup = queryListSetup(args);
-  if (setup === undefined) return;
-
-  const { query, queryKey, key, itemSchema } = setup;
-
-  queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: { [Key in typeof key]: unknown }[] })) => {
-    const oldItemIndex = old?.items.findIndex((old) => old[key] === input[key]);
-    if (oldItemIndex === undefined) return old;
-    return create(query.output, {
-      items: Array.modify(old?.items ?? [], oldItemIndex, (old) => create(itemSchema, { ...old, ...input, ...output })),
-    });
-  });
-};
-
-const queryListDeleteItemCache: SpecFn = (args) => {
+const queryListUpdateItemCache: SpecOnSuccessFn = (args) => {
   const { input, queryClient } = args;
 
   const setup = queryListSetup(args);
   if (setup === undefined) return;
 
-  const { query, queryKey, key } = setup;
+  const { compareItem, createItem, query, queryKey } = setup;
 
-  queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: { [Key in typeof key]: unknown }[] })) =>
-    create(query.output, {
-      items: Array.filter(old?.items ?? [], (old) => old[key] !== input[key]),
-    }),
-  );
+  queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: MessageShape<DescMessage>[] })) => {
+    const oldItemIndex = old?.items.findIndex(compareItem(input));
+    if (oldItemIndex === undefined) return old;
+    return create(query.output, {
+      items: Array.modify(old?.items ?? [], oldItemIndex, createItem),
+    });
+  });
 };
+
+const queryListDeleteItemCache: SpecOnSuccessFn = (args) => {
+  const { input, queryClient } = args;
+
+  const setup = queryListSetup(args);
+  if (setup === undefined) return;
+
+  const { compareItem, query, queryKey } = setup;
+
+  queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: MessageShape<DescMessage>[] })) => {
+    const oldItemIndex = old?.items.findIndex(compareItem(input));
+    if (oldItemIndex === undefined) return old;
+    return create(query.output, {
+      items: Array.remove(old?.items ?? [], oldItemIndex),
+    });
+  });
+};
+
+export const queryInputFnMap = HashMap.empty<string, SpecQueryInputFn>();
+export const compareItemFnMap = HashMap.empty<string, SpecCompareItemFn>();
+export const createItemFnMap = HashMap.empty<string, SpecCreateItemFn>();
 
 export const onSuccessMap = HashMap.make(
   ['query - get - add cache', queryGetAddCache],
