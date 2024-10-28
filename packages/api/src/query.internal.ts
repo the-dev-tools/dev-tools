@@ -28,7 +28,5 @@ export interface SpecFnArgs {
 export type SpecFn<T> = (args: SpecFnArgs) => T;
 export type SpecOnSuccessFn = SpecFn<void>;
 export type SpecQueryInputFn = SpecFn<MessageInitShape<DescMessage>>;
-export type SpecCompareItemFn = SpecFn<
-  (a: MessageInitShape<DescMessage>) => (b: MessageInitShape<DescMessage>) => boolean
->;
+export type SpecCompareItemFn = SpecFn<(old: MessageInitShape<DescMessage>) => boolean>;
 export type SpecCreateItemFn = SpecFn<(old?: MessageShape<DescMessage>) => Message>;

@@ -1,4 +1,4 @@
-import { create, DescMessage, Message, MessageShape } from '@bufbuild/protobuf';
+import { create, DescMessage, isMessage, Message, MessageShape } from '@bufbuild/protobuf';
 import {
   createConnectQueryKey,
   useMutation as useConnectMutation,
@@ -7,6 +7,11 @@ import {
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { Array, Function, HashMap, Option, pipe, Struct, Tuple } from 'effect';
+
+import { EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
+import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
+import { FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
+import { CollectionItemSchema, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 
 import {
   MutationSpec,
@@ -110,7 +115,7 @@ const queryListSetup = (args: SpecFnArgs) => {
   const compareItem = pipe(
     HashMap.get(compareItemFnMap, compareItemFn),
     Option.map(Function.apply(args)),
-    Option.getOrElse<ReturnType<SpecCompareItemFn>>(() => (a) => (b) => a[key] === b[key]),
+    Option.getOrElse<ReturnType<SpecCompareItemFn>>(() => (old) => old[key] === input[key]),
   );
 
   const createItem = pipe(
@@ -143,7 +148,7 @@ const queryListAddItemCache: SpecOnSuccessFn = (args) => {
 };
 
 const queryListUpdateItemCache: SpecOnSuccessFn = (args) => {
-  const { input, queryClient } = args;
+  const { queryClient } = args;
 
   const setup = queryListSetup(args);
   if (setup === undefined) return;
@@ -151,7 +156,7 @@ const queryListUpdateItemCache: SpecOnSuccessFn = (args) => {
   const { compareItem, createItem, query, queryKey } = setup;
 
   queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: MessageShape<DescMessage>[] })) => {
-    const oldItemIndex = old?.items.findIndex(compareItem(input));
+    const oldItemIndex = old?.items.findIndex(compareItem);
     if (oldItemIndex === undefined) return old;
     return create(query.output, {
       items: Array.modify(old?.items ?? [], oldItemIndex, createItem),
@@ -160,7 +165,7 @@ const queryListUpdateItemCache: SpecOnSuccessFn = (args) => {
 };
 
 const queryListDeleteItemCache: SpecOnSuccessFn = (args) => {
-  const { input, queryClient } = args;
+  const { queryClient } = args;
 
   const setup = queryListSetup(args);
   if (setup === undefined) return;
@@ -168,7 +173,7 @@ const queryListDeleteItemCache: SpecOnSuccessFn = (args) => {
   const { compareItem, query, queryKey } = setup;
 
   queryClient.setQueryData(queryKey, (old: undefined | (Message & { items: MessageShape<DescMessage>[] })) => {
-    const oldItemIndex = old?.items.findIndex(compareItem(input));
+    const oldItemIndex = old?.items.findIndex(compareItem);
     if (oldItemIndex === undefined) return old;
     return create(query.output, {
       items: Array.remove(old?.items ?? [], oldItemIndex),
@@ -176,9 +181,64 @@ const queryListDeleteItemCache: SpecOnSuccessFn = (args) => {
   });
 };
 
-export const queryInputFnMap = HashMap.empty<string, SpecQueryInputFn>();
-export const compareItemFnMap = HashMap.empty<string, SpecCompareItemFn>();
-export const createItemFnMap = HashMap.empty<string, SpecCreateItemFn>();
+const queryInputCollectionItemList: SpecQueryInputFn = ({ input, spec: { parentKeys } }) => {
+  const queryInput = {
+    ...Struct.pick(input, ...(parentKeys ?? [])),
+    folderId: input['parentFolderId'],
+  };
+  console.log('queryInputCollectionItemList', queryInput);
+  return queryInput;
+};
+
+const compareItemCollectionItemEndpoint: SpecCompareItemFn =
+  ({ input }) =>
+  (old) => {
+    if (!isMessage(old, CollectionItemSchema)) return false;
+    return input['endpointId'] === old.endpoint?.endpointId;
+  };
+
+const createItemCollectionItemEndpoint: SpecCreateItemFn =
+  ({ input, output }) =>
+  (old) => {
+    if (old !== undefined && !isMessage(old, CollectionItemSchema)) return old;
+    const data = { ...input, ...output };
+    return create(CollectionItemSchema, {
+      ...old!,
+      kind: ItemKind.ENDPOINT,
+      endpoint: data as EndpointListItem,
+      example: data as ExampleListItem,
+    });
+  };
+
+const compareItemCollectionItemFolder: SpecCompareItemFn =
+  ({ input }) =>
+  (old) => {
+    if (!isMessage(old, CollectionItemSchema)) return false;
+    return input['folderId'] === old.folder?.folderId;
+  };
+
+const createItemCollectionItemFolder: SpecCreateItemFn =
+  ({ input, output }) =>
+  (old) => {
+    if (old !== undefined && !isMessage(old, CollectionItemSchema)) return old;
+    return create(CollectionItemSchema, {
+      ...old!,
+      kind: ItemKind.FOLDER,
+      folder: { ...input, ...output } as FolderListItem,
+    });
+  };
+
+export const queryInputFnMap = HashMap.make(['collection item - list', queryInputCollectionItemList]);
+
+export const compareItemFnMap = HashMap.make(
+  ['collection item - endpoint', compareItemCollectionItemEndpoint],
+  ['collection item - folder', compareItemCollectionItemFolder],
+);
+
+export const createItemFnMap = HashMap.make(
+  ['collection item - endpoint', createItemCollectionItemEndpoint],
+  ['collection item - folder', createItemCollectionItemFolder],
+);
 
 export const onSuccessMap = HashMap.make(
   ['query - get - add cache', queryGetAddCache],

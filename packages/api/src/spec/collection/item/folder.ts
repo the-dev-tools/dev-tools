@@ -11,19 +11,49 @@ export const folderCreateSpec = {
   mutation: folderCreate,
   key: 'folderId',
   parentKeys: ['workspaceId', 'collectionId'],
-  onSuccess: [['query - list - add item cache', { query: collectionItemList }]],
+  onSuccess: [
+    [
+      'query - list - add item cache',
+      {
+        query: collectionItemList,
+        queryInputFn: 'collection item - list',
+        compareItemFn: 'collection item - folder',
+        createItemFn: 'collection item - folder',
+      },
+    ],
+  ],
 } satisfies MutationSpec;
 
 export const folderUpdateSpec = {
   mutation: folderUpdate,
   key: 'folderId',
   parentKeys: ['workspaceId', 'collectionId'],
-  onSuccess: [['query - list - update item cache', { query: collectionItemList }]],
+  onSuccess: [
+    [
+      'query - list - update item cache',
+      {
+        query: collectionItemList,
+        queryInputFn: 'collection item - list',
+        compareItemFn: 'collection item - folder',
+        createItemFn: 'collection item - folder',
+      },
+    ],
+  ],
 } satisfies MutationSpec;
 
 export const folderDeleteSpec = {
   mutation: folderDelete,
   key: 'folderId',
   parentKeys: ['workspaceId', 'collectionId'],
-  onSuccess: [['query - list - delete item cache', { query: collectionItemList }]],
+  onSuccess: [
+    [
+      'query - list - delete item cache',
+      {
+        query: collectionItemList,
+        queryInputFn: 'collection item - list',
+        compareItemFn: 'collection item - folder',
+        createItemFn: 'collection item - folder',
+      },
+    ],
+  ],
 } satisfies MutationSpec;
