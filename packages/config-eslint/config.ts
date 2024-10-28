@@ -76,10 +76,8 @@ export const eslintReactConfig = config(
   ...eslintBaseConfig,
   importX.react,
   { settings: { react: { version: 'detect' } } },
-  // eslint-disable-next-line import-x/no-named-as-default-member
-  react.configs.flat.recommended as Linter.Config,
-  // eslint-disable-next-line import-x/no-named-as-default-member
-  react.configs.flat['jsx-runtime'] as Linter.Config,
+  react.configs.flat!['recommended'] as Linter.Config,
+  react.configs.flat!['jsx-runtime'] as Linter.Config,
   {
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,

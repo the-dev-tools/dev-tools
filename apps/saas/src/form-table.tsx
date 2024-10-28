@@ -6,11 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-export interface UseFormTableSyncProps<
-  TItem,
-  TField extends string,
-  TFieldValues extends { [key in TField]: TItem[] },
-> {
+export interface UseFormTableSyncProps<TItem, TField extends string, TFieldValues extends Record<TField, TItem[]>> {
   field: TField;
   form: {
     getValues: {
@@ -31,7 +27,7 @@ export interface UseFormTableSyncProps<
   setData?: () => void;
 }
 
-export const useFormTableSync = <TItem, TField extends string, TFieldValues extends { [key in TField]: TItem[] }>({
+export const useFormTableSync = <TItem, TField extends string, TFieldValues extends Record<TField, TItem[]>>({
   field,
   form: { getValues, setValue, watch },
   fieldArray,
