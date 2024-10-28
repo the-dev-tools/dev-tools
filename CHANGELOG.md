@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.32.2
+
+### Patch Changes
+
+- [`d188702`](https://github.com/the-dev-tools/dev-tools-spec/commit/d1887020a874762dd490ffc74eb1a39a03188dd0) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Include parent keys in update/delete mutations to simplify cache updates
+
 ## 1.32.1
 
 ### Patch Changes
