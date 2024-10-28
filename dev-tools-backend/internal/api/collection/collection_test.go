@@ -194,9 +194,12 @@ func TestCollectionUpdate(t *testing.T) {
 	}
 
 	collection, err := cs.GetCollection(ctx, testCollectionID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if collection.Name != collectionNewName {
-		t.Fatalf("name is not updated")
+		t.Error("name is not updated")
 	}
 }
 
