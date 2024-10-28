@@ -17,7 +17,7 @@ namespace List {
   }
 
   model Request<Resource> {
-    ...ParentKeysOf<Resource>;
+    ...ParentKeyOf<Resource>;
   }
 
   @autoFields
@@ -28,7 +28,7 @@ namespace List {
 
 namespace Get {
   model Request<Resource> {
-    ...KeysOf<Resource>;
+    ...KeyOf<Resource>;
   }
 
   @withVisibility("query", "get")
@@ -42,7 +42,7 @@ namespace Create {
   @withVisibility("mutate", "create")
   @withDefaultKeyVisibility("mutate")
   model Request<Resource> {
-    ...ParentKeysOf<Resource>;
+    ...ParentKeyOf<Resource>;
     ...OmitKey<Resource>;
   }
 
@@ -55,7 +55,8 @@ namespace Update {
   @withVisibility("mutate", "update")
   @withDefaultKeyVisibility("mutate")
   model Request<Resource extends {}> {
-    ...KeysOf<Resource>;
+    ...KeyOf<Resource>;
+    ...ParentKeyOf<Resource>;
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
@@ -64,7 +65,8 @@ namespace Update {
 
 namespace Delete {
   model Request<Resource> {
-    ...KeysOf<Resource>;
+    ...KeyOf<Resource>;
+    ...ParentKeyOf<Resource>;
   }
 
   model Response<Resource> {}
