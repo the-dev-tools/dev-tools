@@ -55,7 +55,7 @@ namespace Update {
   @withVisibility("mutate", "update")
   @withDefaultKeyVisibility("mutate")
   model Request<Resource extends {}> {
-    ...KeyOf<Resource>;
+    ...KeysOf<Resource>;
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
@@ -64,7 +64,7 @@ namespace Update {
 
 namespace Delete {
   model Request<Resource> {
-    ...KeyOf<Resource>;
+    ...KeysOf<Resource>;
   }
 
   model Response<Resource> {}

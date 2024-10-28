@@ -76,9 +76,7 @@ model BodyRawGetRequest is Resource.Get.Request<BodyRaw> {
   ...ParentKeyOf<BodyRaw>;
 }
 model BodyRawGetResponse is Resource.Get.Response<BodyRaw>;
-model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw> {
-  ...ParentKeyOf<BodyRaw>;
-}
+model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw>;
 model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
 
 @Protobuf.service
