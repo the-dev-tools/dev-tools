@@ -6,15 +6,10 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
-	"dev-tools-backend/pkg/model/muser"
-	"dev-tools-backend/pkg/model/mworkspace"
-	"dev-tools-backend/pkg/model/mworkspaceuser"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
-	"dev-tools-backend/pkg/service/sworkspacesusers"
-	"dev-tools-db/pkg/sqlc"
-	"dev-tools-db/pkg/sqlc/gen"
+	"dev-tools-backend/pkg/testutil"
 	collectionv1 "dev-tools-spec/dist/buf/go/collection/v1"
 	"testing"
 	"time"
@@ -22,86 +17,46 @@ import (
 	"connectrpc.com/connect"
 )
 
-func TestCreateCollection(t *testing.T) {
+func TestCollectionGet(t *testing.T) {
 	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
 
-	db, err := sqlc.GetTestDB(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-
-	queries := gen.New(db)
-	if err != nil {
-		t.Fatal(err)
-	}
 	cs := scollection.New(queries)
 	ws := sworkspace.New(queries)
-	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
 
 	serviceRPC := collection.New(db, cs, ws, us)
-
 	wsID := idwrap.NewNow()
-	workspaceData := mworkspace.Workspace{
-		Updated: time.Now(),
-		Name:    "test",
-		ID:      wsID,
-	}
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
 
-	err = ws.Create(ctx, &workspaceData)
-	if err != nil {
-		t.Error(err)
-	}
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
 
-	providerID := "test"
-	userData := muser.User{
-		ID:           idwrap.NewNow(),
-		Email:        "test@dev.tools",
-		Password:     []byte("test"),
-		ProviderID:   &providerID,
-		ProviderType: muser.MagicLink,
-		Status:       muser.Active,
-	}
-
-	err = us.CreateUser(ctx, &userData)
-	if err != nil {
-		t.Error(err)
-	}
-
-	collectionID := idwrap.NewNow()
+	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
-		ID:      collectionID,
+		ID:      testCollectionID,
 		OwnerID: wsID,
 		Name:    "test",
 		Updated: time.Now(),
 	}
 
-	err = cs.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		t.Error(err)
-	}
-
-	wsuserID := idwrap.NewNow()
-	workspaceUserData := mworkspaceuser.WorkspaceUser{
-		ID:          wsuserID,
-		WorkspaceID: wsID,
-		UserID:      userData.ID,
-		Role:        mworkspaceuser.RoleAdmin,
-	}
-
-	err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
+	err := cs.CreateCollection(ctx, &collectionData)
 	if err != nil {
 		t.Error(err)
 	}
 
 	req := connect.NewRequest(
 		&collectionv1.CollectionGetRequest{
-			CollectionId: collectionID.Bytes(),
+			CollectionId: testCollectionID.Bytes(),
 		},
 	)
 
-	authedCtx := mwauth.CreateAuthedContext(ctx, userData.ID)
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
 	resp, err := serviceRPC.CollectionGet(authedCtx, req)
 	if err != nil {
@@ -121,11 +76,187 @@ func TestCreateCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if collectionID.Compare(respCollectionID) != 0 {
+	if testCollectionID.Compare(respCollectionID) != 0 {
 		t.Fatalf("CollectionGet failed: id mismatch")
 	}
 
 	if msg.Name != collectionData.Name {
 		t.Fatalf("CollectionGet failed: invalid response")
+	}
+}
+
+func TestCollectionCreate(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
+
+	cs := scollection.New(queries)
+	ws := sworkspace.New(queries)
+	us := suser.New(queries)
+
+	serviceRPC := collection.New(db, cs, ws, us)
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	collectionName := "test"
+	req := connect.NewRequest(
+		&collectionv1.CollectionCreateRequest{
+			WorkspaceId: wsID.Bytes(),
+			Name:        collectionName,
+		},
+	)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	resp, err := serviceRPC.CollectionCreate(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Msg == nil {
+		t.Fatalf("CollectionGet failed: invalid response")
+	}
+	msg := resp.Msg
+
+	if msg.CollectionId == nil {
+		t.Fatalf("CollectionGet failed: invalid response")
+	}
+	id, err := idwrap.NewFromBytes(msg.CollectionId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	collection, err := cs.GetCollection(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if collection.Name != collectionName {
+		t.Error("CollectionCreate failed: invalid response")
+	}
+}
+
+func TestCollectionUpdate(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
+
+	cs := scollection.New(queries)
+	ws := sworkspace.New(queries)
+	us := suser.New(queries)
+
+	serviceRPC := collection.New(db, cs, ws, us)
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	testCollectionID := idwrap.NewNow()
+	collectionData := mcollection.Collection{
+		ID:      testCollectionID,
+		OwnerID: wsID,
+		Name:    "test",
+		Updated: time.Now(),
+	}
+
+	err := cs.CreateCollection(ctx, &collectionData)
+	if err != nil {
+		t.Error(err)
+	}
+
+	collectionNewName := "newName"
+
+	req := connect.NewRequest(
+		&collectionv1.CollectionUpdateRequest{
+			CollectionId: testCollectionID.Bytes(),
+			Name:         collectionNewName,
+		},
+	)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	resp, err := serviceRPC.CollectionUpdate(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	collection, err := cs.GetCollection(ctx, testCollectionID)
+
+	if collection.Name != collectionNewName {
+		t.Fatalf("name is not updated")
+	}
+}
+
+func TestCollectionDelete(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
+
+	cs := scollection.New(queries)
+	ws := sworkspace.New(queries)
+	us := suser.New(queries)
+
+	serviceRPC := collection.New(db, cs, ws, us)
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	testCollectionID := idwrap.NewNow()
+	collectionData := mcollection.Collection{
+		ID:      testCollectionID,
+		OwnerID: wsID,
+		Name:    "test",
+		Updated: time.Now(),
+	}
+
+	err := cs.CreateCollection(ctx, &collectionData)
+	if err != nil {
+		t.Error(err)
+	}
+
+	req := connect.NewRequest(
+		&collectionv1.CollectionDeleteRequest{
+			CollectionId: testCollectionID.Bytes(),
+		},
+	)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	resp, err := serviceRPC.CollectionDelete(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	collection, err := cs.GetCollection(ctx, testCollectionID)
+	if err == nil {
+		t.Fatalf("collection is not deleted")
+	}
+	if err != scollection.ErrNoCollectionFound {
+		t.Fatalf("returned error is not ErrNoCollectionFound")
+	}
+	if collection != nil {
+		t.Fatalf("collection is not deleted")
 	}
 }
