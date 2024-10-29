@@ -13,7 +13,7 @@ import { FieldPath, FieldValues, useController, UseControllerProps } from 'react
 import { IconBaseProps } from 'react-icons';
 import { LuChevronDown } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
-import { tv, type VariantProps } from 'tailwind-variants';
+import { type VariantProps } from 'tailwind-variants';
 
 import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 
@@ -34,25 +34,17 @@ export const SelectRoot = <T extends object>({ className, ...props }: SelectRoot
 
 // Trigger
 
-export const selectTriggerStyles = tv({
-  extend: buttonStyles,
-  defaultVariants: {
-    kind: 'placeholder',
-    variant: 'placeholder',
-  },
-});
-
-export interface SelectTriggerProps extends AriaButtonProps, VariantProps<typeof selectTriggerStyles> {}
+export interface SelectTriggerProps extends AriaButtonProps, VariantProps<typeof buttonStyles> {}
 
 export const SelectTrigger = forwardRef(
   ({ className, ...props }: SelectTriggerProps, ref: ForwardedRef<HTMLButtonElement>) => {
-    const forwardedProps = Struct.omit(props, ...selectTriggerStyles.variantKeys);
-    const variantProps = Struct.pick(props, ...selectTriggerStyles.variantKeys);
+    const forwardedProps = Struct.omit(props, ...buttonStyles.variantKeys);
+    const variantProps = Struct.pick(props, ...buttonStyles.variantKeys);
     return (
       <AriaButton
         {...forwardedProps}
         ref={ref}
-        className={composeRenderPropsTV(className, selectTriggerStyles, variantProps)}
+        className={composeRenderPropsTV(className, buttonStyles, variantProps)}
       />
     );
   },

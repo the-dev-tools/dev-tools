@@ -52,9 +52,7 @@ function LoginPage() {
       >
         <Logo className='h-16 w-auto' />
         <TextField name='email' type='email' isRequired label='Email' />
-        <Button kind='placeholder' variant='placeholder' type='submit'>
-          Login
-        </Button>
+        <Button type='submit'>Login</Button>
       </Form>
     </div>
   );

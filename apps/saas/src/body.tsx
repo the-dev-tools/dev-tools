@@ -190,8 +190,7 @@ const FormDataTable = ({ items }: FormDataTableProps) => {
           <HidePlaceholderCell row={row} table={table}>
             <Button
               className='text-red-700'
-              kind='placeholder'
-              variant='placeholder ghost'
+              variant='ghost'
               onPress={() => {
                 const bodyIdJson = getValues(`items.${row.index}.bodyId`);
                 if (bodyIdJson === undefined) return;
@@ -373,8 +372,7 @@ const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
           <HidePlaceholderCell row={row} table={table}>
             <Button
               className='text-red-700'
-              kind='placeholder'
-              variant='placeholder ghost'
+              variant='ghost'
               onPress={() => {
                 const bodyIdJson = getValues(`items.${row.index}.bodyId`);
                 if (bodyIdJson === undefined) return;

@@ -135,8 +135,7 @@ const Table = ({ items }: TableProps) => {
           <HidePlaceholderCell row={row} table={table}>
             <Button
               className='text-red-700'
-              kind='placeholder'
-              variant='placeholder ghost'
+              variant='ghost'
               onPress={() => {
                 const headerIdJson = getValues(`items.${row.index}.headerId`);
                 if (headerIdJson === undefined) return;

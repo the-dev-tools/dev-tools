@@ -36,16 +36,14 @@ export const DashboardLayout = ({ children, ...mixProps }: DashboardLayoutProps)
   return (
     <div className='flex h-full flex-col'>
       <div className='flex items-center gap-2 bg-black p-2 text-white'>
-        <ButtonAsLink kind='placeholder' variant='placeholder' className='rounded-full' href={{ to: '/' }}>
+        <ButtonAsLink className='rounded-full' href={{ to: '/' }}>
           DevTools
         </ButtonAsLink>
         {props.left.children && <div {...props.left}>{props.left.children}</div>}
         <div className='flex-1' />
         {props.right.children && <div {...props.right}>{props.right.children}</div>}
         <MenuTrigger>
-          <Button kind='placeholder' variant='placeholder' className='size-8 rounded-full uppercase'>
-            {email[0]}
-          </Button>
+          <Button className='size-8 rounded-full uppercase'>{email[0]}</Button>
           <Menu>
             <MenuItem isDisabled>User: {email}</MenuItem>
             <MenuItem

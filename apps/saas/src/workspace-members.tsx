@@ -44,9 +44,7 @@ function Page() {
         }
       >
         <TextField name='email' type='email' isRequired label='Invite new member:' inputPlaceholder='Email' />
-        <Button kind='placeholder' variant='placeholder' type='submit'>
-          Send invite
-        </Button>
+        <Button type='submit'>Send invite</Button>
       </Form>
     </div>
   );

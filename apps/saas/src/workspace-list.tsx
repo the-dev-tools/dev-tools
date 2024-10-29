@@ -32,13 +32,7 @@ function Page() {
   return (
     <div className='flex size-full flex-col items-center justify-center gap-4'>
       <div>
-        <Button
-          kind='placeholder'
-          variant='placeholder'
-          onPress={() => void workspaceCreateMutation.mutate({ name: 'New workspace' })}
-        >
-          Create workspace
-        </Button>
+        <Button onPress={() => void workspaceCreateMutation.mutate({ name: 'New workspace' })}>Create workspace</Button>
       </div>
 
       {workspaces.map((_) => {
@@ -85,31 +79,17 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
         >
           {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
           <TextField aria-label='Workspace name' name='name' defaultValue={workspace.name} autoFocus />
-          <Button kind='placeholder' variant='placeholder' type='submit'>
-            Save
-          </Button>
+          <Button type='submit'>Save</Button>
         </Form>
       ) : (
         <>
-          <ButtonAsLink
-            kind='placeholder'
-            variant='placeholder'
-            href={{ to: '/workspace/$workspaceIdCan', params: { workspaceIdCan } }}
-          >
+          <ButtonAsLink href={{ to: '/workspace/$workspaceIdCan', params: { workspaceIdCan } }}>
             {workspace.name}
           </ButtonAsLink>
-          <Button kind='placeholder' variant='placeholder' onPress={() => void setRenaming(true)}>
-            Rename
-          </Button>
+          <Button onPress={() => void setRenaming(true)}>Rename</Button>
         </>
       )}
-      <Button
-        kind='placeholder'
-        variant='placeholder'
-        onPress={() => void workspaceDeleteMutation.mutate({ workspaceId })}
-      >
-        Delete
-      </Button>
+      <Button onPress={() => void workspaceDeleteMutation.mutate({ workspaceId })}>Delete</Button>
     </div>
   );
 };

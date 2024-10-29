@@ -249,7 +249,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
           <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
             <h2 className='flex-1 truncate text-sm font-bold'>{example.name}</h2>
 
-            <Button kind='placeholder' variant='placeholder' type='submit'>
+            <Button type='submit'>
               <LuSave /> Save
             </Button>
           </div>
@@ -278,8 +278,6 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
             />
 
             <Button
-              kind='placeholder'
-              variant='placeholder'
               className='rounded-l-none border-l-0 bg-black text-white'
               onPress={async () => {
                 await onSubmit();

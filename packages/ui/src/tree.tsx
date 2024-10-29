@@ -51,10 +51,6 @@ export const treeItemWrapperStyles = tv({
   variants: {
     isSelected: { true: tw`!bg-neutral-400` },
   },
-  defaultVariants: {
-    kind: 'placeholder',
-    variant: 'placeholder',
-  },
 });
 
 export interface TreeItemWrapperProps extends React.ComponentProps<'div'>, VariantProps<typeof treeItemWrapperStyles> {
@@ -103,7 +99,7 @@ export const TreeItem = <T extends object>({
             {...props.wrapper}
           >
             {(renderProps.hasChildRows || expandButtonIsForced) && (
-              <Button kind='placeholder' variant='placeholder ghost' slot='chevron' {...props.expandButton}>
+              <Button variant='ghost' slot='chevron' {...props.expandButton}>
                 <LuChevronRight
                   {...props.expandIndicator}
                   className={twJoin(

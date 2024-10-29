@@ -76,7 +76,7 @@ export const EnvironmentsWidget = () => {
           workspaceUpdateMutation.mutate({ workspaceId, selectedEnvironmentId });
         }}
         triggerClassName={tw`justify-start`}
-        triggerVariant='placeholder ghost'
+        triggerVariant='ghost'
         listBoxItems={environments}
       >
         {(item) => {
@@ -95,7 +95,7 @@ export const EnvironmentsWidget = () => {
       </Select>
 
       <DialogTrigger>
-        <Button kind='placeholder' variant='placeholder ghost' className='aspect-square'>
+        <Button variant='ghost' className='aspect-square'>
           <LuClipboardList />
         </Button>
 
@@ -113,8 +113,6 @@ export const EnvironmentsWidget = () => {
                     <span className='text-neutral-600'>Environments</span>
 
                     <Button
-                      kind='placeholder'
-                      variant='placeholder'
                       className='p-1'
                       onPress={() => void environmentCreateMutation.mutate({ workspaceId, name: 'New Environment' })}
                     >
@@ -158,7 +156,7 @@ export const EnvironmentsWidget = () => {
                               {item.description && <span className='text-sm font-light'>{item.description}</span>}
                             </div>
 
-                            <Button variant='placeholder ghost' kind='placeholder' onPress={close}>
+                            <Button variant='ghost' onPress={close}>
                               <LuX />
                             </Button>
                           </div>
@@ -169,9 +167,7 @@ export const EnvironmentsWidget = () => {
                         <div className='flex-1' />
 
                         <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
-                          <Button kind='placeholder' variant='placeholder' onPress={close}>
-                            Save
-                          </Button>
+                          <Button onPress={close}>Save</Button>
                         </div>
                       </TabPanel>
                     );
@@ -265,8 +261,7 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
           <HidePlaceholderCell row={row} table={table}>
             <Button
               className='text-red-700'
-              kind='placeholder'
-              variant='placeholder ghost'
+              variant='ghost'
               onPress={() => {
                 const variableIdJson = getValues(`items.${row.index}.variableId`);
                 if (variableIdJson === undefined) return;

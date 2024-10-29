@@ -79,9 +79,7 @@ function Layout() {
     <DashboardLayout
       leftChildren={
         <MenuTrigger>
-          <Button kind='placeholder' className='bg-transparent text-white' variant='placeholder'>
-            {workspace.name}
-          </Button>
+          <Button className='bg-transparent text-white'>{workspace.name}</Button>
           <Menu>
             <MenuItem
               href={{
@@ -137,8 +135,6 @@ const CollectionsTree = () => {
       <h3 className='uppercase'>Collections</h3>
       <div className='flex justify-between gap-2'>
         <Button
-          kind='placeholder'
-          variant='placeholder'
           onPress={() =>
             void collectionCreateMutation.mutate({
               workspaceId,
@@ -198,7 +194,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       expandButtonOnPress={() => void setEnabled(true)}
     >
       {collectionItemListQuery.isLoading && (
-        <Button kind='placeholder' variant='placeholder ghost' isDisabled>
+        <Button variant='ghost' isDisabled>
           <LuLoader className='animate-spin' />
         </Button>
       )}
@@ -208,7 +204,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       </Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder ghost'>
+        <Button variant='ghost'>
           <LuMoreHorizontal />
         </Button>
 
@@ -267,9 +263,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
             inputClassName={tw`w-full bg-transparent`}
           />
 
-          <Button kind='placeholder' variant='placeholder' type='submit'>
-            Save
-          </Button>
+          <Button type='submit'>Save</Button>
         </Form>
       </Popover>
     </TreeItem>
@@ -338,7 +332,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
       expandButtonOnPress={() => void setEnabled(true)}
     >
       {collectionItemListQuery.isLoading && (
-        <Button kind='placeholder' variant='placeholder ghost' isDisabled>
+        <Button variant='ghost' isDisabled>
           <LuLoader className='animate-spin' />
         </Button>
       )}
@@ -350,7 +344,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
       </Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder ghost'>
+        <Button variant='ghost'>
           <LuMoreHorizontal />
         </Button>
 
@@ -432,9 +426,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
             inputClassName={tw`w-full bg-transparent`}
           />
 
-          <Button kind='placeholder' variant='placeholder' type='submit'>
-            Save
-          </Button>
+          <Button type='submit'>Save</Button>
         </Form>
       </Popover>
     </TreeItem>
@@ -485,7 +477,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
       expandButtonOnPress={() => void setEnabled(true)}
     >
       {exampleListQuery.isLoading && (
-        <Button kind='placeholder' variant='placeholder ghost' isDisabled>
+        <Button variant='ghost' isDisabled>
           <LuLoader className='animate-spin' />
         </Button>
       )}
@@ -495,7 +487,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
       <Text className='flex-1 truncate'>{endpoint.name}</Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder ghost'>
+        <Button variant='ghost'>
           <LuMoreHorizontal />
         </Button>
 
@@ -565,7 +557,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
       <Text className='flex-1 truncate'>{example.name}</Text>
 
       <MenuTrigger>
-        <Button kind='placeholder' variant='placeholder ghost'>
+        <Button variant='ghost'>
           <LuMoreHorizontal />
         </Button>
 
@@ -595,7 +587,7 @@ const ImportPostman = () => {
         collectionImportPostmanMutation.mutate({ workspaceId, name: file.name, data });
       }}
     >
-      <Button kind='placeholder' variant='placeholder' className='flex-1 font-medium'>
+      <Button className='flex-1 font-medium'>
         <LuImport />
         Import
       </Button>

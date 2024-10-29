@@ -66,7 +66,7 @@ export const TextFieldWithVariables = <
       <TextFieldRHF variant='table-cell' className='flex-1' {...props} />
 
       <DialogTrigger>
-        <Button kind='placeholder' variant='placeholder ghost'>
+        <Button variant='ghost'>
           <LuLink />
         </Button>
 

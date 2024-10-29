@@ -34,7 +34,7 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
-import {  Button } from '@the-dev-tools/ui/button';
+import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { SelectRHF } from '@the-dev-tools/ui/select';
@@ -160,9 +160,7 @@ const Tab = ({ data, items }: TabProps) => {
         </div>
       ))}
 
-      <Button kind='placeholder' variant='placeholder' onPress={() => void assertCreateMutation.mutate({ exampleId })}>
-        New Assertion
-      </Button>
+      <Button onPress={() => void assertCreateMutation.mutate({ exampleId })}>New Assertion</Button>
     </>
   );
 };
@@ -211,7 +209,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
 
   return (
     <DialogTrigger>
-      <Button kind='placeholder' variant='placeholder' className={tw`h-full flex-[2] flex-wrap justify-start`}>
+      <Button className={tw`h-full flex-[2] flex-wrap justify-start`}>
         {valueDisplay.length > 0 ? valueDisplay : <span className={tw`p-1`}>Select JSON path</span>}
       </Button>
       <Popover className={tw`h-full w-1/2`}>
@@ -310,7 +308,7 @@ const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
             style={{ marginInlineStart: (level - 1).toString() + 'rem' }}
           >
             {items.length > 0 && (
-              <Button kind='placeholder' variant='placeholder ghost' slot='chevron'>
+              <Button variant='ghost' slot='chevron'>
                 <LuChevronRight
                   className={twJoin(tw`transition-transform`, !isExpanded ? tw`rotate-0` : tw`rotate-90`)}
                 />
