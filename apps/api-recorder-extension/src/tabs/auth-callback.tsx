@@ -7,9 +7,9 @@ import type { IconType } from 'react-icons';
 import * as FeatherIcons from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
-import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
+import { Button } from '~/ui/button';
 import * as Auth from '~auth';
 import { Layout } from '~layout';
 import { Runtime } from '~runtime';

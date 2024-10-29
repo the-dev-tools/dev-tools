@@ -21,13 +21,13 @@ import * as RAC from 'react-aria-components';
 import * as FeatherIcons from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
-import { Button } from '@the-dev-tools/ui/button';
 import { focusRingStyles } from '@the-dev-tools/ui/focus-ring';
 import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { keyValue } from '@the-dev-tools/utils/helpers';
 import { makeUrl } from '@the-dev-tools/utils/url';
 
+import { Button } from '~/ui/button';
 import * as Auth from '~auth';
 import { Layout as BaseLayout, type LayoutProps } from '~layout';
 import * as Postman from '~postman';
