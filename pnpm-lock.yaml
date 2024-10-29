@@ -468,10 +468,10 @@ importers:
   packages/ui:
     dependencies:
       '@fontsource-variable/dm-sans':
-        specifier: ^5.1.0
+        specifier: 5.1.0
         version: 5.1.0
       '@fontsource/dm-mono':
-        specifier: ^5.1.0
+        specifier: 5.1.0
         version: 5.1.0
       '@react-aria/collections':
         specifier: 3.0.0-alpha.5
