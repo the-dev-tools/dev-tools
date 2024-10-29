@@ -4,6 +4,7 @@
   "extends": "@tsconfig/strictest/tsconfig",
   "compilerOptions": {
     // Modules
+    "allowImportingTsExtensions": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
