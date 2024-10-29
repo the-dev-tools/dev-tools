@@ -311,8 +311,9 @@ func (ifs ItemFolderService) CreateItemFolderBulk(ctx context.Context, items []m
 
 func (ifs ItemFolderService) UpdateItemFolder(ctx context.Context, folder *mitemfolder.ItemFolder) error {
 	err := ifs.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
-		ID:   folder.ID,
-		Name: folder.Name,
+		ID:       folder.ID,
+		Name:     folder.Name,
+		ParentID: folder.ParentID,
 	})
 	if err == sql.ErrNoRows {
 		return ErrNoItemFolderFound

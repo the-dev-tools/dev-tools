@@ -104,6 +104,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 
 	respRaw := &endpointv1.EndpointCreateResponse{
 		EndpointId: itemApiReq.ID.Bytes(),
+		ExampleId:  example.ID.Bytes(),
 	}
 	return connect.NewResponse(respRaw), nil
 }

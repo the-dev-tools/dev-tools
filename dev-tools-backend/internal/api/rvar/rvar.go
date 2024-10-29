@@ -1,18 +1,17 @@
 package rvar
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/renv"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mvar"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/senv"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/svar"
-	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tvar"
 	variablev1 "dev-tools-spec/dist/buf/go/variable/v1"
 	"dev-tools-spec/dist/buf/go/variable/v1/variablev1connect"
@@ -63,7 +62,10 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		sort.Slice(variables, func(i, j int) bool {
 			return variables[i].ID.Compare(variables[j].ID) < 0
 		})
-		rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPCItem)
+		var rpcVars []*variablev1.VariableListItem
+		for _, variable := range variables {
+			rpcVars = append(rpcVars, tvar.SerializeModelToRPCItem(variable, envID))
+		}
 		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
 
 	} else if len(workspaceIDRaw) != 0 {
@@ -79,19 +81,22 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		variables := make([]mvar.Var, 0)
+		var rpcVars []*variablev1.VariableListItem
 		for _, env := range envs {
 			envVars, err := v.vs.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			variables = append(variables, envVars...)
+
+			for _, variable := range envVars {
+				rpcVars = append(rpcVars, tvar.SerializeModelToRPCItem(variable, env.ID))
+			}
 		}
 
-		sort.Slice(variables, func(i, j int) bool {
-			return variables[i].ID.Compare(variables[j].ID) < 0
+		sort.Slice(rpcVars, func(i, j int) bool {
+			return bytes.Compare(rpcVars[i].EnvironmentId, rpcVars[j].EnvironmentId) < 0
 		})
-		rpcVars := tgeneric.MassConvert(variables, tvar.SerializeModelToRPCItem)
+
 		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
 	}
 	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("workspace id or env ID is required"))

@@ -6,7 +6,6 @@ import (
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/internal/api/collection"
 	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemfolder"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/scollection"
 	"dev-tools-backend/pkg/service/sitemfolder"
@@ -160,30 +159,36 @@ func (c *ItemFolderRPC) FolderUpdate(ctx context.Context, req *connect.Request[f
 		return nil, rpcErr
 	}
 
-	var parentUlidIDPtr *idwrap.IDWrap = nil
-	if req.Msg.FolderId != nil && len(req.Msg.FolderId) > 0 {
-		parentUlidID, err := idwrap.NewFromBytes(req.Msg.FolderId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		rpcErr = permcheck.CheckPerm(CheckOwnerFolder(ctx, c.ifs, c.cs, c.us, parentUlidID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-		_, err = c.ifs.GetFolder(ctx, parentUlidID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		parentUlidIDPtr = &parentUlidID
+	folder, err := c.ifs.GetFolder(ctx, folderID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	folder := mitemfolder.ItemFolder{
-		ID:       folderID,
-		Name:     req.Msg.GetName(),
-		ParentID: parentUlidIDPtr,
+	msg := req.Msg
+	if msg.GetName() != "" {
+		folder.Name = req.Msg.GetName()
+	}
+	parentID := msg.GetParentFolderId()
+	if parentID != nil {
+		if len(parentID) != 0 {
+			parentID, err := idwrap.NewFromBytes(msg.ParentFolderId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+			rpcErr = permcheck.CheckPerm(CheckOwnerFolder(ctx, c.ifs,
+				c.cs, c.us, parentID))
+			if rpcErr != nil {
+				return nil, rpcErr
+			}
+			_, err = c.ifs.GetFolder(ctx, parentID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			folder.ParentID = &parentID
+		}
 	}
 
-	err = c.ifs.UpdateItemFolder(ctx, &folder)
+	err = c.ifs.UpdateItemFolder(ctx, folder)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
