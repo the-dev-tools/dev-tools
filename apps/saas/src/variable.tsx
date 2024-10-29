@@ -38,12 +38,12 @@ export const TextFieldWithVariables = <
     if (!variableQuery.isSuccess || !environmentQuery.isSuccess) return [];
     const environmentMap = pipe(
       environmentQuery.data.items,
-      Array.map((item) => [item.environmentId, item] as const),
+      Array.map((item) => [Ulid.construct(item.environmentId).toRaw(), item] as const),
       HashMap.fromIterable,
     );
     const variableEnvironmentMap = MutableHashMap.empty<string, EnvironmentListItem[]>();
     variableQuery.data.items.forEach((variable) => {
-      const environment = HashMap.get(environmentMap, variable.environmentId);
+      const environment = HashMap.get(environmentMap, Ulid.construct(variable.environmentId).toRaw());
       if (Option.isNone(environment)) return;
       MutableHashMap.modifyAt(
         variableEnvironmentMap,

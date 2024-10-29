@@ -202,7 +202,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
 
     const queryIdIndexMap = pipe(
       queries,
-      Array.map(({ queryId }, index) => [queryId, index] as const),
+      Array.map(({ queryId }, index) => [Ulid.construct(queryId).toRaw(), index] as const),
       HashMap.fromIterable,
     );
 
@@ -212,7 +212,7 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
       Array.map(async ([_, query]) => {
         if (query.$typeName === 'collection.item.request.v1.QueryUpdateRequest') {
           await queryUpdateMutation.mutateAsync(query);
-          const index = HashMap.unsafeGet(queryIdIndexMap, query.queryId);
+          const index = HashMap.unsafeGet(queryIdIndexMap, Ulid.construct(query.queryId).toRaw());
           const oldQuery = newQueryList[index];
           if (!oldQuery) return;
           newQueryList[index] = create(QueryListItemSchema, {
