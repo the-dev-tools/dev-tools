@@ -467,8 +467,11 @@ importers:
 
   packages/ui:
     dependencies:
-      '@fontsource-variable/lexend-deca':
-        specifier: 5.1.0
+      '@fontsource-variable/dm-sans':
+        specifier: ^5.1.0
+        version: 5.1.0
+      '@fontsource/dm-mono':
+        specifier: ^5.1.0
         version: 5.1.0
       '@react-aria/collections':
         specifier: 3.0.0-alpha.5
@@ -1697,8 +1700,11 @@ packages:
     resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
     engines: {node: '>=14'}
 
-  '@fontsource-variable/lexend-deca@5.1.0':
-    resolution: {integrity: sha512-5PyCCyrsvGEnHFkos9VCoIwY9uS0xoHrP6/f2ICwrmSAq1TXemyYDFs+XD4Zs0AmpQv3mLy83+99qAY3RpC+UA==}
+  '@fontsource-variable/dm-sans@5.1.0':
+    resolution: {integrity: sha512-wPhOMY/3ipy0t5ZIQk7FTKd3uZqE1XP2Yd2oKe3HfMWCYkotbcoMLkBQXcZzf/SgdCdczSP/hiO/PAZb84Kbxw==}
+
+  '@fontsource/dm-mono@5.1.0':
+    resolution: {integrity: sha512-cfowZUJJDHjgVFOEQmIn2KHtQ8LDXnTGgTTunUImzzg3Xf6V92MlYR/pmkqIt7lXq7lfP/pQZ9ph/9JeLDRsCQ==}
 
   '@formatjs/ecma402-abstract@2.2.0':
     resolution: {integrity: sha512-IpM+ev1E4QLtstniOE29W1rqH9eTdx5hQdNL8pzrflMj/gogfaoONZqL83LUeQScHAvyMbpqP5C9MzNf+fFwhQ==}
@@ -9307,7 +9313,9 @@ snapshots:
 
   '@fastify/busboy@2.1.1': {}
 
-  '@fontsource-variable/lexend-deca@5.1.0': {}
+  '@fontsource-variable/dm-sans@5.1.0': {}
+
+  '@fontsource/dm-mono@5.1.0': {}
 
   '@formatjs/ecma402-abstract@2.2.0':
     dependencies:

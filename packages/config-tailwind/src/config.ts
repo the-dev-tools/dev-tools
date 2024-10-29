@@ -10,7 +10,8 @@ export const config: Partial<Config> = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Lexend Deca Variable"', '"Lexend Deca"', ...defaultTheme.fontFamily.sans],
+        sans: ['"DM Sans Variable"', '"DM Sans"', ...defaultTheme.fontFamily.sans],
+        mono: ['"DM Mono"', ...defaultTheme.fontFamily.mono],
       },
       fontSize: {
         md: '0.8125rem',
