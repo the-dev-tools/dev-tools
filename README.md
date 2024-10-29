@@ -22,3 +22,42 @@ The following software is needed for the development environment:
 
 > [!IMPORTANT]
 > When opening the project for the first time, run `direnv allow` and `pnpm install`
+
+## Resources
+
+### General
+
+- Effect - [Docs](https://effect.website/docs/) - [API](https://effect-ts.github.io/effect/docs/effect)
+  - Schema - [Docs](https://effect.website/docs/schema/introduction/) - [API](https://effect-ts.github.io/effect/effect/Schema.ts.html)
+  - Platform - [Docs](https://effect.website/docs/platform/introduction/) - [API](https://effect-ts.github.io/effect/docs/platform)
+- Faker - [API](https://fakerjs.dev/api/)
+
+### State Management
+
+- TanStack Router - [Docs](https://tanstack.com/router/latest/docs/framework/react/overview)
+- TanStack Query - [Docs](https://tanstack.com/query/latest/docs/framework/react/overview)
+- TanStack Table - [Docs](https://tanstack.com/table/latest/docs/introduction)
+- React Hook Form - [API](https://react-hook-form.com/docs) - [TS](https://react-hook-form.com/ts)
+
+### RPC / Protobufs
+
+- Connect for Web - [Docs](https://connectrpc.com/docs/web/getting-started)
+- Connect for TanStack Query - [Docs](https://github.com/connectrpc/connect-query-es)
+- Protobuf ES - [Docs](https://github.com/bufbuild/protobuf-es/blob/main/MANUAL.md)
+
+### UI
+
+- Tailwind CSS - [Docs](https://tailwindcss.com/docs/installation)
+- Tailwind Variants - [Docs](https://www.tailwind-variants.org/docs/introduction)
+- React Aria - [Docs](https://react-spectrum.adobe.com/react-aria/components.html)
+  - Tailwind Starter - [GitHub](https://github.com/adobe/react-spectrum/tree/main/starters/tailwind) - [Storybook](https://react-spectrum.adobe.com/react-aria-tailwind-starter/)
+- React Icons - [Docs](https://react-icons.github.io/react-icons)
+
+### Design
+
+- Figma - [Team](https://www.figma.com/files/team/1400037238435055305/all-projects) - [File](https://www.figma.com/design/psOxuc1CnTJTklIvga49To/DevTools)
+- Token Studio - [Docs](https://docs.tokens.studio/)
+
+### Other
+
+- React Email - [Docs](https://react.email/docs/introduction) - [Components](https://react.email/components) - [Templates](https://react.email/templates)
