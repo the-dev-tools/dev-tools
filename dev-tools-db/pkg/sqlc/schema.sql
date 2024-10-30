@@ -16,7 +16,7 @@ CREATE TABLE users (
 CREATE TABLE workspaces (
   id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
-  updated TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
+  updated BIGINT NOT NULL DEFAULT (unixepoch()),
   CHECK (length(id) == 16)
 );
 

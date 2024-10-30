@@ -205,10 +205,13 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 	}
 
 	tx, err := c.DB.Begin()
-	defer tx.Rollback()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if tx == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("tx is nil"))
+	}
+	defer tx.Rollback()
 	workspaceServiceTX, err := sworkspace.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

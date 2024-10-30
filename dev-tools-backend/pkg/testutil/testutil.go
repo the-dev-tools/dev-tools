@@ -44,7 +44,7 @@ func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
 		t.Fatal(err)
 	}
 
-	return &BaseDBQueries{Queries: queries, t: t, ctx: ctx}
+	return &BaseDBQueries{Queries: queries, t: t, ctx: ctx, DB: db}
 }
 
 func (c BaseDBQueries) GetBaseServices() BaseTestServices {
@@ -54,6 +54,7 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
 	return BaseTestServices{
+		DB:  c.DB,
 		Cs:  cs,
 		Us:  us,
 		Ws:  ws,

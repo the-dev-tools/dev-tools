@@ -3,6 +3,7 @@ package sworkspace
 import (
 	"context"
 	"database/sql"
+	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mworkspace"
 	"dev-tools-backend/pkg/translate/tgeneric"
@@ -28,7 +29,7 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 	return mworkspace.Workspace{
 		ID:      workspace.ID,
 		Name:    workspace.Name,
-		Updated: time.Unix(workspace.Updated, 0),
+		Updated: dbtime.DBTime(time.Unix(workspace.Updated, 0)),
 	}
 }
 
