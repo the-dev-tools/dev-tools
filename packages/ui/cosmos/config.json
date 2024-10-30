@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json.schemastore.org/cosmos-config",
+
+  "rootDir": "../",
+  "exposeImports": "cosmos/imports.ts",
+
+  "port": 5000,
+  "rendererUrl": "http://localhost:5050"
+}
