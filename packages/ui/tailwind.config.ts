@@ -5,6 +5,6 @@ import { config } from '@the-dev-tools/config-tailwind';
 import { tailwindContent } from './src/tailwind-content.mjs';
 
 export default {
-  content: tailwindContent,
+  content: ['cosmos.decorator.tsx', './cosmos/**/*.tsx', ...tailwindContent],
   presets: [config],
 } satisfies Config;
