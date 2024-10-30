@@ -8,7 +8,7 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "effect": "3.10.4"
+    "effect": "3.10.6"
   },
   "devDependencies": {
     "@faker-js/faker": "~9.1.0",
