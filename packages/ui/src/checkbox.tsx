@@ -14,7 +14,7 @@ import { tv, VariantProps } from 'tailwind-variants';
 
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
-import { isFocusedRingStyles } from './focus-ring';
+import { isFocusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
@@ -51,7 +51,7 @@ CheckboxRoot.displayName = 'CheckboxRoot';
 // Box
 
 export const checkboxBoxStyles = tv({
-  extend: isFocusedRingStyles,
+  extend: isFocusVisibleRingStyles,
   base: tw`flex size-5 flex-none cursor-pointer items-center justify-center rounded border-2 border-black`,
 });
 

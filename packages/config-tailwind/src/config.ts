@@ -25,6 +25,9 @@ export const config: Partial<Config> = {
           `1px 25px 56px -4px ${_.theme('colors.slate.500')}${alpha(0.2)}`,
         ].join(', '),
       }),
+      transitionProperty: {
+        colors: [defaultTheme.transitionProperty.colors, 'outline-color', 'outline-width'].join(', '),
+      },
     },
   },
 };

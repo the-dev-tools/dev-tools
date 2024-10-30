@@ -12,7 +12,7 @@ import { tv } from 'tailwind-variants';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { FieldError, FieldErrorProps, FieldLabel, FieldLabelProps } from './field';
-import { isFocusedRingStyles } from './focus-ring';
+import { isFocusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
@@ -70,10 +70,10 @@ const itemStyles = tv({
 });
 
 const indicatorStyles = tv({
-  extend: isFocusedRingStyles,
+  extend: isFocusVisibleRingStyles,
   base: tw`size-4 rounded-full border-2 bg-white transition-all`,
   variants: {
-    ...({} as typeof isFocusedRingStyles.variants),
+    ...({} as typeof isFocusVisibleRingStyles.variants),
     isSelected: {
       false: tw`border-gray-400`,
       true: tw`border-4 border-gray-700`,
