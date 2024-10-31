@@ -5,8 +5,16 @@ import { tv, VariantProps } from 'tailwind-variants';
 import { tw } from './tailwind-literal';
 
 export const avatarStyles = tv({
-  base: tw`flex size-5 select-none items-center justify-center rounded-full border text-[0.625rem] font-semibold`,
+  base: tw`flex select-none items-center justify-center border font-semibold`,
   variants: {
+    shape: {
+      circle: tw`rounded-full`,
+      square: tw`rounded-md`,
+    },
+    size: {
+      sm: tw`size-5 text-[0.625rem]`,
+      md: tw`size-9`,
+    },
     variant: {
       neutral: tw`border-slate-200 bg-white text-slate-800`,
       amber: tw`border-amber-500 bg-amber-100 text-amber-600`,
@@ -18,6 +26,8 @@ export const avatarStyles = tv({
     },
   },
   defaultVariants: {
+    shape: 'circle',
+    size: 'sm',
     variant: 'neutral',
   },
 });
