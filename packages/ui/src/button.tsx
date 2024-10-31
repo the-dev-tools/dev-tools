@@ -42,15 +42,15 @@ export const buttonStyles = tv({
 });
 
 const renderPropKeys = [...isFocusVisibleRingRenderPropKeys, 'isHovered', 'isPressed', 'isDisabled'] as const;
-const variantKeys = pipe(Struct.omit(buttonStyles.variants, ...renderPropKeys), Record.keys);
+export const buttonVariantKeys = pipe(Struct.omit(buttonStyles.variants, ...renderPropKeys), Record.keys);
 
 // Button
 
 export interface ButtonProps extends AriaButtonProps, VariantProps<typeof buttonStyles> {}
 
 export const Button = ({ className, ...props }: ButtonProps) => {
-  const forwardedProps = Struct.omit(props, ...variantKeys);
-  const variantProps = Struct.pick(props, ...variantKeys);
+  const forwardedProps = Struct.omit(props, ...buttonVariantKeys);
+  const variantProps = Struct.pick(props, ...buttonVariantKeys);
   return <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
 };
 
@@ -59,7 +59,7 @@ export const Button = ({ className, ...props }: ButtonProps) => {
 export interface ButtonAsLinkProps extends AriaLinkProps, VariantProps<typeof buttonStyles> {}
 
 export const ButtonAsLink = ({ className, ...props }: ButtonAsLinkProps) => {
-  const forwardedProps = Struct.omit(props, ...variantKeys);
-  const variantProps = Struct.pick(props, ...variantKeys);
+  const forwardedProps = Struct.omit(props, ...buttonVariantKeys);
+  const variantProps = Struct.pick(props, ...buttonVariantKeys);
   return <AriaLink {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
 };
