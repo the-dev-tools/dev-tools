@@ -28,7 +28,7 @@ export const buttonStyles = tv({
   compoundVariants: [
     { variant: 'primary', isHovered: true, className: tw`border-violet-800 bg-violet-700` },
     { variant: 'primary', isPressed: true, className: tw`border-violet-900 bg-violet-800` },
-    { variant: 'primary', isDisabled: true, className: tw`bg-violet-400` },
+    { variant: 'primary', isDisabled: true, className: tw`border-violet-400 bg-violet-400` },
 
     { variant: 'secondary', isHovered: true, className: tw`border-slate-200 bg-slate-100` },
     { variant: 'secondary', isPressed: true, className: tw`border-slate-300 bg-white` },

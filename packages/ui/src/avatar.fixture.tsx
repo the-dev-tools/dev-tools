@@ -1,15 +1,15 @@
-import { Record, Struct } from 'effect';
+import { Record } from 'effect';
 import { useFixtureSelect } from 'react-cosmos/client';
 
-import { Avatar, avatarStyles } from './avatar';
+import { Avatar as Avatar_, AvatarProps, avatarStyles } from './avatar';
 
-const Fixture = () => {
+const Avatar = (props: AvatarProps) => {
   const [variant] = useFixtureSelect('variant', {
     options: Record.keys(avatarStyles.variants.variant),
-    ...Struct.pick(avatarStyles.defaultVariants, 'variant'),
+    defaultValue: props.variant ?? avatarStyles.defaultVariants.variant!,
   });
 
-  return <Avatar variant={variant}>Avatar</Avatar>;
+  return <Avatar_ {...props} variant={variant} />;
 };
 
-export default Fixture;
+export default <Avatar shorten>Avatar</Avatar>;

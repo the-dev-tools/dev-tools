@@ -1,15 +1,15 @@
-import { Record, Struct } from 'effect';
+import { Record } from 'effect';
 import { useFixtureSelect } from 'react-cosmos/client';
 
-import { WorkspaceAvatar, workspaceAvatarStyles } from './workspace-avatar';
+import { WorkspaceAvatar as WorkspaceAvatar_, WorkspaceAvatarProps, workspaceAvatarStyles } from './workspace-avatar';
 
-const Fixture = () => {
+const Fixture = (props: WorkspaceAvatarProps) => {
   const [variant] = useFixtureSelect('variant', {
     options: Record.keys(workspaceAvatarStyles.variants.variant),
-    ...Struct.pick(workspaceAvatarStyles.defaultVariants, 'variant'),
+    defaultValue: props.variant ?? workspaceAvatarStyles.defaultVariants.variant!,
   });
 
-  return <WorkspaceAvatar variant={variant}>Workspace Avatar</WorkspaceAvatar>;
+  return <WorkspaceAvatar_ {...props} variant={variant} />;
 };
 
-export default Fixture;
+export default <Fixture>Workspace Avatar</Fixture>;
