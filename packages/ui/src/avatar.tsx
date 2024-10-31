@@ -24,14 +24,18 @@ export const avatarStyles = tv({
 
 export interface AvatarProps extends ComponentProps<'div'>, VariantProps<typeof avatarStyles> {
   children: string;
+  shorten?: boolean;
 }
 
-export const Avatar = ({ children, className, ...props }: AvatarProps) => {
+export const Avatar = ({ children, className, shorten = true, ...props }: AvatarProps) => {
   const forwardedProps = Struct.omit(props, ...avatarStyles.variantKeys);
   const variantProps = Struct.pick(props, ...avatarStyles.variantKeys);
+
+  const text = shorten ? children[0]?.toUpperCase() : children;
+
   return (
     <div {...forwardedProps} className={avatarStyles({ ...variantProps, className })}>
-      {children[0]?.toUpperCase()}
+      {text}
     </div>
   );
 };
