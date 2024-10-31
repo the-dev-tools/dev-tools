@@ -18,7 +18,10 @@ export const NavigationBarDivider = () => <div className={tw`h-5 w-px bg-white/2
 
 const navigationAddMemberButtonStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: twMerge(avatarStyles.base, tw`border-white/20 bg-transparent text-white`),
+  base: twMerge(
+    avatarStyles({ shape: 'circle', size: 'sm', variant: undefined }),
+    tw`border-white/20 bg-transparent text-white`,
+  ),
   variants: {
     isHovered: { true: tw`border-white/40` },
     isPressed: { true: tw`border-white` },
