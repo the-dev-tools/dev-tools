@@ -625,6 +625,11 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {
 	example, err := iaes.GetApiExample(ctx, exampleUlid)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			// INFO: this mean that workspace not belong to user
+			// So for avoid information leakage, we should return not found
+			return false, connect.NewError(connect.CodeNotFound, errors.New("example not found"))
+		}
 		return false, err
 	}
 	return collection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
