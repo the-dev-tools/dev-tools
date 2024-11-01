@@ -75,6 +75,9 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 
 	result, err := c.ers.GetExampleResp(ctx, ResponseID)
 	if err != nil {
+		if err != sexampleresp.ErrNoRespFound {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	exampleID := result.ExampleID
