@@ -16,3 +16,8 @@ export const composeRenderPropsTV = <T, K>(
 
 export const composeRenderPropsTW = <T,>(className: string | ((renderProps: T) => string) | undefined, tw: string) =>
   composeRenderProps(className, (className) => twMerge(tw, className));
+
+export const ariaTextValue = (textValue?: string, children?: unknown) => {
+  const textValue_ = textValue ?? (typeof children === 'string' ? children : undefined);
+  return textValue_ === undefined ? {} : { textValue: textValue_ };
+};

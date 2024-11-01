@@ -13,6 +13,7 @@ export const avatarStyles = tv({
     },
     size: {
       sm: tw`size-5 text-[0.625rem]`,
+      base: tw`size-7`,
       md: tw`size-9`,
     },
     variant: {
