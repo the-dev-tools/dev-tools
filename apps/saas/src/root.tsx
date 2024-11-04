@@ -1,4 +1,6 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router';
+import { Transport } from '@connectrpc/connect';
+import { QueryClient } from '@tanstack/react-query';
+import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 import { ComponentType, lazy, Suspense } from 'react';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -18,7 +20,12 @@ const ReactQueryDevtools = makeLazyDevtools(() =>
   import('@tanstack/react-query-devtools').then((_) => _.ReactQueryDevtools),
 );
 
-export const Route = createRootRoute({
+export interface RouterContext {
+  transport: Transport;
+  queryClient: QueryClient;
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: () => (
     <>
       <Outlet />

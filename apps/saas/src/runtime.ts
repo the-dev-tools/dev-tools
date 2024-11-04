@@ -1,10 +1,8 @@
 import { BrowserKeyValueStore } from '@effect/platform-browser';
-import { QueryClient } from '@tanstack/react-query';
 import { Config, ConfigProvider, Effect, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
 
 import { ApiLive } from '@the-dev-tools/api/live';
 import { ApiTest } from '@the-dev-tools/api/test';
-import { ApiTransport } from '@the-dev-tools/api/transport';
 
 const ConfigLive = pipe(PUBLIC_ENV, ConfigProvider.fromJson, Layer.setConfigProvider);
 
@@ -25,7 +23,3 @@ const layer = pipe(
 );
 
 export const Runtime = ManagedRuntime.make(layer);
-
-export const transport = Runtime.runSync(ApiTransport);
-
-export const queryClient = new QueryClient();

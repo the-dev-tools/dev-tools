@@ -1,17 +1,21 @@
 import { TransportProvider } from '@connectrpc/connect-query';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, NavigateOptions, RouterProvider, ToOptions } from '@tanstack/react-router';
+import { Effect } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
+import { ApiTransport } from '@the-dev-tools/api/transport';
+
+import { RouterContext } from './root';
 import { routeTree } from './router-tree';
-import { queryClient, transport } from './runtime';
+import { Runtime } from './runtime';
 
 import '@the-dev-tools/ui/fonts';
 import './styles.css';
 
-const router = createRouter({ routeTree });
+const router = createRouter({ routeTree, context: {} as RouterContext });
 
 declare module '@tanstack/react-router' {
   interface Register {
@@ -26,8 +30,14 @@ declare module 'react-aria-components' {
   }
 }
 
-const rootEl = document.getElementById('root');
-if (rootEl) {
+const app = Effect.gen(function* () {
+  const rootEl = document.getElementById('root');
+
+  if (!rootEl) return;
+
+  const transport = yield* ApiTransport;
+  const queryClient = new QueryClient();
+
   const root = createRoot(rootEl);
   root.render(
     <StrictMode>
@@ -43,10 +53,12 @@ if (rootEl) {
               return router.buildLocation(to).href;
             }}
           >
-            <RouterProvider router={router} />
+            <RouterProvider router={router} context={{ transport, queryClient }} />
           </AriaRouterProvider>
         </QueryClientProvider>
       </TransportProvider>
     </StrictMode>,
   );
-}
+});
+
+void Runtime.runPromise(app);

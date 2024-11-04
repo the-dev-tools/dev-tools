@@ -65,14 +65,12 @@ import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { queryClient, transport } from './runtime';
-
 export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 )({
   component: Page,
   pendingComponent: () => 'Loading example...',
-  loader: async ({ params: { workspaceIdCan, endpointIdCan, exampleIdCan } }) => {
+  loader: async ({ params: { workspaceIdCan, endpointIdCan, exampleIdCan }, context: { transport, queryClient } }) => {
     const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
     const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;
 

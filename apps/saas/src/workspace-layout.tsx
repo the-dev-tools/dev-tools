@@ -46,12 +46,12 @@ import { Tree, TreeItem } from '@the-dev-tools/ui/tree';
 
 import { DashboardLayout } from './authorized';
 import { EnvironmentsWidget } from './environment';
-import { queryClient, Runtime, transport } from './runtime';
+import { Runtime } from './runtime';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   component: Layout,
   pendingComponent: () => 'Loading workspace...',
-  loader: async ({ params: { workspaceIdCan } }) => {
+  loader: async ({ params: { workspaceIdCan }, context: { transport, queryClient } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
     const options = createQueryOptions(workspaceGet, { workspaceId }, { transport });
     await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/', throw: true }));
