@@ -1,8 +1,18 @@
-import { Struct } from 'effect';
+import { pipe, Record, Struct } from 'effect';
 import { ComponentProps } from 'react';
+import { Button as AriaButton, ButtonProps as AriaButtonProps } from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
 
+import { isFocusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
+import { composeRenderPropsTV } from './utils';
+
+interface SharedProps {
+  children: string;
+  shorten?: boolean;
+}
+
+// Main
 
 export const avatarStyles = tv({
   base: tw`flex select-none items-center justify-center border font-semibold`,
@@ -33,10 +43,10 @@ export const avatarStyles = tv({
   },
 });
 
-export interface AvatarProps extends ComponentProps<'div'>, VariantProps<typeof avatarStyles> {
-  children: string;
-  shorten?: boolean;
-}
+export interface AvatarProps
+  extends SharedProps,
+    Omit<ComponentProps<'div'>, keyof SharedProps>,
+    VariantProps<typeof avatarStyles> {}
 
 export const Avatar = ({ children, className, shorten = true, ...props }: AvatarProps) => {
   const forwardedProps = Struct.omit(props, ...avatarStyles.variantKeys);
@@ -48,5 +58,40 @@ export const Avatar = ({ children, className, shorten = true, ...props }: Avatar
     <div {...forwardedProps} className={avatarStyles({ ...variantProps, className })}>
       {text}
     </div>
+  );
+};
+
+// Button
+
+export const avatarButtonStyles = tv({
+  extend: isFocusVisibleRingStyles,
+  base: avatarStyles.base,
+  variants: {
+    ...isFocusVisibleRingStyles.variants,
+    ...avatarStyles.variants,
+  },
+  defaultVariants: avatarStyles.defaultVariants,
+});
+
+export const avatarButtonVariantKeys = pipe(
+  Struct.omit(avatarButtonStyles.variants, ...isFocusVisibleRingStyles.variantKeys),
+  Record.keys,
+);
+
+export interface AvatarButtonProps
+  extends SharedProps,
+    Omit<AriaButtonProps, keyof SharedProps>,
+    VariantProps<typeof avatarButtonStyles> {}
+
+export const AvatarButton = ({ children, className, shorten = true, ...props }: AvatarButtonProps) => {
+  const forwardedProps = Struct.omit(props, ...avatarButtonVariantKeys);
+  const variantProps = Struct.pick(props, ...avatarButtonVariantKeys);
+
+  const text = shorten ? children[0]?.toUpperCase() : children;
+
+  return (
+    <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, avatarButtonStyles, variantProps)}>
+      {text}
+    </AriaButton>
   );
 };
