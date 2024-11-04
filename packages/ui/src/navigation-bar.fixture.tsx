@@ -2,6 +2,7 @@ import { FiBell, FiHelpCircle, FiSearch, FiSettings } from 'react-icons/fi';
 
 import { RootDecoratorOptions } from '../cosmos.decorator';
 import { Avatar } from './avatar';
+import { Logo } from './illustrations';
 import { NavigationAddMemberButton, NavigationBar, NavigationBarDivider } from './navigation-bar';
 import { tw } from './tailwind-literal';
 
@@ -9,6 +10,8 @@ export const options: RootDecoratorOptions = { isCentered: false };
 
 export default (
   <NavigationBar>
+    <Logo className='size-7' />
+    <NavigationBarDivider />
     <span>Home</span>
     <div className='flex-1' />
     <div className='flex gap-1.5'>

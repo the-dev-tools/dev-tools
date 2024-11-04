@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ComponentProps } from 'react';
 import { Button as AriaButton, ButtonProps as AriaButtonProps } from 'react-aria-components';
 import { FiPlus } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
@@ -6,7 +6,6 @@ import { tv } from 'tailwind-variants';
 
 import { avatarStyles } from './avatar';
 import { isFocusVisibleRingStyles } from './focus-ring';
-import { Logo } from './illustrations';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
@@ -38,16 +37,14 @@ export const NavigationAddMemberButton = ({ className, ...props }: NavigationAdd
 
 // Main container
 
-interface NavigationBarProps {
-  children?: ReactNode;
-}
+interface NavigationBarProps extends ComponentProps<'div'> {}
 
-export const NavigationBar = ({ children }: NavigationBarProps) => (
+export const NavigationBar = ({ className, ...props }: NavigationBarProps) => (
   <div
-    className={tw`flex h-12 w-full items-center gap-4 bg-slate-950 px-4 text-sm font-semibold tracking-tight text-white`}
-  >
-    <Logo className='size-7' />
-    <NavigationBarDivider />
-    {children}
-  </div>
+    className={twMerge(
+      tw`flex h-12 w-full items-center gap-4 bg-slate-950 px-4 text-sm font-semibold tracking-tight text-white`,
+      className,
+    )}
+    {...props}
+  />
 );
