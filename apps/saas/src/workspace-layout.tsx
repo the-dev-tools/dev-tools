@@ -77,28 +77,31 @@ function Layout() {
 
   return (
     <DashboardLayout
-      leftChildren={
-        <MenuTrigger>
-          <Button className='bg-transparent text-white'>{workspace.name}</Button>
-          <Menu>
-            <MenuItem
-              href={{
-                to: '/workspace/$workspaceIdCan',
-                params: { workspaceIdCan },
-              }}
-            >
-              Home
-            </MenuItem>
-            <MenuItem
-              href={{
-                to: '/workspace/$workspaceIdCan/members',
-                params: { workspaceIdCan },
-              }}
-            >
-              Members
-            </MenuItem>
-          </Menu>
-        </MenuTrigger>
+      navbar={
+        <>
+          <MenuTrigger>
+            <Button className='bg-transparent text-white'>{workspace.name}</Button>
+            <Menu>
+              <MenuItem
+                href={{
+                  to: '/workspace/$workspaceIdCan',
+                  params: { workspaceIdCan },
+                }}
+              >
+                Home
+              </MenuItem>
+              <MenuItem
+                href={{
+                  to: '/workspace/$workspaceIdCan/members',
+                  params: { workspaceIdCan },
+                }}
+              >
+                Members
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+          <div className='flex-1' />
+        </>
       }
     >
       <PanelGroup direction='horizontal'>
