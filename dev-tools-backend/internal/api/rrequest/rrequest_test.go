@@ -5,6 +5,7 @@ import (
 	"dev-tools-backend/internal/api/middleware/mwauth"
 	"dev-tools-backend/internal/api/rrequest"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/massert"
 	"dev-tools-backend/pkg/model/mexampleheader"
 	"dev-tools-backend/pkg/model/mitemapi"
 	"dev-tools-backend/pkg/model/mitemapiexample"
@@ -419,4 +420,344 @@ func TestRPCRequestHeaderDelete(t *testing.T) {
 	header, err = ehs.GetHeaderByID(ctx, headerID)
 	testutil.Assert(t, sexampleheader.ErrNoHeaderFound, err)
 	testutil.Assert(t, mexampleheader.Header{}, header)
+}
+
+func TestRPCRequestAssertCreate(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	cs := scollection.New(queries)
+	us := suser.New(queries)
+	ehs := sexampleheader.New(queries)
+	eqs := sexamplequery.New(queries)
+
+	as := sassert.New(queries)
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	CollectionID := idwrap.NewNow()
+	UserID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, UserID, CollectionID)
+
+	item := &mitemapi.ItemApi{
+		ID:           idwrap.NewNow(),
+		Name:         "test",
+		Url:          "test",
+		Method:       "GET",
+		CollectionID: CollectionID,
+		ParentID:     nil,
+	}
+
+	err := ias.CreateItemApi(ctx, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedItemApiID := item.ID
+	exampleID := idwrap.NewNow()
+
+	itemExample := &mitemapiexample.ItemApiExample{
+		ID:           exampleID,
+		ItemApiID:    expectedItemApiID,
+		CollectionID: CollectionID,
+		Name:         "item_example_name",
+	}
+
+	err = iaes.CreateApiExample(ctx, itemExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPath := "test_path"
+	expectedValue := "test_name"
+
+	req := connect.NewRequest(&requestv1.AssertCreateRequest{
+		ExampleId: exampleID.Bytes(),
+		Path: []*requestv1.PathKey{{
+			Key:  expectedPath,
+			Kind: requestv1.PathKind_PATH_KIND_UNSPECIFIED,
+		}},
+		Value: expectedValue,
+	})
+
+	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
+	resp, err := rpcExample.AssertCreate(authedCtx, req)
+	testutil.AssertFatal(t, nil, err)
+	testutil.AssertNotFatal(t, nil, resp)
+	testutil.AssertNotFatal(t, nil, resp.Msg)
+	msg := resp.Msg
+	id, err := idwrap.NewFromBytes(msg.AssertId)
+	testutil.AssertFatal(t, nil, err)
+	assert, err := as.GetAssert(ctx, id)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, expectedPath, assert.Path)
+	testutil.Assert(t, expectedValue, assert.Value)
+	testutil.Assert(t, exampleID, assert.ExampleID)
+}
+
+func TestRPCRequestAssertGet(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	cs := scollection.New(queries)
+	us := suser.New(queries)
+	ehs := sexampleheader.New(queries)
+	eqs := sexamplequery.New(queries)
+
+	as := sassert.New(queries)
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	CollectionID := idwrap.NewNow()
+	UserID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, UserID, CollectionID)
+
+	item := &mitemapi.ItemApi{
+		ID:           idwrap.NewNow(),
+		Name:         "test",
+		Url:          "test",
+		Method:       "GET",
+		CollectionID: CollectionID,
+		ParentID:     nil,
+	}
+
+	err := ias.CreateItemApi(ctx, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedItemApiID := item.ID
+	exampleID := idwrap.NewNow()
+
+	itemExample := &mitemapiexample.ItemApiExample{
+		ID:           exampleID,
+		ItemApiID:    expectedItemApiID,
+		CollectionID: CollectionID,
+		Name:         "item_example_name",
+	}
+
+	err = iaes.CreateApiExample(ctx, itemExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// TODO: improve this test
+	const expectedPath = "test_path"
+	const expectedValue = "test_name"
+	const expectedEnable = true
+	const expectedType = massert.AssertTypeEqual
+
+	assert := massert.Assert{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		Path:      expectedPath,
+		Value:     expectedValue,
+		Type:      expectedType,
+		Enable:    expectedEnable,
+	}
+
+	err = as.CreateAssert(ctx, assert)
+	testutil.AssertFatal(t, nil, err)
+
+	req := connect.NewRequest(&requestv1.AssertListRequest{
+		ExampleId: exampleID.Bytes(),
+	})
+
+	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
+	resp, err := rpcExample.AssertList(authedCtx, req)
+	testutil.AssertFatal(t, nil, err)
+	testutil.AssertNotFatal(t, nil, resp)
+	testutil.AssertNotFatal(t, nil, resp.Msg)
+	msg := resp.Msg
+	for _, item := range msg.Items {
+		testutil.Assert(t, expectedValue, item.Value)
+	}
+}
+
+func TestRPCRequestAssertUpdate(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	cs := scollection.New(queries)
+	us := suser.New(queries)
+	ehs := sexampleheader.New(queries)
+	eqs := sexamplequery.New(queries)
+
+	as := sassert.New(queries)
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	CollectionID := idwrap.NewNow()
+	UserID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, UserID, CollectionID)
+
+	item := &mitemapi.ItemApi{
+		ID:           idwrap.NewNow(),
+		Name:         "test",
+		Url:          "test",
+		Method:       "GET",
+		CollectionID: CollectionID,
+		ParentID:     nil,
+	}
+
+	err := ias.CreateItemApi(ctx, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedItemApiID := item.ID
+	exampleID := idwrap.NewNow()
+
+	itemExample := &mitemapiexample.ItemApiExample{
+		ID:           exampleID,
+		ItemApiID:    expectedItemApiID,
+		CollectionID: CollectionID,
+		Name:         "item_example_name",
+	}
+
+	err = iaes.CreateApiExample(ctx, itemExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert := massert.Assert{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		Path:      "test_path",
+		Value:     "test_name",
+		Type:      massert.AssertTypeEqual,
+		Enable:    true,
+	}
+
+	err = as.CreateAssert(ctx, assert)
+	testutil.AssertFatal(t, nil, err)
+
+	// TODO: add path to the request
+	//
+	// const updatedPath = "updated_path"
+	const updatedValue = "updated_name"
+	const updatedType = massert.AssertTypeEqual
+
+	req := connect.NewRequest(&requestv1.AssertUpdateRequest{
+		ExampleId: exampleID.Bytes(),
+		AssertId:  assert.ID.Bytes(),
+		Value:     updatedValue,
+		Type:      requestv1.AssertKind_ASSERT_KIND_EQUAL,
+	})
+
+	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
+	resp, err := rpcExample.AssertUpdate(authedCtx, req)
+	testutil.AssertFatal(t, nil, err)
+	testutil.AssertNotFatal(t, nil, resp)
+	testutil.AssertNotFatal(t, nil, resp.Msg)
+	updatedAssert, err := as.GetAssert(ctx, assert.ID)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, updatedValue, updatedAssert.Value)
+	testutil.Assert(t, updatedType, updatedAssert.Type)
+	testutil.Assert(t, exampleID, updatedAssert.ExampleID)
+	testutil.Assert(t, assert.Enable, updatedAssert.Enable)
+}
+
+func TestRPCRequestAssertDelete(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	cs := scollection.New(queries)
+	us := suser.New(queries)
+	ehs := sexampleheader.New(queries)
+	eqs := sexamplequery.New(queries)
+
+	as := sassert.New(queries)
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	CollectionID := idwrap.NewNow()
+	UserID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, UserID, CollectionID)
+
+	item := &mitemapi.ItemApi{
+		ID:           idwrap.NewNow(),
+		Name:         "test",
+		Url:          "test",
+		Method:       "GET",
+		CollectionID: CollectionID,
+		ParentID:     nil,
+	}
+
+	err := ias.CreateItemApi(ctx, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedItemApiID := item.ID
+	exampleID := idwrap.NewNow()
+
+	itemExample := &mitemapiexample.ItemApiExample{
+		ID:           exampleID,
+		ItemApiID:    expectedItemApiID,
+		CollectionID: CollectionID,
+		Name:         "item_example_name",
+	}
+
+	err = iaes.CreateApiExample(ctx, itemExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert := massert.Assert{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		Path:      "test_path",
+		Value:     "test_name",
+		Type:      massert.AssertTypeEqual,
+		Enable:    true,
+	}
+
+	err = as.CreateAssert(ctx, assert)
+	testutil.AssertFatal(t, nil, err)
+
+	req := connect.NewRequest(&requestv1.AssertDeleteRequest{
+		ExampleId: exampleID.Bytes(),
+		AssertId:  assert.ID.Bytes(),
+	})
+
+	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
+	resp, err := rpcExample.AssertDelete(authedCtx, req)
+	testutil.AssertFatal(t, nil, err)
+	testutil.AssertNotFatal(t, nil, resp)
+	testutil.AssertNotFatal(t, nil, resp.Msg)
+	updatedAssert, err := as.GetAssert(ctx, assert.ID)
+	testutil.Assert(t, sassert.ErrNoAssertFound, err)
+	testutil.Assert(t, nil, updatedAssert)
 }

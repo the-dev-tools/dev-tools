@@ -143,9 +143,30 @@ func (b BaseDBQueries) Close() {
 	}
 }
 
+func AssertFatal[c comparable](t *testing.T, expected, got c) {
+	t.Helper()
+	if got != expected {
+		t.Errorf("got %v, expected %v", got, expected)
+	}
+}
+
 func Assert[c comparable](t *testing.T, expected, got c) {
 	t.Helper()
 	if got != expected {
 		t.Errorf("got %v, expected %v", got, expected)
+	}
+}
+
+func AssertNot[c comparable](t *testing.T, not, got c) {
+	t.Helper()
+	if got == not {
+		t.Errorf("got %v, expected not %v", got, not)
+	}
+}
+
+func AssertNotFatal[c comparable](t *testing.T, not, got c) {
+	t.Helper()
+	if got == not {
+		t.Fatalf("got %v, expected not %v", got, not)
 	}
 }
