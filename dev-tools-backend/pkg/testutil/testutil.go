@@ -142,3 +142,10 @@ func (b BaseDBQueries) Close() {
 		b.t.Error(err)
 	}
 }
+
+func Assert[c comparable](t *testing.T, expected, got c) {
+	t.Helper()
+	if got != expected {
+		t.Errorf("got %v, expected %v", got, expected)
+	}
+}

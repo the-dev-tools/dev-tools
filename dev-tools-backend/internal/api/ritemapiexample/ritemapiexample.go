@@ -628,7 +628,7 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 		if err == sql.ErrNoRows {
 			// INFO: this mean that workspace not belong to user
 			// So for avoid information leakage, we should return not found
-			return false, connect.NewError(connect.CodeNotFound, errors.New("example not found"))
+			err = connect.NewError(connect.CodeNotFound, errors.New("example not found"))
 		}
 		return false, err
 	}
