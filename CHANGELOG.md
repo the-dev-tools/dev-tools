@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.33.0
+
+### Minor Changes
+
+- [`8eb52d2`](https://github.com/the-dev-tools/dev-tools-spec/commit/8eb52d20e3165f2e82a94880c5201acd22ab0aed) Thanks [@Tomaszal](https://github.com/Tomaszal)! - Add HAR file import call
+
 ## 1.32.7
 
 ### Patch Changes
