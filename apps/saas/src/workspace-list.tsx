@@ -86,44 +86,44 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
       <div
         className={tw`grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight text-slate-500`}
       >
-        {renaming ? (
-          <Form
-            className='flex flex-row gap-4'
-            onSubmit={(event) =>
-              Effect.gen(function* () {
-                event.preventDefault();
+        <div>
+          {renaming ? (
+            <Form
+              className='flex flex-row gap-4'
+              onSubmit={(event) =>
+                Effect.gen(function* () {
+                  event.preventDefault();
 
-                const { name } = yield* pipe(
-                  new FormData(event.currentTarget),
-                  Object.fromEntries,
-                  Schema.decode(RenameForm),
-                );
+                  const { name } = yield* pipe(
+                    new FormData(event.currentTarget),
+                    Object.fromEntries,
+                    Schema.decode(RenameForm),
+                  );
 
-                workspaceUpdateMutation.mutate({ workspaceId, name });
+                  workspaceUpdateMutation.mutate({ workspaceId, name });
 
-                setRenaming(false);
-              }).pipe(Runtime.runPromise)
-            }
-          >
-            <TextField
-              aria-label='Workspace name'
-              name='name'
-              className={tw`text-md font-semibold tracking-tight text-slate-800`}
-              defaultValue={workspace.name}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
-            />
-            <Button type='submit'>Save</Button>
-          </Form>
-        ) : (
-          <Link
-            className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}
-            to='/workspace/$workspaceIdCan'
-            params={{ workspaceIdCan }}
-          >
-            {workspace.name}
-          </Link>
-        )}
+                  setRenaming(false);
+                }).pipe(Runtime.runPromise)
+              }
+            >
+              <TextField
+                aria-label='Workspace name'
+                name='name'
+                className={tw`text-md font-semibold tracking-tight text-slate-800`}
+                defaultValue={workspace.name}
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+              />
+              <Button type='submit'>Save</Button>
+            </Form>
+          ) : (
+            <div className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+              <Link to='/workspace/$workspaceIdCan' params={{ workspaceIdCan }}>
+                {workspace.name}
+              </Link>
+            </div>
+          )}
+        </div>
         <div className={tw`flex items-center gap-2`}>
           <span>
             by <strong className={tw`font-medium`}>N/A</strong> {/* TODO: implement */}
