@@ -344,6 +344,10 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 	return resp, nil
 }
 
+func (c *CollectionServiceRPC) CollectionImportHar(context.Context, *connect.Request[collectionv1.CollectionImportHarRequest]) (*connect.Response[collectionv1.CollectionImportHarResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CollectionImportHar is not implemented"))
+}
+
 func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
