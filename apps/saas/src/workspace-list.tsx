@@ -163,7 +163,7 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
         </Button>
 
         {/* TODO: new menu */}
-        <Menu>
+        <Menu popoverPlacement='bottom right'>
           <MenuItem onAction={() => void setRenaming(true)}>Rename</MenuItem>
           <MenuItem onAction={() => void workspaceDeleteMutation.mutate({ workspaceId })} variant='danger'>
             Delete

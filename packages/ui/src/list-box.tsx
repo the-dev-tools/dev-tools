@@ -12,22 +12,20 @@ import { FiCheckCircle } from 'react-icons/fi';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
 
-import { isFocusVisibleRingRenderPropKeys, isFocusVisibleRingStyles } from './focus-ring';
+import { isFocusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
-import { ariaTextValue, composeRenderPropsTV, composeRenderPropsTW } from './utils';
+import { ariaTextValue, composeRenderPropsTV } from './utils';
 
 // Root
+
+export const listBoxStyles = tv({
+  base: tw`overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md outline-none`,
+});
 
 export interface ListBoxProps<T> extends Omit<AriaListBoxProps<T>, 'layout' | 'orientation'> {}
 
 export const ListBox = <T extends object>({ children, className, ...props }: ListBoxProps<T>) => (
-  <AriaListBox
-    {...props}
-    className={composeRenderPropsTW(
-      className,
-      tw`overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md outline-none`,
-    )}
-  >
+  <AriaListBox {...props} className={composeRenderPropsTV(className, listBoxStyles)}>
     {children}
   </AriaListBox>
 );
@@ -61,16 +59,19 @@ export const listBoxItemStyles = tv({
   },
 });
 
-const renderPropKeys = [...isFocusVisibleRingRenderPropKeys, 'isHovered'] as const;
-const variantKeys = pipe(Struct.omit(listBoxItemStyles.variants, ...renderPropKeys), Record.keys);
+export const listBoxItemVariantKeys = pipe(
+  Struct.omit(listBoxItemStyles.variants, ...isFocusVisibleRingStyles.variantKeys, 'isHovered'),
+  Record.keys,
+);
 
-interface ListBoxItemVariants extends Pick<VariantProps<typeof listBoxItemStyles>, (typeof variantKeys)[number]> {}
+export interface ListBoxItemVariants
+  extends Pick<VariantProps<typeof listBoxItemStyles>, (typeof listBoxItemVariantKeys)[number]> {}
 
 export interface ListBoxItemProps extends AriaListBoxItemProps, ListBoxItemVariants {}
 
 export const ListBoxItem = ({ className, children, textValue, ...props }: ListBoxItemProps) => {
-  const forwardedProps = Struct.omit(props, ...variantKeys);
-  const variantProps = Struct.pick(props, ...variantKeys);
+  const forwardedProps = Struct.omit(props, ...listBoxItemVariantKeys);
+  const variantProps = Struct.pick(props, ...listBoxItemVariantKeys);
 
   return (
     <AriaListBoxItem

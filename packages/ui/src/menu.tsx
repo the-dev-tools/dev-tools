@@ -5,52 +5,40 @@ import {
   type MenuItemProps as AriaMenuItemProps,
   type MenuProps as AriaMenuProps,
 } from 'react-aria-components';
-import { type VariantProps } from 'tailwind-variants';
 
 import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 
-import { dropdownItemStyles, dropdownListBoxStyles, DropdownPopover, DropdownPopoverProps } from './dropdown';
+import { DropdownPopover, DropdownPopoverProps } from './dropdown';
+import { listBoxItemStyles, listBoxItemVariantKeys, ListBoxItemVariants, listBoxStyles } from './list-box';
 import { composeRenderPropsTV } from './utils';
 
 // Root
 
-export interface MenuRootProps<T extends object> extends AriaMenuProps<T>, VariantProps<typeof dropdownListBoxStyles> {}
-
-export const MenuRoot = <T extends object>({ className, ...props }: MenuRootProps<T>) => {
-  const forwardedProps = Struct.omit(props, ...dropdownListBoxStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...dropdownListBoxStyles.variantKeys);
-  return <AriaMenu {...forwardedProps} className={dropdownListBoxStyles({ ...variantProps, className })} />;
-};
-
-// Root mix
-
 export interface MenuProps<T extends object>
-  extends Omit<DropdownPopoverProps, 'children'>,
-    MixinProps<'root', Omit<MenuRootProps<T>, 'children'>> {
-  children?: MenuRootProps<T>['children'];
+  extends Omit<AriaMenuProps<T>, 'children'>,
+    MixinProps<'popover', Omit<DropdownPopoverProps, 'children'>> {
+  children?: AriaMenuProps<T>['children'];
 }
 
-export const Menu = <T extends object>({ children, ...props }: MenuProps<T>) => {
-  const forwardedProps = splitProps(props, 'root');
+export const Menu = <T extends object>({ className, ...props }: MenuProps<T>) => {
+  const forwardedProps = splitProps(props, 'popover');
+
   return (
-    <DropdownPopover {...forwardedProps.rest}>
-      <MenuRoot {...forwardedProps.root}>{children}</MenuRoot>
+    <DropdownPopover {...forwardedProps.popover}>
+      <AriaMenu {...forwardedProps.rest} className={listBoxStyles({ className })} />
     </DropdownPopover>
   );
 };
 
 // Item
 
-export interface MenuItemProps extends AriaMenuItemProps, VariantProps<typeof dropdownItemStyles> {}
+export interface MenuItemProps extends AriaMenuItemProps, ListBoxItemVariants {}
 
 export const MenuItem = ({ className, ...props }: MenuItemProps) => {
-  const forwardedProps = Struct.omit(props, ...dropdownItemStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...dropdownItemStyles.variantKeys);
+  const forwardedProps = Struct.omit(props, ...listBoxItemVariantKeys);
+  const variantProps = Struct.pick(props, ...listBoxItemVariantKeys);
+
   return (
-    <AriaMenuItem
-      {...forwardedProps}
-      isDisabled={props.isDisabled ?? false}
-      className={composeRenderPropsTV(className, dropdownItemStyles, variantProps)}
-    />
+    <AriaMenuItem {...forwardedProps} className={composeRenderPropsTV(className, listBoxItemStyles, variantProps)} />
   );
 };

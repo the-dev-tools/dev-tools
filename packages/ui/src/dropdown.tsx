@@ -11,23 +11,15 @@ import { tv, type VariantProps } from 'tailwind-variants';
 
 import { focusRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV } from './utils';
+import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 // Popover
 
-export const dropdownPopoverStyles = tv({
-  base: tw`max-h-full min-w-[--trigger-width]`,
-});
+export interface DropdownPopoverProps extends AriaPopoverProps {}
 
-export interface DropdownPopoverProps extends AriaPopoverProps, VariantProps<typeof dropdownPopoverStyles> {}
-
-export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) => {
-  const forwardedProps = Struct.omit(props, ...dropdownPopoverStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...dropdownPopoverStyles.variantKeys);
-  return (
-    <AriaPopover {...forwardedProps} className={composeRenderPropsTV(className, dropdownPopoverStyles, variantProps)} />
-  );
-};
+export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) => (
+  <AriaPopover {...props} className={composeRenderPropsTW(className, tw`max-h-full min-w-[--trigger-width]`)} />
+);
 
 // List box
 
