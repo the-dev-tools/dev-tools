@@ -43,6 +43,13 @@ model CollectionImportPostmanRequest {
 }
 model CollectionImportPostmanResponse is Resource.Create.Response<Collection>;
 
+@autoFields
+model CollectionImportHarRequest {
+  ...Resource.Create.Request<Collection>;
+  data: bytes;
+}
+model CollectionImportHarResponse is Resource.Create.Response<Collection>;
+
 @Protobuf.service
 interface CollectionService {
   CollectionList(...CollectionListRequest): CollectionListResponse;
@@ -52,4 +59,5 @@ interface CollectionService {
   CollectionDelete(...CollectionDeleteRequest): CollectionDeleteResponse;
 
   CollectionImportPostman(...CollectionImportPostmanRequest): CollectionImportPostmanResponse;
+  CollectionImportHar(...CollectionImportHarRequest): CollectionImportHarResponse;
 }
