@@ -1,8 +1,8 @@
 {
-        "dependencies": {
-                "@the-dev-tools/email": "^0.1.1",
-                "@the-dev-tools/protobuf": "1.28.0",
-                "@the-dev-tools/spec": "1.32.7",
-                "install": "^0.13.0"
-        }
+    "dependencies": {
+        "@the-dev-tools/email": "^0.1.1",
+        "@the-dev-tools/protobuf": "1.28.0",
+        "@the-dev-tools/spec": "1.33.0",
+        "install": "^0.13.0"
+    }
 }
