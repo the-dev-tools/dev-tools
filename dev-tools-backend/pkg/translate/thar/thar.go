@@ -19,28 +19,32 @@ type HarResvoled struct {
 	urlEncodedBodies []mbodyurl.BodyURLEncoded
 }
 
-type HARFile struct {
+type HAR struct {
 	Log struct {
 		Entries []Entry `json:"entries"`
 	} `json:"log"`
 }
 
 type Entry struct {
-	Request struct {
-		Method      string    `json:"method"`
-		URL         string    `json:"url"`
-		HTTPVersion string    `json:"httpVersion"`
-		Headers     []Header  `json:"headers"`
-		PostData    *PostData `json:"postData,omitempty"`
-		QueryString []Query   `json:"queryString"`
-	} `json:"request"`
-	Response struct {
-		Status      int      `json:"status"`
-		StatusText  string   `json:"statusText"`
-		HTTPVersion string   `json:"httpVersion"`
-		Headers     []Header `json:"headers"`
-		Content     Content  `json:"content"`
-	} `json:"response"`
+	Request  Request  `json:"request"`
+	Response Response `json:"response"`
+}
+
+type Request struct {
+	Method      string    `json:"method"`
+	URL         string    `json:"url"`
+	HTTPVersion string    `json:"httpVersion"`
+	Headers     []Header  `json:"headers"`
+	PostData    *PostData `json:"postData,omitempty"`
+	QueryString []Query   `json:"queryString"`
+}
+
+type Response struct {
+	Status      int      `json:"status"`
+	StatusText  string   `json:"statusText"`
+	HTTPVersion string   `json:"httpVersion"`
+	Headers     []Header `json:"headers"`
+	Content     Content  `json:"content"`
 }
 
 type Header struct {
@@ -54,12 +58,14 @@ type Query struct {
 }
 
 type PostData struct {
-	MimeType string `json:"mimeType"`
-	Text     string `json:"text"`
-	Params   []struct {
-		Name  string `json:"name"`
-		Value string `json:"value"`
-	} `json:"params,omitempty"`
+	MimeType string   `json:"mimeType"`
+	Text     string   `json:"text"`
+	Params   []Parmas `json:"params,omitempty"`
+}
+
+type Parmas struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type Content struct {
@@ -68,16 +74,46 @@ type Content struct {
 	Text     string `json:"text"`
 }
 
-func ConvertHAR(data []byte) (HarResvoled, error) {
+func ConvertRaw(data []byte) (*HAR, error) {
+	var harFile HAR
+	err := json.Unmarshal(data, &harFile)
+	if err != nil {
+		return nil, err
+	}
+	return &harFile, nil
+}
+
+func ConvertParamToFormBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyform.BodyForm {
+	result := make([]mbodyform.BodyForm, len(params))
+	for i, param := range params {
+		result[i] = mbodyform.BodyForm{
+			BodyKey:   param.Name,
+			Value:     param.Value,
+			Enable:    true,
+			ExampleID: exampleId,
+		}
+	}
+	return result
+}
+
+func ConvertParamToUrlBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
+	result := make([]mbodyurl.BodyURLEncoded, len(params))
+	for i, param := range params {
+		result[i] = mbodyurl.BodyURLEncoded{
+			BodyKey:   param.Name,
+			Value:     param.Value,
+			Enable:    true,
+			ExampleID: exampleId,
+		}
+	}
+	return result
+}
+
+func ConvertHAR(har *HAR) (HarResvoled, error) {
 	result := HarResvoled{}
 
-	var harFile HARFile
-	if err := json.Unmarshal(data, &harFile); err != nil {
-		return result, err
-	}
-
 	// Process each entry in the HAR file
-	for _, entry := range harFile.Log.Entries {
+	for _, entry := range har.Log.Entries {
 		api := mitemapi.ItemApi{
 			ID:     idwrap.NewNow(),
 			Url:    entry.Request.URL,
@@ -102,26 +138,10 @@ func ConvertHAR(data []byte) (HarResvoled, error) {
 				}
 				result.rawBodies = append(result.rawBodies, rawBody)
 			case strings.Contains(postData.MimeType, "multipart/form-data"):
-				formBodies := make([]mbodyform.BodyForm, 0)
-				for _, param := range postData.Params {
-					formBodies = append(formBodies, mbodyform.BodyForm{
-						BodyKey:   param.Name,
-						Value:     param.Value,
-						Enable:    true,
-						ExampleID: example.ID,
-					})
-				}
+				formBodies := ConvertParamToFormBodies(postData.Params, example.ID)
 				result.formBodies = append(result.formBodies, formBodies...)
 			case strings.Contains(postData.MimeType, "application/x-www-form-urlencoded"):
-				urlEncodedBodies := make([]mbodyurl.BodyURLEncoded, 0)
-				for _, param := range postData.Params {
-					urlEncodedBodies = append(urlEncodedBodies, mbodyurl.BodyURLEncoded{
-						BodyKey:   param.Name,
-						Value:     param.Value,
-						Enable:    true,
-						ExampleID: example.ID,
-					})
-				}
+				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, example.ID)
 				result.urlEncodedBodies = append(result.urlEncodedBodies, urlEncodedBodies...)
 			}
 		}
