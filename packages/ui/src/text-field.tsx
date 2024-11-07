@@ -80,7 +80,7 @@ export const TextField = forwardRef(
     return (
       <Root {...rootForwardedProps}>
         <AriaInput
-          {...forwardedProps}
+          {...forwardedProps.input}
           ref={ref}
           className={composeRenderPropsTV(inputClassName, inputStyles, variantProps)}
         />

@@ -5,6 +5,7 @@ import { Form } from 'react-aria-components';
 import * as Auth from '@the-dev-tools/api/auth';
 import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
 import { Runtime } from './runtime';
@@ -26,9 +27,16 @@ function LoginPage() {
   const router = useRouter();
   const { redirect } = Route.useSearch();
   return (
-    <div className='mx-auto h-full max-w-64'>
+    <div className='container mx-auto flex h-full flex-col items-center text-center'>
+      <Logo className={tw`mb-10 mt-24 h-16 w-auto`} />
+
+      <h1 className={tw`mb-1 text-xl font-semibold leading-6 tracking-tight text-slate-800`}>Welcome to DevTools</h1>
+      <span className={tw`mb-6 text-md leading-5 tracking-tight text-slate-500`}>
+        Please enter your account details
+      </span>
+
       <Form
-        className='flex size-full flex-col justify-center gap-4'
+        className='w-80'
         onSubmit={(event) => {
           void Effect.gen(function* () {
             event.preventDefault();
@@ -50,10 +58,34 @@ function LoginPage() {
           }).pipe(Runtime.runPromise);
         }}
       >
-        <Logo className='h-16 w-auto' />
-        <TextField name='email' type='email' isRequired label='Email' />
-        <Button type='submit'>Login</Button>
+        <TextField
+          className={tw`mb-4`}
+          labelClassName={tw`mb-1 text-start text-sm font-medium leading-5 tracking-tight text-slate-800`}
+          inputPlaceholder='Enter email...'
+          name='email'
+          type='email'
+          isRequired
+          label='Email'
+        />
+
+        <Button className={tw`w-full py-2.5`} variant='primary' type='submit'>
+          Login
+        </Button>
       </Form>
+
+      <div className={tw`h-10 flex-1`} />
+
+      {/* TODO: implement */}
+      <span className={tw`mb-10 text-sm leading-5 text-slate-500`}>
+        By clicking “Login” you agree with our{' '}
+        <a href='.' className={tw`text-violet-600 underline`}>
+          Terms of use
+        </a>{' '}
+        and{' '}
+        <a href='.' className={tw`text-violet-600 underline`}>
+          Privacy policy
+        </a>
+      </span>
     </div>
   );
 }
