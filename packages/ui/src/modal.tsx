@@ -6,29 +6,13 @@ import {
 import { tv } from 'tailwind-variants';
 
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV } from './utils';
+import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 const overlayStyles = tv({
-  base: tw`fixed left-0 top-0 isolate z-20 flex h-[--visual-viewport-height] w-full items-center justify-center bg-black/40 p-4 text-center`,
+  base: tw`fixed inset-0 z-20 flex h-[--visual-viewport-height] items-center justify-center bg-slate-800/50`,
   variants: {
-    isEntering: {
-      true: tw`duration-200 ease-out animate-in fade-in`,
-    },
-    isExiting: {
-      true: tw`duration-200 ease-in animate-out fade-out`,
-    },
-  },
-});
-
-const modalStyles = tv({
-  base: tw`max-h-[60vh] w-full max-w-[60vw] overflow-auto rounded border border-black bg-white bg-clip-padding text-left align-middle shadow-xl`,
-  variants: {
-    isEntering: {
-      true: tw`duration-200 ease-out animate-in zoom-in-105`,
-    },
-    isExiting: {
-      true: tw`duration-200 ease-in animate-out zoom-out-95`,
-    },
+    isEntering: { true: tw`duration-200 ease-out animate-in fade-in` },
+    isExiting: { true: tw`duration-200 ease-in animate-out fade-out` },
   },
 });
 
@@ -37,8 +21,14 @@ export interface ModalProps extends Omit<AriaModalOverlayProps, 'className'> {
   modalClassName?: AriaModalOverlayProps['className'];
 }
 
-export const Modal = ({ overlayClassName, modalClassName, ...forwardedProps }: ModalProps) => (
-  <AriaModalOverlay {...forwardedProps} className={composeRenderPropsTV(overlayClassName, overlayStyles)}>
-    <AriaModal {...forwardedProps} className={composeRenderPropsTV(modalClassName, modalStyles)} />
+export const Modal = ({ overlayClassName, modalClassName, ...props }: ModalProps) => (
+  <AriaModalOverlay {...props} className={composeRenderPropsTV(overlayClassName, overlayStyles)}>
+    <AriaModal
+      {...props}
+      className={composeRenderPropsTW(
+        modalClassName,
+        tw`max-h-[50vh] max-w-[70vw] overflow-auto rounded-lg bg-white p-5`,
+      )}
+    />
   </AriaModalOverlay>
 );
