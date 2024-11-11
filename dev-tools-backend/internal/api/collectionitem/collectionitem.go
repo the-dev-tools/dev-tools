@@ -94,10 +94,11 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 	}
 
 	// TODO: make this more efficient
-	var items []*itemv1.CollectionItem
+	items := make([]*itemv1.CollectionItem, 0, len(folders)+len(endpoints))
 	if folderidPtr != nil {
 		for _, folder := range folders {
 			if folder.ParentID != nil && *folder.ParentID == *folderidPtr {
+				// grow the slice
 				items = append(items, &itemv1.CollectionItem{
 					Kind:   itemv1.ItemKind_ITEM_KIND_FOLDER,
 					Folder: tfolder.DeseralizeModelToRPCItem(folder),
@@ -122,12 +123,10 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 					respID = &resp.ID
 				}
 
-				rpcEx := texample.SerializeModelToRPCItem(*ex, respID)
-
 				items = append(items, &itemv1.CollectionItem{
 					Kind:     itemv1.ItemKind_ITEM_KIND_ENDPOINT,
 					Endpoint: titemapi.DeseralizeModelToRPCItem(&endpoint),
-					Example:  rpcEx,
+					Example:  texample.SerializeModelToRPCItem(*ex, respID),
 				})
 			}
 		}

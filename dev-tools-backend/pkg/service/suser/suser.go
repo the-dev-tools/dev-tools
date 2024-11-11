@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/muser"
+	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-db/pkg/sqlc/gen"
 )
 
@@ -15,6 +16,8 @@ type UserService struct {
 func New(queries *gen.Queries) UserService {
 	return UserService{queries: queries}
 }
+
+var ErrUserNotFound = sql.ErrNoRows
 
 // WARNING: this is also get user password hash do not use for public api
 func (us UserService) GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.User, error) {
@@ -38,6 +41,7 @@ func (us UserService) GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.Use
 
 func (us UserService) GetUserByEmail(ctx context.Context, email string) (*muser.User, error) {
 	user, err := us.queries.GetUserByEmail(ctx, email)
+	err = tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrUserNotFound, err)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +86,7 @@ func (us UserService) UpdateUser(ctx context.Context, user *muser.User) error {
 		Email:        user.Email,
 		PasswordHash: user.Password,
 	})
+	err = tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrUserNotFound, err)
 	return err
 }
 
@@ -98,10 +103,10 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 		},
 		ProviderType: int8(oauthType),
 	})
+	err = tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrUserNotFound, err)
 	if err != nil {
 		return nil, err
 	}
-
 	return &muser.User{
 		ID:           user.ID,
 		Email:        user.Email,
@@ -112,8 +117,13 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 }
 
 func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID idwrap.IDWrap, workspaceID idwrap.IDWrap) (bool, error) {
-	return us.queries.CheckIFWorkspaceUserExists(ctx, gen.CheckIFWorkspaceUserExistsParams{
+	b, err := us.queries.CheckIFWorkspaceUserExists(ctx, gen.CheckIFWorkspaceUserExistsParams{
 		UserID:      userID,
 		WorkspaceID: workspaceID,
 	})
+	err = tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrUserNotFound, err)
+	if err != nil {
+		return false, err
+	}
+	return b, nil
 }

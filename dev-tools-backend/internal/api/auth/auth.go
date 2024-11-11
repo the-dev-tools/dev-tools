@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"dev-tools-backend/internal/api"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/muser"
@@ -78,30 +77,30 @@ func (a *AuthServer) AuthMagicLink(ctx context.Context, req *connect.Request[aut
 	email := userInfo.Email
 
 	user, err := a.userService.GetUserWithOAuthIDAndType(ctx, publicAddress, muser.MagicLink)
-	// TODO: make it simpler
 	if err != nil {
-		if err == sql.ErrNoRows {
-			tempUser, err := a.GetPendingUserByEmail(ctx, email)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					tempUser, err = a.handleUserNotFound(ctx, email, publicAddress, muser.MagicLink)
-					if err != nil {
-						return nil, err
-					}
-				} else {
-					return nil, err
-				}
+		if err != suser.ErrUserNotFound {
+			return nil, err
+		}
+
+		tempUser, err := a.GetPendingUserByEmail(ctx, email)
+		if err != nil {
+			if err != suser.ErrUserNotFound {
+				return nil, err
 			}
-			tempUser.ProviderID = &publicAddress
-			tempUser.ProviderType = muser.MagicLink
-			err = a.userService.UpdateUser(ctx, tempUser)
+
+			tempUser, err = a.handleUserNotFound(ctx, email, publicAddress, muser.MagicLink)
 			if err != nil {
 				return nil, err
 			}
-			user = tempUser
-		} else {
+		}
+
+		tempUser.ProviderID = &publicAddress
+		tempUser.ProviderType = muser.MagicLink
+		err = a.userService.UpdateUser(ctx, tempUser)
+		if err != nil {
 			return nil, err
 		}
+		user = tempUser
 	}
 
 	jwtToken, err := stoken.NewJWT(user.ID, email, stoken.RefreshToken, RefreshTokenTimeSpan, a.HmacSecret)
@@ -119,8 +118,7 @@ func (a *AuthServer) AuthMagicLink(ctx context.Context, req *connect.Request[aut
 		AccessToken:  accessToken,
 	}
 
-	resp := connect.NewResponse(respRaw)
-	return resp, nil
+	return connect.NewResponse(respRaw), nil
 }
 
 func (a *AuthServer) AuthRefresh(ctx context.Context, req *connect.Request[authv1.AuthRefreshRequest]) (*connect.Response[authv1.AuthRefreshResponse], error) {

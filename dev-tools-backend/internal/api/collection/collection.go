@@ -8,6 +8,7 @@ import (
 	"dev-tools-backend/pkg/dbtime"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/model/mcollection"
+	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sbodyform"
 	"dev-tools-backend/pkg/service/sbodyraw"
 	"dev-tools-backend/pkg/service/sbodyurl"
@@ -19,6 +20,7 @@ import (
 	"dev-tools-backend/pkg/service/sitemfolder"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
+	"dev-tools-backend/pkg/translate/tcollection"
 	"dev-tools-backend/pkg/translate/tgeneric"
 	"dev-tools-backend/pkg/translate/tpostman"
 	collectionv1 "dev-tools-spec/dist/buf/go/collection/v1"
@@ -57,12 +59,9 @@ func (c *CollectionServiceRPC) CollectionList(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerWorkspace(ctx, c.us, workspaceUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no workspace found"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerWorkspace(ctx, c.us, workspaceUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	org, err := c.ws.Get(ctx, workspaceUlid)
@@ -75,20 +74,8 @@ func (c *CollectionServiceRPC) CollectionList(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// TODO: make it simpler
-	rpcCollections, err := tgeneric.MassConvertWithErr(simpleCollections,
-		func(collection mcollection.Collection) (*collectionv1.CollectionListItem, error) {
-			return &collectionv1.CollectionListItem{
-				CollectionId: collection.ID.Bytes(),
-				Name:         collection.Name,
-			}, nil
-		})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	respRaw := &collectionv1.CollectionListResponse{
-		Items: rpcCollections,
+		Items: tgeneric.MassConvert(simpleCollections, tcollection.SerializeCollectionModelToRPC),
 	}
 	return connect.NewResponse(respRaw), nil
 }
@@ -99,25 +86,21 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerWorkspace(ctx, c.us, workspaceUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	rpcErr := permcheck.CheckPerm(CheckOwnerWorkspace(ctx, c.us, workspaceUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
-	if !isOwner {
-		// INFO: don't send leaked information to the client
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no workspace found"))
-	}
+
 	name := req.Msg.GetName()
 	if name == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is empty"))
 	}
 	collectionID := idwrap.NewNow()
-	dbTimeNow := dbtime.DBNow()
 	collection := mcollection.Collection{
 		ID:      collectionID,
 		OwnerID: workspaceUlid,
 		Name:    name,
-		Updated: dbTimeNow,
+		Updated: dbtime.DBNow(),
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
 	if err != nil {
@@ -134,12 +117,9 @@ func (c *CollectionServiceRPC) CollectionGet(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, idWrap))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	collection, err := c.cs.GetCollection(ctx, idWrap)
@@ -159,12 +139,9 @@ func (c *CollectionServiceRPC) CollectionUpdate(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, idWrap))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	collectionOld, err := c.cs.GetCollection(ctx, idWrap)
@@ -191,12 +168,9 @@ func (c *CollectionServiceRPC) CollectionDelete(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	isOwner, err := CheckOwnerCollection(ctx, c.cs, c.us, idWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, idWrap))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	err = c.cs.DeleteCollection(ctx, idWrap)
@@ -212,14 +186,11 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	isOwner, err := CheckOwnerWorkspace(ctx, c.us, wsUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
-	}
 
+	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, wsUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 	org, err := c.ws.Get(ctx, wsUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -237,7 +208,6 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 		OwnerID: org.ID,
 	}
 
-	// TODO: add ownerID
 	items, err := tpostman.ConvertPostmanCollection(postmanCollection, collectionidWrap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

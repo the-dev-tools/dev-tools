@@ -35,3 +35,10 @@ func MapToSlice[T any, K comparable](item map[K]T) []T {
 	}
 	return arr
 }
+
+func ReplaceRootWithSub[T comparable](rootError, subError, got T) T {
+	if got == rootError {
+		return subError
+	}
+	return got
+}
