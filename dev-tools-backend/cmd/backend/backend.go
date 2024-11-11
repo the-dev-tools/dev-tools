@@ -41,7 +41,7 @@ import (
 	"dev-tools-db/pkg/sqlc/gen"
 	"dev-tools-db/pkg/tursoembedded"
 	"dev-tools-db/pkg/tursolocal"
-	"dev-tools-mail/pkg/emailclient"
+	"dev-tools-mail/pkg/emailclient/sesv2"
 	"dev-tools-mail/pkg/emailinvite"
 	"errors"
 	"fmt"
@@ -119,12 +119,6 @@ func main() {
 		log.Fatal("MAGIC_LINK_SECRET env var is required")
 	}
 
-	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
-	MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	queries, err := gen.Prepare(ctx, currentDB)
 	if err != nil {
 		log.Fatal(err)
@@ -151,7 +145,7 @@ func main() {
 	es := senv.New(queries)
 	res := sexampleresp.New(queries)
 
-	emailClient, err := emailclient.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+	emailClient, err := sesv2.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
 	if err != nil {
 		log.Fatalf("failed to create email client: %v", err)
 	}
@@ -165,17 +159,29 @@ func main() {
 		log.Fatalf("failed to create email invite manager: %v", err)
 	}
 
-	var optionsCompress []connect.HandlerOption
-	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
-	optionsAuth := append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
-	opitonsAll := append(optionsAuth, optionsCompress...)
+	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
+	if dbMode != devtoolsdb.LOCAL {
+		optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+		optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
+	}
+	optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
+	opitonsAll = append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
+
 	// Auth Service
-	authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
-	newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
+	if dbMode != devtoolsdb.LOCAL {
+		cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
+		MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
+		if err != nil {
+			log.Fatal(err)
+		}
+		authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
+		newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
+	} else {
+		// TODO: add local version of auth service
+	}
 
 	// Collection Service
 	collectionSrv := collection.New(currentDB, cs, ws,

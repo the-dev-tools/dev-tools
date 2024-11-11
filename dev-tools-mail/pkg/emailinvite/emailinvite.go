@@ -18,10 +18,10 @@ type EmailInviteTemplateData struct {
 
 type EmailTemplateManager struct {
 	template    *template.Template
-	emailClient *emailclient.EmailClient
+	emailClient emailclient.EmailClient
 }
 
-func NewEmailTemplateFile(path string, client *emailclient.EmailClient) (*EmailTemplateManager, error) {
+func NewEmailTemplateFile(path string, client emailclient.EmailClient) (*EmailTemplateManager, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -47,16 +47,5 @@ func (f EmailTemplateManager) SendEmailInvite(ctx context.Context, to string, da
 		return err
 	}
 
-	output, err := emailclient.SendEmailHTML(f.emailClient, "Invitation to DevTools", buf, emailclient.DefaultEmailFrom, []string{to})
-	if err != nil {
-		return err
-	}
-	if output == nil {
-		return fmt.Errorf("output is nil")
-	}
-	if output.MessageId == nil {
-		return fmt.Errorf("output.MessageId is nil")
-	}
-
-	return nil
+	return f.emailClient.SendEmailHTML("Invitation to DevTools", buf, emailclient.DefaultEmailFrom, []string{to})
 }

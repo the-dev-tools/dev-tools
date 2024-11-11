@@ -30,18 +30,6 @@ func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
 	return connect.UnaryInterceptorFunc(interceptor)
 }
 
-func NewCrashInterceptor() connect.UnaryInterceptorFunc {
-	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
-		return connect.UnaryFunc(func(
-			ctx context.Context,
-			req connect.AnyRequest,
-		) (connect.AnyResponse, error) {
-			return CrashInterceptor(ctx, req, next)
-		})
-	}
-	return connect.UnaryInterceptorFunc(interceptor)
-}
-
 type AuthInterceptorData struct {
 	secret []byte
 }
