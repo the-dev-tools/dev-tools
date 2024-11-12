@@ -18,6 +18,7 @@ import (
 	"dev-tools-backend/internal/api/rrequest"
 	"dev-tools-backend/internal/api/rvar"
 	"dev-tools-backend/internal/api/rworkspace"
+	"dev-tools-backend/pkg/model/muser"
 	"dev-tools-backend/pkg/service/sassert"
 	"dev-tools-backend/pkg/service/sassertres"
 	"dev-tools-backend/pkg/service/sbodyform"
@@ -163,25 +164,36 @@ func main() {
 	if dbMode != devtoolsdb.LOCAL {
 		optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 		optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
+		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
+	} else {
+		defaultUser, err := us.GetUser(ctx, mwauth.LocalDummyID)
+		if err != nil {
+			if errors.Is(err, suser.ErrUserNotFound) {
+				defaultUser = &muser.User{
+					ID: mwauth.LocalDummyID,
+				}
+				err = us.CreateUser(ctx, defaultUser)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+
+		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptorLocal()))
 	}
-	optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
 	opitonsAll = append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
 
 	// Auth Service
-	if dbMode != devtoolsdb.LOCAL {
-		cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
-		MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
-		if err != nil {
-			log.Fatal(err)
-		}
-		authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
-		newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
-	} else {
-		// TODO: add local version of auth service
+	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
+	MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
+	if err != nil {
+		log.Fatal(err)
 	}
+	authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
+	newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
 
 	// Collection Service
 	collectionSrv := collection.New(currentDB, cs, ws,

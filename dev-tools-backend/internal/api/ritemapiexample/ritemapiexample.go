@@ -291,13 +291,9 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isMember {
-		// return not found
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
@@ -554,9 +550,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			taskDeleteHeaders = append(taskDeleteHeaders, dbHeader.ID)
 		}
 	}
-
 	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
-
 	if len(fullHeaders) > 0 {
 		tx, err := c.DB.Begin()
 		if err != nil {

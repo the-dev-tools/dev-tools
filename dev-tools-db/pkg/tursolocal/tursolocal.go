@@ -1,7 +1,9 @@
 package tursolocal
 
 import (
+	"context"
 	"database/sql"
+	"dev-tools-db/pkg/sqlc"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,23 +26,41 @@ func NewTursoLocal(dbName, path, encryptionKey string) (*sql.DB, func(), error) 
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(path, os.ModeAppend)
+		fmt.Println("Creating directory")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 		}
 	}
-	dbFilePath := filepath.Join(path, dbName)
-	dbFilePath = fmt.Sprintf("file:%s.db", dbFilePath)
 
+	dbFilePath := filepath.Join(path, dbName+".db")
+	_, err = os.Stat(dbFilePath)
+	var firstTime bool
+	if os.IsNotExist(err) {
+		firstTime = true
+	}
+	dbFilePath = fmt.Sprintf("file:%s", dbFilePath)
 	db, err := sql.Open("libsql", dbFilePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
+	db.SetMaxOpenConns(1)
 	err = db.Ping()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 	a := func() {
 		db.Close()
+	}
+	// TODO: Add context to the function
+	ctx := context.Background()
+	if firstTime {
+		fmt.Println("Creating tables")
+		err = sqlc.CreateLocalTables(ctx, db)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create tables: %w", err)
+		}
+
+		fmt.Println("Tables created")
 	}
 
 	return db, a, nil

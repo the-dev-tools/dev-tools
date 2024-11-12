@@ -13,7 +13,7 @@ import (
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/service/sworkspacesusers"
-	"dev-tools-db/pkg/sqlc"
+	"dev-tools-db/pkg/dbtest"
 	"dev-tools-db/pkg/sqlc/gen"
 	"testing"
 	"time"
@@ -35,7 +35,7 @@ type BaseTestServices struct {
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
-	db, err := sqlc.GetTestDB(ctx)
+	db, err := dbtest.GetTestDB(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

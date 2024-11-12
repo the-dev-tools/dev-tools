@@ -132,7 +132,7 @@ func (a *AuthServer) AuthRefresh(ctx context.Context, req *connect.Request[authv
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	userUlid, err := idwrap.NewWithParse(claims.Subject)
+	userUlid, err := idwrap.NewText(claims.Subject)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

@@ -17,6 +17,10 @@ const (
 	WorkspaceIDKeyCtx
 )
 
+const LocalDummyIDStr = "00000000000000000000000000"
+
+var LocalDummyID = idwrap.NewTextMust(LocalDummyIDStr)
+
 func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
 	data := AuthInterceptorData{secret: secret}
 	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
@@ -25,6 +29,18 @@ func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
 			req connect.AnyRequest,
 		) (connect.AnyResponse, error) {
 			return data.AuthInterceptor(ctx, req, next)
+		})
+	}
+	return connect.UnaryInterceptorFunc(interceptor)
+}
+
+func NewAuthInterceptorLocal() connect.UnaryInterceptorFunc {
+	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
+		return connect.UnaryFunc(func(
+			ctx context.Context,
+			req connect.AnyRequest,
+		) (connect.AnyResponse, error) {
+			return AuthInterceptorLocal(ctx, req, next)
 		})
 	}
 	return connect.UnaryInterceptorFunc(interceptor)
@@ -59,12 +75,16 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	ID, err := idwrap.NewWithParse(claims.Subject)
+	ID, err := idwrap.NewText(claims.Subject)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	return next(CreateAuthedContext(ctx, ID), req)
+}
+
+func AuthInterceptorLocal(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (connect.AnyResponse, error) {
+	return next(CreateAuthedContext(ctx, LocalDummyID), req)
 }
 
 func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (resp connect.AnyResponse, err error) {

@@ -19,7 +19,7 @@ func NewNow() IDWrap {
 	return IDWrap{ulid: ulid.Make()}
 }
 
-func NewWithParse(ulidString string) (IDWrap, error) {
+func NewText(ulidString string) (IDWrap, error) {
 	ulid, err := ulid.Parse(ulidString)
 	if err != nil {
 		return IDWrap{}, err
@@ -27,10 +27,27 @@ func NewWithParse(ulidString string) (IDWrap, error) {
 	return IDWrap{ulid: ulid}, nil
 }
 
+func NewTextMust(ulidString string) IDWrap {
+	ulid, err := ulid.Parse(ulidString)
+	if err != nil {
+		panic(err)
+	}
+	return IDWrap{ulid: ulid}
+}
+
 func NewFromBytes(data []byte) (IDWrap, error) {
 	ulidData := ulid.ULID{}
 	err := ulidData.UnmarshalBinary(data)
 	return IDWrap{ulid: ulidData}, err
+}
+
+func NewFromBytesMust(data []byte) IDWrap {
+	ulidData := ulid.ULID{}
+	err := ulidData.UnmarshalBinary(data)
+	if err != nil {
+		panic(err)
+	}
+	return IDWrap{ulid: ulidData}
 }
 
 func (u IDWrap) String() string {

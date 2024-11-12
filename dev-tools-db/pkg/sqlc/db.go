@@ -5,43 +5,24 @@ import (
 	"database/sql"
 	"dev-tools-db/pkg/sqlc/gen"
 	_ "embed"
-
-	_ "github.com/mattn/go-sqlite3"
+	"strings"
 )
 
 //go:embed schema.sql
 var ddl string
 
-func GetTestDB(ctx context.Context) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		return nil, err
+func CreateLocalTables(ctx context.Context, db *sql.DB) error {
+	tables := strings.Split(ddl, ";")
+	// INFO: this hack is needed because the ddl string has a trailing semicolon
+	// but this should be remove when libsql fix this
+	tables = tables[:len(tables)-1]
+	for _, table := range tables {
+		_, err := db.ExecContext(ctx, table)
+		if err != nil {
+			return err
+		}
 	}
-
-	// create tables
-	_, err = db.ExecContext(ctx, ddl)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
-func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		return nil, err
-	}
-
-	// create tables
-	if _, err := db.ExecContext(ctx, ddl); err != nil {
-		return nil, err
-	}
-	prepared, err := gen.Prepare(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	return prepared, nil
+	return nil
 }
 
 func GetService[I any](ctx context.Context, queries *gen.Queries, serviceFunc func(context.Context, *gen.Queries) I) I {

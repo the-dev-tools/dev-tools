@@ -187,7 +187,7 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, wsUlid))
+	rpcErr := permcheck.CheckPerm(CheckOwnerWorkspace(ctx, c.us, wsUlid))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
