@@ -166,16 +166,18 @@ func main() {
 		optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
 		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
 	} else {
-		defaultUser, err := us.GetUser(ctx, mwauth.LocalDummyID)
+		_, err := us.GetUser(ctx, mwauth.LocalDummyID)
 		if err != nil {
 			if errors.Is(err, suser.ErrUserNotFound) {
-				defaultUser = &muser.User{
+				defaultUser := &muser.User{
 					ID: mwauth.LocalDummyID,
 				}
 				err = us.CreateUser(ctx, defaultUser)
 				if err != nil {
 					log.Fatal(err)
 				}
+			} else {
+				log.Fatal(err)
 			}
 		}
 
