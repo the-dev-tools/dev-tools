@@ -64,3 +64,12 @@ export const FileImportIcon = (props: SVGProps<SVGSVGElement>) => (
     <path stroke='currentColor' strokeLinecap='round' strokeWidth={1.2} d='M7.333 2.333V5a1 1 0 0 1-1 1H3.667' />
   </svg>
 );
+
+export const ChevronSolidDownIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width={12} height={12} fill='none' {...props}>
+    <path
+      fill='currentColor'
+      d='m7.788 5.705-3.16-3.16a.417.417 0 0 0-.712.294V9.16c0 .372.449.558.711.295l3.161-3.16a.417.417 0 0 0 0-.59Z'
+    />
+  </svg>
+);

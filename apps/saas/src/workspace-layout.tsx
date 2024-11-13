@@ -9,9 +9,9 @@ import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-rou
 import { Effect, Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
-import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
-import { FiPlus } from 'react-icons/fi';
-import { LuFolder, LuLoader, LuMoreHorizontal } from 'react-icons/lu';
+import { FileTrigger, Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
+import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
+import { LuFolder, LuLoader } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -44,7 +44,7 @@ import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
-import { Tree, TreeItem } from '@the-dev-tools/ui/tree';
+import { TreeItem } from '@the-dev-tools/ui/tree';
 
 import { DashboardLayout } from './authorized';
 import { EnvironmentsWidget } from './environment';
@@ -242,8 +242,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       </Text>
 
       <MenuTrigger>
-        <Button variant='ghost'>
-          <LuMoreHorizontal />
+        <Button variant='ghost' className={tw`p-0.5`}>
+          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
         </Button>
 
         <Menu>
@@ -382,8 +382,8 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
       </Text>
 
       <MenuTrigger>
-        <Button variant='ghost'>
-          <LuMoreHorizontal />
+        <Button variant='ghost' className={tw`p-0.5`}>
+          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
         </Button>
 
         <Menu>
@@ -505,7 +505,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
         to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
         params: { endpointIdCan, exampleIdCan },
       }}
-      wrapperIsSelected={match.params.exampleIdCan === exampleIdCan}
+      isActive={match.params.exampleIdCan === exampleIdCan}
       childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
@@ -525,8 +525,8 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
       <Text className='flex-1 truncate'>{endpoint.name}</Text>
 
       <MenuTrigger>
-        <Button variant='ghost'>
-          <LuMoreHorizontal />
+        <Button variant='ghost' className={tw`p-0.5`}>
+          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
         </Button>
 
         <Menu>
@@ -588,15 +588,15 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
         to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
         params: { endpointIdCan, exampleIdCan },
       }}
-      wrapperIsSelected={match.params.exampleIdCan === exampleIdCan}
+      isActive={match.params.exampleIdCan === exampleIdCan}
     >
       <div />
 
       <Text className='flex-1 truncate'>{example.name}</Text>
 
       <MenuTrigger>
-        <Button variant='ghost'>
-          <LuMoreHorizontal />
+        <Button variant='ghost' className={tw`p-0.5`}>
+          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
         </Button>
 
         <Menu>
