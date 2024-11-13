@@ -10,7 +10,8 @@ import { Effect, Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text } from 'react-aria-components';
-import { LuFolder, LuImport, LuLoader, LuMoreHorizontal, LuPlus } from 'react-icons/lu';
+import { FiPlus } from 'react-icons/fi';
+import { LuFolder, LuLoader, LuMoreHorizontal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -37,6 +38,7 @@ import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v
 import { collectionList } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -105,13 +107,36 @@ function Layout() {
       }
     >
       <PanelGroup direction='horizontal'>
-        <Panel className='flex flex-col' style={{ overflowY: 'auto' }} defaultSize={20} minSize={10} maxSize={40}>
+        <Panel
+          className={tw`flex flex-col bg-slate-50`}
+          style={{ overflowY: 'auto' }}
+          defaultSize={20}
+          minSize={10}
+          maxSize={40}
+        >
           <EnvironmentsWidget />
 
-          <div className='flex flex-col gap-2 p-2'>
-            <h2 className='uppercase'>Overview</h2>
+          <div className={tw`flex flex-col gap-2 p-1.5`}>
+            <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
+              <OverviewIcon className={tw`size-5 text-slate-500`} />
+              <h2 className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>Overview</h2>
+            </div>
 
             <CollectionsTree />
+
+            {/* TODO: implement */}
+            <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
+              <FlowsIcon className={tw`size-5 text-slate-500`} />
+              <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
+
+              <Button className={tw`p-0.5`} variant='ghost'>
+                <FileImportIcon className={tw`size-4 text-slate-500`} />
+              </Button>
+
+              <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
+                <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+              </Button>
+            </div>
           </div>
         </Panel>
         <PanelResizeHandle direction='horizontal' />
@@ -127,30 +152,40 @@ const CollectionsTree = () => {
   const { workspaceId } = Route.useLoaderData();
 
   const collectionListQuery = useConnectQuery(collectionList, { workspaceId });
-
   const collectionCreateMutation = useSpecMutation(collectionCreateSpec);
+  const collectionImportPostmanMutation = useSpecMutation(collectionImportPostmanSpec);
 
   if (!collectionListQuery.isSuccess) return null;
   const collections = collectionListQuery.data.items;
 
   return (
     <>
-      <h3 className='uppercase'>Collections</h3>
-      <div className='flex justify-between gap-2'>
-        <Button
-          onPress={() =>
-            void collectionCreateMutation.mutate({
-              workspaceId,
-              name: 'New collection',
-            })
-          }
-          className='flex-1 font-medium'
+      <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
+        <CollectionIcon className={tw`size-5 text-slate-500`} />
+        <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
+
+        <FileTrigger
+          onSelect={async (_) => {
+            const file = _?.item(0);
+            if (!file) return;
+            const data = new Uint8Array(await file.arrayBuffer());
+            collectionImportPostmanMutation.mutate({ workspaceId, name: file.name, data });
+          }}
         >
-          <LuPlus />
-          New
+          <Button className={tw`p-0.5`} variant='ghost'>
+            <FileImportIcon className={tw`size-4 text-slate-500`} />
+          </Button>
+        </FileTrigger>
+
+        <Button
+          className={tw`bg-slate-200 p-0.5`}
+          variant='ghost'
+          onPress={() => void collectionCreateMutation.mutate({ workspaceId, name: 'New collection' })}
+        >
+          <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
         </Button>
-        <ImportPostman />
       </div>
+
       <Tree aria-label='Collections' items={collections}>
         {(_) => {
           const collectionIdCan = Ulid.construct(_.collectionId).toCanonical();
@@ -573,27 +608,5 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
         </Menu>
       </MenuTrigger>
     </TreeItem>
-  );
-};
-
-const ImportPostman = () => {
-  const { workspaceId } = Route.useLoaderData();
-
-  const collectionImportPostmanMutation = useSpecMutation(collectionImportPostmanSpec);
-
-  return (
-    <FileTrigger
-      onSelect={async (_) => {
-        const file = _?.item(0);
-        if (!file) return;
-        const data = new Uint8Array(await file.arrayBuffer());
-        collectionImportPostmanMutation.mutate({ workspaceId, name: file.name, data });
-      }}
-    >
-      <Button className='flex-1 font-medium'>
-        <LuImport />
-        Import
-      </Button>
-    </FileTrigger>
   );
 };

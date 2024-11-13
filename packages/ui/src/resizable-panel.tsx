@@ -13,11 +13,11 @@ import { tw } from './tailwind-literal';
 
 export const panelResizeHandleStyles = tv({
   extend: focusRingStyles,
-  base: tw`border border-black`,
+  base: tw`bg-slate-200`,
   variants: {
     direction: {
-      horizontal: tw`cursor-col-resize`,
-      vertical: tw`cursor-row-resize`,
+      horizontal: tw`h-full w-px cursor-col-resize`,
+      vertical: tw`h-px w-full cursor-row-resize`,
     },
   },
 });

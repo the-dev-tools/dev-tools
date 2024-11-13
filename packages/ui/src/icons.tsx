@@ -24,10 +24,43 @@ export const CollectionIcon = (props: SVGProps<SVGSVGElement>) => (
 );
 
 export const FlowsIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width={18} height={18} fill='none' {...props}>
+    <path stroke='currentColor' strokeWidth={1.5} d='M12.5 5H10a1 1 0 0 0-1 1v6.1a1 1 0 0 0 1 1h2.5M6 9h3' />
+    <rect width={4} height={4} x={2} y={7} stroke='currentColor' strokeWidth={1.5} rx={1} />
+    <rect width={4} height={4} x={12} y={3.15} stroke='currentColor' strokeWidth={1.5} rx={1} />
+    <rect width={4} height={4} x={12} y={11.25} stroke='currentColor' strokeWidth={1.5} rx={1} />
+  </svg>
+);
+
+export const OverviewIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width={18} height={18} fill='none' {...props}>
+    <g stroke='currentColor' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} clipPath='url(#a)'>
+      <path d='M6 3.75H4.5A1.5 1.5 0 0 0 3 5.25v9a1.5 1.5 0 0 0 1.5 1.5h4.273M13.5 9V5.25a1.5 1.5 0 0 0-1.5-1.5h-1.5' />
+      <path d='M6 3.75a1.5 1.5 0 0 1 1.5-1.5H9a1.5 1.5 0 0 1 0 3H7.5A1.5 1.5 0 0 1 6 3.75ZM6 8.25h3M6 11.25h2.25M10.5 13.125a1.875 1.875 0 1 0 3.75 0 1.875 1.875 0 0 0-3.75 0ZM13.875 14.625 15.75 16.5' />
+    </g>
+    <defs>
+      <clipPath id='a'>
+        <path fill='#fff' d='M0 0h18v18H0z' />
+      </clipPath>
+    </defs>
+  </svg>
+);
+
+export const FileImportIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg xmlns='http://www.w3.org/2000/svg' width={16} height={16} fill='none' {...props}>
-    <path stroke='currentColor' strokeWidth={1.2} d='M11.111 4.444H9a1 1 0 0 0-1 1v5.2a1 1 0 0 0 1 1h2.111M5.333 8H8' />
-    <rect width={3.556} height={3.556} x={1.778} y={6.222} stroke='currentColor' strokeWidth={1.2} rx={1} />
-    <rect width={3.556} height={3.556} x={10.667} y={2.8} stroke='currentColor' strokeWidth={1.2} rx={1} />
-    <rect width={3.556} height={3.556} x={10.667} y={10} stroke='currentColor' strokeWidth={1.2} rx={1} />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeWidth={1.2}
+      d='M3.333 8V5l3-3h5.334a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H7.333M4.667 12H2'
+    />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='m5.333 12-1.666 1.333v-2.666L5.333 12Z'
+    />
+    <path stroke='currentColor' strokeLinecap='round' strokeWidth={1.2} d='M7.333 2.333V5a1 1 0 0 1-1 1H3.667' />
   </svg>
 );
