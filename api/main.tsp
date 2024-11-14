@@ -4,3 +4,4 @@ import "./collection.tsp";
 import "./environment.tsp";
 import "./variable.tsp";
 import "./workspace.tsp";
+import "./flow.tsp";

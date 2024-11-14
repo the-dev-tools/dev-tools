@@ -19,6 +19,7 @@ using TypeSpec.Rest;
 namespace API.Flow;
 
 @autoFields
+@parentResource(Workspace.Workspace)
 model Flow {
   @key flowID: Resource.ID;
   name: string;
@@ -26,7 +27,7 @@ model Flow {
 
 model FlowListItem is Resource.List.Item<Flow>;
 model FlowListRequest is Resource.List.Request<Flow>;
-model FlowListResponse is Resource.List.Response<FlowItem.Node.Node>;
+model FlowListResponse is Resource.List.Response<FlowListItem>;
 model FlowGetRequest is Resource.Get.Request<Flow>;
 model FlowGetResponse is Resource.Get.Response<Flow>;
 model FlowCreateRequest is Resource.Create.Request<Flow>;
@@ -70,4 +71,3 @@ interface FlowService {
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }
-
