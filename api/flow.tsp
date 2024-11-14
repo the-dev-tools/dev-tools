@@ -36,6 +36,29 @@ model FlowUpdateResponse is Resource.Update.Response<Flow>;
 model FlowDeleteRequest is Resource.Delete.Request<Flow>;
 model FlowDeleteResponse is Resource.Delete.Response<Flow>;
 
+@autoFields
+model FlowRunRequest {
+  flowID: Resource.ID;
+  environmentID: Resource.ID;
+}
+
+enum ResultKind {
+  RESULT_KIND_UNSPECIFIED: 0,
+  RESULT_KIND_ONGOING: 1,
+  RESULT_KIND_SUCCESS: 2,
+  RESULT_KIND_FAILURE: 3,
+}
+
+model Result {
+  kind: ResultKind;
+  error?: string;
+}
+
+@autoFields
+model FlowRunResponse {
+  currentNode: FlowItem.Node.Node;
+}
+
 @Protobuf.service
 interface FlowService {
   FlowList(...FlowListRequest): FlowListResponse;
@@ -43,4 +66,8 @@ interface FlowService {
   FlowCreate(...FlowCreateRequest): FlowCreateResponse;
   FlowUpdate(...FlowUpdateRequest): FlowUpdateResponse;
   FlowDelete(...FlowDeleteRequest): FlowDeleteResponse;
+
+  @stream(StreamMode.Out)
+  FlowRun(...FlowRunRequest): FlowRunResponse;
 }
+
