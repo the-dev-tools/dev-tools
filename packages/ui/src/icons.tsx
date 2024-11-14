@@ -73,3 +73,17 @@ export const ChevronSolidDownIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const FolderOpenedIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 18 18' {...props}>
+    <g stroke='currentColor' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} clipPath='url(#a)'>
+      <path d='M15 7.5c0-1-.152-1.595-.423-1.87a1.433 1.433 0 0 0-1.021-.43H8.5L6.333 3H3.444c-.383 0-.75.155-1.02.43C2.151 3.705 2 4.078 2 4.467v9.066c0 .39.152.762.423 1.037.271.275.638.43 1.021.43h10.112' />
+      <path d='M4.877 8.859A1 1 0 0 1 5.867 8h9.98a1 1 0 0 1 .99 1.141l-.714 5a1 1 0 0 1-.99.859H4l.877-6.141Z' />
+    </g>
+    <defs>
+      <clipPath id='a'>
+        <path fill='#fff' d='M0 0h18v18H0z' />
+      </clipPath>
+    </defs>
+  </svg>
+);

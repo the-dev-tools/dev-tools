@@ -10,8 +10,7 @@ import { Effect, Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
-import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
-import { LuFolder, LuLoader } from 'react-icons/lu';
+import { FiFolder, FiMoreHorizontal, FiPlus, FiRotateCw } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -38,7 +37,7 @@ import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v
 import { collectionList } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
-import { CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
+import { CollectionIcon, FileImportIcon, FlowsIcon, FolderOpenedIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -233,7 +232,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
     >
       {collectionItemListQuery.isLoading && (
         <Button variant='ghost' isDisabled className={tw`p-1`}>
-          <LuLoader className={tw`size-3 animate-spin text-slate-500`} />
+          <FiRotateCw className={tw`size-3 animate-spin text-slate-500`} />
         </Button>
       )}
 
@@ -369,104 +368,112 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
     >
-      {collectionItemListQuery.isLoading && (
-        <Button variant='ghost' isDisabled className={tw`p-1`}>
-          <LuLoader className={tw`size-3 animate-spin text-slate-500`} />
-        </Button>
+      {({ isExpanded }) => (
+        <>
+          {collectionItemListQuery.isLoading && (
+            <Button variant='ghost' isDisabled className={tw`p-1`}>
+              <FiRotateCw className={tw`size-3 animate-spin text-slate-500`} />
+            </Button>
+          )}
+
+          {isExpanded ? (
+            <FolderOpenedIcon className={tw`size-4 text-slate-500`} />
+          ) : (
+            <FiFolder className={tw`size-4 text-slate-500`} />
+          )}
+
+          <Text ref={triggerRef} className='flex-1 truncate'>
+            {folder.name}
+          </Text>
+
+          <MenuTrigger>
+            <Button variant='ghost' className={tw`p-0.5`}>
+              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            </Button>
+
+            <Menu>
+              <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+
+              <MenuItem
+                onAction={() =>
+                  void endpointCreateMutation.mutate({
+                    collectionId,
+                    parentFolderId: folderId,
+                    name: 'New API call',
+                  })
+                }
+              >
+                Add Request
+              </MenuItem>
+
+              <MenuItem
+                onAction={() =>
+                  void folderCreateMutation.mutate({
+                    collectionId,
+                    parentFolderId: folderId,
+                    name: 'New folder',
+                  })
+                }
+              >
+                Add Folder
+              </MenuItem>
+
+              <MenuItem
+                variant='danger'
+                onAction={() =>
+                  void folderDeleteMutation.mutate({ collectionId, folderId, parentFolderId: parentFolderId! })
+                }
+              >
+                Delete
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+
+          <Popover
+            triggerRef={triggerRef}
+            isOpen={isRenaming}
+            onOpenChange={setIsRenaming}
+            dialogAria-label='Rename folder'
+          >
+            <Form
+              className='flex flex-1 items-center gap-2'
+              onSubmit={(event) =>
+                Effect.gen(function* () {
+                  event.preventDefault();
+
+                  const { name } = yield* pipe(
+                    new FormData(event.currentTarget),
+                    Object.fromEntries,
+                    Schema.decode(Schema.Struct({ name: Schema.String })),
+                  );
+
+                  folderUpdateMutation.mutate({
+                    collectionId,
+                    folderId,
+                    name,
+                    parentFolderId: parentFolderId!,
+                  });
+
+                  setIsRenaming(false);
+                }).pipe(Runtime.runPromise)
+              }
+            >
+              <TextField
+                name='name'
+                defaultValue={folder.name}
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                label='New name:'
+                className={tw`contents`}
+                labelClassName={tw`text-nowrap`}
+                inputClassName={tw`w-full bg-transparent`}
+              />
+
+              <Button type='submit'>Save</Button>
+            </Form>
+          </Popover>
+        </>
       )}
-
-      <LuFolder />
-
-      <Text ref={triggerRef} className='flex-1 truncate'>
-        {folder.name}
-      </Text>
-
-      <MenuTrigger>
-        <Button variant='ghost' className={tw`p-0.5`}>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-        </Button>
-
-        <Menu>
-          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
-
-          <MenuItem
-            onAction={() =>
-              void endpointCreateMutation.mutate({
-                collectionId,
-                parentFolderId: folderId,
-                name: 'New API call',
-              })
-            }
-          >
-            Add Request
-          </MenuItem>
-
-          <MenuItem
-            onAction={() =>
-              void folderCreateMutation.mutate({
-                collectionId,
-                parentFolderId: folderId,
-                name: 'New folder',
-              })
-            }
-          >
-            Add Folder
-          </MenuItem>
-
-          <MenuItem
-            variant='danger'
-            onAction={() =>
-              void folderDeleteMutation.mutate({ collectionId, folderId, parentFolderId: parentFolderId! })
-            }
-          >
-            Delete
-          </MenuItem>
-        </Menu>
-      </MenuTrigger>
-
-      <Popover
-        triggerRef={triggerRef}
-        isOpen={isRenaming}
-        onOpenChange={setIsRenaming}
-        dialogAria-label='Rename folder'
-      >
-        <Form
-          className='flex flex-1 items-center gap-2'
-          onSubmit={(event) =>
-            Effect.gen(function* () {
-              event.preventDefault();
-
-              const { name } = yield* pipe(
-                new FormData(event.currentTarget),
-                Object.fromEntries,
-                Schema.decode(Schema.Struct({ name: Schema.String })),
-              );
-
-              folderUpdateMutation.mutate({
-                collectionId,
-                folderId,
-                name,
-                parentFolderId: parentFolderId!,
-              });
-
-              setIsRenaming(false);
-            }).pipe(Runtime.runPromise)
-          }
-        >
-          <TextField
-            name='name'
-            defaultValue={folder.name}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            label='New name:'
-            className={tw`contents`}
-            labelClassName={tw`text-nowrap`}
-            inputClassName={tw`w-full bg-transparent`}
-          />
-
-          <Button type='submit'>Save</Button>
-        </Form>
-      </Popover>
     </TreeItem>
   );
 };
@@ -516,7 +523,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
     >
       {exampleListQuery.isLoading && (
         <Button variant='ghost' isDisabled className={tw`p-1`}>
-          <LuLoader className={tw`size-3 animate-spin text-slate-500`} />
+          <FiRotateCw className={tw`size-3 animate-spin text-slate-500`} />
         </Button>
       )}
 
