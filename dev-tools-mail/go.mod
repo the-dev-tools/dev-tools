@@ -1,6 +1,6 @@
 module dev-tools-mail
 
-go 1.23.0
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.28

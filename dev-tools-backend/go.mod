@@ -1,6 +1,6 @@
 module dev-tools-backend
 
-go 1.23.1
+go 1.23
 
 require (
 	connectrpc.com/connect v1.17.0
