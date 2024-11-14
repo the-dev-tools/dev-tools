@@ -232,8 +232,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       expandButtonOnPress={() => void setEnabled(true)}
     >
       {collectionItemListQuery.isLoading && (
-        <Button variant='ghost' isDisabled>
-          <LuLoader className='animate-spin' />
+        <Button variant='ghost' isDisabled className={tw`p-1`}>
+          <LuLoader className={tw`size-3 animate-spin text-slate-500`} />
         </Button>
       )}
 
@@ -370,8 +370,8 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
       expandButtonOnPress={() => void setEnabled(true)}
     >
       {collectionItemListQuery.isLoading && (
-        <Button variant='ghost' isDisabled>
-          <LuLoader className='animate-spin' />
+        <Button variant='ghost' isDisabled className={tw`p-1`}>
+          <LuLoader className={tw`size-3 animate-spin text-slate-500`} />
         </Button>
       )}
 
@@ -515,8 +515,8 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
       expandButtonOnPress={() => void setEnabled(true)}
     >
       {exampleListQuery.isLoading && (
-        <Button variant='ghost' isDisabled>
-          <LuLoader className='animate-spin' />
+        <Button variant='ghost' isDisabled className={tw`p-1`}>
+          <LuLoader className={tw`size-3 animate-spin text-slate-500`} />
         </Button>
       )}
 
