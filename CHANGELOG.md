@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.34.1
+
+### Patch Changes
+
+- [`282250c`](https://github.com/the-dev-tools/dev-tools-spec/commit/282250cd23516ed4e6e9f95550958f98b37a023a) Thanks [@ElecTwix](https://github.com/ElecTwix)! - fix module name and wrong generic for List
+
 ## 1.34.0
 
 ### Minor Changes
