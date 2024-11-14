@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.34.0
+
+### Minor Changes
+
+- [`97c254a`](https://github.com/the-dev-tools/dev-tools-spec/commit/97c254a57068eb57a8e70899c500f1013c139a24) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add flow
+
 ## 1.33.0
 
 ### Minor Changes
