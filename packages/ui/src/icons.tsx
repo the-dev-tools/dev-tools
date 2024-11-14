@@ -1,7 +1,9 @@
 import { SVGProps } from 'react';
 
+// Generated using this SVGR playground: https://react-svgr.com/playground/?exportType=named&icon=true&jsxRuntime=automatic&replaceAttrValues=%2364748B%3DcurrentColor&svgoConfig=%7B%0A%20%20%22plugins%22%3A%20%5B%0A%20%20%20%20%7B%0A%20%20%20%20%20%20%22name%22%3A%20%22preset-default%22%2C%0A%20%20%20%20%20%20%22params%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22overrides%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%22removeTitle%22%3A%20false%2C%0A%20%20%20%20%20%20%20%20%20%20%22removeViewBox%22%3A%20false%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%5D%0A%7D&typescript=true
+
 export const CollectionIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg xmlns='http://www.w3.org/2000/svg' width={18} height={18} fill='none' {...props}>
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 18 18' {...props}>
     <rect
       width={14}
       height={8}
@@ -24,7 +26,7 @@ export const CollectionIcon = (props: SVGProps<SVGSVGElement>) => (
 );
 
 export const FlowsIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg xmlns='http://www.w3.org/2000/svg' width={18} height={18} fill='none' {...props}>
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 18 18' {...props}>
     <path stroke='currentColor' strokeWidth={1.5} d='M12.5 5H10a1 1 0 0 0-1 1v6.1a1 1 0 0 0 1 1h2.5M6 9h3' />
     <rect width={4} height={4} x={2} y={7} stroke='currentColor' strokeWidth={1.5} rx={1} />
     <rect width={4} height={4} x={12} y={3.15} stroke='currentColor' strokeWidth={1.5} rx={1} />
@@ -33,7 +35,7 @@ export const FlowsIcon = (props: SVGProps<SVGSVGElement>) => (
 );
 
 export const OverviewIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg xmlns='http://www.w3.org/2000/svg' width={18} height={18} fill='none' {...props}>
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 18 18' {...props}>
     <g stroke='currentColor' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} clipPath='url(#a)'>
       <path d='M6 3.75H4.5A1.5 1.5 0 0 0 3 5.25v9a1.5 1.5 0 0 0 1.5 1.5h4.273M13.5 9V5.25a1.5 1.5 0 0 0-1.5-1.5h-1.5' />
       <path d='M6 3.75a1.5 1.5 0 0 1 1.5-1.5H9a1.5 1.5 0 0 1 0 3H7.5A1.5 1.5 0 0 1 6 3.75ZM6 8.25h3M6 11.25h2.25M10.5 13.125a1.875 1.875 0 1 0 3.75 0 1.875 1.875 0 0 0-3.75 0ZM13.875 14.625 15.75 16.5' />
@@ -47,7 +49,7 @@ export const OverviewIcon = (props: SVGProps<SVGSVGElement>) => (
 );
 
 export const FileImportIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg xmlns='http://www.w3.org/2000/svg' width={16} height={16} fill='none' {...props}>
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
     <path
       stroke='currentColor'
       strokeLinecap='round'
@@ -66,10 +68,10 @@ export const FileImportIcon = (props: SVGProps<SVGSVGElement>) => (
 );
 
 export const ChevronSolidDownIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg xmlns='http://www.w3.org/2000/svg' width={12} height={12} fill='none' {...props}>
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 12 12' {...props}>
     <path
       fill='currentColor'
-      d='m7.788 5.705-3.16-3.16a.417.417 0 0 0-.712.294V9.16c0 .372.449.558.711.295l3.161-3.16a.417.417 0 0 0 0-.59Z'
+      d='m7.788 5.706-3.16-3.161a.417.417 0 0 0-.712.294v6.322c0 .371.449.557.711.295l3.161-3.161a.417.417 0 0 0 0-.59Z'
     />
   </svg>
 );
