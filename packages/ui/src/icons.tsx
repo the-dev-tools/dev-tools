@@ -89,3 +89,35 @@ export const FolderOpenedIcon = (props: SVGProps<SVGSVGElement>) => (
     </defs>
   </svg>
 );
+
+export const VariableIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M6 2H5a2 2 0 0 0-2 2v1.622a2 2 0 0 1-.918 1.683L1 8l1.082.695A2 2 0 0 1 3 10.378V12a2 2 0 0 0 2 2h1M10 2h1a2 2 0 0 1 2 2v1.622a2 2 0 0 0 .918 1.683L15 8l-1.082.695A2 2 0 0 0 13 10.378V12a2 2 0 0 1-2 2h-1M10 5l-4 6M10 11 6 5'
+    />
+  </svg>
+);
+
+export const GlobalEnvironmentIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M15.333 12.667c-.8 1.333-1.8 2-3 2s-2.2-.667-3-2c.8-1.334 1.8-2 3-2s2.2.666 3 2Z'
+    />
+    <circle cx={12.333} cy={12.667} r={0.667} fill='currentColor' />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M8 14H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h6.667a2 2 0 0 1 2 2v4.667M4 4.333h6.667M4 6.667h6.667M4 9h6.667M4 11.333h3.333'
+    />
+  </svg>
+);

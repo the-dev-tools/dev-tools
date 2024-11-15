@@ -15,7 +15,7 @@ import { Ulid } from 'id128';
 import { useCallback, useMemo } from 'react';
 import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { LuBraces, LuClipboardList, LuPlus, LuTrash2, LuX } from 'react-icons/lu';
+import { LuPlus, LuTrash2, LuX } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -42,6 +42,7 @@ import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-Workspa
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
+import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -67,7 +68,7 @@ export const EnvironmentsWidget = () => {
   const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
   return (
-    <div className='flex justify-between border-b border-black p-2'>
+    <div className='flex justify-between border-b border-slate-200 p-3'>
       <Select
         aria-label='Environment'
         selectedKey={selectedEnvironmentIdCan}
@@ -75,7 +76,7 @@ export const EnvironmentsWidget = () => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
           workspaceUpdateMutation.mutate({ workspaceId, selectedEnvironmentId });
         }}
-        triggerClassName={tw`justify-start`}
+        triggerClassName={tw`justify-start p-0`}
         triggerVariant='ghost'
         listBoxItems={environments}
       >
@@ -83,11 +84,15 @@ export const EnvironmentsWidget = () => {
           const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
           return (
             <DropdownItem id={environmentIdCan} textValue={item.name}>
-              <div className='flex items-center gap-2 text-sm'>
-                <div className='flex size-7 items-center justify-center rounded-md border border-black bg-neutral-200'>
-                  {item.isGlobal ? <LuBraces /> : item.name[0]}
+              <div className={tw`flex items-center gap-2`}>
+                <div
+                  className={tw`flex size-6 items-center justify-center rounded-md bg-slate-200 text-xs text-slate-500`}
+                >
+                  {item.isGlobal ? <VariableIcon /> : item.name[0]}
                 </div>
-                <span className='font-semibold'>{item.isGlobal ? 'Global Environment' : item.name}</span>
+                <span className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+                  {item.isGlobal ? 'Global Environment' : item.name}
+                </span>
               </div>
             </DropdownItem>
           );
@@ -95,8 +100,8 @@ export const EnvironmentsWidget = () => {
       </Select>
 
       <DialogTrigger>
-        <Button variant='ghost' className='aspect-square'>
-          <LuClipboardList />
+        <Button variant='ghost' className={tw`p-1`}>
+          <GlobalEnvironmentIcon className={tw`size-4 text-slate-500`} />
         </Button>
 
         <Modal modalClassName={tw`size-full`}>
@@ -135,7 +140,7 @@ export const EnvironmentsWidget = () => {
                           }
                         >
                           <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>
-                            {item.isGlobal ? <LuBraces /> : item.name[0]}
+                            {item.isGlobal ? <VariableIcon /> : item.name[0]}
                           </div>
                           <span>{item.isGlobal ? 'Global Variables' : item.name}</span>
                         </Tab>

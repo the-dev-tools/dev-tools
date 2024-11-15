@@ -11,7 +11,7 @@ import {
 } from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { IconBaseProps } from 'react-icons';
-import { LuChevronDown } from 'react-icons/lu';
+import { FiChevronDown } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { type VariantProps } from 'tailwind-variants';
 
@@ -58,7 +58,10 @@ export interface SelectIndicatorProps extends IconBaseProps {
 }
 
 export const SelectIndicator = ({ isOpen, ...props }: SelectIndicatorProps) => (
-  <LuChevronDown {...props} className={twJoin(tw`size-4 transition-transform`, isOpen && tw`rotate-180`)} />
+  <FiChevronDown
+    {...props}
+    className={twJoin(tw`size-4 text-slate-500 transition-transform`, isOpen && tw`rotate-180`)}
+  />
 );
 
 // Mix
