@@ -14,6 +14,7 @@
     "@fontsource-variable/dm-sans": "5.1.0",
     "@fontsource/dm-mono": "5.1.0",
     "@react-aria/collections": "3.0.0-alpha.5",
+    "@tanstack/react-table": "8.20.5",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.10.9",
     "react": "18.3.1",
