@@ -9,7 +9,7 @@ import {
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useCallback, useMemo } from 'react';
@@ -41,6 +41,7 @@ import {
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
@@ -238,12 +239,13 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
         header: '',
         size: 0,
         cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
+          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
             <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
           </HidePlaceholderCell>
         ),
       }),
       accessor('name', {
+        meta: { divider: false },
         cell: ({ row }) => (
           <TextFieldRHF control={form.control} name={`items.${row.index}.name`} variant='table-cell' />
         ),
@@ -262,6 +264,7 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
         id: 'actions',
         header: '',
         size: 0,
+        meta: { divider: false },
         cell: ({ row, table }) => (
           <HidePlaceholderCell row={row} table={table}>
             <Button
@@ -320,36 +323,5 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
     setData,
   });
 
-  return (
-    <div className='rounded border border-black'>
-      <table className='w-full divide-inherit border-inherit'>
-        <thead className='divide-y divide-inherit border-b border-inherit'>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{ width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%' }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody className='divide-y divide-inherit'>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all p-1 align-middle text-sm'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <DataTable table={table} />;
 };

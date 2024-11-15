@@ -7,7 +7,7 @@ import {
 } from '@connectrpc/connect-query';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Match, pipe } from 'effect';
 import { useCallback, useMemo, useState } from 'react';
@@ -48,6 +48,7 @@ import {
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
@@ -150,12 +151,13 @@ const FormDataTable = ({ items }: FormDataTableProps) => {
         header: '',
         size: 0,
         cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
+          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
             <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
           </HidePlaceholderCell>
         ),
       }),
       accessor('key', {
+        meta: { divider: false },
         cell: ({ row: { index } }) => (
           <TextFieldWithVariables
             control={form.control}
@@ -186,6 +188,7 @@ const FormDataTable = ({ items }: FormDataTableProps) => {
         id: 'actions',
         header: '',
         size: 0,
+        meta: { divider: false },
         cell: ({ row, table }) => (
           <HidePlaceholderCell row={row} table={table}>
             <Button
@@ -247,40 +250,7 @@ const FormDataTable = ({ items }: FormDataTableProps) => {
     setData,
   });
 
-  return (
-    <div className='col-span-full rounded border border-black'>
-      <table className='w-full divide-inherit border-inherit'>
-        <thead className='divide-y divide-inherit border-b border-inherit'>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{
-                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
-                  }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody className='divide-y divide-inherit'>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all align-middle text-sm'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 const UrlEncodedTableLoader = () => {
@@ -332,12 +302,13 @@ const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
         header: '',
         size: 0,
         cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
+          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
             <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
           </HidePlaceholderCell>
         ),
       }),
       accessor('key', {
+        meta: { divider: false },
         cell: ({ row: { index } }) => (
           <TextFieldWithVariables
             control={form.control}
@@ -368,6 +339,7 @@ const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
         id: 'actions',
         header: '',
         size: 0,
+        meta: { divider: false },
         cell: ({ row, table }) => (
           <HidePlaceholderCell row={row} table={table}>
             <Button
@@ -429,40 +401,7 @@ const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
     setData,
   });
 
-  return (
-    <div className='col-span-full rounded border border-black'>
-      <table className='w-full divide-inherit border-inherit'>
-        <thead className='divide-y divide-inherit border-b border-inherit'>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{
-                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
-                  }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody className='divide-y divide-inherit'>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all align-middle text-sm'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 const languages = ['text', 'json', 'html', 'xml'] as const;

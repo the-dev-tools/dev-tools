@@ -7,7 +7,7 @@ import {
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, pipe } from 'effect';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -30,6 +30,8 @@ import {
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { DataTable } from '@the-dev-tools/ui/data-table';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
@@ -95,12 +97,13 @@ const Table = ({ items }: TableProps) => {
         header: '',
         size: 0,
         cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
+          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
             <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
           </HidePlaceholderCell>
         ),
       }),
       accessor('key', {
+        meta: { divider: false },
         cell: ({ row: { index } }) => (
           <TextFieldWithVariables
             control={form.control}
@@ -131,6 +134,7 @@ const Table = ({ items }: TableProps) => {
         id: 'actions',
         header: '',
         size: 0,
+        meta: { divider: false },
         cell: ({ row, table }) => (
           <HidePlaceholderCell row={row} table={table}>
             <Button
@@ -195,38 +199,5 @@ const Table = ({ items }: TableProps) => {
     setData,
   });
 
-  return (
-    <div className='rounded border border-black'>
-      <table className='w-full divide-inherit border-inherit'>
-        <thead className='divide-y divide-inherit border-b border-inherit'>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{
-                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
-                  }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody className='divide-y divide-inherit'>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all align-middle text-sm'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <DataTable table={table} />;
 };

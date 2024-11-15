@@ -9,7 +9,7 @@ import {
 import { makeUrl } from '@effect/platform/UrlParams';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet, redirect } from '@tanstack/react-router';
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
@@ -59,6 +59,7 @@ import {
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
@@ -591,40 +592,7 @@ const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return (
-    <div className='rounded border border-black'>
-      <table className='w-full divide-inherit border-inherit'>
-        <thead className='divide-y divide-inherit border-b border-inherit'>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className='p-1.5 text-left text-sm font-normal capitalize text-neutral-500'
-                  style={{
-                    width: ((header.getSize() / table.getTotalSize()) * 100).toString() + '%',
-                  }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody className='divide-y divide-inherit'>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className='break-all p-1 align-middle text-sm'>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <DataTable table={table} cellClassName={tw`px-5 py-1.5`} />;
 };
 
 interface ResponseAssertsTableLoaderProps {
