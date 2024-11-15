@@ -105,8 +105,20 @@ type ExampleRespHeader struct {
 }
 
 type Flow struct {
-	ID          []byte
-	WorkspaceID []byte
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+}
+
+type FlowTag struct {
+	ID     idwrap.IDWrap
+	FlowID idwrap.IDWrap
+	TagID  idwrap.IDWrap
+}
+
+type Ftag struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
 	Name        string
 }
 

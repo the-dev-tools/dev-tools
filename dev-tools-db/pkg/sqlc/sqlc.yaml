@@ -369,3 +369,61 @@ sql:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
+          ## flow
+          ### id
+          - column: "flow.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### workspace_id
+          - column: "flow.workspace_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## flow_tag
+          ### id
+          - column: "flow_tag.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### workspace_id
+          - column: "flow_tag.workspace_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## ftag
+          ### id
+          - column: "ftag.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### workspace_id
+          - column: "ftag.workspace_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ## flow_tag
+          ### id
+          - column: "flow_tag.id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### flow_id
+          - column: "flow_tag.flow_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"
+          ### tag_id
+          - column: "flow_tag.tag_id"
+            go_type:
+              import: "dev-tools-backend/pkg/idwrap"
+              package: "idwrap"
+              type: "IDWrap"

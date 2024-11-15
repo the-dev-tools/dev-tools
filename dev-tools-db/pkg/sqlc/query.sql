@@ -1401,3 +1401,71 @@ DELETE FROM flow
 WHERE
   id = ?;
 
+-- name: GetFTag :one
+SELECT
+  id,
+  workspace_id,
+  name
+FROM 
+  ftag 
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetFTagsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  name
+FROM 
+  ftag
+WHERE
+  workspace_id = ?;
+
+-- name: CreateFTag :exec
+INSERT INTO
+  ftag (id, workspace_id, name)
+VALUES
+  (?, ?, ?);
+
+-- name: UpdateFTag :exec
+UPDATE ftag 
+SET
+  name = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFTag :exec
+DELETE FROM ftag
+WHERE
+  id = ?;
+
+-- name: GetFlowTag :one
+SELECT 
+  id,
+  flow_id,
+  tag_id
+FROM flow_tag
+WHERE id = ?
+LIMIT 1;
+
+-- name: GetFlowTagsByFlowID :many
+SELECT
+  id,
+  flow_id,
+  tag_id
+FROM 
+  flow_tag
+WHERE
+  flow_id = ?;
+
+-- name: CreateFlowTag :exec
+INSERT INTO
+  flow_tag (id, flow_id, tag_id)
+VALUES
+  (?, ?, ?);
+
+-- name: DeleteFlowTag :exec
+DELETE FROM flow_tag
+WHERE
+  id = ?;
