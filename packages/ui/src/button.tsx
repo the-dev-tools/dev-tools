@@ -20,6 +20,7 @@ export const buttonStyles = tv({
       primary: tw`border-violet-700 bg-violet-600 text-white`,
       secondary: tw`border-slate-200 bg-white text-slate-800`,
       ghost: tw`text-slate-800`,
+      'ghost dark': tw`text-white`,
     },
     isHovered: { true: null },
     isPressed: { true: null },
@@ -35,6 +36,9 @@ export const buttonStyles = tv({
 
     { variant: 'ghost', isHovered: true, className: tw`bg-slate-100` },
     { variant: 'ghost', isPressed: true, className: tw`bg-slate-200` },
+
+    { variant: 'ghost dark', isHovered: true, className: tw`bg-slate-600` },
+    { variant: 'ghost dark', isPressed: true, className: tw`bg-slate-700` },
   ],
   defaultVariants: {
     variant: 'secondary',

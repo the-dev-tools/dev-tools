@@ -10,7 +10,7 @@ import { Effect, Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
-import { FiFolder, FiMoreHorizontal, FiPlus, FiRotateCw } from 'react-icons/fi';
+import { FiChevronDown, FiFolder, FiMoreHorizontal, FiPlus, FiRotateCw } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -36,6 +36,7 @@ import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import { collectionList } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FileImportIcon, FlowsIcon, FolderOpenedIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
@@ -81,7 +82,14 @@ function Layout() {
       navbar={
         <>
           <MenuTrigger>
-            <Button className='bg-transparent text-white'>{workspace.name}</Button>
+            <Button variant='ghost dark' className={tw`-ml-3 gap-2 px-2 py-1`}>
+              <Avatar shape='square' size='base'>
+                {workspace.name}
+              </Avatar>
+              <span className={tw`text-xs font-semibold leading-5 tracking-tight`}>{workspace.name}</span>
+              <FiChevronDown className={tw`size-4`} />
+            </Button>
+
             <Menu>
               <MenuItem
                 href={{
