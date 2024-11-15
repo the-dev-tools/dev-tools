@@ -28,7 +28,7 @@ const inputStyles = tv({
   base: tw`col-start-2 rounded border border-black px-2 py-1 rac-invalid:border-red-600`,
   variants: {
     variant: {
-      'table-cell': tw`w-full min-w-0 rounded-none border-transparent`,
+      'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
     },
   },
 });
