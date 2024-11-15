@@ -1361,3 +1361,43 @@ WHERE
 DELETE FROM assertion_result
 WHERE
   id = ?;
+
+-- name: GetFlow :one
+SELECT 
+  id,
+  workspace_id,
+  name
+FROM 
+  flow
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetFlowsByWorkspaceID :many
+SELECT 
+  id,
+  workspace_id,
+  name
+FROM 
+  flow
+WHERE
+  workspace_id = ?;
+
+-- name: CreateFlow :exec
+INSERT INTO
+  flow (id, workspace_id, name)
+VALUES
+  (?, ?, ?);
+
+-- name: UpdateFlow :exec
+UPDATE flow
+SET
+  name = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlow :exec
+DELETE FROM flow
+WHERE
+  id = ?;
+

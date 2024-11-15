@@ -641,6 +641,24 @@ func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExample
 	return err
 }
 
+const createFlow = `-- name: CreateFlow :exec
+INSERT INTO
+  flow (id, workspace_id, name)
+VALUES
+  (?, ?, ?)
+`
+
+type CreateFlowParams struct {
+	ID          []byte
+	WorkspaceID []byte
+	Name        string
+}
+
+func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
+	_, err := q.exec(ctx, q.createFlowStmt, createFlow, arg.ID, arg.WorkspaceID, arg.Name)
+	return err
+}
+
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
   example_header (id, example_id, header_key, enable, description, value)
@@ -1986,6 +2004,17 @@ func (q *Queries) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap)
 	return err
 }
 
+const deleteFlow = `-- name: DeleteFlow :exec
+DELETE FROM flow
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteFlow(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteFlowStmt, deleteFlow, id)
+	return err
+}
+
 const deleteHeader = `-- name: DeleteHeader :exec
 DELETE FROM example_header
 WHERE
@@ -2830,6 +2859,59 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 		&i.Duration,
 	)
 	return i, err
+}
+
+const getFlow = `-- name: GetFlow :one
+SELECT 
+  id,
+  workspace_id,
+  name
+FROM 
+  flow
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlow(ctx context.Context, id []byte) (Flow, error) {
+	row := q.queryRow(ctx, q.getFlowStmt, getFlow, id)
+	var i Flow
+	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
+	return i, err
+}
+
+const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
+SELECT 
+  id,
+  workspace_id,
+  name
+FROM 
+  flow
+WHERE
+  workspace_id = ?
+`
+
+func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID []byte) ([]Flow, error) {
+	rows, err := q.query(ctx, q.getFlowsByWorkspaceIDStmt, getFlowsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Flow{}
+	for rows.Next() {
+		var i Flow
+		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getHeader = `-- name: GetHeader :one
@@ -4237,6 +4319,24 @@ type UpdateExampleRespHeaderParams struct {
 
 func (q *Queries) UpdateExampleRespHeader(ctx context.Context, arg UpdateExampleRespHeaderParams) error {
 	_, err := q.exec(ctx, q.updateExampleRespHeaderStmt, updateExampleRespHeader, arg.HeaderKey, arg.Value, arg.ID)
+	return err
+}
+
+const updateFlow = `-- name: UpdateFlow :exec
+UPDATE flow
+SET
+  name = ?
+WHERE
+  id = ?
+`
+
+type UpdateFlowParams struct {
+	Name string
+	ID   []byte
+}
+
+func (q *Queries) UpdateFlow(ctx context.Context, arg UpdateFlowParams) error {
+	_, err := q.exec(ctx, q.updateFlowStmt, updateFlow, arg.Name, arg.ID)
 	return err
 }
 

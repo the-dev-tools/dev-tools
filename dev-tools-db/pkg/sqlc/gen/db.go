@@ -63,6 +63,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createExampleRespHeaderStmt, err = db.PrepareContext(ctx, createExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateExampleRespHeader: %w", err)
 	}
+	if q.createFlowStmt, err = db.PrepareContext(ctx, createFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlow: %w", err)
+	}
 	if q.createHeaderStmt, err = db.PrepareContext(ctx, createHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHeader: %w", err)
 	}
@@ -137,6 +140,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteExampleRespHeaderStmt, err = db.PrepareContext(ctx, deleteExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteExampleRespHeader: %w", err)
+	}
+	if q.deleteFlowStmt, err = db.PrepareContext(ctx, deleteFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlow: %w", err)
 	}
 	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
@@ -233,6 +239,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getExampleRespsByExampleIDStmt, err = db.PrepareContext(ctx, getExampleRespsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleRespsByExampleID: %w", err)
+	}
+	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
+	}
+	if q.getFlowsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFlowsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowsByWorkspaceID: %w", err)
 	}
 	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
@@ -363,6 +375,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateExampleRespHeaderStmt, err = db.PrepareContext(ctx, updateExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateExampleRespHeader: %w", err)
 	}
+	if q.updateFlowStmt, err = db.PrepareContext(ctx, updateFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlow: %w", err)
+	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
@@ -464,6 +479,11 @@ func (q *Queries) Close() error {
 	if q.createExampleRespHeaderStmt != nil {
 		if cerr := q.createExampleRespHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createExampleRespHeaderStmt: %w", cerr)
+		}
+	}
+	if q.createFlowStmt != nil {
+		if cerr := q.createFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowStmt: %w", cerr)
 		}
 	}
 	if q.createHeaderStmt != nil {
@@ -589,6 +609,11 @@ func (q *Queries) Close() error {
 	if q.deleteExampleRespHeaderStmt != nil {
 		if cerr := q.deleteExampleRespHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteExampleRespHeaderStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowStmt != nil {
+		if cerr := q.deleteFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowStmt: %w", cerr)
 		}
 	}
 	if q.deleteHeaderStmt != nil {
@@ -749,6 +774,16 @@ func (q *Queries) Close() error {
 	if q.getExampleRespsByExampleIDStmt != nil {
 		if cerr := q.getExampleRespsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getExampleRespsByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getFlowStmt != nil {
+		if cerr := q.getFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowStmt: %w", cerr)
+		}
+	}
+	if q.getFlowsByWorkspaceIDStmt != nil {
+		if cerr := q.getFlowsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getHeaderStmt != nil {
@@ -966,6 +1001,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateExampleRespHeaderStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowStmt != nil {
+		if cerr := q.updateFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowStmt: %w", cerr)
+		}
+	}
 	if q.updateHeaderStmt != nil {
 		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
@@ -1073,6 +1113,7 @@ type Queries struct {
 	createEnvironmentStmt                      *sql.Stmt
 	createExampleRespStmt                      *sql.Stmt
 	createExampleRespHeaderStmt                *sql.Stmt
+	createFlowStmt                             *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
 	createHeaderBulkStmt                       *sql.Stmt
 	createItemApiStmt                          *sql.Stmt
@@ -1098,6 +1139,7 @@ type Queries struct {
 	deleteEnvironmentStmt                      *sql.Stmt
 	deleteExampleRespStmt                      *sql.Stmt
 	deleteExampleRespHeaderStmt                *sql.Stmt
+	deleteFlowStmt                             *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
 	deleteItemApiExampleStmt                   *sql.Stmt
@@ -1130,6 +1172,8 @@ type Queries struct {
 	getExampleRespHeaderStmt                   *sql.Stmt
 	getExampleRespHeadersByRespIDStmt          *sql.Stmt
 	getExampleRespsByExampleIDStmt             *sql.Stmt
+	getFlowStmt                                *sql.Stmt
+	getFlowsByWorkspaceIDStmt                  *sql.Stmt
 	getHeaderStmt                              *sql.Stmt
 	getHeadersByExampleIDStmt                  *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
@@ -1173,6 +1217,7 @@ type Queries struct {
 	updateEnvironmentStmt                      *sql.Stmt
 	updateExampleRespStmt                      *sql.Stmt
 	updateExampleRespHeaderStmt                *sql.Stmt
+	updateFlowStmt                             *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
 	updateItemApiExampleStmt                   *sql.Stmt
@@ -1203,6 +1248,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createEnvironmentStmt:                      q.createEnvironmentStmt,
 		createExampleRespStmt:                      q.createExampleRespStmt,
 		createExampleRespHeaderStmt:                q.createExampleRespHeaderStmt,
+		createFlowStmt:                             q.createFlowStmt,
 		createHeaderStmt:                           q.createHeaderStmt,
 		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
 		createItemApiStmt:                          q.createItemApiStmt,
@@ -1228,6 +1274,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
 		deleteExampleRespStmt:                      q.deleteExampleRespStmt,
 		deleteExampleRespHeaderStmt:                q.deleteExampleRespHeaderStmt,
+		deleteFlowStmt:                             q.deleteFlowStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
@@ -1260,6 +1307,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getExampleRespHeaderStmt:                   q.getExampleRespHeaderStmt,
 		getExampleRespHeadersByRespIDStmt:          q.getExampleRespHeadersByRespIDStmt,
 		getExampleRespsByExampleIDStmt:             q.getExampleRespsByExampleIDStmt,
+		getFlowStmt:                                q.getFlowStmt,
+		getFlowsByWorkspaceIDStmt:                  q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                              q.getHeaderStmt,
 		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
@@ -1303,6 +1352,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateEnvironmentStmt:                      q.updateEnvironmentStmt,
 		updateExampleRespStmt:                      q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                q.updateExampleRespHeaderStmt,
+		updateFlowStmt:                             q.updateFlowStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,
 		updateItemApiExampleStmt:                   q.updateItemApiExampleStmt,

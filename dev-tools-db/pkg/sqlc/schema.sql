@@ -268,3 +268,10 @@ CREATE TABLE assertion_result (
   FOREIGN KEY (response_id) REFERENCES example_resp (id) ON DELETE CASCADE,
   FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
 );
+
+CREATE TABLE flow (
+  id BLOB NOT NULL PRIMARY KEY,
+  workspace_id BLOB NOT NULL,
+  name TEXT NOT NULL,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
+);

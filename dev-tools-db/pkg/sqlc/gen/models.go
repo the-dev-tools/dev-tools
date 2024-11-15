@@ -104,6 +104,12 @@ type ExampleRespHeader struct {
 	Value         string
 }
 
+type Flow struct {
+	ID          []byte
+	WorkspaceID []byte
+	Name        string
+}
+
 type ItemApi struct {
 	ID           idwrap.IDWrap
 	CollectionID idwrap.IDWrap
