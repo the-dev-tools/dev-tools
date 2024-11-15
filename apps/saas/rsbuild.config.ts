@@ -35,6 +35,7 @@ export default defineConfig(({ command }) => ({
   },
   tools: {
     rspack: {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       plugins: [
         command === 'dev' &&
           TanStackRouterRspack({
