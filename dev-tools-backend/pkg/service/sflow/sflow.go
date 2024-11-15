@@ -53,6 +53,18 @@ func (s *FlowService) GetFlow(ctx context.Context, id idwrap.IDWrap) (mflow.Flow
 	return ConvertDBToModel(item), nil
 }
 
+func (s *FlowService) GetFlowsByWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) ([]mflow.Flow, error) {
+	items, err := s.queries.GetFlowsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	var results []mflow.Flow
+	for _, item := range items {
+		results = append(results, ConvertDBToModel(item))
+	}
+	return results, nil
+}
+
 func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 	arg := ConvertModelToDB(item)
 	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{
