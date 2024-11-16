@@ -18,7 +18,6 @@ import { Fragment, useMemo, useState } from 'react';
 import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { FiClock, FiLink, FiMoreHorizontal, FiSave } from 'react-icons/fi';
-import { LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
@@ -295,31 +294,42 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
             </MenuTrigger>
           </div>
 
-          <div className='flex items-start p-4 pb-0'>
-            <SelectRHF
-              control={form.control}
-              name='method'
-              aria-label='Method'
-              triggerClassName={tw`rounded-r-none border-r-0`}
-            >
-              {methods.map((_) => (
-                <DropdownItem key={_} id={_}>
-                  {_}
-                </DropdownItem>
-              ))}
-            </SelectRHF>
+          <div className={tw`flex gap-3 p-6 pb-0`}>
+            <div className='flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+              <SelectRHF
+                control={form.control}
+                name='method'
+                aria-label='Method'
+                triggerClassName={tw`border-none p-0`}
+              >
+                {methods.map((_) => (
+                  <DropdownItem key={_} id={_}>
+                    {/* TODO: use tag component */}
+                    <div
+                      className={tw`rounded-md border border-green-200 bg-green-100 px-3 py-1 text-xs font-semibold leading-4 tracking-tight text-teal-600`}
+                    >
+                      {_}
+                    </div>
+                  </DropdownItem>
+                ))}
+              </SelectRHF>
 
-            <TextFieldRHF
-              control={form.control}
-              onBlur={onSubmit}
-              name='url'
-              aria-label='URL'
-              className={tw`flex-1`}
-              inputClassName={tw`rounded-none border-x-0 bg-neutral-200`}
-            />
+              <Separator orientation='vertical' className={tw`h-7`} />
+
+              {/* TODO: update styles after component is refactored */}
+              <TextFieldRHF
+                control={form.control}
+                onBlur={onSubmit}
+                name='url'
+                aria-label='URL'
+                className={tw`flex-1`}
+                inputClassName={tw`border-none bg-transparent font-medium leading-5 tracking-tight text-slate-800`}
+              />
+            </div>
 
             <Button
-              className='rounded-l-none border-l-0 bg-black text-white'
+              variant='primary'
+              className={tw`px-6`}
               onPress={async () => {
                 await onSubmit();
                 const { responseId } = await exampleRunMutation.mutateAsync({
@@ -338,12 +348,12 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
                 );
               }}
             >
-              Send <LuSendHorizonal className='size-4' />
+              Send
             </Button>
           </div>
         </form>
 
-        <div className='flex flex-1 flex-col gap-4 overflow-auto p-4'>
+        <div className='flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4'>
           <div className='flex gap-4 border-b border-black'>
             <Link
               className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
