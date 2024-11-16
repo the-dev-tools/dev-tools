@@ -15,9 +15,10 @@ import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, 
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, useMemo, useState } from 'react';
-import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
-import { LuSave, LuSendHorizonal } from 'react-icons/lu';
+import { FiClock, FiLink, FiMoreHorizontal, FiSave } from 'react-icons/fi';
+import { LuSendHorizonal } from 'react-icons/lu';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
@@ -61,8 +62,10 @@ import {
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { DropdownItem } from '@the-dev-tools/ui/dropdown';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
+import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
@@ -245,12 +248,51 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
     <PanelGroup direction='vertical'>
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <form onSubmit={onSubmit}>
-          <div className='flex items-center gap-2 border-b-2 border-black px-4 py-3'>
-            <h2 className='flex-1 truncate text-sm font-bold'>{example.name}</h2>
+          <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
+            {/* TODO: implement breadcrumbs */}
+            <div
+              className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}
+            >
+              {['Collection', 'Folder', 'Endpoint'].map((_) => (
+                <Fragment key={_}>
+                  <span className={tw`cursor-pointer`}>{_}</span>
+                  <span>/</span>
+                </Fragment>
+              ))}
 
-            <Button type='submit'>
-              <LuSave /> Save
+              <h2 className={tw`cursor-pointer text-slate-800`}>Example</h2>
+            </div>
+
+            {/* TODO: implement response history */}
+            <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+              <FiClock className={tw`size-4 text-slate-500`} /> Response History
             </Button>
+
+            {/* TODO: implement copy link */}
+            <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+              <FiLink className={tw`size-4 text-slate-500`} /> Copy Link
+            </Button>
+
+            <Separator orientation='vertical' className={tw`h-4`} />
+
+            <Button type='submit' variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+              <FiSave className={tw`size-4 text-slate-500`} /> Save
+            </Button>
+
+            {/* TODO: implement overflow menu item functionality */}
+            <MenuTrigger>
+              <Button variant='ghost' className={tw`p-1`}>
+                <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+              </Button>
+
+              <Menu>
+                <MenuItem>Add example</MenuItem>
+                <Separator />
+                <MenuItem>Rename</MenuItem>
+                <MenuItem>View Documentation</MenuItem>
+                <MenuItem variant='danger'>Delete</MenuItem>
+              </Menu>
+            </MenuTrigger>
           </div>
 
           <div className='flex items-start p-4 pb-0'>
