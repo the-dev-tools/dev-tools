@@ -538,11 +538,11 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
 
   return (
     <Tabs className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
-      <TabList className='flex gap-1 self-start rounded-md bg-slate-100 p-1 text-xs leading-5 tracking-tight'>
+      <TabList className='flex gap-1 self-start rounded-md border border-slate-100 bg-slate-100 p-0.5 text-xs leading-5 tracking-tight'>
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded bg-transparent p-1 text-slate-400 transition-colors`,
+              tw`cursor-pointer rounded bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
               isSelected && tw`bg-white font-medium text-slate-800 shadow`,
             )
           }
@@ -553,7 +553,7 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded bg-transparent p-1 text-slate-400 transition-colors`,
+              tw`cursor-pointer rounded bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
               isSelected && tw`bg-white font-medium text-slate-800 shadow`,
             )
           }
@@ -564,7 +564,7 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded bg-transparent p-1 text-slate-400 transition-colors`,
+              tw`cursor-pointer rounded bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
               isSelected && tw`bg-white font-medium text-slate-800 shadow`,
             )
           }
