@@ -538,21 +538,36 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
 
   return (
     <Tabs className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
-      <TabList className='flex gap-2 self-start rounded bg-neutral-400 p-1 text-sm'>
+      <TabList className='flex gap-1 self-start rounded-md bg-slate-100 p-1 text-xs leading-5 tracking-tight'>
         <Tab
-          className={({ isSelected }) => twMerge(tw`cursor-pointer rounded px-2 py-1`, isSelected && tw`bg-white`)}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`cursor-pointer rounded bg-transparent p-1 text-slate-400 transition-colors`,
+              isSelected && tw`bg-white font-medium text-slate-800 shadow`,
+            )
+          }
           id='pretty'
         >
           Pretty
         </Tab>
         <Tab
-          className={({ isSelected }) => twMerge(tw`cursor-pointer rounded px-2 py-1`, isSelected && tw`bg-white`)}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`cursor-pointer rounded bg-transparent p-1 text-slate-400 transition-colors`,
+              isSelected && tw`bg-white font-medium text-slate-800 shadow`,
+            )
+          }
           id='raw'
         >
           Raw
         </Tab>
         <Tab
-          className={({ isSelected }) => twMerge(tw`cursor-pointer rounded px-2 py-1`, isSelected && tw`bg-white`)}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`cursor-pointer rounded bg-transparent p-1 text-slate-400 transition-colors`,
+              isSelected && tw`bg-white font-medium text-slate-800 shadow`,
+            )
+          }
           id='preview'
         >
           Preview
