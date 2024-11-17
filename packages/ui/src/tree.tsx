@@ -84,7 +84,7 @@ export const TreeItem = <T extends object>({
       <AriaTreeItemContent {...props.content}>
         {composeRenderProps(children, (children, { level, hasChildRows, isExpanded }) => (
           <TreeItemWrapper level={level} {...props.wrapper}>
-            {(hasChildRows || expandButtonIsForced) && (
+            {hasChildRows || expandButtonIsForced ? (
               <Button
                 variant='ghost'
                 slot='chevron'
@@ -100,6 +100,8 @@ export const TreeItem = <T extends object>({
                   )}
                 />
               </Button>
+            ) : (
+              <div />
             )}
             {children}
           </TreeItemWrapper>
