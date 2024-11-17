@@ -11,6 +11,7 @@ import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
 import { FiChevronDown, FiFolder, FiMoreHorizontal, FiPlus, FiRotateCw } from 'react-icons/fi';
+import { MdLightbulbOutline } from 'react-icons/md';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -606,7 +607,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
       }}
       isActive={match.params.exampleIdCan === exampleIdCan}
     >
-      <div />
+      <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
       <Text className='flex-1 truncate'>{example.name}</Text>
 
