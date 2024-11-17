@@ -25,10 +25,7 @@ export const Modal = ({ overlayClassName, modalClassName, ...props }: ModalProps
   <AriaModalOverlay {...props} className={composeRenderPropsTV(overlayClassName, overlayStyles)}>
     <AriaModal
       {...props}
-      className={composeRenderPropsTW(
-        modalClassName,
-        tw`max-h-[50vh] max-w-[70vw] overflow-auto rounded-lg bg-white`,
-      )}
+      className={composeRenderPropsTW(modalClassName, tw`max-h-[50vh] max-w-[70vw] overflow-auto rounded-lg bg-white`)}
     />
   </AriaModalOverlay>
 );
