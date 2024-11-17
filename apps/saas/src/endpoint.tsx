@@ -17,7 +17,7 @@ import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, useMemo, useState } from 'react';
 import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
-import { FiClock, FiLink, FiMoreHorizontal, FiSave } from 'react-icons/fi';
+import { FiChevronDown, FiClock, FiLink, FiMoreHorizontal, FiSave, FiSidebar, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
@@ -423,15 +423,15 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
   const { responseId } = response;
 
   return (
-    <Tabs className='flex h-full flex-col'>
-      <div className='flex items-center gap-2 border-b border-black pl-2 pr-4 text-sm text-neutral-500'>
-        <TabList className='contents'>
+    <Tabs className={tw`flex h-full flex-col`}>
+      <div className={tw`flex items-center gap-3 border-b border-slate-200 px-4 text-md`}>
+        <TabList className={tw`flex items-center gap-3`}>
           <Tab
             id='body'
             className={({ isSelected }) =>
               twMerge(
-                tw`cursor-pointer border-b-2 border-transparent p-2 transition-colors`,
-                isSelected && tw`border-black text-black`,
+                tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
           >
@@ -441,8 +441,8 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
             id='headers'
             className={({ isSelected }) =>
               twMerge(
-                tw`cursor-pointer border-b-2 border-transparent p-2 transition-colors`,
-                isSelected && tw`border-black text-black`,
+                tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
           >
@@ -452,8 +452,8 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
             id='asserts'
             className={({ isSelected }) =>
               twMerge(
-                tw`cursor-pointer border-b-2 border-transparent p-2 transition-colors`,
-                isSelected && tw`border-black text-black`,
+                tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
           >
@@ -461,14 +461,52 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
           </Tab>
         </TabList>
 
-        <div className='flex-1' />
+        <div className={tw`flex-1`} />
 
-        <div>
-          Status: <span className='text-black'>{response.status}</span>
-        </div>
+        <div className={tw`flex items-center gap-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>
+          <div className={tw`flex gap-1 p-2`}>
+            <span>Status:</span>
+            <span className={tw`text-green-600`}>{response.status}</span>
+          </div>
 
-        <div>
-          Time: <span className='text-black'>{pipe(Number(response.duration), Duration.millis, Duration.format)}</span>
+          <Separator orientation='vertical' className={tw`h-4`} />
+
+          <div className={tw`flex gap-1 p-2`}>
+            <span>Time:</span>
+            <span className={tw`text-green-600`}>
+              {pipe(Number(response.duration), Duration.millis, Duration.format)}
+            </span>
+          </div>
+
+          <Separator orientation='vertical' className={tw`h-4`} />
+
+          {/* TODO: implement response size */}
+          <div className={tw`flex gap-1 p-2`}>
+            <span>Size:</span>
+            <span>0.0 KB</span>
+          </div>
+
+          <Separator orientation='vertical' className={tw`h-4`} />
+
+          {/* TODO: implement menu */}
+          <Button variant='ghost' className={tw`px-2 text-xs`}>
+            <FiSave className={tw`size-4 text-slate-500`} />
+            <span>Save as</span>
+            <FiChevronDown className={tw`size-4 text-slate-500`} />
+          </Button>
+
+          <Separator orientation='vertical' className={tw`h-4`} />
+
+          {/* TODO: implement clear */}
+          <Button variant='ghost' className={tw`px-2 text-xs`}>
+            <FiX className={tw`size-4 text-slate-500`} />
+            <span>Clear</span>
+          </Button>
+
+          {/* TODO: implement bottom card */}
+          <Button variant='ghost' className={tw`p-1`}>
+            <FiSidebar className={tw`size-4 text-slate-500`} />
+          </Button>
         </div>
       </div>
 
