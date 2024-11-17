@@ -40,6 +40,7 @@ import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FileImportIcon, FlowsIcon, FolderOpenedIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -535,7 +536,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
         </Button>
       )}
 
-      <div className='text-sm font-bold'>{method}</div>
+      <MethodBadge method={method} />
 
       <Text className='flex-1 truncate'>{endpoint.name}</Text>
 

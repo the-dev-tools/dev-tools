@@ -62,6 +62,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
@@ -303,13 +304,8 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
                 triggerClassName={tw`border-none p-0`}
               >
                 {methods.map((_) => (
-                  <ListBoxItem key={_} id={_}>
-                    {/* TODO: use tag component */}
-                    <div
-                      className={tw`rounded-md border border-green-200 bg-green-100 px-3 py-1 text-xs font-semibold leading-4 tracking-tight text-teal-600`}
-                    >
-                      {_}
-                    </div>
+                  <ListBoxItem key={_} id={_} textValue={_}>
+                    <MethodBadge method={_} size='lg' />
                   </ListBoxItem>
                 ))}
               </SelectRHF>
