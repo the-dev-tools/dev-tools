@@ -1,5 +1,5 @@
 import { Struct } from 'effect';
-import { ComponentProps, ForwardedRef, forwardRef } from 'react';
+import { ComponentProps, ForwardedRef, forwardRef, SVGProps } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Checkbox as AriaCheckbox,
@@ -7,9 +7,6 @@ import {
   composeRenderProps,
 } from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
-import { IconBaseProps } from 'react-icons';
-import { LuCheck, LuMinus } from 'react-icons/lu';
-import { twMerge } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
 
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
@@ -19,9 +16,7 @@ import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
-// Root
-
-export const rootStyles = tv({
+const rootStyles = tv({
   base: tw`group flex items-center gap-2`,
   variants: {
     variant: {
@@ -30,81 +25,72 @@ export const rootStyles = tv({
   },
 });
 
-export interface CheckboxRootProps extends AriaCheckboxProps, VariantProps<typeof rootStyles> {}
+const boxStyles = tv({
+  extend: isFocusVisibleRingStyles,
+  base: tw`flex size-4 flex-none cursor-pointer items-center justify-center rounded border p-0.5 text-white transition-colors`,
+  variants: {
+    ...isFocusVisibleRingStyles.variants,
+    isSelected: {
+      false: tw`border-slate-200 bg-white`,
+      true: tw`border-violet-600 bg-violet-600`,
+    },
+  },
+});
 
-export const CheckboxRoot = forwardRef(
-  ({ className, ...props }: CheckboxRootProps, ref: ForwardedRef<HTMLLabelElement>) => {
-    const forwardedProps = Struct.omit(props, ...rootStyles.variantKeys);
-    const variantProps = Struct.pick(props, ...rootStyles.variantKeys);
+// Checkbox
+
+export interface CheckboxProps
+  extends AriaCheckboxProps,
+    VariantProps<typeof rootStyles>,
+    MixinProps<'box', Omit<ComponentProps<'div'>, 'children'>>,
+    MixinProps<'indicator', SVGProps<SVGSVGElement>> {}
+
+export const Checkbox = forwardRef(
+  ({ className, children, boxClassName, ...props }: CheckboxProps, ref: ForwardedRef<HTMLLabelElement>) => {
+    const forwardedProps = splitProps(props, 'box', 'indicator');
+
+    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...rootStyles.variantKeys);
+    const rootVariantProps = Struct.pick(forwardedProps.rest, ...rootStyles.variantKeys);
 
     return (
       <AriaCheckbox
-        {...forwardedProps}
         ref={ref}
-        className={composeRenderPropsTV(className, rootStyles, variantProps)}
-      />
+        className={composeRenderPropsTV(className, rootStyles, rootVariantProps)}
+        {...rootForwardedProps}
+      >
+        {composeRenderProps(children, (children, renderProps) => (
+          <>
+            <div className={boxStyles({ className: boxClassName, ...renderProps })} {...forwardedProps.box}>
+              {renderProps.isSelected && (
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  width='1em'
+                  height='1em'
+                  fill='none'
+                  viewBox='0 0 10 8'
+                  {...forwardedProps.indicator}
+                >
+                  <path
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={1.2}
+                    d='m.833 4.183 2.778 3.15L9.167 1.5'
+                  />
+                </svg>
+              )}
+            </div>
+
+            {children}
+          </>
+        ))}
+      </AriaCheckbox>
     );
   },
 );
-CheckboxRoot.displayName = 'CheckboxRoot';
-
-// Box
-
-export const checkboxBoxStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`flex size-5 flex-none cursor-pointer items-center justify-center rounded border-2 border-black`,
-});
-
-export interface CheckboxBoxProps extends ComponentProps<'div'>, VariantProps<typeof checkboxBoxStyles> {}
-
-export const CheckboxBox = ({ className, ...props }: CheckboxBoxProps) => {
-  const forwardedProps = Struct.omit(props, ...checkboxBoxStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...checkboxBoxStyles.variantKeys);
-  return <div {...forwardedProps} className={checkboxBoxStyles({ ...variantProps, className })} />;
-};
-
-// Indicator
-
-export interface CheckboxIndicatorProps extends IconBaseProps {
-  isIndeterminate?: boolean;
-  isSelected?: boolean;
-}
-
-export const CheckboxIndicator = ({ isIndeterminate, isSelected, className, ...props }: CheckboxIndicatorProps) => {
-  const forwardedClassName = twMerge(tw`size-4`, className);
-  if (isIndeterminate) return <LuMinus {...props} className={forwardedClassName} />;
-  if (isSelected) return <LuCheck {...props} className={forwardedClassName} />;
-  return <div className={forwardedClassName} />;
-};
-
-// Mix
-
-export interface CheckboxProps
-  extends CheckboxRootProps,
-    MixinProps<'box', CheckboxBoxProps>,
-    MixinProps<'indicator', CheckboxIndicatorProps> {}
-
-export const Checkbox = forwardRef(({ children, ...props }: CheckboxProps, ref: ForwardedRef<HTMLLabelElement>) => {
-  const forwardedProps = splitProps(props, 'box', 'indicator');
-  return (
-    <CheckboxRoot {...forwardedProps.rest} ref={ref}>
-      {composeRenderProps(children, (children, renderProps) => (
-        <>
-          <CheckboxBox {...Struct.pick(renderProps, ...checkboxBoxStyles.variantKeys)} {...forwardedProps.box}>
-            <CheckboxIndicator
-              {...Struct.pick(renderProps, 'isIndeterminate', 'isSelected')}
-              {...forwardedProps.indicator}
-            />
-          </CheckboxBox>
-          {children}
-        </>
-      ))}
-    </CheckboxRoot>
-  );
-});
 Checkbox.displayName = 'Checkbox';
 
-// RHF wrapper mix
+// RHF wrapper
 
 export interface CheckboxRHFProps<
   TFieldValues extends FieldValues = FieldValues,
