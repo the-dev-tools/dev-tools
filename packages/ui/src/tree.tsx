@@ -26,7 +26,7 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 export const treeItemRootStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`cursor-pointer select-none rounded-md px-3 py-1.5 font-medium leading-5 tracking-tight text-slate-800 outline-none`,
+  base: tw`cursor-pointer select-none rounded-md px-3 py-1.5 text-md font-medium leading-5 tracking-tight text-slate-800 outline-none`,
   variants: {
     isHovered: { true: tw`bg-slate-100` },
     isPressed: { true: tw`bg-slate-200` },
