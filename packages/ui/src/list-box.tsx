@@ -32,7 +32,7 @@ export const ListBox = <T extends object>({ className, ...props }: ListBoxProps<
 
 export const listBoxItemStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex cursor-pointer select-none items-center gap-2.5 px-3 py-1.5 text-xs font-medium leading-4 tracking-tight -outline-offset-4`,
+  base: tw`group/listbox flex cursor-pointer select-none items-center gap-2.5 px-3 py-1.5 text-xs font-medium leading-4 tracking-tight -outline-offset-4`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     variant: {
@@ -84,7 +84,7 @@ export const ListBoxItem = ({ className, children, textValue, ...props }: ListBo
           <>
             {children}
             {showSelectIndicator && (
-              <>
+              <div className={tw`hidden group-[&[role="option"]]/listbox:contents`}>
                 <div className={tw`flex-1`} />
                 <FiCheckCircle
                   className={twJoin(
@@ -92,7 +92,7 @@ export const ListBoxItem = ({ className, children, textValue, ...props }: ListBo
                     isSelected ? tw`opacity-100` : tw`opacity-0`,
                   )}
                 />
-              </>
+              </div>
             )}
           </>
         );

@@ -1,12 +1,16 @@
 import { Config } from 'tailwindcss';
 import animatePlugin from 'tailwindcss-animate';
-import ariaPlugin from 'tailwindcss-react-aria-components';
+// import ariaPlugin from 'tailwindcss-react-aria-components';
 import * as defaultTheme from 'tailwindcss/defaultTheme';
 
 const alpha = (opacity: number) => Math.floor(255 * opacity).toString(16);
 
 export const config: Partial<Config> = {
-  plugins: [ariaPlugin({ prefix: 'rac' }), animatePlugin],
+  plugins: [
+    // Disabled until this is fixed: https://github.com/adobe/react-spectrum/issues/5800
+    // ariaPlugin({ prefix: 'rac' }),
+    animatePlugin,
+  ],
   theme: {
     extend: {
       fontFamily: {

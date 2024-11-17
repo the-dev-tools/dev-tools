@@ -95,7 +95,7 @@ export const Select: Select = forwardRef(({ children, label, error, value, ...pr
         <>
           {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}
           <SelectTrigger {...forwardedProps.trigger} ref={ref}>
-            <AriaSelectValue {...forwardedProps.value}>{value ?? (({ selectedText }) => selectedText)}</AriaSelectValue>
+            <AriaSelectValue {...forwardedProps.value}>{value}</AriaSelectValue>
             <SelectIndicator {...forwardedProps.indicator} isOpen={isOpen} />
           </SelectTrigger>
           <FieldError {...forwardedProps.error}>{error}</FieldError>
