@@ -353,11 +353,11 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
           </div>
         </form>
 
-        <div className='flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4'>
-          <div className='flex gap-4 border-b border-black'>
+        <div className={tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`}>
+          <div className={tw`flex gap-3 border-b border-slate-200`}>
             <Link
-              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-              activeProps={{ className: tw`border-b-black` }}
+              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
+              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
               activeOptions={{ exact: true }}
               from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='.'
@@ -365,24 +365,24 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
               Params
             </Link>
             <Link
-              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-              activeProps={{ className: tw`border-b-black` }}
+              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
+              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
               from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='headers'
             >
               Headers
             </Link>
             <Link
-              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-              activeProps={{ className: tw`border-b-black` }}
+              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
+              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
               from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='body'
             >
               Body
             </Link>
             <Link
-              className={tw`border-b-2 border-transparent p-1 text-sm transition-colors`}
-              activeProps={{ className: tw`border-b-black` }}
+              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
+              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
               from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
               to='assertions'
             >
