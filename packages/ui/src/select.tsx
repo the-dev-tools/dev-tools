@@ -18,8 +18,9 @@ import { type VariantProps } from 'tailwind-variants';
 import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 
 import { buttonStyles } from './button';
-import { DropdownListBox, DropdownListBoxProps, DropdownPopover, DropdownPopoverProps } from './dropdown';
+import { DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { FieldError, FieldLabel, type FieldErrorProps, type FieldLabelProps } from './field';
+import { ListBox, ListBoxProps } from './list-box';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
@@ -60,7 +61,7 @@ export interface SelectIndicatorProps extends IconBaseProps {
 export const SelectIndicator = ({ isOpen, ...props }: SelectIndicatorProps) => (
   <FiChevronDown
     {...props}
-    className={twJoin(tw`size-4 text-slate-500 transition-transform`, isOpen && tw`rotate-180`)}
+    className={twJoin(tw`-mr-1 size-4 text-slate-500 transition-transform`, isOpen && tw`rotate-180`)}
   />
 );
 
@@ -75,8 +76,9 @@ export interface SelectProps<T extends object>
     MixinProps<'indicator', Omit<SelectIndicatorProps, 'children' | 'isOpen'>>,
     MixinProps<'error', Omit<FieldErrorProps, 'children'>>,
     MixinProps<'popover', Omit<DropdownPopoverProps, 'children'>>,
-    MixinProps<'listBox', Omit<DropdownListBoxProps<T>, 'children'>> {
-  children?: DropdownListBoxProps<T>['children'];
+    MixinProps<'listBox', Omit<ListBoxProps<T>, 'children'>> {
+  children?: ListBoxProps<T>['children'];
+  value?: AriaSelectValueProps<T>['children'];
   label?: FieldLabelProps['children'];
   error?: FieldErrorProps['children'];
 }
@@ -85,7 +87,7 @@ interface Select extends FC<SelectProps<object>> {
   <T extends object>(props: SelectProps<T>): ReturnType<FC<SelectProps<T>>>;
 }
 
-export const Select: Select = forwardRef(({ children, label, error, ...props }, ref) => {
+export const Select: Select = forwardRef(({ children, label, error, value, ...props }, ref) => {
   const forwardedProps = splitProps(props, 'label', 'trigger', 'value', 'indicator', 'error', 'popover', 'listBox');
   return (
     <SelectRoot {...forwardedProps.rest}>
@@ -93,12 +95,12 @@ export const Select: Select = forwardRef(({ children, label, error, ...props }, 
         <>
           {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}
           <SelectTrigger {...forwardedProps.trigger} ref={ref}>
-            <AriaSelectValue {...forwardedProps.value} />
+            <AriaSelectValue {...forwardedProps.value}>{value ?? (({ selectedText }) => selectedText)}</AriaSelectValue>
             <SelectIndicator {...forwardedProps.indicator} isOpen={isOpen} />
           </SelectTrigger>
           <FieldError {...forwardedProps.error}>{error}</FieldError>
           <DropdownPopover {...forwardedProps.popover}>
-            <DropdownListBox {...forwardedProps.listBox}>{children}</DropdownListBox>
+            <ListBox {...forwardedProps.listBox}>{children}</ListBox>
           </DropdownPopover>
         </>
       )}

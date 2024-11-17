@@ -24,10 +24,8 @@ export const listBoxStyles = tv({
 
 export interface ListBoxProps<T> extends Omit<AriaListBoxProps<T>, 'layout' | 'orientation'> {}
 
-export const ListBox = <T extends object>({ children, className, ...props }: ListBoxProps<T>) => (
-  <AriaListBox {...props} className={composeRenderPropsTV(className, listBoxStyles)}>
-    {children}
-  </AriaListBox>
+export const ListBox = <T extends object>({ className, ...props }: ListBoxProps<T>) => (
+  <AriaListBox className={composeRenderPropsTV(className, listBoxStyles)} {...props} />
 );
 
 // Item
@@ -75,9 +73,9 @@ export const ListBoxItem = ({ className, children, textValue, ...props }: ListBo
 
   return (
     <AriaListBoxItem
-      {...forwardedProps}
-      {...ariaTextValue(textValue, children)}
       className={composeRenderPropsTV(className, listBoxItemStyles, variantProps)}
+      {...ariaTextValue(textValue, children)}
+      {...forwardedProps}
     >
       {composeRenderProps(children, (children, { isSelected, selectionMode }) => {
         const showSelectIndicator = selectionMode !== 'none' && !props.onAction;
