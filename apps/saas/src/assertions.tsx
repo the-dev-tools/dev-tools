@@ -35,7 +35,7 @@ import {
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
-import { DropdownItem } from '@the-dev-tools/ui/dropdown';
+import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -139,16 +139,16 @@ const Tab = ({ data, items }: TabProps) => {
             triggerClassName={tw`h-full`}
             aria-label='Comparison Method'
           >
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.EQUAL)}>is equal to</DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.NOT_EQUAL)}>is not equal to</DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.CONTAINS)}>contains</DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.NOT_CONTAINS)}>does not contain</DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.GREATER)}>is greater than</DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.GREATER_OR_EQUAL)}>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.EQUAL)}>is equal to</ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.NOT_EQUAL)}>is not equal to</ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.CONTAINS)}>contains</ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.NOT_CONTAINS)}>does not contain</ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.GREATER)}>is greater than</ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.GREATER_OR_EQUAL)}>
               is greater or equal to
-            </DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.LESS)}>is less than</DropdownItem>
-            <DropdownItem id={enumToJson(AssertKindSchema, AssertKind.LESS_OR_EQUAL)}>is less or equal to</DropdownItem>
+            </ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.LESS)}>is less than</ListBoxItem>
+            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.LESS_OR_EQUAL)}>is less or equal to</ListBoxItem>
           </SelectRHF>
 
           <TextAreaFieldRHF

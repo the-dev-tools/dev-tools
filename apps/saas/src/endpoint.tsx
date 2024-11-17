@@ -60,7 +60,7 @@ import {
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { DropdownItem } from '@the-dev-tools/ui/dropdown';
+import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
@@ -115,7 +115,7 @@ function Page() {
   );
 }
 
-const methods = ['N/A', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
+const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 
 class EndpointFormData extends Schema.Class<EndpointFormData>('EndpointFormData')({
   method: Schema.String,
@@ -303,14 +303,14 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
                 triggerClassName={tw`border-none p-0`}
               >
                 {methods.map((_) => (
-                  <DropdownItem key={_} id={_}>
+                  <ListBoxItem key={_} id={_}>
                     {/* TODO: use tag component */}
                     <div
                       className={tw`rounded-md border border-green-200 bg-green-100 px-3 py-1 text-xs font-semibold leading-4 tracking-tight text-teal-600`}
                     >
                       {_}
                     </div>
-                  </DropdownItem>
+                  </ListBoxItem>
                 ))}
               </SelectRHF>
 
@@ -649,14 +649,14 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
       <Select
         aria-label='Language'
         className='self-center justify-self-start'
-        triggerClassName={tw`px-1.5 py-1`}
+        triggerClassName={tw`px-4 py-1`}
         selectedKey={language}
         onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
       >
         {languages.map((_) => (
-          <DropdownItem key={_} id={_}>
+          <ListBoxItem key={_} id={_}>
             {_}
-          </DropdownItem>
+          </ListBoxItem>
         ))}
       </Select>
 

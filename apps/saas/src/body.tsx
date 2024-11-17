@@ -49,7 +49,7 @@ import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/examp
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { DropdownItem } from '@the-dev-tools/ui/dropdown';
+import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -447,14 +447,14 @@ const RawForm = ({ body }: RawFormProps) => {
       <Select
         aria-label='Language'
         className='self-center justify-self-start'
-        triggerClassName={tw`px-1.5 py-1`}
+        triggerClassName={tw`px-4 py-1`}
         selectedKey={language}
         onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
       >
         {languages.map((_) => (
-          <DropdownItem key={_} id={_}>
+          <ListBoxItem key={_} id={_}>
             {_}
-          </DropdownItem>
+          </ListBoxItem>
         ))}
       </Select>
 

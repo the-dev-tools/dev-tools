@@ -42,8 +42,8 @@ import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-Workspa
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { DropdownItem } from '@the-dev-tools/ui/dropdown';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
+import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -84,7 +84,7 @@ export const EnvironmentsWidget = () => {
         {(item) => {
           const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
           return (
-            <DropdownItem id={environmentIdCan} textValue={item.name}>
+            <ListBoxItem id={environmentIdCan} textValue={item.name}>
               <div className={tw`flex items-center gap-2`}>
                 <div
                   className={tw`flex size-6 items-center justify-center rounded-md bg-slate-200 text-xs text-slate-500`}
@@ -95,7 +95,7 @@ export const EnvironmentsWidget = () => {
                   {item.isGlobal ? 'Global Environment' : item.name}
                 </span>
               </div>
-            </DropdownItem>
+            </ListBoxItem>
           );
         }}
       </Select>
