@@ -7,6 +7,7 @@ import {
   RadioProps as AriaRadioProps,
   composeRenderProps,
 } from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
@@ -19,12 +20,15 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 // Group
 
 const containerStyles = tv({
-  base: tw`flex gap-2`,
+  base: tw`flex`,
   variants: {
     orientation: {
       vertical: tw`flex-col`,
-      horizontal: tw`gap-4`,
+      horizontal: tw`gap-3`,
     },
+  },
+  defaultVariants: {
+    orientation: 'vertical',
   },
 });
 
@@ -39,6 +43,7 @@ export interface RadioGroupProps
 
 export const RadioGroup = ({ children, className, label, containerClassName, error, ...props }: RadioGroupProps) => {
   const forwardedProps = splitProps(props, 'label', 'container', 'error');
+
   return (
     <AriaRadioGroup {...forwardedProps.rest} className={composeRenderPropsTW(className, tw`group flex flex-col gap-2`)}>
       {composeRenderProps(children, (children, renderProps) => (
@@ -63,7 +68,7 @@ export const RadioGroup = ({ children, className, label, containerClassName, err
 // Item
 
 const itemStyles = tv({
-  base: tw`group flex cursor-pointer items-center gap-1.5 text-sm leading-tight transition`,
+  base: tw`group flex cursor-pointer items-center gap-1.5 text-md font-medium leading-5 tracking-tight text-slate-800`,
   variants: {
     isDisabled: { true: tw`text-gray-300` },
   },
@@ -71,39 +76,45 @@ const itemStyles = tv({
 
 const indicatorStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`size-4 rounded-full border-2 bg-white transition-all`,
+  base: tw`size-4 rounded-full border transition-colors`,
   variants: {
-    ...({} as typeof isFocusVisibleRingStyles.variants),
+    ...isFocusVisibleRingStyles.variants,
     isSelected: {
-      false: tw`border-gray-400`,
-      true: tw`border-4 border-gray-700`,
+      false: tw`border-slate-200 bg-white`,
+      true: tw`border-violet-600 bg-violet-600`,
     },
-    isInvalid: { true: tw`border-red-700` },
-    isDisabled: { true: tw`border-gray-200` },
+    isInvalid: { true: tw`border-red-700 bg-red-700` },
+    isDisabled: { true: tw`border-slate-200 bg-slate-200` },
     isPressed: { true: null },
   },
   compoundVariants: [
-    { isSelected: false, isPressed: true, className: tw`border-gray-500` },
-    { isSelected: true, isPressed: true, className: tw`border-gray-800` },
+    { isSelected: false, isPressed: true, className: tw`border-slate-400` },
     { isInvalid: true, isPressed: true, className: tw`border-red-800` },
   ],
 });
 
-export interface RadioProps extends AriaRadioProps, MixinProps<'indicator', Omit<ComponentProps<'div'>, 'children'>> {}
+export interface RadioProps
+  extends AriaRadioProps,
+    MixinProps<'indicator', Omit<ComponentProps<'div'>, 'children'>>,
+    MixinProps<'ring', Omit<ComponentProps<'div'>, 'children'>> {}
 
-export const Radio = ({ className, children, indicatorClassName, ...props }: RadioProps) => {
-  const forwardedProps = splitProps(props, 'indicator');
+export const Radio = ({ className, children, indicatorClassName, ringClassName, ...props }: RadioProps) => {
+  const forwardedProps = splitProps(props, 'indicator', 'ring');
+
   return (
     <AriaRadio {...forwardedProps.rest} className={composeRenderPropsTV(className, itemStyles)}>
       {composeRenderProps(children, (children, renderProps) => (
         <>
           <div
+            className={indicatorStyles({ className: indicatorClassName, ...renderProps })}
             {...forwardedProps.indicator}
-            className={indicatorStyles({
-              ...Struct.pick(renderProps, ...indicatorStyles.variantKeys),
-              className: indicatorClassName,
-            })}
-          />
+          >
+            <div
+              className={twMerge(tw`size-full rounded-full border-2 border-white`, ringClassName)}
+              {...forwardedProps.ring}
+            />
+          </div>
+
           {children}
         </>
       ))}
