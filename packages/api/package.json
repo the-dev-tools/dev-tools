@@ -13,7 +13,7 @@
     "@connectrpc/connect-query": "2.0.0-rc.2",
     "@connectrpc/connect-web": "2.0.0-rc.1",
     "@effect/platform": "0.69.24",
-    "@tanstack/react-query": "5.60.4",
+    "@tanstack/react-query": "5.60.5",
     "@the-dev-tools/spec": "1.34.1",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.10.15",
