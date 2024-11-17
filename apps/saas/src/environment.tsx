@@ -15,7 +15,8 @@ import { Ulid } from 'id128';
 import { useCallback, useMemo } from 'react';
 import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { LuPlus, LuTrash2, LuX } from 'react-icons/lu';
+import { FiPlus } from 'react-icons/fi';
+import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -69,7 +70,7 @@ export const EnvironmentsWidget = () => {
   const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
   return (
-    <div className='flex justify-between border-b border-slate-200 p-3'>
+    <div className={tw`flex justify-between border-b border-slate-200 p-3`}>
       <Select
         aria-label='Environment'
         selectedKey={selectedEnvironmentIdCan}
@@ -106,27 +107,28 @@ export const EnvironmentsWidget = () => {
         </Button>
 
         <Modal modalClassName={tw`size-full`}>
-          <Dialog className='h-full outline-none'>
+          <Dialog className={tw`h-full outline-none`}>
             {({ close }) => (
-              <Tabs className='flex h-full'>
-                <div className='flex w-72 flex-col gap-2 border-r border-black bg-neutral-200 p-4'>
-                  <div className='-order-3 mb-2'>
-                    <div className='text-lg font-medium'>Variable Settings</div>
-                    <span className='text-sm font-light'>Manage variables & environment</span>
+              <Tabs className={tw`flex h-full`}>
+                <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
+                  <div className={tw`-order-3 mb-4`}>
+                    <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Variable Settings</div>
+                    <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
                   </div>
 
-                  <div className='-order-1 my-1 flex items-center justify-between'>
-                    <span className='text-neutral-600'>Environments</span>
+                  <div className={tw`-order-1 mb-1 mt-3 flex items-center justify-between py-0.5`}>
+                    <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
 
                     <Button
-                      className='p-1'
+                      variant='ghost'
+                      className={tw`bg-slate-200 p-0.5`}
                       onPress={() => void environmentCreateMutation.mutate({ workspaceId, name: 'New Environment' })}
                     >
-                      <LuPlus />
+                      <FiPlus className={tw`size-4 text-slate-500`} />
                     </Button>
                   </div>
 
-                  <TabList className='contents' items={environments}>
+                  <TabList className={tw`contents`} items={environments}>
                     {(item) => {
                       const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
                       return (
@@ -134,16 +136,24 @@ export const EnvironmentsWidget = () => {
                           id={environmentIdCan}
                           className={({ isSelected }) =>
                             twJoin(
-                              tw`-m-1 flex cursor-pointer items-center gap-2 rounded p-1 text-sm`,
-                              isSelected && tw`bg-neutral-400`,
+                              tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
+                              isSelected && tw`bg-slate-200`,
                               item.isGlobal && tw`-order-2`,
                             )
                           }
                         >
-                          <div className='flex size-6 items-center justify-center rounded bg-neutral-400 p-1'>
-                            {item.isGlobal ? <VariableIcon /> : item.name[0]}
-                          </div>
-                          <span>{item.isGlobal ? 'Global Variables' : item.name}</span>
+                          {item.isGlobal ? (
+                            <VariableIcon className={tw`size-4 text-slate-500`} />
+                          ) : (
+                            <div
+                              className={tw`flex size-4 items-center justify-center rounded bg-slate-300 text-xs leading-3 text-slate-500`}
+                            >
+                              {item.name[0]}
+                            </div>
+                          )}
+                          <span className={tw`text-md font-semibold leading-5`}>
+                            {item.isGlobal ? 'Global Variables' : item.name}
+                          </span>
                         </Tab>
                       );
                     }}
@@ -154,26 +164,34 @@ export const EnvironmentsWidget = () => {
                   {(item) => {
                     const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
                     return (
-                      <TabPanel id={environmentIdCan} className='flex h-full min-w-0 flex-1 flex-col'>
-                        <div className='px-6 py-4'>
-                          <div className='mb-4 flex items-start'>
-                            <div className='flex-1'>
-                              <h1 className='text-xl font-medium'>{item.isGlobal ? 'Global Variables' : item.name}</h1>
-                              {item.description && <span className='text-sm font-light'>{item.description}</span>}
-                            </div>
-
-                            <Button variant='ghost' onPress={close}>
-                              <LuX />
-                            </Button>
+                      <TabPanel id={environmentIdCan} className={tw`flex h-full min-w-0 flex-1 flex-col`}>
+                        <div className={tw`px-6 py-4`}>
+                          <div className={tw`mb-4 flex items-center gap-2`}>
+                            {item.isGlobal ? (
+                              <VariableIcon className={tw`size-6 text-slate-500`} />
+                            ) : (
+                              <div
+                                className={tw`flex size-6 items-center justify-center rounded-md bg-slate-300 text-xs leading-3 text-slate-500`}
+                              >
+                                {item.name[0]}
+                              </div>
+                            )}
+                            <h1 className={tw`font-semibold leading-5 tracking-tight text-slate-800`}>
+                              {item.isGlobal ? 'Global Variables' : item.name}
+                            </h1>
                           </div>
 
                           <VariablesTableLoader environmentId={item.environmentId} />
                         </div>
 
-                        <div className='flex-1' />
+                        <div className={tw`flex-1`} />
 
-                        <div className='flex justify-end border-t border-black bg-neutral-100 px-6 py-4'>
-                          <Button onPress={close}>Save</Button>
+                        <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
+                          {/* TODO: implement cancel (undo) */}
+                          <Button onPress={close}>Cancel</Button>
+                          <Button variant='primary' onPress={close}>
+                            Save
+                          </Button>
                         </div>
                       </TabPanel>
                     );
@@ -268,7 +286,7 @@ const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
         cell: ({ row, table }) => (
           <HidePlaceholderCell row={row} table={table}>
             <Button
-              className='text-red-700'
+              className={tw`text-red-700`}
               variant='ghost'
               onPress={() => {
                 const variableIdJson = getValues(`items.${row.index}.variableId`);
