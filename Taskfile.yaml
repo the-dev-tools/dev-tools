@@ -1,0 +1,80 @@
+version: "3"
+
+vars:
+  APP_NAME: backend
+  VERSION: v1.0.0
+  BIN_DIR: dist/backend
+  SOURCE_PATH: dev-tools-backend/cmd/backend/backend.go
+
+tasks:
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - mkdir -p {{.BIN_DIR}}
+
+  build:windows:amd64:
+    desc: Build for Windows 64-bit
+    env:
+      GOOS: windows
+      GOARCH: amd64
+      CC: x86_64-w64-mingw32-gcc
+      CGO_ENABLED: 1
+      CXX: x86_64-w64-mingw32-g++
+    cmds:
+      - go build -ldflags="-X main.Version={{.VERSION}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-windows-amd64.exe {{.SOURCE_PATH}}
+
+  build:windows:386:
+    desc: Build for Windows 32-bit
+    env:
+      GOOS: windows
+      GOARCH: 386
+      CC: i686-w64-mingw32-gcc
+    cmds:
+      - go build -ldflags="-X main.Version={{.VERSION}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-windows-386.exe {{.SOURCE_PATH}}
+
+  build:linux:amd64:
+    desc: Build for Linux 64-bit
+    env:
+      GOOS: linux
+      GOARCH: amd64
+    cmds:
+      - go build -ldflags="-X main.Version={{.VERSION}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-linux-amd64 {{.SOURCE_PATH}}
+
+  build:linux:arm64:
+    desc: Build for Linux ARM64
+    env:
+      GOOS: linux
+      GOARCH: arm64
+    cmds:
+      - go build -ldflags="-X main.Version={{.VERSION}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-linux-arm64 {{.SOURCE_PATH}}
+
+  build:darwin:amd64:
+    desc: Build for macOS 64-bit
+    env:
+      GOOS: darwin
+      GOARCH: amd64
+    cmds:
+      - go build -ldflags="-X main.Version={{.VERSION}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-darwin-amd64 {{.SOURCE_PATH}}
+
+  build:darwin:arm64:
+    desc: Build for macOS ARM64
+    env:
+      GOOS: darwin
+      GOARCH: arm64
+    cmds:
+      - go build -ldflags="-X main.Version={{.VERSION}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-darwin-arm64 {{.SOURCE_PATH}}
+
+  build:all:
+    desc: Build for all platforms
+    deps:
+      - build:windows:amd64
+      - build:windows:386
+      - build:linux:amd64
+      - build:linux:arm64
+      - build:darwin:amd64
+      - build:darwin:arm64
+
+  default:
+    deps:
+      - build:all
