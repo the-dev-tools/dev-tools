@@ -52,7 +52,7 @@ func newCORS() *cors.Cors {
 func ListenServices(services []Service, port string) error {
 	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
 	if upstream == "" {
-		return errors.New("MASTER_NODE_IP env var is required")
+		return errors.New("MASTER_NODE_ENDPOINT env var is required")
 	}
 
 	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))

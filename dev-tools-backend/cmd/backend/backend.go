@@ -42,6 +42,7 @@ import (
 	"dev-tools-db/pkg/sqlc/gen"
 	"dev-tools-db/pkg/tursoembedded"
 	"dev-tools-db/pkg/tursolocal"
+	"dev-tools-mail/pkg/emailclient/mockemail"
 	"dev-tools-mail/pkg/emailclient/sesv2"
 	"dev-tools-mail/pkg/emailinvite"
 	"errors"
@@ -85,15 +86,6 @@ func main() {
 	}
 	fmt.Println("DB_MODE: ", dbMode)
 
-	AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
-	if AWS_ACCESS_KEY == "" {
-		log.Fatalf("AWS_ACCESS_KEY is empty")
-	}
-	AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
-	if AWS_SECRET_KEY == "" {
-		log.Fatalf("AWS_SECRET_KEY is empty")
-	}
-
 	var currentDB *sql.DB
 	var dbCloseFunc func()
 	var err error
@@ -114,11 +106,6 @@ func main() {
 
 	clientHttp := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
 	defer clientHttp.Close()
-
-	magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
-	if magicLinkSecret == "" {
-		log.Fatal("MAGIC_LINK_SECRET env var is required")
-	}
 
 	queries, err := gen.Prepare(ctx, currentDB)
 	if err != nil {
@@ -145,20 +132,6 @@ func main() {
 	vs := svar.New(queries)
 	es := senv.New(queries)
 	res := sexampleresp.New(queries)
-
-	emailClient, err := sesv2.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
-	if err != nil {
-		log.Fatalf("failed to create email client: %v", err)
-	}
-
-	path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
-	if path == "" {
-		log.Fatalf("EMAIL_INVITE_TEMPLATE_PATH is empty")
-	}
-	emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, emailClient)
-	if err != nil {
-		log.Fatalf("failed to create email invite manager: %v", err)
-	}
 
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
 	if dbMode != devtoolsdb.LOCAL {
@@ -188,14 +161,52 @@ func main() {
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(15)
 
-	// Auth Service
-	cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
-	MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
-	if err != nil {
-		log.Fatal(err)
+	if dbMode != devtoolsdb.LOCAL {
+		// Email
+		AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+		if AWS_ACCESS_KEY == "" {
+			log.Fatalf("AWS_ACCESS_KEY is empty")
+		}
+		AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+		if AWS_SECRET_KEY == "" {
+			log.Fatalf("AWS_SECRET_KEY is empty")
+		}
+
+		emailClient, err := sesv2.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+		if err != nil {
+			log.Fatalf("failed to create email client: %v", err)
+		}
+
+		path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
+		if path == "" {
+			log.Fatalf("EMAIL_INVITE_TEMPLATE_PATH is empty")
+		}
+		emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, emailClient)
+		if err != nil {
+			log.Fatalf("failed to create email invite manager: %v", err)
+		}
+		// Workspace Service
+		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es, *emailClient, emailInviteManager)
+		newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
+	} else {
+		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es, mockemail.NewMockEmailClient(), &emailinvite.EmailTemplateManager{})
+		newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 	}
-	authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
-	newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
+	// Auth Service
+	if dbMode != devtoolsdb.LOCAL {
+		magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
+		if magicLinkSecret == "" {
+			log.Fatal("MAGIC_LINK_SECRET env var is required")
+		}
+
+		cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
+		MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
+		if err != nil {
+			log.Fatal(err)
+		}
+		authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
+		newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
+	}
 
 	// Collection Service
 	collectionSrv := collection.New(currentDB, cs, ws,
@@ -212,10 +223,6 @@ func main() {
 	// Result API Service
 	resultapiSrv := resultapi.New(currentDB, us, cs, ias, iaes, ws, ers, erhs, as, ars)
 	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
-
-	// Workspace Service
-	workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es, *emailClient, emailInviteManager)
-	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 
 	// Item API Service
 	itemapiSrv := ritemapi.New(currentDB, ias, cs,
