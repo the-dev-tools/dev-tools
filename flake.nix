@@ -22,26 +22,29 @@
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
 
         devShells.runner = let
-          goWrapper = pkgs.writeShellApplication {
-            name = "go run";
-            runtimeInputs = with pkgs; [dotenvx go];
-            text = ''dotenvx run --convention=nextjs -- go run "$@"'';
-          };
-          pnpmWrapper = pkgs.writeShellApplication {
-            name = "pnpm";
-            runtimeInputs = with pkgs; [dotenvx pnpm_9];
-            text = ''dotenvx run --convention=nextjs -- pnpm "$@"'';
-          };
+          dotenvx-wrapper = pkg:
+            pkgs.writeShellApplication {
+              name = pkg.pname;
+              runtimeInputs = [pkgs.dotenvx pkg];
+              text = ''
+                dotenvx run \
+                  --log-level "''${DOTENV_LOG_LEVEL:-info}" \
+                  --convention=nextjs \
+                  -- ${pkg.pname} "$@"
+              '';
+            };
         in
           pkgs.mkShell {
             nativeBuildInputs =
               [
-                goWrapper
-                pnpmWrapper
+                (dotenvx-wrapper (pkgs.pnpm_9))
+                (dotenvx-wrapper (pkgs.turbo))
               ]
               ++ (with pkgs; [
                 dotenvx
                 go
+                go-task
+                nodejs_latest
               ]);
           };
 
