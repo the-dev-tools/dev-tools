@@ -3,7 +3,7 @@ import "@typespec/rest";
 
 import "../lib";
 
-import "./environment.tsp";
+import "./workspace.tsp";
 import "./resource.tsp";
 import "./flow-item/node.tsp";
 
@@ -38,6 +38,15 @@ model FlowDeleteRequest is Resource.Delete.Request<Flow>;
 model FlowDeleteResponse is Resource.Delete.Response<Flow>;
 
 @autoFields
+model FlowListByTagRequest {
+  flowID: Resource.ID;
+  tagID: Resource.ID;
+}
+
+@autoFields
+model FlowListByTagResponse is Resource.List.Response<FlowListItem>;
+
+@autoFields
 model FlowRunRequest {
   flowID: Resource.ID;
   environmentID: Resource.ID;
@@ -63,6 +72,7 @@ model FlowRunResponse {
 @Protobuf.service
 interface FlowService {
   FlowList(...FlowListRequest): FlowListResponse;
+  FlowListByTag(...FlowListByTagRequest): FlowListByTagResponse;
   FlowGet(...FlowGetRequest): FlowGetResponse;
   FlowCreate(...FlowCreateRequest): FlowCreateResponse;
   FlowUpdate(...FlowUpdateRequest): FlowUpdateResponse;
@@ -71,3 +81,4 @@ interface FlowService {
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }
+
