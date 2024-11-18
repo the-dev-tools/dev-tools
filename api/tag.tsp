@@ -20,7 +20,7 @@ namespace API.Tag;
 @autoFields
 @parentResource(Workspace.Workspace)
 model Tag {
-  @key TagID: Resource.ID;
+  @key tagId: Resource.ID;
   name: string;
 }
 

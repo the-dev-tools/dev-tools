@@ -36,8 +36,8 @@ model Node {
 
 @autoFields
 model NodeFor {
-  @key NodeID: Resource.ID;
-  nextNodeID?: Resource.ID;
+  @key NodeId: Resource.ID;
+  nextNodeId?: Resource.ID;
   iteration: int32;
 }
 
@@ -65,8 +65,8 @@ enum ConditionType {
 
 @autoFields
 model NodeCondition {
-  @key nodeID: Resource.ID;
-  nextNodeID?: Resource.ID;
+  @key nodeId: Resource.ID;
+  nextNodeId?: Resource.ID;
   conditionType: ConditionType;
   customCondition?: string;
 }

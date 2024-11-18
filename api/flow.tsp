@@ -45,8 +45,8 @@ model FlowDeleteResponse is Resource.Delete.Response<Flow>;
 
 @autoFields
 model FlowRunRequest {
-  flowID: Resource.ID;
-  environmentID: Resource.ID;
+  flowId: Resource.ID;
+  environmentId: Resource.ID;
 }
 
 enum ResultKind {
