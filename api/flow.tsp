@@ -26,7 +26,13 @@ model Flow {
 }
 
 model FlowListItem is Resource.List.Item<Flow>;
-model FlowListRequest is Resource.List.Request<Flow>;
+
+@autoFields
+model FlowListRequest {
+  ...Resource.List.Request<Flow>;
+  tagID?: Resource.ID;
+}
+
 model FlowListResponse is Resource.List.Response<FlowListItem>;
 model FlowGetRequest is Resource.Get.Request<Flow>;
 model FlowGetResponse is Resource.Get.Response<Flow>;
@@ -36,15 +42,6 @@ model FlowUpdateRequest is Resource.Update.Request<Flow>;
 model FlowUpdateResponse is Resource.Update.Response<Flow>;
 model FlowDeleteRequest is Resource.Delete.Request<Flow>;
 model FlowDeleteResponse is Resource.Delete.Response<Flow>;
-
-@autoFields
-model FlowListByTagRequest {
-  flowID: Resource.ID;
-  tagID: Resource.ID;
-}
-
-@autoFields
-model FlowListByTagResponse is Resource.List.Response<FlowListItem>;
 
 @autoFields
 model FlowRunRequest {
@@ -72,7 +69,6 @@ model FlowRunResponse {
 @Protobuf.service
 interface FlowService {
   FlowList(...FlowListRequest): FlowListResponse;
-  FlowListByTag(...FlowListByTagRequest): FlowListByTagResponse;
   FlowGet(...FlowGetRequest): FlowGetResponse;
   FlowCreate(...FlowCreateRequest): FlowCreateResponse;
   FlowUpdate(...FlowUpdateRequest): FlowUpdateResponse;
@@ -81,4 +77,3 @@ interface FlowService {
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }
-

@@ -19,20 +19,20 @@ namespace API.Tag;
 
 @autoFields
 @parentResource(Workspace.Workspace)
-model FlowTag {
+model Tag {
   @key TagID: Resource.ID;
   name: string;
 }
 
-model FlowTagListItem is Resource.List.Item<FlowTag>;
-model FlowTagListRequest is Resource.List.Request<FlowTag>;
-model FlowTagistResponse is Resource.List.Response<FlowTagListItem>;
-model FlowTagetRequest is Resource.Get.Request<FlowTag>;
-model FlowTagetResponse is Resource.Get.Response<FlowTag>;
-model FlowTagreateRequest is Resource.Create.Request<FlowTag>;
-model FlowTagreateResponse is Resource.Create.Response<FlowTag>;
-model FlowTagpdateRequest is Resource.Update.Request<FlowTag>;
-model FlowTagpdateResponse is Resource.Update.Response<FlowTag>;
-model FlowTageleteRequest is Resource.Delete.Request<FlowTag>;
-model FlowTageleteResponse is Resource.Delete.Response<FlowTag>;
+model TagListItem is Resource.List.Item<Tag>;
+model TagListRequest is Resource.List.Request<Tag>;
+model TagistResponse is Resource.List.Response<TagListItem>;
+model TagGetRequest is Resource.Get.Request<Tag>;
+model TagTagetResponse is Resource.Get.Response<Tag>;
+model TagCreateRequest is Resource.Create.Request<Tag>;
+model TagCreateResponse is Resource.Create.Response<Tag>;
+model TagUpdateRequest is Resource.Update.Request<Tag>;
+model TagUpdateResponse is Resource.Update.Response<Tag>;
+model TagDeleteRequest is Resource.Delete.Request<Tag>;
+model TagDeleteResponse is Resource.Delete.Response<Tag>;
 
