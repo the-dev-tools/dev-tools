@@ -1,0 +1,46 @@
+{
+  "darwin-amd64": {
+    "go": {
+      "GOOS": "darwin",
+      "GOARCH": "amd64"
+    }
+  },
+  "darwin-arm64": {
+    "go": {
+      "GOOS": "darwin",
+      "GOARCH": "arm64"
+    }
+  },
+
+  "linux-amd64": {
+    "go": {
+      "GOOS": "linux",
+      "GOARCH": "amd64"
+    }
+  },
+  "linux-arm64": {
+    "go": {
+      "GOOS": "linux",
+      "GOARCH": "arm64"
+    }
+  },
+
+  "windows-amd64": {
+    "binary-suffix": ".exe",
+    "go": {
+      "GOOS": "windows",
+      "GOARCH": "amd64",
+      "CC": "x86_64-w64-mingw32-gcc",
+      "CGO_ENABLED": "1",
+      "CXX": "x86_64-w64-mingw32-g++"
+    }
+  },
+  "windows-i386": {
+    "binary-suffix": ".exe",
+    "go": {
+      "GOOS": "windows",
+      "GOARCH": "386",
+      "CC": "i686-w64-mingw32-gcc"
+    }
+  }
+}

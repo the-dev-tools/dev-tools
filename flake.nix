@@ -44,6 +44,7 @@
                 dotenvx
                 go
                 go-task
+                jq
                 nodejs_latest
               ]);
           };
