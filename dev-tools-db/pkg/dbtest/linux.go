@@ -1,3 +1,5 @@
+//go:build linux
+
 package dbtest
 
 import (
@@ -6,11 +8,11 @@ import (
 	"dev-tools-db/pkg/sqlc"
 	"dev-tools-db/pkg/sqlc/gen"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/tursodatabase/go-libsql"
 )
 
 func GetTestDB(ctx context.Context) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("libsql", ":memory:")
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +27,7 @@ func GetTestDB(ctx context.Context) (*sql.DB, error) {
 }
 
 func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("libsql", ":memory:")
 	if err != nil {
 		return nil, err
 	}
