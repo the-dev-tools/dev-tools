@@ -1,13 +1,10 @@
 package api
 
 import (
-	"errors"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/bufbuild/httplb"
 	"github.com/rs/cors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -50,13 +47,15 @@ func newCORS() *cors.Cors {
 }
 
 func ListenServices(services []Service, port string) error {
-	upstream := os.Getenv("MASTER_NODE_ENDPOINT")
-	if upstream == "" {
-		return errors.New("MASTER_NODE_ENDPOINT env var is required")
-	}
+	/*
+			upstream := os.Getenv("MASTER_NODE_ENDPOINT")
+			if upstream == "" {
+				return errors.New("MASTER_NODE_ENDPOINT env var is required")
+			}
 
-	httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
-	defer httpClient.Close()
+		httpClient := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
+		defer httpClient.Close()
+	*/
 
 	mux := http.NewServeMux()
 
