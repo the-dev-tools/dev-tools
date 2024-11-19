@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.35.0
+
+### Minor Changes
+
+- [`f247f6e`](https://github.com/the-dev-tools/dev-tools-spec/commit/f247f6e52cf1c833460bff9c554ab71ec652f099) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add tag, fix casing
+
 ## 1.34.1
 
 ### Patch Changes
