@@ -53,6 +53,14 @@ func (s *FlowTagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mflo
 	return ConvertDBToModel(item), nil
 }
 
+func (s *FlowTagService) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) ([]mflowtag.FlowTag, error) {
+	items, err := s.queries.GetFlowTagsByTagID(ctx, tagID)
+	if err != nil {
+		return []mflowtag.FlowTag{}, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowTag, err)
+	}
+	return tgeneric.MassConvert(items, ConvertDBToModel), nil
+}
+
 func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mflowtag.FlowTag) error {
 	arg := ConvertModelToDB(ftag)
 	err := s.queries.CreateFlowTag(ctx, gen.CreateFlowTagParams{

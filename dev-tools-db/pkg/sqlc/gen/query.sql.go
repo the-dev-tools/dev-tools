@@ -3042,6 +3042,40 @@ func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowID idwrap.IDWrap)
 	return items, nil
 }
 
+const getFlowTagsByTagID = `-- name: GetFlowTagsByTagID :many
+SELECT
+  id,
+  flow_id,
+  tag_id
+FROM 
+  flow_tag
+WHERE
+  flow_id = ?
+`
+
+func (q *Queries) GetFlowTagsByTagID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowTag, error) {
+	rows, err := q.query(ctx, q.getFlowTagsByTagIDStmt, getFlowTagsByTagID, flowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowTag{}
+	for rows.Next() {
+		var i FlowTag
+		if err := rows.Scan(&i.ID, &i.FlowID, &i.TagID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
 SELECT 
   id,

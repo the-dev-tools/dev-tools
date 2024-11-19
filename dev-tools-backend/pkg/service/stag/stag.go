@@ -1,4 +1,4 @@
-package sftag
+package stag
 
 import (
 	"context"
@@ -9,22 +9,22 @@ import (
 	"dev-tools-db/pkg/sqlc/gen"
 )
 
-type FlowTagService struct {
+type TagService struct {
 	queries *gen.Queries
 }
 
 var ErrNoFTag error = sql.ErrNoRows
 
-func New(queries *gen.Queries) FlowTagService {
-	return FlowTagService{queries: queries}
+func New(queries *gen.Queries) TagService {
+	return TagService{queries: queries}
 }
 
-func NewTX(ctx context.Context, tx *sql.Tx) (*FlowTagService, error) {
+func NewTX(ctx context.Context, tx *sql.Tx) (*TagService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
-	return &FlowTagService{
+	return &TagService{
 		queries: queries,
 	}, nil
 }
@@ -45,7 +45,7 @@ func ConvertModelToDB(item mftag.FlowTag) gen.Ftag {
 	}
 }
 
-func (s *FlowTagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mftag.FlowTag, error) {
+func (s *TagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mftag.FlowTag, error) {
 	item, err := s.queries.GetFTag(ctx, id)
 	if err != nil {
 		return mftag.FlowTag{}, err
@@ -53,7 +53,7 @@ func (s *FlowTagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mfta
 	return ConvertDBToModel(item), nil
 }
 
-func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mftag.FlowTag) error {
+func (s *TagService) CreateFlowTag(ctx context.Context, ftag mftag.FlowTag) error {
 	arg := ConvertModelToDB(ftag)
 	err := s.queries.CreateFTag(ctx, gen.CreateFTagParams{
 		ID:          arg.ID,
@@ -63,7 +63,7 @@ func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mftag.FlowTag) 
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFTag, err)
 }
 
-func (s *FlowTagService) UpdateFlowTag(ctx context.Context, ftag mftag.FlowTag) error {
+func (s *TagService) UpdateFlowTag(ctx context.Context, ftag mftag.FlowTag) error {
 	arg := ConvertModelToDB(ftag)
 	err := s.queries.UpdateFTag(ctx, gen.UpdateFTagParams{
 		ID:   arg.ID,
@@ -72,7 +72,7 @@ func (s *FlowTagService) UpdateFlowTag(ctx context.Context, ftag mftag.FlowTag) 
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFTag, err)
 }
 
-func (s *FlowTagService) DeleteFlowTag(ctx context.Context, id idwrap.IDWrap) error {
+func (s *TagService) DeleteFlowTag(ctx context.Context, id idwrap.IDWrap) error {
 	err := s.queries.DeleteFTag(ctx, id)
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFTag, err)
 }

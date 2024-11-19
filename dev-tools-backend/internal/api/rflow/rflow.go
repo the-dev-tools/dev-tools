@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
+	"dev-tools-backend/pkg/model/mflow"
 	"dev-tools-backend/pkg/permcheck"
 	"dev-tools-backend/pkg/service/sflow"
+	"dev-tools-backend/pkg/service/sflowtag"
+	"dev-tools-backend/pkg/service/stag"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
 	"dev-tools-backend/pkg/translate/tflow"
@@ -17,20 +20,24 @@ import (
 )
 
 type FlowServiceRPC struct {
-	DB *sql.DB
-	fs sflow.FlowService
-	ws sworkspace.WorkspaceService
-	us suser.UserService
+	DB  *sql.DB
+	fs  sflow.FlowService
+	ws  sworkspace.WorkspaceService
+	us  suser.UserService
+	ts  stag.TagService
+	fts sflowtag.FlowTagService
 }
 
 func New(db *sql.DB, fs sflow.FlowService, ws sworkspace.WorkspaceService,
-	us suser.UserService,
+	us suser.UserService, ts stag.TagService, fts sflowtag.FlowTagService,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
-		DB: db,
-		fs: fs,
-		ws: ws,
-		us: us,
+		DB:  db,
+		fs:  fs,
+		ws:  ws,
+		us:  us,
+		ts:  ts,
+		fts: fts,
 	}
 }
 
@@ -39,17 +46,49 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	var tagIDPtr *idwrap.IDWrap = nil
+	if req.Msg.TagID != nil {
+		tagID, err := idwrap.NewFromBytes(req.Msg.TagID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		tagIDPtr = &tagID
+	}
+
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	flows, err := c.fs.GetFlowsByWorkspace(ctx, workspaceID)
-	if err != nil {
-		return nil, err
+	var flows []mflow.Flow
+
+	if tagIDPtr == nil {
+		flows, err = c.fs.GetFlowsByWorkspace(ctx, workspaceID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// TODO: can be better with sql query for now it's a workaround
+		tag, err := c.ts.GetFlowTag(ctx, *tagIDPtr)
+		if err != nil {
+			if err == stag.ErrNoFTag {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, err
+		}
+		flowTags, err := c.fts.GetFlowTagsByTagID(ctx, tag.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, flowTag := range flowTags {
+			flow, err := c.fs.GetFlow(ctx, flowTag.FlowID)
+			if err != nil {
+				return nil, err
+			}
+			flows = append(flows, flow)
+		}
 	}
-	rpcFlows := tgeneric.MassConvert(flows, tflow.SeralizeModelToRPCItem)
 	rpcResp := &flowv1.FlowListResponse{
-		Items: rpcFlows,
+		Items: tgeneric.MassConvert(flows, tflow.SeralizeModelToRPCItem),
 	}
 	return connect.NewResponse(rpcResp), nil
 }

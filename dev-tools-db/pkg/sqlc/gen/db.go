@@ -267,6 +267,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowTagsByFlowIDStmt, err = db.PrepareContext(ctx, getFlowTagsByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowTagsByFlowID: %w", err)
 	}
+	if q.getFlowTagsByTagIDStmt, err = db.PrepareContext(ctx, getFlowTagsByTagID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowTagsByTagID: %w", err)
+	}
 	if q.getFlowsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFlowsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByWorkspaceID: %w", err)
 	}
@@ -848,6 +851,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowTagsByFlowIDStmt: %w", cerr)
 		}
 	}
+	if q.getFlowTagsByTagIDStmt != nil {
+		if cerr := q.getFlowTagsByTagIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowTagsByTagIDStmt: %w", cerr)
+		}
+	}
 	if q.getFlowsByWorkspaceIDStmt != nil {
 		if cerr := q.getFlowsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowsByWorkspaceIDStmt: %w", cerr)
@@ -1253,6 +1261,7 @@ type Queries struct {
 	getFlowStmt                                *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
 	getFlowTagsByFlowIDStmt                    *sql.Stmt
+	getFlowTagsByTagIDStmt                     *sql.Stmt
 	getFlowsByWorkspaceIDStmt                  *sql.Stmt
 	getHeaderStmt                              *sql.Stmt
 	getHeadersByExampleIDStmt                  *sql.Stmt
@@ -1397,6 +1406,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowStmt:                                q.getFlowStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
 		getFlowTagsByFlowIDStmt:                    q.getFlowTagsByFlowIDStmt,
+		getFlowTagsByTagIDStmt:                     q.getFlowTagsByTagIDStmt,
 		getFlowsByWorkspaceIDStmt:                  q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                              q.getHeaderStmt,
 		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,

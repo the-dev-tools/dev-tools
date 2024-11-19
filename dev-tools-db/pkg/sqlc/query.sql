@@ -1459,6 +1459,16 @@ FROM
 WHERE
   flow_id = ?;
 
+-- name: GetFlowTagsByTagID :many
+SELECT
+  id,
+  flow_id,
+  tag_id
+FROM 
+  flow_tag
+WHERE
+  flow_id = ?;
+
 -- name: CreateFlowTag :exec
 INSERT INTO
   flow_tag (id, flow_id, tag_id)
