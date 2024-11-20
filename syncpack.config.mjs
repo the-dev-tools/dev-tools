@@ -8,8 +8,10 @@ export default {
     'version',
     'private',
     'repository',
-    'scripts',
+    'type',
+    'main',
     'files',
+    'scripts',
     'exports',
   ],
   versionGroups: [
