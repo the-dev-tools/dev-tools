@@ -2,7 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "daemon": false,
   "dangerouslyDisablePackageManagerCheck": true,
-  "globalEnv": ["PUBLIC_API_URL", "PUBLIC_MAGIC_KEY", "NODE_ENV"],
+  "globalEnv": ["ELECTRON_OVERRIDE_DIST_PATH", "PUBLIC_*", "NODE_ENV"],
   "tasks": {
     "dev": {
       "cache": false,
