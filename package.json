@@ -26,6 +26,9 @@
     },
     "overrides": {
       "sharp": "0.33.5"
+    },
+    "patchedDependencies": {
+      "@electron-forge/plugin-vite@7.5.0": "patches/@electron-forge__plugin-vite@7.5.0.patch"
     }
   }
 }

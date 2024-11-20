@@ -1,0 +1,25 @@
+{
+  "name": "@the-dev-tools/desktop",
+  "version": "0.0.0",
+  "type": "module",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "dev": "electron-forge start",
+    "lint": "eslint --flag unstable_ts_config ."
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "~7.5.0",
+    "@electron-forge/plugin-auto-unpack-natives": "~7.5.0",
+    "@electron-forge/plugin-fuses": "~7.5.0",
+    "@electron-forge/plugin-vite": "~7.5.0",
+    "@electron-forge/shared-types": "~7.5.0",
+    "@electron/fuses": "~1.8.0",
+    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/config-typescript": "workspace:^",
+    "electron": "~33.2.0",
+    "eslint": "~9.14.0",
+    "ts-node": "~10.9.2",
+    "typescript": "~5.6.3",
+    "vite": "~5.4.11"
+  }
+}
