@@ -37,8 +37,9 @@
           pkgs.mkShell {
             nativeBuildInputs =
               [
-                (dotenvx-wrapper (pkgs.go))
+                ## TODO: fix this broke the gopls ( go's lsp ) (dotenvx-wrapper (pkgs.go))
                 (dotenvx-wrapper (pkgs.pnpm_9))
+                pkgs.gopls
               ]
               ++ (with pkgs; [
                 nodejs_latest
