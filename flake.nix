@@ -37,15 +37,20 @@
           pkgs.mkShell {
             nativeBuildInputs =
               [
+                (dotenvx-wrapper (pkgs.go))
                 (dotenvx-wrapper (pkgs.pnpm_9))
-                (dotenvx-wrapper (pkgs.turbo))
               ]
               ++ (with pkgs; [
+                nodejs_latest
+
+                # build tools
                 dotenvx
-                go
                 go-task
                 jq
-                nodejs_latest
+
+                # cross-compilation dependencies
+                pkgsCross.mingw32.buildPackages.gcc
+                pkgsCross.mingwW64.buildPackages.gcc
               ]);
           };
 
