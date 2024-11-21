@@ -63,9 +63,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createExampleRespHeaderStmt, err = db.PrepareContext(ctx, createExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateExampleRespHeader: %w", err)
 	}
-	if q.createFTagStmt, err = db.PrepareContext(ctx, createFTag); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateFTag: %w", err)
-	}
 	if q.createFlowStmt, err = db.PrepareContext(ctx, createFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlow: %w", err)
 	}
@@ -104,6 +101,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createResultApiStmt, err = db.PrepareContext(ctx, createResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateResultApi: %w", err)
+	}
+	if q.createTagStmt, err = db.PrepareContext(ctx, createTag); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateTag: %w", err)
 	}
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
@@ -147,9 +147,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteExampleRespHeaderStmt, err = db.PrepareContext(ctx, deleteExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteExampleRespHeader: %w", err)
 	}
-	if q.deleteFTagStmt, err = db.PrepareContext(ctx, deleteFTag); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteFTag: %w", err)
-	}
 	if q.deleteFlowStmt, err = db.PrepareContext(ctx, deleteFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlow: %w", err)
 	}
@@ -173,6 +170,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteResultApiStmt, err = db.PrepareContext(ctx, deleteResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteResultApi: %w", err)
+	}
+	if q.deleteTagStmt, err = db.PrepareContext(ctx, deleteTag); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTag: %w", err)
 	}
 	if q.deleteUserStmt, err = db.PrepareContext(ctx, deleteUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteUser: %w", err)
@@ -252,12 +252,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getExampleRespsByExampleIDStmt, err = db.PrepareContext(ctx, getExampleRespsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleRespsByExampleID: %w", err)
 	}
-	if q.getFTagStmt, err = db.PrepareContext(ctx, getFTag); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFTag: %w", err)
-	}
-	if q.getFTagsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFTagsByWorkspaceID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFTagsByWorkspaceID: %w", err)
-	}
 	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
 	}
@@ -323,6 +317,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getResultApiByTriggerByAndTriggerTypeStmt, err = db.PrepareContext(ctx, getResultApiByTriggerByAndTriggerType); err != nil {
 		return nil, fmt.Errorf("error preparing query GetResultApiByTriggerByAndTriggerType: %w", err)
+	}
+	if q.getTagStmt, err = db.PrepareContext(ctx, getTag); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTag: %w", err)
+	}
+	if q.getTagsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getTagsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTagsByWorkspaceID: %w", err)
 	}
 	if q.getUserStmt, err = db.PrepareContext(ctx, getUser); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUser: %w", err)
@@ -402,9 +402,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateExampleRespHeaderStmt, err = db.PrepareContext(ctx, updateExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateExampleRespHeader: %w", err)
 	}
-	if q.updateFTagStmt, err = db.PrepareContext(ctx, updateFTag); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateFTag: %w", err)
-	}
 	if q.updateFlowStmt, err = db.PrepareContext(ctx, updateFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlow: %w", err)
 	}
@@ -425,6 +422,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateResultApiStmt, err = db.PrepareContext(ctx, updateResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateResultApi: %w", err)
+	}
+	if q.updateTagStmt, err = db.PrepareContext(ctx, updateTag); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateTag: %w", err)
 	}
 	if q.updateUserStmt, err = db.PrepareContext(ctx, updateUser); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateUser: %w", err)
@@ -511,11 +511,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createExampleRespHeaderStmt: %w", cerr)
 		}
 	}
-	if q.createFTagStmt != nil {
-		if cerr := q.createFTagStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createFTagStmt: %w", cerr)
-		}
-	}
 	if q.createFlowStmt != nil {
 		if cerr := q.createFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowStmt: %w", cerr)
@@ -579,6 +574,11 @@ func (q *Queries) Close() error {
 	if q.createResultApiStmt != nil {
 		if cerr := q.createResultApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createResultApiStmt: %w", cerr)
+		}
+	}
+	if q.createTagStmt != nil {
+		if cerr := q.createTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createTagStmt: %w", cerr)
 		}
 	}
 	if q.createUserStmt != nil {
@@ -651,11 +651,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteExampleRespHeaderStmt: %w", cerr)
 		}
 	}
-	if q.deleteFTagStmt != nil {
-		if cerr := q.deleteFTagStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteFTagStmt: %w", cerr)
-		}
-	}
 	if q.deleteFlowStmt != nil {
 		if cerr := q.deleteFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowStmt: %w", cerr)
@@ -694,6 +689,11 @@ func (q *Queries) Close() error {
 	if q.deleteResultApiStmt != nil {
 		if cerr := q.deleteResultApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteResultApiStmt: %w", cerr)
+		}
+	}
+	if q.deleteTagStmt != nil {
+		if cerr := q.deleteTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTagStmt: %w", cerr)
 		}
 	}
 	if q.deleteUserStmt != nil {
@@ -826,16 +826,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getExampleRespsByExampleIDStmt: %w", cerr)
 		}
 	}
-	if q.getFTagStmt != nil {
-		if cerr := q.getFTagStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFTagStmt: %w", cerr)
-		}
-	}
-	if q.getFTagsByWorkspaceIDStmt != nil {
-		if cerr := q.getFTagsByWorkspaceIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFTagsByWorkspaceIDStmt: %w", cerr)
-		}
-	}
 	if q.getFlowStmt != nil {
 		if cerr := q.getFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowStmt: %w", cerr)
@@ -944,6 +934,16 @@ func (q *Queries) Close() error {
 	if q.getResultApiByTriggerByAndTriggerTypeStmt != nil {
 		if cerr := q.getResultApiByTriggerByAndTriggerTypeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getResultApiByTriggerByAndTriggerTypeStmt: %w", cerr)
+		}
+	}
+	if q.getTagStmt != nil {
+		if cerr := q.getTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTagStmt: %w", cerr)
+		}
+	}
+	if q.getTagsByWorkspaceIDStmt != nil {
+		if cerr := q.getTagsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTagsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getUserStmt != nil {
@@ -1076,11 +1076,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateExampleRespHeaderStmt: %w", cerr)
 		}
 	}
-	if q.updateFTagStmt != nil {
-		if cerr := q.updateFTagStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateFTagStmt: %w", cerr)
-		}
-	}
 	if q.updateFlowStmt != nil {
 		if cerr := q.updateFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowStmt: %w", cerr)
@@ -1114,6 +1109,11 @@ func (q *Queries) Close() error {
 	if q.updateResultApiStmt != nil {
 		if cerr := q.updateResultApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateResultApiStmt: %w", cerr)
+		}
+	}
+	if q.updateTagStmt != nil {
+		if cerr := q.updateTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateTagStmt: %w", cerr)
 		}
 	}
 	if q.updateUserStmt != nil {
@@ -1193,7 +1193,6 @@ type Queries struct {
 	createEnvironmentStmt                      *sql.Stmt
 	createExampleRespStmt                      *sql.Stmt
 	createExampleRespHeaderStmt                *sql.Stmt
-	createFTagStmt                             *sql.Stmt
 	createFlowStmt                             *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
@@ -1207,6 +1206,7 @@ type Queries struct {
 	createQueryStmt                            *sql.Stmt
 	createQueryBulkStmt                        *sql.Stmt
 	createResultApiStmt                        *sql.Stmt
+	createTagStmt                              *sql.Stmt
 	createUserStmt                             *sql.Stmt
 	createVariableStmt                         *sql.Stmt
 	createVariableBulkStmt                     *sql.Stmt
@@ -1221,7 +1221,6 @@ type Queries struct {
 	deleteEnvironmentStmt                      *sql.Stmt
 	deleteExampleRespStmt                      *sql.Stmt
 	deleteExampleRespHeaderStmt                *sql.Stmt
-	deleteFTagStmt                             *sql.Stmt
 	deleteFlowStmt                             *sql.Stmt
 	deleteFlowTagStmt                          *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
@@ -1230,6 +1229,7 @@ type Queries struct {
 	deleteItemFolderStmt                       *sql.Stmt
 	deleteQueryStmt                            *sql.Stmt
 	deleteResultApiStmt                        *sql.Stmt
+	deleteTagStmt                              *sql.Stmt
 	deleteUserStmt                             *sql.Stmt
 	deleteVariableStmt                         *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
@@ -1256,8 +1256,6 @@ type Queries struct {
 	getExampleRespHeaderStmt                   *sql.Stmt
 	getExampleRespHeadersByRespIDStmt          *sql.Stmt
 	getExampleRespsByExampleIDStmt             *sql.Stmt
-	getFTagStmt                                *sql.Stmt
-	getFTagsByWorkspaceIDStmt                  *sql.Stmt
 	getFlowStmt                                *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
 	getFlowTagsByFlowIDStmt                    *sql.Stmt
@@ -1280,6 +1278,8 @@ type Queries struct {
 	getResultApiStmt                           *sql.Stmt
 	getResultApiByTriggerByStmt                *sql.Stmt
 	getResultApiByTriggerByAndTriggerTypeStmt  *sql.Stmt
+	getTagStmt                                 *sql.Stmt
+	getTagsByWorkspaceIDStmt                   *sql.Stmt
 	getUserStmt                                *sql.Stmt
 	getUserByEmailStmt                         *sql.Stmt
 	getUserByEmailAndProviderTypeStmt          *sql.Stmt
@@ -1306,7 +1306,6 @@ type Queries struct {
 	updateEnvironmentStmt                      *sql.Stmt
 	updateExampleRespStmt                      *sql.Stmt
 	updateExampleRespHeaderStmt                *sql.Stmt
-	updateFTagStmt                             *sql.Stmt
 	updateFlowStmt                             *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
@@ -1314,6 +1313,7 @@ type Queries struct {
 	updateItemFolderStmt                       *sql.Stmt
 	updateQueryStmt                            *sql.Stmt
 	updateResultApiStmt                        *sql.Stmt
+	updateTagStmt                              *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
 	updateVisualizeModeStmt                    *sql.Stmt
@@ -1338,7 +1338,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createEnvironmentStmt:                      q.createEnvironmentStmt,
 		createExampleRespStmt:                      q.createExampleRespStmt,
 		createExampleRespHeaderStmt:                q.createExampleRespHeaderStmt,
-		createFTagStmt:                             q.createFTagStmt,
 		createFlowStmt:                             q.createFlowStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createHeaderStmt:                           q.createHeaderStmt,
@@ -1352,6 +1351,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createQueryStmt:                            q.createQueryStmt,
 		createQueryBulkStmt:                        q.createQueryBulkStmt,
 		createResultApiStmt:                        q.createResultApiStmt,
+		createTagStmt:                              q.createTagStmt,
 		createUserStmt:                             q.createUserStmt,
 		createVariableStmt:                         q.createVariableStmt,
 		createVariableBulkStmt:                     q.createVariableBulkStmt,
@@ -1366,7 +1366,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
 		deleteExampleRespStmt:                      q.deleteExampleRespStmt,
 		deleteExampleRespHeaderStmt:                q.deleteExampleRespHeaderStmt,
-		deleteFTagStmt:                             q.deleteFTagStmt,
 		deleteFlowStmt:                             q.deleteFlowStmt,
 		deleteFlowTagStmt:                          q.deleteFlowTagStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
@@ -1375,6 +1374,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteItemFolderStmt:                       q.deleteItemFolderStmt,
 		deleteQueryStmt:                            q.deleteQueryStmt,
 		deleteResultApiStmt:                        q.deleteResultApiStmt,
+		deleteTagStmt:                              q.deleteTagStmt,
 		deleteUserStmt:                             q.deleteUserStmt,
 		deleteVariableStmt:                         q.deleteVariableStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
@@ -1401,8 +1401,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getExampleRespHeaderStmt:                   q.getExampleRespHeaderStmt,
 		getExampleRespHeadersByRespIDStmt:          q.getExampleRespHeadersByRespIDStmt,
 		getExampleRespsByExampleIDStmt:             q.getExampleRespsByExampleIDStmt,
-		getFTagStmt:                                q.getFTagStmt,
-		getFTagsByWorkspaceIDStmt:                  q.getFTagsByWorkspaceIDStmt,
 		getFlowStmt:                                q.getFlowStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
 		getFlowTagsByFlowIDStmt:                    q.getFlowTagsByFlowIDStmt,
@@ -1425,6 +1423,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getResultApiStmt:                           q.getResultApiStmt,
 		getResultApiByTriggerByStmt:                q.getResultApiByTriggerByStmt,
 		getResultApiByTriggerByAndTriggerTypeStmt:  q.getResultApiByTriggerByAndTriggerTypeStmt,
+		getTagStmt:                                 q.getTagStmt,
+		getTagsByWorkspaceIDStmt:                   q.getTagsByWorkspaceIDStmt,
 		getUserStmt:                                q.getUserStmt,
 		getUserByEmailStmt:                         q.getUserByEmailStmt,
 		getUserByEmailAndProviderTypeStmt:          q.getUserByEmailAndProviderTypeStmt,
@@ -1451,7 +1451,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateEnvironmentStmt:                      q.updateEnvironmentStmt,
 		updateExampleRespStmt:                      q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                q.updateExampleRespHeaderStmt,
-		updateFTagStmt:                             q.updateFTagStmt,
 		updateFlowStmt:                             q.updateFlowStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,
@@ -1459,6 +1458,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateItemFolderStmt:                       q.updateItemFolderStmt,
 		updateQueryStmt:                            q.updateQueryStmt,
 		updateResultApiStmt:                        q.updateResultApiStmt,
+		updateTagStmt:                              q.updateTagStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,
 		updateVisualizeModeStmt:                    q.updateVisualizeModeStmt,

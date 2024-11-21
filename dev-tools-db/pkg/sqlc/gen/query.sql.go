@@ -641,24 +641,6 @@ func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExample
 	return err
 }
 
-const createFTag = `-- name: CreateFTag :exec
-INSERT INTO
-  ftag (id, workspace_id, name)
-VALUES
-  (?, ?, ?)
-`
-
-type CreateFTagParams struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-}
-
-func (q *Queries) CreateFTag(ctx context.Context, arg CreateFTagParams) error {
-	_, err := q.exec(ctx, q.createFTagStmt, createFTag, arg.ID, arg.WorkspaceID, arg.Name)
-	return err
-}
-
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
   flow (id, workspace_id, name)
@@ -1772,6 +1754,30 @@ func (q *Queries) CreateResultApi(ctx context.Context, arg CreateResultApiParams
 	return err
 }
 
+const createTag = `-- name: CreateTag :exec
+INSERT INTO
+  tag (id, workspace_id, name, color)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateTagParams struct {
+	ID          []byte
+	WorkspaceID []byte
+	Name        string
+	Color       string
+}
+
+func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) error {
+	_, err := q.exec(ctx, q.createTagStmt, createTag,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.Name,
+		arg.Color,
+	)
+	return err
+}
+
 const createUser = `-- name: CreateUser :exec
 INSERT INTO
   users (
@@ -2040,17 +2046,6 @@ func (q *Queries) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap)
 	return err
 }
 
-const deleteFTag = `-- name: DeleteFTag :exec
-DELETE FROM ftag
-WHERE
-  id = ?
-`
-
-func (q *Queries) DeleteFTag(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteFTagStmt, deleteFTag, id)
-	return err
-}
-
 const deleteFlow = `-- name: DeleteFlow :exec
 DELETE FROM flow
 WHERE
@@ -2136,6 +2131,17 @@ WHERE
 
 func (q *Queries) DeleteResultApi(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteResultApiStmt, deleteResultApi, id)
+	return err
+}
+
+const deleteTag = `-- name: DeleteTag :exec
+DELETE FROM tag
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteTag(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteTagStmt, deleteTag, id)
 	return err
 }
 
@@ -2919,59 +2925,6 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 	return i, err
 }
 
-const getFTag = `-- name: GetFTag :one
-SELECT
-  id,
-  workspace_id,
-  name
-FROM 
-  ftag 
-WHERE
-  id = ?
-LIMIT 1
-`
-
-func (q *Queries) GetFTag(ctx context.Context, id idwrap.IDWrap) (Ftag, error) {
-	row := q.queryRow(ctx, q.getFTagStmt, getFTag, id)
-	var i Ftag
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
-	return i, err
-}
-
-const getFTagsByWorkspaceID = `-- name: GetFTagsByWorkspaceID :many
-SELECT
-  id,
-  workspace_id,
-  name
-FROM 
-  ftag
-WHERE
-  workspace_id = ?
-`
-
-func (q *Queries) GetFTagsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Ftag, error) {
-	rows, err := q.query(ctx, q.getFTagsByWorkspaceIDStmt, getFTagsByWorkspaceID, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Ftag{}
-	for rows.Next() {
-		var i Ftag
-		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getFlow = `-- name: GetFlow :one
 SELECT 
   id,
@@ -3727,6 +3680,71 @@ func (q *Queries) GetResultApiByTriggerByAndTriggerType(ctx context.Context, arg
 			&i.Time,
 			&i.Duration,
 			&i.HttpResp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTag = `-- name: GetTag :one
+SELECT
+  id,
+  workspace_id,
+  name,
+  color
+FROM 
+  tag 
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetTag(ctx context.Context, id []byte) (Tag, error) {
+	row := q.queryRow(ctx, q.getTagStmt, getTag, id)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Color,
+	)
+	return i, err
+}
+
+const getTagsByWorkspaceID = `-- name: GetTagsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  name,
+  color
+FROM 
+  tag
+WHERE
+  workspace_id = ?
+`
+
+func (q *Queries) GetTagsByWorkspaceID(ctx context.Context, workspaceID []byte) ([]Tag, error) {
+	rows, err := q.query(ctx, q.getTagsByWorkspaceIDStmt, getTagsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tag{}
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Color,
 		); err != nil {
 			return nil, err
 		}
@@ -4518,24 +4536,6 @@ func (q *Queries) UpdateExampleRespHeader(ctx context.Context, arg UpdateExample
 	return err
 }
 
-const updateFTag = `-- name: UpdateFTag :exec
-UPDATE ftag 
-SET
-  name = ?
-WHERE
-  id = ?
-`
-
-type UpdateFTagParams struct {
-	Name string
-	ID   idwrap.IDWrap
-}
-
-func (q *Queries) UpdateFTag(ctx context.Context, arg UpdateFTagParams) error {
-	_, err := q.exec(ctx, q.updateFTagStmt, updateFTag, arg.Name, arg.ID)
-	return err
-}
-
 const updateFlow = `-- name: UpdateFlow :exec
 UPDATE flow
 SET
@@ -4714,6 +4714,26 @@ func (q *Queries) UpdateResultApi(ctx context.Context, arg UpdateResultApiParams
 		arg.HttpResp,
 		arg.ID,
 	)
+	return err
+}
+
+const updateTag = `-- name: UpdateTag :exec
+UPDATE tag 
+SET
+  name = ?,
+  color = ?
+WHERE
+  id = ?
+`
+
+type UpdateTagParams struct {
+	Name  string
+	Color string
+	ID    []byte
+}
+
+func (q *Queries) UpdateTag(ctx context.Context, arg UpdateTagParams) error {
+	_, err := q.exec(ctx, q.updateTagStmt, updateTag, arg.Name, arg.Color, arg.ID)
 	return err
 }
 

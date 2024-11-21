@@ -116,12 +116,6 @@ type FlowTag struct {
 	TagID  idwrap.IDWrap
 }
 
-type Ftag struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-}
-
 type ItemApi struct {
 	ID           idwrap.IDWrap
 	CollectionID idwrap.IDWrap
@@ -162,6 +156,13 @@ type ResultApi struct {
 	Time        int64
 	Duration    int64
 	HttpResp    mresultapi.HttpResp
+}
+
+type Tag struct {
+	ID          []byte
+	WorkspaceID []byte
+	Name        string
+	Color       string
 }
 
 type User struct {

@@ -276,10 +276,11 @@ CREATE TABLE flow (
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
-CREATE TABLE ftag (
+CREATE TABLE tag (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
   name TEXT NOT NULL,
+  color TEXT NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
