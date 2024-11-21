@@ -22,9 +22,9 @@
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
 
         devShells.runner = let
-          dotenvx-wrapper = pkg:
+          dotenvx-wrapper = args @ {pkg, ...}:
             pkgs.writeShellApplication {
-              name = pkg.pname;
+              name = args.name or pkg.pname;
               runtimeInputs = [pkgs.dotenvx pkg];
               text = ''
                 dotenvx run \
@@ -37,11 +37,14 @@
           pkgs.mkShell {
             nativeBuildInputs =
               [
-                ## TODO: fix this broke the gopls ( go's lsp ) (dotenvx-wrapper (pkgs.go))
-                (dotenvx-wrapper (pkgs.pnpm_9))
-                pkgs.gopls
+                (dotenvx-wrapper {
+                  pkg = pkgs.go;
+                  name = "gox";
+                })
+                (dotenvx-wrapper {pkg = pkgs.pnpm_9;})
               ]
               ++ (with pkgs; [
+                go
                 nodejs_latest
 
                 # build tools
@@ -62,6 +65,7 @@
             self'.devShells.runner.nativeBuildInputs
             ++ (with pkgs; [
               alejandra
+              gopls
               nixd
             ]);
         };
