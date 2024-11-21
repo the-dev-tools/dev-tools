@@ -79,12 +79,14 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		if err != nil {
 			return nil, err
 		}
-		for _, flowTag := range flowTags {
+		flows = make([]mflow.Flow, len(flowTags))
+		for i, flowTag := range flowTags {
 			flow, err := c.fs.GetFlow(ctx, flowTag.FlowID)
 			if err != nil {
 				return nil, err
 			}
-			flows = append(flows, flow)
+
+			flows[i] = flow
 		}
 	}
 	rpcResp := &flowv1.FlowListResponse{
