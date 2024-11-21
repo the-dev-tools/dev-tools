@@ -24,7 +24,7 @@ jobs:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - id: set-modules
         run: |
-          modules=$(gox list -m -json | jq -s '.' | jq -c '[.[].Dir | select(index("node_modules") | not)]')
+          modules=$(DOTENV_LOG_LEVEL=error gox list -m -json | jq -s '.' | jq -c '[.[].Dir | select(index("node_modules") | not)]')
           echo "modules=$modules" >> $GITHUB_OUTPUT
   go-test:
     needs: detect-modules
