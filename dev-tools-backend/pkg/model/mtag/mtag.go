@@ -1,9 +1,10 @@
-package mftag
+package mtag
 
 import "dev-tools-backend/pkg/idwrap"
 
-type FlowTag struct {
+type Tag struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
 	Name        string
+	Color       string
 }

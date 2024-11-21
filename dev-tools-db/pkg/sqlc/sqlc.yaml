@@ -397,13 +397,13 @@ sql:
               type: "IDWrap"
           ## ftag
           ### id
-          - column: "ftag.id"
+          - column: "tag.id"
             go_type:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"
               type: "IDWrap"
           ### workspace_id
-          - column: "ftag.workspace_id"
+          - column: "tag.workspace_id"
             go_type:
               import: "dev-tools-backend/pkg/idwrap"
               package: "idwrap"

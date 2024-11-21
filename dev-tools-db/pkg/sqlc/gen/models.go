@@ -159,8 +159,8 @@ type ResultApi struct {
 }
 
 type Tag struct {
-	ID          []byte
-	WorkspaceID []byte
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
 	Name        string
 	Color       string
 }

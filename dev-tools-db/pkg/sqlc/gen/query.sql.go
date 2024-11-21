@@ -1762,8 +1762,8 @@ VALUES
 `
 
 type CreateTagParams struct {
-	ID          []byte
-	WorkspaceID []byte
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
 	Name        string
 	Color       string
 }
@@ -2140,7 +2140,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteTag(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteTag(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteTagStmt, deleteTag, id)
 	return err
 }
@@ -3707,7 +3707,7 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetTag(ctx context.Context, id []byte) (Tag, error) {
+func (q *Queries) GetTag(ctx context.Context, id idwrap.IDWrap) (Tag, error) {
 	row := q.queryRow(ctx, q.getTagStmt, getTag, id)
 	var i Tag
 	err := row.Scan(
@@ -3731,7 +3731,7 @@ WHERE
   workspace_id = ?
 `
 
-func (q *Queries) GetTagsByWorkspaceID(ctx context.Context, workspaceID []byte) ([]Tag, error) {
+func (q *Queries) GetTagsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Tag, error) {
 	rows, err := q.query(ctx, q.getTagsByWorkspaceIDStmt, getTagsByWorkspaceID, workspaceID)
 	if err != nil {
 		return nil, err
@@ -4729,7 +4729,7 @@ WHERE
 type UpdateTagParams struct {
 	Name  string
 	Color string
-	ID    []byte
+	ID    idwrap.IDWrap
 }
 
 func (q *Queries) UpdateTag(ctx context.Context, arg UpdateTagParams) error {
