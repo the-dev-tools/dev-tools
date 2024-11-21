@@ -6,6 +6,7 @@
 .plasmo
 .turbo
 .vite
+*.db
 **/cosmos/imports.ts
 dist
 next-env.d.ts
