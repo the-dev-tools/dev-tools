@@ -21,7 +21,7 @@ namespace API.Flow;
 @autoFields
 @parentResource(Workspace.Workspace)
 model Flow {
-  @key flowID: Resource.ID;
+  @key flowId: Resource.ID;
   name: string;
 }
 
@@ -30,7 +30,7 @@ model FlowListItem is Resource.List.Item<Flow>;
 @autoFields
 model FlowListRequest {
   ...Resource.List.Request<Flow>;
-  tagID?: Resource.ID;
+  tagId?: Resource.ID;
 }
 
 model FlowListResponse is Resource.List.Response<FlowListItem>;
@@ -77,3 +77,4 @@ interface FlowService {
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }
+
