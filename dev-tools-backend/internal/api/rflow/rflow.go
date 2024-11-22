@@ -47,8 +47,8 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	var tagIDPtr *idwrap.IDWrap = nil
-	if req.Msg.TagID != nil {
-		tagID, err := idwrap.NewFromBytes(req.Msg.TagID)
+	if req.Msg.TagId != nil {
+		tagID, err := idwrap.NewFromBytes(req.Msg.TagId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -96,7 +96,7 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 }
 
 func (c *FlowServiceRPC) FlowGet(ctx context.Context, req *connect.Request[flowv1.FlowGetRequest]) (*connect.Response[flowv1.FlowGetResponse], error) {
-	flowID, err := idwrap.NewFromBytes(req.Msg.FlowID)
+	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -110,7 +110,7 @@ func (c *FlowServiceRPC) FlowGet(ctx context.Context, req *connect.Request[flowv
 	}
 	rpcFlow := tflow.SeralizeModelToRPC(flow)
 	rpcResp := &flowv1.FlowGetResponse{
-		FlowID: rpcFlow.FlowID,
+		FlowId: rpcFlow.FlowId,
 		Name:   rpcFlow.Name,
 	}
 	return connect.NewResponse(rpcResp), nil
@@ -139,7 +139,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 
 func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[flowv1.FlowUpdateRequest]) (*connect.Response[flowv1.FlowUpdateResponse], error) {
 	rpcFlow := flowv1.Flow{
-		FlowID: req.Msg.FlowID,
+		FlowId: req.Msg.FlowId,
 		Name:   req.Msg.Name,
 	}
 	flow, err := tflow.SeralizeRpcToModel(&rpcFlow)
@@ -160,7 +160,7 @@ func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[fl
 }
 
 func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[flowv1.FlowDeleteRequest]) (*connect.Response[flowv1.FlowDeleteResponse], error) {
-	flowID, err := idwrap.NewFromBytes(req.Msg.FlowID)
+	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

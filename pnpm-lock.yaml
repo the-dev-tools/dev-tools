@@ -15,8 +15,8 @@ importers:
         specifier: 1.28.0
         version: 1.28.0
       '@the-dev-tools/spec':
-        specifier: 1.35.0
-        version: 1.35.0
+        specifier: 1.37.0
+        version: 1.37.0
       install:
         specifier: ^0.13.0
         version: 0.13.0
@@ -135,8 +135,8 @@ packages:
   '@the-dev-tools/protobuf@1.28.0':
     resolution: {integrity: sha512-gpX8WUSNBNM/XEpn0gZAsxK4qvAPbkTlW9xX2xthBOg9N3Vm83pfazEbMVDCWdQDMabChPWXr+0RCdAy9ceUNQ==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/protobuf/1.28.0/8cd90605860e62caaa53be294a3fa06a6438d679}
 
-  '@the-dev-tools/spec@1.35.0':
-    resolution: {integrity: sha512-moPb/xJuTKRtbLMVvF95fXs5RNo+3xIlvfpCwUoxHJ3A0xVuMKuQMK/AidopFiRiW1YlPSVtp/dRTuw66SB2Pg==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/spec/1.35.0/76a50243bb8d93cead906456f0c103d6a691a0bc}
+  '@the-dev-tools/spec@1.37.0':
+    resolution: {integrity: sha512-Qt+DLjtFAheRw8Y8xX+nXIaMFZEmzgRllIA/ZWTdCvP5nIrgy6f0Plu2zK5EO5041n5tiPEUtwwAUQEiIKf8Zg==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/spec/1.37.0/f65c494b409160d8477c6048b3e4aaa806192fae}
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
@@ -657,7 +657,7 @@ snapshots:
 
   '@the-dev-tools/protobuf@1.28.0': {}
 
-  '@the-dev-tools/spec@1.35.0': {}
+  '@the-dev-tools/spec@1.37.0': {}
 
   '@types/node@12.20.55': {}
 

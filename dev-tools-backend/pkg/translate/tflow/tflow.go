@@ -8,21 +8,21 @@ import (
 
 func SeralizeModelToRPCItem(e mflow.Flow) *flowv1.FlowListItem {
 	return &flowv1.FlowListItem{
-		FlowID: e.ID.Bytes(),
+		FlowId: e.ID.Bytes(),
 		Name:   e.Name,
 	}
 }
 
 func SeralizeModelToRPC(e mflow.Flow) *flowv1.Flow {
 	return &flowv1.Flow{
-		FlowID: e.ID.Bytes(),
+		FlowId: e.ID.Bytes(),
 		Name:   e.Name,
 	}
 }
 
 func SeralizeRpcToModel(e *flowv1.Flow) (*mflow.Flow, error) {
 	flow := SeralizeRpcToModelWithoutID(e)
-	id, err := idwrap.NewFromBytes(e.GetFlowID())
+	id, err := idwrap.NewFromBytes(e.GetFlowId())
 	if err != nil {
 		return nil, err
 	}
