@@ -5,3 +5,4 @@ import "./environment.tsp";
 import "./variable.tsp";
 import "./workspace.tsp";
 import "./flow.tsp";
+import "./tag.tsp";
