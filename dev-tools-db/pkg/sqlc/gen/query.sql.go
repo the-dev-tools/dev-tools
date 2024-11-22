@@ -1765,7 +1765,7 @@ type CreateTagParams struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
 	Name        string
-	Color       string
+	Color       int8
 }
 
 func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) error {
@@ -4728,7 +4728,7 @@ WHERE
 
 type UpdateTagParams struct {
 	Name  string
-	Color string
+	Color int8
 	ID    idwrap.IDWrap
 }
 

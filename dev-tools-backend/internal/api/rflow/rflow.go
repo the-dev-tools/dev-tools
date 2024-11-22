@@ -68,9 +68,9 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		}
 	} else {
 		// TODO: can be better with sql query for now it's a workaround
-		tag, err := c.ts.GetFlowTag(ctx, *tagIDPtr)
+		tag, err := c.ts.GetTag(ctx, *tagIDPtr)
 		if err != nil {
-			if err == stag.ErrNoFTag {
+			if err == stag.ErrNoTag {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, err

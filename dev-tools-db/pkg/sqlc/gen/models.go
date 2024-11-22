@@ -162,7 +162,7 @@ type Tag struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
 	Name        string
-	Color       string
+	Color       int8
 }
 
 type User struct {

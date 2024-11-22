@@ -13,7 +13,7 @@ type TagService struct {
 	queries *gen.Queries
 }
 
-var ErrNoFTag error = sql.ErrNoRows
+var ErrNoTag error = sql.ErrNoRows
 
 func New(queries *gen.Queries) TagService {
 	return TagService{queries: queries}
@@ -47,7 +47,7 @@ func ConvertModelToDB(item mtag.Tag) gen.Tag {
 	}
 }
 
-func (s *TagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mtag.Tag, error) {
+func (s *TagService) GetTag(ctx context.Context, id idwrap.IDWrap) (mtag.Tag, error) {
 	item, err := s.queries.GetTag(ctx, id)
 	if err != nil {
 		return mtag.Tag{}, err
@@ -55,7 +55,16 @@ func (s *TagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mtag.Tag
 	return ConvertDBToModel(item), nil
 }
 
-func (s *TagService) CreateFlowTag(ctx context.Context, ftag mtag.Tag) error {
+func (s *TagService) GetTagByWorkspace(ctx context.Context, id idwrap.IDWrap) ([]mtag.Tag, error) {
+	item, err := s.queries.GetTagsByWorkspaceID(ctx, id)
+	if err != nil {
+		return []mtag.Tag{}, err
+	}
+
+	return tgeneric.MassConvert(item, ConvertDBToModel), nil
+}
+
+func (s *TagService) CreateTag(ctx context.Context, ftag mtag.Tag) error {
 	arg := ConvertModelToDB(ftag)
 	err := s.queries.CreateTag(ctx, gen.CreateTagParams{
 		ID:          arg.ID,
@@ -63,20 +72,20 @@ func (s *TagService) CreateFlowTag(ctx context.Context, ftag mtag.Tag) error {
 		Name:        arg.Name,
 		Color:       arg.Color,
 	})
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFTag, err)
+	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
 }
 
-func (s *TagService) UpdateFlowTag(ctx context.Context, ftag mtag.Tag) error {
+func (s *TagService) UpdateTag(ctx context.Context, ftag mtag.Tag) error {
 	arg := ConvertModelToDB(ftag)
 	err := s.queries.UpdateTag(ctx, gen.UpdateTagParams{
 		ID:    arg.ID,
 		Name:  arg.Name,
 		Color: arg.Color,
 	})
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFTag, err)
+	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
 }
 
-func (s *TagService) DeleteFlowTag(ctx context.Context, id idwrap.IDWrap) error {
+func (s *TagService) DeleteTag(ctx context.Context, id idwrap.IDWrap) error {
 	err := s.queries.DeleteTag(ctx, id)
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFTag, err)
+	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
 }
