@@ -1,5 +1,15 @@
 # @the-dev-tools/protobuf
 
+## 1.36.0
+
+### Minor Changes
+
+- [`ac19839`](https://github.com/the-dev-tools/dev-tools-spec/commit/ac19839685c0090320094b6f0caf7fc95ff4d5fe) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add tag to main.tsp for shipping
+
+### Patch Changes
+
+- [`c2fb81f`](https://github.com/the-dev-tools/dev-tools-spec/commit/c2fb81fd0b7d7353edc73484276fd72bb09350ab) Thanks [@ElecTwix](https://github.com/ElecTwix)! - fix wrong casing on flow.tsp
+
 ## 1.35.0
 
 ### Minor Changes
