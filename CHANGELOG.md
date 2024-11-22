@@ -1,5 +1,11 @@
 # @the-dev-tools/protobuf
 
+## 1.37.0
+
+### Minor Changes
+
+- [`4cf75a7`](https://github.com/the-dev-tools/dev-tools-spec/commit/4cf75a709f205919f6eb00278387c5fe34e9d769) Thanks [@ElecTwix](https://github.com/ElecTwix)! - add `tagColor` field to Tag and add Tag Service
+
 ## 1.36.0
 
 ### Minor Changes
