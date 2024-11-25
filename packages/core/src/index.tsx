@@ -10,7 +10,6 @@ import { ApiTransport } from '@the-dev-tools/api/transport';
 
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
-import { Runtime } from './runtime';
 
 import '@the-dev-tools/ui/fonts';
 import './styles.css';
@@ -30,7 +29,7 @@ declare module 'react-aria-components' {
   }
 }
 
-const app = Effect.gen(function* () {
+export const app = Effect.gen(function* () {
   const rootEl = document.getElementById('root');
 
   if (!rootEl) return;
@@ -60,5 +59,3 @@ const app = Effect.gen(function* () {
     </StrictMode>,
   );
 });
-
-void Runtime.runPromise(app);

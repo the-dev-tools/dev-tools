@@ -8,7 +8,7 @@
   },
   "exports": {
     "./*": "./src/*.tsx",
-    "./tailwind-content": "./src/tailwind-content.mts"
+    "./tailwind.config": "./tailwind.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "5.1.0",

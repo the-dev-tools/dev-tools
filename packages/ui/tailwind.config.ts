@@ -2,9 +2,7 @@ import { type Config } from 'tailwindcss';
 
 import { config } from '@the-dev-tools/config-tailwind';
 
-import { tailwindContent } from './src/tailwind-content.mjs';
-
 export default {
-  content: ['cosmos.decorator.tsx', './cosmos/**/*.tsx', ...tailwindContent],
+  content: [`${__dirname}/src/**/*.tsx`, 'cosmos.decorator.tsx', './cosmos/**/*.tsx'],
   presets: [config],
 } satisfies Config;

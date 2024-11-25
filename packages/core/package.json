@@ -1,12 +1,14 @@
 {
-  "name": "@the-dev-tools/saas",
+  "name": "@the-dev-tools/core",
   "version": "0.17.0",
   "type": "module",
   "scripts": {
-    "build": "vite build",
     "dev": "vite",
-    "lint": "eslint --flag unstable_ts_config .",
-    "preview": "vite preview"
+    "lint": "eslint --flag unstable_ts_config ."
+  },
+  "exports": {
+    "./*": "./src/*.tsx",
+    "./tailwind.config": "./tailwind.config.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.2.2",

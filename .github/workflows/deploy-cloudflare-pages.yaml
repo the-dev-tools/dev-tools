@@ -7,7 +7,7 @@ on:
         type: choice
         required: true
         options:
-          - '@the-dev-tools/saas'
+          - '@the-dev-tools/web'
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.package }}-${{ github.ref }}

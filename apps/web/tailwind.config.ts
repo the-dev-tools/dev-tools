@@ -1,9 +1,9 @@
 import { type Config } from 'tailwindcss';
 
 import { config } from '@the-dev-tools/config-tailwind';
-import { tailwindContent } from '@the-dev-tools/ui/tailwind-content';
+import TailwindConfigCore from '@the-dev-tools/core/tailwind.config';
 
 export default {
-  content: ['./src/**/*.tsx', ...tailwindContent],
+  content: [...TailwindConfigCore.content, './src/**/*.tsx'],
   presets: [config],
 } satisfies Config;

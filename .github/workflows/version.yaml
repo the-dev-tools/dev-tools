@@ -46,7 +46,7 @@ jobs:
             const workflows = {
               // Apps
               '@the-dev-tools/api-recorder-extension': 'deploy-chrome-extension.yaml',
-              '@the-dev-tools/saas': 'deploy-cloudflare-pages.yaml',
+              '@the-dev-tools/web': 'deploy-cloudflare-pages.yaml',
 
               // Packages
               '@the-dev-tools/email': 'deploy-github-npm.yaml',
