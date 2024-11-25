@@ -42,6 +42,7 @@
               ]
               ++ (with pkgs; [
                 dotenvx
+                go-task
                 nodejs_latest
               ]);
           };

@@ -5,6 +5,7 @@
     "editorconfig.editorconfig",
     "esbenp.prettier-vscode",
     "jnoortheen.nix-ide",
-    "mkhl.direnv"
+    "mkhl.direnv",
+    "redhat.vscode-yaml"
   ]
 }

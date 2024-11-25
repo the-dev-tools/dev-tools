@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+tasks:
+  dev:desktop:
+    desc: Start the desktop app development servers
+    cmd: turbo dev --filter @the-dev-tools/desktop...
+
+  dev:web:
+    desc: Start the web app development servers
+    cmd: turbo dev --filter @the-dev-tools/web...
+
+  lint:
+    desc: Lint
+    cmd: turbo lint
+
+  fix:syncpack:format:
+    internal: true
+    cmd: pnpm syncpack format
+
+  fix:syncpack:mismatches:
+    internal: true
+    cmd: pnpm syncpack fix-mismatches
+
+  fix:syncpack:
+    desc: Fix Syncpack issues
+    deps:
+      - fix:syncpack:format
+      - fix:syncpack:mismatches
