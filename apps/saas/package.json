@@ -1,11 +1,12 @@
 {
   "name": "@the-dev-tools/saas",
   "version": "0.17.0",
+  "type": "module",
   "scripts": {
-    "build": "rsbuild build",
-    "dev": "rsbuild dev",
+    "build": "vite build",
+    "dev": "vite",
     "lint": "eslint --flag unstable_ts_config .",
-    "preview": "rsbuild preview"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.2.2",
@@ -43,8 +44,6 @@
   },
   "devDependencies": {
     "@hookform/devtools": "~4.3.1",
-    "@rsbuild/core": "~1.1.2",
-    "@rsbuild/plugin-react": "~1.0.7",
     "@tanstack/react-query-devtools": "~5.60.5",
     "@tanstack/router-devtools": "~1.81.14",
     "@tanstack/router-plugin": "~1.81.9",
@@ -53,9 +52,13 @@
     "@the-dev-tools/config-typescript": "workspace:^",
     "@types/react": "~18.3.12",
     "@types/react-dom": "~18.3.1",
+    "@vitejs/plugin-react": "~4.3.3",
+    "autoprefixer": "~10.4.20",
     "eslint": "~9.14.0",
     "globals": "~15.12.0",
+    "postcss": "~8.4.49",
     "tailwindcss": "~3.4.15",
-    "typescript": "~5.6.3"
+    "typescript": "~5.6.3",
+    "vite": "~5.4.11"
   }
 }

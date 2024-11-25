@@ -6,7 +6,7 @@ import { ComponentType, lazy, Suspense } from 'react';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 const makeLazyDevtools = <Component extends ComponentType>(lazyComponent: () => Promise<Component>) =>
-  process.env['NODE_ENV'] !== 'development'
+  import.meta.env.PROD
     ? // Render nothing in production
       () => null
     : // Lazy load in development

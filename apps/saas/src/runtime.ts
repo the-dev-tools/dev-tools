@@ -4,9 +4,9 @@ import { Config, ConfigProvider, Effect, Layer, Logger, LogLevel, ManagedRuntime
 import { ApiLive } from '@the-dev-tools/api/live';
 import { ApiTest } from '@the-dev-tools/api/test';
 
-const ConfigLive = pipe(PUBLIC_ENV, ConfigProvider.fromJson, Layer.setConfigProvider);
+const ConfigLive = pipe(import.meta.env, ConfigProvider.fromJson, Layer.setConfigProvider);
 
-const Environment = Config.literal('production', 'development', 'test')('NODE_ENV');
+const Environment = Config.literal('production', 'development', 'test')('MODE');
 
 const ApiLayer = Effect.gen(function* () {
   const environment = yield* Environment;
