@@ -35,7 +35,7 @@ func SeralizeRpcToModel(e *tagv1.Tag, workspaceID idwrap.IDWrap) (*mtag.Tag, err
 func SeralizeRpcToModelWithoutID(e *tagv1.Tag, workspaceID idwrap.IDWrap) *mtag.Tag {
 	return &mtag.Tag{
 		Name:        e.Name,
-		Color:       int8(e.Color),
+		Color:       uint8(e.Color),
 		WorkspaceID: workspaceID,
 	}
 }

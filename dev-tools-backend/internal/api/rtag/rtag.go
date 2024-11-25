@@ -6,7 +6,6 @@ import (
 	"dev-tools-backend/internal/api/rworkspace"
 	"dev-tools-backend/pkg/idwrap"
 	"dev-tools-backend/pkg/permcheck"
-	"dev-tools-backend/pkg/service/sflow"
 	"dev-tools-backend/pkg/service/stag"
 	"dev-tools-backend/pkg/service/suser"
 	"dev-tools-backend/pkg/service/sworkspace"
@@ -20,16 +19,14 @@ import (
 
 type TagServiceRPC struct {
 	DB *sql.DB
-	fs sflow.FlowService
 	ws sworkspace.WorkspaceService
 	us suser.UserService
 	ts stag.TagService
 }
 
-func New(db *sql.DB, fs sflow.FlowService, ws sworkspace.WorkspaceService, us suser.UserService, ts stag.TagService) TagServiceRPC {
+func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts stag.TagService) TagServiceRPC {
 	return TagServiceRPC{
 		DB: db,
-		fs: fs,
 		ws: ws,
 		us: us,
 		ts: ts,
@@ -103,6 +100,10 @@ func (c TagServiceRPC) TagCreate(ctx context.Context, req *connect.Request[tagv1
 	tagID := idwrap.NewNow()
 	tag := ttag.SeralizeRpcToModelWithoutID(&rpcTag, wsID)
 	tag.ID = tagID
+	err = c.ts.CreateTag(ctx, *tag)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnknown, err)
+	}
 
 	resp := &tagv1.TagCreateResponse{
 		TagId: tagID.Bytes(),

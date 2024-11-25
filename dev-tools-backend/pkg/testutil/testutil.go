@@ -146,7 +146,7 @@ func (b BaseDBQueries) Close() {
 func AssertFatal[c comparable](t *testing.T, expected, got c) {
 	t.Helper()
 	if got != expected {
-		t.Errorf("got %v, expected %v", got, expected)
+		t.Fatalf("got %v, expected %v", got, expected)
 	}
 }
 
