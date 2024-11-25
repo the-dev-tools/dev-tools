@@ -1,9 +1,9 @@
 {
   "name": "@the-dev-tools/ui",
   "version": "0.10.0",
+  "type": "module",
   "scripts": {
-    "dev:renderer": "rsbuild dev --root=cosmos --config=renderer.rsbuild.ts",
-    "dev:server": "cosmos --config=cosmos/config.json",
+    "dev": "cosmos --config=cosmos/config.json",
     "lint": "eslint --flag unstable_ts_config ."
   },
   "exports": {
@@ -28,17 +28,18 @@
     "tailwind-variants": "0.3.0"
   },
   "devDependencies": {
-    "@rsbuild/core": "~1.1.2",
-    "@rsbuild/plugin-react": "~1.0.7",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
     "@types/node": "~22.9.0",
     "@types/react": "~18.3.12",
     "@types/react-dom": "~18.3.1",
+    "@vitejs/plugin-react": "~4.3.3",
     "react-cosmos": "~6.2.0",
     "react-cosmos-dom": "~6.2.0",
+    "react-cosmos-plugin-vite": "~6.2.0",
     "tailwindcss": "~3.4.15",
-    "typescript": "~5.6.3"
+    "typescript": "~5.6.3",
+    "vite": "~5.4.11"
   }
 }
