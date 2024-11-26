@@ -1,13 +1,8 @@
 import path from 'node:path';
 import { Command } from '@effect/platform';
-import { NodeRuntime } from '@effect/platform-node';
+import { NodeContext, NodeRuntime } from '@effect/platform-node';
 import { Config, Console, Effect, Exit, pipe, Scope } from 'effect';
 import { app, BrowserWindow } from 'electron';
-
-import { layer } from './runtime.ts';
-
-declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
-declare const MAIN_WINDOW_VITE_NAME: string;
 
 const createWindow = () => {
   // Create the browser window.
@@ -20,10 +15,12 @@ const createWindow = () => {
   });
 
   // and load the index.html of the app.
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    void mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+  if (import.meta.env.DEV && process.env['ELECTRON_RENDERER_URL']) {
+    // void mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    void mainWindow.loadFile(path.join(import.meta.dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    // void mainWindow.loadFile(path.join(import.meta.dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    void mainWindow.loadFile(path.join(import.meta.dirname, '../renderer/index.html'));
   }
 
   // Open the DevTools.
@@ -102,4 +99,4 @@ const program = Effect.gen(function* () {
   yield* client;
 });
 
-pipe(program, Effect.scoped, Effect.provide(layer), NodeRuntime.runMain);
+pipe(program, Effect.scoped, Effect.provide(NodeContext.layer), NodeRuntime.runMain);

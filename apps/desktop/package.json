@@ -2,28 +2,32 @@
   "name": "@the-dev-tools/desktop",
   "version": "0.0.0",
   "type": "module",
-  "main": ".vite/build/main.js",
+  "main": "./dist/main/index.js",
   "scripts": {
-    "dev": "electron-forge start",
+    "dev": "electron-vite dev",
     "lint": "eslint --flag unstable_ts_config ."
   },
   "dependencies": {
-    "@effect/platform": "0.69.25",
-    "@effect/platform-node": "0.64.27",
-    "effect": "3.10.16"
+    "@effect/platform": "0.69.26",
+    "@effect/platform-browser": "0.48.26",
+    "@effect/platform-node": "0.64.28",
+    "@the-dev-tools/api": "workspace:^",
+    "@the-dev-tools/core": "workspace:^",
+    "@vitejs/plugin-react": "4.3.4",
+    "effect": "3.10.17",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "@electron-forge/cli": "~7.5.0",
-    "@electron-forge/plugin-auto-unpack-natives": "~7.5.0",
-    "@electron-forge/plugin-fuses": "~7.5.0",
-    "@electron-forge/plugin-vite": "~7.5.0",
-    "@electron-forge/shared-types": "~7.5.0",
-    "@electron/fuses": "~1.8.0",
     "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
+    "@types/react": "~18.3.12",
+    "@types/react-dom": "~18.3.1",
     "electron": "~33.2.0",
+    "electron-vite": "~2.3.0",
     "eslint": "~9.15.0",
-    "ts-node": "~10.9.2",
+    "tailwindcss": "~3.4.15",
     "typescript": "~5.7.2",
     "vite": "~6.0.0"
   }

@@ -1,9 +1,10 @@
 {
-  "extends": "@the-dev-tools/config-typescript/tsconfig.base",
+  "extends": "@the-dev-tools/config-typescript/tsconfig.react",
   "exclude": ["node_modules"],
   "include": ["."],
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+    // "module": "NodeNext",
+    // "moduleResolution": "NodeNext",
+    "types": ["vite/client"]
   }
 }

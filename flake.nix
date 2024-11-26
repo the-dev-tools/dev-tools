@@ -56,7 +56,7 @@
 
           # Use Electron binary from Nixpkgs in development for NixOS compatibility
           ELECTRON_SKIP_BINARY_DOWNLOAD = 1;
-          ELECTRON_OVERRIDE_DIST_PATH = "${pkgs.electron}/bin";
+          ELECTRON_EXEC_PATH = "${pkgs.electron}/bin/electron";
 
           nativeBuildInputs =
             self'.devShells.runner.nativeBuildInputs

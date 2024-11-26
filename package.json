@@ -21,14 +21,12 @@
     "peerDependencyRules": {
       "allowedVersions": {
         "svgo": "^2.8.0",
-        "eslint": "^9.9.1"
+        "eslint": "^9.9.1",
+        "vite": "^6.0.0"
       }
     },
     "overrides": {
       "sharp": "0.33.5"
-    },
-    "patchedDependencies": {
-      "@electron-forge/plugin-vite@7.5.0": "patches/@electron-forge__plugin-vite@7.5.0.patch"
     }
   }
 }
