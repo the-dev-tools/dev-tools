@@ -1,44 +1,60 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: '3'
 
+output: prefixed
+
 tasks:
+  default:
+    silent: true
+    cmd: task --list --sort=none --output=interleaved
+
   dev:desktop:
-    desc: Start the desktop app development servers
+    desc: Start desktop app development servers
+    interactive: true
     cmd: turbo dev --filter @the-dev-tools/desktop...
 
   dev:web:
-    desc: Start the web app development servers
+    desc: Start web app development servers
+    interactive: true
     cmd: turbo dev --filter @the-dev-tools/web...
 
   lint:
-    desc: Lint
+    desc: Check code for common problems
     cmd: turbo lint
 
-  fix:syncpack:format:
-    internal: true
-    cmd: pnpm syncpack format
+  fix:
+    desc: Automatically fix common problems
+    deps:
+      - fix:prettier
+      - fix:syncpack
 
-  fix:syncpack:mismatches:
-    internal: true
-    cmd: pnpm syncpack fix-mismatches
+  fix:prettier:
+    cmd: pnpm prettier --write .
 
   fix:syncpack:
-    desc: Fix Syncpack issues
     deps:
       - fix:syncpack:format
       - fix:syncpack:mismatches
 
-  update:pnpm:
-    desc: Interactively update PNPM dependencies
-    interactive: true
-    cmd: pnpm update --recursive --interactive --latest
+  fix:syncpack:format:
+    cmd: pnpm syncpack format
 
-  update:flake:
-    desc: Update Nix Flake dependencies
-    cmd: nix flake update
+  fix:syncpack:mismatches:
+    cmds:
+      - pnpm syncpack fix-mismatches
+      - pnpm install
 
   update:
     desc: Update project dependencies
     deps:
-      - update:pnpm
       - update:flake
+      - update:pnpm
+
+  update:flake:
+    cmd: nix flake update
+
+  update:pnpm:
+    interactive: true
+    cmds:
+      - pnpm update --recursive --interactive --latest
+      - task: fix:syncpack:mismatches
