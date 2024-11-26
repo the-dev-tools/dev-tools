@@ -27,3 +27,18 @@ tasks:
     deps:
       - fix:syncpack:format
       - fix:syncpack:mismatches
+
+  update:pnpm:
+    desc: Interactively update PNPM dependencies
+    interactive: true
+    cmd: pnpm update --recursive --interactive --latest
+
+  update:flake:
+    desc: Update Nix Flake dependencies
+    cmd: nix flake update
+
+  update:
+    desc: Update project dependencies
+    deps:
+      - update:pnpm
+      - update:flake

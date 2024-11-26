@@ -9,21 +9,21 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.2.2",
-    "@connectrpc/connect": "2.0.0-rc.1",
-    "@connectrpc/connect-query": "2.0.0-rc.2",
-    "@connectrpc/connect-web": "2.0.0-rc.1",
+    "@connectrpc/connect": "2.0.0",
+    "@connectrpc/connect-query": "2.0.0",
+    "@connectrpc/connect-web": "2.0.0",
     "@effect/platform": "0.69.25",
-    "@tanstack/react-query": "5.60.5",
-    "@the-dev-tools/spec": "1.34.1",
+    "@tanstack/react-query": "5.61.4",
+    "@the-dev-tools/spec": "1.37.0",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.10.16",
     "id128": "1.6.6",
     "jose": "5.9.6",
-    "magic-sdk": "28.18.0"
+    "magic-sdk": "28.19.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-typescript": "workspace:^",
-    "typescript": "~5.6.3"
+    "typescript": "~5.7.2"
   }
 }
