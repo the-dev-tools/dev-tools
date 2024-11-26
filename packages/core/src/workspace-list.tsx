@@ -1,6 +1,6 @@
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { DateTime, Effect, pipe, Schema } from 'effect';
+import { DateTime, Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useState } from 'react';
 import { Form, MenuTrigger } from 'react-aria-components';
@@ -17,8 +17,6 @@ import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
-
-import { Runtime } from './runtime';
 
 export const Route = createFileRoute('/_authorized/_dashboard/')({
   component: Page,
@@ -70,6 +68,8 @@ interface RowProps {
 }
 
 const Row = ({ workspaceIdCan, workspace }: RowProps) => {
+  const { runtime } = Route.useRouteContext();
+
   const { workspaceId } = workspace;
 
   const [renaming, setRenaming] = useState(false);
@@ -103,7 +103,7 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
                   workspaceUpdateMutation.mutate({ workspaceId, name });
 
                   setRenaming(false);
-                }).pipe(Runtime.runPromise)
+                }).pipe(Runtime.runPromise(runtime))
               }
             >
               <TextField

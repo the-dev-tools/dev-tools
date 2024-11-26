@@ -6,7 +6,7 @@ import {
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-router';
-import { Effect, Match, pipe, Schema } from 'effect';
+import { Effect, Match, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
 import { FileTrigger, Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
@@ -50,7 +50,6 @@ import { TreeItem } from '@the-dev-tools/ui/tree';
 
 import { DashboardLayout } from './authorized';
 import { EnvironmentsWidget } from './environment';
-import { Runtime } from './runtime';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   component: Layout,
@@ -212,6 +211,7 @@ interface CollectionTreeProps {
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const { workspaceId } = Route.useLoaderData();
+  const { runtime } = Route.useRouteContext();
 
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
@@ -296,7 +296,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
               collectionUpdateMutation.mutate({ workspaceId, collectionId, name });
 
               setIsRenaming(false);
-            }).pipe(Runtime.runPromise)
+            }).pipe(Runtime.runPromise(runtime))
           }
         >
           <TextField
@@ -350,6 +350,8 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) => {
+  const { runtime } = Route.useRouteContext();
+
   const { folderId } = folder;
   const [enabled, setEnabled] = useState(false);
 
@@ -465,7 +467,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
                   });
 
                   setIsRenaming(false);
-                }).pipe(Runtime.runPromise)
+                }).pipe(Runtime.runPromise(runtime))
               }
             >
               <TextField

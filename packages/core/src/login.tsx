@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router';
-import { Effect, pipe, Schema } from 'effect';
+import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';
@@ -7,8 +7,6 @@ import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
-
-import { Runtime } from './runtime';
 
 export class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
   redirect: Schema.optional(Schema.String),
@@ -26,6 +24,7 @@ class LoginForm extends Schema.Class<LoginForm>('LoginForm')({
 function LoginPage() {
   const router = useRouter();
   const { redirect } = Route.useSearch();
+  const { runtime } = Route.useRouteContext();
   return (
     <div className='container mx-auto flex h-full flex-col items-center text-center'>
       <Logo className={tw`mb-10 mt-24 h-16 w-auto`} />
@@ -55,7 +54,7 @@ function LoginPage() {
             }
 
             queueMicrotask(() => void location.reload());
-          }).pipe(Runtime.runPromise);
+          }).pipe(Runtime.runPromise(runtime));
         }}
       >
         <TextField

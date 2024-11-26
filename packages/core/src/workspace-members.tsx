@@ -1,13 +1,11 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { Effect, pipe, Schema } from 'effect';
+import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { workspaceMemberCreateSpec } from '@the-dev-tools/api/spec/workspace';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
-
-import { Runtime } from './runtime';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/members')({
   component: Page,
@@ -21,6 +19,7 @@ class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
 
 function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
+  const { runtime } = workspaceRoute.useRouteContext();
 
   const workspaceMemberCreateMutation = useSpecMutation(workspaceMemberCreateSpec);
 
@@ -40,7 +39,7 @@ function Page() {
             );
 
             workspaceMemberCreateMutation.mutate({ workspaceId, email });
-          }).pipe(Runtime.runPromise)
+          }).pipe(Runtime.runPromise(runtime))
         }
       >
         <TextField name='email' type='email' isRequired label='Invite new member:' inputPlaceholder='Email' />

@@ -1,7 +1,7 @@
 import { TransportProvider } from '@connectrpc/connect-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, NavigateOptions, RouterProvider, ToOptions } from '@tanstack/react-router';
-import { Effect } from 'effect';
+import { Effect, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
@@ -30,6 +30,8 @@ declare module 'react-aria-components' {
 }
 
 export const app = Effect.gen(function* () {
+  const runtime = yield* Effect.runtime<RouterContext['runtime'] extends Runtime.Runtime<infer R> ? R : never>();
+
   const rootEl = document.getElementById('root');
 
   if (!rootEl) return;
@@ -52,7 +54,7 @@ export const app = Effect.gen(function* () {
               return router.buildLocation(to).href;
             }}
           >
-            <RouterProvider router={router} context={{ transport, queryClient }} />
+            <RouterProvider router={router} context={{ queryClient, runtime, transport }} />
           </AriaRouterProvider>
         </QueryClientProvider>
       </TransportProvider>

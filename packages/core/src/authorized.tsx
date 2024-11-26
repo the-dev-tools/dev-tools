@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
-import { Effect, Option, pipe } from 'effect';
+import { Effect, Option, pipe, Runtime } from 'effect';
 import { MenuTrigger } from 'react-aria-components';
 
 import * as Auth from '@the-dev-tools/api/auth';
@@ -12,11 +12,10 @@ import { NavigationBar, NavigationBarDivider } from '@the-dev-tools/ui/navigatio
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { LoginSearch } from './login';
-import { Runtime } from './runtime';
 
 export const Route = createFileRoute('/_authorized')({
-  beforeLoad: ({ location }) =>
-    pipe(Effect.option(getUser), Runtime.runPromise, async (_) =>
+  beforeLoad: ({ location, context: { runtime } }) =>
+    pipe(Effect.option(getUser), Runtime.runPromise(runtime), async (_) =>
       Option.getOrThrowWith(await _, () =>
         redirect({
           to: '/login',
@@ -33,7 +32,7 @@ export interface DashboardLayoutProps {
 }
 
 export const DashboardLayout = ({ navbar, children }: DashboardLayoutProps) => {
-  const { email } = Route.useRouteContext();
+  const { email, runtime } = Route.useRouteContext();
   return (
     <div className='flex h-full flex-col'>
       <NavigationBar>
@@ -54,7 +53,7 @@ export const DashboardLayout = ({ navbar, children }: DashboardLayoutProps) => {
             <MenuItem isDisabled>User: {email}</MenuItem>
             <MenuItem
               onAction={async () => {
-                await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise);
+                await Auth.logout.pipe(Effect.ignoreLogged, Runtime.runPromise(runtime));
                 queueMicrotask(() => void location.reload());
               }}
             >

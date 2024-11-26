@@ -1,8 +1,11 @@
 import { Transport } from '@connectrpc/connect';
+import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
+import { Runtime } from 'effect';
 import { ComponentType, lazy, Suspense } from 'react';
 
+import { AuthTransport, MagicClient } from '@the-dev-tools/api/auth';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 const makeLazyDevtools = <Component extends ComponentType>(lazyComponent: () => Promise<Component>) =>
@@ -21,8 +24,9 @@ const ReactQueryDevtools = makeLazyDevtools(() =>
 );
 
 export interface RouterContext {
-  transport: Transport;
   queryClient: QueryClient;
+  runtime: Runtime.Runtime<KeyValueStore | MagicClient | AuthTransport>;
+  transport: Transport;
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
