@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@plasmohq/storage": "1.13.0",
-    "effect": "3.10.16",
+    "effect": "3.10.17",
     "magic-sdk": "28.19.0",
     "plasmo": "0.89.4",
     "react": "18.3.1",

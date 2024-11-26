@@ -36,8 +36,8 @@ importers:
         specifier: ~5.7.2
         version: 5.7.2
       wrangler:
-        specifier: ~3.90.0
-        version: 3.90.0(bufferutil@4.0.8)(utf-8-validate@6.0.5)
+        specifier: ~3.91.0
+        version: 3.91.0(bufferutil@4.0.8)(utf-8-validate@6.0.5)
 
   apps/api-recorder-extension:
     dependencies:
@@ -45,8 +45,8 @@ importers:
         specifier: 1.13.0
         version: 1.13.0(react@18.3.1)
       effect:
-        specifier: 3.10.16
-        version: 3.10.16
+        specifier: 3.10.17
+        version: 3.10.17
       magic-sdk:
         specifier: 28.19.0
         version: 28.19.0
@@ -176,7 +176,7 @@ importers:
         specifier: ~9.15.0
         version: 9.15.0(jiti@2.4.0)
       tailwindcss:
-        specifier: 3.4.15
+        specifier: ~3.4.15
         version: 3.4.15(ts-node@10.9.2(@swc/core@1.9.3(@swc/helpers@0.5.15))(@types/node@22.10.0)(typescript@5.7.2))
       typescript:
         specifier: ~5.7.2
@@ -188,8 +188,8 @@ importers:
   apps/web:
     dependencies:
       '@effect/platform-browser':
-        specifier: 0.48.25
-        version: 0.48.25(@effect/platform@0.69.26(effect@3.10.16))(effect@3.10.16)
+        specifier: 0.48.26
+        version: 0.48.26(@effect/platform@0.69.26(effect@3.10.17))(effect@3.10.17)
       '@the-dev-tools/api':
         specifier: workspace:^
         version: link:../../packages/api
@@ -197,8 +197,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/core
       effect:
-        specifier: 3.10.16
-        version: 3.10.16
+        specifier: 3.10.17
+        version: 3.10.17
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -258,8 +258,8 @@ importers:
         specifier: 2.0.0
         version: 2.0.0(@bufbuild/protobuf@2.2.2)(@connectrpc/connect@2.0.0(@bufbuild/protobuf@2.2.2))
       '@effect/platform':
-        specifier: 0.69.25
-        version: 0.69.25(effect@3.10.16)
+        specifier: 0.69.26
+        version: 0.69.26(effect@3.10.17)
       '@tanstack/react-query':
         specifier: 5.61.4
         version: 5.61.4(react@18.3.1)
@@ -270,8 +270,8 @@ importers:
         specifier: workspace:^
         version: link:../utils
       effect:
-        specifier: 3.10.16
-        version: 3.10.16
+        specifier: 3.10.17
+        version: 3.10.17
       id128:
         specifier: 1.6.6
         version: 1.6.6
@@ -376,8 +376,8 @@ importers:
         specifier: ~22.10.0
         version: 22.10.0
       effect:
-        specifier: ~3.10.16
-        version: 3.10.16
+        specifier: ~3.10.17
+        version: 3.10.17
       tailwindcss:
         specifier: ~3.4.15
         version: 3.4.15(ts-node@10.9.2(@swc/core@1.9.3(@swc/helpers@0.5.15))(@types/node@22.10.0)(typescript@5.7.2))
@@ -424,11 +424,11 @@ importers:
         specifier: 2.0.0
         version: 2.0.0(@bufbuild/protobuf@2.2.2)(@connectrpc/connect@2.0.0(@bufbuild/protobuf@2.2.2))
       '@effect/platform':
-        specifier: 0.69.25
-        version: 0.69.25(effect@3.10.16)
+        specifier: 0.69.26
+        version: 0.69.26(effect@3.10.17)
       '@effect/platform-browser':
-        specifier: 0.48.25
-        version: 0.48.25(@effect/platform@0.69.25(effect@3.10.16))(effect@3.10.16)
+        specifier: 0.48.26
+        version: 0.48.26(@effect/platform@0.69.26(effect@3.10.17))(effect@3.10.17)
       '@hookform/resolvers':
         specifier: 3.9.1
         version: 3.9.1(react-hook-form@7.53.2(react@18.3.1))
@@ -466,8 +466,8 @@ importers:
         specifier: 4.23.6
         version: 4.23.6(@babel/runtime@7.26.0)(@codemirror/autocomplete@6.18.3(@codemirror/language@6.10.3)(@codemirror/state@6.4.1)(@codemirror/view@6.34.0)(@lezer/common@1.2.1))(@codemirror/language@6.10.3)(@codemirror/lint@6.8.3)(@codemirror/search@6.5.8)(@codemirror/state@6.4.1)(@codemirror/theme-one-dark@6.1.2)(@codemirror/view@6.34.0)(codemirror@6.0.1(@lezer/common@1.2.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       effect:
-        specifier: 3.10.16
-        version: 3.10.16
+        specifier: 3.10.17
+        version: 3.10.17
       id128:
         specifier: 1.6.6
         version: 1.6.6
@@ -572,8 +572,8 @@ importers:
         specifier: ~18.3.12
         version: 18.3.12
       effect:
-        specifier: ~3.10.16
-        version: 3.10.16
+        specifier: ~3.10.17
+        version: 3.10.17
       react:
         specifier: ~18.3.1
         version: 18.3.1
@@ -611,8 +611,8 @@ importers:
         specifier: workspace:^
         version: link:../utils
       effect:
-        specifier: 3.10.16
-        version: 3.10.16
+        specifier: 3.10.17
+        version: 3.10.17
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -684,8 +684,8 @@ importers:
   packages/utils:
     dependencies:
       effect:
-        specifier: 3.10.16
-        version: 3.10.16
+        specifier: 3.10.17
+        version: 3.10.17
     devDependencies:
       '@faker-js/faker':
         specifier: ~9.2.0
@@ -938,8 +938,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@cloudflare/workers-shared@0.8.0':
-    resolution: {integrity: sha512-1OvFkNtslaMZAJsaocTmbACApgmWv55uLpNj50Pn2MGcxdAjpqykXJFQw5tKc+lGV9TDZh9oO3Rsk17IEQDzIg==}
+  '@cloudflare/workers-shared@0.9.0':
+    resolution: {integrity: sha512-eP6Ir45uPbKnpADVzUCtkRUYxYxjB1Ew6n/whTJvHu8H4m93USHAceCMm736VBZdlxuhXXUjEP3fCUxKPn+cfw==}
     engines: {node: '>=16.7.0'}
 
   '@codemirror/autocomplete@6.18.1':
@@ -1037,12 +1037,6 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@effect/platform-browser@0.48.25':
-    resolution: {integrity: sha512-MxBte5Qh4cQxIXYWFOyPW0Gmwq2aHPWMANrALfllYocY1i4BVS2NyHBHfydHt7g0Kw6g5x0xChV6pBo+cTeORQ==}
-    peerDependencies:
-      '@effect/platform': ^0.69.25
-      effect: ^3.10.16
-
   '@effect/platform-browser@0.48.26':
     resolution: {integrity: sha512-VjVCuKOQqTHOPDUWCpI9GZDJ+QTK27U/kA+BQnWYpqHdxEOi5emTSaRfRruERTSffv04dtmM4jE/9HzLUKDnSg==}
     peerDependencies:
@@ -1060,11 +1054,6 @@ packages:
     peerDependencies:
       '@effect/platform': ^0.69.26
       effect: ^3.10.17
-
-  '@effect/platform@0.69.25':
-    resolution: {integrity: sha512-95INMcJbmA0Mj3muf15lgpYKbkvXb9TZM0RM79lonPlnq0BlGurxVWAPwYt3iwVStbHsrcTznQkjc6WP+aMX1A==}
-    peerDependencies:
-      effect: ^3.10.16
 
   '@effect/platform@0.69.26':
     resolution: {integrity: sha512-psL2z526o5SCGyD8m3I5/YTNvoOZkAeAz7e7adbnxNPcJBBLD5TFZ2s7UlkUk38ndyu/ICy584QuU43ayzBZSg==}
@@ -5595,9 +5584,6 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
-  effect@3.10.16:
-    resolution: {integrity: sha512-7d69IMsIgnJKzopBMHdZR7d3JWwdHgzaIyIXif5jpu8gtQujIrIpgABXXMe+47KNSuS5k12s9dMRL3B8Y9s+Sw==}
-
   effect@3.10.17:
     resolution: {integrity: sha512-OSLs3KTcN71166IJne5H2IRT9nh8VPMs4/iCU1JNY0QSr7KrEQl/xPjeNBuPvGsH+erzuM5moSJ0XjAO5qSZJw==}
 
@@ -5722,6 +5708,10 @@ packages:
 
   es-to-primitive@1.2.1:
     resolution: {integrity: sha512-QCOllgZJtaUo9miYBcLChTUaHNjJF3PYs1VidD7AwiEj1kYxKeQTctLAezAOH5ZKRH0g2IgPn6KwB4IT8iRpvA==}
+    engines: {node: '>= 0.4'}
+
+  es-to-primitive@1.3.0:
+    resolution: {integrity: sha512-w+5mJ3GuFL+NjVtJlvydShqE1eN3h3PbI7/5LAsYJP/2qtuMXjfL2LpHSRqo4b4eSF5K/DH1JXKUAHSB2UW50g==}
     engines: {node: '>= 0.4'}
 
   es5-ext@0.10.64:
@@ -8698,8 +8688,8 @@ packages:
     resolution: {integrity: sha512-BUgJXc752Kou3oOIuU1i+yZZypyZRqNPW0vqoMPl8VaoalSfeR0D8/t4iAS3yirs79SSMTxTag+ZC86uswv+Cw==}
     engines: {node: '>=18.17'}
 
-  unenv-nightly@2.0.0-20241111-080453-894aa31:
-    resolution: {integrity: sha512-0W39QQOQ9VE8kVVUpGwEG+pZcsCXk5wqNG6rDPE6Gr+fiA69LR0qERM61hW5KCOkC1/ArCFrfCGjwHyyv/bI0Q==}
+  unenv-nightly@2.0.0-20241121-161142-806b5c0:
+    resolution: {integrity: sha512-RnFOasE/O0Q55gBkNB1b84OgKttgLEijGO0JCWpbn+O4XxpyCQg89NmcqQ5RGUiy4y+rMIrKzePTquQcLQF5pQ==}
 
   unicorn-magic@0.1.0:
     resolution: {integrity: sha512-lRfVq8fE8gz6QMBuDM6a+LO3IAzTi05H6gCVaUpir2E1Rwpo4ZUog45KpNXKC/Mn3Yb9UDuHumeFTo9iV/D9FQ==}
@@ -8964,8 +8954,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  wrangler@3.90.0:
-    resolution: {integrity: sha512-E/6E9ORAl987+3kP8wDiE3L1lj9r4vQ32/dl5toIxIkSMssmPRQVdxqwgMxbxJrytbFNo8Eo6swgjd4y4nUaLg==}
+  wrangler@3.91.0:
+    resolution: {integrity: sha512-Hdzn6wbY9cz5kL85ZUvWLwLIH7nPaEVRblfms40jhRf4qQO/Zf74aFlku8rQFbe8/2aVZFaxJVfBd6JQMeMSBQ==}
     engines: {node: '>=16.17.0'}
     hasBin: true
     peerDependencies:
@@ -9457,7 +9447,7 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20241106.1':
     optional: true
 
-  '@cloudflare/workers-shared@0.8.0':
+  '@cloudflare/workers-shared@0.9.0':
     dependencies:
       mime: 3.0.0
       zod: 3.23.8
@@ -9629,18 +9619,6 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@effect/platform-browser@0.48.25(@effect/platform@0.69.25(effect@3.10.16))(effect@3.10.16)':
-    dependencies:
-      '@effect/platform': 0.69.25(effect@3.10.16)
-      effect: 3.10.16
-      multipasta: 0.2.5
-
-  '@effect/platform-browser@0.48.25(@effect/platform@0.69.26(effect@3.10.16))(effect@3.10.16)':
-    dependencies:
-      '@effect/platform': 0.69.26(effect@3.10.16)
-      effect: 3.10.16
-      multipasta: 0.2.5
-
   '@effect/platform-browser@0.48.26(@effect/platform@0.69.26(effect@3.10.17))(effect@3.10.17)':
     dependencies:
       '@effect/platform': 0.69.26(effect@3.10.17)
@@ -9665,18 +9643,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  '@effect/platform@0.69.25(effect@3.10.16)':
-    dependencies:
-      effect: 3.10.16
-      find-my-way-ts: 0.1.5
-      multipasta: 0.2.5
-
-  '@effect/platform@0.69.26(effect@3.10.16)':
-    dependencies:
-      effect: 3.10.16
-      find-my-way-ts: 0.1.5
-      multipasta: 0.2.5
 
   '@effect/platform@0.69.26(effect@3.10.17)':
     dependencies:
@@ -14726,10 +14692,6 @@ snapshots:
 
   ee-first@1.1.1: {}
 
-  effect@3.10.16:
-    dependencies:
-      fast-check: 3.23.1
-
   effect@3.10.17:
     dependencies:
       fast-check: 3.23.1
@@ -14905,7 +14867,7 @@ snapshots:
       es-errors: 1.3.0
       es-object-atoms: 1.0.0
       es-set-tostringtag: 2.0.3
-      es-to-primitive: 1.2.1
+      es-to-primitive: 1.3.0
       function.prototype.name: 1.1.6
       get-intrinsic: 1.2.4
       get-symbol-description: 1.0.2
@@ -14987,6 +14949,13 @@ snapshots:
       is-callable: 1.2.7
       is-date-object: 1.0.5
       is-symbol: 1.0.4
+
+  es-to-primitive@1.3.0:
+    dependencies:
+      is-callable: 1.2.7
+      is-date-object: 1.0.5
+      is-symbol: 1.0.4
+    optional: true
 
   es5-ext@0.10.64:
     dependencies:
@@ -18581,7 +18550,7 @@ snapshots:
 
   undici@6.21.0: {}
 
-  unenv-nightly@2.0.0-20241111-080453-894aa31:
+  unenv-nightly@2.0.0-20241121-161142-806b5c0:
     dependencies:
       defu: 6.1.4
       ohash: 1.1.4
@@ -18920,10 +18889,10 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20241106.1
       '@cloudflare/workerd-windows-64': 1.20241106.1
 
-  wrangler@3.90.0(bufferutil@4.0.8)(utf-8-validate@6.0.5):
+  wrangler@3.91.0(bufferutil@4.0.8)(utf-8-validate@6.0.5):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.3.4
-      '@cloudflare/workers-shared': 0.8.0
+      '@cloudflare/workers-shared': 0.9.0
       '@esbuild-plugins/node-globals-polyfill': 0.2.3(esbuild@0.17.19)
       '@esbuild-plugins/node-modules-polyfill': 0.2.2(esbuild@0.17.19)
       blake3-wasm: 2.1.5
@@ -18938,7 +18907,7 @@ snapshots:
       resolve.exports: 2.0.2
       selfsigned: 2.4.1
       source-map: 0.6.1
-      unenv: unenv-nightly@2.0.0-20241111-080453-894aa31
+      unenv: unenv-nightly@2.0.0-20241121-161142-806b5c0
       workerd: 1.20241106.1
       xxhash-wasm: 1.1.0
     optionalDependencies:

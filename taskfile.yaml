@@ -20,6 +20,7 @@ tasks:
 
   lint:
     desc: Check code for common problems
+    interactive: true
     cmd: turbo lint
 
   fix:
