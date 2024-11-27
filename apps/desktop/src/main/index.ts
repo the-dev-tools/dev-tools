@@ -10,16 +10,14 @@ const createWindow = () => {
     width: 800,
     height: 600,
     webPreferences: {
-      preload: path.join(import.meta.dirname, 'preload.js'),
+      preload: path.join(import.meta.dirname, '../preload/index.mjs'),
     },
   });
 
   // and load the index.html of the app.
   if (import.meta.env.DEV && process.env['ELECTRON_RENDERER_URL']) {
-    // void mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    // void mainWindow.loadFile(path.join(import.meta.dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
     void mainWindow.loadFile(path.join(import.meta.dirname, '../renderer/index.html'));
   }
 
