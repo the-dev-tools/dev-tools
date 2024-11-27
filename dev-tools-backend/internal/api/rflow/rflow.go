@@ -28,8 +28,8 @@ type FlowServiceRPC struct {
 	fts sflowtag.FlowTagService
 }
 
-func New(db *sql.DB, fs sflow.FlowService, ws sworkspace.WorkspaceService,
-	us suser.UserService, ts stag.TagService, fts sflowtag.FlowTagService,
+func New(db *sql.DB, ws sworkspace.WorkspaceService,
+	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
 		DB:  db,
@@ -129,12 +129,16 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		Name: req.Msg.Name,
 	}
 	flow := tflow.SeralizeRpcToModelWithoutID(&rpcFlow)
+	flowID := idwrap.NewNow()
+	flow.ID = flowID
 	err = c.fs.CreateFlow(ctx, *flow)
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&flowv1.FlowCreateResponse{}), nil
+	return connect.NewResponse(&flowv1.FlowCreateResponse{
+		FlowId: flowID.Bytes(),
+	}), nil
 }
 
 func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[flowv1.FlowUpdateRequest]) (*connect.Response[flowv1.FlowUpdateResponse], error) {

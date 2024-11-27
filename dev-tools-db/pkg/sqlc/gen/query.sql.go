@@ -3003,11 +3003,11 @@ SELECT
 FROM 
   flow_tag
 WHERE
-  flow_id = ?
+  tag_id = ?
 `
 
-func (q *Queries) GetFlowTagsByTagID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowTag, error) {
-	rows, err := q.query(ctx, q.getFlowTagsByTagIDStmt, getFlowTagsByTagID, flowID)
+func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) ([]FlowTag, error) {
+	rows, err := q.query(ctx, q.getFlowTagsByTagIDStmt, getFlowTagsByTagID, tagID)
 	if err != nil {
 		return nil, err
 	}

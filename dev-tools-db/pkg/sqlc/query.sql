@@ -1470,7 +1470,7 @@ SELECT
 FROM 
   flow_tag
 WHERE
-  flow_id = ?;
+  tag_id = ?;
 
 -- name: CreateFlowTag :exec
 INSERT INTO
