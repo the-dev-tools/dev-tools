@@ -33,7 +33,15 @@ import { ApiLive } from '@the-dev-tools/api/live';
 import { ApiTest } from '@the-dev-tools/api/test';
 import { app } from '@the-dev-tools/core/index';
 
-const ConfigLive = pipe(import.meta.env, ConfigProvider.fromJson, Layer.setConfigProvider);
+const ConfigLive = pipe(
+  {
+    ...import.meta.env,
+    PUBLIC_API_URL: 'http://localhost:8080',
+    LOCAL_MODE: true,
+  },
+  ConfigProvider.fromJson,
+  Layer.setConfigProvider,
+);
 
 const Environment = Config.literal('production', 'development', 'test')('MODE');
 

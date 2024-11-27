@@ -7,6 +7,7 @@ import { LoginWithMagicLinkConfiguration, Magic } from 'magic-sdk';
 import { AuthService } from '@the-dev-tools/spec/auth/v1/auth_pb';
 
 import { accessTokenKey, AccessTokenPayload, JWTPayload, refreshTokenKey, RefreshTokenPayload } from './jwt';
+import { LocalMode } from './local';
 import { AnyFnEffect, Request } from './transport';
 
 export class AuthTransport extends Context.Tag('AuthTransport')<AuthTransport, Transport>() {}
@@ -94,12 +95,16 @@ export const authorizationInterceptor =
   <E, R>(next: AnyFnEffect<E, R>) =>
   (request: Request) =>
     Effect.gen(function* () {
-      request.header.set('Authorization', `Bearer ${yield* accessToken}`);
+      if (!(yield* LocalMode)) request.header.set('Authorization', `Bearer ${yield* accessToken}`);
       return yield* next(request);
     });
 
-export const getUser = pipe(
-  accessToken,
-  Effect.flatMap((_) => Effect.try(() => decodeJwt<typeof AccessTokenPayload.Encoded>(_))),
-  Effect.flatMap(Schema.decode(AccessTokenPayload)),
-);
+export const getUser = Effect.gen(function* () {
+  if (yield* LocalMode) return new AccessTokenPayload({ email: '', exp: new Date(0), token_type: 'access_token' });
+
+  return yield* pipe(
+    yield* accessToken,
+    (_) => Effect.try(() => decodeJwt<typeof AccessTokenPayload.Encoded>(_)),
+    Effect.flatMap(Schema.decode(AccessTokenPayload)),
+  );
+});
