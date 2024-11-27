@@ -77,6 +77,7 @@ func TestListFlow(t *testing.T) {
 	}
 
 	err = fts.CreateFlowTag(ctx, flowTagData)
+	testutil.AssertFatal(t, nil, err)
 
 	// List by tag
 	req := connect.NewRequest(
@@ -184,6 +185,7 @@ func TestGetFlow(t *testing.T) {
 	}
 
 	err = fts.CreateFlowTag(ctx, flowTagData)
+	testutil.AssertFatal(t, nil, err)
 
 	req := connect.NewRequest(
 		&flowv1.FlowGetRequest{
