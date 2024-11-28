@@ -3,8 +3,9 @@
 .env.keys
 .env.local
 .next
+.nx/cache
+.nx/workspace-data
 .plasmo
-.turbo
 .vite
 *.db
 dist

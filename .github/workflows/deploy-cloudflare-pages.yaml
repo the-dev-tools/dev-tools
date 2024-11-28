@@ -41,7 +41,7 @@ jobs:
           echo "DIST=$PKG_ROOT/dist" >> "$GITHUB_OUTPUT"
           echo "NAME=$NAME" >> "$GITHUB_OUTPUT"
 
-          turbo build --filter=${{ inputs.package }}
+          pnpm nx run ${{ inputs.package }}:build
 
       - name: Publish
         uses: cloudflare/pages-action@v1

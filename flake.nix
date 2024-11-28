@@ -38,7 +38,6 @@
             nativeBuildInputs =
               [
                 (dotenvx-wrapper (pkgs.pnpm_9))
-                (dotenvx-wrapper (pkgs.turbo))
               ]
               ++ (with pkgs; [
                 dotenvx
@@ -50,9 +49,6 @@
         devShells.default = pkgs.mkShell {
           # Specify Nixpkgs path for improved nixd intellisense
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
-
-          # Enable Turbo UI in development
-          TURBO_UI = true;
 
           # Use Electron binary from Nixpkgs in development for NixOS compatibility
           ELECTRON_SKIP_BINARY_DOWNLOAD = 1;

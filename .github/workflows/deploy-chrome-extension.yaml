@@ -30,7 +30,7 @@ jobs:
         name: Build
         run: |
           echo "PKG_ROOT=$(DOTENV_LOG_LEVEL=error pnpm --filter=${{ inputs.package }} exec pwd)" >> "$GITHUB_OUTPUT"
-          turbo build --filter=${{ inputs.package }}
+          pnpm nx run ${{ inputs.package }}:build
 
       - uses: actions/upload-artifact@v4
         with:

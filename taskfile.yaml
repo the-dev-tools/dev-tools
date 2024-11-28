@@ -11,17 +11,27 @@ tasks:
   dev:desktop:
     desc: Start desktop app development servers
     interactive: true
-    cmd: turbo dev --filter @the-dev-tools/desktop...
+    cmd: >-
+      pnpm nx run-many --targets=dev \
+        --projects=@the-dev-tools/desktop \
+        --projects=@the-dev-tools/core \
+        --projects=@the-dev-tools/ui \
+        {{.CLI_ARGS}}
 
   dev:web:
     desc: Start web app development servers
     interactive: true
-    cmd: turbo dev --filter @the-dev-tools/web...
+    cmd: >-
+      pnpm nx run-many --targets=dev \
+        --projects=@the-dev-tools/web \
+        --projects=@the-dev-tools/core \
+        --projects=@the-dev-tools/ui \
+        {{.CLI_ARGS}}
 
   lint:
     desc: Check code for common problems
     interactive: true
-    cmd: turbo lint
+    cmd: pnpm nx run-many --targets=lint --nxBail {{.CLI_ARGS}}
 
   fix:
     desc: Automatically fix common problems

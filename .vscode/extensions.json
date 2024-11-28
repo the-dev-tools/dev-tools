@@ -6,6 +6,7 @@
     "esbenp.prettier-vscode",
     "jnoortheen.nix-ide",
     "mkhl.direnv",
+    "nrwl.angular-console",
     "redhat.vscode-yaml"
   ]
 }
