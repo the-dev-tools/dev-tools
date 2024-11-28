@@ -1482,3 +1482,141 @@ VALUES
 DELETE FROM flow_tag
 WHERE
   id = ?;
+
+-- name: GetFlowNode :one
+SELECT 
+  id,
+  flow_id,
+  node_type,
+  node_id
+FROM 
+  flow_node
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetFlowNodesByFlowID :many
+SELECT 
+  id,
+  flow_id,
+  node_type,
+  node_id
+FROM 
+  flow_node
+WHERE
+  flow_id = ?;
+
+-- name: CreateFlowNode :exec
+INSERT INTO
+  flow_node (id, flow_id, node_type, node_id)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateFlowNode :exec
+UPDATE flow_node
+SET
+  node_type = ?,
+  node_id = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowNode :exec
+DELETE FROM flow_node
+WHERE
+  id = ?;
+
+-- name: GetFlowNodeFor :one
+SELECT 
+  id,
+  flow_node_id,
+  iter_count,
+  loop_start_node_id,
+  next
+FROM 
+  flow_node_for
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeFor :exec
+INSERT INTO
+  flow_node_for (id, flow_node_id, iter_count, loop_start_node_id, next)
+VALUES
+  (?, ?, ?, ?, ?);
+
+-- name: UpdateFlowNodeFor :exec
+UPDATE flow_node_for
+SET
+  iter_count = ?,
+  loop_start_node_id = ?,
+  next = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowNodeFor :exec
+DELETE FROM flow_node_for
+WHERE
+  id = ?;
+
+-- name: GetFlowNodeRequest :one
+SELECT 
+  id,
+  flow_node_id,
+  example_id,
+  next
+FROM 
+  flow_node_request
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeRequest :exec
+INSERT INTO
+  flow_node_request (id, flow_node_id, example_id, next)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateFlowNodeRequest :exec
+UPDATE flow_node_request
+SET
+  example_id = ?,
+  next = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowNodeRequest :exec
+DELETE FROM flow_node_request
+WHERE
+  id = ?;
+
+-- name: GetFlowNodeIf :one
+SELECT 
+  id,
+  flow_node_id,
+  condition_type,
+  condition
+FROM 
+  flow_node_if
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeIf :exec
+INSERT INTO
+  flow_node_if (id, flow_node_id, condition_type, condition)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateFlowNodeIf :exec
+UPDATE flow_node_if
+SET
+  condition_type = ?,
+  condition = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowNodeIf :exec
+DELETE FROM flow_node_if
+WHERE
+  id = ?;
+
