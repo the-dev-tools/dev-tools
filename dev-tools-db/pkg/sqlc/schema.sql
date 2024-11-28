@@ -241,7 +241,7 @@ CREATE TABLE variable (
     id BLOB NOT NULL PRIMARY KEY,
     env_id BLOB NOT NULL,
     var_key TEXT NOT NULL,
-    value TEXt NOT NULL,
+    value TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     description TEXT NOT NULL,
     UNIQUE (env_id, var_key),
@@ -290,4 +290,46 @@ CREATE TABLE flow_tag (
   tag_id BLOB NOT NULL,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
   FOREIGN KEY (tag_id) REFERENCES flow_tag (id) ON DELETE CASCADE
+);
+
+CREATE TABLE flow_node (
+  id BLOB NOT NULL PRIMARY KEY,
+  flow_id BLOB NOT NULL,
+  node_type INT8 NOT NULL,
+  node_id BLOB NOT NULL,
+  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
+);
+
+CREATE TABLE flow_node_for (
+  id BLOB NOT NULL PRIMARY KEY,
+  flow_node_id BLOB NOT NULL,
+  iter_count BIGINT NOT NULL,
+  loop_start_node_id,
+  next BLOB,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
+  FOREIGN KEY (loop_start_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
+  FOREIGN KEY (next) REFERENCES flow_node (id) ON DELETE CASCADE
+);
+
+CREATE TABLE flow_node_request (
+  id BLOB NOT NULL PRIMARY KEY,
+  flow_node_id BLOB NOT NULL,
+  example_id BLOB NOT NULL,
+  next BLOB,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (next) REFERENCES flow_node (id) ON DELETE CASCADE
+);
+
+CREATE TABLE flow_node_if (
+  id BLOB NOT NULL PRIMARY KEY,
+  flow_node_id BLOB NOT NULL,
+  condition_type INT8 NOT NULL,
+  condition TEXT NOT NULL,
+  next_true BLOB,
+  next_false BLOB,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (next_true) REFERENCES flow_node (id) ON DELETE CASCADE,
+  FOREIGN KEY (next_false) REFERENCES flow_node (id) ON DELETE CASCADE
 );
