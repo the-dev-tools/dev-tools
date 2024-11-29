@@ -7,6 +7,7 @@
     "jnoortheen.nix-ide",
     "mkhl.direnv",
     "nrwl.angular-console",
-    "redhat.vscode-yaml"
+    "redhat.vscode-yaml",
+    "typespec.typespec-vscode"
   ]
 }

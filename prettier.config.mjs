@@ -6,7 +6,9 @@ export default {
   singleQuote: true,
   jsxSingleQuote: true,
 
-  plugins: ['@ianvs/prettier-plugin-sort-imports'],
+  plugins: ['@ianvs/prettier-plugin-sort-imports', '@typespec/prettier-plugin-typespec'],
+
+  overrides: [{ files: '*.tsp', options: { parser: 'typespec' } }],
 
   /**
    * @see https://github.com/IanVS/prettier-plugin-sort-imports?tab=readme-ov-file#importorder

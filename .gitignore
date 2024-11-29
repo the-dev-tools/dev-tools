@@ -6,9 +6,12 @@
 .nx/cache
 .nx/workspace-data
 .plasmo
+.task
 .vite
 *.db
+data
 dist
 next-env.d.ts
 node_modules
 tsconfig.tsbuildinfo
+tsp-output

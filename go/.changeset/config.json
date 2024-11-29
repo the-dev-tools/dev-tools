@@ -1,7 +1,0 @@
-{
-  "$schema": "https://unpkg.com/@changesets/config@3.0.2/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "the-dev-tools/dev-tools-go" }],
-  "updateInternalDependencies": "patch",
-  "commit": false,
-  "baseBranch": "main"
-}

@@ -1,6 +1,0 @@
-{
-  "$schema": "https://unpkg.com/@changesets/config@3.0.2/schema.json",
-  "baseBranch": "main",
-  "changelog": ["@changesets/changelog-github", { "repo": "the-dev-tools/dev-tools-proto" }],
-  "commit": false
-}

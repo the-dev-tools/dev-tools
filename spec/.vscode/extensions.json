@@ -1,9 +1,0 @@
-{
-  "recommendations": [
-    "editorconfig.editorconfig",
-    "esbenp.prettier-vscode",
-    "jnoortheen.nix-ide",
-    "mkhl.direnv",
-    "typespec.typespec-vscode"
-  ]
-}

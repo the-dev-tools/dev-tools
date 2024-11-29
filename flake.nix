@@ -22,9 +22,9 @@
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
 
         devShells.runner = let
-          dotenvx-wrapper = pkg:
+          dotenvx-wrapper = args @ {pkg, ...}:
             pkgs.writeShellApplication {
-              name = pkg.pname;
+              name = args.name or pkg.pname;
               runtimeInputs = [pkgs.dotenvx pkg];
               text = ''
                 dotenvx run \
@@ -37,12 +37,27 @@
           pkgs.mkShell {
             nativeBuildInputs =
               [
-                (dotenvx-wrapper (pkgs.pnpm_9))
+                (dotenvx-wrapper {
+                  pkg = pkgs.go;
+                  name = "gox";
+                })
+                (dotenvx-wrapper {pkg = pkgs.pnpm_9;})
               ]
               ++ (with pkgs; [
+                go
+                nodejs_latest
+
+                # Build tools
                 dotenvx
                 go-task
-                nodejs_latest
+                jq
+                protoc-gen-connect-go
+                protoc-gen-go
+
+                # Cross-compilation dependencies
+                pkgsCross.mingw32.buildPackages.gcc
+                pkgsCross.mingwW64.buildPackages.gcc
+                pkgsCross.aarch64-multiplatform.buildPackages.gcc
               ]);
           };
 
@@ -63,6 +78,7 @@
             self'.devShells.runner.nativeBuildInputs
             ++ (with pkgs; [
               alejandra
+              gopls
               nixd
             ]);
         };

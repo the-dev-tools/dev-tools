@@ -1,8 +1,0 @@
-# editorconfig.org
-root = true
-
-[*.json]
-indent_size = 4
-
-[*.sql]
-indent_size = 2

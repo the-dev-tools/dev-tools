@@ -1,4 +1,5 @@
 CHANGELOG.md
+dist
 flake.lock
 pnpm-lock.yaml
 router-tree.tsx
