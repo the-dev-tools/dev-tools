@@ -54,6 +54,11 @@
           ELECTRON_SKIP_BINARY_DOWNLOAD = 1;
           ELECTRON_EXEC_PATH = "${pkgs.electron}/bin/electron";
 
+          shellHook = ''
+            # Export PNPM binaries into path for better DX
+            export PATH=$PATH:$(DOTENV_LOG_LEVEL=error pnpm bin)
+          '';
+
           nativeBuildInputs =
             self'.devShells.runner.nativeBuildInputs
             ++ (with pkgs; [
