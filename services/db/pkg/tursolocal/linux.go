@@ -5,10 +5,10 @@ package tursolocal
 import (
 	"context"
 	"database/sql"
-	"dev-tools-db/pkg/sqlc"
 	"fmt"
 	"os"
 	"path/filepath"
+	"the-dev-tools/db/pkg/sqlc"
 )
 
 var (

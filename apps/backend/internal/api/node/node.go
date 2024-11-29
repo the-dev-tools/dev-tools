@@ -3,9 +3,9 @@ package node
 /*
 import (
 	"context"
-	"dev-tools-backend/internal/api"
-	nodemasterv1 "dev-tools-services/gen/nodemaster/v1"
-	"dev-tools-services/gen/nodemaster/v1/nodemasterv1connect"
+	"the-dev-tools/backend/internal/api"
+	nodemasterv1 "the-dev-tools/services/gen/nodemaster/v1"
+	"the-dev-tools/services/gen/nodemaster/v1/nodemasterv1connect"
 	"errors"
 	"log"
 	"os"

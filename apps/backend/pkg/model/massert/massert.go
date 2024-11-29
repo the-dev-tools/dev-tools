@@ -1,6 +1,6 @@
 package massert
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type AssertType int8
 

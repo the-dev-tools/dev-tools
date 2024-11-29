@@ -2,11 +2,11 @@ package auth_test
 
 import (
 	"context"
-	"dev-tools-backend/internal/api/auth"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/stoken"
-	authv1 "dev-tools-spec/dist/buf/go/auth/v1"
 	"testing"
+	"the-dev-tools/backend/internal/api/auth"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/stoken"
+	authv1 "the-dev-tools/spec/dist/buf/go/auth/v1"
 	"time"
 
 	"connectrpc.com/connect"

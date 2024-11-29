@@ -1,7 +1,7 @@
 package mexampleresp
 
 import (
-	"dev-tools-backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/idwrap"
 )
 
 type BodyCompressType uint8

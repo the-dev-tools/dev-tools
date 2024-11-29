@@ -1,7 +1,7 @@
 package mworkspace
 
 import (
-	"dev-tools-backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/idwrap"
 	"time"
 )
 

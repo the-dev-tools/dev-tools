@@ -1,14 +1,14 @@
 package thar
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyform"
-	"dev-tools-backend/pkg/model/mbodyraw"
-	"dev-tools-backend/pkg/model/mbodyurl"
-	"dev-tools-backend/pkg/model/mitemapi"
-	"dev-tools-backend/pkg/model/mitemapiexample"
 	"encoding/json"
 	"strings"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mbodyform"
+	"the-dev-tools/backend/pkg/model/mbodyraw"
+	"the-dev-tools/backend/pkg/model/mbodyurl"
+	"the-dev-tools/backend/pkg/model/mitemapi"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
 )
 
 type HarResvoled struct {

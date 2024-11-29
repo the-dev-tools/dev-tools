@@ -2,16 +2,16 @@ package ritemfolder_test
 
 import (
 	"context"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/ritemfolder"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemfolder"
-	"dev-tools-backend/pkg/service/scollection"
-	"dev-tools-backend/pkg/service/sitemfolder"
-	"dev-tools-backend/pkg/service/suser"
-	"dev-tools-backend/pkg/testutil"
-	folderv1 "dev-tools-spec/dist/buf/go/collection/item/folder/v1"
 	"testing"
+	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/internal/api/ritemfolder"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemfolder"
+	"the-dev-tools/backend/pkg/service/scollection"
+	"the-dev-tools/backend/pkg/service/sitemfolder"
+	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/backend/pkg/testutil"
+	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 
 	"connectrpc.com/connect"
 )

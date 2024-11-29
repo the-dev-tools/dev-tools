@@ -4,16 +4,16 @@ package tbodyraw
 
 import (
 	"context"
-	"dev-tools-backend/pkg/model/mbodyraw"
-	"dev-tools-backend/pkg/model/mitemapiexample"
-	"dev-tools-backend/pkg/service/sbodyform"
-	"dev-tools-backend/pkg/service/sbodyraw"
-	"dev-tools-backend/pkg/service/sbodyurl"
-	"dev-tools-backend/pkg/translate/tbodyform"
-	"dev-tools-backend/pkg/translate/tbodyurl"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/zstdcompress"
-	bodyv1 "dev-tools-services/gen/body/v1"
+	"the-dev-tools/backend/pkg/model/mbodyraw"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/service/sbodyform"
+	"the-dev-tools/backend/pkg/service/sbodyraw"
+	"the-dev-tools/backend/pkg/service/sbodyurl"
+	"the-dev-tools/backend/pkg/translate/tbodyform"
+	"the-dev-tools/backend/pkg/translate/tbodyurl"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/backend/pkg/zstdcompress"
+	bodyv1 "the-dev-tools/services/gen/body/v1"
 
 	"connectrpc.com/connect"
 )

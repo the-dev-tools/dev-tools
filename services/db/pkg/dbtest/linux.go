@@ -5,8 +5,8 @@ package dbtest
 import (
 	"context"
 	"database/sql"
-	"dev-tools-db/pkg/sqlc"
-	"dev-tools-db/pkg/sqlc/gen"
+	"the-dev-tools/db/pkg/sqlc"
+	"the-dev-tools/db/pkg/sqlc/gen"
 
 	_ "github.com/mattn/go-sqlite3"
 )

@@ -3,8 +3,8 @@ package tassertres
 /*
 
 import (
-	"dev-tools-backend/pkg/model/massertres"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
+	"the-dev-tools/backend/pkg/model/massertres"
+	itemapiexamplev1 "the-dev-tools/services/gen/itemapiexample/v1"
 )
 
 func SerializeAssertResultModelToRPC(ar massertres.AssertResult, assert *itemapiexamplev1.Asssert) *itemapiexamplev1.AssertResult {

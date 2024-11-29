@@ -3,11 +3,11 @@ package nodeloop_test
 /*
 
 import (
-	"dev-tools-nodes/pkg/model/medge"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodes/nodeloop"
+	"the-dev-tools/nodes/pkg/model/medge"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodes/nodeloop"
 	"testing"
 )
 

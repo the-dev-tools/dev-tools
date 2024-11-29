@@ -1,6 +1,6 @@
 package muser
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type ProviderType int8
 

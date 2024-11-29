@@ -3,10 +3,10 @@ package emailinvite
 import (
 	"bytes"
 	"context"
-	"dev-tools-mail/pkg/emailclient"
 	"fmt"
 	"html/template"
 	"os"
+	"the-dev-tools/mail/pkg/emailclient"
 )
 
 type EmailInviteTemplateData struct {

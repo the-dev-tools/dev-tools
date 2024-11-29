@@ -2,16 +2,16 @@ package rtag_test
 
 import (
 	"context"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/internal/api/rtag"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mtag"
-	"dev-tools-backend/pkg/service/stag"
-	"dev-tools-backend/pkg/service/suser"
-	"dev-tools-backend/pkg/service/sworkspace"
-	"dev-tools-backend/pkg/testutil"
-	tagv1 "dev-tools-spec/dist/buf/go/tag/v1"
 	"testing"
+	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/internal/api/rtag"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mtag"
+	"the-dev-tools/backend/pkg/service/stag"
+	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/backend/pkg/service/sworkspace"
+	"the-dev-tools/backend/pkg/testutil"
+	tagv1 "the-dev-tools/spec/dist/buf/go/tag/v1"
 
 	"connectrpc.com/connect"
 )

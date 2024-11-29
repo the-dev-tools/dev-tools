@@ -1,4 +1,4 @@
-module dev-tools-backend
+module the-dev-tools/backend
 
 go 1.23
 

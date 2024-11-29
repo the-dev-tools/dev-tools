@@ -1,10 +1,10 @@
 package mpostmancollection
 
 import (
-	"dev-tools-backend/pkg/model/postman/v21/mauth"
-	"dev-tools-backend/pkg/model/postman/v21/mevent"
-	"dev-tools-backend/pkg/model/postman/v21/mitem"
-	"dev-tools-backend/pkg/model/postman/v21/mvariable"
+	"the-dev-tools/backend/pkg/model/postman/v21/mauth"
+	"the-dev-tools/backend/pkg/model/postman/v21/mevent"
+	"the-dev-tools/backend/pkg/model/postman/v21/mitem"
+	"the-dev-tools/backend/pkg/model/postman/v21/mvariable"
 )
 
 type Info struct {

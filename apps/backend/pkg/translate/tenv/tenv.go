@@ -1,9 +1,9 @@
 package tenv
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/menv"
-	environmentv1 "dev-tools-spec/dist/buf/go/environment/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/menv"
+	environmentv1 "the-dev-tools/spec/dist/buf/go/environment/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

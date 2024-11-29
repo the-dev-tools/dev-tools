@@ -3,10 +3,10 @@ package sassert
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/massert"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-db/pkg/sqlc/gen"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 type AssertService struct {

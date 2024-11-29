@@ -3,11 +3,11 @@ package sbodyraw
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyraw"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mbodyraw"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 type BodyRawService struct {

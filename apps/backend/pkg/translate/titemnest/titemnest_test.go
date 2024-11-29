@@ -2,12 +2,12 @@ package titemnest_test
 
 /*
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapi"
-	"dev-tools-backend/pkg/model/mitemapiexample"
-	"dev-tools-backend/pkg/model/mitemfolder"
-	"dev-tools-backend/pkg/translate/titemnest"
-	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemapi"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/model/mitemfolder"
+	"the-dev-tools/backend/pkg/translate/titemnest"
+	itemfolderv1 "the-dev-tools/services/gen/itemfolder/v1"
 	"testing"
 )
 

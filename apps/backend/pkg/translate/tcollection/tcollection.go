@@ -1,9 +1,9 @@
 package tcollection
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mcollection"
-	collectionv1 "dev-tools-spec/dist/buf/go/collection/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mcollection"
+	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
 )
 
 func SerializeCollectionModelToRPC(collection mcollection.Collection) *collectionv1.CollectionListItem {

@@ -1,10 +1,10 @@
 package varsystem
 
 import (
-	"dev-tools-backend/pkg/model/mvar"
-	"dev-tools-backend/pkg/translate/tgeneric"
 	"fmt"
 	"strings"
+	"the-dev-tools/backend/pkg/model/mvar"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
 )
 
 var (

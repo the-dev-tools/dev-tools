@@ -1,8 +1,8 @@
 package nodecom_test
 
 import (
-	"dev-tools-nodes/pkg/mailclient/mockemailclient"
 	"testing"
+	"the-dev-tools/nodes/pkg/mailclient/mockemailclient"
 )
 
 func TestSendEmail(t *testing.T) {

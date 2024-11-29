@@ -1,7 +1,7 @@
 package mexampleheader
 
 import (
-	"dev-tools-backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/idwrap"
 )
 
 type Header struct {

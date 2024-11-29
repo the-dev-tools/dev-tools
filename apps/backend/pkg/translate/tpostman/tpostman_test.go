@@ -1,17 +1,17 @@
 package tpostman_test
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemfolder"
-	"dev-tools-backend/pkg/model/postman/v21/mbody"
-	"dev-tools-backend/pkg/model/postman/v21/mheader"
-	"dev-tools-backend/pkg/model/postman/v21/mitem"
-	"dev-tools-backend/pkg/model/postman/v21/mpostmancollection"
-	"dev-tools-backend/pkg/model/postman/v21/mrequest"
-	"dev-tools-backend/pkg/model/postman/v21/mresponse"
-	"dev-tools-backend/pkg/model/postman/v21/murl"
-	"dev-tools-backend/pkg/translate/tpostman"
 	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemfolder"
+	"the-dev-tools/backend/pkg/model/postman/v21/mbody"
+	"the-dev-tools/backend/pkg/model/postman/v21/mheader"
+	"the-dev-tools/backend/pkg/model/postman/v21/mitem"
+	"the-dev-tools/backend/pkg/model/postman/v21/mpostmancollection"
+	"the-dev-tools/backend/pkg/model/postman/v21/mrequest"
+	"the-dev-tools/backend/pkg/model/postman/v21/mresponse"
+	"the-dev-tools/backend/pkg/model/postman/v21/murl"
+	"the-dev-tools/backend/pkg/translate/tpostman"
 )
 
 func TestTranslatePostmanOrder(test *testing.T) {

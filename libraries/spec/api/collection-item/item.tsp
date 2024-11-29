@@ -16,7 +16,7 @@ using TypeSpec.Rest.Resource;
 @package({
   name: "collection.item.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/collection/item/v1;itemv1",
+    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/v1;itemv1",
   },
 })
 namespace API.CollectionItem.Item;

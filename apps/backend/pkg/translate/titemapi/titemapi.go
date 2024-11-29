@@ -1,10 +1,10 @@
 package titemapi
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapi"
-	endpointv1 "dev-tools-spec/dist/buf/go/collection/item/endpoint/v1"
 	"errors"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemapi"
+	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 )
 
 func SeralizeRPCToModel(item *endpointv1.Endpoint, collectionID idwrap.IDWrap) (*mitemapi.ItemApi, error) {

@@ -2,12 +2,12 @@ package nodeapi
 
 import (
 	"bytes"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodemaster"
 	"errors"
 	"log"
 	"net/http"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodemaster"
 )
 
 const (

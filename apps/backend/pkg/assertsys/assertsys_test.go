@@ -1,12 +1,12 @@
 package assertsys_test
 
 import (
-	"dev-tools-backend/pkg/assertsys"
-	"dev-tools-backend/pkg/model/massert"
-	"dev-tools-backend/pkg/model/mexamplerespheader"
-	"dev-tools-nodes/pkg/httpclient"
 	"fmt"
 	"testing"
+	"the-dev-tools/backend/pkg/assertsys"
+	"the-dev-tools/backend/pkg/model/massert"
+	"the-dev-tools/backend/pkg/model/mexamplerespheader"
+	"the-dev-tools/nodes/pkg/httpclient"
 )
 
 var (

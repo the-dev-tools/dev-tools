@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package collection.v1;
-option go_package = "dev-tools-services/gen/collection/v1;collectionv1";
+option go_package = "the-dev-tools/services/gen/collection/v1;collectionv1";
 
 import "itemfolder/v1/itemfolder.proto";
 

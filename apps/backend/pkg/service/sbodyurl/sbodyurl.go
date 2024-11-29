@@ -3,11 +3,11 @@ package sbodyurl
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyurl"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mbodyurl"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 type BodyURLEncodedService struct {

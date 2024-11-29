@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package itemapi.v1;
-option go_package = "dev-tools-services/gen/itemapi/v1;itemapiv1";
+option go_package = "the-dev-tools/services/gen/itemapi/v1;itemapiv1";
 import "itemapiexample/v1/itemapiexample.proto";
 
 service ItemApiService {

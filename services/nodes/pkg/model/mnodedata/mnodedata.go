@@ -2,10 +2,10 @@ package mnodedata
 
 import (
 	"database/sql/driver"
-	"dev-tools-backend/pkg/model/mexampleheader"
-	"dev-tools-backend/pkg/model/mexamplequery"
 	"encoding/json"
 	"errors"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
 )
 
 //

@@ -1,11 +1,11 @@
 package flyclient_test
 
 import (
-	"dev-tools-platform/pkg/client/flyclient"
-	"dev-tools-platform/pkg/machine/flymachine"
 	"fmt"
 	"os"
 	"testing"
+	"the-dev-tools/platform/pkg/client/flyclient"
+	"the-dev-tools/platform/pkg/machine/flymachine"
 	"time"
 )
 

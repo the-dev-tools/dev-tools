@@ -1,9 +1,9 @@
 package texampleresp
 
 import (
-	"dev-tools-backend/pkg/model/mexampleresp"
-	"dev-tools-backend/pkg/zstdcompress"
-	responsev1 "dev-tools-spec/dist/buf/go/collection/item/response/v1"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/backend/pkg/zstdcompress"
+	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

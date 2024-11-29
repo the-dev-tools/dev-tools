@@ -1,13 +1,13 @@
 package tassert
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/massert"
-	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 )
 
 func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {

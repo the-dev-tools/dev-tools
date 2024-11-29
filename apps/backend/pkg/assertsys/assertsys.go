@@ -2,12 +2,12 @@ package assertsys
 
 import (
 	"context"
-	"dev-tools-backend/pkg/model/massert"
-	"dev-tools-nodes/pkg/httpclient"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"the-dev-tools/backend/pkg/model/massert"
+	"the-dev-tools/nodes/pkg/httpclient"
 	"unicode"
 
 	"github.com/PaesslerAG/gval"

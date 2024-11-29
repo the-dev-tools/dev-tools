@@ -11,7 +11,7 @@ using TypeSpec.Rest;
 @package({
   name: "collection.item.body.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/collection/item/body/v1;bodyv1",
+    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/body/v1;bodyv1",
   },
 })
 namespace API.CollectionItem.Body;

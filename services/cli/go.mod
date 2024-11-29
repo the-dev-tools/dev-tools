@@ -1,3 +1,3 @@
-module dev-tools-cli
+module the-dev-tools/cli
 
 go 1.23

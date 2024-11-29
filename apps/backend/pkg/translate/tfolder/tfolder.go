@@ -1,10 +1,10 @@
 package tfolder
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemfolder"
-	folderv1 "dev-tools-spec/dist/buf/go/collection/item/folder/v1"
 	"errors"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemfolder"
+	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 )
 
 func SeralizeRPCToModel(item *folderv1.Folder, collectionID idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {

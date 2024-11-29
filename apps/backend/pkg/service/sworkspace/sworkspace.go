@@ -3,11 +3,11 @@ package sworkspace
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/dbtime"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mworkspace"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-db/pkg/sqlc/gen"
+	"the-dev-tools/backend/pkg/dbtime"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mworkspace"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"time"
 )
 

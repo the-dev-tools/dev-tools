@@ -3,14 +3,14 @@ package convert
 /*
 
 import (
-	"dev-tools-nodes/pkg/model/medge"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mresolver"
-	"dev-tools-nodes/pkg/model/mstatus"
-	nodedatav1 "dev-tools-services/gen/nodedata/v1"
-	nodemasterv1 "dev-tools-services/gen/nodemaster/v1"
-	nodestatusv1 "dev-tools-services/gen/nodestatus/v1"
+	"the-dev-tools/nodes/pkg/model/medge"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mresolver"
+	"the-dev-tools/nodes/pkg/model/mstatus"
+	nodedatav1 "the-dev-tools/services/gen/nodedata/v1"
+	nodemasterv1 "the-dev-tools/services/gen/nodemaster/v1"
+	nodestatusv1 "the-dev-tools/services/gen/nodestatus/v1"
 	"fmt"
 
 	"google.golang.org/protobuf/proto"

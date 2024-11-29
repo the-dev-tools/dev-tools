@@ -3,11 +3,11 @@ package sworkspacesusers
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mworkspaceuser"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-db/pkg/sqlc/gen"
 	"errors"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mworkspaceuser"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 var ErrWorkspaceUserNotFound = errors.New("workspace user not found")

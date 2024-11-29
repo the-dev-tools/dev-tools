@@ -2,8 +2,8 @@ package status
 
 import (
 	"context"
-	"dev-tools-nodes/pkg/model/mstatus"
 	"log"
+	"the-dev-tools/nodes/pkg/model/mstatus"
 )
 
 func PushNotify(statusData mstatus.NodeStatus, notifyChan chan mstatus.NodeStatus) {

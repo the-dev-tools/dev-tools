@@ -1,6 +1,6 @@
 package mflowtag
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type FlowTag struct {
 	ID     idwrap.IDWrap

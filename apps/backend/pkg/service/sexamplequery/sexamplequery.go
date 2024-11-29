@@ -3,12 +3,12 @@ package sexamplequery
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexamplequery"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
 	"sort"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 var ErrNoQueryFound = sql.ErrNoRows

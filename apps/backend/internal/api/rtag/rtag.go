@@ -3,16 +3,16 @@ package rtag
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/internal/api/rworkspace"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/permcheck"
-	"dev-tools-backend/pkg/service/stag"
-	"dev-tools-backend/pkg/service/suser"
-	"dev-tools-backend/pkg/service/sworkspace"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	"dev-tools-backend/pkg/translate/ttag"
+	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/service/stag"
+	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/backend/pkg/service/sworkspace"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/backend/pkg/translate/ttag"
 
-	tagv1 "dev-tools-spec/dist/buf/go/tag/v1"
+	tagv1 "the-dev-tools/spec/dist/buf/go/tag/v1"
 
 	"connectrpc.com/connect"
 )

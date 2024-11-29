@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package environment.v1;
 
-option go_package = "dev-tools-services/gen/environment/v1;environmentv1";
+option go_package = "the-dev-tools/services/gen/environment/v1;environmentv1";
 import "google/protobuf/timestamp.proto";
 
 

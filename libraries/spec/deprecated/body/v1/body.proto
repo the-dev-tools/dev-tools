@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package body.v1;
 
-option go_package = "dev-tools-services/gen/body/v1;bodyv1";
+option go_package = "the-dev-tools/services/gen/body/v1;bodyv1";
 
 
 service BodyService {

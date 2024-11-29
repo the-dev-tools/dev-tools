@@ -12,7 +12,7 @@ using TypeSpec.Rest;
 @package({
   name: "workspace.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/workspace/v1;workspacev1",
+    go_package: "the-dev-tools/spec/dist/buf/go/workspace/v1;workspacev1",
   },
 })
 namespace API.Workspace;

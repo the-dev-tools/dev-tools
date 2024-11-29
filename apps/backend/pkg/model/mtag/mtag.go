@@ -1,6 +1,6 @@
 package mtag
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type Tag struct {
 	ID          idwrap.IDWrap

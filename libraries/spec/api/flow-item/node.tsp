@@ -12,7 +12,7 @@ using TypeSpec.Rest;
 @package({
   name: "flow.node.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/flow/node/v1;nodev1",
+    go_package: "the-dev-tools/spec/dist/buf/go/flow/node/v1;nodev1",
   },
 })
 namespace API.FlowItem.Node;

@@ -1,4 +1,4 @@
-module dev-tools-mail
+module the-dev-tools/mail
 
 go 1.23
 

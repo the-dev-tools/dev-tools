@@ -12,7 +12,7 @@ using TypeSpec.Rest;
 @package({
   name: "tag.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/tag/v1;tagv1",
+    go_package: "the-dev-tools/spec/dist/buf/go/tag/v1;tagv1",
   },
 })
 namespace API.Tag;

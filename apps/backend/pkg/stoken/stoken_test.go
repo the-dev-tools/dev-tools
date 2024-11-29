@@ -1,9 +1,9 @@
 package stoken_test
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/stoken"
 	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/stoken"
 	"time"
 )
 

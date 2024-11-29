@@ -1,8 +1,8 @@
 package idwrap_test
 
 import (
-	"dev-tools-backend/pkg/idwrap"
 	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
 )
 
 func TestNew(t *testing.T) {

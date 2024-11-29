@@ -2,14 +2,14 @@ package nodemaster_test
 
 import (
 	"context"
-	"dev-tools-nodes/pkg/httpclient/httpmockclient"
-	"dev-tools-nodes/pkg/model/medge"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/model/mstatus"
-	"dev-tools-nodes/pkg/nodemaster"
 	"net/http"
 	"testing"
+	"the-dev-tools/nodes/pkg/httpclient/httpmockclient"
+	"the-dev-tools/nodes/pkg/model/medge"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/model/mstatus"
+	"the-dev-tools/nodes/pkg/nodemaster"
 )
 
 func MockResolver(nodeType string) (func(*mnodemaster.NodeMaster) error, error) {

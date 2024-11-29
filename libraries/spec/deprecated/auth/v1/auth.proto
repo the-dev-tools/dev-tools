@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package auth.v1;
-option go_package = "dev-tools-services/gen/auth/v1;authv1";
+option go_package = "the-dev-tools/services/gen/auth/v1;authv1";
 
 // INFO: we use `jwt` for token generation and validation
 

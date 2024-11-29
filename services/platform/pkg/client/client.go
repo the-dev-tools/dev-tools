@@ -1,7 +1,7 @@
 package client
 
 import (
-	"dev-tools-platform/pkg/machine"
+	"the-dev-tools/platform/pkg/machine"
 )
 
 type Client interface {

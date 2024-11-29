@@ -2,13 +2,13 @@ package flyclient
 
 import (
 	"bytes"
-	"dev-tools-platform/pkg/machine"
-	"dev-tools-platform/pkg/machine/flymachine"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"the-dev-tools/platform/pkg/machine"
+	"the-dev-tools/platform/pkg/machine/flymachine"
 	"time"
 )
 

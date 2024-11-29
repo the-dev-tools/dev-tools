@@ -1,7 +1,7 @@
 package mexamplequery
 
 import (
-	"dev-tools-backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/idwrap"
 )
 
 type Query struct {

@@ -1,7 +1,7 @@
 package mwcompress
 
 import (
-	"dev-tools-backend/pkg/zstdcompress"
+	"the-dev-tools/backend/pkg/zstdcompress"
 
 	"connectrpc.com/connect"
 )

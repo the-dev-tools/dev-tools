@@ -2,13 +2,13 @@ package nodemaster
 
 import (
 	"context"
-	"dev-tools-nodes/pkg/httpclient"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/model/mstatus"
 	"errors"
 	"log"
 	"os"
+	"the-dev-tools/nodes/pkg/httpclient"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/model/mstatus"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +21,7 @@ func NewNodeMaster(startNodeID string, nodes map[string]mnode.Node, resolver mno
 		return nil, err
 	}
 
-	logger := log.New(os.Stdout, "dev-tools-nodes", log.LstdFlags)
+	logger := log.New(os.Stdout, "the-dev-tools/nodes", log.LstdFlags)
 
 	return &mnodemaster.NodeMaster{
 		ID:              uuid.String(),

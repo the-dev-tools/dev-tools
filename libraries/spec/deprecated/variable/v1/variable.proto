@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package variable.v1;
 
-option go_package = "dev-tools-services/gen/variable/v1;variablev1";
+option go_package = "the-dev-tools/services/gen/variable/v1;variablev1";
 
 service VariableService {
   rpc CreateVariable(CreateVariableRequest) returns (CreateVariableResponse);

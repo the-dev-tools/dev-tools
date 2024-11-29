@@ -3,10 +3,10 @@ package sitemapiexample
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapiexample"
-	"dev-tools-db/pkg/sqlc/gen"
 	"slices"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 type ItemApiExampleService struct {

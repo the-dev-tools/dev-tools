@@ -1,9 +1,9 @@
 package ttag
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mtag"
-	tagv1 "dev-tools-spec/dist/buf/go/tag/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mtag"
+	tagv1 "the-dev-tools/spec/dist/buf/go/tag/v1"
 )
 
 func SeralizeModelToRPCItem(e mtag.Tag) *tagv1.TagListItem {

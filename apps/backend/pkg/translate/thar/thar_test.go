@@ -1,8 +1,8 @@
 package thar_test
 
 import (
-	"dev-tools-backend/pkg/translate/thar"
 	"testing"
+	"the-dev-tools/backend/pkg/translate/thar"
 )
 
 func TestHarResvoled(t *testing.T) {

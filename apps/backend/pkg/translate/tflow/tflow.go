@@ -1,9 +1,9 @@
 package tflow
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mflow"
-	flowv1 "dev-tools-spec/dist/buf/go/flow/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mflow"
+	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 )
 
 func SeralizeModelToRPCItem(e mflow.Flow) *flowv1.FlowListItem {

@@ -1,6 +1,6 @@
 package mitemfolder
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type ItemFolder struct {
 	ParentID     *idwrap.IDWrap

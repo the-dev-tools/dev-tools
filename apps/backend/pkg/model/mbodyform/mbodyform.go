@@ -1,6 +1,6 @@
 package mbodyform
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type BodyForm struct {
 	BodyKey     string        `json:"body_key"`

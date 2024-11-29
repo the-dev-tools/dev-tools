@@ -1,9 +1,9 @@
 package tquery
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexamplequery"
-	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 )
 
 func SerializeQueryModelToRPC(query mexamplequery.Query) *requestv1.Query {

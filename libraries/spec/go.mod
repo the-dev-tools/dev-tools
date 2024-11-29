@@ -1,4 +1,4 @@
-module dev-tools-spec
+module the-dev-tools/spec
 
 go 1.23
 

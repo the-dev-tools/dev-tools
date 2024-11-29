@@ -1,9 +1,9 @@
 package tbodyform
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyform"
-	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mbodyform"
+	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 )
 
 func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {

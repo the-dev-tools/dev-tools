@@ -2,9 +2,9 @@ package mresultapi
 
 import (
 	"database/sql/driver"
-	"dev-tools-backend/pkg/idwrap"
 	"errors"
 	"net/http"
+	"the-dev-tools/backend/pkg/idwrap"
 	"time"
 
 	"github.com/goccy/go-json"

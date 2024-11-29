@@ -3,9 +3,9 @@ package sexampleresp
 import (
 	"context"
 	"database/sql"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexampleresp"
-	"dev-tools-db/pkg/sqlc/gen"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 var ErrNoRespFound error = sql.ErrNoRows

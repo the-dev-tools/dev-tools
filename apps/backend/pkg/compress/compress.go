@@ -3,7 +3,7 @@ package compress
 import (
 	"bytes"
 	"compress/gzip"
-	"dev-tools-backend/pkg/zstdcompress"
+	"the-dev-tools/backend/pkg/zstdcompress"
 )
 
 type CompressType int8

@@ -1,9 +1,9 @@
 package tvar
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mvar"
-	variablev1 "dev-tools-spec/dist/buf/go/variable/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mvar"
+	variablev1 "the-dev-tools/spec/dist/buf/go/variable/v1"
 )
 
 func SerializeModelToRPC(v mvar.Var) *variablev1.Variable {

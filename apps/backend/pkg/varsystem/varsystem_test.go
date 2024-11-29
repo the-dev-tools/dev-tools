@@ -1,11 +1,11 @@
 package varsystem_test
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mvar"
-	"dev-tools-backend/pkg/varsystem"
 	"fmt"
 	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mvar"
+	"the-dev-tools/backend/pkg/varsystem"
 )
 
 func TestMergeVars(t *testing.T) {

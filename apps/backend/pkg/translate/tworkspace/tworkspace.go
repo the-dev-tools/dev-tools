@@ -1,10 +1,10 @@
 package tworkspace
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/menv"
-	"dev-tools-backend/pkg/model/mworkspace"
-	workspacev1 "dev-tools-spec/dist/buf/go/workspace/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/menv"
+	"the-dev-tools/backend/pkg/model/mworkspace"
+	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

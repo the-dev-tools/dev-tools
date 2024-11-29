@@ -1,4 +1,4 @@
-module dev-tools-nodes
+module the-dev-tools/nodes
 
 go 1.23
 

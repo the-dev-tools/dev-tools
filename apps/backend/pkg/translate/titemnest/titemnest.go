@@ -3,14 +3,14 @@ package titemnest
 /*
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapi"
-	"dev-tools-backend/pkg/model/mitemapiexample"
-	"dev-tools-backend/pkg/model/mitemfolder"
-	"dev-tools-backend/pkg/translate/tgeneric"
-	itemapiv1 "dev-tools-services/gen/itemapi/v1"
-	itemapiexamplev1 "dev-tools-services/gen/itemapiexample/v1"
-	itemfolderv1 "dev-tools-services/gen/itemfolder/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemapi"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/model/mitemfolder"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
+	itemapiv1 "the-dev-tools/services/gen/itemapi/v1"
+	itemapiexamplev1 "the-dev-tools/services/gen/itemapiexample/v1"
+	itemfolderv1 "the-dev-tools/services/gen/itemfolder/v1"
 	"fmt"
 )
 

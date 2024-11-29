@@ -1,12 +1,12 @@
 package apicondition
 
 import (
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodemaster"
-	api "dev-tools-nodes/pkg/nodes/nodeapi"
-	"dev-tools-nodes/pkg/nodes/nodecondition"
 	"errors"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodemaster"
+	api "the-dev-tools/nodes/pkg/nodes/nodeapi"
+	"the-dev-tools/nodes/pkg/nodes/nodecondition"
 )
 
 type ConditionDataRestStatus struct {

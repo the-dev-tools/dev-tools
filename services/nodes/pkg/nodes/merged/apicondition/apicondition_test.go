@@ -1,17 +1,17 @@
 package apicondition_test
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexampleheader"
-	"dev-tools-backend/pkg/model/mexamplequery"
-	"dev-tools-nodes/pkg/httpclient/httpmockclient"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodes/merged/apicondition"
-	api "dev-tools-nodes/pkg/nodes/nodeapi"
 	"net/http"
 	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/nodes/pkg/httpclient/httpmockclient"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodes/merged/apicondition"
+	api "the-dev-tools/nodes/pkg/nodes/nodeapi"
 )
 
 func TestConditionRestStatus200(t *testing.T) {

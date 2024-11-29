@@ -1,10 +1,10 @@
 package texample
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapiexample"
-	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
-	examplev1 "dev-tools-spec/dist/buf/go/collection/item/example/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
+	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 )
 
 func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp idwrap.IDWrap) *examplev1.Example {

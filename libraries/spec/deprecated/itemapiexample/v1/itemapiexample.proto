@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package itemapiexample.v1;
 
-option go_package = "dev-tools-services/gen/itemapiexample/v1;itemapiexamplev1";
+option go_package = "the-dev-tools/services/gen/itemapiexample/v1;itemapiexamplev1";
 
 import "google/protobuf/timestamp.proto";
 import "body/v1/body.proto";

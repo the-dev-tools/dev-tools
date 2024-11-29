@@ -12,7 +12,7 @@ using TypeSpec.Rest;
 @package({
   name: "environment.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/environment/v1;environmentv1",
+    go_package: "the-dev-tools/spec/dist/buf/go/environment/v1;environmentv1",
   },
 })
 namespace API.Environment;

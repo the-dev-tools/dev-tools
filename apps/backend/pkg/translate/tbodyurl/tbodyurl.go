@@ -1,9 +1,9 @@
 package tbodyurl
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mbodyurl"
-	bodyv1 "dev-tools-spec/dist/buf/go/collection/item/body/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mbodyurl"
+	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 )
 
 func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedItem {

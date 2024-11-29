@@ -1,13 +1,13 @@
 package nodecondition_test
 
 import (
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodes/nodeapi"
-	"dev-tools-nodes/pkg/nodes/nodecondition"
 	"net/http"
 	"testing"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodes/nodeapi"
+	"the-dev-tools/nodes/pkg/nodes/nodecondition"
 )
 
 func TestConditionRestStatus200(t *testing.T) {

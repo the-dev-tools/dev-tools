@@ -1,6 +1,6 @@
 package mworkspaceuser
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type Role uint16
 

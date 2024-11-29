@@ -14,7 +14,7 @@ using TypeSpec.Rest.Resource;
 @package({
   name: "collection.item.endpoint.v1",
   options: {
-    go_package: "dev-tools-spec/dist/buf/go/collection/item/endpoint/v1;endpointv1",
+    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1;endpointv1",
   },
 })
 namespace API.CollectionItem.Endpoint;

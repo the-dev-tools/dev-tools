@@ -1,6 +1,6 @@
 package mvar
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 const (
 	Prefix = "{{"

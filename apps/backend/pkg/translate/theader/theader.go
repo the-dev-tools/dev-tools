@@ -1,9 +1,9 @@
 package theader
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexampleheader"
-	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 )
 
 func SerializeHeaderModelToRPC(header mexampleheader.Header) *requestv1.Header {

@@ -1,6 +1,6 @@
 package mbodyraw
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type VisualizeMode int8
 

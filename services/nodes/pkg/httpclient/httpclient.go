@@ -1,13 +1,13 @@
 package httpclient
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mexampleheader"
-	"dev-tools-backend/pkg/model/mexamplequery"
-	"dev-tools-backend/pkg/model/mexamplerespheader"
 	"io"
 	"net/http"
 	"net/url"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"time"
 )
 

@@ -2,10 +2,10 @@ package mwauth
 
 import (
 	"context"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/stoken"
 	"errors"
 	"strings"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/stoken"
 
 	"connectrpc.com/connect"
 )

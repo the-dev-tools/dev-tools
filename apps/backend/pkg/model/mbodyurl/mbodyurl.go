@@ -1,6 +1,6 @@
 package mbodyurl
 
-import "dev-tools-backend/pkg/idwrap"
+import "the-dev-tools/backend/pkg/idwrap"
 
 type BodyURLEncoded struct {
 	BodyKey     string        `json:"body_key"`

@@ -7,8 +7,8 @@ package gen
 import (
 	"database/sql"
 
-	idwrap "dev-tools-backend/pkg/idwrap"
-	mresultapi "dev-tools-backend/pkg/model/result/mresultapi"
+	idwrap "the-dev-tools/backend/pkg/idwrap"
+	mresultapi "the-dev-tools/backend/pkg/model/result/mresultapi"
 )
 
 type Assertion struct {

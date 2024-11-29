@@ -1,4 +1,4 @@
-module dev-tools-db
+module the-dev-tools/db
 
 go 1.23
 

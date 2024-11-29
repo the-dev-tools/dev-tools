@@ -1,8 +1,8 @@
 package stoken
 
 import (
-	"dev-tools-backend/pkg/idwrap"
 	"fmt"
+	"the-dev-tools/backend/pkg/idwrap"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

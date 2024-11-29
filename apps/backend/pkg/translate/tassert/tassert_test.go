@@ -1,13 +1,13 @@
 package tassert_test
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/massert"
-	"dev-tools-backend/pkg/translate/tassert"
-	requestv1 "dev-tools-spec/dist/buf/go/collection/item/request/v1"
 	"fmt"
 	"strings"
 	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
+	"the-dev-tools/backend/pkg/translate/tassert"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 )
 
 func TestSerializeAssertModelToRPC(t *testing.T) {

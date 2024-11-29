@@ -2,11 +2,11 @@ package mnodemaster
 
 import (
 	"context"
-	"dev-tools-nodes/pkg/httpclient"
-	"dev-tools-nodes/pkg/model/mnode"
-	"dev-tools-nodes/pkg/model/mstatus"
 	"errors"
 	"log"
+	"the-dev-tools/nodes/pkg/httpclient"
+	"the-dev-tools/nodes/pkg/model/mnode"
+	"the-dev-tools/nodes/pkg/model/mstatus"
 )
 
 type NodeMaster struct {

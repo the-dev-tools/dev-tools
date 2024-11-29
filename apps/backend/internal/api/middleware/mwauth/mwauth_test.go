@@ -2,10 +2,10 @@ package mwauth_test
 
 import (
 	"context"
-	"dev-tools-backend/internal/api/middleware/mwauth"
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/stoken"
 	"testing"
+	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/stoken"
 	"time"
 
 	"connectrpc.com/connect"

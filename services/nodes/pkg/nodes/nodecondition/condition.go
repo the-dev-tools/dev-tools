@@ -1,12 +1,12 @@
 package nodecondition
 
 import (
-	"dev-tools-nodes/pkg/model/medge"
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodes/nodeapi"
-	"dev-tools-nodes/pkg/parser"
 	"fmt"
+	"the-dev-tools/nodes/pkg/model/medge"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodes/nodeapi"
+	"the-dev-tools/nodes/pkg/parser"
 
 	"github.com/PaesslerAG/gval"
 )

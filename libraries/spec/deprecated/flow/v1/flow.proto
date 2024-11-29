@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package flow.v1;
-option go_package = "dev-tools-services/gen/flow/v1;flowv1";
+option go_package = "the-dev-tools/services/gen/flow/v1;flowv1";
 
 import "google/protobuf/any.proto";
 /*

@@ -1,8 +1,8 @@
 package mitemapi
 
 import (
-	"dev-tools-backend/pkg/idwrap"
-	"dev-tools-backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
 )
 
 type ItemApi struct {

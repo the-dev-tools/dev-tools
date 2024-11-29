@@ -3,9 +3,9 @@ package sqlc
 import (
 	"context"
 	"database/sql"
-	"dev-tools-db/pkg/sqlc/gen"
 	_ "embed"
 	"strings"
+	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
 //go:embed schema.sql

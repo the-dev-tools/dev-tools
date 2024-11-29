@@ -3,13 +3,13 @@ package resolver
 /*
 
 import (
-	"dev-tools-nodes/pkg/model/mnodedata"
-	"dev-tools-nodes/pkg/model/mnodemaster"
-	"dev-tools-nodes/pkg/nodes/nodeapi"
-	"dev-tools-nodes/pkg/nodes/nodecom"
-	"dev-tools-nodes/pkg/nodes/nodecondition"
-	"dev-tools-nodes/pkg/nodes/nodeloop"
-	nodedatav1 "dev-tools-services/gen/nodedata/v1"
+	"the-dev-tools/nodes/pkg/model/mnodedata"
+	"the-dev-tools/nodes/pkg/model/mnodemaster"
+	"the-dev-tools/nodes/pkg/nodes/nodeapi"
+	"the-dev-tools/nodes/pkg/nodes/nodecom"
+	"the-dev-tools/nodes/pkg/nodes/nodecondition"
+	"the-dev-tools/nodes/pkg/nodes/nodeloop"
+	nodedatav1 "the-dev-tools/services/gen/nodedata/v1"
 	"errors"
 
 	"google.golang.org/protobuf/proto"
