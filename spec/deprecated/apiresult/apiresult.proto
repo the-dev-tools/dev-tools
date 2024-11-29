@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+
+package apiresult.v1;
+option go_package = "dev-tools-services/gen/apiresult/v1;apiresultv1";
+
+service ApiResultService {
+  rpc Get (GetRequest) returns (GetResponse);
+  rpc GetResults (GetResultsRequest) returns (GetResultsResponse);
+}
+
+
+// base
+enum TriggerType {
+  TRIGGER_TYPE_UNSPECIFIED = 0;
+  TRIGGER_TYPE_COLLECTION = 1;
+  TRIGGER_TYPE_FLOW = 2;
+  TRIGGER_TYPE_CRON = 3;
+  TRIGGER_TYPE_WEBHOOK = 4;
+}
+
+message HttpResponse {
+  int32 status_code = 1;
+  string proto = 2; // such as HTTP
+  int32 proto_major = 3; // such as HTTP major version
+  int32 proto_minor = 4; // such as HTTP minor version
+  map<string, string> header = 5;
+  bytes body = 6;
+}
+
+message Result {
+  string id = 1; // ulid string
+  TriggerType trigger_type = 2; // such as collection, flow, cron, webhook
+  string trigger_by = 3; // such as  collection id, flow id, cron id, webhook id
+  string name = 4;
+  int64 time = 5;
+  int64 duration = 6;
+  oneof response {
+    HttpResponse http_response = 7;
+    string error = 8; // optional
+  }
+}
+
+
+// GetResult
+
+message GetRequest {
+  string id = 1;
+}
+
+
+message GetResponse {
+  Result result = 1;
+}
+
+message GetResultsRequest {
+  TriggerType trigger_type = 1;
+  string trigger_by = 2;
+  int32 offset = 3;
+  int32 limit = 4;
+}
+
+message GetResultsResponse {
+  repeated Result results = 1;
+}

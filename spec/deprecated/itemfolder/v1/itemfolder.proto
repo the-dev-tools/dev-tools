@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package itemfolder.v1;
+import "itemapi/v1/itemapi.proto";
+option go_package = "dev-tools-services/gen/itemfolder/v1;itemfolderv1";
+
+service ItemFolderService {
+
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResponse);
+  rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
+  rpc UpdateFolder(UpdateFolderRequest) returns (UpdateFolderResponse);
+  rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse);
+  rpc MoveFolder(MoveFolderRequest) returns (MoveFolderResponse);
+}
+
+message FolderMeta {
+  string id = 1;
+  string name = 2;
+  repeated ItemMeta items = 4;
+}
+
+message Folder {
+  FolderMeta meta = 1;
+  string parent_id = 2;
+  string collection_id = 3;
+  repeated Item items = 4;
+}
+
+message Item {
+  oneof data {
+    itemfolder.v1.Folder folder = 1;
+    itemapi.v1.ApiCall api_call = 2;
+  }
+}
+
+message ItemMeta {
+  oneof meta {
+    itemfolder.v1.FolderMeta folder_meta = 1;
+    itemapi.v1.ApiCallMeta api_call_meta = 2;
+  }
+}
+
+message CreateFolderRequest {
+  Folder folder = 1;
+}
+
+message CreateFolderResponse {
+  string id = 1;
+}
+
+message GetFolderRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message GetFolderResponse { Folder folder = 1; }
+
+message UpdateFolderRequest { Folder folder = 1; }
+
+message UpdateFolderResponse {}
+
+message DeleteFolderRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message DeleteFolderResponse {}
+
+message MoveFolderRequest {
+  string id = 1;
+  string next_id = 2;
+  string prev_id = 3;
+}
+
+message MoveFolderResponse {}

@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package environment.v1;
+
+option go_package = "dev-tools-services/gen/environment/v1;environmentv1";
+import "google/protobuf/timestamp.proto";
+
+
+service EnvironmentService {
+  rpc CreateEnvironment(CreateEnvironmentRequest) returns (CreateEnvironmentResponse);
+  rpc GetEnvironment(GetEnvironmentRequest) returns (GetEnvironmentResponse);
+  rpc GetEnvironments(GetEnvironmentsRequest) returns (GetEnvironmentsResponse);
+  rpc UpdateEnvironment(UpdateEnvironmentRequest) returns (UpdateEnvironmentResponse);
+  rpc DeleteEnvironment(DeleteEnvironmentRequest) returns (DeleteEnvironmentResponse);
+  rpc GetAllVariables(GetAllVariablesRequest) returns (GetAllVariablesResponse);
+}
+
+enum EnvironmentType {
+  ENVIRONMENT_TYPE_UNSPECIFIED = 0;
+  ENVIRONMENT_TYPE_GLOBAL = 1;
+  ENVIRONMENT_TYPE_NORMAL = 2;
+}
+
+
+message Environment {
+  string id = 1;
+  string name = 2;
+  EnvironmentType type = 3;
+  string description = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message CreateEnvironmentRequest {
+  Environment environment = 1;
+  string workspace_id = 2;
+}
+
+message CreateEnvironmentResponse {
+  string id = 1;
+}
+
+message GetEnvironmentRequest {
+  string id = 1;
+}
+
+message GetEnvironmentResponse {
+  Environment environment = 1;
+}
+
+message GetEnvironmentsRequest {
+  string workspace_id = 1;
+}
+
+message GetEnvironmentsResponse {
+  repeated Environment environments = 1;
+}
+
+message UpdateEnvironmentRequest {
+  Environment environment = 1;
+}
+
+message UpdateEnvironmentResponse {
+}
+
+message DeleteEnvironmentRequest {
+  string id = 1;
+}
+
+message DeleteEnvironmentResponse {
+}
+
+message GetAllVariablesRequest {
+  string workspace_id = 1;
+}
+
+message VariableWithEnvironments {
+  string variable_key = 1;
+  repeated Environment environment = 2;
+}
+
+message GetAllVariablesResponse {
+  repeated VariableWithEnvironments items = 1;
+}

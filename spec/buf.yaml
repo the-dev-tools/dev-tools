@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://json.schemastore.org/buf.json
+version: v2
+
+modules:
+  - path: ./dist/@typespec/protobuf
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - FIELD_LOWER_SNAKE_CASE
+  rpc_allow_google_protobuf_empty_requests: true

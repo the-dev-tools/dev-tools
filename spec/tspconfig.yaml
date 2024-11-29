@@ -1,0 +1,9 @@
+output-dir: '{project-root}/dist'
+
+emit:
+  - '@typespec/protobuf'
+  - '@typespec/json-schema'
+# options:
+#   '@typespec/json-schema':
+#     file-type: json
+#     emitAllModels: true

@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package collection.v1;
+option go_package = "dev-tools-services/gen/collection/v1;collectionv1";
+
+import "itemfolder/v1/itemfolder.proto";
+
+service CollectionService {
+  // Collection operations
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  rpc CreateCollection(CreateCollectionRequest)
+      returns (CreateCollectionResponse);
+  rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse);
+
+  rpc UpdateCollection(UpdateCollectionRequest)
+      returns (UpdateCollectionResponse);
+  rpc DeleteCollection(DeleteCollectionRequest)
+      returns (DeleteCollectionResponse);
+
+  // Helper rpcs
+  // // Postman
+  rpc ImportPostman(ImportPostmanRequest) returns (ImportPostmanResponse);
+}
+
+message CollectionMeta {
+  string id = 1;
+  string name = 2;
+  repeated itemfolder.v1.ItemMeta items = 3;
+}
+
+// Collection Operations Request and Response
+// // List
+message ListCollectionsRequest {
+    string workspace_id = 1;
+}
+
+message ListCollectionsResponse {
+  repeated CollectionMeta meta_collections = 1;
+}
+
+// // Create
+message CreateCollectionRequest {
+  string workspace_id = 1;
+  string name = 2;
+}
+
+message CreateCollectionResponse {
+  string id = 1;
+  string name = 2;
+}
+
+// // Get
+message GetCollectionRequest { string id = 1; }
+
+message GetCollectionResponse {
+  string id = 1;
+  string name = 2;
+  repeated itemfolder.v1.Item items = 3;
+}
+
+// // Update
+message UpdateCollectionRequest {
+  string id = 1;
+  string name = 2;
+}
+
+message UpdateCollectionResponse {}
+
+// // Delete
+message DeleteCollectionRequest { string id = 1; }
+
+message DeleteCollectionResponse {}
+
+// Helper Requests
+// // Postman
+message ImportPostmanRequest {
+  string name = 1; // collection name
+  bytes data = 2;  // collection data (json)
+  string workspace_id = 3; // workspace id that owns the collection
+}
+
+message ImportPostmanResponse { string id = 1; }
+

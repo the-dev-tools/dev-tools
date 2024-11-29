@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package workspace.v1;
+option go_package = "dev-tools-services/gen/workspace/v1;workspacev1";
+
+import "google/protobuf/timestamp.proto";
+import "environment/v1/environment.proto";
+
+service WorkspaceService {
+  rpc GetWorkspaces(GetWorkspacesRequest) returns (GetWorkspacesResponse);
+  rpc GetWorkspace(GetWorkspaceRequest) returns (GetWorkspaceResponse);
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+  rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
+  rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc InviteUser(InviteUserRequest) returns (InviteUserResponse);
+  rpc RemoveUser(RemoveUserRequest) returns (RemoveUserResponse);
+  rpc UpdateUserRole(UpdateUserRoleRequest) returns (UpdateUserRoleResponse);
+}
+
+message Workspace {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Timestamp updated = 3;
+  environment.v1.Environment environment = 4;
+}
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_MEMBER = 1;
+  ROLE_ADMIN = 2;
+  ROLE_OWNER = 3;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  Role role = 3;
+}
+
+message GetWorkspacesRequest {
+}
+
+message GetWorkspacesResponse {
+  repeated Workspace workspaces = 1;
+}
+
+message GetWorkspaceRequest {
+  string id = 1;
+}
+
+message GetWorkspaceResponse {
+   Workspace workspace = 1;
+}
+
+message CreateWorkspaceRequest {
+  string name = 1;
+}
+
+message CreateWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+message UpdateWorkspaceRequest {
+  string id = 1;
+  string name = 2;
+  string env_id = 3;
+}
+
+message UpdateWorkspaceResponse {
+}
+
+message DeleteWorkspaceRequest {
+  string id = 1;
+}
+
+message DeleteWorkspaceResponse {
+}
+
+message ListUsersRequest {
+  string workspace_id = 1;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message InviteUserRequest {
+  string workspace_id = 1;
+  string email = 2;
+}
+
+message InviteUserResponse {
+  string user_id = 1;
+}
+
+message RemoveUserRequest {
+  string workspace_id = 1;
+  string user_id = 2;
+}
+
+message RemoveUserResponse {
+}
+
+message UpdateUserRoleRequest {
+  string workspace_id = 1;
+  string user_id = 2;
+  Role role = 3;
+}
+
+message UpdateUserRoleResponse {
+}

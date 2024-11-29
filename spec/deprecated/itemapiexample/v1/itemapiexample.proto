@@ -1,0 +1,259 @@
+syntax = "proto3";
+
+package itemapiexample.v1;
+
+option go_package = "dev-tools-services/gen/itemapiexample/v1;itemapiexamplev1";
+
+import "google/protobuf/timestamp.proto";
+import "body/v1/body.proto";
+
+service ItemApiExampleService {
+  // Examples
+  rpc GetExamples(GetExamplesRequest) returns (GetExamplesResponse);
+  rpc GetExample(GetExampleRequest) returns (GetExampleResponse);
+  rpc CreateExample(CreateExampleRequest) returns (CreateExampleResponse);
+  rpc DupeExample(DupeExampleRequest) returns (DupeExampleResponse);
+  rpc UpdateExample(UpdateExampleRequest) returns (UpdateExampleResponse);
+  rpc DeleteExample(DeleteExampleRequest) returns (DeleteExampleResponse);
+
+  rpc RunExample(RunExampleRequest) returns (RunExampleResponse);
+
+  // Assert
+  rpc CreateAssert(CreateAssertRequest) returns (CreateAssertResponse);
+  rpc UpdateAssert(UpdateAssertRequest) returns (UpdateAssertResponse);
+  rpc DeleteAssert(DeleteAssertRequest) returns (DeleteAssertResponse);
+
+  // Headers
+  rpc CreateHeader(CreateHeaderRequest) returns (CreateHeaderResponse);
+  rpc UpdateHeader(UpdateHeaderRequest) returns (UpdateHeaderResponse);
+  rpc DeleteHeader(DeleteHeaderRequest) returns (DeleteHeaderResponse);
+
+  // Query
+  rpc CreateQuery(CreateQueryRequest) returns (CreateQueryResponse);
+  rpc UpdateQuery(UpdateQueryRequest) returns (UpdateQueryResponse);
+  rpc DeleteQuery(DeleteQueryRequest) returns (DeleteQueryResponse);
+}
+
+// # Models
+// ## Request
+message Header {
+  string id = 1;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
+}
+
+message Query {
+  string id = 1;
+  string example_id = 2;
+  string key = 3;
+  bool enabled = 4;
+  string value = 5;
+  string description = 6;
+}
+
+message ApiExampleMeta {
+  string id = 1;
+  string name = 2;
+}
+
+message ApiExample {
+  ApiExampleMeta meta = 1;
+  repeated Query query = 2;
+  repeated Header header = 3;
+  google.protobuf.Timestamp updated = 4;
+  body.v1.Body body = 5;
+  ApiExampleResponse response = 6;
+  repeated Asssert asserts = 7;
+}
+
+// ## Reponse
+message ResponseHeader {
+  string id = 1;
+  string key = 2;
+  string value = 3;
+}
+
+message ApiExampleResponse {
+  string id = 1;
+  string example_id = 2;
+  int32 status = 3;
+  bytes body = 4;
+  google.protobuf.Timestamp time = 5;
+  int32 duration = 6;
+  repeated ResponseHeader headers = 7;
+  repeated AssertResult asserts = 8;
+}
+
+// Messages
+message GetExamplesRequest {
+  string item_api_id = 1;
+}
+
+message GetExamplesResponse {
+  repeated ApiExample examples = 1;
+}
+
+message GetExampleRequest {
+  string id = 1;
+}
+
+message GetExampleResponse {
+  ApiExample example = 1;
+}
+
+message CreateExampleRequest {
+  ApiExample example = 1;
+  string item_api_id = 2;
+}
+
+message CreateExampleResponse {
+  string id = 1;
+}
+
+message DupeExampleRequest {
+  string id = 1;
+}
+
+message DupeExampleResponse {
+  string id = 1;
+}
+
+message UpdateExampleRequest {
+  string id = 1;
+  string name = 2;
+  body.v1.Body body_type = 3;
+}
+
+message UpdateExampleResponse {
+}
+
+message DeleteExampleRequest {
+  string id = 1;
+}
+
+message DeleteExampleResponse {
+}
+
+message RunExampleRequest {
+  string id = 1;
+}
+
+message RunExampleResponse {
+  ApiExampleResponse response = 1;
+}
+
+
+// Assert
+// // CREATE
+enum AssertType {
+  ASSERT_TYPE_UNSPECIFIED = 0;
+  ASSERT_TYPE_EQUAL = 1;
+  ASSERT_TYPE_NOT_EQUAL = 2;
+  ASSERT_TYPE_CONTAINS = 3;
+  ASSERT_TYPE_NOT_CONTAINS = 4;
+  ASSERT_TYPE_GREATER = 5;
+  ASSERT_TYPE_ASSERT_TYPE_LESS = 6;
+  ASSERT_TYPE_GREATER_OR_EQUAL = 7;
+  ASSERT_TYPE_LESS_OR_EQUAL = 8;
+}
+
+enum AssertTarget {
+  ASSERT_TARGET_UNSPECIFIED = 0;
+  ASSERT_TARGET_HEADER = 1;
+  ASSERT_TARGET_BODY = 2;
+}
+
+message Asssert {
+  string id = 1;
+  string example_id = 2;
+  string name = 3;
+  string value = 4;
+  AssertType type = 5;
+  AssertTarget target = 6;
+}
+
+message AssertResult {
+  Asssert assert = 1;
+  string value = 2;
+  bool result = 3;
+}
+
+message CreateAssertRequest {
+  Asssert assert = 1;
+}
+
+message CreateAssertResponse {
+  string id = 1;
+}
+
+// // UPDATE
+message UpdateAssertRequest {
+  Asssert assert = 1;
+}
+
+message UpdateAssertResponse {
+}
+
+// // DELETE
+message DeleteAssertRequest {
+  string id = 1;
+}
+
+message DeleteAssertResponse {
+}
+
+// Headers
+// // CREATE
+message CreateHeaderRequest {
+  Header header = 1;
+}
+
+message CreateHeaderResponse {
+  string id = 1;
+}
+
+// // UPDATE
+message UpdateHeaderRequest {
+  Header header = 1;
+}
+
+message UpdateHeaderResponse {
+}
+
+// // DELETE
+message DeleteHeaderRequest {
+  string id = 1;
+}
+
+message DeleteHeaderResponse {
+}
+
+// Query
+// // CREATE
+message CreateQueryRequest {
+  Query query = 1;
+}
+
+message CreateQueryResponse {
+  string id = 1;
+}
+
+// // UPDATE
+message UpdateQueryRequest {
+  Query query = 1;
+}
+
+message UpdateQueryResponse {
+}
+
+// // DELETE
+message DeleteQueryRequest {
+  string id = 1;
+}
+
+message DeleteQueryResponse {
+}
+

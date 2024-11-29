@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package auth.v1;
+option go_package = "dev-tools-services/gen/auth/v1;authv1";
+
+// INFO: we use `jwt` for token generation and validation
+
+service AuthService {
+  // INFO: auth with DID token src: https://magic.link/docs/authentication/features/decentralized-id
+  rpc DID (AuthServiceDIDRequest) returns (AuthServiceDIDResponse);
+  rpc RefreshToken (AuthServiceRefreshTokenRequest) returns (AuthServiceRefreshTokenResponse); // INFO: will valid until 2 day
+}
+
+// DID
+message AuthServiceDIDRequest {
+  string did_token = 1; // src: https://magic.link/docs/authentication/features/decentralized-id
+}
+
+message AuthServiceDIDResponse {
+  string refresh_token = 1;
+  string access_token = 2;
+}
+
+// Refresh token
+message AuthServiceRefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message AuthServiceRefreshTokenResponse {
+  string refresh_token = 1;
+  string access_token = 2;
+}

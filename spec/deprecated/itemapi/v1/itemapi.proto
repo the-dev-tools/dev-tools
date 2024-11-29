@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package itemapi.v1;
+option go_package = "dev-tools-services/gen/itemapi/v1;itemapiv1";
+import "itemapiexample/v1/itemapiexample.proto";
+
+service ItemApiService {
+  rpc GetApiCall(GetApiCallRequest) returns (GetApiCallResponse);
+  rpc CreateApiCall(CreateApiCallRequest) returns (CreateApiCallResponse);
+  rpc DupeApiCall(DupeApiCallRequest) returns (DupeApiCallResponse);
+  rpc UpdateApiCall(UpdateApiCallRequest) returns (UpdateApiCallResponse);
+  rpc DeleteApiCall(DeleteApiCallRequest) returns (DeleteApiCallResponse);
+  rpc MoveApiCall(MoveApiCallRequest) returns (MoveApiCallResponse);
+}
+
+message ApiCallMeta {
+  string id = 1;
+  string name = 2;
+	string method = 3;
+  string default_example_id = 4;
+  repeated itemapiexample.v1.ApiExampleMeta examples = 5;
+}
+
+message ApiCall {
+  ApiCallMeta meta = 1;
+  string parent_id = 2;
+  string collection_id = 3;
+	string url = 4;
+}
+
+message CreateApiCallRequest {
+  ApiCall data = 1;
+}
+
+message CreateApiCallResponse {
+  string id = 1;
+}
+
+message DupeApiCallRequest {
+  string id = 1;
+}
+
+message DupeApiCallResponse {
+  string id = 1;
+}
+
+message GetApiCallRequest {
+  string id = 1;
+  string example_id = 2;
+}
+
+message GetApiCallResponse {
+  ApiCall api_call = 1;
+  itemapiexample.v1.ApiExample example = 2;
+}
+
+message UpdateApiCallRequest { ApiCall api_call = 1; }
+
+message UpdateApiCallResponse {}
+
+message DeleteApiCallRequest {
+  string id = 1;
+  string collection_id = 2;
+}
+
+message DeleteApiCallResponse {}
+
+message MoveApiCallRequest {
+  string id = 1;
+  string next_id = 2;
+  string prev_id = 3;
+}
+
+message MoveApiCallResponse {}
