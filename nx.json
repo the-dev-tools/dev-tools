@@ -28,5 +28,6 @@
         "createRelease": "github"
       }
     }
-  }
+  },
+  "plugins": ["@nx-go/nx-go"]
 }
