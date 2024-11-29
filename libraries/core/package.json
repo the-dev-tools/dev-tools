@@ -1,5 +1,6 @@
 {
   "name": "@the-dev-tools/core",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",

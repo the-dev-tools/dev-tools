@@ -1,5 +1,6 @@
 {
   "name": "@the-dev-tools/config-typescript",
+  "private": true,
   "devDependencies": {
     "@tsconfig/strictest": "~2.0.5"
   }

@@ -3,6 +3,7 @@
   "displayName": "API Recorder",
   "author": "dev.tools",
   "version": "0.4.10",
+  "private": true,
   "scripts": {
     "build": "plasmo build --build-path=dist --zip",
     "dev": "plasmo dev --build-path=dist",

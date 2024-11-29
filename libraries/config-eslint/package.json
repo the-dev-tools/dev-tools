@@ -1,5 +1,6 @@
 {
   "name": "@the-dev-tools/config-eslint",
+  "private": true,
   "scripts": {
     "lint": "eslint --flag unstable_ts_config ."
   },

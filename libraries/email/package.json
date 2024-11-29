@@ -1,5 +1,6 @@
 {
   "name": "@the-dev-tools/email",
+  "private": true,
   "files": [
     "dist"
   ],

@@ -1,5 +1,6 @@
 {
   "name": "@the-dev-tools/spec",
+  "private": true,
   "type": "module",
   "files": [
     "dist",

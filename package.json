@@ -1,5 +1,6 @@
 {
   "name": "the-dev-tools",
+  "private": true,
   "dependencies": {
     "@the-dev-tools/email": "workspace:^",
     "@the-dev-tools/spec": "workspace:^",

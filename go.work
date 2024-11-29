@@ -2,6 +2,7 @@ go 1.23.2
 
 use (
 	./apps/backend
+	./libraries/spec
 	./services/cli
 	./services/db
 	./services/mail
@@ -9,5 +10,4 @@ use (
 	./services/nodes
 	./services/platform
 	./services/slave
-	./libraries/spec
 )

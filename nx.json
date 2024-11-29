@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
+
   "parallel": 8,
+
   "targetDefaults": {
     "dev": {
       "cache": false
@@ -14,6 +16,7 @@
       "cache": true
     }
   },
+
   "release": {
     "versionPlans": true,
     "projects": ["apps/*"],
@@ -29,5 +32,6 @@
       }
     }
   },
+
   "plugins": ["@nx-go/nx-go"]
 }
