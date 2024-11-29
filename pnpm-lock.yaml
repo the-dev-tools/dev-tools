@@ -18,17 +18,17 @@ importers:
         specifier: workspace:^
         version: link:libraries/spec
       install:
-        specifier: ^0.13.0
+        specifier: 0.13.0
         version: 0.13.0
     devDependencies:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ~4.4.0
         version: 4.4.0(@vue/compiler-sfc@3.5.13)(prettier@3.4.1)
       '@typespec/compiler':
-        specifier: ^0.61.1
+        specifier: ~0.61.1
         version: 0.61.2
       '@typespec/prettier-plugin-typespec':
-        specifier: ^0.61.0
+        specifier: ~0.61.0
         version: 0.61.0
       jiti:
         specifier: ~2.4.0
@@ -276,8 +276,8 @@ importers:
         specifier: 5.61.4
         version: 5.61.4(react@18.3.1)
       '@the-dev-tools/spec':
-        specifier: 1.37.0
-        version: 1.37.0
+        specifier: workspace:^
+        version: link:../spec
       '@the-dev-tools/utils':
         specifier: workspace:^
         version: link:../utils
@@ -466,8 +466,8 @@ importers:
         specifier: workspace:^
         version: link:../api
       '@the-dev-tools/spec':
-        specifier: 1.37.0
-        version: 1.37.0
+        specifier: workspace:^
+        version: link:../spec
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../ui
@@ -608,43 +608,43 @@ importers:
   libraries/spec:
     devDependencies:
       '@bufbuild/buf':
-        specifier: ^1.45.0
-        version: 1.47.2
+        specifier: ~1.45.0
+        version: 1.45.0
       '@bufbuild/protobuf':
-        specifier: ^2.2.0
+        specifier: ~2.2.2
         version: 2.2.2
       '@bufbuild/protoc-gen-es':
-        specifier: ^2.2.0
+        specifier: ~2.2.0
         version: 2.2.2(@bufbuild/protobuf@2.2.2)
       '@changesets/changelog-github':
-        specifier: ^0.5.0
+        specifier: ~0.5.0
         version: 0.5.0
       '@changesets/cli':
-        specifier: ^2.27.9
+        specifier: ~2.27.9
         version: 2.27.10
       '@connectrpc/protoc-gen-connect-query':
         specifier: 2.0.0-beta.2
         version: 2.0.0-beta.2(@bufbuild/protoc-gen-es@2.2.2(@bufbuild/protobuf@2.2.2))
       '@types/node':
-        specifier: ^22.7.5
+        specifier: ~22.10.0
         version: 22.10.0
       '@typespec/json-schema':
-        specifier: ^0.61.0
+        specifier: ~0.61.0
         version: 0.61.0(@typespec/compiler@0.61.2)
       '@typespec/protobuf':
-        specifier: ^0.61.0
+        specifier: ~0.61.0
         version: 0.61.0(@typespec/compiler@0.61.2)
       '@typespec/rest':
-        specifier: ^0.61.0
+        specifier: ~0.61.0
         version: 0.61.0(@typespec/compiler@0.61.2)(@typespec/http@0.61.0(@typespec/compiler@0.61.2))
       effect:
-        specifier: ^3.9.2
+        specifier: ~3.10.17
         version: 3.10.17
       prettier:
-        specifier: ^3.3.3
+        specifier: ~3.4.1
         version: 3.4.1
       quicktype:
-        specifier: ^23.0.170
+        specifier: ~23.0.170
         version: 23.0.170(@swc/core@1.9.3(@swc/helpers@0.5.15))
 
   libraries/ui:
@@ -896,50 +896,44 @@ packages:
     resolution: {integrity: sha512-Z/yiTPj+lDVnF7lWeKCIJzaIkI0vYO87dMpZ4bg4TDrFe4XXLFWL1TbXU27gBP3QccxV9mZICCrnjnYlJjXHOA==}
     engines: {node: '>=6.9.0'}
 
-  '@bufbuild/buf-darwin-arm64@1.47.2':
-    resolution: {integrity: sha512-74WerFn06y+azgVfsnzhfbI5wla/OLPDnIvaNJBWHaqya/3bfascJkDylW2GVNHmwG1K/cscpmcc/RJPaO7ntQ==}
+  '@bufbuild/buf-darwin-arm64@1.45.0':
+    resolution: {integrity: sha512-yl0+fSnEAtGPUjvyC9a5UmzSc0izqeiL8il2ml1LmX3YbmOAQZ1Wn0TceCtDVFCuO/jtiZBj8/zYm3VAovwQqQ==}
     engines: {node: '>=12'}
     cpu: [arm64]
     os: [darwin]
 
-  '@bufbuild/buf-darwin-x64@1.47.2':
-    resolution: {integrity: sha512-adAiOacOQe8Ym/YXPCEiq9mrPeKRmDtF2TgqPWTcDy6mF7TqR7hMJINkEEuMd1EeACmXnzMOnXlm9ICtvdYgPg==}
+  '@bufbuild/buf-darwin-x64@1.45.0':
+    resolution: {integrity: sha512-T4yNFZrOhxRkpSn8RgW2S6JPcmD58JYb7OqU+BNVpqK3zy3Zm2C3gIyIpVB5GWkyohhyZANLj3M4Xet9HW4cqA==}
     engines: {node: '>=12'}
     cpu: [x64]
     os: [darwin]
 
-  '@bufbuild/buf-linux-aarch64@1.47.2':
-    resolution: {integrity: sha512-52vY+Owffr5diw2PyfQJqH+Fld6zW6NhNZak4zojvc2MjZKubWM0TfNyM9jXz2YrwyB+cyxkabE60nBI80m37w==}
+  '@bufbuild/buf-linux-aarch64@1.45.0':
+    resolution: {integrity: sha512-n3PkFXp6MiHmxMBMq60t38Ca7hyk0Yo1Un3Xg4PxljSrDNHZSoxT8+NY3eOI+jHnAwKebrAT72XAh/vkeKrC5g==}
     engines: {node: '>=12'}
     cpu: [arm64]
     os: [linux]
 
-  '@bufbuild/buf-linux-armv7@1.47.2':
-    resolution: {integrity: sha512-g9KtpObDeHZ/VG/0b5ZCieOao7L/WYZ0fPqFSs4N07D3APgEDhJG6vLyUcDgJMDgyLcgkNjNz0+XdYQb/tXyQw==}
-    engines: {node: '>=12'}
-    cpu: [arm]
-    os: [linux]
-
-  '@bufbuild/buf-linux-x64@1.47.2':
-    resolution: {integrity: sha512-MODCK2BzD1Mgoyr+5Sp8xA8qMNdytj8hYheyhA5NnCGTkQf8sfqAjpBSAAmKk6Zar8HOlVXML6tzE/ioDFFGwQ==}
+  '@bufbuild/buf-linux-x64@1.45.0':
+    resolution: {integrity: sha512-Bm5Zgv4CgJ8rursPLejhvfELMxtuFxMLR1ZXY2G6T7jLi5mxa/4CWmqEmQ67zyOoEXw7FvND2yBivGO+464wtw==}
     engines: {node: '>=12'}
     cpu: [x64]
     os: [linux]
 
-  '@bufbuild/buf-win32-arm64@1.47.2':
-    resolution: {integrity: sha512-563YKYWJl3LrCY3G3+zuhb8HwOs6DzWslwGPFkKV2hwHyWyvd1DR1JjiLvw9zX64IKNctQ0HempSqc3kcboaqQ==}
+  '@bufbuild/buf-win32-arm64@1.45.0':
+    resolution: {integrity: sha512-tuW+vaYaCQpl9y3dk4uuVSAyqs7opydejxJmqoQdt4AOswvKORasVkD5s9two+eScU165kSzkI2BN3Hd6r+P0g==}
     engines: {node: '>=12'}
     cpu: [arm64]
     os: [win32]
 
-  '@bufbuild/buf-win32-x64@1.47.2':
-    resolution: {integrity: sha512-Sqcdv7La2xBDh3bTdEYb2f4UTMMqCcYe/D0RELhvQ5wDn6I35V3/2YT1OF5fRuf0BZLCo0OdO37S9L47uHSz2g==}
+  '@bufbuild/buf-win32-x64@1.45.0':
+    resolution: {integrity: sha512-ifTHY7pKrKd+8ogMksHmvVYJrHLm/OveyLXsMT1ts00nb1pPJzuCDKrEhg5T7k0oJhGBhpejlpizZ3It0pLmsg==}
     engines: {node: '>=12'}
     cpu: [x64]
     os: [win32]
 
-  '@bufbuild/buf@1.47.2':
-    resolution: {integrity: sha512-glY5kCAoO4+a7HvDb+BLOdoHSdCk4mdXdkp53H8JFz7maOnkxCiHHXgRX+taFyEu25N8ybn7NjZFrZSdRwq2sA==}
+  '@bufbuild/buf@1.45.0':
+    resolution: {integrity: sha512-6VgwZDwBXWWrA8e8B0efKs3px6rbJRZVBpFt7wBAHU+SgcXONF2rVNA60S8F6/ixaW1EHkUhkIeVyCHs+wV1Bw==}
     engines: {node: '>=12'}
     hasBin: true
 
@@ -4615,9 +4609,6 @@ packages:
   '@tanstack/virtual-file-routes@1.81.9':
     resolution: {integrity: sha512-jV5mWJrsh3QXHpb/by6udSqwva0qK50uYHpIXvKsLaxnlbjbLfflfPjFyRWXbMtZsnzCjSUqp5pm5/p+Wpaerg==}
     engines: {node: '>=12'}
-
-  '@the-dev-tools/spec@1.37.0':
-    resolution: {integrity: sha512-Qt+DLjtFAheRw8Y8xX+nXIaMFZEmzgRllIA/ZWTdCvP5nIrgy6f0Plu2zK5EO5041n5tiPEUtwwAUQEiIKf8Zg==, tarball: https://npm.pkg.github.com/download/@the-dev-tools/spec/1.37.0/f65c494b409160d8477c6048b3e4aaa806192fae}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -9749,36 +9740,32 @@ snapshots:
       '@babel/helper-string-parser': 7.25.9
       '@babel/helper-validator-identifier': 7.25.9
 
-  '@bufbuild/buf-darwin-arm64@1.47.2':
+  '@bufbuild/buf-darwin-arm64@1.45.0':
     optional: true
 
-  '@bufbuild/buf-darwin-x64@1.47.2':
+  '@bufbuild/buf-darwin-x64@1.45.0':
     optional: true
 
-  '@bufbuild/buf-linux-aarch64@1.47.2':
+  '@bufbuild/buf-linux-aarch64@1.45.0':
     optional: true
 
-  '@bufbuild/buf-linux-armv7@1.47.2':
+  '@bufbuild/buf-linux-x64@1.45.0':
     optional: true
 
-  '@bufbuild/buf-linux-x64@1.47.2':
+  '@bufbuild/buf-win32-arm64@1.45.0':
     optional: true
 
-  '@bufbuild/buf-win32-arm64@1.47.2':
+  '@bufbuild/buf-win32-x64@1.45.0':
     optional: true
 
-  '@bufbuild/buf-win32-x64@1.47.2':
-    optional: true
-
-  '@bufbuild/buf@1.47.2':
+  '@bufbuild/buf@1.45.0':
     optionalDependencies:
-      '@bufbuild/buf-darwin-arm64': 1.47.2
-      '@bufbuild/buf-darwin-x64': 1.47.2
-      '@bufbuild/buf-linux-aarch64': 1.47.2
-      '@bufbuild/buf-linux-armv7': 1.47.2
-      '@bufbuild/buf-linux-x64': 1.47.2
-      '@bufbuild/buf-win32-arm64': 1.47.2
-      '@bufbuild/buf-win32-x64': 1.47.2
+      '@bufbuild/buf-darwin-arm64': 1.45.0
+      '@bufbuild/buf-darwin-x64': 1.45.0
+      '@bufbuild/buf-linux-aarch64': 1.45.0
+      '@bufbuild/buf-linux-x64': 1.45.0
+      '@bufbuild/buf-win32-arm64': 1.45.0
+      '@bufbuild/buf-win32-x64': 1.45.0
 
   '@bufbuild/protobuf@2.2.2': {}
 
@@ -13921,8 +13908,6 @@ snapshots:
   '@tanstack/table-core@8.20.5': {}
 
   '@tanstack/virtual-file-routes@1.81.9': {}
-
-  '@the-dev-tools/spec@1.37.0': {}
 
   '@trysound/sax@0.2.0': {}
 

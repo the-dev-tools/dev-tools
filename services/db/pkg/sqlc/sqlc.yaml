@@ -1,429 +1,429 @@
-version: "2"
+version: '2'
 sql:
-  - engine: "sqlite"
-    queries: "query.sql"
-    schema: "schema.sql"
+  - engine: 'sqlite'
+    queries: 'query.sql'
+    schema: 'schema.sql'
     gen:
       go:
         emit_empty_slices: true
         emit_prepared_queries: true
-        package: "gen"
-        out: "gen"
+        package: 'gen'
+        out: 'gen'
         overrides:
-          - db_type: "INT8"
-            go_type: "int8"
-          - db_type: "TINYINT"
-            go_type: "int16"
-          - db_type: "INT"
-            go_type: "int32"
-          - db_type: "BIGINT"
-            go_type: "int64"
+          - db_type: 'INT8'
+            go_type: 'int8'
+          - db_type: 'TINYINT'
+            go_type: 'int16'
+          - db_type: 'INT'
+            go_type: 'int32'
+          - db_type: 'BIGINT'
+            go_type: 'int64'
           - db_type: TIMESTAMP
-            go_type: "int64"
+            go_type: 'int64'
           ## user
-          - column: "users.id"
+          - column: 'users.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## collections
           ### id
-          - column: "collections.id"
+          - column: 'collections.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### owner_id
-          - column: "collections.owner_id"
+          - column: 'collections.owner_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## item_api
           ### id
-          - column: "item_api.id"
+          - column: 'item_api.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### prev
-          - column: "item_api.prev"
+          - column: 'item_api.prev'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
               pointer: true
           ### next
-          - column: "item_api.next"
+          - column: 'item_api.next'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
               pointer: true
           ### collection_id
-          - column: "item_api.collection_id"
+          - column: 'item_api.collection_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### parent_id
-          - column: "item_api.parent_id"
+          - column: 'item_api.parent_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
               pointer: true
           ## item_api_example
           ### id
-          - column: "item_api_example.id"
+          - column: 'item_api_example.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### prev
-          - column: "item_api_example.prev"
+          - column: 'item_api_example.prev'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
               pointer: true
           ### next
-          - column: "item_api_example.next"
+          - column: 'item_api_example.next'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
               pointer: true
           ### api_id
-          - column: "item_api_example.item_api_id"
+          - column: 'item_api_example.item_api_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### collection_id
-          - column: "item_api_example.collection_id"
+          - column: 'item_api_example.collection_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### parent_example_id
-          - column: "item_api_example.parent_example_id"
+          - column: 'item_api_example.parent_example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
+              import: 'dev-tools-backend/pkg/idwrap'
               pointer: true
-              package: "idwrap"
-              type: "IDWrap"
+              package: 'idwrap'
+              type: 'IDWrap'
           ### headers
-          - column: "item_api_example.headers"
+          - column: 'item_api_example.headers'
             go_type:
-              import: "dev-tools-backend/pkg/model/mitemapiexample"
-              package: "mitemapiexample"
-              type: "Headers"
+              import: 'dev-tools-backend/pkg/model/mitemapiexample'
+              package: 'mitemapiexample'
+              type: 'Headers'
           ### query
-          - column: "item_api_example.query"
+          - column: 'item_api_example.query'
             go_type:
-              import: "dev-tools-backend/pkg/model/mitemapiexample"
-              package: "mitemapiexample"
-              type: "Query"
+              import: 'dev-tools-backend/pkg/model/mitemapiexample'
+              package: 'mitemapiexample'
+              type: 'Query'
           ## item_folder
           ### id
-          - column: "item_folder.id"
+          - column: 'item_folder.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### prev
-          - column: "item_folder.prev"
+          - column: 'item_folder.prev'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
+              import: 'dev-tools-backend/pkg/idwrap'
               pointer: true
-              package: "idwrap"
-              type: "IDWrap"
+              package: 'idwrap'
+              type: 'IDWrap'
           ### next
-          - column: "item_folder.next"
+          - column: 'item_folder.next'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
+              import: 'dev-tools-backend/pkg/idwrap'
               pointer: true
-              package: "idwrap"
-              type: "IDWrap"
+              package: 'idwrap'
+              type: 'IDWrap'
           ## collection_id
-          - column: "item_folder.collection_id"
+          - column: 'item_folder.collection_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### parent_id
-          - column: "item_folder.parent_id"
+          - column: 'item_folder.parent_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
               pointer: true
-              type: "IDWrap"
+              type: 'IDWrap'
           ## workspace
           ### id
-          - column: "workspaces.id"
+          - column: 'workspaces.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## workspaces_users
           ### id
-          - column: "workspaces_users.id"
+          - column: 'workspaces_users.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### workspace_id
-          - column: "workspaces_users.workspace_id"
+          - column: 'workspaces_users.workspace_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### user_id
-          - column: "workspaces_users.user_id"
+          - column: 'workspaces_users.user_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## result_api
           ### id
-          - column: "result_api.id"
+          - column: 'result_api.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### trigger_type
-          - column: "result_api.trigger_type"
+          - column: 'result_api.trigger_type'
             go_type:
-              import: "dev-tools-backend/pkg/model/result/mresultapi"
-              package: "mresultapi"
-              type: "TriggerType"
+              import: 'dev-tools-backend/pkg/model/result/mresultapi'
+              package: 'mresultapi'
+              type: 'TriggerType'
           ### trigger_by
-          - column: "result_api.trigger_by"
+          - column: 'result_api.trigger_by'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### trigger_by
-          - column: "result_api.http_resp"
+          - column: 'result_api.http_resp'
             go_type:
-              import: "dev-tools-backend/pkg/model/result/mresultapi"
-              package: "mresultapi"
-              type: "HttpResp"
+              import: 'dev-tools-backend/pkg/model/result/mresultapi'
+              package: 'mresultapi'
+              type: 'HttpResp'
           ## Header Table
           ### id
-          - column: "example_header.id"
+          - column: 'example_header.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "example_header.example_id"
+          - column: 'example_header.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_query
           ### id
-          - column: "example_query.id"
+          - column: 'example_query.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "example_query.example_id"
+          - column: 'example_query.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_body_form
           ### id
-          - column: "example_body_form.id"
+          - column: 'example_body_form.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "example_body_form.example_id"
+          - column: 'example_body_form.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_body_url
           ### id
-          - column: "example_body_urlencoded.id"
+          - column: 'example_body_urlencoded.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "example_body_urlencoded.example_id"
+          - column: 'example_body_urlencoded.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_body_raw
           ### id
-          - column: "example_body_raw.id"
+          - column: 'example_body_raw.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "example_body_raw.example_id"
+          - column: 'example_body_raw.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## environment
           ### id
-          - column: "environment.id"
+          - column: 'environment.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### workspace_id
-          - column: "environment.workspace_id"
+          - column: 'environment.workspace_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## variable
           ### id
-          - column: "variable.id"
+          - column: 'variable.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### env_id
-          - column: "variable.env_id"
+          - column: 'variable.env_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### workspace_id
-          - column: "variable.workspace_id"
+          - column: 'variable.workspace_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_resp
           ### id
-          - column: "example_resp.id"
+          - column: 'example_resp.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_id
-          - column: "example_resp.example_id"
+          - column: 'example_resp.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## example_id
-          - column: "example_resp.status"
+          - column: 'example_resp.status'
             go_type:
-              type: "uint16"
+              type: 'uint16'
           ## example_resp_header
           ### id
-          - column: "example_resp_header.id"
+          - column: 'example_resp_header.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_resp_id
-          - column: "example_resp_header.example_resp_id"
+          - column: 'example_resp_header.example_resp_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## assertion
           ### id
-          - column: "assertion.id"
+          - column: 'assertion.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "assertion.example_id"
+          - column: 'assertion.example_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## assertion_result
           ### id
-          - column: "assertion_result.id"
+          - column: 'assertion_result.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### response_id
-          - column: "assertion_result.response_id"
+          - column: 'assertion_result.response_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### example_id
-          - column: "assertion_result.assertion_id"
+          - column: 'assertion_result.assertion_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## flow
           ### id
-          - column: "flow.id"
+          - column: 'flow.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### workspace_id
-          - column: "flow.workspace_id"
+          - column: 'flow.workspace_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## flow_tag
           ### id
-          - column: "flow_tag.id"
+          - column: 'flow_tag.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### workspace_id
-          - column: "flow_tag.workspace_id"
+          - column: 'flow_tag.workspace_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## ftag
           ### id
-          - column: "tag.id"
+          - column: 'tag.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### workspace_id
-          - column: "tag.workspace_id"
+          - column: 'tag.workspace_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## flow_tag
           ### id
-          - column: "flow_tag.id"
+          - column: 'flow_tag.id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### flow_id
-          - column: "flow_tag.flow_id"
+          - column: 'flow_tag.flow_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### tag_id
-          - column: "flow_tag.tag_id"
+          - column: 'flow_tag.tag_id'
             go_type:
-              import: "dev-tools-backend/pkg/idwrap"
-              package: "idwrap"
-              type: "IDWrap"
+              import: 'dev-tools-backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'

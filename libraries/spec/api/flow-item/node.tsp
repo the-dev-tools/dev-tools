@@ -70,4 +70,3 @@ model NodeCondition {
   conditionType: ConditionType;
   customCondition?: string;
 }
-

@@ -1,7 +1,7 @@
-import { pipe } from 'effect';
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join, dirname, basename, parse, relative } from 'node:path';
+import { basename, dirname, join, parse, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pipe } from 'effect';
 
 const dir = pipe('../dist/@typespec/protobuf/', import.meta.resolve, fileURLToPath);
 const dirents = readdirSync(dir, { recursive: true, withFileTypes: true });

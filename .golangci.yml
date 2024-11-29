@@ -40,7 +40,7 @@ run:
   # Define the Go version limit.
   # Mainly related to generics support since go1.18.
   # Default: use Go version from the go.mod file, fallback on the env var `GOVERSION`, fallback on 1.17
-  go: "1.23"
+  go: '1.23'
   # See the dedicated "run" documentation section.
 # output configuration options
 output:
@@ -83,7 +83,7 @@ output:
   uniq-by-line: false
   # Add a prefix to the output file references.
   # Default: ""
-  path-prefix: ""
+  path-prefix: ''
   # Sort results by the order defined in `sort-order`.
   # Default: false
   sort-results: true
@@ -178,11 +178,11 @@ issues:
     # Exclude some `staticcheck` messages.
     - linters:
         - staticcheck
-      text: "SA9003:"
+      text: 'SA9003:'
     # Exclude `lll` issues for long lines with `go:generate`.
     - linters:
         - lll
-      source: "^//go:generate "
+      source: '^//go:generate '
   # Independently of option `exclude` we use default exclude patterns,
   # it can be disabled by this option.
   # To list all excluded by default patterns execute `golangci-lint run --help`.

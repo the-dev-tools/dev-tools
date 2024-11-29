@@ -27,7 +27,7 @@
     "@tanstack/react-table": "8.20.5",
     "@tanstack/virtual-file-routes": "1.81.9",
     "@the-dev-tools/api": "workspace:^",
-    "@the-dev-tools/spec": "1.37.0",
+    "@the-dev-tools/spec": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@uiw/react-codemirror": "4.23.6",

@@ -3,9 +3,9 @@ name: goci
 on:
   push:
     branches:
-      - "main"
+      - 'main'
     paths:
-      - "**.go"
+      - '**.go'
 
 env:
   GO_VERSION: 1.23

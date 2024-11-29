@@ -1,839 +1,748 @@
 {
-	"info": {
-		"_postman_id": "6ad1c4d7-cea4-4216-a29c-39bfcad5b767",
-		"name": "Postman: An Introduction for Testers",
-		"description": "## Quick Start\n1. **Fork the collection** - Click the **Run in Postman** button to fork the collection to your own workspace.\n\n  [![Run in Postman](https://run.pstmn.io/button.svg)](https://god.gw.postman.com/run-collection/13455110-3b9b9b98-2a3f-47c0-a257-ae869f69ce05?action=collection%2Ffork&collection-url=entityId%3D13455110-3b9b9b98-2a3f-47c0-a257-ae869f69ce05%26entityType%3Dcollection%26workspaceId%3D152199ce-48dd-4b46-b201-9e4fcb6f75db)\n2. **Select the first folder** - Begin with the first folder labeled \"Library API Reference\", and expand the documentation from the context bar on the right. Instructions for each lesson will be in the documentation for each folder\n\n## Postman: An Introduction for Developers\n##### aired **September 8, 2021**\n[<img src=\"https://i.imgur.com/sAdL1kU.png\">](https://www.youtube.com/watch?v=GUgA9mgSwrg)\n\n**View the slides [here](https://www.slideshare.net/GetPostman/postman-an-introduction-for-testers-250144865).**\n\nAt the end of this session, you'll walk away with all the basic skills you need to get started with Postman.  \n✅  Send a request and inspect a response.  \n✅  Use a test snippet.  \n✅  Write custom tests.  \n✅  Extract data from one request to use in another with variables.  \n✅  Save and run tests as collections.  \n✅  Explain different types of tests that can be written in Postman.  \n\n## Join the the Postman Space Camp Series!\nPostman Space Camp is a a series of educational sessions. Each lesson is taught by your favorite Postmanauts. [Sign up to be notified about upcoming sessions](https://www.postman.com/events/postman-space-camp/).\n\n## Additional Resources\nFeeling stuck or want to dig deeper into specific topics? We've got you covered:\n- **[Intro to writing tests](https://www.postman.com/postman/workspace/postman-team-collections/collection/1559645-13bd44c4-94ec-420a-8390-8ff44b60f14d?ctx=documentation)** - A collection containing examples of tests that you can use to automate your testing process.\n- **[Blog post: Writing tests in Postman](https://blog.postman.com/writing-tests-in-postman/)** - A blog post walking you through writing tests in Postman. From using basic test snippets to CI / CD integrations, this post has you covered.\n- **[Writings Tests - documentation](https://www.getpostman.com/docs/v6/postman/scripts/test_scripts)** - Our Learning Center is full of resources and this specific section covers everything you need to know about getting started writing tests.\n- **[Test script examples - documentation](https://learning.postman.com/docs/writing-scripts/script-references/test-examples/)** - This Learning Center resource covers common assertion examples as well as advanced testing examples.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "11811309",
-		"_collection_link": "https://www.postman.com/postman/workspace/test-examples-in-postman/collection/1559645-6ad1c4d7-cea4-4216-a29c-39bfcad5b767?action=share&source=collection_link&creator=11811309"
-	},
-	"item": [
-		{
-			"name": "Library API Reference",
-			"item": [
-				{
-					"name": "books",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/books",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books"
-							],
-							"query": [
-								{
-									"key": "search",
-									"value": "borges",
-									"description": "a search string to be matched against author/title (example: borges). Case insensitive, partial match OK.",
-									"disabled": true
-								},
-								{
-									"key": "checkedOut",
-									"value": "false",
-									"description": "true/false",
-									"disabled": true
-								},
-								{
-									"key": "genre",
-									"value": "fiction",
-									"description": "filter by genre (case-insensitive, exact match)",
-									"disabled": true
-								}
-							]
-						},
-						"description": "Returns all books in the library database. \n\nOptional filters can be passed as query parameters."
-					},
-					"response": [
-						{
-							"name": "books",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/books",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books"
-									],
-									"query": [
-										{
-											"key": "search",
-											"value": "borges",
-											"description": "a search string to be matched against author/title (example: borges). Case insensitive, partial match OK.",
-											"disabled": true
-										},
-										{
-											"key": "checkedOut",
-											"value": "false",
-											"description": "true/false",
-											"disabled": true
-										},
-										{
-											"key": "genre",
-											"value": "fiction",
-											"description": "filter by genre (case-insensitive, exact match)",
-											"disabled": true
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Sat, 12 Jun 2021 00:41:42 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "4503"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"1197-eLah3rmGpEn/V/gcfnJ7iyv+Foo\""
-								}
-							],
-							"cookie": [],
-							"body": "[\n    {\n        \"title\": \"Ficciones\",\n        \"author\": \"Jorge Luis Borges\",\n        \"id\": \"ZUST9JFx-Sd9X0k\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1944,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Dust Tracks on a Road\",\n        \"author\": \"Zora Neale Hurston\",\n        \"id\": \"bJmPVX5oFzAQJwI\",\n        \"genre\": \"biography\",\n        \"yearPublished\": 1942,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Crime and Punishment\",\n        \"author\": \"Fyodor Dostoyevsky\",\n        \"id\": \"T1NwXSmVxnlxoeG\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1866,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Domain-Driven Design: Tackling Complexity in the Heart of Software\",\n        \"author\": \"Eric Evans\",\n        \"id\": \"hHNwXjmjxnlxooP\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2003,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Tale of Genji\",\n        \"author\": \"Murasaki Shikibu\",\n        \"id\": \"rclHV3DLWbJmquK\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1021,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Patterns of Enterprise Application Architecture\",\n        \"author\": \"Martin Fowler\",\n        \"id\": \"uTYYlzvCQsaaSwj\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2002,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Competing Against Luck: The Story of Innovation and Customer Choice\",\n        \"author\": \"Clayton Christensen, Taddy Hall, Karen Dillon, David Duncan\",\n        \"id\": \"rebHV3JhWbJmcca\",\n        \"genre\": \"business\",\n        \"yearPublished\": 2016,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Beyond Violence\",\n        \"author\": \"Jiddu Krishnamurti\",\n        \"id\": \"pclHVVVqLWbJmqur\",\n        \"genre\": \"philosophy\",\n        \"yearPublished\": 1973,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable, and Maintainable Systems\",\n        \"author\": \"Martin Kleppmann\",\n        \"id\": \"HbQrRkNjJkalsS\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2017,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Colorless Tsukuru Tazaki and His Years of Pilgrimage\",\n        \"author\": \"Haruki Murakami\",\n        \"id\": \"eclHBBrLWbJmque\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"A Practical Approach to API Design\",\n        \"author\": \"D. Keith Casey Jr, James Higginbotham\",\n        \"id\": \"jclqjdUdBrLWDDmqp\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Go Design Patterns\",\n        \"author\": \"Mario Castro Contreras\",\n        \"id\": \"eeRplqnKkshdmqeeE\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2017,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Joy Luck Club\",\n        \"author\": \"Amy Tan\",\n        \"id\": \"qqlHBBrLWbJmq_a\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1989,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Anxious People\",\n        \"author\": \"Fredrik Backman\",\n        \"id\": \"MpNoarLWbJTwe\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2019,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Continuous API Management: Making the Right Decisions in an Evolving Landscape\",\n        \"author\": \"Mehdi Medjaoui, Erik Wilde, Ronnie Mitra, Mike Amundsen\",\n        \"id\": \"ZxJksSDasdaO\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2018,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Learning GraphQL\",\n        \"author\": \"Eve Porcello, Alex Banks\",\n        \"id\": \"gqlHBBrLWbJmqgql\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2018,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Masala Lab: The Science of Indian Cooking\",\n        \"author\": \"Krish Ashok\",\n        \"id\": \"shrHcTrLWlJmquti\",\n        \"genre\": \"cooking\",\n        \"yearPublished\": 2020,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Refactoring\",\n        \"author\": \"Kent Beck, Martin Fowler\",\n        \"id\": \"aeSdkfhUSkdhHfo\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 1999,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Consolation of Philosophy\",\n        \"author\": \"Boethius\",\n        \"id\": \"cpopeLmqgixdD\",\n        \"genre\": \"philosophy\",\n        \"yearPublished\": 524,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"A Thousand Splendid Suns\",\n        \"author\": \"Khaled Hosseini\",\n        \"id\": \"qpBhlLWbJmqgg\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2007,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Wright Brothers\",\n        \"author\": \"David McCullough \",\n        \"id\": \"HjKaEeYYuiapA\",\n        \"genre\": \"history\",\n        \"yearPublished\": 2007,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"RESTful Web APIs: Services for a Changing World\",\n        \"author\": \"Leonard Richardson, Mike Amundsen, Sam Ruby\",\n        \"id\": \"apilLWbJmqgop\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Creativity, Inc.\",\n        \"author\": \"Ed Catmull\",\n        \"id\": \"plRHqwwEJmqgoT\",\n        \"genre\": \"business\",\n        \"yearPublished\": 2014,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    }\n]"
-						}
-					]
-				},
-				{
-					"name": "book",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/books/:id",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "{{id}}"
-								}
-							]
-						},
-						"description": "Gets a single book by id"
-					},
-					"response": [
-						{
-							"name": "book",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/books/:id",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": "{{id}}"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Sat, 12 Jun 2021 00:43:31 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "164"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"a4-YbCf8Nx5lqz4LotV0M4P+08vk5Y\""
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"title\": \"Ficciones\",\n    \"author\": \"Jorge Luis Borges\",\n    \"id\": \"ZUST9JFx-Sd9X0k\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1944,\n    \"checkedOut\": true,\n    \"createdAt\": \"2021-06-02 17:37:38\"\n}"
-						}
-					]
-				},
-				{
-					"name": "add book",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"title\": \"One Hundred Years of Solitude\",\n    \"author\": \"Gabriel García Márquez\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1967\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/books",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books"
-							]
-						},
-						"description": "Adds a book to the Library. Books added by users are deleted from the library 12 hours after they have been created."
-					},
-					"response": [
-						{
-							"name": "add book",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"title\": \"One Hundred Years of Solitude\",\n    \"author\": \"Gabriel García Márquez\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1967\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/books",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books"
-									]
-								}
-							},
-							"status": "Created",
-							"code": 201,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Sat, 12 Jun 2021 00:44:00 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "16"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"message\": \"OK\"\n}"
-						}
-					]
-				},
-				{
-					"name": "update book",
-					"request": {
-						"method": "PATCH",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"checkedOut\": true\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/books/:id",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "cwSjBa_thjnW3cr"
-								}
-							]
-						},
-						"description": "### Update a book by id\n\nUpdate any of these fields for a book with given `id` via the JSON body: \n\n- `title` (string)\n- `author` (string)\n- `genre` (string)\n- `yearPublished` (integer)\n- `checkedOut` (boolean)\n\n> Note: **Only user-added books can be edited**. Some books are part of the library's canonical collection and cannot be edited."
-					},
-					"response": [
-						{
-							"name": "201 update book",
-							"originalRequest": {
-								"method": "PATCH",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"checkedOut\": true\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/books/:id",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": "{{id}}"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Sat, 12 Jun 2021 00:44:44 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "16"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"message\": \"OK\"\n}"
-						},
-						{
-							"name": "404 Not Found",
-							"originalRequest": {
-								"method": "PATCH",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/books/:id",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": "{{id}}"
-										}
-									]
-								}
-							},
-							"status": "Not Found",
-							"code": 404,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Tue, 07 Sep 2021 19:44:14 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "63"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"3f-6PcCQuFZ7rDourB4NtuOy4Tzkb0\""
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Book with id: '{{id}}' not found\"\n}"
-						},
-						{
-							"name": "500 Internal Server Error",
-							"originalRequest": {
-								"method": "PATCH",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/books/:id",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": "cwSjBa_thjnW3cr"
-										}
-									]
-								}
-							},
-							"status": "Internal Server Error",
-							"code": 500,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Tue, 07 Sep 2021 19:45:55 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "173"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"ad-Mi5g2mAgHAOl3ETLhu1hjaspW3A\""
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Empty .update() call detected! Update data does not contain any values to update. This will result in a faulty query. Table: books. Columns: .\"\n}"
-						}
-					]
-				},
-				{
-					"name": "delete book",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/books/:id",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "{{id}}"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "delete book",
-							"originalRequest": {
-								"method": "DELETE",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/books/:id",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"books",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": "{{id}}"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Date",
-									"value": "Sat, 12 Jun 2021 00:45:04 GMT"
-								},
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								},
-								{
-									"key": "Content-Length",
-									"value": "16"
-								},
-								{
-									"key": "Connection",
-									"value": "keep-alive"
-								},
-								{
-									"key": "x-powered-by",
-									"value": "Express"
-								},
-								{
-									"key": "etag",
-									"value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
-								}
-							],
-							"cookie": [],
-							"body": "{\n    \"message\": \"OK\"\n}"
-						}
-					]
-				}
-			],
-			"description": "This is an API reference for the Library API used in API 101. You can see the Glitch code for the API [here](https://glitch.com/edit/#!/postman-library-api).\n\nThis folder will be used to demonstrate the various types of unit testing that be done in Postman. By using code snippets and writing custom tests in the Tests tab, we can test elements of the response to ensure they come back as expected. This could be status code, headers, elements of the response body, etc.\n\nThe `pm.expect` method allows you to write assertions on your response data using [ChaiJS expect BDD](https://www.chaijs.com/api/bdd/) syntax. More information on writing tests is available [here](https://learning.postman.com/docs/writing-scripts/test-scripts/)."
-		},
-		{
-			"name": "New book workflow",
-			"item": [
-				{
-					"name": "add book",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"title\": \"Dune\",\n    \"author\": \"Roger Zelazny\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1965\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "https://postman-library-api.glitch.me/books",
-							"protocol": "https",
-							"host": [
-								"postman-library-api",
-								"glitch",
-								"me"
-							],
-							"path": [
-								"books"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "books",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/books",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "update book",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									""
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "PATCH",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"checkedOut\": true\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/books/:id",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "{{id}}"
-								}
-							]
-						}
-					},
-					"response": []
-				}
-			],
-			"description": "This folder goes through the workflow of adding a new book and then capturing the ID of that book so that it can immediately be marked as \"checked out\". This folder uses [collection level variables](https://learning.postman.com/docs/sending-requests/variables/#defining-collection-variables) to be used in multiple requests. It also demonstrates how to extract data from one request to use in another request by using variables.\n\nThis workflow shows how you can use Postman for end-to-end testing by having test assertions at every step in the process."
-		},
-		{
-			"name": "Contract Testing",
-			"item": [
-				{
-					"name": "JSON schema v4 validation",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"// Define the schema expected in response",
-									"var schema = {",
-									"  \"$schema\": \"https://tinyurl.com/space-camp-schema\",",
-									"  \"type\": \"array\",",
-									"  \"items\": {",
-									"    \"type\": \"object\",",
-									"    \"required\": [],",
-									"    \"properties\": {",
-									"      \"title\": {",
-									"        \"type\": \"string\"",
-									"      },",
-									"      \"author\": {",
-									"        \"type\": \"string\"",
-									"      },",
-									"      \"id\": {",
-									"        \"type\": \"string\"",
-									"      },",
-									"      \"genre\": {",
-									"        \"type\": \"string\"",
-									"      },",
-									"      \"yearPublished\": {",
-									"        \"type\": \"number\"",
-									"      },",
-									"      \"checkedOut\": {",
-									"        \"type\": \"boolean\"",
-									"      },",
-									"      \"createdAt\": {",
-									"        \"type\": \"string\"",
-									"      }",
-									"    }",
-									"  }",
-									"}",
-									"",
-									"// Get response data as JSON",
-									"var jsonData = pm.response.json();",
-									"// Test for response data structure",
-									"pm.test('Ensure expected response structure', function () {",
-									"    var validation = tv4.validate(jsonData, schema);",
-									"    pm.expect(validation).to.be.true;",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/books",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"books"
-							]
-						}
-					},
-					"response": []
-				}
-			],
-			"description": "A schema is simply a declaration describing the structure of data. Some teams use a specific schema and would like to validate their server responses against this schema. You can define a custom schema, and validate your your server responses against this schema.\n\nOne important part of testing is validating that the response payloads returned from the server are well-formed. You can do this by making assertions that elements in the response match your expectations.\n\nReview the test written under the **Tests** tab to validate that response payloads returned from the server are well-formed. \n\nThis example uses [Tiny Validator for JSON Schema v4](http://geraintluff.github.io/tv4/). The Postman sandbox offers a built-in tv4 validator to simplify your assertions. Use [json-schema ](http://json-schema.org/) \n[draft v4](http://json-schema.org/latest/json-schema-core.html) to validate simple values and complex objects using a rich [validation vocabulary](http://json-schema.org/latest/json-schema-validation.html) ([examples](http://json-schema.org/examples.html))."
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	],
-	"variable": [
-		{
-			"key": "baseUrl",
-			"value": "https://postman-library-api.glitch.me"
-		}
-	]
+  "info": {
+    "_postman_id": "6ad1c4d7-cea4-4216-a29c-39bfcad5b767",
+    "name": "Postman: An Introduction for Testers",
+    "description": "## Quick Start\n1. **Fork the collection** - Click the **Run in Postman** button to fork the collection to your own workspace.\n\n  [![Run in Postman](https://run.pstmn.io/button.svg)](https://god.gw.postman.com/run-collection/13455110-3b9b9b98-2a3f-47c0-a257-ae869f69ce05?action=collection%2Ffork&collection-url=entityId%3D13455110-3b9b9b98-2a3f-47c0-a257-ae869f69ce05%26entityType%3Dcollection%26workspaceId%3D152199ce-48dd-4b46-b201-9e4fcb6f75db)\n2. **Select the first folder** - Begin with the first folder labeled \"Library API Reference\", and expand the documentation from the context bar on the right. Instructions for each lesson will be in the documentation for each folder\n\n## Postman: An Introduction for Developers\n##### aired **September 8, 2021**\n[<img src=\"https://i.imgur.com/sAdL1kU.png\">](https://www.youtube.com/watch?v=GUgA9mgSwrg)\n\n**View the slides [here](https://www.slideshare.net/GetPostman/postman-an-introduction-for-testers-250144865).**\n\nAt the end of this session, you'll walk away with all the basic skills you need to get started with Postman.  \n✅  Send a request and inspect a response.  \n✅  Use a test snippet.  \n✅  Write custom tests.  \n✅  Extract data from one request to use in another with variables.  \n✅  Save and run tests as collections.  \n✅  Explain different types of tests that can be written in Postman.  \n\n## Join the the Postman Space Camp Series!\nPostman Space Camp is a a series of educational sessions. Each lesson is taught by your favorite Postmanauts. [Sign up to be notified about upcoming sessions](https://www.postman.com/events/postman-space-camp/).\n\n## Additional Resources\nFeeling stuck or want to dig deeper into specific topics? We've got you covered:\n- **[Intro to writing tests](https://www.postman.com/postman/workspace/postman-team-collections/collection/1559645-13bd44c4-94ec-420a-8390-8ff44b60f14d?ctx=documentation)** - A collection containing examples of tests that you can use to automate your testing process.\n- **[Blog post: Writing tests in Postman](https://blog.postman.com/writing-tests-in-postman/)** - A blog post walking you through writing tests in Postman. From using basic test snippets to CI / CD integrations, this post has you covered.\n- **[Writings Tests - documentation](https://www.getpostman.com/docs/v6/postman/scripts/test_scripts)** - Our Learning Center is full of resources and this specific section covers everything you need to know about getting started writing tests.\n- **[Test script examples - documentation](https://learning.postman.com/docs/writing-scripts/script-references/test-examples/)** - This Learning Center resource covers common assertion examples as well as advanced testing examples.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "11811309",
+    "_collection_link": "https://www.postman.com/postman/workspace/test-examples-in-postman/collection/1559645-6ad1c4d7-cea4-4216-a29c-39bfcad5b767?action=share&source=collection_link&creator=11811309"
+  },
+  "item": [
+    {
+      "name": "Library API Reference",
+      "item": [
+        {
+          "name": "books",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["books"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "borges",
+                  "description": "a search string to be matched against author/title (example: borges). Case insensitive, partial match OK.",
+                  "disabled": true
+                },
+                {
+                  "key": "checkedOut",
+                  "value": "false",
+                  "description": "true/false",
+                  "disabled": true
+                },
+                {
+                  "key": "genre",
+                  "value": "fiction",
+                  "description": "filter by genre (case-insensitive, exact match)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns all books in the library database. \n\nOptional filters can be passed as query parameters."
+          },
+          "response": [
+            {
+              "name": "books",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/books",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books"],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "borges",
+                      "description": "a search string to be matched against author/title (example: borges). Case insensitive, partial match OK.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "checkedOut",
+                      "value": "false",
+                      "description": "true/false",
+                      "disabled": true
+                    },
+                    {
+                      "key": "genre",
+                      "value": "fiction",
+                      "description": "filter by genre (case-insensitive, exact match)",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Sat, 12 Jun 2021 00:41:42 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "4503"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"1197-eLah3rmGpEn/V/gcfnJ7iyv+Foo\""
+                }
+              ],
+              "cookie": [],
+              "body": "[\n    {\n        \"title\": \"Ficciones\",\n        \"author\": \"Jorge Luis Borges\",\n        \"id\": \"ZUST9JFx-Sd9X0k\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1944,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Dust Tracks on a Road\",\n        \"author\": \"Zora Neale Hurston\",\n        \"id\": \"bJmPVX5oFzAQJwI\",\n        \"genre\": \"biography\",\n        \"yearPublished\": 1942,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Crime and Punishment\",\n        \"author\": \"Fyodor Dostoyevsky\",\n        \"id\": \"T1NwXSmVxnlxoeG\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1866,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Domain-Driven Design: Tackling Complexity in the Heart of Software\",\n        \"author\": \"Eric Evans\",\n        \"id\": \"hHNwXjmjxnlxooP\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2003,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Tale of Genji\",\n        \"author\": \"Murasaki Shikibu\",\n        \"id\": \"rclHV3DLWbJmquK\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1021,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Patterns of Enterprise Application Architecture\",\n        \"author\": \"Martin Fowler\",\n        \"id\": \"uTYYlzvCQsaaSwj\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2002,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Competing Against Luck: The Story of Innovation and Customer Choice\",\n        \"author\": \"Clayton Christensen, Taddy Hall, Karen Dillon, David Duncan\",\n        \"id\": \"rebHV3JhWbJmcca\",\n        \"genre\": \"business\",\n        \"yearPublished\": 2016,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Beyond Violence\",\n        \"author\": \"Jiddu Krishnamurti\",\n        \"id\": \"pclHVVVqLWbJmqur\",\n        \"genre\": \"philosophy\",\n        \"yearPublished\": 1973,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable, and Maintainable Systems\",\n        \"author\": \"Martin Kleppmann\",\n        \"id\": \"HbQrRkNjJkalsS\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2017,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Colorless Tsukuru Tazaki and His Years of Pilgrimage\",\n        \"author\": \"Haruki Murakami\",\n        \"id\": \"eclHBBrLWbJmque\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"A Practical Approach to API Design\",\n        \"author\": \"D. Keith Casey Jr, James Higginbotham\",\n        \"id\": \"jclqjdUdBrLWDDmqp\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Go Design Patterns\",\n        \"author\": \"Mario Castro Contreras\",\n        \"id\": \"eeRplqnKkshdmqeeE\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2017,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Joy Luck Club\",\n        \"author\": \"Amy Tan\",\n        \"id\": \"qqlHBBrLWbJmq_a\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1989,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Anxious People\",\n        \"author\": \"Fredrik Backman\",\n        \"id\": \"MpNoarLWbJTwe\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2019,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Continuous API Management: Making the Right Decisions in an Evolving Landscape\",\n        \"author\": \"Mehdi Medjaoui, Erik Wilde, Ronnie Mitra, Mike Amundsen\",\n        \"id\": \"ZxJksSDasdaO\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2018,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Learning GraphQL\",\n        \"author\": \"Eve Porcello, Alex Banks\",\n        \"id\": \"gqlHBBrLWbJmqgql\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2018,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Masala Lab: The Science of Indian Cooking\",\n        \"author\": \"Krish Ashok\",\n        \"id\": \"shrHcTrLWlJmquti\",\n        \"genre\": \"cooking\",\n        \"yearPublished\": 2020,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Refactoring\",\n        \"author\": \"Kent Beck, Martin Fowler\",\n        \"id\": \"aeSdkfhUSkdhHfo\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 1999,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Consolation of Philosophy\",\n        \"author\": \"Boethius\",\n        \"id\": \"cpopeLmqgixdD\",\n        \"genre\": \"philosophy\",\n        \"yearPublished\": 524,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"A Thousand Splendid Suns\",\n        \"author\": \"Khaled Hosseini\",\n        \"id\": \"qpBhlLWbJmqgg\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2007,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Wright Brothers\",\n        \"author\": \"David McCullough \",\n        \"id\": \"HjKaEeYYuiapA\",\n        \"genre\": \"history\",\n        \"yearPublished\": 2007,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"RESTful Web APIs: Services for a Changing World\",\n        \"author\": \"Leonard Richardson, Mike Amundsen, Sam Ruby\",\n        \"id\": \"apilLWbJmqgop\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Creativity, Inc.\",\n        \"author\": \"Ed Catmull\",\n        \"id\": \"plRHqwwEJmqgoT\",\n        \"genre\": \"business\",\n        \"yearPublished\": 2014,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    }\n]"
+            }
+          ]
+        },
+        {
+          "name": "book",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            },
+            "description": "Gets a single book by id"
+          },
+          "response": [
+            {
+              "name": "book",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/books/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{id}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Sat, 12 Jun 2021 00:43:31 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "164"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"a4-YbCf8Nx5lqz4LotV0M4P+08vk5Y\""
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"title\": \"Ficciones\",\n    \"author\": \"Jorge Luis Borges\",\n    \"id\": \"ZUST9JFx-Sd9X0k\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1944,\n    \"checkedOut\": true,\n    \"createdAt\": \"2021-06-02 17:37:38\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "add book",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"One Hundred Years of Solitude\",\n    \"author\": \"Gabriel García Márquez\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1967\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["books"]
+            },
+            "description": "Adds a book to the Library. Books added by users are deleted from the library 12 hours after they have been created."
+          },
+          "response": [
+            {
+              "name": "add book",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"One Hundred Years of Solitude\",\n    \"author\": \"Gabriel García Márquez\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1967\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/books",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Sat, 12 Jun 2021 00:44:00 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "16"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"message\": \"OK\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "update book",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"checkedOut\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/books/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "cwSjBa_thjnW3cr"
+                }
+              ]
+            },
+            "description": "### Update a book by id\n\nUpdate any of these fields for a book with given `id` via the JSON body: \n\n- `title` (string)\n- `author` (string)\n- `genre` (string)\n- `yearPublished` (integer)\n- `checkedOut` (boolean)\n\n> Note: **Only user-added books can be edited**. Some books are part of the library's canonical collection and cannot be edited."
+          },
+          "response": [
+            {
+              "name": "201 update book",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"checkedOut\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/books/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{id}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Sat, 12 Jun 2021 00:44:44 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "16"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"message\": \"OK\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/books/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{id}}"
+                    }
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Tue, 07 Sep 2021 19:44:14 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "63"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"3f-6PcCQuFZ7rDourB4NtuOy4Tzkb0\""
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": \"error\",\n    \"message\": \"Book with id: '{{id}}' not found\"\n}"
+            },
+            {
+              "name": "500 Internal Server Error",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/books/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "cwSjBa_thjnW3cr"
+                    }
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Tue, 07 Sep 2021 19:45:55 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "173"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"ad-Mi5g2mAgHAOl3ETLhu1hjaspW3A\""
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": \"error\",\n    \"message\": \"Empty .update() call detected! Update data does not contain any values to update. This will result in a faulty query. Table: books. Columns: .\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "delete book",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "delete book",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/books/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["books", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{id}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Date",
+                  "value": "Sat, 12 Jun 2021 00:45:04 GMT"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "16"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "x-powered-by",
+                  "value": "Express"
+                },
+                {
+                  "key": "etag",
+                  "value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"message\": \"OK\"\n}"
+            }
+          ]
+        }
+      ],
+      "description": "This is an API reference for the Library API used in API 101. You can see the Glitch code for the API [here](https://glitch.com/edit/#!/postman-library-api).\n\nThis folder will be used to demonstrate the various types of unit testing that be done in Postman. By using code snippets and writing custom tests in the Tests tab, we can test elements of the response to ensure they come back as expected. This could be status code, headers, elements of the response body, etc.\n\nThe `pm.expect` method allows you to write assertions on your response data using [ChaiJS expect BDD](https://www.chaijs.com/api/bdd/) syntax. More information on writing tests is available [here](https://learning.postman.com/docs/writing-scripts/test-scripts/)."
+    },
+    {
+      "name": "New book workflow",
+      "item": [
+        {
+          "name": "add book",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Dune\",\n    \"author\": \"Roger Zelazny\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1965\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://postman-library-api.glitch.me/books",
+              "protocol": "https",
+              "host": ["postman-library-api", "glitch", "me"],
+              "path": ["books"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "books",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["books"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update book",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"checkedOut\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/books/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "This folder goes through the workflow of adding a new book and then capturing the ID of that book so that it can immediately be marked as \"checked out\". This folder uses [collection level variables](https://learning.postman.com/docs/sending-requests/variables/#defining-collection-variables) to be used in multiple requests. It also demonstrates how to extract data from one request to use in another request by using variables.\n\nThis workflow shows how you can use Postman for end-to-end testing by having test assertions at every step in the process."
+    },
+    {
+      "name": "Contract Testing",
+      "item": [
+        {
+          "name": "JSON schema v4 validation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Define the schema expected in response",
+                  "var schema = {",
+                  "  \"$schema\": \"https://tinyurl.com/space-camp-schema\",",
+                  "  \"type\": \"array\",",
+                  "  \"items\": {",
+                  "    \"type\": \"object\",",
+                  "    \"required\": [],",
+                  "    \"properties\": {",
+                  "      \"title\": {",
+                  "        \"type\": \"string\"",
+                  "      },",
+                  "      \"author\": {",
+                  "        \"type\": \"string\"",
+                  "      },",
+                  "      \"id\": {",
+                  "        \"type\": \"string\"",
+                  "      },",
+                  "      \"genre\": {",
+                  "        \"type\": \"string\"",
+                  "      },",
+                  "      \"yearPublished\": {",
+                  "        \"type\": \"number\"",
+                  "      },",
+                  "      \"checkedOut\": {",
+                  "        \"type\": \"boolean\"",
+                  "      },",
+                  "      \"createdAt\": {",
+                  "        \"type\": \"string\"",
+                  "      }",
+                  "    }",
+                  "  }",
+                  "}",
+                  "",
+                  "// Get response data as JSON",
+                  "var jsonData = pm.response.json();",
+                  "// Test for response data structure",
+                  "pm.test('Ensure expected response structure', function () {",
+                  "    var validation = tv4.validate(jsonData, schema);",
+                  "    pm.expect(validation).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["books"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "A schema is simply a declaration describing the structure of data. Some teams use a specific schema and would like to validate their server responses against this schema. You can define a custom schema, and validate your your server responses against this schema.\n\nOne important part of testing is validating that the response payloads returned from the server are well-formed. You can do this by making assertions that elements in the response match your expectations.\n\nReview the test written under the **Tests** tab to validate that response payloads returned from the server are well-formed. \n\nThis example uses [Tiny Validator for JSON Schema v4](http://geraintluff.github.io/tv4/). The Postman sandbox offers a built-in tv4 validator to simplify your assertions. Use [json-schema ](http://json-schema.org/) \n[draft v4](http://json-schema.org/latest/json-schema-core.html) to validate simple values and complex objects using a rich [validation vocabulary](http://json-schema.org/latest/json-schema-validation.html) ([examples](http://json-schema.org/examples.html))."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://postman-library-api.glitch.me"
+    }
+  ]
 }

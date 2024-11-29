@@ -1,39 +1,39 @@
 {
-        "id": "some_unique_id",
-        "start_node_id": "node_id_1",
-        "nodes": {
-                "node_id_1": {
-                        "id": "node_id_1",
-                        "type": "apiCallRest",
-                        "owner_id": "owner_of_node_1",
-                        "group_id": "group_for_node_1",
-                        "data": {
-                                "@type": "type.googleapis.com/nodedata.v1.ApiCallData",
-                                "value": {
-                                        "url": "http://someurl.com",
-                                        "method": "GET"
-                                }
-                        },
-                        "edges": {
-                                "in_nodes": {
-                                        "something": "node_id_1",
-                                        "somethingOther": "node_id_2"
-                                },
-                                "out_nodes": {
-                                        "something": "node_id_1",
-                                        "somethingOther": "node_id_2"
-                                }
-                        }
-                }
-        },
-        "vars": {
-                "var_name_1": {
-                        "@type": "type.googleapis.com/google.protobuf.StringValue",
-                        "value": "someValue"
-                },
-                "var_name_2": {
-                        "@type": "type.googleapis.com/google.protobuf.StringValue",
-                        "value": "someValue"
-                }
+  "id": "some_unique_id",
+  "start_node_id": "node_id_1",
+  "nodes": {
+    "node_id_1": {
+      "id": "node_id_1",
+      "type": "apiCallRest",
+      "owner_id": "owner_of_node_1",
+      "group_id": "group_for_node_1",
+      "data": {
+        "@type": "type.googleapis.com/nodedata.v1.ApiCallData",
+        "value": {
+          "url": "http://someurl.com",
+          "method": "GET"
         }
+      },
+      "edges": {
+        "in_nodes": {
+          "something": "node_id_1",
+          "somethingOther": "node_id_2"
+        },
+        "out_nodes": {
+          "something": "node_id_1",
+          "somethingOther": "node_id_2"
+        }
+      }
+    }
+  },
+  "vars": {
+    "var_name_1": {
+      "@type": "type.googleapis.com/google.protobuf.StringValue",
+      "value": "someValue"
+    },
+    "var_name_2": {
+      "@type": "type.googleapis.com/google.protobuf.StringValue",
+      "value": "someValue"
+    }
+  }
 }
