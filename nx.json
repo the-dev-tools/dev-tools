@@ -13,5 +13,20 @@
     "lint": {
       "cache": true
     }
+  },
+  "release": {
+    "versionPlans": true,
+    "projects": ["apps/*"],
+    "projectsRelationship": "independent",
+    "version": {
+      "generatorOptions": {
+        "preserveLocalDependencyProtocols": true
+      }
+    },
+    "changelog": {
+      "projectChangelogs": {
+        "createRelease": "github"
+      }
+    }
   }
 }

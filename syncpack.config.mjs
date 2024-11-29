@@ -1,5 +1,6 @@
 /** @type {import("syncpack").RcFile} */
 export default {
+  dependencyTypes: ['!local'],
   sortFirst: [
     'name',
     'displayName',

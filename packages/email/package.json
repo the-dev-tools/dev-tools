@@ -1,11 +1,5 @@
 {
   "name": "@the-dev-tools/email",
-  "version": "0.1.8",
-  "repository": {
-    "type": "git",
-    "directory": "packages/email",
-    "url": "https://github.com/the-dev-tools/dev-tools-ts.git"
-  },
   "files": [
     "dist"
   ],

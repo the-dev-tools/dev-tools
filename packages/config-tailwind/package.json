@@ -1,6 +1,5 @@
 {
   "name": "@the-dev-tools/config-tailwind",
-  "version": "0.3.0",
   "scripts": {
     "build/design-tokens": "tsx ./src/design-tokens",
     "lint": "eslint --flag unstable_ts_config ."

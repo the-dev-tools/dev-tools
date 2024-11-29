@@ -1,8 +1,7 @@
 name: Version
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,37 +29,7 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
-      - name: Process changesets
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          publish: pnpm changeset tag
+      - name: Release using Nx
+        run: pnpm nx release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Dispatch workflows for published packages
-        uses: actions/github-script@v7
-        if: steps.changesets.outputs.published == 'true'
-        with:
-          script: |
-            const workflows = {
-              // Apps
-              '@the-dev-tools/api-recorder-extension': 'deploy-chrome-extension.yaml',
-              '@the-dev-tools/web': 'deploy-cloudflare-pages.yaml',
-
-              // Packages
-              '@the-dev-tools/email': 'deploy-github-npm.yaml',
-            };
-
-            ${{ steps.changesets.outputs.publishedPackages }}.forEach((pkg) => {
-              const workflow_id = workflows[pkg.name];
-              if (!workflow_id) return;
-              const ref = `${pkg.name}@${pkg.version}`;
-              console.log(`Dispatching workflow '${workflow_id}' at '${ref}'`);
-              github.rest.actions.createWorkflowDispatch({
-                ...context.repo,
-                workflow_id,
-                ref,
-                inputs: { package: pkg.name },
-              });
-            });
