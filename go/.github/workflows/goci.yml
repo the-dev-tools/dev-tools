@@ -1,0 +1,61 @@
+name: goci
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "**.go"
+
+env:
+  GO_VERSION: 1.23
+  GOLANGCI_LINT_VERSION: v1.60
+
+jobs:
+  detect-modules:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+      - id: set-modules
+        run: |
+          modules=$(DOTENV_LOG_LEVEL=error gox list -m -json | jq -s '.' | jq -c '[.[].Dir | select(index("node_modules") | not)]')
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+  go-test:
+    needs: detect-modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+      - name: Test
+        uses: robherley/go-test-action@v0
+        with:
+          moduleDirectory: ${{ matrix.module }}
+  golangci-lint:
+    needs: detect-modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ${{ fromJSON(needs.detect-modules.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+      - name: golangci-lint ${{ matrix.module }}
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          working-directory: ${{ matrix.module }}

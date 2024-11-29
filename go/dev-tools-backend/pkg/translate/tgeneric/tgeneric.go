@@ -1,0 +1,44 @@
+package tgeneric
+
+func MassConvert[T any, O any](item []T, convFunc func(T) O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = convFunc(v)
+	}
+	return arr
+}
+
+func MassConvertPtr[T any, O any](item []T, convFunc func(T) *O) []O {
+	arr := make([]O, len(item))
+	for i, v := range item {
+		arr[i] = *convFunc(v)
+	}
+	return arr
+}
+
+func MassConvertWithErr[T any, O any](item []T, convFunc func(T) (O, error)) ([]O, error) {
+	arr := make([]O, len(item))
+	var err error
+	for i, v := range item {
+		arr[i], err = convFunc(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return arr, nil
+}
+
+func MapToSlice[T any, K comparable](item map[K]T) []T {
+	arr := make([]T, 0, len(item))
+	for _, v := range item {
+		arr = append(arr, v)
+	}
+	return arr
+}
+
+func ReplaceRootWithSub[T comparable](rootError, subError, got T) T {
+	if got == rootError {
+		return subError
+	}
+	return got
+}

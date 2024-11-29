@@ -1,0 +1,12 @@
+package client
+
+import (
+	"dev-tools-platform/pkg/machine"
+)
+
+type Client interface {
+	ListMachines() ([]string, error)
+	GetMachine(name string) (machine.Machine, error)
+	CreateMachine(machineCreate machine.Machine) (machine.Machine, error)
+	DeleteMachine(id string, force bool) error
+}

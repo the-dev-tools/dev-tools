@@ -1,0 +1,990 @@
+{
+	"info": {
+		"_postman_id": "bee680f4-9182-4924-b88d-1ad08faacd56",
+		"name": "Galaxy Testing and Automation",
+		"description": "## Welcome to Testing and Automation training! 🕵️🔍\n\n__FORK the collection to create a copy in your own workspace.__\n\nThis collection will walk you through writing scripts to test your response data in Postman, passing data between requests using variables, validating responses against schema, as well as automating your testing using dynamic faker data and the collection runner, defining control flow, and running collections with scheduled runs and monitors.\n\nThis collection uses a mock API with a few demo endpoints that return order data. We will use these endpoints to model a typical workflow so that you can go on to apply what you've learned when you're working with real-world APIs.\n\nOpen the first request, check out the docs on the right, and **Send**!",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "11811309",
+		"_collection_link": "https://www.postman.com/postman/workspace/test-examples-in-postman/collection/1559645-bee680f4-9182-4924-b88d-1ad08faacd56?action=share&source=collection_link&creator=11811309"
+	},
+	"item": [
+		{
+			"name": "1. Get order reference",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"//Step 1: Parse the response JSON",
+							"",
+							"//Step 2: Set a variable with a response value",
+							"",
+							"//Step 3: Add a test",
+							"",
+							"//Step 4: Test a response property"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/orders/generate-order-reference",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders",
+						"generate-order-reference"
+					]
+				},
+				"description": "## Send the first request!\n\nThis request returns a JSON response structured like this:\n\n```json\n{\n    \"orderReference\": \"{{$randomUUID}}\"\n}\n```\n\n### Writing scripts & tests\n\nOpen the **Tests** for this request. We are primarily going to be working in this tab for each request. The **Tests** script is where you write JavaScript to execute _when your request response is received_.\n\n> ✏️ When you have the docs view open Postman will condense the UI for the request builder in the center, so you may need to use the drop-down lists to select **Tests** and **Test Results** in the request and response areas.\n\nYou can also write **Pre-request Scripts** to execute before a request is sent, and can add scripts to collections and folders–these will execute for every request contained inside.\n\n> ✏️ Notice that the address for this request starts with a base URL which is stored in a variable that you imported as part of the collection. Hover over the var (surrounded by curly braces) in the address to see the value. We set this mock server up in advance–_you can create your own mocks and they will return whatever you have defined in the **examples** for a request_.\n\n##### Step 1: Parse the response JSON\n\nThe **Tests** tab contains some comments indicating the different tests and other processing we're going to add during the session. Let's handle the first one–we're going to need the response JSON data pulled into the script in a way that we can process, so save it as a variable:\n\n```js\nconst response = pm.response.json();\n```\n\nLet's write this out to the console to verify we have it (you can also use `console.log`, `console.warn`, and `console.error`):\n\n```js\nconsole.info(response);\n```\n\nTry sending the request and checking the console!\n\n##### Step 2: Set a variable with a response value\n\nBefore we move on let's save data from the response to a variable so that we can use it in another request. We'll use the response JSON variable we created in JS and store the `orderReference` property as a global Postman variable (which is scoped to the workspace you're in):\n\n```js\npm.globals.set('orderRef', response.orderReference);\n```\n\nYou can retrieve the global variables in your code using `pm.globals.get`.\n\n**Send** the request again and check the global variables via the little eye button at the top right–the `orderRef` var should now have a value (and we can access it in other requests).\n\n##### Step 3: Add a test\n\nNow let's add a basic test to check we have a success status code of `200 OK`–the test name string will be output with the test result, so make sure yours are meaningful enough to be useful when you're testing (you can either copy this or grab it from the snippets to the right of the **Tests** input):\n\n```js\npm.test('Status code is 200', () => {\n    //test syntax uses chai.js\n    pm.response.to.have.status(200);\n});\n```\n\nWith your test code added, **Send** and check out the **Test Results**. Then try making the test fail by changing the `200` to `400`–notice that the result includes extra info indicating why the test failed.\n\n##### Step 4: Test a response property\n\nLet's do a test that digs into a bit more detail next–we'll check that the response contains a particular property, and that it is a string. We can add both assertions to the same test and if any one fails the whole test will fail.\n\n```js\npm.test('orderReference exists', () => {\n    //property is in the response received\n    pm.expect(response).to.have.property('orderReference');\n    //property is a string\n    pm.expect(response.orderReference).to.be.a('string');\n});\n```\n\n**Send** and check out the **Test Results**.\n\n> ✏️ Try changing `string` to `number` to see the test fail.\n\n**Save** this request, then open the next request `Get product code`, open its docs to the right, and **Send** it."
+			},
+			"response": [
+				{
+					"name": "1. Get order reference",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/generate-order-reference",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"generate-order-reference"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:32:21 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=9aa43137c0d80250"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=f17d8f6944e8619a"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "119"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300401"
+						},
+						{
+							"key": "Access-Control-Allow-Credentials",
+							"value": "true"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"40-V/54gGawOVbGh/+g4QMNnn32uoA\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "gzip"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"orderReference\": \"{{$randomUUID}}\"\n}"
+				}
+			]
+		},
+		{
+			"name": "2. Get product code",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"//Step 1: Get the array",
+							"",
+							"//Step 2: Find a product",
+							"",
+							"//Assignment 1: Save the Stock Keeping Unit value",
+							"",
+							"//Step 3: Test the filtered product"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/products/phone-sku",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"products",
+						"phone-sku"
+					],
+					"query": [
+						{
+							"key": "name",
+							"value": "iphone",
+							"disabled": true
+						}
+					]
+				},
+				"description": "## Retrieve all products! 📱🛒\n\n**Send the request and read on here.**\n\nThis request returns an array of products–we're going to script some processing on the array, filtering to find a particular item, and saving the `sku` (a product code) data to the global variables.\n\nThe request you sent to the API received a JSON response that looked something like this (depending on the parameter you sent):\n\n```json\nresults\": [\n    {\n        \"name\": \"iPhone 12 Pro Blue\",\n        \"sku\": \"2020/Iph/12/Blu\",\n        \"color\": \"blue\"\n    },\n    {\n        \"name\": \"iPhone 12 Pro Red\",\n        \"sku\": \"2020/Iph/12/Red\",\n        \"color\": \"red\"\n    },\n    {\n        \"name\": \"Samsung Galaxy S\",\n        \"sku\": \"2020/Sam/GS/Blu\",\n        \"color\": \"gray\"\n    },\n    {\n        \"name\": \"Samsung Galaxy Note20 Ultra\",\n        \"sku\": \"2020/Sam/GN20/Red\",\n        \"color\": \"red\"\n    },\n    {\n        \"name\": \"Samsung Galaxy S20+\",\n        \"sku\": \"2020/Sam/SGS20P/Magenta\",\n        \"color\": \"red\"\n    }\n]\n```\n\n> ✏️ The request accepts a query parameter indicating the product name–you can experiment by checking and unchecking it to see the difference in what it returns.\n\n#### Step 1: Get the array\n\nIn the **Tests** tab you'll see comments again for each step. First get the response array in a variable and write the length out to the console–**Send** and check the console:\n\n```js\nconst phones = pm.response.json().results;\nconsole.info('Phones returned: ' + phones.length);\n```\n\n#### Step 2: Find a product\n\nLet's filter the array to find a product with a particular property. We'll filter based on the `color` property and just use the first valid result (feel free to also add a console statement to see what's in the variable):\n\n```js\nconst redPhone = phones.filter((phone) => phone.color === 'red')[0];\n```\n\n##### ✅ Assignment 1\n\n> Throughout the session you will encounter assignments to complete independently, and so these will not include full instructions–if you need help pop a question in the Q&A or use the Postman forum if the session has ended.\n\nSave the `sku` property of the first red iPhone you can find to a global Postman variable. \n\nYou will be able to use the SKU in the request body of the `3. Send order` request instead of the hardcoded value.\n\n#### Step 3: Test the filtered object\n\nLet's have a look at a basic structure of a test:\n\n```js\npm.test('Some test', () => {\n    pm.expect(1).to.eql(2);\n});\n```\n\nNow that you have a single item from the response filtered, add a test to check that it is a JSON object, and that it contains property with a particular value ('red'):\n\n```js\npm.test('Phone found', () => {\n    pm.expect(redPhone.color).to.eql('red');\n    pm.expect(redPhone).to.be.an('object');\n});\n```\n\n**Send** and check out the **Test Results**. _Try making it fail too, e.g. by changing the color text value from `red` to `blue`._\n\n**Save** this request. Open the next request `3. Send order`, check out the docs, and **Send**."
+			},
+			"response": [
+				{
+					"name": "2. Get product code",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/products/phone-sku",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products",
+								"phone-sku"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "iphone",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:34:30 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=ab4f3ac87dead3f0"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=39ef1b2394672089"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "118"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300484"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"314-dqyZGbgGB+953o9nIL2a+FpBwBY\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "gzip"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"results\": [\n        {\n            \"name\": \"iPhone 12 Pro Blue\",\n            \"sku\": \"2020/Iph/12/Blu\",\n            \"color\": \"blue\"\n        },\n        {\n            \"name\": \"iPhone 12 Pro Red\",\n            \"sku\": \"2020/Iph/12/Red\",\n            \"color\": \"red\"\n        },\n        {\n            \"name\": \"Samsung Galaxy S\",\n            \"sku\": \"2020/Sam/GS/Blu\",\n            \"color\": \"gray\"\n        },\n        {\n            \"name\": \"Samsung Galaxy Note20 Ultra\",\n            \"sku\": \"2020/Sam/GN20/Red\",\n            \"color\": \"red\"\n        },\n        {\n            \"name\": \"Samsung Galaxy S20+\",\n            \"sku\": \"2020/Sam/SGS20P/Magenta\",\n            \"color\": \"red\"\n        }\n    ]\n}"
+				},
+				{
+					"name": "2. Get samsung product code",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/products/phone-sku?name=samsung",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products",
+								"phone-sku"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "samsung"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:35:30 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=a17cd0e0833d896c"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=79e5f4e610c7b923"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "117"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300569"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"1ac-7+Xrc6tLK2cbqwwE8xSQLPmIXs4\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "gzip"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"results\": [\n        {\n            \"name\": \"Samsung Galaxy S\",\n            \"sku\": \"2020/Sam/GS/Blu\",\n            \"color\": \"gray\"\n        },\n        {\n            \"name\": \"Samsung Galaxy Note20 Ultra\",\n            \"sku\": \"2020/Sam/GN20/Red\",\n            \"color\": \"red\"\n        },\n        {\n            \"name\": \"Samsung Galaxy S20+\",\n            \"sku\": \"2020/Sam/SGS20P/Magenta\",\n            \"color\": \"red\"\n        }\n    ]\n}"
+				},
+				{
+					"name": "2. Get iphone product code",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/products/phone-sku?name=iphone",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products",
+								"phone-sku"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "iphone"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:35:15 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=2a0edd1dd84be933"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=b438e30741d2e102"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "118"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300569"
+						},
+						{
+							"key": "Access-Control-Allow-Credentials",
+							"value": "true"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"145-gv9dD0NUgiwYKrb+IYDq7Uz1enc\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "gzip"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"results\": [\n        {\n            \"name\": \"iPhone 12 Pro Blue\",\n            \"sku\": \"2020/Iph/12/Blu\",\n            \"color\": \"blue\"\n        },\n        {\n            \"name\": \"iPhone 12 Pro Red\",\n            \"sku\": \"2020/Iph/12/Red\",\n            \"color\": \"red\"\n        }\n    ]\n}"
+				}
+			]
+		},
+		{
+			"name": "3. Send order",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"//Assignment 2: Save the order ID as a variable",
+							"",
+							"//Assignment 3: Test the response status",
+							"",
+							"//Assignment 4: Test the response body",
+							""
+						]
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"//Step 2: Preset a value",
+							""
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-mock-match-request-body",
+						"value": "1",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"orderRef\": \"f7032ebd-9ed2-4010-aab2-d7672f68e070\",\n    \"customer\": \"Acme Inc\",\n    \"sku\": \"2020/Iph/12/Blu\",\n    \"deliveryDate\": \"2021-01-15\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/orders/",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders",
+						""
+					]
+				},
+				"description": "## Create a new order! 💳📦\n\n**Send the request and read on here.**\n\nThis request sends an object representing the new order to create, and returns an order confirmation. We are going to use dynamic data in the request body, carry out some preprocessing before the request runs, and test the response.\n\nThe request returns JSON with the following structure:\n\n```json\n{\n    \"created\": true,\n    \"orderId\": {{$timestamp}}\n}\n```\n\nTake a look in the request **Body** to see the JSON data we're sending to create an order. It should look something like this:\n\n```json\n{\n    \"orderRef\": \"f7032ebd-9ed2-4010-aab2-d7672f68e070\",\n    \"customer\": \"Acme Inc\",\n    \"sku\": \"2020/Iph/12/Blu\",\n    \"deliveryDate\": \"2021-01-15\"\n}\n```\n\nRemember that in your assignment for the last request, you saved an SKU to a variable–now you can set the **Body** `sku` in this request to use the variable instead of the hardcoded value.\n\n> Tip: You can enter a variable reference between the quotes in the body just like you do in the Postman request UI fields.\n\n##### ✅ Assignment 2\n\nYour next assignment is to parse the response body of this request. \n\nSet a global variable with the value of the property `orderId` from the response, so that we can reference it in another request.\n\n**Send** the request and check the global variable values using the eye button–**Save** this request.\n\nYou will be able to use the variable in the next request `4. Get order`, as a path parameter instead of the hardcoded value.\n\n#### Step 1: Send dynamic data\n\nWhen you send data to an API in Postman, you can generate values when the request runs using dynamic variables. Edit the value of the **Body** data `customer` property to send a random company name–inside the quotes, start typing `{{$` to see the available dynamic variables. Choose `randomCompanyName`–the reference is exactly like any other variable but with the `$` character at the start, like this: `{{$randomThing}}`\n\n**Send** the request a few times, checking the **Console** to see what Postman sent each time (open the `POST` request entry &gt; **Request Body** to see the JSON).\n\n#### Step 2: Preset a value\n\nFor the `deliveryDate`, we're going to calculate a date before the request sends, and set it to the var so that the request sends it. In **Pre-request Script**, add the following processing to calculate a date, setting it for two weeks from today, then saving it to a variable:\n\n```js\nconst deliveryDate = new Date();\ndeliveryDate.setDate(deliveryDate.getDate() + 14);\nconsole.log(deliveryDate.toISOString().substr(0,10));\npm.globals.set(\"deliveryDate\", deliveryDate.toISOString().substr(0,10));\n```\n\n**Send** the request, then check out the **Request Body** in the **Console** again, and take a look at the variable values via the eye button.\n\n##### ✅ Assignment 3\n\nFor this request we're expecting a `201 Created` status code. For your next assignment, add a test that verifies the status code of the response.\n\n##### ✅ Assignment 4\n\nFor your final assignment, test that the response includes confirmation of the order success–in the `created` and `orderId` properties (one should be true, and the other should be a number).\n\n**Send** and check the **Test Results**–_as always, make your test fail also!_ ⚠️\n\n**Save** your request and open the next one `4. Get order`."
+			},
+			"response": [
+				{
+					"name": "3. Send order",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-mock-match-request-body",
+								"value": "1",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderRef\": \"f7032ebd-9ed2-4010-aab2-d7672f68e070\",\n    \"customer\": \"Acme Inc\",\n    \"sku\": \"2020/Iph/12/Blu\",\n    \"deliveryDate\": \"2021-01-15\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/orders/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								""
+							]
+						}
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:36:32 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Content-Length",
+							"value": "50"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=4deefa08017bdc00"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=82a8a3a5302abc49"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "119"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300652"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"32-B9O1fBtUF2/g5E9Vt1Mpi2mt24g\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"created\": true,\n    \"orderId\": {{$timestamp}}\n}"
+				}
+			]
+		},
+		{
+			"name": "4. Get order",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"//Step 1: Define the schema",
+							"",
+							"//Step 2: Validate response against schema",
+							"",
+							"//Step 3: Check for error response",
+							"",
+							"//Step 4: Automate your test runs"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/orders/:orderId",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders",
+						":orderId"
+					],
+					"variable": [
+						{
+							"key": "orderId",
+							"value": "1610983030",
+							"type": "string"
+						}
+					]
+				},
+				"description": "## Retrieve the order! 🛍️🎁\n\n**Send the request and read on here.**\n\nThis request retrieves the order sent by the `POST` request. This time we're going to test that the response validates against a schema, then automate our tests using the collection runner.\n\nThe request returns JSON with the following structure:\n\n```json\n{\n    \"orderId\": {{orderId}},\n    \"customer\": \"Acme Inc\",\n    \"sku\": \"2020/Iph/12/Red\"\n}\n```\n\nWe're going to specify a schema to validate the response JSON against. The schema will be defined as a JSON object inside the script, and will match the response structure above–we will write a script to check that the response has the same structure and properties.\n\n> ✏️ You can also validate your responses against an API specification, for example, defined as an OpenAPI spec in **APIs** on the left of Postman.\n\n✅ Remember that one of your assignments in the previous request was to save the order variable from the response–__now alter the value you're sending to the path parameter here to use the variable instead of the hard-coded value__.\n\n#### Step 1: Define the schema\n\nIn **Tests**, create an object to represent the schema we expect the order data to match:\n\n```js\nconst schema = {\n    'type': 'object',\n    'properties': {\n        'orderId': {\n            type: 'number'\n        },\n        'customer': {\n            type: 'string'\n        },\n        'sku': {\n            type: 'string'\n        }\n    },\n    required: ['orderId', 'customer', 'sku']\n};\n```\n\n#### Step 2: Validate response against schema\n\nNow add code to check the response against the schema (we use `expect` again but this time with `jsonSchema`):\n\n```js\nconst response = pm.response.json();\npm.test('Schema is valid', () => {\n    pm.expect(response).to.have.jsonSchema(schema);\n});\n```\n\n**Send** the request and check the **Test Results**–_remember to also make sure it fails e.g. if you change one of the schema `type` values_.\n\nFinally let's check what happens if no order ID is passed to the request. Click the eye button and edit, then delete the value of the `orderId` variable so that it's empty, and **Send** again before reading on.\n\n## No order specified 🙈⛔\n\nSince you didn't pass an order ID, you got a `404` response containing an error message.\n\nThe request returns the following **Body** structure when no order is specified:\n\n```json\n{\n    \"message\": \"Not found!\"\n}\n```\n\nWe already specified a schema to test successful responses against, but now let's test the error response against a different schema.\n\n#### Step 3: Define the schema\n\nIn **Tests**, create an object to represent the schema we expect the order data to match:\n\n```js\nconst errorSchema = {\n    'properties': {\n        'message': {\n            'type': 'string'\n        }\n    }\n};\nif(pm.response.code===404)\n    pm.test('Error response is valid', () => {\n        pm.expect(response).to.have.jsonSchema(errorSchema);\n    });\n```\n\n**Send** the request and check out the **Test Results**–_and you know the drill by now, edit your test code to make sure it fails!_\n\nThis isn't the most efficient test code we could use because we've just tacked on the error schema test at the end–you could restructure the code in a more sensible way, but for now add a conditional before the test on the successful schema:\n\n```js\nif(pm.response.code===200)\n```\n\n#### Step 4: Automate your test runs\n\nWe've carried out processing on individual requests and saved data so that we can pass values between requests–but we can do much more to automate our testing.\n\nWhen you use the Postman Collection Runner, you can run the requests in a sequence and add logic to your scripts to control the flow of execution. \n\nIn the **Tests** for the `4. Get order` request, add this code to end execution after this request, which will mean that the runner stops here.\n\n```js\npostman.setNextRequest(null);\n```\n\nYou can create loops and conditional workflows by passing the request name as a string to the `setNextRequest` method.\n\n**Save** the request, then open the  collection overview by selecting it on the left–hit **Run**. Run the collection with the default options to see the requests execute in sequence.\n\nTake a look at the runner output and remember how the requests are saving response data that subsequent requests use–this way we can pass data between requests. Click the requests in the runner output display to drill down into detail about what was sent.\n\n#### Step 5: Monitor your collections\n\nYou can set collection runs up to happen on a schedule using **Monitors**. Open **Monitors** on the left, and create a new one. Give your monitor a name, select the collection, and choose a frequency. You will receive automated updates on any fails in your monitoring runs and can also access them inside Postman. _Note that it may take some time for results to appear._\n\n__Open the final request `Complete training` and check out the docs for instructions!__"
+			},
+			"response": [
+				{
+					"name": "4. Get order",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"{{orderId}}"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:37:34 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=041f50cfb7f2e7e4"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=16913b9b8134fb66"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "119"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300714"
+						},
+						{
+							"key": "Access-Control-Allow-Credentials",
+							"value": "true"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"57-IfEmDkGfLBgZivEolBmPIEKoWqE\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "gzip"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"orderId\": {{orderId}},\n    \"customer\": \"Acme Inc\",\n    \"sku\": \"2020/Iph/12/Red\"\n}"
+				},
+				{
+					"name": "4. No order",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								""
+							]
+						}
+					},
+					"status": "Not Found",
+					"code": 404,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Date",
+							"value": "Tue, 09 Mar 2021 14:37:19 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "x-srv-trace",
+							"value": "v=1;t=f72bb8fa8d4690e9"
+						},
+						{
+							"key": "x-srv-span",
+							"value": "v=1;s=53c6850b3c15f395"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "X-RateLimit-Limit",
+							"value": "120"
+						},
+						{
+							"key": "X-RateLimit-Remaining",
+							"value": "118"
+						},
+						{
+							"key": "X-RateLimit-Reset",
+							"value": "1615300652"
+						},
+						{
+							"key": "ETag",
+							"value": "W/\"1f-vRY2qIbyBoBRbbqe88aaUtp+9Qg\""
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "gzip"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"message\": \"Not found!\"\n}"
+				}
+			]
+		},
+		{
+			"name": "5. Complete training",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"let myCollection = pm.response.json()",
+							"",
+							"if (myCollection.collection) {",
+							"    myCollection = myCollection.collection",
+							"}",
+							"",
+							"let requests = myCollection.item;",
+							"let tests_pm = [],",
+							"    pre = false,",
+							"    fails = [];",
+							"for (const apireq of requests) {",
+							"    if (apireq.event.length > 1) pre = true;",
+							"    if (apireq.name.indexOf(\"Complete training\") < 0)",
+							"        for (const ev of apireq.event) {",
+							"            tests_pm.push(ev.script.exec.join(\" \"));",
+							"            if (ev.listen === \"prerequest\") {",
+							"                let hasPre = false;",
+							"                for (const ln of ev.script.exec)",
+							"                    if (!ln.startsWith(\"//\")) {",
+							"                        hasPre = true;",
+							"                        break;",
+							"                    }",
+							"                if (!hasPre) pre = false;",
+							"            }",
+							"        }",
+							"}",
+							"let scriptText = tests_pm.join(\" \");",
+							"",
+							"//TODO accommodate variations so we can accept varied syntax",
+							"if (!pre) fails.push(\"No pre-request script included\");",
+							"if (tests_pm.length < 4) fails.push(\"Not all tests_pm included\");",
+							"let scriptElements = [{",
+							"        elem: \"pm.response.json\",",
+							"        message: \"No script parsing response body with pm.response.json syntax (each request)\"",
+							"    },",
+							"    {",
+							"        elem: \"pm.globals.set\",",
+							"        message: \"No script setting a global variable (requests 1-3)\"",
+							"    },",
+							"    {",
+							"        elem: \"sku\",",
+							"        message: \"Assignment 1: Save sku variable - not completed\"",
+							"    },",
+							"    {",
+							"        elem: \"orderId\",",
+							"        message: \"Assignment 2: Save orderId - not completed\"",
+							"    },",
+							"    {",
+							"        elem: \"201\",",
+							"        message: \"Assignment 3: Check for 201 status - not completed\"",
+							"    },",
+							"    {",
+							"        elem: \"created\",",
+							"        message: \"Assignment 4: Check created property - not completed\"",
+							"    },",
+							"    {",
+							"        elem: \"true\",",
+							"        message: \"Assignment 4: Check for true value - not completed\"",
+							"    },",
+							"    {",
+							"        elem: \"number\",",
+							"        message: \"Assignment 4: Check for number - not completed\"",
+							"    },",
+							"    {",
+							"        elem: \"to.have.status\",",
+							"        message: \"No to.have.status test (requests 1, 3)\"",
+							"    },",
+							"    {",
+							"        elem: \"to.have.property\",",
+							"        message: \"No to.have.property test (request 1)\"",
+							"    },",
+							"    {",
+							"        elem: \"to.be.a\",",
+							"        message: \"No to.be.a type check (requests 1-3)\"",
+							"    },",
+							"    {",
+							"        elem: \"to.eql\",",
+							"        message: \"No to.eql property value equality check (request 2)\"",
+							"    },",
+							"    {",
+							"        elem: \"setNextRequest\",",
+							"        message: \"No script setting request execution order (request 4)\"",
+							"    },",
+							"    {",
+							"        elem: \"to.have.jsonSchema\",",
+							"        message: \"No to.have.jsonSchema validation test (request 4)\"",
+							"    }",
+							"];",
+							"for (const el of scriptElements) {",
+							"    if (scriptText.indexOf(el.elem) < 0) fails.push(el.message);",
+							"}",
+							"let result = {};",
+							"if (fails.length > 0) {",
+							"    result.completed = false;",
+							"    result.message =",
+							"        \"Oops! Your collection is still missing some parts. Check out what's missing in the Console (bottom-left of Postman) and go back through the steps \" +",
+							"        \"in the request documentation. 🙂\";",
+							"    console.warn(\"########## FAILED TESTS BELOW ##########\")",
+							"    fails.forEach(fail => console.log(fail))",
+							"} else {",
+							"    result.completed = true;",
+							"    result.message =",
+							"        \"Your collection is complete! Fill out the form at bit.ly/submit-api-testing to get your badge and swag! 🏆\";",
+							"}",
+							"",
+							"pm.test(result.message, () => {",
+							"    pm.expect(result.completed).to.be.true;",
+							"});",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{your-collection-link}}",
+					"host": [
+						"{{your-collection-link}}"
+					]
+				},
+				"description": "## Check your collection for completeness before submitting it to get your badge!🤓\n\nThis request is going to check your collection to make sure you've completed the requirements to receive the Postman **API Tester** badge.\n\n### Get your collection link\n\nYou can generate a public link to share JSON representing your collection. **First make sure all of your requests are saved.**\n\n1. Open the collection and navigate to **Share** (click it on the left or use the right-click menu on it).\n2. Choose **Via API** and generate a new token if needed.\n3. Copy your collection link to the clipboard.\n4. Replace `{{your-collection-url}}` with your collection link in the `Complete training`  \n    request (you can save it as a variable using this name or just paste it straight into the address).\n5. Check out the **Test Results** to see if your collection is complete!\n    \n\n> Note that if you change your collection, you need to go back through the **Share** flow and update the link.\n\n### Submitting your collection\n\nHopefully everything is good with your collection (if not plz try going back through the steps, referring to the request docs in each case, and remember to save your collection before sending this request after making changes to your scripts).\n\nIf you need support figuring out how to complete your collection please ask in the [Postman community forum using the \"training\" category](https://community.postman.com/c/training).\n\n_**When your collection is complete, fill out the form**_ [**go.pstmn.io/submit-badge**](go.pstmn.io/submit-badge) _**including the export of your collection (**_[_see how here_](https://learning.postman.com/docs/getting-started/importing-and-exporting-data/#exporting-collections)_**) and we will process your submission for the API Tester badge!**_\n\nOn successful submission you will receive the [Postman API Tester](https://badgr.com/public/badges/Q10KBL_YQXSW0lCQgYWx6Q) badge! 🎉🏆🚀"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"var template = `",
+					"<style type=\"text/css\">",
+					"body { background-color: white; }",
+					"html, body {font-family: Raleway,HelveticaNeue,\"Helvetica Neue\",Helvetica,Arial,sans-serif;}",
+					"li {color: #FF6C37; font-weight: bold;}",
+					"</style>",
+					"<div id=\"message\"></div>",
+					"<div id=\"next\"><div>",
+					"<script type=\"text/javascript\">",
+					"pm.getData(function (error, data){",
+					"    let content=\"\";",
+					"    if(data.res.fails.length>0 || data.res.status.indexOf(\"isn't\")>-1){",
+					"        content+=\"<h3 style='color:#FF6C37'>Oops! You're not quite done yet. ⛔</h3>\";",
+					"        document.getElementById(\"next\").innerHTML=\"</ul><p>Go back through the steps in the request and complete these parts in your scripts! When you're ready, update your collection link through the <strong>Share</strong> option and send this request again to check for completeness.</p>\";",
+					"    }",
+					"    if(data.res.fails.length>0){",
+					"        content+=\"<p>Your collection is missing the following components in your scripts:</p><ul>\";",
+					"        let i;",
+					"        for(i=0; i<data.res.fails.length; i++)",
+					"            content+=\"<li>\"+data.res.fails[i]+\"</li>\";",
+					"        content+=\"</ul>\";",
+					"    }",
+					"    if(data.res.fails.length==0)",
+					"        content+=\"<h3 style='color:#007f31'>You're done! 🏆</h3><p>Send your collection to......</p>\";",
+					"    document.getElementById(\"message\").innerHTML=content;",
+					"});",
+					"</script>",
+					"`;",
+					"if(pm.info.requestName.indexOf(\"Test completeness\")>-1) pm.visualizer.set(template, {",
+					"    res: pm.response.json()",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://d129b681-d2fb-4afc-8ff1-846b8cfc8942.mock.pstmn.io"
+		}
+	]
+}

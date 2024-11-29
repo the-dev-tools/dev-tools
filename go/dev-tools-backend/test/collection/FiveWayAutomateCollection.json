@@ -1,0 +1,905 @@
+{
+	"info": {
+		"_postman_id": "18878892-317e-4f9e-b656-430a18f08b8c",
+		"name": "Five Ways to Automate API Testing with Postman",
+		"description": "<img src=\"https://content.pstmn.io/85ac7798-3cb2-46e1-ab44-c386ffd9ae02/U2NyZWVuc2hvdCAyMDIzLTExLTMwIGF0IDIuMDUuNDEgUE0ucG5n\" width=\"900\" height=\"532\">\n\n## Quick Start\n\n1. **Fork the collection** - Fork the collection to your own workspace so you can begin to edit and update your work.\n2. **Select the first folder** - Begin with the first folder (or choose your own adventure), and expand the documentation from the context bar on the right. Instructions for each lesson will be in the documentation for each folder.\n    \n\nView slides from [<b>apidays Paris workshop </b>](https://www.slideshare.net/GetPostman/five-ways-to-automate-api-testing-with-postman) 📚",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "11811309",
+		"_collection_link": "https://www.postman.com/postman/workspace/test-examples-in-postman/collection/1559645-18878892-317e-4f9e-b656-430a18f08b8c?action=share&source=collection_link&creator=11811309"
+	},
+	"item": [
+		{
+			"name": "A few tips for writing tests",
+			"item": [
+				{
+					"name": "Group multiple assertions",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('foo', 'bar')",
+									"pm.variables.set('beverages', { tea: [ 'chai', 'matcha', 'oolong' ] })",
+									"pm.variables.set('answer', 43)"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// BDD assertions written as a Postman test",
+									"pm.test(\"Expect statements are true\", function() {",
+									"    pm.expect(pm.variables.get(\"foo\")).to.be.a('string');",
+									"    pm.expect(pm.variables.get(\"foo\")).to.equal('bar');",
+									"    pm.expect(pm.variables.get(\"foo\")).to.have.lengthOf(3);",
+									"    pm.expect(pm.variables.get(\"beverages\")).to.have.property('tea').with.lengthOf(3);",
+									"})",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// see Chai.js documentation",
+									"// https://www.chaijs.com/guide/styles/#expect",
+									"",
+									"// see Postman documentation",
+									"// https://learning.postman.com/docs/writing-scripts/script-references/test-examples/"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"see\": \"Variables are set under the Pre-request Script tab\",\n    \"tests\": \"Assertions are written under the Tests tab\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://postman-echo.com/post",
+							"protocol": "https",
+							"host": [
+								"postman-echo",
+								"com"
+							],
+							"path": [
+								"post"
+							]
+						},
+						"description": "**Group multiple assertions:** Keep them logically organized for those who review the test results and need to debug issues"
+					},
+					"response": [
+						{
+							"name": "Group multiple assertions",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"see\": \"Variables are set under the Pre-request Script tab\",\n    \"tests\": \"Assertions are written under the Tests tab\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://postman-echo.com/post",
+									"protocol": "https",
+									"host": [
+										"postman-echo",
+										"com"
+									],
+									"path": [
+										"post"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Thu, 07 Dec 2023 10:23:24 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "821"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"335-fIEpGtu1i+9Z4d0xNLDEE1wknqo\""
+								},
+								{
+									"key": "set-cookie",
+									"value": "sails.sid=s%3AU9UGHP6ViUR3ZIcwod8hMjcDMycprAsY.9lf1C5OhdSJMpzA4%2BynTYO4Z6mduDwnf%2BiP1JhCM%2B8Y; Path=/; HttpOnly"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"args\": {},\n    \"data\": {\n        \"see\": \"Variables are set under the Pre-request Script tab\",\n        \"tests\": \"Assertions are written under the Tests tab\"\n    },\n    \"files\": {},\n    \"form\": {},\n    \"headers\": {\n        \"x-forwarded-proto\": \"https\",\n        \"x-forwarded-port\": \"443\",\n        \"host\": \"postman-echo.com\",\n        \"x-amzn-trace-id\": \"Root=1-65719d1c-31587eb90f7b6ede02363dc0\",\n        \"content-length\": \"126\",\n        \"content-type\": \"application/json\",\n        \"user-agent\": \"PostmanRuntime/7.35.0\",\n        \"accept\": \"*/*\",\n        \"cache-control\": \"no-cache\",\n        \"postman-token\": \"3313cb2e-9bca-4bdb-ad33-784125ba6dbb\",\n        \"accept-encoding\": \"gzip, deflate, br\"\n    },\n    \"json\": {\n        \"see\": \"Variables are set under the Pre-request Script tab\",\n        \"tests\": \"Assertions are written under the Tests tab\"\n    },\n    \"url\": \"https://postman-echo.com/post\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Use messages for visibility",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('foo', 'bar')",
+									"pm.variables.set('beverages', { tea: [ 'chai', 'matcha', 'oolong' ] })",
+									"pm.variables.set('answer', 43)"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// BDD assertions written as a Postman test",
+									"pm.test(\"Example of failing assertion\", function() {",
+									"    console.log(`Value of foo variable in the Test script: ${pm.variables.get('foo')}`)",
+									"    // Expect also allows you to include arbitrary messages to prepend to any failed assertions that might occur (shown in Test results).",
+									"    pm.expect(pm.variables.get('answer'), 'topic [answer]').to.equal(42)",
+									"})",
+									"",
+									"// see Chai.js documentation",
+									"// https://www.chaijs.com/guide/styles/#expect",
+									"",
+									"// see Postman documentation",
+									"// https://learning.postman.com/docs/writing-scripts/script-references/test-examples/"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"see\": \"Variables are set under the Pre-request Script tab\",\n    \"tests\": \"Assertions are written under the Tests tab\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://postman-echo.com/post",
+							"protocol": "https",
+							"host": [
+								"postman-echo",
+								"com"
+							],
+							"path": [
+								"post"
+							]
+						},
+						"description": "**Use messages and console statements:**\n\n- Provide visibility to validate conditional testing and execution order\n    \n- Prepend custom messages"
+					},
+					"response": []
+				},
+				{
+					"name": "Use descriptive or dynamic test names",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.variables.set('foo', 'bar')",
+									"pm.variables.set('beverages', { tea: [ 'chai', 'matcha', 'oolong' ] })",
+									"pm.variables.set('answer', 43)"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const schema = {",
+									" \"items\": {",
+									" \"type\": \"boolean\"",
+									" }",
+									"};",
+									"",
+									"let beverageObject = pm.variables.get('beverages')",
+									"let beverageToTest = Object.keys(beverageObject)[0]",
+									"let beverages = beverageObject[beverageToTest]",
+									"console.log(`Testing schema for ${beverageToTest}: ${beverages}`)",
+									"",
+									"pm.test(`Schema is valid for ${beverageToTest}`, function() {",
+									"  pm.expect(tv4.validate(beverages, schema)).to.be.true;",
+									"});",
+									"",
+									"// see Chai.js documentation",
+									"// https://www.chaijs.com/guide/styles/#expect",
+									"",
+									"// see Postman documentation",
+									"// https://learning.postman.com/docs/writing-scripts/script-references/test-examples/"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"see\": \"Variables are set under the Pre-request Script tab\",\n    \"tests\": \"Assertions are written under the Tests tab\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://postman-echo.com/post",
+							"protocol": "https",
+							"host": [
+								"postman-echo",
+								"com"
+							],
+							"path": [
+								"post"
+							]
+						},
+						"description": "**Use descriptive, consistent, or dynamic test names:** Use variables within test names to provide more detail, especially if the same test is used for multiple scenarios or iterations\n\n**Bonus tip**\n\nUse external libraries and the scripting sandbox [built-in library modules](https://learning.postman.com/docs/writing-scripts/script-references/postman-sandbox-api-reference/#using-external-libraries), like tv4"
+					},
+					"response": []
+				},
+				{
+					"name": "Postbot AI assistant",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"",
+									"pm.test(\"Args object should be empty\", function () {",
+									"    const responseData = pm.response.json();",
+									"    ",
+									"    pm.expect(responseData.args).to.be.an('object').that.is.empty;",
+									"});",
+									"",
+									"",
+									"pm.test(\"Data object contains the expected fields\", function () {",
+									"    const responseData = pm.response.json();",
+									"    ",
+									"    pm.expect(responseData.data).to.be.an('object');",
+									"    pm.expect(responseData.data).to.have.property('tests');",
+									"});",
+									"",
+									"",
+									"pm.test(\"Headers object contains all necessary headers\", function () {",
+									"    const responseData = pm.response.json();",
+									"    ",
+									"    pm.expect(responseData.headers).to.be.an('object');",
+									"    pm.expect(responseData.headers).to.include.keys(['x-forwarded-proto', 'x-forwarded-port', 'host', 'x-amzn-trace-id', 'content-length', 'content-type', 'user-agent', 'accept', 'cache-control', 'postman-token', 'accept-encoding', 'cookie']);",
+									"});",
+									"",
+									"",
+									"pm.test(\"Json object contains expected fields\", function () {",
+									"    const responseData = pm.response.json();",
+									"    ",
+									"    pm.expect(responseData.json).to.be.an('object');",
+									"    pm.expect(responseData.json.tests).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tests\": \"Assertions are generated under the Tests tab using Postbot: AI assistant\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://postman-echo.com/post",
+							"protocol": "https",
+							"host": [
+								"postman-echo",
+								"com"
+							],
+							"path": [
+								"post"
+							]
+						},
+						"description": "**AI assistant for API workflows:** Write tests, debug APIs, create Flows, make sense of large data sets, etc."
+					},
+					"response": []
+				}
+			],
+			"description": "<img src=\"https://content.pstmn.io/1e4b3e11-bbd9-43a0-8cfd-a00d762dd913/U2NyZWVuc2hvdCAyMDIzLTExLTMwIGF0IDEuNTQuMzEgUE0ucG5n\" alt=\"\" height=\"702\" width=\"814\">"
+		},
+		{
+			"name": "Using the Runner",
+			"item": [
+				{
+					"name": "Linear Execution",
+					"item": [
+						{
+							"name": "Fetch a list of books",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Response is an array\", function () {",
+											"    pm.expect(pm.response.json()).to.be.an('array'); ",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/books",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"books"
+									],
+									"query": [
+										{
+											"key": "search",
+											"value": "borges",
+											"description": "a search string to be matched against author/title (example: borges). Case insensitive, partial match OK.",
+											"disabled": true
+										},
+										{
+											"key": "checkedOut",
+											"value": "false",
+											"description": "true/false",
+											"disabled": true
+										},
+										{
+											"key": "genre",
+											"value": "fiction",
+											"description": "filter by genre (case-insensitive, exact match)",
+											"disabled": true
+										}
+									]
+								},
+								"description": "Returns all books in the library database. \n\nOptional filters can be passed as query parameters."
+							},
+							"response": [
+								{
+									"name": "books",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/books",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"books"
+											],
+											"query": [
+												{
+													"key": "search",
+													"value": "borges",
+													"description": "a search string to be matched against author/title (example: borges). Case insensitive, partial match OK.",
+													"disabled": true
+												},
+												{
+													"key": "checkedOut",
+													"value": "false",
+													"description": "true/false",
+													"disabled": true
+												},
+												{
+													"key": "genre",
+													"value": "fiction",
+													"description": "filter by genre (case-insensitive, exact match)",
+													"disabled": true
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Date",
+											"value": "Sat, 12 Jun 2021 00:41:42 GMT"
+										},
+										{
+											"key": "Content-Type",
+											"value": "application/json; charset=utf-8"
+										},
+										{
+											"key": "Content-Length",
+											"value": "4503"
+										},
+										{
+											"key": "Connection",
+											"value": "keep-alive"
+										},
+										{
+											"key": "x-powered-by",
+											"value": "Express"
+										},
+										{
+											"key": "etag",
+											"value": "W/\"1197-eLah3rmGpEn/V/gcfnJ7iyv+Foo\""
+										}
+									],
+									"cookie": [],
+									"body": "[\n    {\n        \"title\": \"Ficciones\",\n        \"author\": \"Jorge Luis Borges\",\n        \"id\": \"ZUST9JFx-Sd9X0k\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1944,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Dust Tracks on a Road\",\n        \"author\": \"Zora Neale Hurston\",\n        \"id\": \"bJmPVX5oFzAQJwI\",\n        \"genre\": \"biography\",\n        \"yearPublished\": 1942,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Crime and Punishment\",\n        \"author\": \"Fyodor Dostoyevsky\",\n        \"id\": \"T1NwXSmVxnlxoeG\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1866,\n        \"checkedOut\": true,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Domain-Driven Design: Tackling Complexity in the Heart of Software\",\n        \"author\": \"Eric Evans\",\n        \"id\": \"hHNwXjmjxnlxooP\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2003,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Tale of Genji\",\n        \"author\": \"Murasaki Shikibu\",\n        \"id\": \"rclHV3DLWbJmquK\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1021,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Patterns of Enterprise Application Architecture\",\n        \"author\": \"Martin Fowler\",\n        \"id\": \"uTYYlzvCQsaaSwj\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2002,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Competing Against Luck: The Story of Innovation and Customer Choice\",\n        \"author\": \"Clayton Christensen, Taddy Hall, Karen Dillon, David Duncan\",\n        \"id\": \"rebHV3JhWbJmcca\",\n        \"genre\": \"business\",\n        \"yearPublished\": 2016,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Beyond Violence\",\n        \"author\": \"Jiddu Krishnamurti\",\n        \"id\": \"pclHVVVqLWbJmqur\",\n        \"genre\": \"philosophy\",\n        \"yearPublished\": 1973,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable, and Maintainable Systems\",\n        \"author\": \"Martin Kleppmann\",\n        \"id\": \"HbQrRkNjJkalsS\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2017,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Colorless Tsukuru Tazaki and His Years of Pilgrimage\",\n        \"author\": \"Haruki Murakami\",\n        \"id\": \"eclHBBrLWbJmque\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"A Practical Approach to API Design\",\n        \"author\": \"D. Keith Casey Jr, James Higginbotham\",\n        \"id\": \"jclqjdUdBrLWDDmqp\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Go Design Patterns\",\n        \"author\": \"Mario Castro Contreras\",\n        \"id\": \"eeRplqnKkshdmqeeE\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2017,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Joy Luck Club\",\n        \"author\": \"Amy Tan\",\n        \"id\": \"qqlHBBrLWbJmq_a\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 1989,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Anxious People\",\n        \"author\": \"Fredrik Backman\",\n        \"id\": \"MpNoarLWbJTwe\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2019,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Continuous API Management: Making the Right Decisions in an Evolving Landscape\",\n        \"author\": \"Mehdi Medjaoui, Erik Wilde, Ronnie Mitra, Mike Amundsen\",\n        \"id\": \"ZxJksSDasdaO\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2018,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Learning GraphQL\",\n        \"author\": \"Eve Porcello, Alex Banks\",\n        \"id\": \"gqlHBBrLWbJmqgql\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2018,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Masala Lab: The Science of Indian Cooking\",\n        \"author\": \"Krish Ashok\",\n        \"id\": \"shrHcTrLWlJmquti\",\n        \"genre\": \"cooking\",\n        \"yearPublished\": 2020,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Refactoring\",\n        \"author\": \"Kent Beck, Martin Fowler\",\n        \"id\": \"aeSdkfhUSkdhHfo\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 1999,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Consolation of Philosophy\",\n        \"author\": \"Boethius\",\n        \"id\": \"cpopeLmqgixdD\",\n        \"genre\": \"philosophy\",\n        \"yearPublished\": 524,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"A Thousand Splendid Suns\",\n        \"author\": \"Khaled Hosseini\",\n        \"id\": \"qpBhlLWbJmqgg\",\n        \"genre\": \"fiction\",\n        \"yearPublished\": 2007,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"The Wright Brothers\",\n        \"author\": \"David McCullough \",\n        \"id\": \"HjKaEeYYuiapA\",\n        \"genre\": \"history\",\n        \"yearPublished\": 2007,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"RESTful Web APIs: Services for a Changing World\",\n        \"author\": \"Leonard Richardson, Mike Amundsen, Sam Ruby\",\n        \"id\": \"apilLWbJmqgop\",\n        \"genre\": \"computers\",\n        \"yearPublished\": 2013,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    },\n    {\n        \"title\": \"Creativity, Inc.\",\n        \"author\": \"Ed Catmull\",\n        \"id\": \"plRHqwwEJmqgoT\",\n        \"genre\": \"business\",\n        \"yearPublished\": 2014,\n        \"checkedOut\": false,\n        \"createdAt\": \"2021-06-02 17:37:38\"\n    }\n]"
+								}
+							]
+						},
+						{
+							"name": "Create a new book",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 201\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.collectionVariables.set(\"bookTitle\", JSON.parse(pm.request.body.raw).title);",
+											"",
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"pm.variables.set('tempBookTitle', pm.variables.replaceIn(\"{{$randomWords}}\"));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"{{tempBookTitle}}\",\n    \"author\": \"Gabriel García Márquez\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1967\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/books/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"books",
+										""
+									]
+								},
+								"description": "Adds a book to the Library. Books added by users are deleted from the library 12 hours after they have been created."
+							},
+							"response": [
+								{
+									"name": "add book",
+									"originalRequest": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"title\": \"One Hundred Years of Solitude\",\n    \"author\": \"Gabriel García Márquez\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1967\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/books",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"books"
+											]
+										}
+									},
+									"status": "Created",
+									"code": 201,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Date",
+											"value": "Sat, 12 Jun 2021 00:44:00 GMT"
+										},
+										{
+											"key": "Content-Type",
+											"value": "application/json; charset=utf-8"
+										},
+										{
+											"key": "Content-Length",
+											"value": "16"
+										},
+										{
+											"key": "Connection",
+											"value": "keep-alive"
+										},
+										{
+											"key": "x-powered-by",
+											"value": "Express"
+										},
+										{
+											"key": "etag",
+											"value": "W/\"10-MxB4y4MLcx6QDsp8b8vgp7iFMFo\""
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"message\": \"OK\"\n}"
+								}
+							]
+						},
+						{
+							"name": "Verify the book exists",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(`Book title is correct ${pm.collectionVariables.get('bookTitle')}` , function () {",
+											"    let response = pm.response.json();",
+											"    let savedBookTitle = pm.collectionVariables.get(\"bookTitle\");",
+											"    let book = response.filter(book => book.title == savedBookTitle)",
+											"    pm.expect(book[0].title).to.be.equal(savedBookTitle);",
+											"});",
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/books",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"books"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "book",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/books/:id",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"books",
+												":id"
+											],
+											"variable": [
+												{
+													"key": "id",
+													"value": "{{id}}"
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Date",
+											"value": "Sat, 12 Jun 2021 00:43:31 GMT"
+										},
+										{
+											"key": "Content-Type",
+											"value": "application/json; charset=utf-8"
+										},
+										{
+											"key": "Content-Length",
+											"value": "164"
+										},
+										{
+											"key": "Connection",
+											"value": "keep-alive"
+										},
+										{
+											"key": "x-powered-by",
+											"value": "Express"
+										},
+										{
+											"key": "etag",
+											"value": "W/\"a4-YbCf8Nx5lqz4LotV0M4P+08vk5Y\""
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"title\": \"Ficciones\",\n    \"author\": \"Jorge Luis Borges\",\n    \"id\": \"ZUST9JFx-Sd9X0k\",\n    \"genre\": \"fiction\",\n    \"yearPublished\": 1944,\n    \"checkedOut\": true,\n    \"createdAt\": \"2021-06-02 17:37:38\"\n}"
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "Non-Linear Execution",
+					"item": [
+						{
+							"name": "Get current weather",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"let temp = pm.response.json().current_weather.temperature",
+											"let location = pm.collectionVariables.get(\"location\")",
+											"console.log(`Current temp in ${location}: ${temp}°F`)",
+											"",
+											"// Postman test to ensure the temperature is in a sensible range ",
+											"pm.test(\"Temperature is sensible\", function() {",
+											"    pm.expect(temp).is.greaterThan(0);",
+											"    pm.expect(temp).is.lessThan(100);",
+											"})",
+											"",
+											"// set `location` for next API call",
+											"if (temp > 60) {",
+											"    pm.collectionVariables.set(\"location\", \"Bangalore\")",
+											"} else {",
+											"    pm.collectionVariables.set(\"location\", \"London\")",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"const locations = {",
+											"    \"San Francisco\": [\"37.773972\", \"-122.431297\"],",
+											"    \"Bangalore\": [\"12.971599\", \"77.594566\"],",
+											"    \"London\": [\"51.507351\", \"-0.127758\"]",
+											"}",
+											"",
+											"let location = pm.collectionVariables.get(\"location\")",
+											"let currentLocation = locations[location]",
+											"console.log(`Getting weather for ${location} at ${currentLocation[0]}, ${currentLocation[1]}...`)",
+											"pm.collectionVariables.set(\"lat\", currentLocation[0])",
+											"pm.collectionVariables.set(\"lon\", currentLocation[1])",
+											"",
+											"// terminate the run if it's the last location",
+											"if (location !== \"San Francisco\") {",
+											"    postman.setNextRequest(null)",
+											"    return",
+											"}",
+											"",
+											"postman.setNextRequest(\"Get current weather\")"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "https://api.open-meteo.com/v1/forecast?latitude={{lat}}&longitude={{lon}}&current_weather=true&temperature_unit=fahrenheit",
+									"protocol": "https",
+									"host": [
+										"api",
+										"open-meteo",
+										"com"
+									],
+									"path": [
+										"v1",
+										"forecast"
+									],
+									"query": [
+										{
+											"key": "latitude",
+											"value": "{{lat}}"
+										},
+										{
+											"key": "longitude",
+											"value": "{{lon}}"
+										},
+										{
+											"key": "current_weather",
+											"value": "true"
+										},
+										{
+											"key": "temperature_unit",
+											"value": "fahrenheit"
+										}
+									]
+								},
+								"description": "\n# Forecast API\n\nThis API endpoint makes an HTTP GET request to retrieve the weather forecast based on the provided latitude and longitude coordinates. The request includes query parameters to specify the latitude, longitude, and other options such as current weather and temperature unit.\n\n### Request Parameters\n- `latitude` (required): The latitude coordinate for which the forecast is requested.\n- `longitude` (required): The longitude coordinate for which the forecast is requested.\n- `current_weather` (optional): A boolean value to include current weather information in the forecast.\n- `temperature_unit` (optional): The unit of temperature to be used in the forecast (e.g., Celsius or Fahrenheit).\n\n### Response\nThe response will include the forecast details based on the provided coordinates. It contains information such as latitude, longitude, generation time, UTC offset, timezone, elevation, and current weather details including time, temperature, wind speed, wind direction, and weather code.\n\nExample:\n```json\n{\n    \"latitude\": 0,\n    \"longitude\": 0,\n    \"generationtime_ms\": 0,\n    \"utc_offset_seconds\": 0,\n    \"timezone\": \"\",\n    \"timezone_abbreviation\": \"\",\n    \"elevation\": 0,\n    \"current_weather_units\": {\n        \"time\": \"\",\n        \"interval\": \"\",\n        \"temperature\": \"\",\n        \"windspeed\": \"\",\n        \"winddirection\": \"\",\n        \"is_day\": \"\",\n        \"weathercode\": \"\"\n    },\n    \"current_weather\": {\n        \"time\": \"\",\n        \"interval\": 0,\n        \"temperature\": 0,\n        \"windspeed\": 0,\n        \"winddirection\": 0,\n        \"is_day\": 0,\n        \"weathercode\": 0\n    }\n}\n```\n"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Iterating over a data file",
+					"item": [
+						{
+							"name": "Example request",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"",
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											""
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"input\": {{naughtyValue}}\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://httpbin.org/post",
+									"protocol": "https",
+									"host": [
+										"httpbin",
+										"org"
+									],
+									"path": [
+										"post"
+									]
+								},
+								"description": "\nThis endpoint makes an HTTP POST request to https://httpbin.org/post. The request body is in raw format and contains an \"input\" field. The response to the request returns a status code of 200 along with various attributes such as args, data, files, form, headers, json, origin, and url.\n\nThe response does not contain any specific data due to the masked/minified values. The \"input\" field in the request body is expected to be replaced with a specific value.\n\n"
+							},
+							"response": []
+						}
+					],
+					"description": "Under the request's **Body** tab, the value for the `input` property is an undefined variable called `naughtyValue`, which will remain undefined until we pass through data from an external file.\n\n### Instructions\n\n1. Save this [Big List of Naughty Strings](https://gist.githubusercontent.com/DannyDainton/b820904694a91e20de1ad900cdeb3a94/raw/9f6dcabfe34506e81ca75ffb092550f709dad043/naughtyStrings.json) as a local JSON file, by right-clicking and selecting \"Save As\" option.\n    \n2. Run the collection using [the runner](https://learning.postman.com/docs/running-collections/intro-to-collection-runs/) along with your [local data file](https://learning.postman.com/docs/running-collections/working-with-data-files/) to loop through all the data."
+				}
+			],
+			"description": "Often when testing a scenario, you'll want to run multiple requests consecutively. For example, you might send a `POST` request to submit some data, and then you want to use a `GET` request to check that the data can be retrieved. This is where Postman's Runner comes in handy, allowing you to chain together requests in an automated fashion.\n\nThere are many ways to launch the Runner, depending upon how you want to interact with it. One way is to click the 'Runner' button in the bottom-right of the UI, and then drag-and-drop the collection or folder that you wish to execute.\n\nIn this folder, we are demonstrating three different methods of running a folder of requests:\n\n- **Simple Linear Sequence** - In this folder, every request in every subfolder will be executed consecutively. This type of structure is very useful for testing an end-to-end scenario or workflow.\n- **Non-Linear Execution** - This folder utilizes Postman's `setNextRequest` command to direct the execution order within the running collection\n    \n- **Iterating over a data file** - You can perform data-driven testing by passing a JSON or CSV file; each record is treated as a new iteration. The documentation for this folder contains more information about the data which we are using in this example.\n    \n\n## Additional Resources\n\nMore detailed documentation about the functionality of the Runner can be found in the following documentation:\n\n- [<b>Running Collections</b>](https://learning.postman.com/docs/running-collections/intro-to-collection-runs/)"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://postman-library-api.glitch.me"
+		},
+		{
+			"key": "bookTitle",
+			"value": ""
+		},
+		{
+			"key": "location",
+			"value": "San Francisco",
+			"type": "string"
+		},
+		{
+			"key": "lat",
+			"value": ""
+		},
+		{
+			"key": "lon",
+			"value": ""
+		}
+	]
+}

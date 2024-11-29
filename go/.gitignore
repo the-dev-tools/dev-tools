@@ -1,0 +1,8 @@
+.direnv
+.env.*.local
+.env.keys
+.env.local
+node_modules
+*.db
+data/
+dist/

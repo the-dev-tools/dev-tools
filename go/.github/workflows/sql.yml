@@ -1,0 +1,18 @@
+name: sql
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "**.sql"
+jobs:
+  sql-vet:
+    name: SQL Vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: sqlc-dev/setup-sqlc@v3
+        with:
+          sqlc-version: "1.27.0"
+      - run: sqlc vet
+        working-directory: "./dev-tools-db/pkg/sqlc"
