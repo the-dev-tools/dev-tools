@@ -28,6 +28,12 @@ tasks:
         --projects=@the-dev-tools/ui \
         {{.CLI_ARGS}}
 
+  dev:backend:
+    desc: Start backend app development servers
+    interactive: true
+    cmd: >-
+      pnpm nx run backend:dev
+
   lint:
     desc: Check code for common problems
     interactive: true
