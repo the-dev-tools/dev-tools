@@ -23,6 +23,7 @@
     "@typespec/rest": "~0.61.0",
     "effect": "~3.10.17",
     "prettier": "~3.4.1",
-    "quicktype": "~23.0.170"
+    "quicktype": "~23.0.170",
+    "typescript": "~5.7.2"
   }
 }

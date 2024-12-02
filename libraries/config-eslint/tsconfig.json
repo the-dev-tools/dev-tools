@@ -1,5 +1,5 @@
 {
-  "extends": ["@the-dev-tools/config-typescript/tsconfig.base"],
-  "include": ["."],
-  "exclude": ["node_modules"]
+  "extends": ["../../tsconfig.base"],
+  "files": [],
+  "references": [{ "path": "./tsconfig.lib.json" }]
 }

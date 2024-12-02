@@ -4,6 +4,7 @@
   "author": "dev.tools",
   "version": "0.4.10",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "plasmo build --build-path=dist --zip",
     "dev": "plasmo dev --build-path=dist",
@@ -25,7 +26,6 @@
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
-    "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@types/chrome": "~0.0.287",

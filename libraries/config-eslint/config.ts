@@ -11,7 +11,10 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
-import { config, configs as ts } from 'typescript-eslint';
+import { Config, configs as ts } from 'typescript-eslint';
+
+import '@typescript-eslint/utils';
+import './plugins.d.ts';
 
 const gitignore = includeIgnoreFile(resolve(dirname(fileURLToPath(import.meta.url)), '../../.gitignore'));
 
@@ -57,7 +60,7 @@ const rules: Linter.Config = {
   },
 };
 
-export const eslintBaseConfig = config(
+export const eslintBaseConfig = [
   gitignore,
   js.configs.recommended,
   ...ts.strictTypeChecked,
@@ -70,9 +73,9 @@ export const eslintBaseConfig = config(
   prettier,
   settings,
   rules,
-);
+] satisfies Config;
 
-export const eslintReactConfig = config(
+export const eslintReactConfig = [
   ...eslintBaseConfig,
   importX.react,
   { settings: { react: { version: 'detect' } } },
@@ -84,4 +87,4 @@ export const eslintReactConfig = config(
   },
   jsxA11y.flatConfigs.recommended,
   { rules: { 'react/prop-types': 'off' } },
-);
+] satisfies Config;

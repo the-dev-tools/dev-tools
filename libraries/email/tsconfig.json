@@ -1,5 +1,10 @@
 {
-  "extends": "@the-dev-tools/config-typescript/tsconfig.react",
-  "include": ["."],
-  "exclude": ["node_modules", "dist"]
+  "extends": ["../../tsconfig.base"],
+  "files": [],
+  "references": [
+    { "path": "../utils" },
+    { "path": "../config-tailwind" },
+    { "path": "../config-eslint" },
+    { "path": "./tsconfig.lib.json" }
+  ]
 }

@@ -1,0 +1,16 @@
+{
+  "extends": ["plasmo/templates/tsconfig.base", "./tsconfig.json"],
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "paths": { "~*": ["./src/*"] }
+  },
+  "include": [".plasmo/index.d.ts", "."],
+  "exclude": [".plasmo", "dist", "node_modules"],
+  "references": [
+    { "path": "../../libraries/ui/tsconfig.lib.json" },
+    { "path": "../../libraries/utils/tsconfig.lib.json" },
+    { "path": "../../libraries/config-tailwind/tsconfig.lib.json" },
+    { "path": "../../libraries/config-eslint/tsconfig.lib.json" }
+  ]
+}

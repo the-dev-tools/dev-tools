@@ -1,6 +1,7 @@
 {
   "name": "@the-dev-tools/config-eslint",
   "private": true,
+  "type": "module",
   "scripts": {
     "lint": "eslint --flag unstable_ts_config ."
   },
@@ -11,7 +12,6 @@
     "@eslint/compat": "~1.2.3",
     "@eslint/eslintrc": "~3.2.0",
     "@eslint/js": "~9.15.0",
-    "@the-dev-tools/config-typescript": "workspace:^",
     "@types/eslint__eslintrc": "~2.1.2",
     "@types/eslint__js": "~8.42.3",
     "@types/eslint-config-prettier": "~6.11.3",

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "react-jsx"
+  },
+  "include": ["."],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../utils/tsconfig.lib.json" },
+    { "path": "../config-tailwind/tsconfig.lib.json" },
+    { "path": "../config-eslint/tsconfig.lib.json" }
+  ]
+}

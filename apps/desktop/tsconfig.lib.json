@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": ["."],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../libraries/ui/tsconfig.lib.json" },
+    { "path": "../../libraries/core/tsconfig.lib.json" },
+    { "path": "../../libraries/spec" },
+    { "path": "../../libraries/api/tsconfig.lib.json" },
+    { "path": "../../libraries/utils/tsconfig.lib.json" },
+    { "path": "../../libraries/config-tailwind/tsconfig.lib.json" },
+    { "path": "../../libraries/config-eslint/tsconfig.lib.json" }
+  ]
+}

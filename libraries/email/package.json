@@ -1,6 +1,7 @@
 {
   "name": "@the-dev-tools/email",
   "private": true,
+  "type": "module",
   "files": [
     "dist"
   ],
@@ -13,7 +14,6 @@
     "@react-email/components": "~0.0.28",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
-    "@the-dev-tools/config-typescript": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@types/react": "~18.3.12",
     "effect": "~3.10.17",

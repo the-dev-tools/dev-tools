@@ -1,6 +1,7 @@
 {
   "name": "@the-dev-tools/api",
   "private": true,
+  "type": "module",
   "scripts": {
     "lint": "eslint --flag unstable_ts_config ."
   },
@@ -23,7 +24,6 @@
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
-    "@the-dev-tools/config-typescript": "workspace:^",
     "typescript": "~5.7.2"
   }
 }

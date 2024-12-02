@@ -1,6 +1,7 @@
 {
   "name": "@the-dev-tools/utils",
   "private": true,
+  "type": "module",
   "scripts": {
     "lint": "eslint --flag unstable_ts_config ."
   },
@@ -13,7 +14,7 @@
   "devDependencies": {
     "@faker-js/faker": "~9.2.0",
     "@the-dev-tools/config-eslint": "workspace:^",
-    "@the-dev-tools/config-typescript": "workspace:^",
+    "@types/node": "~22.10.0",
     "typescript": "~5.7.2"
   }
 }

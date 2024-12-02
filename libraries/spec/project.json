@@ -2,5 +2,9 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
   "name": "spec",
-  "projectType": "library"
+  "projectType": "library",
+
+  "sync": {
+    "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
+  }
 }

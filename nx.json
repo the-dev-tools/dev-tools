@@ -3,6 +3,10 @@
 
   "parallel": 8,
 
+  "sync": {
+    "applyChanges": true
+  },
+
   "targetDefaults": {
     "dev": {
       "cache": false
@@ -33,5 +37,19 @@
     }
   },
 
-  "plugins": ["@nx-go/nx-go"]
+  "plugins": [
+    "@nx-go/nx-go",
+    {
+      "plugin": "@nx/js/typescript",
+      "options": {
+        "typecheck": {
+          "targetName": "typecheck"
+        },
+        "build": {
+          "targetName": "build",
+          "configName": "tsconfig.lib.json"
+        }
+      }
+    }
+  ]
 }

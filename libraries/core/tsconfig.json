@@ -1,8 +1,13 @@
 {
-  "extends": "@the-dev-tools/config-typescript/tsconfig.react",
-  "exclude": ["node_modules"],
-  "include": ["."],
-  "compilerOptions": {
-    "types": ["vite/client"]
-  }
+  "extends": ["../../tsconfig.base"],
+  "files": [],
+  "references": [
+    { "path": "../ui" },
+    { "path": "../spec" },
+    { "path": "../api" },
+    { "path": "../utils" },
+    { "path": "../config-tailwind" },
+    { "path": "../config-eslint" },
+    { "path": "./tsconfig.lib.json" }
+  ]
 }
