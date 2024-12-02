@@ -110,6 +110,37 @@ type Flow struct {
 	Name        string
 }
 
+type FlowNode struct {
+	ID       []byte
+	FlowID   []byte
+	NodeType int8
+	NodeID   []byte
+}
+
+type FlowNodeFor struct {
+	ID              []byte
+	FlowNodeID      []byte
+	IterCount       int64
+	LoopStartNodeID interface{}
+	Next            []byte
+}
+
+type FlowNodeIf struct {
+	ID            []byte
+	FlowNodeID    []byte
+	ConditionType int8
+	Condition     string
+	NextTrue      []byte
+	NextFalse     []byte
+}
+
+type FlowNodeRequest struct {
+	ID         []byte
+	FlowNodeID []byte
+	ExampleID  []byte
+	Next       []byte
+}
+
 type FlowTag struct {
 	ID     idwrap.IDWrap
 	FlowID idwrap.IDWrap

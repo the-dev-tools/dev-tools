@@ -307,17 +307,17 @@ CREATE TABLE flow_node_for (
   loop_start_node_id,
   next BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (loop_start_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (next) REFERENCES flow_node (id) ON DELETE CASCADE
+  FOREIGN KEY (loop_start_node_id) REFERENCES flow_node (id) ON DELETE SET NULL,
+  FOREIGN KEY (next) REFERENCES flow_node (id) ON DELETE SET NULL
 );
 
 CREATE TABLE flow_node_request (
   id BLOB NOT NULL PRIMARY KEY,
   flow_node_id BLOB NOT NULL,
-  example_id BLOB NOT NULL,
+  example_id BLOB,
   next BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE SET NULL,
   FOREIGN KEY (next) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
@@ -329,6 +329,6 @@ CREATE TABLE flow_node_if (
   next_true BLOB,
   next_false BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (next_true) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (next_false) REFERENCES flow_node (id) ON DELETE CASCADE
+  FOREIGN KEY (next_true) REFERENCES flow_node (id) ON DELETE SET NULL,
+  FOREIGN KEY (next_false) REFERENCES flow_node (id) ON DELETE SET NULL
 );
