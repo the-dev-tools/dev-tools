@@ -12,7 +12,7 @@ CREATE TABLE users (
   UNIQUE (provider_type, provider_id)
 );
 
--- WORK SPACES 
+-- WORK SPACES
 CREATE TABLE workspaces (
   id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE item_folder (
 CREATE INDEX Idx3 ON item_folder (collection_id, parent_id);
 
 /*
- * 
+ *
  * ITEM API
  *
  */
@@ -329,7 +329,6 @@ CREATE TABLE flow_node_if (
   next_true BLOB,
   next_false BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (next_true) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (next_false) REFERENCES flow_node (id) ON DELETE CASCADE
 );
