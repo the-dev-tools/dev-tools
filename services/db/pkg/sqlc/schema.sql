@@ -301,8 +301,7 @@ CREATE TABLE flow_node (
 );
 
 CREATE TABLE flow_node_for (
-  id BLOB NOT NULL PRIMARY KEY,
-  flow_node_id BLOB NOT NULL,
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_count BIGINT NOT NULL,
   loop_start_node_id,
   next BLOB,
@@ -312,8 +311,8 @@ CREATE TABLE flow_node_for (
 );
 
 CREATE TABLE flow_node_request (
-  id BLOB NOT NULL PRIMARY KEY,
-  flow_node_id BLOB NOT NULL,
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
   example_id BLOB,
   next BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
@@ -322,8 +321,8 @@ CREATE TABLE flow_node_request (
 );
 
 CREATE TABLE flow_node_if (
-  id BLOB NOT NULL PRIMARY KEY,
-  flow_node_id BLOB NOT NULL,
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
   condition_type INT8 NOT NULL,
   condition TEXT NOT NULL,
   next_true BLOB,
