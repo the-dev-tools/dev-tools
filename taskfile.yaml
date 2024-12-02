@@ -13,9 +13,9 @@ tasks:
     interactive: true
     cmd: >-
       pnpm nx run-many --targets=dev \
-        --projects=@the-dev-tools/desktop \
-        --projects=@the-dev-tools/core \
-        --projects=@the-dev-tools/ui \
+        --projects=desktop \
+        --projects=core \
+        --projects=ui \
         {{.CLI_ARGS}}
 
   dev:web:
@@ -23,16 +23,15 @@ tasks:
     interactive: true
     cmd: >-
       pnpm nx run-many --targets=dev \
-        --projects=@the-dev-tools/web \
-        --projects=@the-dev-tools/core \
-        --projects=@the-dev-tools/ui \
+        --projects=web \
+        --projects=core \
+        --projects=ui \
         {{.CLI_ARGS}}
 
   dev:backend:
     desc: Start backend app development servers
     interactive: true
-    cmd: >-
-      pnpm nx run backend:dev
+    cmd: pnpm nx run backend:dev
 
   lint:
     desc: Check code for common problems
