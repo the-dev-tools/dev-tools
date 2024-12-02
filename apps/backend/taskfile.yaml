@@ -4,8 +4,8 @@ version: '3'
 vars:
   APP_NAME: backend
   VERSION: v1.0.0
-  BIN_DIR: dist/backend
-  SOURCE_PATH: dev-tools-backend/cmd/backend/backend.go
+  BIN_DIR: dist
+  SOURCE_PATH: cmd/backend/backend.go
   PLATFORMS:
     sh: jq --raw-output 'keys[]' platforms.json
 
