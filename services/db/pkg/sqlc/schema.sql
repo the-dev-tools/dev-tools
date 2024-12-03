@@ -303,7 +303,7 @@ CREATE TABLE flow_node (
 CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_count BIGINT NOT NULL,
-  loop_start_node_id,
+  loop_start_node_id BLOB,
   next BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (loop_start_node_id) REFERENCES flow_node (id) ON DELETE SET NULL,

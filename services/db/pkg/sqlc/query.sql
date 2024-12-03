@@ -1,8 +1,8 @@
 --
 -- This file is the source of truth for saas application's schema
 --
--- 
--- ItemApi 
+--
+-- ItemApi
 --
 -- name: GetItemApi :one
 SELECT
@@ -272,7 +272,7 @@ DELETE FROM item_folder
 WHERE
   id = ?;
 
--- 
+--
 -- Users
 --
 -- name: GetUser :one
@@ -358,7 +358,7 @@ DELETE FROM users
 WHERE
   id = ?;
 
--- 
+--
 -- Collections
 --
 -- name: GetCollection :one
@@ -515,7 +515,7 @@ DELETE FROM workspaces
 WHERE
   id = ?;
 
--- 
+--
 -- WorkspaceUsers
 --
 -- name: CheckIFWorkspaceUserExists :one
@@ -667,19 +667,19 @@ WHERE
 
 /*
 *
-* Header 
+* Header
 *
 */
 
 -- name: GetHeader :one
-SELECT 
+SELECT
   id,
   example_id,
   header_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_header
 WHERE
   id = ?
@@ -693,7 +693,7 @@ SELECT
   enable,
   description,
   value
-FROM 
+FROM
   example_header
 WHERE
   example_id = ?;
@@ -753,14 +753,14 @@ WHERE
 */
 
 -- name: GetQuery :one
-SELECT 
+SELECT
   id,
   example_id,
   query_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_query
 WHERE
   id = ?
@@ -774,7 +774,7 @@ SELECT
   enable,
   description,
   value
-FROM 
+FROM
   example_query
 WHERE
   example_id = ?;
@@ -829,16 +829,16 @@ WHERE
 */
 
 -- name: GetBodyForm :one
-SELECT 
+SELECT
   id,
   example_id,
   body_key,
   enable,
   description,
   value
-FROM 
-    example_body_form 
-WHERE 
+FROM
+    example_body_form
+WHERE
     id = ?
 LIMIT 1;
 
@@ -850,9 +850,9 @@ SELECT
   enable,
   description,
   value
-FROM 
-    example_body_form 
-WHERE 
+FROM
+    example_body_form
+WHERE
     example_id = ?;
 
 --
@@ -902,33 +902,33 @@ DELETE FROM example_body_form
 WHERE
   id = ?;
 
--- 
+--
 -- Body Url Encoded
 --
 
 -- name: GetBodyUrlEncoded :one
-SELECT 
+SELECT
   id,
   example_id,
   body_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_body_urlencoded
 WHERE
   id = ?
 LIMIT 1;
 
 -- name: GetBodyUrlEncodedsByExampleID :many
-SELECT 
+SELECT
   id,
   example_id,
   body_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_body_urlencoded
 WHERE
   example_id = ?;
@@ -974,26 +974,26 @@ WHERE
 */
 
 -- name: GetBodyRaw :one
-SELECT 
+SELECT
   id,
   example_id,
   visualize_mode,
   compress_type,
   data
-FROM 
+FROM
   example_body_raw
 WHERE
   id = ?
 LIMIT 1;
 
 -- name: GetBodyRawsByExampleID :one
-SELECT 
+SELECT
   id,
   example_id,
   visualize_mode,
   compress_type,
   data
-FROM 
+FROM
   example_body_raw
 WHERE
   example_id = ?
@@ -1024,7 +1024,7 @@ WHERE
 
 -- name: UpdateBodyRawData :exec
 UPDATE example_body_raw
-SET 
+SET
   compress_type = ?,
   data = ?
 WHERE
@@ -1049,7 +1049,7 @@ SELECT
   type,
   name,
   description
-FROM 
+FROM
   environment
 WHERE
   id = ?
@@ -1063,7 +1063,7 @@ SELECT
   type,
   name,
   description
-FROM 
+FROM
   environment
 WHERE
   workspace_id = ?;
@@ -1076,7 +1076,7 @@ SELECT
   type,
   name,
   description
-FROM 
+FROM
   environment
 WHERE
   workspace_id = ? AND active = true
@@ -1114,7 +1114,7 @@ SELECT
   value,
   enabled,
   description
-FROM 
+FROM
   variable
 WHERE
   id = ?
@@ -1166,7 +1166,7 @@ WHERE
 -- name: GetExampleResp :one
 SELECT
     *
-FROM 
+FROM
   example_resp
 WHERE
   id = ?
@@ -1189,7 +1189,7 @@ VALUES
 
 -- name: UpdateExampleResp :exec
 UPDATE example_resp
-SET 
+SET
   status = ?,
   body = ?,
   body_compress_type = ?,
@@ -1207,12 +1207,12 @@ WHERE
 */
 
 -- name: GetExampleRespHeader :one
-SELECT 
+SELECT
   id,
   example_resp_id,
   header_key,
   value
-FROM 
+FROM
   example_resp_header
 WHERE
   id = ?
@@ -1220,12 +1220,12 @@ LIMIT 1;
 
 
 -- name: GetExampleRespHeadersByRespID :many
-SELECT 
+SELECT
   id,
   example_resp_id,
   header_key,
   value
-FROM 
+FROM
   example_resp_header
 WHERE
   example_resp_id = ?;
@@ -1238,7 +1238,7 @@ VALUES
 
 -- name: UpdateExampleRespHeader :exec
 UPDATE example_resp_header
-SET 
+SET
   header_key = ?,
   value = ?
 WHERE
@@ -1255,7 +1255,7 @@ WHERE
 */
 
 -- name: GetAssert :one
-SELECT 
+SELECT
   id,
   example_id,
   type,
@@ -1264,14 +1264,14 @@ SELECT
   enable,
   prev,
   next
-FROM 
+FROM
   assertion
 WHERE
   id = ?
 LIMIT 1;
 
 -- name: GetAssertsByExampleID :many
-SELECT 
+SELECT
   id,
   example_id,
   type,
@@ -1280,7 +1280,7 @@ SELECT
   enable,
   prev,
   next
-FROM 
+FROM
   assertion
 WHERE
   example_id = ?;
@@ -1311,35 +1311,35 @@ WHERE
 */
 
 -- name: GetAssertResult :one
-SELECT 
+SELECT
   id,
   response_id,
   assertion_id,
   result
-FROM 
+FROM
   assertion_result
 WHERE
   id = ?
 LIMIT 1;
 
 -- name: GetAssertResultsByAssertID :many
-SELECT 
+SELECT
   id,
   response_id,
   assertion_id,
   result
-FROM 
+FROM
   assertion_result
 WHERE
   assertion_id = ?;
 
 -- name: GetAssertResultsByResponseID :many
-SELECT 
+SELECT
   id,
   response_id,
   assertion_id,
   result
-FROM 
+FROM
   assertion_result
 WHERE
   response_id = ?;
@@ -1363,22 +1363,22 @@ WHERE
   id = ?;
 
 -- name: GetFlow :one
-SELECT 
+SELECT
   id,
   workspace_id,
   name
-FROM 
+FROM
   flow
 WHERE
   id = ?
 LIMIT 1;
 
 -- name: GetFlowsByWorkspaceID :many
-SELECT 
+SELECT
   id,
   workspace_id,
   name
-FROM 
+FROM
   flow
 WHERE
   workspace_id = ?;
@@ -1407,8 +1407,8 @@ SELECT
   workspace_id,
   name,
   color
-FROM 
-  tag 
+FROM
+  tag
 WHERE
   id = ?
 LIMIT 1;
@@ -1419,7 +1419,7 @@ SELECT
   workspace_id,
   name,
   color
-FROM 
+FROM
   tag
 WHERE
   workspace_id = ?;
@@ -1431,7 +1431,7 @@ VALUES
   (?, ?, ?, ?);
 
 -- name: UpdateTag :exec
-UPDATE tag 
+UPDATE tag
 SET
   name = ?,
   color = ?
@@ -1444,7 +1444,7 @@ WHERE
   id = ?;
 
 -- name: GetFlowTag :one
-SELECT 
+SELECT
   id,
   flow_id,
   tag_id
@@ -1457,7 +1457,7 @@ SELECT
   id,
   flow_id,
   tag_id
-FROM 
+FROM
   flow_tag
 WHERE
   flow_id = ?;
@@ -1467,7 +1467,7 @@ SELECT
   id,
   flow_id,
   tag_id
-FROM 
+FROM
   flow_tag
 WHERE
   tag_id = ?;
@@ -1484,24 +1484,24 @@ WHERE
   id = ?;
 
 -- name: GetFlowNode :one
-SELECT 
+SELECT
   id,
   flow_id,
   node_type,
   node_id
-FROM 
+FROM
   flow_node
 WHERE
   id = ?
 LIMIT 1;
 
 -- name: GetFlowNodesByFlowID :many
-SELECT 
+SELECT
   id,
   flow_id,
   node_type,
   node_id
-FROM 
+FROM
   flow_node
 WHERE
   flow_id = ?;
@@ -1526,23 +1526,22 @@ WHERE
   id = ?;
 
 -- name: GetFlowNodeFor :one
-SELECT 
-  id,
+SELECT
   flow_node_id,
   iter_count,
   loop_start_node_id,
   next
-FROM 
+FROM
   flow_node_for
 WHERE
-  id = ?
+  flow_node_id = ?
 LIMIT 1;
 
 -- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (id, flow_node_id, iter_count, loop_start_node_id, next)
+  flow_node_for (flow_node_id, iter_count, loop_start_node_id, next)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
@@ -1551,30 +1550,29 @@ SET
   loop_start_node_id = ?,
   next = ?
 WHERE
-  id = ?;
+  flow_node_id = ?;
 
 -- name: DeleteFlowNodeFor :exec
 DELETE FROM flow_node_for
 WHERE
-  id = ?;
+  flow_node_id = ?;
 
 -- name: GetFlowNodeRequest :one
-SELECT 
-  id,
+SELECT
   flow_node_id,
   example_id,
   next
-FROM 
+FROM
   flow_node_request
 WHERE
-  id = ?
+  flow_node_id = ?
 LIMIT 1;
 
 -- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (id, flow_node_id, example_id, next)
+  flow_node_request (flow_node_id, example_id, next)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
@@ -1582,30 +1580,29 @@ SET
   example_id = ?,
   next = ?
 WHERE
-  id = ?;
+  flow_node_id = ?;
 
 -- name: DeleteFlowNodeRequest :exec
 DELETE FROM flow_node_request
 WHERE
-  id = ?;
+  flow_node_id = ?;
 
 -- name: GetFlowNodeIf :one
-SELECT 
-  id,
+SELECT
   flow_node_id,
   condition_type,
   condition
-FROM 
+FROM
   flow_node_if
 WHERE
-  id = ?
+  flow_node_id = ?
 LIMIT 1;
 
 -- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (id, flow_node_id, condition_type, condition)
+  flow_node_if (flow_node_id, condition_type, condition)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateFlowNodeIf :exec
 UPDATE flow_node_if
@@ -1613,10 +1610,10 @@ SET
   condition_type = ?,
   condition = ?
 WHERE
-  id = ?;
+  flow_node_id = ?;
 
 -- name: DeleteFlowNodeIf :exec
 DELETE FROM flow_node_if
 WHERE
-  id = ?;
+  flow_node_id = ?;
 
