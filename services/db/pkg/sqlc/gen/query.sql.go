@@ -3117,8 +3117,8 @@ func (q *Queries) GetFlowNode(ctx context.Context, id idwrap.IDWrap) (FlowNode, 
 
 const getFlowNodeFor = `-- name: GetFlowNodeFor :one
 SELECT
-  name,
   flow_node_id,
+  name,
   iter_count,
   loop_start_node_id,
   next
@@ -3129,20 +3129,12 @@ WHERE
 LIMIT 1
 `
 
-type GetFlowNodeForRow struct {
-	Name            string
-	FlowNodeID      idwrap.IDWrap
-	IterCount       int64
-	LoopStartNodeID idwrap.IDWrap
-	Next            idwrap.IDWrap
-}
-
-func (q *Queries) GetFlowNodeFor(ctx context.Context, flowNodeID idwrap.IDWrap) (GetFlowNodeForRow, error) {
+func (q *Queries) GetFlowNodeFor(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeFor, error) {
 	row := q.queryRow(ctx, q.getFlowNodeForStmt, getFlowNodeFor, flowNodeID)
-	var i GetFlowNodeForRow
+	var i FlowNodeFor
 	err := row.Scan(
-		&i.Name,
 		&i.FlowNodeID,
+		&i.Name,
 		&i.IterCount,
 		&i.LoopStartNodeID,
 		&i.Next,

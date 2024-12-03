@@ -3,8 +3,8 @@ package mnrequest
 import "the-dev-tools/backend/pkg/idwrap"
 
 type MNRequest struct {
-	id        idwrap.IDWrap
-	name      string
-	exampleID idwrap.IDWrap
-	next      idwrap.IDWrap
+	FlowNodeID idwrap.IDWrap
+	Name       string
+	ExampleID  idwrap.IDWrap
+	Next       idwrap.IDWrap
 }

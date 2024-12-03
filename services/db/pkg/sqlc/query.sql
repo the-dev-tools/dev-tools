@@ -1527,8 +1527,8 @@ WHERE
 
 -- name: GetFlowNodeFor :one
 SELECT
-  name,
   flow_node_id,
+  name,
   iter_count,
   loop_start_node_id,
   next
