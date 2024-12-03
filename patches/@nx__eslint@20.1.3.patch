@@ -1,0 +1,77 @@
+diff --git a/src/plugins/plugin.d.ts b/src/plugins/plugin.d.ts
+index 7161819fe23972fa07772766f3cfd8a1917760f6..f038f393a72d52d9515496de9897c1e6aa2ea593 100644
+--- a/src/plugins/plugin.d.ts
++++ b/src/plugins/plugin.d.ts
+@@ -2,6 +2,7 @@ import { CreateNodes, CreateNodesV2 } from '@nx/devkit';
+ export interface EslintPluginOptions {
+     targetName?: string;
+     extensions?: string[];
++    flags?: string[];
+ }
+ export declare const createNodesV2: CreateNodesV2<EslintPluginOptions>;
+ export declare const createNodes: CreateNodes<EslintPluginOptions>;
+diff --git a/src/plugins/plugin.js b/src/plugins/plugin.js
+index 064546a6a8e80ac905bd099e926b46b7d5ed8a46..0a322086bfe0ef91c023a8e90a29eccb71d33213 100644
+--- a/src/plugins/plugin.js
++++ b/src/plugins/plugin.js
+@@ -68,6 +68,7 @@ const internalCreateNodes = async (configFilePath, options, context, projectsCac
+         }
+         const eslint = new ESLint({
+             cwd: (0, posix_1.join)(context.workspaceRoot, childProjectRoot),
++            flags: options.flags,
+         });
+         let hasNonIgnoredLintableFiles = false;
+         for (const file of lintableFiles) {
+@@ -117,6 +118,7 @@ const internalCreateNodesV2 = async (configFilePath, options, context, eslintCon
+         }
+         const eslint = new ESLint({
+             cwd: (0, posix_1.join)(context.workspaceRoot, projectRoot),
++            flags: options.flags,
+         });
+         let hasNonIgnoredLintableFiles = false;
+         for (const file of lintableFilesPerProjectRoot.get(projectRoot) ?? []) {
+@@ -244,9 +246,6 @@ function getProjectUsingESLintConfig(configFilePath, projectRoot, eslintVersion,
+             standaloneSrcPath = 'lib';
+         }
+     }
+-    if (projectRoot === '.' && !standaloneSrcPath) {
+-        return null;
+-    }
+     const eslintConfigs = [configFilePath];
+     if (rootEslintConfig && !eslintConfigs.includes(rootEslintConfig)) {
+         eslintConfigs.unshift(rootEslintConfig);
+@@ -258,8 +257,9 @@ function getProjectUsingESLintConfig(configFilePath, projectRoot, eslintVersion,
+ function buildEslintTargets(eslintConfigs, eslintVersion, projectRoot, workspaceRoot, options, standaloneSrcPath) {
+     const isRootProject = projectRoot === '.';
+     const targets = {};
++    const args = options.flags.map(_ => `--flag ${_}`).join(' ');
+     const targetConfig = {
+-        command: `eslint ${isRootProject && standaloneSrcPath ? `./${standaloneSrcPath}` : '.'}`,
++        command: `eslint ${args} ${isRootProject && standaloneSrcPath ? `./${standaloneSrcPath}` : '.'}`,
+         cache: true,
+         options: {
+             cwd: projectRoot,
+@@ -304,6 +304,7 @@ function buildEslintTargets(eslintConfigs, eslintVersion, projectRoot, workspace
+ function normalizeOptions(options) {
+     const normalizedOptions = {
+         targetName: options?.targetName ?? 'lint',
++        flags: options?.flags ?? [],
+     };
+     // Normalize user input for extensions (strip leading . characters)
+     if (Array.isArray(options?.extensions)) {
+diff --git a/src/utils/flat-config.js b/src/utils/flat-config.js
+index f2f9238db74a82485223adbfc5a9122868d14c77..f38c675160b9677ae21d61bf5bd347d9e3a6572b 100644
+--- a/src/utils/flat-config.js
++++ b/src/utils/flat-config.js
+@@ -7,7 +7,11 @@ const semver_1 = require("semver");
+ // todo: add support for eslint.config.mjs,
+ exports.eslintFlatConfigFilenames = [
+     'eslint.config.js',
++    'eslint.config.mjs',
+     'eslint.config.cjs',
++    'eslint.config.ts',
++    'eslint.config.mts',
++    'eslint.config.cts',
+ ];
+ function getRootESLintFlatConfigFilename(tree) {
+     for (const file of exports.eslintFlatConfigFilenames) {

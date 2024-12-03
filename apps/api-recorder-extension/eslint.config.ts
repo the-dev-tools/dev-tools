@@ -1,9 +1,9 @@
 import { Config } from 'typescript-eslint';
 
-import { eslintReactConfig } from '@the-dev-tools/config-eslint';
+import base from '@the-dev-tools/config-eslint';
 
 export default [
-  ...eslintReactConfig,
+  ...base,
   {
     rules: {
       // https://github.com/typescript-eslint/typescript-eslint/issues/9902

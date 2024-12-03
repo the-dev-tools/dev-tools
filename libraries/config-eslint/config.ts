@@ -8,13 +8,12 @@ import prettier from 'eslint-config-prettier';
 import { flatConfigs as importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import react from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
+import reactHooksOld from 'eslint-plugin-react-hooks';
 import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
 import { Config, configs as ts } from 'typescript-eslint';
 
 import '@typescript-eslint/utils';
-import './plugins.d.ts';
 
 const gitignore = includeIgnoreFile(resolve(dirname(fileURLToPath(import.meta.url)), '../../.gitignore'));
 
@@ -47,6 +46,11 @@ const settings: Linter.Config = {
   },
 };
 
+const reactHooks = {
+  plugins: { 'react-hooks': reactHooksOld },
+  rules: reactHooksOld.configs.recommended.rules,
+};
+
 const rules: Linter.Config = {
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
@@ -57,34 +61,34 @@ const rules: Linter.Config = {
     '@typescript-eslint/no-unused-vars': ['error', { destructuredArrayIgnorePattern: '^_' }],
     '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
     'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
+    'react/prop-types': 'off',
   },
 };
 
-export const eslintBaseConfig = [
+export default [
   gitignore,
-  js.configs.recommended,
-  ...ts.strictTypeChecked,
-  ...ts.stylisticTypeChecked,
-  importX.recommended,
-  importX.typescript,
-  ...tailwind.configs['flat/recommended'],
+  settings,
   commonjs,
   nodejs,
-  prettier,
-  settings,
-  rules,
-] satisfies Config;
 
-export const eslintReactConfig = [
-  ...eslintBaseConfig,
+  prettier,
+
+  js.configs.recommended,
+
+  ...ts.strictTypeChecked,
+  ...ts.stylisticTypeChecked,
+
+  importX.recommended,
+  importX.typescript,
   importX.react,
-  { settings: { react: { version: 'detect' } } },
+
   react.configs.flat!['recommended'] as Linter.Config,
   react.configs.flat!['jsx-runtime'] as Linter.Config,
-  {
-    plugins: { 'react-hooks': reactHooks },
-    rules: reactHooks.configs.recommended.rules,
-  },
+  reactHooks,
+
   jsxA11y.flatConfigs.recommended,
-  { rules: { 'react/prop-types': 'off' } },
+
+  ...tailwind.configs['flat/recommended'],
+
+  rules,
 ] satisfies Config;

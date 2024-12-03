@@ -1,5 +1,5 @@
 {
-  "eslint.options": { "flags": ["unstable_ts_config"] },
+  "eslint.options": { "flags": ["unstable_config_lookup_from_file", "unstable_ts_config"] },
   "eslint.workingDirectories": [{ "mode": "auto" }],
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",

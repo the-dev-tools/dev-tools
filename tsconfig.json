@@ -1,7 +1,10 @@
 {
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
-  "files": [],
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["*"],
   "references": [
     { "path": "./apps/api-recorder-extension" },
     { "path": "./libraries/config-tailwind" },

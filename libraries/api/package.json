@@ -2,9 +2,6 @@
   "name": "@the-dev-tools/api",
   "private": true,
   "type": "module",
-  "scripts": {
-    "lint": "eslint --flag unstable_ts_config ."
-  },
   "exports": {
     "./*": "./src/*.ts"
   },

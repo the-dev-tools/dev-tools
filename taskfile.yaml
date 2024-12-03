@@ -36,7 +36,7 @@ tasks:
   lint:
     desc: Check code for common problems
     interactive: true
-    cmd: pnpm nx run-many --targets=lint --nxBail {{.CLI_ARGS}}
+    cmd: pnpm nx run-many --targets=lint --targets=lint:format --nxBail {{.CLI_ARGS}}
 
   fix:
     desc: Automatically fix common problems

@@ -7,8 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "plasmo build --build-path=dist --zip",
-    "dev": "plasmo dev --build-path=dist",
-    "lint": "eslint --flag unstable_ts_config ."
+    "dev": "plasmo dev --build-path=dist"
   },
   "dependencies": {
     "@plasmohq/storage": "1.13.0",

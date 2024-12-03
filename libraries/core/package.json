@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "lint": "eslint --flag unstable_ts_config ."
+    "dev": "vite"
   },
   "exports": {
     "./*": "./src/*.tsx",

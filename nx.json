@@ -15,9 +15,6 @@
       "dependsOn": ["^build"],
       "outputs": ["{projectRoot}/dist"],
       "cache": true
-    },
-    "lint": {
-      "cache": true
     }
   },
 
@@ -39,6 +36,7 @@
 
   "plugins": [
     "@nx-go/nx-go",
+
     {
       "plugin": "@nx/js/typescript",
       "options": {
@@ -49,6 +47,14 @@
           "targetName": "build",
           "configName": "tsconfig.lib.json"
         }
+      }
+    },
+
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint",
+        "flags": ["unstable_config_lookup_from_file", "unstable_ts_config"]
       }
     }
   ]

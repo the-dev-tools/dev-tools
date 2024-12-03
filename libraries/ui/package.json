@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cosmos --config=cosmos/config.json",
-    "lint": "eslint --flag unstable_ts_config ."
+    "dev": "cosmos --config=cosmos/config.json"
   },
   "exports": {
     "./*": "./src/*.tsx",

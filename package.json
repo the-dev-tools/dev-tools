@@ -10,13 +10,17 @@
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "~4.4.0",
     "@nx-go/nx-go": "~3.3.0",
+    "@nx/eslint": "~20.1.3",
     "@nx/js": "~20.1.4",
+    "@the-dev-tools/config-eslint": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
     "@typespec/compiler": "~0.61.1",
     "@typespec/prettier-plugin-typespec": "~0.61.0",
+    "eslint": "~9.15.0",
     "jiti": "~2.4.0",
     "nx": "~20.1.3",
     "prettier": "~3.4.1",
+    "react": "~18.3.1",
     "syncpack": "~13.0.0",
     "typescript": "~5.7.2",
     "wrangler": "~3.91.0"
@@ -30,6 +34,9 @@
     },
     "overrides": {
       "sharp": "0.33.5"
+    },
+    "patchedDependencies": {
+      "@nx/eslint@20.1.3": "patches/@nx__eslint@20.1.3.patch"
     }
   }
 }

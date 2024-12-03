@@ -4,7 +4,7 @@
   "name": "root",
 
   "targets": {
-    "lint": {
+    "lint:format": {
       "executor": "nx:run-commands",
       "options": {
         "commands": ["prettier --check .", "syncpack lint"]

@@ -1,3 +1,1 @@
-import { eslintReactConfig } from '@the-dev-tools/config-eslint';
-
-export default eslintReactConfig;
+export { default } from '@the-dev-tools/config-eslint';

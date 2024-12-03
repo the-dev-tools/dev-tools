@@ -6,7 +6,6 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "lint": "eslint --flag unstable_ts_config .",
     "preview": "vite preview"
   },
   "dependencies": {

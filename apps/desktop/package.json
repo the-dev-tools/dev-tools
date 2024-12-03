@@ -5,8 +5,7 @@
   "type": "module",
   "main": "./dist/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "lint": "eslint --flag unstable_ts_config ."
+    "dev": "electron-vite dev"
   },
   "dependencies": {
     "@effect/platform": "0.69.26",

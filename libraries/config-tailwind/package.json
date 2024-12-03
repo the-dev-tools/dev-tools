@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build/design-tokens": "tsx ./src/design-tokens",
-    "lint": "eslint --flag unstable_ts_config ."
+    "build/design-tokens": "tsx ./src/design-tokens"
   },
   "exports": {
     ".": "./src/config.ts"
