@@ -111,34 +111,34 @@ type Flow struct {
 }
 
 type FlowNode struct {
-	ID       []byte
-	FlowID   []byte
+	ID       idwrap.IDWrap
+	FlowID   idwrap.IDWrap
 	NodeType int8
-	NodeID   []byte
+	NodeID   idwrap.IDWrap
 }
 
 type FlowNodeFor struct {
-	ID              []byte
-	FlowNodeID      []byte
+	FlowNodeID      idwrap.IDWrap
+	Name            string
 	IterCount       int64
-	LoopStartNodeID interface{}
-	Next            []byte
+	LoopStartNodeID idwrap.IDWrap
+	Next            idwrap.IDWrap
 }
 
 type FlowNodeIf struct {
-	ID            []byte
-	FlowNodeID    []byte
+	FlowNodeID    idwrap.IDWrap
+	Name          string
 	ConditionType int8
 	Condition     string
-	NextTrue      []byte
-	NextFalse     []byte
+	NextTrue      idwrap.IDWrap
+	NextFalse     idwrap.IDWrap
 }
 
 type FlowNodeRequest struct {
-	ID         []byte
-	FlowNodeID []byte
-	ExampleID  []byte
-	Next       []byte
+	FlowNodeID idwrap.IDWrap
+	Name       string
+	ExampleID  idwrap.IDWrap
+	Next       idwrap.IDWrap
 }
 
 type FlowTag struct {

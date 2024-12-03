@@ -302,6 +302,7 @@ CREATE TABLE flow_node (
 
 CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
   iter_count BIGINT NOT NULL,
   loop_start_node_id BLOB,
   next BLOB,

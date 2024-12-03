@@ -667,10 +667,10 @@ VALUES
 `
 
 type CreateFlowNodeParams struct {
-	ID       []byte
-	FlowID   []byte
+	ID       idwrap.IDWrap
+	FlowID   idwrap.IDWrap
 	NodeType int8
-	NodeID   []byte
+	NodeID   idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNode(ctx context.Context, arg CreateFlowNodeParams) error {
@@ -685,23 +685,23 @@ func (q *Queries) CreateFlowNode(ctx context.Context, arg CreateFlowNodeParams) 
 
 const createFlowNodeFor = `-- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (id, flow_node_id, iter_count, loop_start_node_id, next)
+  flow_node_for (flow_node_id, name, iter_count, loop_start_node_id, next)
 VALUES
   (?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeForParams struct {
-	ID              []byte
-	FlowNodeID      []byte
+	FlowNodeID      idwrap.IDWrap
+	Name            string
 	IterCount       int64
-	LoopStartNodeID interface{}
-	Next            []byte
+	LoopStartNodeID idwrap.IDWrap
+	Next            idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeFor(ctx context.Context, arg CreateFlowNodeForParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeForStmt, createFlowNodeFor,
-		arg.ID,
 		arg.FlowNodeID,
+		arg.Name,
 		arg.IterCount,
 		arg.LoopStartNodeID,
 		arg.Next,
@@ -711,46 +711,50 @@ func (q *Queries) CreateFlowNodeFor(ctx context.Context, arg CreateFlowNodeForPa
 
 const createFlowNodeIf = `-- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (id, flow_node_id, condition_type, condition)
+  flow_node_if (flow_node_id, name, condition_type, condition, next_true, next_false)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeIfParams struct {
-	ID            []byte
-	FlowNodeID    []byte
+	FlowNodeID    idwrap.IDWrap
+	Name          string
 	ConditionType int8
 	Condition     string
+	NextTrue      idwrap.IDWrap
+	NextFalse     idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeIfStmt, createFlowNodeIf,
-		arg.ID,
 		arg.FlowNodeID,
+		arg.Name,
 		arg.ConditionType,
 		arg.Condition,
+		arg.NextTrue,
+		arg.NextFalse,
 	)
 	return err
 }
 
 const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (id, flow_node_id, example_id, next)
+  flow_node_request (flow_node_id, name, example_id, next)
 VALUES
   (?, ?, ?, ?)
 `
 
 type CreateFlowNodeRequestParams struct {
-	ID         []byte
-	FlowNodeID []byte
-	ExampleID  []byte
-	Next       []byte
+	FlowNodeID idwrap.IDWrap
+	Name       string
+	ExampleID  idwrap.IDWrap
+	Next       idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeRequestStmt, createFlowNodeRequest,
-		arg.ID,
 		arg.FlowNodeID,
+		arg.Name,
 		arg.ExampleID,
 		arg.Next,
 	)
@@ -2161,7 +2165,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteFlowNode(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteFlowNode(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeStmt, deleteFlowNode, id)
 	return err
 }
@@ -2169,33 +2173,33 @@ func (q *Queries) DeleteFlowNode(ctx context.Context, id []byte) error {
 const deleteFlowNodeFor = `-- name: DeleteFlowNodeFor :exec
 DELETE FROM flow_node_for
 WHERE
-  id = ?
+  flow_node_id = ?
 `
 
-func (q *Queries) DeleteFlowNodeFor(ctx context.Context, id []byte) error {
-	_, err := q.exec(ctx, q.deleteFlowNodeForStmt, deleteFlowNodeFor, id)
+func (q *Queries) DeleteFlowNodeFor(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeForStmt, deleteFlowNodeFor, flowNodeID)
 	return err
 }
 
 const deleteFlowNodeIf = `-- name: DeleteFlowNodeIf :exec
 DELETE FROM flow_node_if
 WHERE
-  id = ?
+  flow_node_id = ?
 `
 
-func (q *Queries) DeleteFlowNodeIf(ctx context.Context, id []byte) error {
-	_, err := q.exec(ctx, q.deleteFlowNodeIfStmt, deleteFlowNodeIf, id)
+func (q *Queries) DeleteFlowNodeIf(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeIfStmt, deleteFlowNodeIf, flowNodeID)
 	return err
 }
 
 const deleteFlowNodeRequest = `-- name: DeleteFlowNodeRequest :exec
 DELETE FROM flow_node_request
 WHERE
-  id = ?
+  flow_node_id = ?
 `
 
-func (q *Queries) DeleteFlowNodeRequest(ctx context.Context, id []byte) error {
-	_, err := q.exec(ctx, q.deleteFlowNodeRequestStmt, deleteFlowNodeRequest, id)
+func (q *Queries) DeleteFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeRequestStmt, deleteFlowNodeRequest, flowNodeID)
 	return err
 }
 
@@ -2339,7 +2343,7 @@ SELECT
   type,
   name,
   description
-FROM 
+FROM
   environment
 WHERE
   workspace_id = ? AND active = true
@@ -2365,7 +2369,7 @@ const getAssert = `-- name: GetAssert :one
 * INFO: Asserts
 */
 
-SELECT 
+SELECT
   id,
   example_id,
   type,
@@ -2374,7 +2378,7 @@ SELECT
   enable,
   prev,
   next
-FROM 
+FROM
   assertion
 WHERE
   id = ?
@@ -2402,12 +2406,12 @@ const getAssertResult = `-- name: GetAssertResult :one
 * INFO: assert_result
 */
 
-SELECT 
+SELECT
   id,
   response_id,
   assertion_id,
   result
-FROM 
+FROM
   assertion_result
 WHERE
   id = ?
@@ -2427,12 +2431,12 @@ func (q *Queries) GetAssertResult(ctx context.Context, id idwrap.IDWrap) (Assert
 }
 
 const getAssertResultsByAssertID = `-- name: GetAssertResultsByAssertID :many
-SELECT 
+SELECT
   id,
   response_id,
   assertion_id,
   result
-FROM 
+FROM
   assertion_result
 WHERE
   assertion_id = ?
@@ -2467,12 +2471,12 @@ func (q *Queries) GetAssertResultsByAssertID(ctx context.Context, assertionID id
 }
 
 const getAssertResultsByResponseID = `-- name: GetAssertResultsByResponseID :many
-SELECT 
+SELECT
   id,
   response_id,
   assertion_id,
   result
-FROM 
+FROM
   assertion_result
 WHERE
   response_id = ?
@@ -2507,7 +2511,7 @@ func (q *Queries) GetAssertResultsByResponseID(ctx context.Context, responseID i
 }
 
 const getAssertsByExampleID = `-- name: GetAssertsByExampleID :many
-SELECT 
+SELECT
   id,
   example_id,
   type,
@@ -2516,7 +2520,7 @@ SELECT
   enable,
   prev,
   next
-FROM 
+FROM
   assertion
 WHERE
   example_id = ?
@@ -2561,16 +2565,16 @@ const getBodyForm = `-- name: GetBodyForm :one
 *
 */
 
-SELECT 
+SELECT
   id,
   example_id,
   body_key,
   enable,
   description,
   value
-FROM 
-    example_body_form 
-WHERE 
+FROM
+    example_body_form
+WHERE
     id = ?
 LIMIT 1
 `
@@ -2597,9 +2601,9 @@ SELECT
   enable,
   description,
   value
-FROM 
-    example_body_form 
-WHERE 
+FROM
+    example_body_form
+WHERE
     example_id = ?
 `
 
@@ -2638,13 +2642,13 @@ const getBodyRaw = `-- name: GetBodyRaw :one
 * Body Raw
 */
 
-SELECT 
+SELECT
   id,
   example_id,
   visualize_mode,
   compress_type,
   data
-FROM 
+FROM
   example_body_raw
 WHERE
   id = ?
@@ -2665,13 +2669,13 @@ func (q *Queries) GetBodyRaw(ctx context.Context, id idwrap.IDWrap) (ExampleBody
 }
 
 const getBodyRawsByExampleID = `-- name: GetBodyRawsByExampleID :one
-SELECT 
+SELECT
   id,
   example_id,
   visualize_mode,
   compress_type,
   data
-FROM 
+FROM
   example_body_raw
 WHERE
   example_id = ?
@@ -2693,14 +2697,14 @@ func (q *Queries) GetBodyRawsByExampleID(ctx context.Context, exampleID idwrap.I
 
 const getBodyUrlEncoded = `-- name: GetBodyUrlEncoded :one
 
-SELECT 
+SELECT
   id,
   example_id,
   body_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_body_urlencoded
 WHERE
   id = ?
@@ -2723,14 +2727,14 @@ func (q *Queries) GetBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (Exam
 }
 
 const getBodyUrlEncodedsByExampleID = `-- name: GetBodyUrlEncodedsByExampleID :many
-SELECT 
+SELECT
   id,
   example_id,
   body_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_body_urlencoded
 WHERE
   example_id = ?
@@ -2885,7 +2889,7 @@ SELECT
   type,
   name,
   description
-FROM 
+FROM
   environment
 WHERE
   id = ?
@@ -2914,7 +2918,7 @@ SELECT
   type,
   name,
   description
-FROM 
+FROM
   environment
 WHERE
   workspace_id = ?
@@ -2953,7 +2957,7 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 const getExampleResp = `-- name: GetExampleResp :one
 SELECT
     id, example_id, status, body, body_compress_type, duration
-FROM 
+FROM
   example_resp
 WHERE
   id = ?
@@ -2979,12 +2983,12 @@ const getExampleRespHeader = `-- name: GetExampleRespHeader :one
 * example_resp_header
 */
 
-SELECT 
+SELECT
   id,
   example_resp_id,
   header_key,
   value
-FROM 
+FROM
   example_resp_header
 WHERE
   id = ?
@@ -3004,12 +3008,12 @@ func (q *Queries) GetExampleRespHeader(ctx context.Context, id idwrap.IDWrap) (E
 }
 
 const getExampleRespHeadersByRespID = `-- name: GetExampleRespHeadersByRespID :many
-SELECT 
+SELECT
   id,
   example_resp_id,
   header_key,
   value
-FROM 
+FROM
   example_resp_header
 WHERE
   example_resp_id = ?
@@ -3068,11 +3072,11 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 }
 
 const getFlow = `-- name: GetFlow :one
-SELECT 
+SELECT
   id,
   workspace_id,
   name
-FROM 
+FROM
   flow
 WHERE
   id = ?
@@ -3087,19 +3091,19 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 }
 
 const getFlowNode = `-- name: GetFlowNode :one
-SELECT 
+SELECT
   id,
   flow_id,
   node_type,
   node_id
-FROM 
+FROM
   flow_node
 WHERE
   id = ?
 LIMIT 1
 `
 
-func (q *Queries) GetFlowNode(ctx context.Context, id []byte) (FlowNode, error) {
+func (q *Queries) GetFlowNode(ctx context.Context, id idwrap.IDWrap) (FlowNode, error) {
 	row := q.queryRow(ctx, q.getFlowNodeStmt, getFlowNode, id)
 	var i FlowNode
 	err := row.Scan(
@@ -3112,24 +3116,32 @@ func (q *Queries) GetFlowNode(ctx context.Context, id []byte) (FlowNode, error) 
 }
 
 const getFlowNodeFor = `-- name: GetFlowNodeFor :one
-SELECT 
-  id,
+SELECT
+  name,
   flow_node_id,
   iter_count,
   loop_start_node_id,
   next
-FROM 
+FROM
   flow_node_for
 WHERE
-  id = ?
+  flow_node_id = ?
 LIMIT 1
 `
 
-func (q *Queries) GetFlowNodeFor(ctx context.Context, id []byte) (FlowNodeFor, error) {
-	row := q.queryRow(ctx, q.getFlowNodeForStmt, getFlowNodeFor, id)
-	var i FlowNodeFor
+type GetFlowNodeForRow struct {
+	Name            string
+	FlowNodeID      idwrap.IDWrap
+	IterCount       int64
+	LoopStartNodeID idwrap.IDWrap
+	Next            idwrap.IDWrap
+}
+
+func (q *Queries) GetFlowNodeFor(ctx context.Context, flowNodeID idwrap.IDWrap) (GetFlowNodeForRow, error) {
+	row := q.queryRow(ctx, q.getFlowNodeForStmt, getFlowNodeFor, flowNodeID)
+	var i GetFlowNodeForRow
 	err := row.Scan(
-		&i.ID,
+		&i.Name,
 		&i.FlowNodeID,
 		&i.IterCount,
 		&i.LoopStartNodeID,
@@ -3139,56 +3151,53 @@ func (q *Queries) GetFlowNodeFor(ctx context.Context, id []byte) (FlowNodeFor, e
 }
 
 const getFlowNodeIf = `-- name: GetFlowNodeIf :one
-SELECT 
-  id,
+SELECT
   flow_node_id,
+  name,
   condition_type,
-  condition
-FROM 
+  condition,
+  next_true,
+  next_false
+FROM
   flow_node_if
 WHERE
-  id = ?
+  flow_node_id = ?
 LIMIT 1
 `
 
-type GetFlowNodeIfRow struct {
-	ID            []byte
-	FlowNodeID    []byte
-	ConditionType int8
-	Condition     string
-}
-
-func (q *Queries) GetFlowNodeIf(ctx context.Context, id []byte) (GetFlowNodeIfRow, error) {
-	row := q.queryRow(ctx, q.getFlowNodeIfStmt, getFlowNodeIf, id)
-	var i GetFlowNodeIfRow
+func (q *Queries) GetFlowNodeIf(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeIf, error) {
+	row := q.queryRow(ctx, q.getFlowNodeIfStmt, getFlowNodeIf, flowNodeID)
+	var i FlowNodeIf
 	err := row.Scan(
-		&i.ID,
 		&i.FlowNodeID,
+		&i.Name,
 		&i.ConditionType,
 		&i.Condition,
+		&i.NextTrue,
+		&i.NextFalse,
 	)
 	return i, err
 }
 
 const getFlowNodeRequest = `-- name: GetFlowNodeRequest :one
-SELECT 
-  id,
+SELECT
   flow_node_id,
+  name,
   example_id,
   next
-FROM 
+FROM
   flow_node_request
 WHERE
-  id = ?
+  flow_node_id = ?
 LIMIT 1
 `
 
-func (q *Queries) GetFlowNodeRequest(ctx context.Context, id []byte) (FlowNodeRequest, error) {
-	row := q.queryRow(ctx, q.getFlowNodeRequestStmt, getFlowNodeRequest, id)
+func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeRequest, error) {
+	row := q.queryRow(ctx, q.getFlowNodeRequestStmt, getFlowNodeRequest, flowNodeID)
 	var i FlowNodeRequest
 	err := row.Scan(
-		&i.ID,
 		&i.FlowNodeID,
+		&i.Name,
 		&i.ExampleID,
 		&i.Next,
 	)
@@ -3196,18 +3205,18 @@ func (q *Queries) GetFlowNodeRequest(ctx context.Context, id []byte) (FlowNodeRe
 }
 
 const getFlowNodesByFlowID = `-- name: GetFlowNodesByFlowID :many
-SELECT 
+SELECT
   id,
   flow_id,
   node_type,
   node_id
-FROM 
+FROM
   flow_node
 WHERE
   flow_id = ?
 `
 
-func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID []byte) ([]FlowNode, error) {
+func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowNode, error) {
 	rows, err := q.query(ctx, q.getFlowNodesByFlowIDStmt, getFlowNodesByFlowID, flowID)
 	if err != nil {
 		return nil, err
@@ -3236,7 +3245,7 @@ func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID []byte) ([]Fl
 }
 
 const getFlowTag = `-- name: GetFlowTag :one
-SELECT 
+SELECT
   id,
   flow_id,
   tag_id
@@ -3257,7 +3266,7 @@ SELECT
   id,
   flow_id,
   tag_id
-FROM 
+FROM
   flow_tag
 WHERE
   flow_id = ?
@@ -3291,7 +3300,7 @@ SELECT
   id,
   flow_id,
   tag_id
-FROM 
+FROM
   flow_tag
 WHERE
   tag_id = ?
@@ -3321,11 +3330,11 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 }
 
 const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
-SELECT 
+SELECT
   id,
   workspace_id,
   name
-FROM 
+FROM
   flow
 WHERE
   workspace_id = ?
@@ -3357,18 +3366,18 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 const getHeader = `-- name: GetHeader :one
 /*
 *
-* Header 
+* Header
 *
 */
 
-SELECT 
+SELECT
   id,
   example_id,
   header_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_header
 WHERE
   id = ?
@@ -3397,7 +3406,7 @@ SELECT
   enable,
   description,
   value
-FROM 
+FROM
   example_header
 WHERE
   example_id = ?
@@ -3798,7 +3807,7 @@ SELECT
   enable,
   description,
   value
-FROM 
+FROM
   example_query
 WHERE
   example_id = ?
@@ -3841,14 +3850,14 @@ const getQuery = `-- name: GetQuery :one
 *
 */
 
-SELECT 
+SELECT
   id,
   example_id,
   query_key,
   enable,
   description,
   value
-FROM 
+FROM
   example_query
 WHERE
   id = ?
@@ -3991,8 +4000,8 @@ SELECT
   workspace_id,
   name,
   color
-FROM 
-  tag 
+FROM
+  tag
 WHERE
   id = ?
 LIMIT 1
@@ -4016,7 +4025,7 @@ SELECT
   workspace_id,
   name,
   color
-FROM 
+FROM
   tag
 WHERE
   workspace_id = ?
@@ -4219,7 +4228,7 @@ SELECT
   value,
   enabled,
   description
-FROM 
+FROM
   variable
 WHERE
   id = ?
@@ -4682,7 +4691,7 @@ func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) 
 
 const updateBodyRawData = `-- name: UpdateBodyRawData :exec
 UPDATE example_body_raw
-SET 
+SET
   compress_type = ?,
   data = ?
 WHERE
@@ -4779,7 +4788,7 @@ func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentPa
 
 const updateExampleResp = `-- name: UpdateExampleResp :exec
 UPDATE example_resp
-SET 
+SET
   status = ?,
   body = ?,
   body_compress_type = ?,
@@ -4809,7 +4818,7 @@ func (q *Queries) UpdateExampleResp(ctx context.Context, arg UpdateExampleRespPa
 
 const updateExampleRespHeader = `-- name: UpdateExampleRespHeader :exec
 UPDATE example_resp_header
-SET 
+SET
   header_key = ?,
   value = ?
 WHERE
@@ -4856,8 +4865,8 @@ WHERE
 
 type UpdateFlowNodeParams struct {
 	NodeType int8
-	NodeID   []byte
-	ID       []byte
+	NodeID   idwrap.IDWrap
+	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNode(ctx context.Context, arg UpdateFlowNodeParams) error {
@@ -4868,26 +4877,29 @@ func (q *Queries) UpdateFlowNode(ctx context.Context, arg UpdateFlowNodeParams) 
 const updateFlowNodeFor = `-- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
 SET
+  name = ?,
   iter_count = ?,
   loop_start_node_id = ?,
   next = ?
 WHERE
-  id = ?
+  flow_node_id = ?
 `
 
 type UpdateFlowNodeForParams struct {
+	Name            string
 	IterCount       int64
-	LoopStartNodeID interface{}
-	Next            []byte
-	ID              []byte
+	LoopStartNodeID idwrap.IDWrap
+	Next            idwrap.IDWrap
+	FlowNodeID      idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeFor(ctx context.Context, arg UpdateFlowNodeForParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeForStmt, updateFlowNodeFor,
+		arg.Name,
 		arg.IterCount,
 		arg.LoopStartNodeID,
 		arg.Next,
-		arg.ID,
+		arg.FlowNodeID,
 	)
 	return err
 }
@@ -4895,40 +4907,60 @@ func (q *Queries) UpdateFlowNodeFor(ctx context.Context, arg UpdateFlowNodeForPa
 const updateFlowNodeIf = `-- name: UpdateFlowNodeIf :exec
 UPDATE flow_node_if
 SET
+  name = ?,
   condition_type = ?,
-  condition = ?
+  condition = ?,
+  next_true = ?,
+  next_false = ?
 WHERE
-  id = ?
+  flow_node_id = ?
 `
 
 type UpdateFlowNodeIfParams struct {
+	Name          string
 	ConditionType int8
 	Condition     string
-	ID            []byte
+	NextTrue      idwrap.IDWrap
+	NextFalse     idwrap.IDWrap
+	FlowNodeID    idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeIf(ctx context.Context, arg UpdateFlowNodeIfParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeIfStmt, updateFlowNodeIf, arg.ConditionType, arg.Condition, arg.ID)
+	_, err := q.exec(ctx, q.updateFlowNodeIfStmt, updateFlowNodeIf,
+		arg.Name,
+		arg.ConditionType,
+		arg.Condition,
+		arg.NextTrue,
+		arg.NextFalse,
+		arg.FlowNodeID,
+	)
 	return err
 }
 
 const updateFlowNodeRequest = `-- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
+  name = ?,
   example_id = ?,
   next = ?
 WHERE
-  id = ?
+  flow_node_id = ?
 `
 
 type UpdateFlowNodeRequestParams struct {
-	ExampleID []byte
-	Next      []byte
-	ID        []byte
+	Name       string
+	ExampleID  idwrap.IDWrap
+	Next       idwrap.IDWrap
+	FlowNodeID idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest, arg.ExampleID, arg.Next, arg.ID)
+	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest,
+		arg.Name,
+		arg.ExampleID,
+		arg.Next,
+		arg.FlowNodeID,
+	)
 	return err
 }
 
@@ -5096,7 +5128,7 @@ func (q *Queries) UpdateResultApi(ctx context.Context, arg UpdateResultApiParams
 }
 
 const updateTag = `-- name: UpdateTag :exec
-UPDATE tag 
+UPDATE tag
 SET
   name = ?,
   color = ?

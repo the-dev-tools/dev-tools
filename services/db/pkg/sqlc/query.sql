@@ -1527,6 +1527,7 @@ WHERE
 
 -- name: GetFlowNodeFor :one
 SELECT
+  name,
   flow_node_id,
   iter_count,
   loop_start_node_id,
@@ -1539,13 +1540,14 @@ LIMIT 1;
 
 -- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (flow_node_id, iter_count, loop_start_node_id, next)
+  flow_node_for (flow_node_id, name, iter_count, loop_start_node_id, next)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
 SET
+  name = ?,
   iter_count = ?,
   loop_start_node_id = ?,
   next = ?
@@ -1560,6 +1562,7 @@ WHERE
 -- name: GetFlowNodeRequest :one
 SELECT
   flow_node_id,
+  name,
   example_id,
   next
 FROM
@@ -1570,13 +1573,14 @@ LIMIT 1;
 
 -- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, example_id, next)
+  flow_node_request (flow_node_id, name, example_id, next)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
+  name = ?,
   example_id = ?,
   next = ?
 WHERE
@@ -1590,8 +1594,11 @@ WHERE
 -- name: GetFlowNodeIf :one
 SELECT
   flow_node_id,
+  name,
   condition_type,
-  condition
+  condition,
+  next_true,
+  next_false
 FROM
   flow_node_if
 WHERE
@@ -1600,15 +1607,18 @@ LIMIT 1;
 
 -- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (flow_node_id, condition_type, condition)
+  flow_node_if (flow_node_id, name, condition_type, condition, next_true, next_false)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeIf :exec
 UPDATE flow_node_if
 SET
+  name = ?,
   condition_type = ?,
-  condition = ?
+  condition = ?,
+  next_true = ?,
+  next_false = ?
 WHERE
   flow_node_id = ?;
 
