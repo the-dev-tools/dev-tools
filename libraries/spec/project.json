@@ -4,7 +4,32 @@
   "name": "spec",
   "projectType": "library",
 
-  "sync": {
-    "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
+  "targets": {
+    "dev": {
+      "command": "nx watch --projects=spec -- nx run spec:build"
+    },
+
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "parallel": false,
+        "commands": [
+          "rm -rf dist",
+          "pnpm tsp compile api",
+          "node lib/patch-paths.js",
+          "pnpm buf generate",
+          "node lib/collect-file-descriptors.js"
+        ]
+      }
+    },
+
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "pnpm buf lint"
+      }
+    }
   }
 }
