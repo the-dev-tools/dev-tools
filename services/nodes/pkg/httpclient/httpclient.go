@@ -32,9 +32,9 @@ type Request struct {
 }
 
 type Response struct {
-	StatusCode int
-	Body       []byte
-	Headers    []mexamplerespheader.ExampleRespHeader
+	StatusCode int                                    `json:"statusCode"`
+	Body       []byte                                 `json:"body"`
+	Headers    []mexamplerespheader.ExampleRespHeader `json:"headers"`
 }
 
 func SendRequest(client HttpClient, req Request) (*http.Response, error) {

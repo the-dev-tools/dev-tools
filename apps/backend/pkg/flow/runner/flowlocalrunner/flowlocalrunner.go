@@ -30,16 +30,18 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus) error {
 	nextNodeID := &r.StartNodeID
 	var err error
-	variableMap := make(map[string]interface{})
+	req := &node.FlowNodeRequest{
+		VarMap: map[string]interface{}{},
+	}
 	for nextNodeID != nil {
 		currentNode, ok := r.FlowNodeMap[*nextNodeID]
 		if !ok {
 			return runner.ErrNodeNotFound
 		}
 		if r.Timeout == 0 {
-			nextNodeID, err = RunNodeSync(ctx, currentNode, variableMap)
+			nextNodeID, err = RunNodeSync(ctx, currentNode, req)
 		} else {
-			nextNodeID, err = RunNodeAsync(ctx, currentNode, variableMap, r.Timeout)
+			nextNodeID, err = RunNodeAsync(ctx, currentNode, req, r.Timeout)
 			if err != nil {
 				return err
 			}
@@ -48,16 +50,16 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 	return nil
 }
 
-func RunNodeSync(ctx context.Context, currentNode node.FlowNode, variableMap map[string]interface{}) (*idwrap.IDWrap, error) {
-	res := currentNode.RunSync(ctx, variableMap)
+func RunNodeSync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest) (*idwrap.IDWrap, error) {
+	res := currentNode.RunSync(ctx, req)
 	return res.NextNodeID, res.Err
 }
 
-func RunNodeAsync(ctx context.Context, currentNode node.FlowNode, variableMap map[string]interface{}, timeout time.Duration) (*idwrap.IDWrap, error) {
+func RunNodeAsync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest, timeout time.Duration) (*idwrap.IDWrap, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	resultChan := make(chan node.FlowNodeResult, 1)
-	go currentNode.RunAsync(ctx, variableMap, resultChan)
+	go currentNode.RunAsync(ctx, req, resultChan)
 	select {
 	case <-ctx.Done():
 		fmt.Println("timeout")

@@ -28,7 +28,7 @@ func (mn *MockNode) SetID(id idwrap.IDWrap) {
 	mn.ID = id
 }
 
-func (mn *MockNode) RunSync(ctx context.Context, variableMap map[string]interface{}) node.FlowNodeResult {
+func (mn *MockNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	mn.OnRun()
 	return node.FlowNodeResult{
 		NextNodeID: mn.Next,
@@ -36,7 +36,7 @@ func (mn *MockNode) RunSync(ctx context.Context, variableMap map[string]interfac
 	}
 }
 
-func (mn *MockNode) RunAsync(ctx context.Context, variableMap map[string]interface{}, resultChan chan node.FlowNodeResult) {
+func (mn *MockNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	mn.OnRun()
 	resultChan <- node.FlowNodeResult{
 		NextNodeID: mn.Next,

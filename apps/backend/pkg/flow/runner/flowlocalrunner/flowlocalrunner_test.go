@@ -85,7 +85,7 @@ func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
 
 func TestLocalFlowRunner_Run_Timeout(t *testing.T) {
 	sleepTime := time.Second
-	timeout := time.Millisecond * 500
+	timeout := time.Millisecond * 300
 
 	onRun := func() {
 		time.Sleep(sleepTime)
