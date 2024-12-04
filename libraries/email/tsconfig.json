@@ -1,6 +1,9 @@
 {
   "extends": ["../../tsconfig.base"],
   "files": [],
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
   "references": [
     { "path": "../utils" },
     { "path": "../config-tailwind" },
