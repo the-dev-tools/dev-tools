@@ -9,7 +9,7 @@
 
   "targetDefaults": {
     "dev": {
-      "dependsOn": ["^init"],
+      "dependsOn": ["init", "^init"],
       "cache": false
     },
 
@@ -20,11 +20,11 @@
     },
 
     "lint": {
-      "dependsOn": ["^init"]
+      "dependsOn": ["init", "^init"]
     },
 
     "test": {
-      "dependsOn": ["root:init", "^init"]
+      "dependsOn": ["root:init", "init", "^init"]
     }
   },
 
