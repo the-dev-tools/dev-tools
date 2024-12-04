@@ -1,5 +1,7 @@
 {
   "name": "@the-dev-tools/backend",
   "version": "0.47.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "exports": "./dist"
 }

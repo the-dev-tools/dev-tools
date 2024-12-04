@@ -8,7 +8,8 @@
     "build": {
       "executor": "@nx-go/nx-go:build",
       "options": {
-        "main": "{projectRoot}/cmd/backend/backend.go"
+        "main": "{projectRoot}/cmd/backend/backend.go",
+        "outputPath": "{projectRoot}/dist/backend"
       }
     },
     "dev": {

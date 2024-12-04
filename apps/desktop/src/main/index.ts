@@ -1,7 +1,8 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Config, Console, Effect, Exit, pipe, Scope } from 'effect';
+import { Console, Effect, Exit, pipe, Scope } from 'effect';
 import { app, BrowserWindow } from 'electron';
 
 const createWindow = () => {
@@ -26,10 +27,11 @@ const createWindow = () => {
 };
 
 const server = Effect.gen(function* () {
-  const dir = yield* Config.string('SERVER_BINARY');
-
   const server = yield* pipe(
-    Command.make(`${dir}-${process.platform}-${process.arch}`),
+    import.meta.resolve('@the-dev-tools/backend'),
+    fileURLToPath,
+    (_) => `${_}/backend`,
+    Command.make,
     Command.env({
       DB_PATH: './',
       DB_MODE: 'local',

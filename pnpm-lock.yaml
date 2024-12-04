@@ -170,6 +170,9 @@ importers:
       '@the-dev-tools/api':
         specifier: workspace:^
         version: link:../../libraries/api
+      '@the-dev-tools/backend':
+        specifier: workspace:^
+        version: link:../backend
       '@the-dev-tools/core':
         specifier: workspace:^
         version: link:../../libraries/core
