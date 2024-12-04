@@ -24,7 +24,7 @@
     },
 
     "test": {
-      "dependsOn": ["^init"]
+      "dependsOn": ["root:init", "^init"]
     }
   },
 

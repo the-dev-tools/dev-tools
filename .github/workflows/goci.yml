@@ -1,11 +1,7 @@
 name: goci
 
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - '**.go'
+  workflow_dispatch:
 
 env:
   GO_VERSION: 1.23

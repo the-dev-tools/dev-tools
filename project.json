@@ -4,6 +4,13 @@
   "name": "root",
 
   "targets": {
+    "init": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["rm --force dist/go-test-results.json", "mkdir --parents dist"]
+      }
+    },
+
     "lint:format": {
       "executor": "nx:run-commands",
       "options": {

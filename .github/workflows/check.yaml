@@ -29,3 +29,11 @@ jobs:
 
       - name: Lint
         run: task lint
+
+      - name: Test
+        run: task test
+
+      - name: Generate Go test outputs
+        uses: robherley/go-test-action@v0
+        with:
+          fromJSONFile: ./dist/go-test-results.json

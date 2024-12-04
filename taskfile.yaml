@@ -38,6 +38,11 @@ tasks:
     interactive: true
     cmd: pnpm nx run-many --targets=lint --targets=lint:format --nxBail {{.CLI_ARGS}}
 
+  test:
+    desc: Test code for common problems
+    interactive: true
+    cmd: pnpm nx run-many --targets=test {{.CLI_ARGS}}
+
   fix:
     desc: Automatically fix common problems
     deps:

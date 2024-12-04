@@ -6,7 +6,7 @@
 
   "targets": {
     "test": {
-      "executor": "@nx-go/nx-go:test"
+      "command": "go test ./{projectRoot}/... -json >> dist/go-test-results.json"
     },
     "lint": {
       "executor": "@nx-go/nx-go:lint"
