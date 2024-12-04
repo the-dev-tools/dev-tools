@@ -2,5 +2,27 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
   "name": "email",
-  "projectType": "library"
+  "projectType": "library",
+
+  "targets": {
+    "init": {
+      "dependsOn": ["build"]
+    },
+
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "email dev --dir=src --port=3010"
+      }
+    },
+
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "email export --dir=src --outDir=dist"
+      }
+    }
+  }
 }
