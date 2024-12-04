@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"errors"
 	"the-dev-tools/backend/pkg/idwrap"
 )
@@ -11,7 +12,7 @@ var (
 )
 
 type FlowRunner interface {
-	Run(chan FlowStatus) error
+	Run(context.Context, chan FlowStatus) error
 }
 
 type FlowStatus struct {

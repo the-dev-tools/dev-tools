@@ -1,11 +1,13 @@
 package flowlocalrunner_test
 
 import (
+	"context"
 	"testing"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/mocknode"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
+	"time"
 )
 
 func TestLocalFlowRunner_Run_Full(t *testing.T) {
@@ -27,14 +29,25 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 		node2ID: mockNode2,
 		node3ID: mockNode3,
 	}
-	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap)
-	err := runner.Run(nil)
-	if err != nil {
-		t.Errorf("Expected err to be nil, but got %v", err)
-	}
-	if runCounter != CountShouldRun {
-		t.Errorf("Expected runCounter to be %d, but got %d", CountShouldRun, runCounter)
-	}
+
+	t.Run("Sync", func(t *testing.T) {
+		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, 0)
+		err := runner.Run(context.Background(), nil)
+		if err != nil {
+			t.Errorf("Expected err to be nil, but got %v", err)
+		}
+		if runCounter != CountShouldRun {
+			t.Errorf("Expected runCounter to be %d, but got %d", CountShouldRun, runCounter)
+		}
+	})
+	runCounter = 0
+	t.Run("Async", func(t *testing.T) {
+		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, time.Minute)
+		err := runner.Run(context.Background(), nil)
+		if err != nil {
+			t.Errorf("Expected err to be nil, but got %v", err)
+		}
+	})
 }
 
 func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
@@ -60,12 +73,40 @@ func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
 		node3ID: mockNode3,
 		node4ID: mockNode4,
 	}
-	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap)
-	err := runner.Run(nil)
+	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, 0)
+	err := runner.Run(context.Background(), nil)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
 	}
 	if runCounter != CountShouldRun {
 		t.Errorf("Expected runCounter to be %d, but got %d", CountShouldRun, runCounter)
+	}
+}
+
+func TestLocalFlowRunner_Run_Timeout(t *testing.T) {
+	sleepTime := time.Second
+	timeout := time.Millisecond * 500
+
+	onRun := func() {
+		time.Sleep(sleepTime)
+	}
+
+	node1ID := idwrap.NewNow()
+	node2ID := idwrap.NewNow()
+	node3ID := idwrap.NewNow()
+	mockNode1 := mocknode.NewMockNode(node1ID, &node2ID, onRun)
+	mockNode2 := mocknode.NewMockNode(node2ID, &node3ID, onRun)
+	mockNode3 := mocknode.NewMockNode(node3ID, nil, onRun)
+
+	flowNodeMap := map[idwrap.IDWrap]node.FlowNode{
+		node1ID: mockNode1,
+		node2ID: mockNode2,
+		node3ID: mockNode3,
+	}
+
+	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, timeout)
+	err := runner.Run(context.Background(), nil)
+	if err == nil {
+		t.Errorf("Expected err to be not nil, but got %v", err)
 	}
 }

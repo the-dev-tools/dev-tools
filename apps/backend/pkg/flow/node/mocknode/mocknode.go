@@ -1,6 +1,8 @@
 package mocknode
 
 import (
+	"context"
+	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
 )
 
@@ -26,7 +28,18 @@ func (mn *MockNode) SetID(id idwrap.IDWrap) {
 	mn.ID = id
 }
 
-func (mn *MockNode) Run(variableMap map[string]interface{}) (*idwrap.IDWrap, error) {
+func (mn *MockNode) RunSync(ctx context.Context, variableMap map[string]interface{}) node.FlowNodeResult {
 	mn.OnRun()
-	return mn.Next, nil
+	return node.FlowNodeResult{
+		NextNodeID: mn.Next,
+		Err:        nil,
+	}
+}
+
+func (mn *MockNode) RunAsync(ctx context.Context, variableMap map[string]interface{}, resultChan chan node.FlowNodeResult) {
+	mn.OnRun()
+	resultChan <- node.FlowNodeResult{
+		NextNodeID: mn.Next,
+		Err:        nil,
+	}
 }
