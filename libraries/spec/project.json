@@ -5,6 +5,10 @@
   "projectType": "library",
 
   "targets": {
+    "init": {
+      "dependsOn": ["build"]
+    },
+
     "dev": {
       "command": "nx watch --projects=spec -- nx run spec:build"
     },
