@@ -77,4 +77,3 @@ interface FlowService {
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }
-
