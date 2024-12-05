@@ -3,7 +3,6 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
@@ -98,7 +97,6 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		result.Err = err
 		resultChan <- result
 	}
-	fmt.Println(resp.Body)
 
 	respMap := map[string]interface{}{}
 	// TODO: change map conversion non json

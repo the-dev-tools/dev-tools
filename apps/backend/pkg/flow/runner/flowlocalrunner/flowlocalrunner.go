@@ -31,7 +31,8 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 	nextNodeID := &r.StartNodeID
 	var err error
 	req := &node.FlowNodeRequest{
-		VarMap: map[string]interface{}{},
+		VarMap:  map[string]interface{}{},
+		NodeMap: r.FlowNodeMap,
 	}
 	for nextNodeID != nil {
 		currentNode, ok := r.FlowNodeMap[*nextNodeID]
