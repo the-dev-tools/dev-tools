@@ -51,9 +51,9 @@ model FlowRunRequest {
 
 enum ResultKind {
   RESULT_KIND_UNSPECIFIED: 0,
-  RESULT_KIND_ONGOING: 1,
-  RESULT_KIND_SUCCESS: 2,
-  RESULT_KIND_FAILURE: 3,
+  RESULT_KIND_SUCCESS: 1,
+  RESULT_KIND_FAILURE: 2,
+  RESULT_KIND_ONGOING: 3,
 }
 
 model Result {
@@ -77,3 +77,4 @@ interface FlowService {
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }
+

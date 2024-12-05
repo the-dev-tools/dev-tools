@@ -70,3 +70,43 @@ model NodeCondition {
   conditionType: ConditionType;
   customCondition?: string;
 }
+
+model NodeListItem is Resource.List.Item<Node>;
+model NodeListRequest is Resource.List.Request<Node>;
+model NodeListResponse is Resource.List.Response<NodeListItem>;
+model NodeGetRequest is Resource.Get.Request<Node>;
+model NodeGetResponse is Resource.Get.Response<Node>;
+model NodeCreateRequest is Resource.Create.Request<Node>;
+model NodeCreateResponse is Resource.Create.Response<Node>;
+model NodeUpdateRequest is Resource.Update.Request<Node>;
+model NodeUpdateResponse is Resource.Update.Response<Node>;
+model NodeDeleteRequest is Resource.Delete.Request<Node>;
+model NodeDeleteResponse is Resource.Delete.Response<Node>;
+
+@autoFields
+model NodeRunRequest {
+  nodeId: Resource.ID;
+  environmentId: Resource.ID;
+}
+
+enum ResultKind {
+  RESULT_KIND_UNSPECIFIED: 0,
+  RESULT_KIND_SUCCESS: 1,
+  RESULT_KIND_FAILURE: 2,
+}
+
+@autoFields
+model NodeRunResponse {
+  varMap: bytes; // json map cannot be represented in typespec
+  resultKind: ResultKind;
+}
+
+@Protobuf.service
+interface NodeService {
+  NodeList(...NodeListRequest): NodeListResponse;
+  NodeGet(...NodeGetRequest): NodeGetResponse;
+  NodeCreate(...NodeCreateRequest): NodeCreateResponse;
+  NodeUpdate(...NodeUpdateRequest): NodeUpdateResponse;
+  NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
+  NodeRun(...NodeRunRequest): NodeRunResponse;
+}
