@@ -72,6 +72,10 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 	err = json.Unmarshal(marshaledResp, &respMap)
+	if err != nil {
+		result.Err = err
+		return result
+	}
 	req.VarMap[NodeOutputKey] = respMap
 
 	return result
@@ -104,6 +108,10 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		resultChan <- result
 	}
 	err = json.Unmarshal(marshaledResp, &respMap)
+	if err != nil {
+		result.Err = err
+		resultChan <- result
+	}
 	req.VarMap[NodeOutputKey] = respMap
 
 	// TODO: add some functionality here

@@ -42,9 +42,9 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 			nextNodeID, err = RunNodeSync(ctx, currentNode, req)
 		} else {
 			nextNodeID, err = RunNodeAsync(ctx, currentNode, req, r.Timeout)
-			if err != nil {
-				return err
-			}
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
