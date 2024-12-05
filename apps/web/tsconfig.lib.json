@@ -10,7 +10,6 @@
   "references": [
     { "path": "../../libraries/ui/tsconfig.lib.json" },
     { "path": "../../libraries/core/tsconfig.lib.json" },
-    { "path": "../../libraries/spec" },
     { "path": "../../libraries/api/tsconfig.lib.json" },
     { "path": "../../libraries/utils/tsconfig.lib.json" },
     { "path": "../../libraries/config-tailwind/tsconfig.lib.json" },

@@ -1,0 +1,23 @@
+diff --git a/src/generators/typescript-sync/typescript-sync.js b/src/generators/typescript-sync/typescript-sync.js
+index ef9252d4e35abf28ddcf9d26e429c778ee18b9a0..c97005f8bddd6583ccaa10eca993576aee24e6ed 100644
+--- a/src/generators/typescript-sync/typescript-sync.js
++++ b/src/generators/typescript-sync/typescript-sync.js
+@@ -5,6 +5,7 @@ const devkit_1 = require("@nx/devkit");
+ const ignore_1 = require("ignore");
+ const jsonc_parser_1 = require("jsonc-parser");
+ const posix_1 = require("node:path/posix");
++const fs_1 = require("node:fs");
+ const sync_generators_1 = require("nx/src/utils/sync-generators");
+ const ts = require("typescript");
+ const plugin_1 = require("../../plugins/typescript/plugin");
+@@ -254,6 +255,10 @@ function collectProjectDependencies(tree, projectName, projectGraph, collectedDe
+             // It's an npm dependency
+             continue;
+         }
++        if (!fs_1.existsSync(posix_1.resolve(targetProjectNode.data.root, 'tsconfig.json'))) {
++            // Skip dependencies with no tsconfig
++            continue;
++        }
+         // Add the target project node to the list of dependencies for the current project
+         if (!collectedDependencies
+             .get(projectName)

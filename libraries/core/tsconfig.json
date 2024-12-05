@@ -3,7 +3,6 @@
   "files": [],
   "references": [
     { "path": "../ui" },
-    { "path": "../spec" },
     { "path": "../api" },
     { "path": "../utils" },
     { "path": "../config-tailwind" },

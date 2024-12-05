@@ -36,7 +36,8 @@
       "sharp": "0.33.5"
     },
     "patchedDependencies": {
-      "@nx/eslint@20.1.3": "patches/@nx__eslint@20.1.3.patch"
+      "@nx/eslint@20.1.3": "patches/@nx__eslint@20.1.3.patch",
+      "@nx/js@20.1.4": "patches/@nx__js@20.1.4.patch"
     }
   }
 }

@@ -15,7 +15,6 @@
     { "path": "./libraries/api" },
     { "path": "./apps/desktop" },
     { "path": "./libraries/ui" },
-    { "path": "./apps/web" },
-    { "path": "./libraries/spec" }
+    { "path": "./apps/web" }
   ]
 }

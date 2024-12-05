@@ -5,9 +5,5 @@
   },
   "include": ["."],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../utils/tsconfig.lib.json" },
-    { "path": "../spec" },
-    { "path": "../config-eslint/tsconfig.lib.json" }
-  ]
+  "references": [{ "path": "../utils/tsconfig.lib.json" }, { "path": "../config-eslint/tsconfig.lib.json" }]
 }
