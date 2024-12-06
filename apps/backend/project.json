@@ -12,6 +12,9 @@
         "outputPath": "{projectRoot}/dist/backend"
       }
     },
+    "pre-dev": {
+      "dependsOn": ["build"]
+    },
     "dev": {
       "executor": "@nx-go/nx-go:serve",
       "options": {

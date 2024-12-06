@@ -5,7 +5,7 @@
   "projectType": "library",
 
   "targets": {
-    "init": {
+    "pre-dev": {
       "dependsOn": ["build"]
     },
 
@@ -28,12 +28,20 @@
       }
     },
 
+    "pre-lint": {
+      "dependsOn": ["build"]
+    },
+
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
         "command": "pnpm buf lint"
       }
+    },
+
+    "pre-test": {
+      "dependsOn": ["build"]
     }
   }
 }

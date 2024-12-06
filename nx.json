@@ -9,22 +9,22 @@
 
   "targetDefaults": {
     "dev": {
-      "dependsOn": ["init", "^init"],
+      "dependsOn": ["^pre-dev"],
       "cache": false
     },
 
     "build": {
-      "dependsOn": ["^init", "^build"],
+      "dependsOn": ["^build"],
       "outputs": ["{projectRoot}/dist"],
       "cache": true
     },
 
     "lint": {
-      "dependsOn": ["init", "^init"]
+      "dependsOn": ["^pre-lint"]
     },
 
     "test": {
-      "dependsOn": ["root:init", "init", "^init"]
+      "dependsOn": ["^pre-test", "root:pre-test"]
     }
   },
 

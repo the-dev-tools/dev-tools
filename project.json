@@ -4,7 +4,7 @@
   "name": "root",
 
   "targets": {
-    "init": {
+    "pre-test": {
       "executor": "nx:run-commands",
       "options": {
         "commands": ["rm --force dist/go-test-results.json", "mkdir --parents dist"]

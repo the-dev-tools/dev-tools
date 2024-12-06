@@ -5,10 +5,6 @@
   "projectType": "library",
 
   "targets": {
-    "init": {
-      "dependsOn": ["build"]
-    },
-
     "dev": {
       "executor": "nx:run-commands",
       "options": {
@@ -23,6 +19,10 @@
         "cwd": "{projectRoot}",
         "command": "email export --dir=src --outDir=dist"
       }
+    },
+
+    "pre-test": {
+      "dependsOn": ["build"]
     }
   }
 }

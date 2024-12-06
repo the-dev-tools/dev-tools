@@ -157,7 +157,11 @@ importers:
         specifier: ~8.16.0
         version: 8.16.0(eslint@9.15.0(jiti@2.4.0))(typescript@5.7.2)
 
-  apps/backend: {}
+  apps/backend:
+    dependencies:
+      '@the-dev-tools/spec':
+        specifier: workspace:^
+        version: link:../../libraries/spec
 
   apps/desktop:
     dependencies:
