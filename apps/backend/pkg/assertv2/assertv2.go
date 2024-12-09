@@ -2,7 +2,8 @@ package assertv2
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"regexp"
 
 	"github.com/PaesslerAG/gval"
 )
@@ -41,23 +42,24 @@ const (
 	AssertPathNode     = "node"
 )
 
+// TODO: refactor this module
 type AssertSystem struct {
-	root AssertRoot
+	root *AssertRoot
 }
 
-func NewAssertSystem(root AssertRoot) *AssertSystem {
+func NewAssertSystem(root *AssertRoot) *AssertSystem {
 	return &AssertSystem{
 		root: root,
 	}
 }
 
 type AssertRoot struct {
-	leafs map[string]AssertLeaf
+	Leaf interface{}
 }
 
-func NewAssertRoot(leafs map[string]AssertLeaf) *AssertRoot {
+func NewAssertRoot(leaf interface{}) *AssertRoot {
 	return &AssertRoot{
-		leafs: make(map[string]AssertLeaf),
+		Leaf: leaf,
 	}
 }
 
@@ -67,29 +69,14 @@ type AssertLeaf interface {
 
 type AssertLeafResponse struct {
 	Result *interface{}
-	leafs  map[string]AssertLeaf
+	Leaf   *AssertLeaf
 }
 
-func (s AssertRoot) SelectGVal(ctx context.Context, k string) (interface{}, error) {
-	leaf, ok := s.leafs[k]
-	if !ok {
-		return nil, errors.New("key not found")
+func NewAssertLeafResponse(result *interface{}, leaf *AssertLeaf) AssertLeafResponse {
+	return AssertLeafResponse{
+		Result: result,
+		Leaf:   leaf,
 	}
-	if leaf == nil {
-		return nil, errors.New("leaf not found")
-	}
-
-	result, err := leaf.Get(ctx, k)
-	if err != nil {
-		return nil, err
-	}
-
-	if result.leafs != nil {
-		s.leafs = result.leafs
-		return s, nil
-	}
-
-	return result.Result, nil
 }
 
 func (s AssertSystem) EvalBool(ctx context.Context, expr string) (bool, error) {
@@ -98,5 +85,36 @@ func (s AssertSystem) EvalBool(ctx context.Context, expr string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return eval.EvalBool(ctx, s.root)
+	return eval.EvalBool(ctx, s.root.Leaf)
+}
+
+func ConvertAssertTypeToExpr(assertType AssertType) string {
+	switch assertType {
+	case AssertTypeEqual:
+		return AssertTypeEqualStr
+	case AssertTypeNotEqual:
+		return AssertTypeNotEqualStr
+	case AssertTypeContains:
+		return AssertTypeContainsStr
+	default:
+		return ""
+	}
+}
+
+func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, path string, value interface{}) (bool, error) {
+	// Regex should not contain any special characters
+	// only dot (.) is allowed
+	// TODO: change the regex to allow only dot (.) and underscore (_)
+	re := regexp.MustCompile(`^[a-zA-Z0-9.]+$`)
+	if !re.MatchString(path) {
+		return false, fmt.Errorf("invalid path: %s", path)
+	}
+
+	assertTypeStr := ConvertAssertTypeToExpr(assertType)
+	expr := fmt.Sprintf("%s %s %s", path, assertTypeStr, value)
+	return s.EvalBool(ctx, expr)
+}
+
+func (s AssertSystem) AssertComplex(ctx context.Context, expr string) (bool, error) {
+	return s.EvalBool(ctx, expr)
 }

@@ -7,28 +7,19 @@ import (
 )
 
 type LeafMock struct {
-	doFunc *func() (interface{}, error)
-	leafs  map[string]assertv2.AssertLeaf
-}
-
-func NewLeafMock(doFunc *func() (interface{}, error), leafs map[string]assertv2.AssertLeaf) *LeafMock {
-	return &LeafMock{
-		doFunc: doFunc,
-		leafs:  leafs,
-	}
+	DoFunc *func() (interface{}, error)
+	Leafs  map[string]interface{}
 }
 
 // TODO: add tests
-func (l *LeafMock) Get(ctx context.Context, k string) (assertv2.AssertLeafResponse, error) {
-	if l.doFunc != nil {
-		(*l.doFunc)()
+func (l *LeafMock) SelectGVal(ctx context.Context, k string) (interface{}, error) {
+	if l.DoFunc != nil {
+		(*l.DoFunc)()
 	}
 
-	if l.leafs != nil {
-		if leaf, ok := l.leafs[k]; ok {
-			return leaf.Get(ctx, k)
-		}
+	leaf, ok := l.Leafs[k]
+	if !ok {
+		return assertv2.AssertLeafResponse{}, errors.New("key not found")
 	}
-
-	return assertv2.AssertLeafResponse{}, errors.New("key not found")
+	return leaf, nil
 }
