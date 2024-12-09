@@ -31,6 +31,7 @@
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@uiw/react-codemirror": "4.23.6",
+    "@xyflow/react": "12.3.6",
     "effect": "3.10.17",
     "id128": "1.6.6",
     "prettier": "3.4.1",

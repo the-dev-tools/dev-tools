@@ -12,6 +12,7 @@ export const routes = rootRoute('root.tsx', [
         route('body', 'body.tsx'),
         route('assertions', 'assertions.tsx'),
       ]),
+      route('flow/$flowIdCan', 'flow.tsx'),
     ]),
   ]),
 ]);
