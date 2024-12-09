@@ -9,7 +9,7 @@ import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-rou
 import { Effect, Match, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
-import { FileTrigger, Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
+import { FileTrigger, Form, ListBox, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
 import { FiChevronDown, FiFolder, FiMoreHorizontal, FiPlus, FiRotateCw } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -24,6 +24,7 @@ import {
 import { endpointCreateSpec, endpointDeleteSpec } from '@the-dev-tools/api/spec/collection/item/endpoint';
 import { exampleCreateSpec, exampleDeleteSpec } from '@the-dev-tools/api/spec/collection/item/example';
 import { folderCreateSpec, folderDeleteSpec, folderUpdateSpec } from '@the-dev-tools/api/spec/collection/item/folder';
+import { flowCreateSpec, flowDeleteSpec, flowUpdateSpec } from '@the-dev-tools/api/spec/flow';
 import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import { endpointDuplicate } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
@@ -36,10 +37,13 @@ import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1
 import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import { collectionList } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { flowList } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FileImportIcon, FlowsIcon, FolderOpenedIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
+import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Popover } from '@the-dev-tools/ui/popover';
@@ -132,19 +136,7 @@ function Layout() {
 
             <CollectionsTree />
 
-            {/* TODO: implement */}
-            <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
-              <FlowsIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
-
-              <Button className={tw`p-0.5`} variant='ghost'>
-                <FileImportIcon className={tw`size-4 text-slate-500`} />
-              </Button>
-
-              <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
-                <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
-              </Button>
-            </div>
+            <FlowList />
           </div>
         </Panel>
         <PanelResizeHandle direction='horizontal' />
@@ -627,5 +619,124 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
         </Menu>
       </MenuTrigger>
     </TreeItem>
+  );
+};
+
+const FlowList = () => {
+  const { workspaceId } = Route.useLoaderData();
+
+  const flowListQuery = useConnectQuery(flowList, { workspaceId });
+  const flowCreateMutation = useSpecMutation(flowCreateSpec);
+
+  if (!flowListQuery.isSuccess) return null;
+  const flows = flowListQuery.data.items;
+
+  return (
+    <>
+      <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
+        <FlowsIcon className={tw`size-5 text-slate-500`} />
+        <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
+
+        <Button
+          className={tw`bg-slate-200 p-0.5`}
+          variant='ghost'
+          onPress={() => void flowCreateMutation.mutate({ workspaceId, name: 'New flow' })}
+        >
+          <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+        </Button>
+      </div>
+
+      <ListBox aria-label='Flow list' selectionMode='single' items={flows} className={tw`w-full`}>
+        {(_) => {
+          const id = Ulid.construct(_.flowId).toCanonical();
+          return <FlowItem id={id} flow={_} />;
+        }}
+      </ListBox>
+    </>
+  );
+};
+
+interface FlowItemProps {
+  id: string;
+  flow: FlowListItem;
+}
+
+const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
+  const { runtime } = Route.useRouteContext();
+  const { workspaceId } = Route.useLoaderData();
+  const { workspaceIdCan } = Route.useParams();
+
+  const flowDeleteMutation = useSpecMutation(flowDeleteSpec);
+  const flowUpdateMutation = useSpecMutation(flowUpdateSpec);
+
+  const triggerRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  return (
+    <ListBoxItem
+      id={flowIdCan}
+      textValue={name}
+      href={{ to: '/workspace/$workspaceIdCan/flow/$flowIdCan', params: { workspaceIdCan, flowIdCan } }}
+      className={tw`rounded-md pl-9 text-md font-medium leading-5`}
+      showSelectIndicator={false}
+    >
+      <Text ref={triggerRef} className='flex-1 truncate' slot='label'>
+        {name}
+      </Text>
+
+      <MenuTrigger>
+        <Button variant='ghost' className={tw`p-0.5`}>
+          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+        </Button>
+
+        <Menu>
+          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+
+          <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
+            Delete
+          </MenuItem>
+        </Menu>
+      </MenuTrigger>
+
+      <Popover
+        triggerRef={triggerRef}
+        isOpen={isRenaming}
+        onOpenChange={setIsRenaming}
+        dialogAria-label='Rename collection'
+      >
+        <Form
+          className='flex flex-1 items-center gap-2'
+          onSubmit={(event) =>
+            Effect.gen(function* () {
+              event.preventDefault();
+
+              const { name } = yield* pipe(
+                new FormData(event.currentTarget),
+                Object.fromEntries,
+                Schema.decode(Schema.Struct({ name: Schema.String })),
+              );
+
+              flowUpdateMutation.mutate({ workspaceId, flowId, name });
+
+              setIsRenaming(false);
+            }).pipe(Runtime.runPromise(runtime))
+          }
+        >
+          <TextField
+            name='name'
+            defaultValue={name}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            label='New name:'
+            className={tw`contents`}
+            labelClassName={tw`text-nowrap`}
+            inputClassName={tw`w-full bg-transparent`}
+          />
+
+          <Button type='submit'>Save</Button>
+        </Form>
+      </Popover>
+    </ListBoxItem>
   );
 };

@@ -42,6 +42,7 @@ export const listBoxItemStyles = tv({
     },
     isHovered: { false: null },
     isPressed: { false: null },
+    isSelected: { false: null },
   },
   compoundVariants: [
     { isHovered: true, variant: 'default', className: tw`bg-slate-100` },
@@ -51,6 +52,10 @@ export const listBoxItemStyles = tv({
     { isPressed: true, variant: 'default', className: tw`bg-slate-200` },
     { isPressed: true, variant: 'danger', className: tw`bg-rose-200` },
     { isPressed: true, variant: 'accent', className: tw`bg-violet-200` },
+
+    { isSelected: true, variant: 'default', className: tw`bg-slate-200` },
+    { isSelected: true, variant: 'danger', className: tw`bg-rose-200` },
+    { isSelected: true, variant: 'accent', className: tw`bg-violet-200` },
   ],
   defaultVariants: {
     variant: 'default',
@@ -58,16 +63,30 @@ export const listBoxItemStyles = tv({
 });
 
 export const listBoxItemVariantKeys = pipe(
-  Struct.omit(listBoxItemStyles.variants, ...isFocusVisibleRingStyles.variantKeys, 'isHovered'),
+  Struct.omit(
+    listBoxItemStyles.variants,
+    ...isFocusVisibleRingStyles.variantKeys,
+    'isHovered',
+    'isPressed',
+    'isSelected',
+  ),
   Record.keys,
 );
 
 export interface ListBoxItemVariants
   extends Pick<VariantProps<typeof listBoxItemStyles>, (typeof listBoxItemVariantKeys)[number]> {}
 
-export interface ListBoxItemProps extends AriaListBoxItemProps, ListBoxItemVariants {}
+export interface ListBoxItemProps extends AriaListBoxItemProps, ListBoxItemVariants {
+  showSelectIndicator?: boolean;
+}
 
-export const ListBoxItem = ({ className, children, textValue, ...props }: ListBoxItemProps) => {
+export const ListBoxItem = ({
+  className,
+  children,
+  textValue,
+  showSelectIndicator = true,
+  ...props
+}: ListBoxItemProps) => {
   const forwardedProps = Struct.omit(props, ...listBoxItemVariantKeys);
   const variantProps = Struct.pick(props, ...listBoxItemVariantKeys);
 
@@ -78,12 +97,12 @@ export const ListBoxItem = ({ className, children, textValue, ...props }: ListBo
       {...forwardedProps}
     >
       {composeRenderProps(children, (children, { isSelected, selectionMode }) => {
-        const showSelectIndicator = selectionMode !== 'none' && !props.onAction;
+        const selectIndicatorActive = showSelectIndicator && selectionMode !== 'none' && !props.onAction;
 
         return (
           <>
             {children}
-            {showSelectIndicator && (
+            {selectIndicatorActive && (
               <div className={tw`hidden group-[&[role="option"]]/listbox:contents`}>
                 <div className={tw`flex-1`} />
                 <FiCheckCircle
