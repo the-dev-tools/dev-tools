@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/backend/pkg/assertsys"
 	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
 	"the-dev-tools/backend/pkg/model/menv"
@@ -586,7 +587,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 	assertions, err := c.as.GetAssertByExampleID(ctx, example.ID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		if err != sassert.ErrNoAssertFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		assertions = []massert.Assert{}
 	}
 	for _, assertion := range assertions {
 		if assertion.Enable {
