@@ -18,10 +18,12 @@ import (
 	"the-dev-tools/backend/internal/api/rbody"
 	"the-dev-tools/backend/internal/api/renv"
 	"the-dev-tools/backend/internal/api/resultapi"
+	"the-dev-tools/backend/internal/api/rflow"
 	"the-dev-tools/backend/internal/api/ritemapi"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/internal/api/ritemfolder"
 	"the-dev-tools/backend/internal/api/rrequest"
+	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rvar"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/model/muser"
@@ -36,10 +38,13 @@ import (
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sexampleresp"
 	"the-dev-tools/backend/pkg/service/sexamplerespheader"
+	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sflowtag"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
 	"the-dev-tools/backend/pkg/service/sresultapi"
+	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
 	"the-dev-tools/backend/pkg/service/sworkspace"
@@ -132,6 +137,9 @@ func main() {
 	vs := svar.New(queries)
 	es := senv.New(queries)
 	res := sexampleresp.New(queries)
+	ts := stag.New(queries)
+	fs := sflow.New(queries)
+	fts := sflowtag.New(queries)
 
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
 	if dbMode != devtoolsdb.LOCAL {
@@ -253,6 +261,13 @@ func main() {
 	// Var Service
 	varSrv := rvar.New(currentDB, us, es, vs)
 	newServiceManager.AddService(rvar.CreateService(varSrv, opitonsAll))
+
+	tagSrv := rtag.New(currentDB, ws, us, ts)
+	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
+
+	// Flow Service
+	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts)
+	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Start services
 	go func() {

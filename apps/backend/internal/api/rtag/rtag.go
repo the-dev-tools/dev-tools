@@ -3,6 +3,7 @@ package rtag
 import (
 	"context"
 	"database/sql"
+	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/permcheck"
@@ -11,6 +12,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/backend/pkg/translate/ttag"
+	"the-dev-tools/spec/dist/buf/go/tag/v1/tagv1connect"
 
 	tagv1 "the-dev-tools/spec/dist/buf/go/tag/v1"
 
@@ -31,6 +33,11 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		us: us,
 		ts: ts,
 	}
+}
+
+func CreateService(srv TagServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := tagv1connect.NewTagServiceHandler(&srv, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (c TagServiceRPC) TagList(ctx context.Context, req *connect.Request[tagv1.TagListRequest]) (*connect.Response[tagv1.TagListResponse], error) {

@@ -3,6 +3,7 @@ package rflow
 import (
 	"context"
 	"database/sql"
+	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
@@ -15,6 +16,7 @@ import (
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
+	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 
 	"connectrpc.com/connect"
 )
@@ -39,6 +41,11 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 		ts:  ts,
 		fts: fts,
 	}
+}
+
+func CreateService(srv FlowServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := flowv1connect.NewFlowServiceHandler(&srv, options...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flowv1.FlowListRequest]) (*connect.Response[flowv1.FlowListResponse], error) {
@@ -179,8 +186,8 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 	return connect.NewResponse(&flowv1.FlowDeleteResponse{}), nil
 }
 
-func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest]) (*connect.ServerStreamForClient[flowv1.FlowRunResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream *connect.ServerStream[flowv1.FlowRunResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, nil)
 }
 
 func CheckOwnerFlow(ctx context.Context, fs sflow.FlowService, us suser.UserService, flowID idwrap.IDWrap) (bool, error) {
