@@ -48,11 +48,12 @@ function RouteComponent() {
   return <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />;
 }
 
-const mapEdgeToClient = (edge: EdgeListItem): Edge => ({
-  id: Ulid.construct(edge.edgeId).toCanonical(),
-  source: Ulid.construct(edge.sourceId).toCanonical(),
-  target: Ulid.construct(edge.targetId).toCanonical(),
-});
+const mapEdgeToClient = (edge: EdgeListItem) =>
+  ({
+    id: Ulid.construct(edge.edgeId).toCanonical(),
+    source: Ulid.construct(edge.sourceId).toCanonical(),
+    target: Ulid.construct(edge.targetId).toCanonical(),
+  }) satisfies Edge;
 
 const mapNodeBaseToClient = (node: Omit<NodeBase, '$typeName'>) =>
   ({
@@ -60,20 +61,20 @@ const mapNodeBaseToClient = (node: Omit<NodeBase, '$typeName'>) =>
     position: node.position!,
   }) satisfies Partial<Node>;
 
-const mapNodeToClient = (node: NodeListItem): Option.Option<Node> =>
+const mapNodeToClient = (node: NodeListItem) =>
   pipe(
     Match.value(node),
     Match.when({ kind: NodeKind.CONDITION }, (_) => {
       const data = _.condition!;
-      return Option.some<Node>({ ...mapNodeBaseToClient(data), data });
+      return Option.some({ ...mapNodeBaseToClient(data), data } satisfies Node);
     }),
     Match.when({ kind: NodeKind.FOR }, (_) => {
       const data = _.for!;
-      return Option.some<Node>({ ...mapNodeBaseToClient(data), data });
+      return Option.some({ ...mapNodeBaseToClient(data), data } satisfies Node);
     }),
     Match.when({ kind: NodeKind.REQUEST }, (_) => {
       const data = _.request!;
-      return Option.some<Node>({ ...mapNodeBaseToClient(data), data });
+      return Option.some({ ...mapNodeBaseToClient(data), data } satisfies Node);
     }),
     Match.orElse(() => Option.none()),
   );
