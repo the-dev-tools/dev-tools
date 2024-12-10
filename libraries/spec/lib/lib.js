@@ -99,7 +99,7 @@ export function $autoField(context, target) {
  */
 export function $autoFields(context, target) {
   target.properties.forEach((property) => {
-    const fieldNumber = fieldNumberFromName(property.name);
+    const fieldNumber = fieldNumberFromName(target.name + property.name);
 
     context.call($field, property, fieldNumber);
 
