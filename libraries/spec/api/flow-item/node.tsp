@@ -30,6 +30,7 @@ enum NodeKind {
   NODE_KIND_CONDITION: 3,
 }
 
+@autoFields
 model NodeBase {
   @key nodeId: Resource.ID;
   position: Position;

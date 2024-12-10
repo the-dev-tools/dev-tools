@@ -5,7 +5,7 @@ import "../lib";
 
 import "./workspace.tsp";
 import "./resource.tsp";
-import "./flow-item/node.tsp";
+import "./flow-item";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
