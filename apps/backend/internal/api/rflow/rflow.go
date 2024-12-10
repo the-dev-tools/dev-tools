@@ -135,7 +135,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	rpcFlow := flowv1.Flow{
 		Name: req.Msg.Name,
 	}
-	flow := tflow.SeralizeRpcToModelWithoutID(&rpcFlow)
+	flow := tflow.SeralizeRpcToModelWithoutID(&rpcFlow, workspaceID)
 	flowID := idwrap.NewNow()
 	flow.ID = flowID
 	err = c.fs.CreateFlow(ctx, *flow)
@@ -153,7 +153,7 @@ func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[fl
 		FlowId: req.Msg.FlowId,
 		Name:   req.Msg.Name,
 	}
-	flow, err := tflow.SeralizeRpcToModel(&rpcFlow)
+	flow, err := tflow.SeralizeRpcToModel(&rpcFlow, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

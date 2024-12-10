@@ -20,8 +20,8 @@ func SeralizeModelToRPC(e mflow.Flow) *flowv1.Flow {
 	}
 }
 
-func SeralizeRpcToModel(e *flowv1.Flow) (*mflow.Flow, error) {
-	flow := SeralizeRpcToModelWithoutID(e)
+func SeralizeRpcToModel(e *flowv1.Flow, wsID idwrap.IDWrap) (*mflow.Flow, error) {
+	flow := SeralizeRpcToModelWithoutID(e, wsID)
 	id, err := idwrap.NewFromBytes(e.GetFlowId())
 	if err != nil {
 		return nil, err
@@ -30,8 +30,9 @@ func SeralizeRpcToModel(e *flowv1.Flow) (*mflow.Flow, error) {
 	return flow, nil
 }
 
-func SeralizeRpcToModelWithoutID(e *flowv1.Flow) *mflow.Flow {
+func SeralizeRpcToModelWithoutID(e *flowv1.Flow, wsID idwrap.IDWrap) *mflow.Flow {
 	return &mflow.Flow{
-		Name: e.Name,
+		Name:        e.Name,
+		WorkspaceID: wsID,
 	}
 }
