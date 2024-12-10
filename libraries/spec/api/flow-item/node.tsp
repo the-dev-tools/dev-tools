@@ -17,11 +17,22 @@ using TypeSpec.Rest;
 })
 namespace API.FlowItem.Node;
 
+@autoFields
+model Position {
+  x: float32;
+  y: float32;
+}
+
 enum NodeKind {
   NODE_KIND_UNSPECIFIED: 0,
   NODE_KIND_FOR: 1,
   NODE_KIND_REQUEST: 2,
   NODE_KIND_CONDITION: 3,
+}
+
+model NodeBase {
+  @key nodeId: Resource.ID;
+  position: Position;
 }
 
 // TODO: replace with union when supported
@@ -36,14 +47,14 @@ model Node {
 
 @autoFields
 model NodeFor {
-  @key NodeId: Resource.ID;
+  ...NodeBase;
   nextNodeId?: Resource.ID;
   iteration: int32;
 }
 
 @autoFields
 model NodeRequest {
-  @key nodeID: Resource.ID;
+  ...NodeBase;
   nextNodeID?: Resource.ID;
   exampleID: bytes;
 }
@@ -65,7 +76,7 @@ enum ConditionType {
 
 @autoFields
 model NodeCondition {
-  @key nodeId: Resource.ID;
+  ...NodeBase;
   nextNodeId?: Resource.ID;
   conditionType: ConditionType;
   customCondition?: string;
