@@ -9,9 +9,7 @@ import (
 )
 
 func TestAssertSys_Eval_EqualTrue(t *testing.T) {
-	const NestedLeafPath = "abc.def.ghi"
-
-	var testAssertValue int = 15
+	testAssertValue := 15
 	castedAssertValue := interface{}(testAssertValue)
 
 	rootLeaf := &leafmock.LeafMock{}
@@ -37,9 +35,7 @@ func TestAssertSys_Eval_EqualTrue(t *testing.T) {
 }
 
 func TestAssertSys_Eval_EqualFalse(t *testing.T) {
-	const NestedLeafPath = "abc.def.ghi"
-
-	var testAssertValue int = 15
+	testAssertValue := 15
 	castedAssertValue := interface{}(testAssertValue)
 
 	rootLeaf := &leafmock.LeafMock{}
@@ -65,7 +61,7 @@ func TestAssertSys_Eval_EqualFalse(t *testing.T) {
 }
 
 func TestAssertSys_Eval_InTrue(t *testing.T) {
-	var testAssertValue int = 15
+	testAssertValue := 15
 	castedAssertValue := interface{}(testAssertValue)
 	rootLeaf := &leafmock.LeafMock{}
 	rootLeaf.Leafs = map[string]interface{}{
@@ -83,7 +79,7 @@ func TestAssertSys_Eval_InTrue(t *testing.T) {
 }
 
 func TestAssertSys_Eval_InFalse(t *testing.T) {
-	var testAssertValue int = 14
+	testAssertValue := 14
 	castedAssertValue := interface{}(testAssertValue)
 	rootLeaf := &leafmock.LeafMock{}
 	rootLeaf.Leafs = map[string]interface{}{
@@ -96,6 +92,78 @@ func TestAssertSys_Eval_InFalse(t *testing.T) {
 	ctx := context.Background()
 
 	ok, err := assertSys.EvalBool(ctx, "a in array")
+	testutil.Assert(t, nil, err)
+	testutil.Assert(t, false, ok)
+}
+
+func TestAssert_Simple_Eval_InTrue(t *testing.T) {
+	testAssertValue := 15
+	castedAssertValue := interface{}(testAssertValue)
+	rootLeaf := &leafmock.LeafMock{}
+	rootLeaf.Leafs = map[string]interface{}{
+		"a":     castedAssertValue,
+		"array": []interface{}{15, 16, 17},
+	}
+
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
+	ctx := context.Background()
+
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeContains, "array", castedAssertValue)
+	testutil.Assert(t, nil, err)
+	testutil.Assert(t, true, ok)
+}
+
+func TestAssert_Simple_Eval_InFalse(t *testing.T) {
+	testAssertValue := 14
+	castedAssertValue := interface{}(testAssertValue)
+	rootLeaf := &leafmock.LeafMock{}
+	rootLeaf.Leafs = map[string]interface{}{
+		"a":     castedAssertValue,
+		"array": []interface{}{15, 16, 17},
+	}
+
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
+	ctx := context.Background()
+
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeContains, "array", castedAssertValue)
+	testutil.Assert(t, nil, err)
+	testutil.Assert(t, false, ok)
+}
+
+func TestAssert_Simple_Eval_NotInTrue(t *testing.T) {
+	testAssertValue := 14
+	castedAssertValue := interface{}(testAssertValue)
+	rootLeaf := &leafmock.LeafMock{}
+	rootLeaf.Leafs = map[string]interface{}{
+		"a":     castedAssertValue,
+		"array": []interface{}{15, 16, 17},
+	}
+
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
+	ctx := context.Background()
+
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeNotContains, "array", castedAssertValue)
+	testutil.Assert(t, nil, err)
+	testutil.Assert(t, true, ok)
+}
+
+func TestAssert_Simple_Eval_NotInFalse(t *testing.T) {
+	testAssertValue := 15
+	castedAssertValue := interface{}(testAssertValue)
+	rootLeaf := &leafmock.LeafMock{}
+	rootLeaf.Leafs = map[string]interface{}{
+		"a":     castedAssertValue,
+		"array": []interface{}{15, 16, 17},
+	}
+
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
+	ctx := context.Background()
+
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeNotContains, "array", castedAssertValue)
 	testutil.Assert(t, nil, err)
 	testutil.Assert(t, false, ok)
 }

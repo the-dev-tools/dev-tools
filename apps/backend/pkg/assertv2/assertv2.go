@@ -3,6 +3,7 @@ package assertv2
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 
 	"github.com/PaesslerAG/gval"
@@ -17,12 +18,22 @@ const (
 	AssertTypeEqual
 	AssertTypeNotEqual
 	AssertTypeContains
+	AssertTypeNotContains
+	AssertTypeGreater
+	AssertTypeLess
+	AssertTypeGreaterOrEqual
+	AssertTypeLessOrEqual
 )
 
 const (
-	AssertTypeEqualStr    = "=="
-	AssertTypeNotEqualStr = "!="
-	AssertTypeContainsStr = "in"
+	AssertTypeEqualStr          = "=="
+	AssertTypeNotEqualStr       = "!="
+	AssertTypeContainsStr       = "in"
+	AssertTypeNotContainsStr    = "in"
+	AssertTypeGreaterStr        = ">"
+	AssertTypeLessStr           = "<"
+	AssertTypeGreaterOrEqualStr = ">="
+	AssertTypeLessOrEqualStr    = "<="
 )
 
 const (
@@ -79,26 +90,26 @@ func NewAssertLeafResponse(result *interface{}, leaf *AssertLeaf) AssertLeafResp
 	}
 }
 
-func (s AssertSystem) EvalBool(ctx context.Context, expr string) (bool, error) {
-	ln := gval.Full()
+func NotinArray(a, b interface{}) (interface{}, error) {
+	col, ok := b.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("expected type []interface{} for in operator but got %T", b)
+	}
+	for _, value := range col {
+		if reflect.DeepEqual(a, value) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (s AssertSystem) EvalBool(ctx context.Context, expr string, extensions ...gval.Language) (bool, error) {
+	ln := gval.Full(extensions...)
 	eval, err := ln.NewEvaluable(expr)
 	if err != nil {
 		return false, err
 	}
 	return eval.EvalBool(ctx, s.root.Leaf)
-}
-
-func ConvertAssertTypeToExpr(assertType AssertType) string {
-	switch assertType {
-	case AssertTypeEqual:
-		return AssertTypeEqualStr
-	case AssertTypeNotEqual:
-		return AssertTypeNotEqualStr
-	case AssertTypeContains:
-		return AssertTypeContainsStr
-	default:
-		return ""
-	}
 }
 
 func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, path string, value interface{}) (bool, error) {
@@ -111,8 +122,20 @@ func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, p
 	}
 
 	assertTypeStr := ConvertAssertTypeToExpr(assertType)
-	expr := fmt.Sprintf("%s %s %s", path, assertTypeStr, value)
-	return s.EvalBool(ctx, expr)
+
+	langs := []gval.Language{
+		gval.Constant("y", value),
+		gval.InfixOperator("notin", NotinArray),
+	}
+
+	expr := fmt.Sprintf("y %s %s", assertTypeStr, path)
+	fmt.Println("expr", expr)
+	a, err := s.EvalBool(ctx, expr, langs...)
+
+	if assertType == AssertTypeNotContains {
+		a = !a
+	}
+	return a, err
 }
 
 func (s AssertSystem) AssertComplex(ctx context.Context, expr string) (bool, error) {
