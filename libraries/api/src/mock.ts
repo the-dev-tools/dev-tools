@@ -12,6 +12,7 @@ import {
   AuthService,
 } from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
+import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
@@ -117,6 +118,27 @@ const fakeEnum = (faker: (typeof Faker)['Service'], enum_: DescEnum) =>
 const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Message => {
   if (message.typeName === 'google.protobuf.Timestamp') {
     return timestampFromDate(faker.date.anytime());
+  }
+
+  switch (message.typeName) {
+    case 'google.protobuf.Timestamp':
+      return timestampFromDate(faker.date.anytime());
+
+    case 'flow.node.v1.NodeListResponse':
+      return create(NodeListResponseSchema, {
+        items: [
+          {
+            kind: NodeKind.START,
+            start: {
+              nodeId: new Uint8Array(),
+              position: { x: 0, y: 0 },
+            },
+          },
+        ],
+      });
+
+    case 'flow.node.v1.EdgeListResponse':
+      return create(message);
   }
 
   const value = Record.map(message.field, (field) => {
