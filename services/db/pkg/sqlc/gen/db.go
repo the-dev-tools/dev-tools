@@ -66,6 +66,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowStmt, err = db.PrepareContext(ctx, createFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlow: %w", err)
 	}
+	if q.createFlowEdgeStmt, err = db.PrepareContext(ctx, createFlowEdge); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowEdge: %w", err)
+	}
 	if q.createFlowNodeStmt, err = db.PrepareContext(ctx, createFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNode: %w", err)
 	}
@@ -161,6 +164,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowStmt, err = db.PrepareContext(ctx, deleteFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlow: %w", err)
+	}
+	if q.deleteFlowEdgeStmt, err = db.PrepareContext(ctx, deleteFlowEdge); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowEdge: %w", err)
 	}
 	if q.deleteFlowNodeStmt, err = db.PrepareContext(ctx, deleteFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNode: %w", err)
@@ -278,6 +284,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
+	}
+	if q.getFlowEdgeStmt, err = db.PrepareContext(ctx, getFlowEdge); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowEdge: %w", err)
+	}
+	if q.getFlowEdgesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowEdgesByFlowID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowEdgesByFlowID: %w", err)
 	}
 	if q.getFlowNodeStmt, err = db.PrepareContext(ctx, getFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNode: %w", err)
@@ -444,6 +456,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowStmt, err = db.PrepareContext(ctx, updateFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlow: %w", err)
 	}
+	if q.updateFlowEdgeStmt, err = db.PrepareContext(ctx, updateFlowEdge); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowEdge: %w", err)
+	}
 	if q.updateFlowNodeStmt, err = db.PrepareContext(ctx, updateFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNode: %w", err)
 	}
@@ -565,6 +580,11 @@ func (q *Queries) Close() error {
 	if q.createFlowStmt != nil {
 		if cerr := q.createFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowStmt: %w", cerr)
+		}
+	}
+	if q.createFlowEdgeStmt != nil {
+		if cerr := q.createFlowEdgeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowEdgeStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodeStmt != nil {
@@ -725,6 +745,11 @@ func (q *Queries) Close() error {
 	if q.deleteFlowStmt != nil {
 		if cerr := q.deleteFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowEdgeStmt != nil {
+		if cerr := q.deleteFlowEdgeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowEdgeStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowNodeStmt != nil {
@@ -920,6 +945,16 @@ func (q *Queries) Close() error {
 	if q.getFlowStmt != nil {
 		if cerr := q.getFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowStmt: %w", cerr)
+		}
+	}
+	if q.getFlowEdgeStmt != nil {
+		if cerr := q.getFlowEdgeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowEdgeStmt: %w", cerr)
+		}
+	}
+	if q.getFlowEdgesByFlowIDStmt != nil {
+		if cerr := q.getFlowEdgesByFlowIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowEdgesByFlowIDStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodeStmt != nil {
@@ -1197,6 +1232,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowEdgeStmt != nil {
+		if cerr := q.updateFlowEdgeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowEdgeStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowNodeStmt != nil {
 		if cerr := q.updateFlowNodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeStmt: %w", cerr)
@@ -1330,6 +1370,7 @@ type Queries struct {
 	createExampleRespStmt                      *sql.Stmt
 	createExampleRespHeaderStmt                *sql.Stmt
 	createFlowStmt                             *sql.Stmt
+	createFlowEdgeStmt                         *sql.Stmt
 	createFlowNodeStmt                         *sql.Stmt
 	createFlowNodeForStmt                      *sql.Stmt
 	createFlowNodeIfStmt                       *sql.Stmt
@@ -1362,6 +1403,7 @@ type Queries struct {
 	deleteExampleRespStmt                      *sql.Stmt
 	deleteExampleRespHeaderStmt                *sql.Stmt
 	deleteFlowStmt                             *sql.Stmt
+	deleteFlowEdgeStmt                         *sql.Stmt
 	deleteFlowNodeStmt                         *sql.Stmt
 	deleteFlowNodeForStmt                      *sql.Stmt
 	deleteFlowNodeIfStmt                       *sql.Stmt
@@ -1401,6 +1443,8 @@ type Queries struct {
 	getExampleRespHeadersByRespIDStmt          *sql.Stmt
 	getExampleRespsByExampleIDStmt             *sql.Stmt
 	getFlowStmt                                *sql.Stmt
+	getFlowEdgeStmt                            *sql.Stmt
+	getFlowEdgesByFlowIDStmt                   *sql.Stmt
 	getFlowNodeStmt                            *sql.Stmt
 	getFlowNodeForStmt                         *sql.Stmt
 	getFlowNodeIfStmt                          *sql.Stmt
@@ -1456,6 +1500,7 @@ type Queries struct {
 	updateExampleRespStmt                      *sql.Stmt
 	updateExampleRespHeaderStmt                *sql.Stmt
 	updateFlowStmt                             *sql.Stmt
+	updateFlowEdgeStmt                         *sql.Stmt
 	updateFlowNodeStmt                         *sql.Stmt
 	updateFlowNodeForStmt                      *sql.Stmt
 	updateFlowNodeIfStmt                       *sql.Stmt
@@ -1492,6 +1537,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createExampleRespStmt:                      q.createExampleRespStmt,
 		createExampleRespHeaderStmt:                q.createExampleRespHeaderStmt,
 		createFlowStmt:                             q.createFlowStmt,
+		createFlowEdgeStmt:                         q.createFlowEdgeStmt,
 		createFlowNodeStmt:                         q.createFlowNodeStmt,
 		createFlowNodeForStmt:                      q.createFlowNodeForStmt,
 		createFlowNodeIfStmt:                       q.createFlowNodeIfStmt,
@@ -1524,6 +1570,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteExampleRespStmt:                      q.deleteExampleRespStmt,
 		deleteExampleRespHeaderStmt:                q.deleteExampleRespHeaderStmt,
 		deleteFlowStmt:                             q.deleteFlowStmt,
+		deleteFlowEdgeStmt:                         q.deleteFlowEdgeStmt,
 		deleteFlowNodeStmt:                         q.deleteFlowNodeStmt,
 		deleteFlowNodeForStmt:                      q.deleteFlowNodeForStmt,
 		deleteFlowNodeIfStmt:                       q.deleteFlowNodeIfStmt,
@@ -1563,6 +1610,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getExampleRespHeadersByRespIDStmt:          q.getExampleRespHeadersByRespIDStmt,
 		getExampleRespsByExampleIDStmt:             q.getExampleRespsByExampleIDStmt,
 		getFlowStmt:                                q.getFlowStmt,
+		getFlowEdgeStmt:                            q.getFlowEdgeStmt,
+		getFlowEdgesByFlowIDStmt:                   q.getFlowEdgesByFlowIDStmt,
 		getFlowNodeStmt:                            q.getFlowNodeStmt,
 		getFlowNodeForStmt:                         q.getFlowNodeForStmt,
 		getFlowNodeIfStmt:                          q.getFlowNodeIfStmt,
@@ -1618,6 +1667,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateExampleRespStmt:                      q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                q.updateExampleRespHeaderStmt,
 		updateFlowStmt:                             q.updateFlowStmt,
+		updateFlowEdgeStmt:                         q.updateFlowEdgeStmt,
 		updateFlowNodeStmt:                         q.updateFlowNodeStmt,
 		updateFlowNodeForStmt:                      q.updateFlowNodeForStmt,
 		updateFlowNodeIfStmt:                       q.updateFlowNodeIfStmt,

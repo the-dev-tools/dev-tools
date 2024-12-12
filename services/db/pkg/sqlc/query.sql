@@ -1525,6 +1525,52 @@ DELETE FROM flow_node
 WHERE
   id = ?;
 
+-- name: GetFlowEdge :one
+SELECT
+  id,
+  flow_id,
+  source_id,
+  target_id,
+  source_handle
+FROM
+  flow_edge
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetFlowEdgesByFlowID :many
+SELECT
+  id,
+  flow_id,
+  source_id,
+  target_id,
+  source_handle
+FROM
+  flow_edge
+WHERE
+  flow_id = ?;
+
+-- name: CreateFlowEdge :exec
+INSERT INTO
+  flow_edge (id, flow_id, source_id, target_id, source_handle)
+VALUES
+  (?, ?, ?, ?, ?);
+
+-- name: UpdateFlowEdge :exec
+UPDATE flow_edge
+SET
+  source_id = ?,
+  target_id = ?,
+  source_handle = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowEdge :exec
+DELETE FROM
+  flow_edge
+WHERE
+  id = ?;
+
 -- name: GetFlowNodeFor :one
 SELECT
   flow_node_id,
@@ -1563,8 +1609,7 @@ WHERE
 SELECT
   flow_node_id,
   name,
-  example_id,
-  next
+  example_id
 FROM
   flow_node_request
 WHERE
@@ -1573,16 +1618,15 @@ LIMIT 1;
 
 -- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, name, example_id, next)
+  flow_node_request (flow_node_id, name, example_id)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
   name = ?,
-  example_id = ?,
-  next = ?
+  example_id = ?
 WHERE
   flow_node_id = ?;
 
@@ -1596,9 +1640,7 @@ SELECT
   flow_node_id,
   name,
   condition_type,
-  condition,
-  next_true,
-  next_false
+  condition
 FROM
   flow_node_if
 WHERE
@@ -1607,18 +1649,16 @@ LIMIT 1;
 
 -- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (flow_node_id, name, condition_type, condition, next_true, next_false)
+  flow_node_if (flow_node_id, name, condition_type, condition)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeIf :exec
 UPDATE flow_node_if
 SET
   name = ?,
   condition_type = ?,
-  condition = ?,
-  next_true = ?,
-  next_false = ?
+  condition = ?
 WHERE
   flow_node_id = ?;
 

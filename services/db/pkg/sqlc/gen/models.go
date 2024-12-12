@@ -110,6 +110,14 @@ type Flow struct {
 	Name        string
 }
 
+type FlowEdge struct {
+	ID           []byte
+	FlowID       []byte
+	SourceID     []byte
+	TargetID     []byte
+	SourceHandle int64
+}
+
 type FlowNode struct {
 	ID       idwrap.IDWrap
 	FlowID   idwrap.IDWrap
@@ -130,15 +138,12 @@ type FlowNodeIf struct {
 	Name          string
 	ConditionType int8
 	Condition     string
-	NextTrue      idwrap.IDWrap
-	NextFalse     idwrap.IDWrap
 }
 
 type FlowNodeRequest struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
 	ExampleID  idwrap.IDWrap
-	Next       idwrap.IDWrap
 }
 
 type FlowTag struct {

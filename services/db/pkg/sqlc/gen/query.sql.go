@@ -659,6 +659,32 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 	return err
 }
 
+const createFlowEdge = `-- name: CreateFlowEdge :exec
+INSERT INTO
+  flow_edge (id, flow_id, source_id, target_id, source_handle)
+VALUES
+  (?, ?, ?, ?, ?)
+`
+
+type CreateFlowEdgeParams struct {
+	ID           []byte
+	FlowID       []byte
+	SourceID     []byte
+	TargetID     []byte
+	SourceHandle int64
+}
+
+func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) error {
+	_, err := q.exec(ctx, q.createFlowEdgeStmt, createFlowEdge,
+		arg.ID,
+		arg.FlowID,
+		arg.SourceID,
+		arg.TargetID,
+		arg.SourceHandle,
+	)
+	return err
+}
+
 const createFlowNode = `-- name: CreateFlowNode :exec
 INSERT INTO
   flow_node (id, flow_id, node_type, node_id)
@@ -711,9 +737,9 @@ func (q *Queries) CreateFlowNodeFor(ctx context.Context, arg CreateFlowNodeForPa
 
 const createFlowNodeIf = `-- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (flow_node_id, name, condition_type, condition, next_true, next_false)
+  flow_node_if (flow_node_id, name, condition_type, condition)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateFlowNodeIfParams struct {
@@ -721,8 +747,6 @@ type CreateFlowNodeIfParams struct {
 	Name          string
 	ConditionType int8
 	Condition     string
-	NextTrue      idwrap.IDWrap
-	NextFalse     idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfParams) error {
@@ -731,33 +755,25 @@ func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfPara
 		arg.Name,
 		arg.ConditionType,
 		arg.Condition,
-		arg.NextTrue,
-		arg.NextFalse,
 	)
 	return err
 }
 
 const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, name, example_id, next)
+  flow_node_request (flow_node_id, name, example_id)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?)
 `
 
 type CreateFlowNodeRequestParams struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
 	ExampleID  idwrap.IDWrap
-	Next       idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeRequestStmt, createFlowNodeRequest,
-		arg.FlowNodeID,
-		arg.Name,
-		arg.ExampleID,
-		arg.Next,
-	)
+	_, err := q.exec(ctx, q.createFlowNodeRequestStmt, createFlowNodeRequest, arg.FlowNodeID, arg.Name, arg.ExampleID)
 	return err
 }
 
@@ -2159,6 +2175,18 @@ func (q *Queries) DeleteFlow(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const deleteFlowEdge = `-- name: DeleteFlowEdge :exec
+DELETE FROM
+  flow_edge
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteFlowEdge(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteFlowEdgeStmt, deleteFlowEdge, id)
+	return err
+}
+
 const deleteFlowNode = `-- name: DeleteFlowNode :exec
 DELETE FROM flow_node
 WHERE
@@ -3090,6 +3118,75 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 	return i, err
 }
 
+const getFlowEdge = `-- name: GetFlowEdge :one
+SELECT
+  id,
+  flow_id,
+  source_id,
+  target_id,
+  source_handle
+FROM
+  flow_edge
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowEdge(ctx context.Context, id []byte) (FlowEdge, error) {
+	row := q.queryRow(ctx, q.getFlowEdgeStmt, getFlowEdge, id)
+	var i FlowEdge
+	err := row.Scan(
+		&i.ID,
+		&i.FlowID,
+		&i.SourceID,
+		&i.TargetID,
+		&i.SourceHandle,
+	)
+	return i, err
+}
+
+const getFlowEdgesByFlowID = `-- name: GetFlowEdgesByFlowID :many
+SELECT
+  id,
+  flow_id,
+  source_id,
+  target_id,
+  source_handle
+FROM
+  flow_edge
+WHERE
+  flow_id = ?
+`
+
+func (q *Queries) GetFlowEdgesByFlowID(ctx context.Context, flowID []byte) ([]FlowEdge, error) {
+	rows, err := q.query(ctx, q.getFlowEdgesByFlowIDStmt, getFlowEdgesByFlowID, flowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowEdge{}
+	for rows.Next() {
+		var i FlowEdge
+		if err := rows.Scan(
+			&i.ID,
+			&i.FlowID,
+			&i.SourceID,
+			&i.TargetID,
+			&i.SourceHandle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlowNode = `-- name: GetFlowNode :one
 SELECT
   id,
@@ -3147,9 +3244,7 @@ SELECT
   flow_node_id,
   name,
   condition_type,
-  condition,
-  next_true,
-  next_false
+  condition
 FROM
   flow_node_if
 WHERE
@@ -3165,8 +3260,6 @@ func (q *Queries) GetFlowNodeIf(ctx context.Context, flowNodeID idwrap.IDWrap) (
 		&i.Name,
 		&i.ConditionType,
 		&i.Condition,
-		&i.NextTrue,
-		&i.NextFalse,
 	)
 	return i, err
 }
@@ -3175,8 +3268,7 @@ const getFlowNodeRequest = `-- name: GetFlowNodeRequest :one
 SELECT
   flow_node_id,
   name,
-  example_id,
-  next
+  example_id
 FROM
   flow_node_request
 WHERE
@@ -3187,12 +3279,7 @@ LIMIT 1
 func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeRequest, error) {
 	row := q.queryRow(ctx, q.getFlowNodeRequestStmt, getFlowNodeRequest, flowNodeID)
 	var i FlowNodeRequest
-	err := row.Scan(
-		&i.FlowNodeID,
-		&i.Name,
-		&i.ExampleID,
-		&i.Next,
-	)
+	err := row.Scan(&i.FlowNodeID, &i.Name, &i.ExampleID)
 	return i, err
 }
 
@@ -4846,6 +4933,33 @@ func (q *Queries) UpdateFlow(ctx context.Context, arg UpdateFlowParams) error {
 	return err
 }
 
+const updateFlowEdge = `-- name: UpdateFlowEdge :exec
+UPDATE flow_edge
+SET
+  source_id = ?,
+  target_id = ?,
+  source_handle = ?
+WHERE
+  id = ?
+`
+
+type UpdateFlowEdgeParams struct {
+	SourceID     []byte
+	TargetID     []byte
+	SourceHandle int64
+	ID           []byte
+}
+
+func (q *Queries) UpdateFlowEdge(ctx context.Context, arg UpdateFlowEdgeParams) error {
+	_, err := q.exec(ctx, q.updateFlowEdgeStmt, updateFlowEdge,
+		arg.SourceID,
+		arg.TargetID,
+		arg.SourceHandle,
+		arg.ID,
+	)
+	return err
+}
+
 const updateFlowNode = `-- name: UpdateFlowNode :exec
 UPDATE flow_node
 SET
@@ -4901,9 +5015,7 @@ UPDATE flow_node_if
 SET
   name = ?,
   condition_type = ?,
-  condition = ?,
-  next_true = ?,
-  next_false = ?
+  condition = ?
 WHERE
   flow_node_id = ?
 `
@@ -4912,8 +5024,6 @@ type UpdateFlowNodeIfParams struct {
 	Name          string
 	ConditionType int8
 	Condition     string
-	NextTrue      idwrap.IDWrap
-	NextFalse     idwrap.IDWrap
 	FlowNodeID    idwrap.IDWrap
 }
 
@@ -4922,8 +5032,6 @@ func (q *Queries) UpdateFlowNodeIf(ctx context.Context, arg UpdateFlowNodeIfPara
 		arg.Name,
 		arg.ConditionType,
 		arg.Condition,
-		arg.NextTrue,
-		arg.NextFalse,
 		arg.FlowNodeID,
 	)
 	return err
@@ -4933,8 +5041,7 @@ const updateFlowNodeRequest = `-- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
   name = ?,
-  example_id = ?,
-  next = ?
+  example_id = ?
 WHERE
   flow_node_id = ?
 `
@@ -4942,17 +5049,11 @@ WHERE
 type UpdateFlowNodeRequestParams struct {
 	Name       string
 	ExampleID  idwrap.IDWrap
-	Next       idwrap.IDWrap
 	FlowNodeID idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest,
-		arg.Name,
-		arg.ExampleID,
-		arg.Next,
-		arg.FlowNodeID,
-	)
+	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest, arg.Name, arg.ExampleID, arg.FlowNodeID)
 	return err
 }
 
