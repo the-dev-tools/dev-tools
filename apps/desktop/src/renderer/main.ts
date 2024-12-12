@@ -27,10 +27,9 @@
  */
 
 import { BrowserKeyValueStore } from '@effect/platform-browser';
-import { Config, ConfigProvider, Effect, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
+import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
 
-import { ApiLive } from '@the-dev-tools/api/live';
-import { ApiTest } from '@the-dev-tools/api/test';
+import { ApiLayer } from '@the-dev-tools/api/layer';
 import { app } from '@the-dev-tools/core/index';
 
 const ConfigLive = pipe(
@@ -42,14 +41,6 @@ const ConfigLive = pipe(
   ConfigProvider.fromJson,
   Layer.setConfigProvider,
 );
-
-const Environment = Config.literal('production', 'development', 'test')('MODE');
-
-const ApiLayer = Effect.gen(function* () {
-  const environment = yield* Environment;
-  if (environment === 'test') return ApiTest;
-  return ApiLive;
-}).pipe(Layer.unwrapEffect);
 
 const layer = pipe(
   ApiLayer,

@@ -20,12 +20,12 @@ import { AnyFnEffect, ApiTransport, effectInterceptor, Request } from './transpo
 
 class EmailRef extends Context.Tag('EmailRef')<EmailRef, Ref.Ref<string>>() {}
 
-const EmailTest = Layer.effect(
+const EmailMock = Layer.effect(
   EmailRef,
   Effect.flatMap(Faker, (_) => Ref.make(_.internet.email())),
 );
 
-const AuthTransportTest = Layer.effect(
+const AuthTransportMock = Layer.effect(
   AuthTransport,
   Effect.gen(function* () {
     const runtime = yield* Effect.runtime<Faker | EmailRef>();
@@ -51,7 +51,7 @@ const AuthTransportTest = Layer.effect(
   }),
 );
 
-const MagicClientTest = Layer.effect(
+const MagicClientMock = Layer.effect(
   MagicClient,
   Effect.gen(function* () {
     const runtime = yield* Effect.runtime<Faker | EmailRef>();
@@ -152,7 +152,7 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Me
   return create(message, value);
 };
 
-const ApiTransportTest = Layer.effect(
+const ApiTransportMock = Layer.effect(
   ApiTransport,
   Effect.gen(function* () {
     const faker = yield* Faker;
@@ -175,11 +175,11 @@ const ApiTransportTest = Layer.effect(
   }),
 );
 
-export const ApiTest = pipe(
-  ApiTransportTest,
-  Layer.provideMerge(AuthTransportTest),
-  Layer.provideMerge(MagicClientTest),
-  Layer.provide(EmailTest),
+export const ApiMock = pipe(
+  ApiTransportMock,
+  Layer.provideMerge(AuthTransportMock),
+  Layer.provideMerge(MagicClientMock),
+  Layer.provide(EmailMock),
   Layer.provide(FakerLive),
 );
 
