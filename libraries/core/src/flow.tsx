@@ -152,7 +152,7 @@ const Handle = (props: HandleProps) => (
     className={tw`-z-10 flex size-5 items-center justify-center rounded-full border border-slate-300 bg-slate-200 shadow-sm`}
     {...props}
   >
-    <div className={tw`size-2 rounded-full bg-slate-800`} />
+    <div className={tw`pointer-events-none size-2 rounded-full bg-slate-800`} />
   </BaseHandle>
 );
 
