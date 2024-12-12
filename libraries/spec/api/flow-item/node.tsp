@@ -55,7 +55,6 @@ model NodeFor {
 @autoFields
 model NodeRequest {
   ...NodeBase;
-  nextNodeID?: Resource.ID;
   exampleID: bytes;
 }
 

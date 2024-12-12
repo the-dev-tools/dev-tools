@@ -13,7 +13,5 @@ type MNIF struct {
 	Name          string
 	ConditionType ConditionType
 	Condition     string
-	NextTrue      idwrap.IDWrap
-	NextFalse     idwrap.IDWrap
 	// TODO: Condition type
 }

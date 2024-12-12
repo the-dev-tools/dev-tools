@@ -1488,7 +1488,8 @@ SELECT
   id,
   flow_id,
   node_type,
-  node_id
+  position_x,
+  position_y
 FROM
   flow_node
 WHERE
@@ -1500,7 +1501,8 @@ SELECT
   id,
   flow_id,
   node_type,
-  node_id
+  position_x,
+  position_y
 FROM
   flow_node
 WHERE
@@ -1508,15 +1510,15 @@ WHERE
 
 -- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, node_type, node_id)
+  flow_node (id, flow_id, node_type, position_x, position_y)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNode :exec
 UPDATE flow_node
 SET
-  node_type = ?,
-  node_id = ?
+  position_x = ?,
+  position_y = ?
 WHERE
   id = ?;
 
@@ -1575,9 +1577,7 @@ WHERE
 SELECT
   flow_node_id,
   name,
-  iter_count,
-  loop_start_node_id,
-  next
+  iter_count
 FROM
   flow_node_for
 WHERE
@@ -1586,17 +1586,15 @@ LIMIT 1;
 
 -- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (flow_node_id, name, iter_count, loop_start_node_id, next)
+  flow_node_for (flow_node_id, name, iter_count)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
 SET
   name = ?,
-  iter_count = ?,
-  loop_start_node_id = ?,
-  next = ?
+  iter_count = ?
 WHERE
   flow_node_id = ?;
 

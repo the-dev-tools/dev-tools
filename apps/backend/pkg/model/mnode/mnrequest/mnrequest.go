@@ -6,5 +6,4 @@ type MNRequest struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
 	ExampleID  idwrap.IDWrap
-	Next       idwrap.IDWrap
 }

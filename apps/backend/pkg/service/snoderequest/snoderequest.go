@@ -31,7 +31,6 @@ func ConvertToDBNodeRequest(nr mnrequest.MNRequest) gen.FlowNodeRequest {
 		FlowNodeID: nr.FlowNodeID,
 		Name:       nr.Name,
 		ExampleID:  nr.ExampleID,
-		Next:       nr.Next,
 	}
 }
 
@@ -40,7 +39,6 @@ func ConvertToModelNodeRequest(nr gen.FlowNodeRequest) *mnrequest.MNRequest {
 		FlowNodeID: nr.FlowNodeID,
 		Name:       nr.Name,
 		ExampleID:  nr.ExampleID,
-		Next:       nr.Next,
 	}
 }
 
@@ -58,7 +56,6 @@ func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnreques
 		FlowNodeID: nodeRequest.FlowNodeID,
 		Name:       nodeRequest.Name,
 		ExampleID:  nodeRequest.ExampleID,
-		Next:       nodeRequest.Next,
 	})
 	if err != nil {
 		return nil, err
@@ -72,7 +69,6 @@ func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnreques
 		FlowNodeID: nodeRequest.FlowNodeID,
 		Name:       nodeRequest.Name,
 		ExampleID:  nodeRequest.ExampleID,
-		Next:       nodeRequest.Next,
 	})
 	if err != nil {
 		return nil, err

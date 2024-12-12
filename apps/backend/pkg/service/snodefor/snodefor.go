@@ -30,21 +30,17 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForService, error) {
 
 func ConvertToDBNodeFor(nf mnfor.MNFor) gen.FlowNodeFor {
 	return gen.FlowNodeFor{
-		FlowNodeID:      nf.FlowNodeID,
-		Name:            nf.Name,
-		IterCount:       nf.IterCount,
-		LoopStartNodeID: nf.LoopStartNodeID,
-		Next:            nf.Next,
+		FlowNodeID: nf.FlowNodeID,
+		Name:       nf.Name,
+		IterCount:  nf.IterCount,
 	}
 }
 
 func ConvertToModelNodeFor(nf gen.FlowNodeFor) *mnfor.MNFor {
 	return &mnfor.MNFor{
-		FlowNodeID:      nf.FlowNodeID,
-		Name:            nf.Name,
-		IterCount:       nf.IterCount,
-		LoopStartNodeID: nf.LoopStartNodeID,
-		Next:            nf.Next,
+		FlowNodeID: nf.FlowNodeID,
+		Name:       nf.Name,
+		IterCount:  nf.IterCount,
 	}
 }
 

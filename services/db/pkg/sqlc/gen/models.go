@@ -119,18 +119,17 @@ type FlowEdge struct {
 }
 
 type FlowNode struct {
-	ID       idwrap.IDWrap
-	FlowID   idwrap.IDWrap
-	NodeType int8
-	NodeID   idwrap.IDWrap
+	ID        idwrap.IDWrap
+	FlowID    idwrap.IDWrap
+	NodeType  int8
+	PositionX float64
+	PositionY float64
 }
 
 type FlowNodeFor struct {
-	FlowNodeID      idwrap.IDWrap
-	Name            string
-	IterCount       int64
-	LoopStartNodeID idwrap.IDWrap
-	Next            idwrap.IDWrap
+	FlowNodeID idwrap.IDWrap
+	Name       string
+	IterCount  int64
 }
 
 type FlowNodeIf struct {

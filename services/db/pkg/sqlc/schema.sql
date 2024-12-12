@@ -296,7 +296,8 @@ CREATE TABLE flow_node (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,
   node_type INT8 NOT NULL,
-  node_id BLOB NOT NULL,
+  position_x REAL NOT NULL,
+  position_y REAL NOT NULL,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
@@ -315,8 +316,6 @@ CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
   iter_count BIGINT NOT NULL,
-  loop_start_node_id BLOB,
-  next BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (loop_start_node_id) REFERENCES flow_node (id) ON DELETE SET NULL,
   FOREIGN KEY (next) REFERENCES flow_node (id) ON DELETE SET NULL
