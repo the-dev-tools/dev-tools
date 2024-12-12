@@ -4,10 +4,16 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import {
   Background,
   BackgroundVariant,
+  Handle as BaseHandle,
+  ConnectionLineComponentProps,
   Edge,
+  EdgeProps,
+  getSmoothStepPath,
+  HandleProps,
   Node,
   NodeProps,
   NodeTypes,
+  Position,
   ReactFlow,
   useEdgesState,
   useNodesState,
@@ -90,16 +96,65 @@ interface StartNode extends Node<NodeStart, 'start'> {}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const StartNodeView = (_: NodeProps<StartNode>) => (
-  <div className={tw`flex w-40 items-center gap-2 rounded-md bg-slate-800 px-2 text-white shadow-sm`}>
-    <PlayIcon className={tw`size-4`} />
-    <div className={tw`w-px self-stretch bg-slate-700`} />
-    <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>Manual start</span>
-  </div>
+  <>
+    <div className={tw`flex w-40 items-center gap-2 rounded-md bg-slate-800 px-2 text-white shadow-sm`}>
+      <PlayIcon className={tw`size-4`} />
+      <div className={tw`w-px self-stretch bg-slate-700`} />
+      <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>Manual start</span>
+    </div>
+    <Handle type='source' position={Position.Bottom} />
+  </>
 );
 
 const nodeTypes: NodeTypes = {
   start: StartNodeView,
 };
+
+const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: EdgeProps) => (
+  <ConnectionLine
+    fromX={sourceX}
+    fromY={sourceY}
+    fromPosition={sourcePosition}
+    toX={targetX}
+    toY={targetY}
+    toPosition={targetPosition}
+  />
+);
+
+const edgeTypes = {
+  default: EdgeView,
+};
+
+const ConnectionLine = ({
+  fromX,
+  fromY,
+  fromPosition,
+  toX,
+  toY,
+  toPosition,
+}: Pick<ConnectionLineComponentProps, 'fromX' | 'fromY' | 'fromPosition' | 'toX' | 'toY' | 'toPosition'>) => {
+  const [edgePath] = getSmoothStepPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+    borderRadius: 8,
+    offset: 8,
+  });
+
+  return <path className={tw`fill-none stroke-slate-800 stroke-1`} d={edgePath} />;
+};
+
+const Handle = (props: HandleProps) => (
+  <BaseHandle
+    className={tw`-z-10 flex size-5 items-center justify-center rounded-full border border-slate-300 bg-slate-200 shadow-sm`}
+    {...props}
+  >
+    <div className={tw`size-2 rounded-full bg-slate-800`} />
+  </BaseHandle>
+);
 
 interface FlowViewProps {
   flow: FlowGetResponse;
@@ -120,7 +175,13 @@ const FlowView = ({ edges: serverEdges, nodes: serverNodes }: FlowViewProps) => 
     <ReactFlow
       proOptions={{ hideAttribution: true }}
       colorMode='light'
+      onInit={(reactFlow) => {
+        void reactFlow.fitView();
+      }}
+      connectionLineComponent={ConnectionLine}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      defaultEdgeOptions={{ type: 'default' }}
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}
