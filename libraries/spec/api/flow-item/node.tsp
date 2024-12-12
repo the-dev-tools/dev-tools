@@ -25,9 +25,10 @@ model Position {
 
 enum NodeKind {
   NODE_KIND_UNSPECIFIED: 0,
-  NODE_KIND_FOR: 1,
+  NODE_KIND_START: 1,
   NODE_KIND_REQUEST: 2,
-  NODE_KIND_CONDITION: 3,
+  NODE_KIND_FOR: 3,
+  NODE_KIND_CONDITION: 4,
 }
 
 @autoFields
@@ -41,21 +42,27 @@ model NodeBase {
 @autoFields
 model Node {
   kind: NodeKind;
-  for?: NodeFor;
+  start?: NodeStart;
   request?: NodeRequest;
+  for?: NodeFor;
   condition?: NodeCondition;
 }
 
 @autoFields
-model NodeFor {
+model NodeStart {
   ...NodeBase;
-  iteration: int32;
 }
 
 @autoFields
 model NodeRequest {
   ...NodeBase;
   exampleID: bytes;
+}
+
+@autoFields
+model NodeFor {
+  ...NodeBase;
+  iteration: int32;
 }
 
 enum ConditionType {
