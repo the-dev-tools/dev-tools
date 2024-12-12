@@ -17,12 +17,20 @@ using TypeSpec.Rest;
 })
 namespace API.FlowItem.Edge;
 
+enum Handle {
+  HANDLE_UNSPECIFIED: 0,
+  HANDLE_TRUE: 1,
+  HANDLE_FALSE: 2,
+  HANDLE_LOOP: 3,
+}
+
 @parentResource(Flow.Flow)
 @autoFields
 model Edge {
   edgeId: Resource.ID;
   sourceId: Resource.ID;
   targetId: Resource.ID;
+  sourceHandle: Handle;
 }
 
 model EdgeListItem is Resource.List.Item<Edge>;
