@@ -121,3 +121,12 @@ export const GlobalEnvironmentIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const PlayIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      fill='currentColor'
+      d='M12.57 6.717a1.455 1.455 0 0 1 0 2.566l-6.922 3.85c-1.026.57-2.308-.143-2.308-1.284V4.15c0-1.14 1.282-1.853 2.308-1.283l6.923 3.85Z'
+    />
+  </svg>
+);

@@ -1,16 +1,27 @@
 import { enumToJson } from '@bufbuild/protobuf';
 import { createQueryOptions, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { Background, BackgroundVariant, Edge, Node, ReactFlow, useEdgesState, useNodesState } from '@xyflow/react';
+import {
+  Background,
+  BackgroundVariant,
+  Edge,
+  Node,
+  NodeProps,
+  NodeTypes,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
+} from '@xyflow/react';
 import { Array, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
 
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
-import { NodeKindJson, NodeKindSchema, NodeListItem } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeKindJson, NodeKindSchema, NodeListItem, NodeStart } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeList } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { PlayIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
@@ -70,8 +81,24 @@ const mapNodeToClient = (node: NodeListItem) => {
   return Option.some({
     id: Ulid.construct(data.nodeId).toCanonical(),
     position: data.position!,
+    type: kind,
     data,
   } satisfies Partial<Node>);
+};
+
+interface StartNode extends Node<NodeStart, 'start'> {}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const StartNodeView = (_: NodeProps<StartNode>) => (
+  <div className={tw`flex w-40 items-center gap-2 rounded-md bg-slate-800 px-2 text-white shadow-sm`}>
+    <PlayIcon className={tw`size-4`} />
+    <div className={tw`w-px self-stretch bg-slate-700`} />
+    <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>Manual start</span>
+  </div>
+);
+
+const nodeTypes: NodeTypes = {
+  start: StartNodeView,
 };
 
 interface FlowViewProps {
@@ -93,6 +120,7 @@ const FlowView = ({ edges: serverEdges, nodes: serverNodes }: FlowViewProps) => 
     <ReactFlow
       proOptions={{ hideAttribution: true }}
       colorMode='light'
+      nodeTypes={nodeTypes}
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}
