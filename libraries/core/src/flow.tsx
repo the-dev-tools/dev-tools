@@ -1,12 +1,13 @@
+import { enumToJson } from '@bufbuild/protobuf';
 import { createQueryOptions, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { Background, BackgroundVariant, Edge, Node, ReactFlow, useEdgesState, useNodesState } from '@xyflow/react';
-import { Array, Match, Option, pipe } from 'effect';
+import { Array, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
 
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
-import { NodeBase, NodeKind, NodeListItem } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeKindJson, NodeKindSchema, NodeListItem } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeList } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
@@ -55,29 +56,23 @@ const mapEdgeToClient = (edge: EdgeListItem) =>
     target: Ulid.construct(edge.targetId).toCanonical(),
   }) satisfies Edge;
 
-const mapNodeBaseToClient = (node: Omit<NodeBase, '$typeName'>) =>
-  ({
-    id: Ulid.construct(node.nodeId).toCanonical(),
-    position: node.position!,
-  }) satisfies Partial<Node>;
-
-const mapNodeToClient = (node: NodeListItem) =>
-  pipe(
-    Match.value(node),
-    Match.when({ kind: NodeKind.CONDITION }, (_) => {
-      const data = _.condition!;
-      return Option.some({ ...mapNodeBaseToClient(data), data } satisfies Node);
-    }),
-    Match.when({ kind: NodeKind.FOR }, (_) => {
-      const data = _.for!;
-      return Option.some({ ...mapNodeBaseToClient(data), data } satisfies Node);
-    }),
-    Match.when({ kind: NodeKind.REQUEST }, (_) => {
-      const data = _.request!;
-      return Option.some({ ...mapNodeBaseToClient(data), data } satisfies Node);
-    }),
-    Match.orElse(() => Option.none()),
+const mapNodeToClient = (node: NodeListItem) => {
+  const kind = pipe(
+    enumToJson(NodeKindSchema, node.kind),
+    String.substring('NODE_KIND_'.length),
+    (_) => _ as NodeKindJson extends `NODE_KIND_${infer Kind}` ? Kind : never,
+    String.toLowerCase,
   );
+
+  if (kind === 'unspecified') return Option.none();
+
+  const data = node[kind]!;
+  return Option.some({
+    id: Ulid.construct(data.nodeId).toCanonical(),
+    position: data.position!,
+    data,
+  } satisfies Partial<Node>);
+};
 
 interface FlowViewProps {
   flow: FlowGetResponse;
