@@ -55,11 +55,9 @@ func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mn
 func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) (*mnfor.MNFor, error) {
 	nodeFor := ConvertToDBNodeFor(nf)
 	err := nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
-		FlowNodeID:      nodeFor.FlowNodeID,
-		Name:            nodeFor.Name,
-		IterCount:       nodeFor.IterCount,
-		LoopStartNodeID: nodeFor.LoopStartNodeID,
-		Next:            nodeFor.Next,
+		FlowNodeID: nodeFor.FlowNodeID,
+		Name:       nodeFor.Name,
+		IterCount:  nodeFor.IterCount,
 	})
 	if err != nil {
 		return nil, err
@@ -70,11 +68,9 @@ func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) (*m
 func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) (*mnfor.MNFor, error) {
 	nodeFor := ConvertToDBNodeFor(nf)
 	err := nfs.queries.UpdateFlowNodeFor(ctx, gen.UpdateFlowNodeForParams{
-		FlowNodeID:      nodeFor.FlowNodeID,
-		Name:            nodeFor.Name,
-		IterCount:       nodeFor.IterCount,
-		LoopStartNodeID: nodeFor.LoopStartNodeID,
-		Next:            nodeFor.Next,
+		FlowNodeID: nodeFor.FlowNodeID,
+		Name:       nodeFor.Name,
+		IterCount:  nodeFor.IterCount,
 	})
 	if err != nil {
 		return nil, err

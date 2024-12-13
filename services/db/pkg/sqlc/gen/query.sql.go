@@ -667,11 +667,11 @@ VALUES
 `
 
 type CreateFlowEdgeParams struct {
-	ID           []byte
-	FlowID       []byte
-	SourceID     []byte
-	TargetID     []byte
-	SourceHandle int64
+	ID           idwrap.IDWrap
+	FlowID       idwrap.IDWrap
+	SourceID     idwrap.IDWrap
+	TargetID     idwrap.IDWrap
+	SourceHandle interface{}
 }
 
 func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) error {
@@ -2176,7 +2176,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteFlowEdge(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteFlowEdge(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowEdgeStmt, deleteFlowEdge, id)
 	return err
 }
@@ -3126,7 +3126,7 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetFlowEdge(ctx context.Context, id []byte) (FlowEdge, error) {
+func (q *Queries) GetFlowEdge(ctx context.Context, id idwrap.IDWrap) (FlowEdge, error) {
 	row := q.queryRow(ctx, q.getFlowEdgeStmt, getFlowEdge, id)
 	var i FlowEdge
 	err := row.Scan(
@@ -3152,7 +3152,7 @@ WHERE
   flow_id = ?
 `
 
-func (q *Queries) GetFlowEdgesByFlowID(ctx context.Context, flowID []byte) ([]FlowEdge, error) {
+func (q *Queries) GetFlowEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowEdge, error) {
 	rows, err := q.query(ctx, q.getFlowEdgesByFlowIDStmt, getFlowEdgesByFlowID, flowID)
 	if err != nil {
 		return nil, err
@@ -4934,10 +4934,10 @@ WHERE
 `
 
 type UpdateFlowEdgeParams struct {
-	SourceID     []byte
-	TargetID     []byte
-	SourceHandle int64
-	ID           []byte
+	SourceID     idwrap.IDWrap
+	TargetID     idwrap.IDWrap
+	SourceHandle interface{}
+	ID           idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowEdge(ctx context.Context, arg UpdateFlowEdgeParams) error {

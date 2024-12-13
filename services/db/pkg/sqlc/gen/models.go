@@ -111,11 +111,11 @@ type Flow struct {
 }
 
 type FlowEdge struct {
-	ID           []byte
-	FlowID       []byte
-	SourceID     []byte
-	TargetID     []byte
-	SourceHandle int64
+	ID           idwrap.IDWrap
+	FlowID       idwrap.IDWrap
+	SourceID     idwrap.IDWrap
+	TargetID     idwrap.IDWrap
+	SourceHandle interface{}
 }
 
 type FlowNode struct {

@@ -440,8 +440,40 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### node_id
-          - column: 'flow_node.node_id'
+          ## flow_edge
+          ### id
+          - column: 'flow_edge.id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_id
+          - column: 'flow_edge.flow_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### source_id
+          - column: 'flow_edge.source_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### target_id
+          - column: 'flow_edge.target_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ## flow_node
+          ### id
+          - column: 'flow_node.id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_id
+          - column: 'flow_node.flow_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'

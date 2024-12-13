@@ -26,6 +26,7 @@ var ErrEdgeNotFound = errors.New("edge not found")
 
 type Edge struct {
 	ID            idwrap.IDWrap
+	FlowID        idwrap.IDWrap
 	SourceID      idwrap.IDWrap
 	TargetID      idwrap.IDWrap
 	SourceHandler EdgeHandle

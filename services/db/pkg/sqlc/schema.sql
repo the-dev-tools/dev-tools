@@ -306,7 +306,7 @@ CREATE TABLE flow_edge (
   flow_id BLOB NOT NULL,
   source_id BLOB NOT NULL,
   target_id BLOB NOT NULL,
-  source_handle INTEGER NOT NULL,
+  source_handle INT32 NOT NULL,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
   FOREIGN KEY (from_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (to_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
