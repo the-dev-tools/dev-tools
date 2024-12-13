@@ -671,7 +671,7 @@ type CreateFlowEdgeParams struct {
 	FlowID       idwrap.IDWrap
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
-	SourceHandle interface{}
+	SourceHandle int32
 }
 
 func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) error {
@@ -687,7 +687,7 @@ func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) 
 
 const createFlowNode = `-- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, node_type, position_x, position_y)
+  flow_node (id, flow_id, node_kind, position_x, position_y)
 VALUES
   (?, ?, ?, ?, ?)
 `
@@ -695,7 +695,7 @@ VALUES
 type CreateFlowNodeParams struct {
 	ID        idwrap.IDWrap
 	FlowID    idwrap.IDWrap
-	NodeType  int8
+	NodeKind  int32
 	PositionX float64
 	PositionY float64
 }
@@ -704,7 +704,7 @@ func (q *Queries) CreateFlowNode(ctx context.Context, arg CreateFlowNodeParams) 
 	_, err := q.exec(ctx, q.createFlowNodeStmt, createFlowNode,
 		arg.ID,
 		arg.FlowID,
-		arg.NodeType,
+		arg.NodeKind,
 		arg.PositionX,
 		arg.PositionY,
 	)
@@ -3185,7 +3185,7 @@ const getFlowNode = `-- name: GetFlowNode :one
 SELECT
   id,
   flow_id,
-  node_type,
+  node_kind,
   position_x,
   position_y
 FROM
@@ -3201,7 +3201,7 @@ func (q *Queries) GetFlowNode(ctx context.Context, id idwrap.IDWrap) (FlowNode, 
 	err := row.Scan(
 		&i.ID,
 		&i.FlowID,
-		&i.NodeType,
+		&i.NodeKind,
 		&i.PositionX,
 		&i.PositionY,
 	)
@@ -3275,7 +3275,7 @@ const getFlowNodesByFlowID = `-- name: GetFlowNodesByFlowID :many
 SELECT
   id,
   flow_id,
-  node_type,
+  node_kind,
   position_x,
   position_y
 FROM
@@ -3296,7 +3296,7 @@ func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 		if err := rows.Scan(
 			&i.ID,
 			&i.FlowID,
-			&i.NodeType,
+			&i.NodeKind,
 			&i.PositionX,
 			&i.PositionY,
 		); err != nil {
@@ -4936,7 +4936,7 @@ WHERE
 type UpdateFlowEdgeParams struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
-	SourceHandle interface{}
+	SourceHandle int32
 	ID           idwrap.IDWrap
 }
 

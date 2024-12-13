@@ -1487,7 +1487,7 @@ WHERE
 SELECT
   id,
   flow_id,
-  node_type,
+  node_kind,
   position_x,
   position_y
 FROM
@@ -1500,7 +1500,7 @@ LIMIT 1;
 SELECT
   id,
   flow_id,
-  node_type,
+  node_kind,
   position_x,
   position_y
 FROM
@@ -1510,7 +1510,7 @@ WHERE
 
 -- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, node_type, position_x, position_y)
+  flow_node (id, flow_id, node_kind, position_x, position_y)
 VALUES
   (?, ?, ?, ?, ?);
 

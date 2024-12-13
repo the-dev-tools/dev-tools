@@ -1,7 +1,9 @@
 package sedge
 
 import (
+	"context"
 	"the-dev-tools/backend/pkg/flow/edge"
+	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
@@ -19,6 +21,61 @@ func ConvertToDBEdge(e edge.Edge) gen.FlowEdge {
 		FlowID:       e.FlowID,
 		SourceID:     e.SourceID,
 		TargetID:     e.TargetID,
-		SourceHandle: e.SourceHandler,
+		SourceHandle: int32(e.SourceHandler),
 	}
+}
+
+func ConvertToModelEdge(e gen.FlowEdge) *edge.Edge {
+	return &edge.Edge{
+		ID:            e.ID,
+		FlowID:        e.FlowID,
+		SourceID:      e.SourceID,
+		TargetID:      e.TargetID,
+		SourceHandler: edge.EdgeHandle(e.SourceHandle),
+	}
+}
+
+func (es EdgeService) GetEdge(ctx context.Context, id idwrap.IDWrap) (*edge.Edge, error) {
+	edge, err := es.queries.GetFlowEdge(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return ConvertToModelEdge(edge), nil
+}
+
+func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) (*edge.Edge, error) {
+	edge := ConvertToDBEdge(e)
+	err := es.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
+		ID:           edge.ID,
+		FlowID:       edge.FlowID,
+		SourceID:     edge.SourceID,
+		TargetID:     edge.TargetID,
+		SourceHandle: edge.SourceHandle,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (es EdgeService) UpdateEdge(ctx context.Context, e edge.Edge) (*edge.Edge, error) {
+	edge := ConvertToDBEdge(e)
+	err := es.queries.UpdateFlowEdge(ctx, gen.UpdateFlowEdgeParams{
+		ID:           edge.ID,
+		SourceID:     edge.SourceID,
+		TargetID:     edge.TargetID,
+		SourceHandle: edge.SourceHandle,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (es EdgeService) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {
+	err := es.queries.DeleteFlowEdge(ctx, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
