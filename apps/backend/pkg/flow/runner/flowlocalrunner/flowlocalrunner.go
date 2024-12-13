@@ -3,6 +3,7 @@ package flowlocalrunner
 import (
 	"context"
 	"fmt"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -13,11 +14,12 @@ type FlowLocalRunner struct {
 	ID          idwrap.IDWrap
 	FlowID      idwrap.IDWrap
 	FlowNodeMap map[idwrap.IDWrap]node.FlowNode
+	EdgesMap    edge.EdgesMap
 	StartNodeID idwrap.IDWrap
 	Timeout     time.Duration
 }
 
-func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, timeout time.Duration) *FlowLocalRunner {
+func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration) *FlowLocalRunner {
 	return &FlowLocalRunner{
 		ID:          id,
 		FlowID:      flowID,

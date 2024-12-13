@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 )
 
@@ -17,8 +18,9 @@ type FlowNode interface {
 }
 
 type FlowNodeRequest struct {
-	VarMap  map[string]interface{}
-	NodeMap map[idwrap.IDWrap]FlowNode
+	VarMap        map[string]interface{}
+	NodeMap       map[idwrap.IDWrap]FlowNode
+	EdgeSourceMap edge.EdgesMap
 }
 
 type FlowNodeResult struct {

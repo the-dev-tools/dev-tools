@@ -3,6 +3,7 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
@@ -16,7 +17,6 @@ const NodeOutputKey = "request"
 
 type NodeRequest struct {
 	FlownNodeID idwrap.IDWrap
-	Next        *idwrap.IDWrap
 	Api         mitemapi.ItemApi
 	Example     mitemapiexample.ItemApiExample
 	Queries     []mexamplequery.Query
@@ -25,12 +25,11 @@ type NodeRequest struct {
 	HttpClient  httpclient.HttpClient
 }
 
-func New(id idwrap.IDWrap, next *idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
+func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
 	Queries []mexamplequery.Query, Headers []mexampleheader.Header, body []byte, Httpclient httpclient.HttpClient,
 ) *NodeRequest {
 	return &NodeRequest{
 		FlownNodeID: id,
-		Next:        next,
 		Api:         api,
 		Example:     example,
 		HttpClient:  Httpclient,
@@ -52,8 +51,10 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		URL:    nr.Api.Url,
 		Body:   nr.Body,
 	}
+
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
 	result := node.FlowNodeResult{
-		NextNodeID: nr.Next,
+		NextNodeID: nextID,
 		Err:        nil,
 	}
 
@@ -87,8 +88,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		URL:    nr.Api.Url,
 		Body:   nr.Body,
 	}
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
 	result := node.FlowNodeResult{
-		NextNodeID: nr.Next,
+		NextNodeID: nextID,
 		Err:        nil,
 	}
 

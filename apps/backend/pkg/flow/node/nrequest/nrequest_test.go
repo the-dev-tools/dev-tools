@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -48,15 +49,21 @@ func TestNodeRequest_Run(t *testing.T) {
 		mockHttpClient := httpmockclient.NewMockHttpClient(mockResp)
 		requestBody := []byte("Request body")
 
-		requestNode := nrequest.New(id, &next, api, example, queries, headers, requestBody, mockHttpClient)
+		requestNode := nrequest.New(id, api, example, queries, headers, requestBody, mockHttpClient)
+
+		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
+		edges := []edge.Edge{edge1}
+		edgesMap := edge.NewEdgesMap(edges)
+
 		req := &node.FlowNodeRequest{
-			VarMap: map[string]interface{}{},
+			VarMap:        map[string]interface{}{},
+			EdgeSourceMap: edgesMap,
 		}
 		ctx := context.TODO()
 		resault := requestNode.RunSync(ctx, req)
-		testutil.Assert(t, resault.NextNodeID, &next)
-		testutil.Assert(t, resault.Err, nil)
-		testutil.Assert(t, requestNode.GetID(), id)
+		testutil.Assert(t, next, *resault.NextNodeID)
+		testutil.Assert(t, nil, resault.Err)
+		testutil.Assert(t, id, requestNode.GetID())
 		testutil.AssertNot(t, req, nil)
 		if req.VarMap == nil {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
@@ -65,10 +72,12 @@ func TestNodeRequest_Run(t *testing.T) {
 		var httpResp httpclient.Response
 		RawOutput, ok := req.VarMap[nrequest.NodeOutputKey]
 		testutil.Assert(t, true, ok)
+
 		CastedOutput := RawOutput.(map[string]interface{})
 		jsonOutput, err := json.Marshal(CastedOutput)
 		testutil.Assert(t, nil, err)
 		err = json.Unmarshal(jsonOutput, &httpResp)
+
 		testutil.Assert(t, nil, err)
 		testutil.Assert(t, 200, httpResp.StatusCode)
 		if !bytes.Equal(httpResp.Body, expectedBody) {
@@ -88,18 +97,23 @@ func TestNodeRequest_Run(t *testing.T) {
 		mockHttpClient := httpmockclient.NewMockHttpClient(mockResp)
 		requestBody := []byte("Request body")
 
-		requestNode := nrequest.New(id, &next, api, example, queries, headers, requestBody, mockHttpClient)
+		requestNode := nrequest.New(id, api, example, queries, headers, requestBody, mockHttpClient)
+		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
+		edges := []edge.Edge{edge1}
+		edgesMap := edge.NewEdgesMap(edges)
+
 		req := &node.FlowNodeRequest{
-			VarMap: map[string]interface{}{},
+			VarMap:        map[string]interface{}{},
+			EdgeSourceMap: edgesMap,
 		}
 		ctx := context.TODO()
 		resChan := make(chan node.FlowNodeResult, 1)
 		go requestNode.RunAsync(ctx, req, resChan)
 		resault := <-resChan
-		testutil.Assert(t, resault.NextNodeID, &next)
-		testutil.Assert(t, resault.Err, nil)
-		testutil.Assert(t, requestNode.GetID(), id)
-		testutil.AssertNot(t, req, nil)
+		testutil.Assert(t, next, *resault.NextNodeID)
+		testutil.Assert(t, nil, resault.Err)
+		testutil.Assert(t, id, requestNode.GetID())
+		testutil.AssertNot(t, nil, req)
 		if req.VarMap == nil {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
@@ -121,7 +135,6 @@ func TestNodeRequest_Run(t *testing.T) {
 
 func TestNodeRequest_SetID(t *testing.T) {
 	id := idwrap.NewNow()
-	next := idwrap.NewNow()
 	api := mitemapi.ItemApi{
 		Method: "GET",
 		Url:    "http://example.com",
@@ -137,7 +150,7 @@ func TestNodeRequest_SetID(t *testing.T) {
 	}
 	mockHttpClient := httpmockclient.NewMockHttpClient(mockResp)
 	requestBody := []byte("Request body")
-	requestNode := nrequest.New(id, &next, api, example, queries, headers, requestBody, mockHttpClient)
+	requestNode := nrequest.New(id, api, example, queries, headers, requestBody, mockHttpClient)
 	newID := idwrap.NewNow()
 	requestNode.SetID(newID)
 	if requestNode.GetID() != newID {

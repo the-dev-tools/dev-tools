@@ -3,6 +3,7 @@ package nfor_test
 import (
 	"context"
 	"testing"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/mocknode"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
@@ -36,12 +37,19 @@ func TestForNode_RunSync(t *testing.T) {
 
 	timeOut := time.Duration(0)
 
-	nodeFor := nfor.New(id, name, iterCount, mockNode1ID, nil, timeOut)
+	nodeFor := nfor.New(id, name, iterCount, timeOut)
 	ctx := context.Background()
 
+	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop)
+	edges := []edge.Edge{edge1, edge2, edge3}
+	edgesMap := edge.NewEdgesMap(edges)
+
 	req := &node.FlowNodeRequest{
-		VarMap:  map[string]interface{}{},
-		NodeMap: nodeMap,
+		VarMap:        map[string]interface{}{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
@@ -73,15 +81,22 @@ func TestForNode_RunAsync(t *testing.T) {
 		mockNode3ID: mockNode3,
 	}
 
+	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1, edge2}
+	edgesMap := edge.NewEdgesMap(edges)
+
 	id := idwrap.NewNow()
 	name := "test"
 	iterCount := int64(3)
-	nodeFor := nfor.New(id, name, iterCount, mockNode1ID, nil, time.Minute)
+	nodeFor := nfor.New(id, name, iterCount, time.Minute)
+
 	ctx := context.Background()
 
 	req := &node.FlowNodeRequest{
-		VarMap:  map[string]interface{}{},
-		NodeMap: nodeMap,
+		VarMap:        map[string]interface{}{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
 	}
 
 	resultChan := make(chan node.FlowNodeResult, 1)
@@ -97,7 +112,7 @@ func TestForNode_RunAsync(t *testing.T) {
 
 func TestForNode_SetID(t *testing.T) {
 	id := idwrap.NewNow()
-	nodeFor := nfor.New(id, "test", 1, id, nil, time.Minute)
+	nodeFor := nfor.New(id, "test", 1, time.Minute)
 	nodeFor.SetID(id)
 	if nodeFor.GetID() != id {
 		t.Errorf("Expected nodeFor.GetID() to be %v, but got %v", id, nodeFor.GetID())

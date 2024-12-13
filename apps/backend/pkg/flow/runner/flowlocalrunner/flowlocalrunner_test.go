@@ -3,6 +3,7 @@ package flowlocalrunner_test
 import (
 	"context"
 	"testing"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/mocknode"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
@@ -30,8 +31,13 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 		node3ID: mockNode3,
 	}
 
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1, edge2}
+	edgesMap := edge.NewEdgesMap(edges)
+
 	t.Run("Sync", func(t *testing.T) {
-		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, 0)
+		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 		err := runner.Run(context.Background(), nil)
 		if err != nil {
 			t.Errorf("Expected err to be nil, but got %v", err)
@@ -42,7 +48,7 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 	})
 	runCounter = 0
 	t.Run("Async", func(t *testing.T) {
-		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, time.Minute)
+		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
 		err := runner.Run(context.Background(), nil)
 		if err != nil {
 			t.Errorf("Expected err to be nil, but got %v", err)
@@ -73,7 +79,13 @@ func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
 		node3ID: mockNode3,
 		node4ID: mockNode4,
 	}
-	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, 0)
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1, edge2}
+	edgesMap := edge.NewEdgesMap(edges)
+
+	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 	err := runner.Run(context.Background(), nil)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
@@ -104,7 +116,12 @@ func TestLocalFlowRunner_Run_Timeout(t *testing.T) {
 		node3ID: mockNode3,
 	}
 
-	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, timeout)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1, edge2}
+	edgesMap := edge.NewEdgesMap(edges)
+
+	runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, timeout)
 	err := runner.Run(context.Background(), nil)
 	if err == nil {
 		t.Errorf("Expected err to be not nil, but got %v", err)
