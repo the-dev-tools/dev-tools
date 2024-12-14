@@ -207,12 +207,18 @@ const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPo
     toX={targetX}
     toY={targetY}
     toPosition={targetPosition}
+    connected
   />
 );
 
 const edgeTypes = {
   default: EdgeView,
 };
+
+interface ConnectionLineProps
+  extends Pick<ConnectionLineComponentProps, 'fromX' | 'fromY' | 'fromPosition' | 'toX' | 'toY' | 'toPosition'> {
+  connected?: boolean;
+}
 
 const ConnectionLine = ({
   fromX,
@@ -221,7 +227,8 @@ const ConnectionLine = ({
   toX,
   toY,
   toPosition,
-}: Pick<ConnectionLineComponentProps, 'fromX' | 'fromY' | 'fromPosition' | 'toX' | 'toY' | 'toPosition'>) => {
+  connected = false,
+}: ConnectionLineProps) => {
   const [edgePath] = getSmoothStepPath({
     sourceX: fromX,
     sourceY: fromY,
@@ -233,7 +240,13 @@ const ConnectionLine = ({
     offset: 8,
   });
 
-  return <path className={tw`fill-none stroke-slate-800 stroke-1`} d={edgePath} />;
+  return (
+    <path
+      className={tw`fill-none stroke-slate-800 stroke-1`}
+      d={edgePath}
+      strokeDasharray={connected ? undefined : 4}
+    />
+  );
 };
 
 const Handle = (props: HandleProps) => (
