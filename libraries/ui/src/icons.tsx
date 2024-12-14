@@ -130,3 +130,101 @@ export const PlayIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const SendRequestIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M1.6 10.4v-4M4 6.4v4M1.6 8H4M5.6 6.4h1.6M8.8 6.4h1.6M6.4 6.4v4M9.6 6.4v4M12 8.4h1.2c.318 0 .623-.105.849-.293A.924.924 0 0 0 14.4 7.4a.924.924 0 0 0-.351-.707A1.331 1.331 0 0 0 13.2 6.4H12v4M3.2 4h9.6l-2.5-1.6M12.8 12.8H3.2l2.5 1.6'
+    />
+  </svg>
+);
+
+export const DataSourceIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M9.333 2v2.667a.667.667 0 0 0 .667.666h2.667'
+    />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M11.333 14H4.667a1.334 1.334 0 0 1-1.334-1.333V3.333A1.333 1.333 0 0 1 4.667 2h4.666l3.334 3.333v7.334A1.334 1.334 0 0 1 11.333 14ZM6.667 8l2.666 3.333M6.667 11.333 9.333 8'
+    />
+  </svg>
+);
+
+export const DelayIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <g stroke='currentColor' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.2} clipPath='url(#a)'>
+      <path d='M4.333 4.667h7.334M4 13.333V12a4 4 0 1 1 8 0v1.333a.666.666 0 0 1-.667.667H4.667A.666.666 0 0 1 4 13.333Z' />
+      <path d='M4 2.667V4a4 4 0 0 0 8 0V2.667A.666.666 0 0 0 11.333 2H4.667A.667.667 0 0 0 4 2.667Z' />
+    </g>
+    <defs>
+      <clipPath id='a'>
+        <path fill='#fff' d='M0 0h16v16H0z' />
+      </clipPath>
+    </defs>
+  </svg>
+);
+
+export const IfIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <g stroke='currentColor' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.2} clipPath='url(#a)'>
+      <path d='M14 11.333H8.667L6.333 8H2M14 4.667H8.667L6.337 8' />
+      <path d='m12 6.667 2-2-2-2M12 13.333l2-2-2-2' />
+    </g>
+    <defs>
+      <clipPath id='a'>
+        <path fill='#fff' d='M0 0h16v16H0z' />
+      </clipPath>
+    </defs>
+  </svg>
+);
+
+export const ForIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M6.4 4H3.6a2 2 0 0 0-2 2v5.6a2 2 0 0 0 2 2h8.8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H8.8'
+    />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M4.8 2.4 6.4 4 4.8 5.6M8 9.6v1.6'
+    />
+    <circle cx={8} cy={7} r={0.5} fill='currentColor' stroke='currentColor' strokeWidth={0.2} />
+  </svg>
+);
+
+export const CollectIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M6.4 3.2H3.6a2 2 0 0 0-2 2v5.6a2 2 0 0 0 2 2h8.8a2 2 0 0 0 2-2V5.2a2 2 0 0 0-2-2H8.8'
+    />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='m4.8 1.6 1.6 1.6-1.6 1.6'
+    />
+  </svg>
+);
