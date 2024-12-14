@@ -41,6 +41,7 @@ model NodeBase {
 @parentResource(Flow.Flow)
 @autoFields
 model Node {
+  ...NodeBase;
   kind: NodeKind;
   start?: NodeStart;
   request?: NodeRequest;
@@ -126,3 +127,4 @@ interface NodeService {
   NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }
+

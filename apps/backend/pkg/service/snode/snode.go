@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mnode"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
+
+var ErrNoNodeFound error = sql.ErrNoRows
 
 type NodeService struct {
 	queries *gen.Queries
@@ -52,6 +55,17 @@ func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnode.MNo
 		return nil, err
 	}
 	return ConvertNodeToModel(node), nil
+}
+
+func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnode.MNode, error) {
+	nodes, err := ns.queries.GetFlowNodesByFlowID(ctx, flowID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mnode.MNode{}, nil
+		}
+		return nil, err
+	}
+	return tgeneric.MassConvertPtr(nodes, ConvertNodeToModel), nil
 }
 
 func (ns NodeService) CreateNode(ctx context.Context, n mnode.MNode) (*mnode.MNode, error) {
