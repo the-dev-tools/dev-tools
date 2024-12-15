@@ -25,6 +25,14 @@ The following software is needed for the development environment:
 
 ## Resources
 
+### Development Environment
+
+- Nix Flakes - [Wiki](https://wiki.nixos.org/wiki/Flakes) - [Install](https://github.com/DeterminateSystems/nix-installer#readme)
+- direnv - [Docs](https://direnv.net/) - [Install](https://direnv.net/docs/installation.html)
+- pnpm - [Docs](https://pnpm.io/motivation)
+- Nx - [Docs](https://nx.dev/getting-started/intro) - [Plugins](https://nx.dev/plugin-registry) - [API](https://nx.dev/nx-api)
+- dotenvx - [Docs](https://dotenvx.com/docs/)
+
 ### General
 
 - Effect - [Docs](https://effect.website/docs/) - [API](https://effect-ts.github.io/effect/docs/effect)
@@ -37,7 +45,9 @@ The following software is needed for the development environment:
 - TanStack Router - [Docs](https://tanstack.com/router/latest/docs/framework/react/overview)
 - TanStack Query - [Docs](https://tanstack.com/query/latest/docs/framework/react/overview)
 - TanStack Table - [Docs](https://tanstack.com/table/latest/docs/introduction)
+- normy - [Core](https://github.com/klis87/normy#readme) - [TanStack Query](https://github.com/klis87/normy/tree/master/packages/normy-react-query#readme)
 - React Hook Form - [API](https://react-hook-form.com/docs) - [TS](https://react-hook-form.com/ts)
+- React Flow - [Docs](https://reactflow.dev/learn) - [API](https://reactflow.dev/api-reference) - [Components](https://reactflow.dev/components) - [Examples](https://reactflow.dev/examples)
 
 ### RPC / Protobufs
 
@@ -61,3 +71,4 @@ The following software is needed for the development environment:
 ### Other
 
 - React Email - [Docs](https://react.email/docs/introduction) - [Components](https://react.email/components) - [Templates](https://react.email/templates)
+- Electron Vite - [Docs](https://electron-vite.org/guide/)
