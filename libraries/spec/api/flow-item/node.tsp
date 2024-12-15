@@ -57,6 +57,8 @@ model NodeStart {
 @autoFields
 model NodeRequest {
   ...NodeBase;
+  collectionId: bytes;
+  endpointId: bytes;
   exampleId: bytes;
 }
 

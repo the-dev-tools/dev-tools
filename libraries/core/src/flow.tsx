@@ -1,4 +1,4 @@
-import { enumToJson, MessageInitShape } from '@bufbuild/protobuf';
+import { create, enumToJson, MessageInitShape } from '@bufbuild/protobuf';
 import {
   createQueryOptions,
   useMutation as useConnectMutation,
@@ -31,8 +31,11 @@ import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
-import { FiTerminal } from 'react-icons/fi';
+import { FiExternalLink, FiTerminal } from 'react-icons/fi';
 
+import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
+import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeCreate, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import {
@@ -40,12 +43,14 @@ import {
   NodeKindJson,
   NodeKindSchema,
   NodeListItem,
+  NodeRequest,
   NodeSchema,
   NodeStart,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { nodeCreate, nodeList } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import { nodeCreate, nodeList, nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import {
   CollectIcon,
   DataSourceIcon,
@@ -56,7 +61,10 @@ import {
   SendRequestIcon,
 } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
+import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+
+import { CollectionListTree } from './collection';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
   component: RouteComponent,
@@ -193,7 +201,12 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
 
       const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
-      const node = { id: nodeIdCan, position, type, data } satisfies Partial<Node>;
+      const node = {
+        id: nodeIdCan,
+        position,
+        type,
+        data: { ...create(NodeSchema, data)[type]!, nodeId },
+      } satisfies Partial<Node>;
 
       const edge = {
         id: Ulid.construct(edgeId).toCanonical(),
@@ -272,9 +285,83 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
   );
 };
 
+interface RequestNode extends Node<NodeRequest, 'request'> {}
+
+const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
+  const { nodeId, collectionId, endpointId, exampleId } = data;
+
+  const { updateNodeData } = useReactFlow();
+
+  const collectionGetQuery = useConnectQuery(collectionGet, { collectionId }, { enabled: collectionId.length > 0 });
+  const endpointGetQuery = useConnectQuery(endpointGet, { endpointId }, { enabled: endpointId.length > 0 });
+  const exampleGetQuery = useConnectQuery(exampleGet, { exampleId }, { enabled: exampleId.length > 0 });
+
+  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+
+  let content;
+  if (collectionGetQuery.isSuccess && endpointGetQuery.isSuccess && exampleGetQuery.isSuccess) {
+    const { name: collectionName } = collectionGetQuery.data;
+    const { method } = endpointGetQuery.data;
+    const { name } = exampleGetQuery.data;
+
+    content = (
+      <div className={tw`space-y-1.5 p-2`}>
+        <div className={tw`text-xs leading-4 tracking-tight text-slate-400`}>{collectionName}</div>
+        <div className={tw`flex items-center gap-1.5`}>
+          <MethodBadge method={method} />
+          <div className={tw`flex-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
+          <ButtonAsLink
+            variant='ghost'
+            className={tw`p-0.5`}
+            href={{
+              from: Route.fullPath,
+              to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+              params: {
+                endpointIdCan: Ulid.construct(endpointId).toCanonical(),
+                exampleIdCan: Ulid.construct(exampleId).toCanonical(),
+              },
+            }}
+          >
+            <FiExternalLink className={tw`size-4 text-slate-500`} />
+          </ButtonAsLink>
+        </div>
+      </div>
+    );
+  } else {
+    content = (
+      <CollectionListTree
+        onAction={async ({ collectionId, endpointId, exampleId }) => {
+          if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
+          const newData = { ...data, collectionId, endpointId, exampleId };
+          await nodeUpdateMutation.mutateAsync({ nodeId, request: newData });
+          updateNodeData(id, newData);
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <div className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
+        <div className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}>
+          <SendRequestIcon className={tw`size-5 text-slate-500`} />
+          <div className={tw`h-4 w-px bg-slate-300`} />
+          <span className={tw`text-xs font-medium leading-5 tracking-tight`}>Send Request</span>
+        </div>
+
+        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>{content}</div>
+      </div>
+
+      <Handle type='target' position={Position.Top} />
+      <Handle type='source' position={Position.Bottom} />
+    </>
+  );
+};
+
 const nodeTypes: NodeTypes = {
   start: StartNodeView,
   create: CreateNodeView,
+  request: RequestNodeView,
 };
 
 const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: EdgeProps) => (

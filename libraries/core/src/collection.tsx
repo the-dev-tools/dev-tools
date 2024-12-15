@@ -448,7 +448,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
       childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
-        return <ExampleItem id={exampleIdCan} endpointId={endpointId} example={_} />;
+        return <ExampleItem id={exampleIdCan} collectionId={collectionId} endpointId={endpointId} example={_} />;
       }}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
@@ -506,11 +506,12 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
 interface ExampleItemProps {
   id: string;
+  collectionId: Collection['collectionId'];
   endpointId: Endpoint['endpointId'];
   example: ExampleListItem;
 }
 
-const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps) => {
+const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: ExampleItemProps) => {
   const match = useMatch({ strict: false });
 
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
@@ -527,7 +528,7 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
 
   return (
     <TreeItem
-      id={pipe(new TreeKey({ endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       textValue={example.name}
       href={
         navigate
