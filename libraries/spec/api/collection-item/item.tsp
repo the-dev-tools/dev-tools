@@ -38,7 +38,7 @@ model CollectionItem {
 
 @autoFields
 model CollectionItemListRequest is Resource.List.Request<CollectionItem> {
-  folderId?: Resource.ID;
+  folderId?: Resource.Id;
 }
 
 model CollectionItemListResponse is Resource.List.Response<CollectionItem>;
@@ -46,11 +46,11 @@ model CollectionItemListResponse is Resource.List.Response<CollectionItem>;
 @autoFields
 model CollectionItemMoveRequest {
   ...ParentKeyOf<CollectionItem>;
-  itemId: Resource.ID;
+  itemId: Resource.Id;
   kind: ItemKind;
-  parentFolderId?: Resource.ID;
-  previousItemId: Resource.ID;
-  nextItemId: Resource.ID;
+  parentFolderId?: Resource.Id;
+  previousItemId: Resource.Id;
+  nextItemId: Resource.Id;
 }
 
 @Protobuf.service

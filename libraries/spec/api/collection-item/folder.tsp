@@ -20,8 +20,8 @@ namespace API.CollectionItem.Folder;
 @autoFields
 @parentResource(Collection.Collection)
 model Folder {
-  @key folderId: Resource.ID;
-  @visibility("list", "mutate") parentFolderId?: Resource.ID;
+  @key folderId: Resource.Id;
+  @visibility("list", "mutate") parentFolderId?: Resource.Id;
   name: string;
 }
 
@@ -31,7 +31,7 @@ model FolderCreateResponse is Resource.Create.Response<Folder>;
 model FolderUpdateRequest is Resource.Update.Request<Folder>;
 model FolderUpdateResponse is Resource.Update.Response<Folder>;
 model FolderDeleteRequest is Resource.Delete.Request<Folder> {
-  @autoField parentFolderId?: Resource.ID;
+  @autoField parentFolderId?: Resource.Id;
 }
 model FolderDeleteResponse is Resource.Delete.Response<Folder>;
 

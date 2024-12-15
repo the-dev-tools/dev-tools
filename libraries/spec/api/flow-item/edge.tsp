@@ -27,9 +27,9 @@ enum Handle {
 @parentResource(Flow.Flow)
 @autoFields
 model Edge {
-  @key edgeId: Resource.ID;
-  sourceId: Resource.ID;
-  targetId: Resource.ID;
+  @key edgeId: Resource.Id;
+  sourceId: Resource.Id;
+  targetId: Resource.Id;
   sourceHandle: Handle;
 }
 

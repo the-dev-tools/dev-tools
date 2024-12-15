@@ -21,7 +21,7 @@ namespace API.Flow;
 @autoFields
 @parentResource(Workspace.Workspace)
 model Flow {
-  @key flowId: Resource.ID;
+  @key flowId: Resource.Id;
   name: string;
 }
 
@@ -30,7 +30,7 @@ model FlowListItem is Resource.List.Item<Flow>;
 @autoFields
 model FlowListRequest {
   ...Resource.List.Request<Flow>;
-  tagId?: Resource.ID;
+  tagId?: Resource.Id;
 }
 
 model FlowListResponse is Resource.List.Response<FlowListItem>;
@@ -45,8 +45,8 @@ model FlowDeleteResponse is Resource.Delete.Response<Flow>;
 
 @autoFields
 model FlowRunRequest {
-  flowId: Resource.ID;
-  environmentId: Resource.ID;
+  flowId: Resource.Id;
+  environmentId: Resource.Id;
 }
 
 enum ResultKind {

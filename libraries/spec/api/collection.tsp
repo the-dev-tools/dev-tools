@@ -20,7 +20,7 @@ namespace API.Collection;
 @autoFields
 @parentResource(Workspace.Workspace)
 model Collection {
-  @key collectionId: Resource.ID;
+  @key collectionId: Resource.Id;
   name: string;
 }
 

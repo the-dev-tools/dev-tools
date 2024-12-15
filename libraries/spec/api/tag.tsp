@@ -32,7 +32,7 @@ enum TagColor {
 @autoFields
 @parentResource(Workspace.Workspace)
 model Tag {
-  @key tagId: Resource.ID;
+  @key tagId: Resource.Id;
   name: string;
   color: TagColor;
 }

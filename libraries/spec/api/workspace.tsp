@@ -19,8 +19,8 @@ namespace API.Workspace;
 
 @autoFields
 model Workspace {
-  @key workspaceId: Resource.ID;
-  selectedEnvironmentId: Resource.ID;
+  @key workspaceId: Resource.Id;
+  selectedEnvironmentId: Resource.Id;
   name: string;
   @visibility("query") updated: WellKnown.Timestamp;
 }
@@ -35,7 +35,7 @@ enum MemberRole {
 @autoFields
 @parentResource(Workspace)
 model WorkspaceMember {
-  @key memberId: Resource.ID;
+  @key memberId: Resource.Id;
   @visibility("create", "query") email: string;
   role: MemberRole;
 }

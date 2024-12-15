@@ -20,7 +20,7 @@ namespace API.Variable;
 @autoFields
 @parentResource(Environment.Environment)
 model Variable {
-  @key variableId: Resource.ID;
+  @key variableId: Resource.Id;
   name: string;
   value: string;
   enabled: boolean;
@@ -31,7 +31,7 @@ model VariableListItem is Resource.List.Item<Variable> {
   ...ParentKeyOf<Variable>;
 }
 model VariableListRequest is Resource.List.Request<Variable> {
-  @autoField @visibility("list") workspaceId?: Resource.ID;
+  @autoField @visibility("list") workspaceId?: Resource.Id;
 }
 model VariableListResponse is Resource.List.Response<VariableListItem>;
 model VariableGetRequest is Resource.Get.Request<Variable>;

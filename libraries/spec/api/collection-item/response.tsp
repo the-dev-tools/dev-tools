@@ -20,7 +20,7 @@ namespace API.CollectionItem.Response;
 @autoFields
 @parentResource(Example.Example)
 model Response {
-  @key responseId: Resource.ID;
+  @key responseId: Resource.Id;
   status: int32;
   body: bytes;
   time: WellKnown.Timestamp;
@@ -30,7 +30,7 @@ model Response {
 @autoFields
 @parentResource(Response)
 model ResponseHeader {
-  @key ResponseheaderId: Resource.ID;
+  @key ResponseheaderId: Resource.Id;
   key: string;
   value: string;
 }

@@ -26,7 +26,7 @@ enum BodyKind {
 @autoFields
 @parentResource(Example.Example)
 model BodyFormItem {
-  @key bodyId: Resource.ID;
+  @key bodyId: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
@@ -36,7 +36,7 @@ model BodyFormItem {
 @autoFields
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
-  @key bodyId: Resource.ID;
+  @key bodyId: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;

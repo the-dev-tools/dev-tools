@@ -19,7 +19,7 @@ namespace API.CollectionItem.Request;
 @autoFields
 @parentResource(Example.Example)
 model Query {
-  @key queryId: Resource.ID;
+  @key queryId: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
@@ -29,7 +29,7 @@ model Query {
 @autoFields
 @parentResource(Example.Example)
 model Header {
-  @key headerId: Resource.ID;
+  @key headerId: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
@@ -64,7 +64,7 @@ enum AssertKind {
 @autoFields
 @parentResource(Example.Example)
 model Assert {
-  @key assertId: Resource.ID;
+  @key assertId: Resource.Id;
   path: PathKey[];
   value: string;
   type: AssertKind;

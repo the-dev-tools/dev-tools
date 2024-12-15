@@ -7,7 +7,7 @@ using TypeSpec.Rest.Resource;
 
 namespace API.Resource;
 
-alias ID = bytes;
+alias Id = bytes;
 
 namespace List {
   @withVisibility("query", "list")

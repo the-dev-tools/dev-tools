@@ -23,8 +23,8 @@ namespace API.CollectionItem.Example;
 @autoFields
 @parentResource(Endpoint.Endpoint)
 model Example {
-  @key exampleId: Resource.ID;
-  lastResponseId?: Resource.ID;
+  @key exampleId: Resource.Id;
+  lastResponseId?: Resource.Id;
   name: string;
   @visibility("get", "mutate") bodyKind: Body.BodyKind;
 }

@@ -33,7 +33,7 @@ enum NodeKind {
 
 @autoFields
 model NodeBase {
-  @key nodeId: Resource.ID;
+  @key nodeId: Resource.Id;
   position: Position;
 }
 
@@ -57,7 +57,7 @@ model NodeStart {
 @autoFields
 model NodeRequest {
   ...NodeBase;
-  exampleID: bytes;
+  exampleId: bytes;
 }
 
 @autoFields
@@ -102,8 +102,8 @@ model NodeDeleteResponse is Resource.Delete.Response<Node>;
 
 @autoFields
 model NodeRunRequest {
-  nodeId: Resource.ID;
-  environmentId: Resource.ID;
+  nodeId: Resource.Id;
+  environmentId: Resource.Id;
 }
 
 enum ResultKind {
@@ -127,4 +127,3 @@ interface NodeService {
   NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }
-
