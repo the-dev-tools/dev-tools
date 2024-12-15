@@ -1,5 +1,9 @@
-import { enumToJson } from '@bufbuild/protobuf';
-import { createQueryOptions, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { enumToJson, MessageInitShape } from '@bufbuild/protobuf';
+import {
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+} from '@connectrpc/connect-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import {
   addEdge,
@@ -24,15 +28,22 @@ import {
 } from '@xyflow/react';
 import { Array, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, useCallback } from 'react';
+import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
 
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
-import { NodeKindJson, NodeKindSchema, NodeListItem, NodeStart } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { nodeList } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import { edgeCreate, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
+import {
+  NodeKind,
+  NodeKindJson,
+  NodeKindSchema,
+  NodeListItem,
+  NodeSchema,
+  NodeStart,
+} from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { nodeCreate, nodeList } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import {
@@ -94,14 +105,16 @@ const mapEdgeToClient = (edge: EdgeListItem) =>
     target: Ulid.construct(edge.targetId).toCanonical(),
   }) satisfies Edge;
 
-const mapNodeToClient = (node: NodeListItem) => {
-  const kind = pipe(
-    enumToJson(NodeKindSchema, node.kind),
+const nodeKindToString = (kind: NodeKind) =>
+  pipe(
+    enumToJson(NodeKindSchema, kind),
     String.substring('NODE_KIND_'.length),
     (_) => _ as NodeKindJson extends `NODE_KIND_${infer Kind}` ? Kind : never,
     String.toLowerCase,
   );
 
+const mapNodeToClient = (node: Omit<NodeListItem, '$typeName'>) => {
+  const kind = nodeKindToString(node.kind);
   if (kind === 'unspecified') return Option.none();
 
   const data = node[kind]!;
@@ -152,47 +165,112 @@ const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemPr
   </ListBoxItem>
 );
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const CreateNodeView = (_: NodeProps<CreateNode>) => (
-  <>
-    <ListBox aria-label='Create node type' onAction={() => void {}} className={tw`w-80 divide-y divide-slate-200 pt-0`}>
-      <ListBoxSection>
-        <CreateNodeHeader>Task</CreateNodeHeader>
+const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<CreateNode>) => {
+  const { getEdge, addNodes, addEdges, deleteElements } = useReactFlow();
 
-        <CreateNodeItem
-          id='request'
-          Icon={SendRequestIcon}
-          title='Send Request'
-          description='Send request from your collection'
-        />
+  const sourceIdCan = getEdge(id)!.source;
+  const sourceId = Ulid.fromCanonical(sourceIdCan).bytes;
 
-        <CreateNodeItem id='data' Icon={DataSourceIcon} title='Data Source' description='Import data from .xlsx file' />
+  const { flowId } = Route.useLoaderData();
 
-        <CreateNodeItem id='delay' Icon={DelayIcon} title='Delay' description='Wait specific time' />
+  const nodeCreateMutation = useConnectMutation(nodeCreate);
+  const edgeCreateMutation = useConnectMutation(edgeCreate);
 
-        <CreateNodeItem id='javascript' Icon={FiTerminal} title='JavaScript' description='Custom Javascript block' />
-      </ListBoxSection>
+  const position = useMemo(
+    () => ({ x: positionAbsoluteX, y: positionAbsoluteY }),
+    [positionAbsoluteX, positionAbsoluteY],
+  );
 
-      <ListBoxSection>
-        <CreateNodeHeader>Logic</CreateNodeHeader>
+  const makeNode = useCallback(
+    async (kind: NodeKind, initData?: Omit<MessageInitShape<typeof NodeSchema>, '$typeName'>) => {
+      const type = nodeKindToString(kind);
+      if (type === 'unspecified') return;
 
-        <CreateNodeItem id='condition' Icon={IfIcon} title='If' description='Add true/false' />
-      </ListBoxSection>
+      const data = { ...initData, [type]: { ...initData?.[type], position } };
 
-      <ListBoxSection>
-        <CreateNodeHeader>Looping</CreateNodeHeader>
+      const { nodeId } = await nodeCreateMutation.mutateAsync({ flowId, kind, ...data });
+      const { edgeId } = await edgeCreateMutation.mutateAsync({ flowId, sourceId, targetId: nodeId });
 
-        <CreateNodeItem id='collect' Icon={CollectIcon} title='Collect' description='Collect all result' />
+      const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
-        <CreateNodeItem id='for' Icon={ForIcon} title='For Loop' description='Loop' />
+      const node = { id: nodeIdCan, position, type, data } satisfies Partial<Node>;
 
-        <CreateNodeItem id='foreach' Icon={ForIcon} title='For Each Loop' description='Loop' />
-      </ListBoxSection>
-    </ListBox>
+      const edge = {
+        id: Ulid.construct(edgeId).toCanonical(),
+        source: sourceIdCan,
+        target: nodeIdCan,
+      } satisfies Edge;
 
-    <Handle type='target' position={Position.Top} />
-  </>
-);
+      await deleteElements({ nodes: [{ id }], edges: [{ id }] });
+
+      addNodes(node);
+      addEdges(edge);
+    },
+    [
+      addEdges,
+      addNodes,
+      deleteElements,
+      edgeCreateMutation,
+      flowId,
+      id,
+      nodeCreateMutation,
+      position,
+      sourceId,
+      sourceIdCan,
+    ],
+  );
+
+  return (
+    <>
+      <ListBox
+        aria-label='Create node type'
+        onAction={() => void {}}
+        className={tw`w-80 divide-y divide-slate-200 pt-0`}
+      >
+        <ListBoxSection>
+          <CreateNodeHeader>Task</CreateNodeHeader>
+
+          <CreateNodeItem
+            id='request'
+            Icon={SendRequestIcon}
+            title='Send Request'
+            description='Send request from your collection'
+            onAction={() => void makeNode(NodeKind.REQUEST)}
+          />
+
+          <CreateNodeItem
+            id='data'
+            Icon={DataSourceIcon}
+            title='Data Source'
+            description='Import data from .xlsx file'
+          />
+
+          <CreateNodeItem id='delay' Icon={DelayIcon} title='Delay' description='Wait specific time' />
+
+          <CreateNodeItem id='javascript' Icon={FiTerminal} title='JavaScript' description='Custom Javascript block' />
+        </ListBoxSection>
+
+        <ListBoxSection>
+          <CreateNodeHeader>Logic</CreateNodeHeader>
+
+          <CreateNodeItem id='condition' Icon={IfIcon} title='If' description='Add true/false' />
+        </ListBoxSection>
+
+        <ListBoxSection>
+          <CreateNodeHeader>Looping</CreateNodeHeader>
+
+          <CreateNodeItem id='collect' Icon={CollectIcon} title='Collect' description='Collect all result' />
+
+          <CreateNodeItem id='for' Icon={ForIcon} title='For Loop' description='Loop' />
+
+          <CreateNodeItem id='foreach' Icon={ForIcon} title='For Each Loop' description='Loop' />
+        </ListBoxSection>
+      </ListBox>
+
+      <Handle type='target' position={Position.Top} />
+    </>
+  );
+};
 
 const nodeTypes: NodeTypes = {
   start: StartNodeView,
