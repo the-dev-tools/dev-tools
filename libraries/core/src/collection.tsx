@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useMatch } from '@tanstack/react-router';
 import { Effect, Match, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import { Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal, FiRotateCw } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
@@ -49,7 +49,25 @@ const useInvalidateCollectionListQuery = () => {
   return () => queryClient.invalidateQueries(collectionListQueryOptions);
 };
 
-export const CollectionListTree = () => {
+interface CollectionListTreeContext {
+  navigate?: boolean;
+  showControls?: boolean;
+}
+
+const CollectionListTreeContext = createContext({} as CollectionListTreeContext);
+
+class TreeKey extends Schema.Class<TreeKey>('CollectionListTreeKey')({
+  collectionId: pipe(Schema.Uint8Array, Schema.optional),
+  folderId: pipe(Schema.Uint8Array, Schema.optional),
+  endpointId: pipe(Schema.Uint8Array, Schema.optional),
+  exampleId: pipe(Schema.Uint8Array, Schema.optional),
+}) {}
+
+interface CollectionListTreeProps extends CollectionListTreeContext {
+  onAction?: (key: TreeKey) => void;
+}
+
+export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const collectionListQuery = useConnectQuery(collectionList, { workspaceId });
@@ -58,12 +76,26 @@ export const CollectionListTree = () => {
   const collections = collectionListQuery.data.items;
 
   return (
-    <Tree aria-label='Collections' items={collections}>
-      {(_) => {
-        const collectionIdCan = Ulid.construct(_.collectionId).toCanonical();
-        return <CollectionTree id={collectionIdCan} collection={_} />;
-      }}
-    </Tree>
+    <CollectionListTreeContext.Provider value={context}>
+      <Tree
+        aria-label='Collections'
+        items={collections}
+        onAction={
+          onAction !== undefined
+            ? (keyUnknown) => {
+                if (typeof keyUnknown !== 'string') return;
+                const key = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(keyUnknown));
+                onAction(key);
+              }
+            : undefined!
+        }
+      >
+        {(_) => {
+          const collectionIdCan = Ulid.construct(_.collectionId).toCanonical();
+          return <CollectionTree id={collectionIdCan} collection={_} />;
+        }}
+      </Tree>
+    </CollectionListTreeContext.Provider>
   );
 };
 
@@ -75,6 +107,8 @@ interface CollectionTreeProps {
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { runtime } = workspaceRoute.useRouteContext();
+
+  const { showControls } = useContext(CollectionListTreeContext);
 
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
@@ -97,6 +131,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   return (
     <TreeItem
+      id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       textValue={collection.name}
       childItems={childItems}
       childItem={mapCollectionItemTree(collectionId)}
@@ -113,69 +148,73 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
         {collection.name}
       </Text>
 
-      <MenuTrigger>
-        <Button variant='ghost' className={tw`p-0.5`}>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-        </Button>
+      {showControls && (
+        <>
+          <MenuTrigger>
+            <Button variant='ghost' className={tw`p-0.5`}>
+              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            </Button>
 
-        <Menu>
-          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+            <Menu>
+              <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem onAction={() => void endpointCreateMutation.mutate({ collectionId, name: 'New API call' })}>
-            Add Request
-          </MenuItem>
+              <MenuItem onAction={() => void endpointCreateMutation.mutate({ collectionId, name: 'New API call' })}>
+                Add Request
+              </MenuItem>
 
-          <MenuItem onAction={() => void folderCreateMutation.mutate({ collectionId, name: 'New folder' })}>
-            Add Folder
-          </MenuItem>
+              <MenuItem onAction={() => void folderCreateMutation.mutate({ collectionId, name: 'New folder' })}>
+                Add Folder
+              </MenuItem>
 
-          <MenuItem
-            variant='danger'
-            onAction={() => void collectionDeleteMutation.mutate({ workspaceId, collectionId })}
+              <MenuItem
+                variant='danger'
+                onAction={() => void collectionDeleteMutation.mutate({ workspaceId, collectionId })}
+              >
+                Delete
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+
+          <Popover
+            triggerRef={triggerRef}
+            isOpen={isRenaming}
+            onOpenChange={setIsRenaming}
+            dialogAria-label='Rename collection'
           >
-            Delete
-          </MenuItem>
-        </Menu>
-      </MenuTrigger>
+            <Form
+              className='flex flex-1 items-center gap-2'
+              onSubmit={(event) =>
+                Effect.gen(function* () {
+                  event.preventDefault();
 
-      <Popover
-        triggerRef={triggerRef}
-        isOpen={isRenaming}
-        onOpenChange={setIsRenaming}
-        dialogAria-label='Rename collection'
-      >
-        <Form
-          className='flex flex-1 items-center gap-2'
-          onSubmit={(event) =>
-            Effect.gen(function* () {
-              event.preventDefault();
+                  const { name } = yield* pipe(
+                    new FormData(event.currentTarget),
+                    Object.fromEntries,
+                    Schema.decode(Schema.Struct({ name: Schema.String })),
+                  );
 
-              const { name } = yield* pipe(
-                new FormData(event.currentTarget),
-                Object.fromEntries,
-                Schema.decode(Schema.Struct({ name: Schema.String })),
-              );
+                  collectionUpdateMutation.mutate({ workspaceId, collectionId, name });
 
-              collectionUpdateMutation.mutate({ workspaceId, collectionId, name });
+                  setIsRenaming(false);
+                }).pipe(Runtime.runPromise(runtime))
+              }
+            >
+              <TextField
+                name='name'
+                defaultValue={collection.name}
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                label='New name:'
+                className={tw`contents`}
+                labelClassName={tw`text-nowrap`}
+                inputClassName={tw`w-full bg-transparent`}
+              />
 
-              setIsRenaming(false);
-            }).pipe(Runtime.runPromise(runtime))
-          }
-        >
-          <TextField
-            name='name'
-            defaultValue={collection.name}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            label='New name:'
-            className={tw`contents`}
-            labelClassName={tw`text-nowrap`}
-            inputClassName={tw`w-full bg-transparent`}
-          />
-
-          <Button type='submit'>Save</Button>
-        </Form>
-      </Popover>
+              <Button type='submit'>Save</Button>
+            </Form>
+          </Popover>
+        </>
+      )}
     </TreeItem>
   );
 };
@@ -215,6 +254,8 @@ interface FolderTreeProps {
 const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) => {
   const { runtime } = workspaceRoute.useRouteContext();
 
+  const { showControls } = useContext(CollectionListTreeContext);
+
   const { folderId } = folder;
   const [enabled, setEnabled] = useState(false);
 
@@ -237,6 +278,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
 
   return (
     <TreeItem
+      id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       textValue={folder.name}
       childItems={childItems}
       childItem={mapCollectionItemTree(collectionId, folderId)}
@@ -261,92 +303,96 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
             {folder.name}
           </Text>
 
-          <MenuTrigger>
-            <Button variant='ghost' className={tw`p-0.5`}>
-              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-            </Button>
+          {showControls && (
+            <>
+              <MenuTrigger>
+                <Button variant='ghost' className={tw`p-0.5`}>
+                  <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+                </Button>
 
-            <Menu>
-              <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+                <Menu>
+                  <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-              <MenuItem
-                onAction={() =>
-                  void endpointCreateMutation.mutate({
-                    collectionId,
-                    parentFolderId: folderId,
-                    name: 'New API call',
-                  })
-                }
+                  <MenuItem
+                    onAction={() =>
+                      void endpointCreateMutation.mutate({
+                        collectionId,
+                        parentFolderId: folderId,
+                        name: 'New API call',
+                      })
+                    }
+                  >
+                    Add Request
+                  </MenuItem>
+
+                  <MenuItem
+                    onAction={() =>
+                      void folderCreateMutation.mutate({
+                        collectionId,
+                        parentFolderId: folderId,
+                        name: 'New folder',
+                      })
+                    }
+                  >
+                    Add Folder
+                  </MenuItem>
+
+                  <MenuItem
+                    variant='danger'
+                    onAction={() =>
+                      void folderDeleteMutation.mutate({ collectionId, folderId, parentFolderId: parentFolderId! })
+                    }
+                  >
+                    Delete
+                  </MenuItem>
+                </Menu>
+              </MenuTrigger>
+
+              <Popover
+                triggerRef={triggerRef}
+                isOpen={isRenaming}
+                onOpenChange={setIsRenaming}
+                dialogAria-label='Rename folder'
               >
-                Add Request
-              </MenuItem>
+                <Form
+                  className='flex flex-1 items-center gap-2'
+                  onSubmit={(event) =>
+                    Effect.gen(function* () {
+                      event.preventDefault();
 
-              <MenuItem
-                onAction={() =>
-                  void folderCreateMutation.mutate({
-                    collectionId,
-                    parentFolderId: folderId,
-                    name: 'New folder',
-                  })
-                }
-              >
-                Add Folder
-              </MenuItem>
+                      const { name } = yield* pipe(
+                        new FormData(event.currentTarget),
+                        Object.fromEntries,
+                        Schema.decode(Schema.Struct({ name: Schema.String })),
+                      );
 
-              <MenuItem
-                variant='danger'
-                onAction={() =>
-                  void folderDeleteMutation.mutate({ collectionId, folderId, parentFolderId: parentFolderId! })
-                }
-              >
-                Delete
-              </MenuItem>
-            </Menu>
-          </MenuTrigger>
+                      folderUpdateMutation.mutate({
+                        collectionId,
+                        folderId,
+                        name,
+                        parentFolderId: parentFolderId!,
+                      });
 
-          <Popover
-            triggerRef={triggerRef}
-            isOpen={isRenaming}
-            onOpenChange={setIsRenaming}
-            dialogAria-label='Rename folder'
-          >
-            <Form
-              className='flex flex-1 items-center gap-2'
-              onSubmit={(event) =>
-                Effect.gen(function* () {
-                  event.preventDefault();
+                      setIsRenaming(false);
+                    }).pipe(Runtime.runPromise(runtime))
+                  }
+                >
+                  <TextField
+                    name='name'
+                    defaultValue={folder.name}
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                    autoFocus
+                    label='New name:'
+                    className={tw`contents`}
+                    labelClassName={tw`text-nowrap`}
+                    inputClassName={tw`w-full bg-transparent`}
+                  />
 
-                  const { name } = yield* pipe(
-                    new FormData(event.currentTarget),
-                    Object.fromEntries,
-                    Schema.decode(Schema.Struct({ name: Schema.String })),
-                  );
-
-                  folderUpdateMutation.mutate({
-                    collectionId,
-                    folderId,
-                    name,
-                    parentFolderId: parentFolderId!,
-                  });
-
-                  setIsRenaming(false);
-                }).pipe(Runtime.runPromise(runtime))
-              }
-            >
-              <TextField
-                name='name'
-                defaultValue={folder.name}
-                // eslint-disable-next-line jsx-a11y/no-autofocus
-                autoFocus
-                label='New name:'
-                className={tw`contents`}
-                labelClassName={tw`text-nowrap`}
-                inputClassName={tw`w-full bg-transparent`}
-              />
-
-              <Button type='submit'>Save</Button>
-            </Form>
-          </Popover>
+                  <Button type='submit'>Save</Button>
+                </Form>
+              </Popover>
+            </>
+          )}
         </>
       )}
     </TreeItem>
@@ -363,6 +409,8 @@ interface EndpointTreeProps {
 
 const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoint, example }: EndpointTreeProps) => {
   const match = useMatch({ strict: false });
+
+  const { navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const exampleIdCan = Ulid.construct(example.exampleId).toCanonical();
   const { endpointId, method } = endpoint;
@@ -381,13 +429,22 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
   return (
     <TreeItem
+      id={pipe(
+        new TreeKey({ collectionId, endpointId, exampleId: example.exampleId }),
+        Schema.encodeSync(TreeKey),
+        JSON.stringify,
+      )}
       textValue={endpoint.name}
-      href={{
-        from: workspaceRoute.id,
-        to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-        params: { endpointIdCan, exampleIdCan },
-      }}
-      isActive={match.params.exampleIdCan === exampleIdCan}
+      href={
+        navigate
+          ? {
+              from: match.fullPath,
+              to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+              params: { endpointIdCan, exampleIdCan },
+            }
+          : undefined!
+      }
+      isActive={navigate && match.params.exampleIdCan === exampleIdCan}
       childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
@@ -406,39 +463,43 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
       <Text className='flex-1 truncate'>{endpoint.name}</Text>
 
-      <MenuTrigger>
-        <Button variant='ghost' className={tw`p-0.5`}>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-        </Button>
+      {showControls && (
+        <>
+          <MenuTrigger>
+            <Button variant='ghost' className={tw`p-0.5`}>
+              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            </Button>
 
-        <Menu>
-          <MenuItem
-            onAction={() =>
-              void exampleCreateMutation.mutate({
-                endpointId,
-                name: 'New Example',
-              })
-            }
-          >
-            Add Example
-          </MenuItem>
+            <Menu>
+              <MenuItem
+                onAction={() =>
+                  void exampleCreateMutation.mutate({
+                    endpointId,
+                    name: 'New Example',
+                  })
+                }
+              >
+                Add Example
+              </MenuItem>
 
-          <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
+              <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
-          <MenuItem
-            variant='danger'
-            onAction={() =>
-              void endpointDeleteMutation.mutate({
-                collectionId,
-                endpointId,
-                parentFolderId: parentFolderId!,
-              })
-            }
-          >
-            Delete
-          </MenuItem>
-        </Menu>
-      </MenuTrigger>
+              <MenuItem
+                variant='danger'
+                onAction={() =>
+                  void endpointDeleteMutation.mutate({
+                    collectionId,
+                    endpointId,
+                    parentFolderId: parentFolderId!,
+                  })
+                }
+              >
+                Delete
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+        </>
+      )}
     </TreeItem>
   );
 };
@@ -452,6 +513,8 @@ interface ExampleItemProps {
 const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps) => {
   const match = useMatch({ strict: false });
 
+  const { navigate = false, showControls } = useContext(CollectionListTreeContext);
+
   const endpointIdCan = Ulid.construct(endpointId).toCanonical();
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
@@ -464,31 +527,38 @@ const ExampleItem = ({ id: exampleIdCan, endpointId, example }: ExampleItemProps
 
   return (
     <TreeItem
+      id={pipe(new TreeKey({ endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       textValue={example.name}
-      href={{
-        from: workspaceRoute.id,
-        to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-        params: { endpointIdCan, exampleIdCan },
-      }}
-      isActive={match.params.exampleIdCan === exampleIdCan}
+      href={
+        navigate
+          ? {
+              from: match.fullPath,
+              to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+              params: { endpointIdCan, exampleIdCan },
+            }
+          : undefined!
+      }
+      isActive={navigate && match.params.exampleIdCan === exampleIdCan}
     >
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
       <Text className='flex-1 truncate'>{example.name}</Text>
 
-      <MenuTrigger>
-        <Button variant='ghost' className={tw`p-0.5`}>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-        </Button>
+      {showControls && (
+        <MenuTrigger>
+          <Button variant='ghost' className={tw`p-0.5`}>
+            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+          </Button>
 
-        <Menu>
-          <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
+          <Menu>
+            <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
-            Delete
-          </MenuItem>
-        </Menu>
-      </MenuTrigger>
+            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      )}
     </TreeItem>
   );
 };

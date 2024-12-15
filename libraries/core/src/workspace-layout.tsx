@@ -127,7 +127,7 @@ function Layout() {
               </Button>
             </div>
 
-            <CollectionListTree />
+            <CollectionListTree navigate showControls />
 
             <FlowList />
           </div>
