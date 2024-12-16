@@ -52,30 +52,22 @@ func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mn
 	return ConvertToModelNodeFor(nodeFor), nil
 }
 
-func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) (*mnfor.MNFor, error) {
+func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
 	nodeFor := ConvertToDBNodeFor(nf)
-	err := nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
+	return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
 		FlowNodeID: nodeFor.FlowNodeID,
 		Name:       nodeFor.Name,
 		IterCount:  nodeFor.IterCount,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &nf, nil
 }
 
-func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) (*mnfor.MNFor, error) {
+func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
 	nodeFor := ConvertToDBNodeFor(nf)
-	err := nfs.queries.UpdateFlowNodeFor(ctx, gen.UpdateFlowNodeForParams{
+	return nfs.queries.UpdateFlowNodeFor(ctx, gen.UpdateFlowNodeForParams{
 		FlowNodeID: nodeFor.FlowNodeID,
 		Name:       nodeFor.Name,
 		IterCount:  nodeFor.IterCount,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &nf, nil
 }
 
 func (nfs NodeForService) DeleteNodeFor(ctx context.Context, id idwrap.IDWrap) error {

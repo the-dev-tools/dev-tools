@@ -68,32 +68,24 @@ func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 	return tgeneric.MassConvertPtr(nodes, ConvertNodeToModel), nil
 }
 
-func (ns NodeService) CreateNode(ctx context.Context, n mnode.MNode) (*mnode.MNode, error) {
+func (ns NodeService) CreateNode(ctx context.Context, n mnode.MNode) error {
 	node := ConvertNodeToDB(n)
-	err := ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
+	return ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 		ID:        node.ID,
 		FlowID:    node.FlowID,
 		NodeKind:  node.NodeKind,
 		PositionX: node.PositionX,
 		PositionY: node.PositionY,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &n, nil
 }
 
-func (ns NodeService) UpdateNode(ctx context.Context, n mnode.MNode) (*mnode.MNode, error) {
+func (ns NodeService) UpdateNode(ctx context.Context, n mnode.MNode) error {
 	node := ConvertNodeToDB(n)
-	err := ns.queries.UpdateFlowNode(ctx, gen.UpdateFlowNodeParams{
+	return ns.queries.UpdateFlowNode(ctx, gen.UpdateFlowNodeParams{
 		ID:        node.ID,
 		PositionX: node.PositionX,
 		PositionY: node.PositionY,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &n, nil
 }
 
 func (ns NodeService) DeleteNode(ctx context.Context, id idwrap.IDWrap) error {

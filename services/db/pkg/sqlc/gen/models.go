@@ -142,6 +142,7 @@ type FlowNodeIf struct {
 type FlowNodeRequest struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
+	EndpointID idwrap.IDWrap
 	ExampleID  idwrap.IDWrap
 }
 

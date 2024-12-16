@@ -1,6 +1,11 @@
 package mnode
 
-import "the-dev-tools/backend/pkg/idwrap"
+import (
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+)
 
 /* DB
 id BLOB NOT NULL PRIMARY KEY,
@@ -34,4 +39,8 @@ type MNode struct {
 	NodeKind  NodeKind
 	PositionX float64
 	PositionY float64
+}
+
+type NodeInterface interface {
+	mnfor.MNFor | mnif.MNIF | mnrequest.MNRequest
 }

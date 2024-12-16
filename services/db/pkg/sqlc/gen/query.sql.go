@@ -755,19 +755,25 @@ func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfPara
 
 const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, name, example_id)
+  flow_node_request (flow_node_id, name, endpoint_id, example_id)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateFlowNodeRequestParams struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
+	EndpointID idwrap.IDWrap
 	ExampleID  idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeRequestStmt, createFlowNodeRequest, arg.FlowNodeID, arg.Name, arg.ExampleID)
+	_, err := q.exec(ctx, q.createFlowNodeRequestStmt, createFlowNodeRequest,
+		arg.FlowNodeID,
+		arg.Name,
+		arg.EndpointID,
+		arg.ExampleID,
+	)
 	return err
 }
 
@@ -3256,6 +3262,7 @@ const getFlowNodeRequest = `-- name: GetFlowNodeRequest :one
 SELECT
   flow_node_id,
   name,
+  endpoint_id,
   example_id
 FROM
   flow_node_request
@@ -3267,7 +3274,12 @@ LIMIT 1
 func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeRequest, error) {
 	row := q.queryRow(ctx, q.getFlowNodeRequestStmt, getFlowNodeRequest, flowNodeID)
 	var i FlowNodeRequest
-	err := row.Scan(&i.FlowNodeID, &i.Name, &i.ExampleID)
+	err := row.Scan(
+		&i.FlowNodeID,
+		&i.Name,
+		&i.EndpointID,
+		&i.ExampleID,
+	)
 	return i, err
 }
 
@@ -5021,6 +5033,7 @@ const updateFlowNodeRequest = `-- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
   name = ?,
+  endpoint_id = ?,
   example_id = ?
 WHERE
   flow_node_id = ?
@@ -5028,12 +5041,18 @@ WHERE
 
 type UpdateFlowNodeRequestParams struct {
 	Name       string
+	EndpointID idwrap.IDWrap
 	ExampleID  idwrap.IDWrap
 	FlowNodeID idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest, arg.Name, arg.ExampleID, arg.FlowNodeID)
+	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest,
+		arg.Name,
+		arg.EndpointID,
+		arg.ExampleID,
+		arg.FlowNodeID,
+	)
 	return err
 }
 

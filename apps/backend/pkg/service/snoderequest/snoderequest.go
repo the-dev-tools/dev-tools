@@ -30,6 +30,7 @@ func ConvertToDBNodeRequest(nr mnrequest.MNRequest) gen.FlowNodeRequest {
 	return gen.FlowNodeRequest{
 		FlowNodeID: nr.FlowNodeID,
 		Name:       nr.Name,
+		EndpointID: nr.EndpointID,
 		ExampleID:  nr.ExampleID,
 	}
 }
@@ -38,6 +39,7 @@ func ConvertToModelNodeRequest(nr gen.FlowNodeRequest) *mnrequest.MNRequest {
 	return &mnrequest.MNRequest{
 		FlowNodeID: nr.FlowNodeID,
 		Name:       nr.Name,
+		EndpointID: nr.EndpointID,
 		ExampleID:  nr.ExampleID,
 	}
 }
@@ -50,30 +52,24 @@ func (nrs NodeRequestService) GetNodeRequest(ctx context.Context, id idwrap.IDWr
 	return ConvertToModelNodeRequest(nodeRequest), nil
 }
 
-func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) (*mnrequest.MNRequest, error) {
+func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
 	nodeRequest := ConvertToDBNodeRequest(nr)
-	err := nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
+	return nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
 		FlowNodeID: nodeRequest.FlowNodeID,
 		Name:       nodeRequest.Name,
+		EndpointID: nodeRequest.EndpointID,
 		ExampleID:  nodeRequest.ExampleID,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &nr, nil
 }
 
-func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) (*mnrequest.MNRequest, error) {
+func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
 	nodeRequest := ConvertToDBNodeRequest(nr)
-	err := nrs.queries.UpdateFlowNodeRequest(ctx, gen.UpdateFlowNodeRequestParams{
+	return nrs.queries.UpdateFlowNodeRequest(ctx, gen.UpdateFlowNodeRequestParams{
 		FlowNodeID: nodeRequest.FlowNodeID,
 		Name:       nodeRequest.Name,
+		EndpointID: nodeRequest.EndpointID,
 		ExampleID:  nodeRequest.ExampleID,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &nr, nil
 }
 
 func (nrs NodeRequestService) DeleteNodeRequest(ctx context.Context, id idwrap.IDWrap) error {
