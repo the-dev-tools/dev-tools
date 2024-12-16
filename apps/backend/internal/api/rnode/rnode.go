@@ -113,6 +113,9 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nlf)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	resp := nodev1.NodeGetResponse{
 		NodeId:    rpcNode.NodeId,
 		Position:  rpcNode.Position,
@@ -242,7 +245,10 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	nsTX.UpdateNode(ctx, *node)
+	err = nsTX.UpdateNode(ctx, *node)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	// INFO: this is using reflection to check the type of subNode
 	// in future, this should be refactored to use a more explicit way to check the type
@@ -261,7 +267,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = nlfTX.CreateNodeFor(ctx, subNodeType)
+		err = nlfTX.UpdateNodeFor(ctx, subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -375,6 +381,9 @@ func ConvertRPCNodeToModel(ctx context.Context, rpcNode *nodev1.Node, flowID idw
 		}
 
 		exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		reqNode := &mnrequest.MNRequest{
 			FlowNodeID: id,
