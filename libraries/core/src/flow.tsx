@@ -30,9 +30,9 @@ import {
 import { Array, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
-import { Header, ListBoxSection } from 'react-aria-components';
+import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
-import { FiExternalLink, FiPlus, FiTerminal } from 'react-icons/fi';
+import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal } from 'react-icons/fi';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
@@ -65,7 +65,9 @@ import {
   TextBoxIcon,
 } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from './collection';
@@ -427,6 +429,40 @@ const Handle = (props: HandleProps) => (
   </BaseHandle>
 );
 
+interface TopBarProps {
+  flow: FlowGetResponse;
+}
+
+const TopBar = ({ flow }: TopBarProps) => (
+  <Panel className={tw`m-0 flex h-10 w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5`}>
+    <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`}>{flow.name}</div>
+
+    <div className={tw`flex-1`} />
+
+    <Button variant='ghost' className={tw`p-0.5`}>
+      <FiMinus className={tw`size-4 text-slate-500`} />
+    </Button>
+
+    <div className={tw`text-sm font-medium leading-5 tracking-tight text-gray-900`}>100%</div>
+
+    <Button variant='ghost' className={tw`p-0.5`}>
+      <FiPlus className={tw`size-4 text-slate-500`} />
+    </Button>
+
+    <MenuTrigger>
+      <Button variant='ghost' className={tw`bg-slate-200 p-0.5`}>
+        <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+      </Button>
+
+      <Menu>
+        <MenuItem>Rename</MenuItem>
+        <Separator />
+        <MenuItem variant='danger'>Delete</MenuItem>
+      </Menu>
+    </MenuTrigger>
+  </Panel>
+);
+
 const ActionBar = () => (
   <Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
     <Button variant='ghost dark' className={tw`p-1`}>
@@ -457,7 +493,7 @@ interface FlowViewProps {
   nodes: NodeListItem[];
 }
 
-const FlowView = ({ edges: serverEdges, nodes: serverNodes }: FlowViewProps) => {
+const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProps) => {
   const { screenToFlowPosition } = useReactFlow();
 
   const [edges, setEdges, onEdgesChange] = pipe(serverEdges, Array.map(mapEdgeToClient), useEdgesState);
@@ -516,6 +552,7 @@ const FlowView = ({ edges: serverEdges, nodes: serverNodes }: FlowViewProps) => 
         className={tw`text-slate-300`}
       />
 
+      <TopBar flow={flow} />
       <ActionBar />
     </ReactFlow>
   );
