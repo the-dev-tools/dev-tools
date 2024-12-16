@@ -26,6 +26,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useViewport,
 } from '@xyflow/react';
 import { Array, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
@@ -429,39 +430,59 @@ const Handle = (props: HandleProps) => (
   </BaseHandle>
 );
 
+const minZoom = 0.5;
+const maxZoom = 2;
+
 interface TopBarProps {
   flow: FlowGetResponse;
 }
 
-const TopBar = ({ flow }: TopBarProps) => (
-  <Panel className={tw`m-0 flex h-10 w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5`}>
-    <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`}>{flow.name}</div>
+const TopBar = ({ flow }: TopBarProps) => {
+  const { zoomIn, zoomOut } = useReactFlow();
+  const { zoom } = useViewport();
 
-    <div className={tw`flex-1`} />
+  return (
+    <Panel className={tw`m-0 flex h-10 w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5`}>
+      <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`}>{flow.name}</div>
 
-    <Button variant='ghost' className={tw`p-0.5`}>
-      <FiMinus className={tw`size-4 text-slate-500`} />
-    </Button>
+      <div className={tw`flex-1`} />
 
-    <div className={tw`text-sm font-medium leading-5 tracking-tight text-gray-900`}>100%</div>
-
-    <Button variant='ghost' className={tw`p-0.5`}>
-      <FiPlus className={tw`size-4 text-slate-500`} />
-    </Button>
-
-    <MenuTrigger>
-      <Button variant='ghost' className={tw`bg-slate-200 p-0.5`}>
-        <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+      <Button
+        variant='ghost'
+        className={tw`p-0.5`}
+        onPress={() => void zoomOut({ duration: 100 })}
+        isDisabled={zoom <= minZoom}
+      >
+        <FiMinus className={tw`size-4 text-slate-500`} />
       </Button>
 
-      <Menu>
-        <MenuItem>Rename</MenuItem>
-        <Separator />
-        <MenuItem variant='danger'>Delete</MenuItem>
-      </Menu>
-    </MenuTrigger>
-  </Panel>
-);
+      <div className={tw`w-10 text-center text-sm font-medium leading-5 tracking-tight text-gray-900`}>
+        {Math.floor(zoom * 100)}%
+      </div>
+
+      <Button
+        variant='ghost'
+        className={tw`p-0.5`}
+        onPress={() => void zoomIn({ duration: 100 })}
+        isDisabled={zoom >= maxZoom}
+      >
+        <FiPlus className={tw`size-4 text-slate-500`} />
+      </Button>
+
+      <MenuTrigger>
+        <Button variant='ghost' className={tw`bg-slate-200 p-0.5`}>
+          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+        </Button>
+
+        <Menu>
+          <MenuItem>Rename</MenuItem>
+          <Separator />
+          <MenuItem variant='danger'>Delete</MenuItem>
+        </Menu>
+      </MenuTrigger>
+    </Panel>
+  );
+};
 
 const ActionBar = () => (
   <Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
@@ -530,6 +551,8 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
     <ReactFlow
       proOptions={{ hideAttribution: true }}
       colorMode='light'
+      minZoom={minZoom}
+      maxZoom={maxZoom}
       onInit={(reactFlow) => {
         void reactFlow.fitView();
       }}
