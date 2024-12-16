@@ -80,13 +80,14 @@ func TestForNode_RunAsync(t *testing.T) {
 		mockNode2ID: mockNode2,
 		mockNode3ID: mockNode3,
 	}
+	id := idwrap.NewNow()
 
 	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
 	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
-	edges := []edge.Edge{edge1, edge2}
+	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop)
+	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	id := idwrap.NewNow()
 	name := "test"
 	iterCount := int64(3)
 	nodeFor := nfor.New(id, name, iterCount, time.Minute)

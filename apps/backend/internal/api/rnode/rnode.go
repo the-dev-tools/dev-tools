@@ -81,7 +81,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 
 	NodeList := make([]*nodev1.NodeListItem, len(nodes))
 	for i, node := range nodes {
-		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls)
+		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nss)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +118,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls)
+	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nss)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
