@@ -1667,3 +1667,31 @@ DELETE FROM flow_node_if
 WHERE
   flow_node_id = ?;
 
+
+-- name: GetFlowNodeStart :one
+SELECT
+  flow_node_id,
+  name
+FROM
+  flow_node_start
+where
+  flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeStart :exec
+INSERT INTO
+  flow_node_start (flow_node_id, name)
+VALUES
+  (?, ?);
+
+-- name: UpdateFlowNodeStart :exec
+UPDATE flow_node_start
+SET
+  name = ?
+WHERE
+  flow_node_id = ?;
+
+-- name: DeleteFlowNodeStart :exec
+DELETE from flow_node_start
+WHERE
+  flow_node_id = ?;

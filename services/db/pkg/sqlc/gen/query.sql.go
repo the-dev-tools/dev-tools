@@ -777,6 +777,23 @@ func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeR
 	return err
 }
 
+const createFlowNodeStart = `-- name: CreateFlowNodeStart :exec
+INSERT INTO
+  flow_node_start (flow_node_id, name)
+VALUES
+  (?, ?)
+`
+
+type CreateFlowNodeStartParams struct {
+	FlowNodeID idwrap.IDWrap
+	Name       string
+}
+
+func (q *Queries) CreateFlowNodeStart(ctx context.Context, arg CreateFlowNodeStartParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeStartStmt, createFlowNodeStart, arg.FlowNodeID, arg.Name)
+	return err
+}
+
 const createFlowTag = `-- name: CreateFlowTag :exec
 INSERT INTO
   flow_tag (id, flow_id, tag_id)
@@ -2231,6 +2248,17 @@ func (q *Queries) DeleteFlowNodeRequest(ctx context.Context, flowNodeID idwrap.I
 	return err
 }
 
+const deleteFlowNodeStart = `-- name: DeleteFlowNodeStart :exec
+DELETE from flow_node_start
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeStart(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeStartStmt, deleteFlowNodeStart, flowNodeID)
+	return err
+}
+
 const deleteFlowTag = `-- name: DeleteFlowTag :exec
 DELETE FROM flow_tag
 WHERE
@@ -3280,6 +3308,24 @@ func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWr
 		&i.EndpointID,
 		&i.ExampleID,
 	)
+	return i, err
+}
+
+const getFlowNodeStart = `-- name: GetFlowNodeStart :one
+SELECT
+  flow_node_id,
+  name
+FROM
+  flow_node_start
+where
+  flow_node_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowNodeStart(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeStart, error) {
+	row := q.queryRow(ctx, q.getFlowNodeStartStmt, getFlowNodeStart, flowNodeID)
+	var i FlowNodeStart
+	err := row.Scan(&i.FlowNodeID, &i.Name)
 	return i, err
 }
 
@@ -5053,6 +5099,24 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 		arg.ExampleID,
 		arg.FlowNodeID,
 	)
+	return err
+}
+
+const updateFlowNodeStart = `-- name: UpdateFlowNodeStart :exec
+UPDATE flow_node_start
+SET
+  name = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeStartParams struct {
+	Name       string
+	FlowNodeID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeStart(ctx context.Context, arg UpdateFlowNodeStartParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeStartStmt, updateFlowNodeStart, arg.Name, arg.FlowNodeID)
 	return err
 }
 

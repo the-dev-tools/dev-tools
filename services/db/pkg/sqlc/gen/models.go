@@ -146,6 +146,11 @@ type FlowNodeRequest struct {
 	ExampleID  idwrap.IDWrap
 }
 
+type FlowNodeStart struct {
+	FlowNodeID idwrap.IDWrap
+	Name       string
+}
+
 type FlowTag struct {
 	ID     idwrap.IDWrap
 	FlowID idwrap.IDWrap

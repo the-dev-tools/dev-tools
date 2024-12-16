@@ -11,12 +11,14 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnode/mnif"
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sflow"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snoderequest"
+	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/suser"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
@@ -32,23 +34,27 @@ type NodeServiceRPC struct {
 	us suser.UserService
 
 	// sub
-	nis snodeif.NodeIfService
-	nrs snoderequest.NodeRequestService
-	nlf snodefor.NodeForService
-	ns  snode.NodeService
+	ns   snode.NodeService
+	nis  snodeif.NodeIfService
+	nrs  snoderequest.NodeRequestService
+	nfls snodefor.NodeForService
+	nss  snodestart.NodeStartService
 }
 
-func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService, nlf snodefor.NodeForService, ns snode.NodeService) *NodeServiceRPC {
+func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
+	nlf snodefor.NodeForService, ns snode.NodeService, nss snodestart.NodeStartService,
+) *NodeServiceRPC {
 	return &NodeServiceRPC{
 		DB: db,
 
 		us: us,
 		fs: fs,
 
-		nis: nis,
-		nrs: nrs,
-		nlf: nlf,
-		ns:  ns,
+		ns:   ns,
+		nis:  nis,
+		nrs:  nrs,
+		nfls: nlf,
+		nss:  nss,
 	}
 }
 
@@ -75,7 +81,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 
 	NodeList := make([]*nodev1.NodeListItem, len(nodes))
 	for i, node := range nodes {
-		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nlf)
+		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +118,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nlf)
+	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -310,7 +316,9 @@ func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserServ
 	return rflow.CheckOwnerFlow(ctx, fs, us, node.FlowID)
 }
 
-func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService, nlf snodefor.NodeForService) (*nodev1.Node, error) {
+func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
+	nlf snodefor.NodeForService, nss snodestart.NodeStartService,
+) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
 
 	switch currentNode.NodeKind {
@@ -319,7 +327,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		if err != nil {
 			return nil, err
 		}
-		nodeListItem := &nodev1.Node{
+		nodeList := &nodev1.Node{
 			Kind: nodev1.NodeKind_NODE_KIND_FOR,
 			Request: &nodev1.NodeRequest{
 				NodeId: currentNode.ID.Bytes(),
@@ -330,14 +338,19 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 				ExampleId: nodeReq.ExampleID.Bytes(),
 			},
 		}
-		rpcNode = nodeListItem
+		rpcNode = nodeList
 	case mnode.NODE_KIND_FOR:
 		nodeFor, err := nlf.GetNodeFor(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
 		}
-		nodeListItem := &nodev1.Node{
+		// TODO: ask which pos should be filled
+		nodeList := &nodev1.Node{
 			Kind: nodev1.NodeKind_NODE_KIND_FOR,
+			Position: &nodev1.Position{
+				X: float32(currentNode.PositionX),
+				Y: float32(currentNode.PositionY),
+			},
 			For: &nodev1.NodeFor{
 				NodeId: currentNode.ID.Bytes(),
 				Position: &nodev1.Position{
@@ -347,9 +360,28 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 				Iteration: int32(nodeFor.IterCount),
 			},
 		}
-		rpcNode = nodeListItem
+		rpcNode = nodeList
 	case mnode.NODE_KIND_START:
-		// TODO: implement
+		// TODO: can be remove later no need to fetch just id
+		nodeStart, err := nss.GetNodeStart(ctx, currentNode.ID)
+		if err != nil {
+			return nil, err
+		}
+		rpcNode = &nodev1.Node{
+			Kind: nodev1.NodeKind_NODE_KIND_START,
+			Position: &nodev1.Position{
+				X: float32(currentNode.PositionX),
+				Y: float32(currentNode.PositionY),
+			},
+			Start: &nodev1.NodeStart{
+				Position: &nodev1.Position{
+					X: float32(currentNode.PositionX),
+					Y: float32(currentNode.PositionY),
+				},
+				NodeId: nodeStart.FlowNodeID.Bytes(),
+			},
+		}
+
 	case mnode.NODE_KIND_CONDITION:
 		// TODO: implement
 	}
@@ -398,7 +430,10 @@ func ConvertRPCNodeToModel(ctx context.Context, rpcNode *nodev1.Node, flowID idw
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_START:
-		// TODO: implement
+		startNode := &mnstart.StartNode{
+			FlowNodeID: id,
+		}
+		subNode = startNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
 		// TODO: implement
 	}
