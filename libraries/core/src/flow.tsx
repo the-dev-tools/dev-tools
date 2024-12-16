@@ -18,6 +18,7 @@ import {
   Node,
   NodeProps,
   NodeTypes,
+  Panel,
   Position,
   ReactFlow,
   ReactFlowProps,
@@ -31,7 +32,7 @@ import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
-import { FiExternalLink, FiTerminal } from 'react-icons/fi';
+import { FiExternalLink, FiPlus, FiTerminal } from 'react-icons/fi';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
@@ -50,15 +51,18 @@ import {
 import { nodeCreate, nodeList, nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import {
+  ChatAddIcon,
   CollectIcon,
   DataSourceIcon,
   DelayIcon,
   ForIcon,
   IfIcon,
+  PlayCircleIcon,
   PlayIcon,
   SendRequestIcon,
+  TextBoxIcon,
 } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
@@ -423,6 +427,30 @@ const Handle = (props: HandleProps) => (
   </BaseHandle>
 );
 
+const ActionBar = () => (
+  <Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
+    <Button variant='ghost dark' className={tw`p-1`}>
+      <TextBoxIcon className={tw`size-5 text-slate-300`} />
+    </Button>
+
+    <Button variant='ghost dark' className={tw`p-1`}>
+      <ChatAddIcon className={tw`size-5 text-slate-300`} />
+    </Button>
+
+    <div className={tw`mx-2 h-5 w-px bg-white/20`} />
+
+    <Button variant='ghost dark' className={tw`px-1.5 py-1`}>
+      <FiPlus className={tw`size-5 text-slate-300`} />
+      Add Node
+    </Button>
+
+    <Button variant='primary' className={tw``}>
+      <PlayCircleIcon className={tw`size-4`} />
+      Run
+    </Button>
+  </Panel>
+);
+
 interface FlowViewProps {
   flow: FlowGetResponse;
   edges: EdgeListItem[];
@@ -487,6 +515,8 @@ const FlowView = ({ edges: serverEdges, nodes: serverNodes }: FlowViewProps) => 
         color='currentColor'
         className={tw`text-slate-300`}
       />
+
+      <ActionBar />
     </ReactFlow>
   );
 };
