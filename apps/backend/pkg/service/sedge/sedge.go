@@ -52,33 +52,25 @@ func (es EdgeService) GetEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 	return tgeneric.MassConvertPtr(edge, ConvertToModelEdge), nil
 }
 
-func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) (*edge.Edge, error) {
+func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) error {
 	edge := ConvertToDBEdge(e)
-	err := es.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
+	return es.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
 		ID:           edge.ID,
 		FlowID:       edge.FlowID,
 		SourceID:     edge.SourceID,
 		TargetID:     edge.TargetID,
 		SourceHandle: edge.SourceHandle,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &e, nil
 }
 
-func (es EdgeService) UpdateEdge(ctx context.Context, e edge.Edge) (*edge.Edge, error) {
+func (es EdgeService) UpdateEdge(ctx context.Context, e edge.Edge) error {
 	edge := ConvertToDBEdge(e)
-	err := es.queries.UpdateFlowEdge(ctx, gen.UpdateFlowEdgeParams{
+	return es.queries.UpdateFlowEdge(ctx, gen.UpdateFlowEdgeParams{
 		ID:           edge.ID,
 		SourceID:     edge.SourceID,
 		TargetID:     edge.TargetID,
 		SourceHandle: edge.SourceHandle,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &e, nil
 }
 
 func (es EdgeService) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {

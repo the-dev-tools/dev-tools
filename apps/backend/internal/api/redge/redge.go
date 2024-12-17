@@ -6,10 +6,12 @@ import (
 	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rflow"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/suser"
 	edgev1 "the-dev-tools/spec/dist/buf/go/flow/edge/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/edge/v1/edgev1connect"
@@ -25,14 +27,16 @@ type EdgeServiceRPC struct {
 	us suser.UserService
 
 	es sedge.EdgeService
+	ns snode.NodeService
 }
 
-func NewEdgeServiceRPC(db *sql.DB, fs sflow.FlowService, us suser.UserService, es sedge.EdgeService) *EdgeServiceRPC {
+func NewEdgeServiceRPC(db *sql.DB, fs sflow.FlowService, us suser.UserService, es sedge.EdgeService, ns snode.NodeService) *EdgeServiceRPC {
 	return &EdgeServiceRPC{
 		DB: db,
 		fs: fs,
 		us: us,
 		es: es,
+		ns: ns,
 	}
 }
 
@@ -74,19 +78,126 @@ func (c *EdgeServiceRPC) EdgeList(ctx context.Context, req *connect.Request[edge
 }
 
 func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev1.EdgeGetRequest]) (*connect.Response[edgev1.EdgeGetResponse], error) {
+	EdgeID, err := idwrap.NewFromBytes(req.Msg.EdgeId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.us, c.es, EdgeID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
 func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[edgev1.EdgeCreateRequest]) (*connect.Response[edgev1.EdgeCreateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	sourceID, err := idwrap.NewFromBytes(req.Msg.SourceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	targetID, err := idwrap.NewFromBytes(req.Msg.TargetId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	sourceNode, err := c.ns.GetNode(ctx, sourceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	targetNode, err := c.ns.GetNode(ctx, targetID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if sourceNode.FlowID != flowID || targetNode.FlowID != flowID {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source and target nodes must be in the same flow"))
+	}
+
+	modelEdge := &edge.Edge{
+		ID:       idwrap.NewNow(),
+		SourceID: sourceID,
+		TargetID: targetID,
+	}
+
+	err = c.es.CreateEdge(ctx, *modelEdge)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&edgev1.EdgeCreateResponse{}), nil
 }
 
 func (c *EdgeServiceRPC) EdgeUpdate(ctx context.Context, req *connect.Request[edgev1.EdgeUpdateRequest]) (*connect.Response[edgev1.EdgeUpdateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	EdgeID, err := idwrap.NewFromBytes(req.Msg.EdgeId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.us, c.es, EdgeID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	requestedEdge, err := c.es.GetEdge(ctx, EdgeID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	flowID := requestedEdge.FlowID
+
+	sourceID, err := idwrap.NewFromBytes(req.Msg.SourceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	targetID, err := idwrap.NewFromBytes(req.Msg.TargetId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	sourceNode, err := c.ns.GetNode(ctx, sourceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	targetNode, err := c.ns.GetNode(ctx, targetID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if sourceNode.FlowID != flowID || targetNode.FlowID != flowID {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source and target nodes must be in the same flow"))
+	}
+	if sourceID.Bytes() != nil {
+		requestedEdge.SourceID = sourceID
+	}
+	if targetID.Bytes() != nil {
+		requestedEdge.TargetID = targetID
+	}
+	err = c.es.UpdateEdge(ctx, *requestedEdge)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&edgev1.EdgeUpdateResponse{}), nil
 }
 
 func (c *EdgeServiceRPC) EdgeDelete(ctx context.Context, req *connect.Request[edgev1.EdgeDeleteRequest]) (*connect.Response[edgev1.EdgeDeleteResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	EdgeID, err := idwrap.NewFromBytes(req.Msg.EdgeId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.us, c.es, EdgeID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.es.DeleteEdge(ctx, EdgeID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&edgev1.EdgeDeleteResponse{}), nil
 }
 
 func CheckOwnerEdge(ctx context.Context, fs sflow.FlowService, us suser.UserService, es sedge.EdgeService, edgeID idwrap.IDWrap) (bool, error) {
