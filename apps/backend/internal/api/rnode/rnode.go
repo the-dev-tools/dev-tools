@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rflow"
+	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
@@ -13,13 +14,18 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
 	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/service/sexampleheader"
+	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sitemapi"
+	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/nodes/pkg/httpclient"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
@@ -39,6 +45,12 @@ type NodeServiceRPC struct {
 	nrs  snoderequest.NodeRequestService
 	nfls snodefor.NodeForService
 	nss  snodestart.NodeStartService
+
+	// api
+	ias  sitemapi.ItemApiService
+	iaes sitemapiexample.ItemApiExampleService
+	eqs  sexamplequery.ExampleQueryService
+	ehs  sexampleheader.HeaderService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
@@ -304,6 +316,59 @@ func (c *NodeServiceRPC) NodeDelete(ctx context.Context, req *connect.Request[no
 }
 
 func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev1.NodeRunRequest]) (*connect.Response[nodev1.NodeRunResponse], error) {
+	nodeID, err := idwrap.NewFromBytes(req.Msg.NodeId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	_, err = idwrap.NewFromBytes(req.Msg.EnvironmentId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.us, c.ns, nodeID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	node, err := c.ns.GetNode(ctx, nodeID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	switch node.NodeKind {
+	case mnode.NODE_KIND_REQUEST:
+		nodeReq, err := c.nrs.GetNodeRequest(ctx, node.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		itemApi, err := c.ias.GetItemApi(ctx, nodeReq.EndpointID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		example, err := c.iaes.GetApiExample(ctx, nodeReq.ExampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, nodeReq.ExampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		headers, err := c.ehs.GetHeaderByExampleID(ctx, nodeReq.ExampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, []byte{}, httpclient.New())
+
+	case mnode.NODE_KIND_FOR:
+	default:
+		return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	}
+
 	return nil, connect.NewError(connect.CodeUnimplemented, nil)
 }
 

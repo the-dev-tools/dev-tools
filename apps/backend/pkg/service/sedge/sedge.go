@@ -4,6 +4,7 @@ import (
 	"context"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
 
@@ -41,6 +42,14 @@ func (es EdgeService) GetEdge(ctx context.Context, id idwrap.IDWrap) (*edge.Edge
 		return nil, err
 	}
 	return ConvertToModelEdge(edge), nil
+}
+
+func (es EdgeService) GetEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]edge.Edge, error) {
+	edge, err := es.queries.GetFlowEdgesByFlowID(ctx, flowID)
+	if err != nil {
+		return nil, err
+	}
+	return tgeneric.MassConvertPtr(edge, ConvertToModelEdge), nil
 }
 
 func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) (*edge.Edge, error) {
