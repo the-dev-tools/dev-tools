@@ -13,6 +13,7 @@ import {
   ConnectionLineComponentProps,
   Edge,
   EdgeProps,
+  getConnectedEdges,
   getSmoothStepPath,
   HandleProps,
   Node,
@@ -39,7 +40,7 @@ import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/end
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { edgeCreate, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
+import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import {
   NodeKind,
   NodeKindJson,
@@ -49,7 +50,12 @@ import {
   NodeSchema,
   NodeStart,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { nodeCreate, nodeList, nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import {
+  nodeCreate,
+  nodeDelete,
+  nodeList,
+  nodeUpdate,
+} from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
@@ -297,13 +303,15 @@ interface RequestNode extends Node<NodeRequest, 'request'> {}
 const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
   const { nodeId, collectionId, endpointId, exampleId } = data;
 
-  const { updateNodeData } = useReactFlow();
+  const { updateNodeData, getEdges, getNode, deleteElements } = useReactFlow();
 
   const collectionGetQuery = useConnectQuery(collectionGet, { collectionId }, { enabled: collectionId.length > 0 });
   const endpointGetQuery = useConnectQuery(endpointGet, { endpointId }, { enabled: endpointId.length > 0 });
   const exampleGetQuery = useConnectQuery(exampleGet, { exampleId }, { enabled: exampleId.length > 0 });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+  const nodeDeleteMutation = useConnectMutation(nodeDelete);
+  const edgeDeleteMutation = useConnectMutation(edgeDelete);
 
   let content;
   if (collectionGetQuery.isSuccess && endpointGetQuery.isSuccess && exampleGetQuery.isSuccess) {
@@ -352,8 +360,49 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
       <div className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
         <div className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}>
           <SendRequestIcon className={tw`size-5 text-slate-500`} />
+
           <div className={tw`h-4 w-px bg-slate-300`} />
-          <span className={tw`text-xs font-medium leading-5 tracking-tight`}>Send Request</span>
+
+          <span className={tw`flex-1 text-xs font-medium leading-5 tracking-tight`}>Send Request</span>
+
+          <MenuTrigger>
+            <Button variant='ghost' className={tw`p-0.5`}>
+              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            </Button>
+
+            <Menu>
+              <MenuItem>Rename</MenuItem>
+              <MenuItem>Duplicate</MenuItem>
+              <MenuItem
+                variant='danger'
+                onAction={async () => {
+                  const node = getNode(id);
+
+                  const { createEdges = [], edges = [] } = pipe(
+                    getConnectedEdges([node!], getEdges()),
+                    Array.groupBy((_) => (_.id.startsWith('create-') ? 'createEdges' : 'edges')),
+                  );
+
+                  await nodeDeleteMutation.mutateAsync({ nodeId });
+
+                  await Promise.allSettled(
+                    edges.map(({ id }) =>
+                      edgeDeleteMutation.mutateAsync({
+                        edgeId: Ulid.fromCanonicalTrusted(id).bytes,
+                      }),
+                    ),
+                  );
+
+                  await deleteElements({
+                    nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
+                    edges: [...createEdges, ...edges],
+                  });
+                }}
+              >
+                Delete
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
         </div>
 
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>{content}</div>
