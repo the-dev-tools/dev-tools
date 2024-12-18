@@ -4,7 +4,6 @@ import {
   createProtobufSafeUpdater,
   createQueryOptions,
   useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
   useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
@@ -15,7 +14,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, Suspense, useMemo, useState } from 'react';
 import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { FiChevronDown, FiClock, FiLink, FiMoreHorizontal, FiSave, FiSidebar, FiX } from 'react-icons/fi';
@@ -45,12 +44,7 @@ import {
   queryList,
   queryUpdate,
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
-import {
-  Response,
-  ResponseAssertListItem,
-  ResponseGetResponse,
-  ResponseHeaderListItem,
-} from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
+import { ResponseHeaderListItem } from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
 import {
   responseAssertList,
   responseGet,
@@ -68,9 +62,9 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { AssertionTab } from './assertions';
-import { BodyTab } from './body';
-import { HeaderTab } from './headers';
-import { QueryParamTab } from './query';
+import { BodyView } from './body';
+import { HeaderTable } from './headers';
+import { QueryTable } from './query';
 
 export class Search extends Schema.Class<Search>('EndpointRouteSearch')({
   requestTab: pipe(
@@ -86,6 +80,7 @@ export const Route = createFileRoute(
 )({
   component: Page,
   pendingComponent: () => 'Loading example...',
+  shouldReload: false,
   validateSearch: (_) => Schema.decodeSync(Search)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
   loader: async ({
@@ -141,7 +136,6 @@ function Page() {
               id='params'
               href={{
                 from: Route.fullPath,
-                to: '.',
                 search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
               }}
               className={({ isSelected }) =>
@@ -158,7 +152,6 @@ function Page() {
               id='headers'
               href={{
                 from: Route.fullPath,
-                to: '.',
                 search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
               }}
               className={({ isSelected }) =>
@@ -175,7 +168,6 @@ function Page() {
               id='body'
               href={{
                 from: Route.fullPath,
-                to: '.',
                 search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
               }}
               className={({ isSelected }) =>
@@ -192,7 +184,6 @@ function Page() {
               id='assertions'
               href={{
                 from: Route.fullPath,
-                to: '.',
                 search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
               }}
               className={({ isSelected }) =>
@@ -206,28 +197,32 @@ function Page() {
             </Tab>
           </TabList>
 
-          <TabPanel id='params'>
-            <QueryParamTab />
-          </TabPanel>
+          <Suspense fallback='Loading tab...'>
+            <TabPanel id='params'>
+              <QueryTable exampleId={exampleId} />
+            </TabPanel>
 
-          <TabPanel id='headers'>
-            <HeaderTab />
-          </TabPanel>
+            <TabPanel id='headers'>
+              <HeaderTable exampleId={exampleId} />
+            </TabPanel>
 
-          <TabPanel id='body'>
-            <BodyTab />
-          </TabPanel>
+            <TabPanel id='body'>
+              <BodyView endpointId={endpointId} exampleId={exampleId} />
+            </TabPanel>
 
-          <TabPanel id='assertions'>
-            <AssertionTab />
-          </TabPanel>
+            <TabPanel id='assertions'>
+              <AssertionTab />
+            </TabPanel>
+          </Suspense>
         </Tabs>
       </Panel>
       {example.lastResponseId.byteLength > 0 && (
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
-            <ResponsePanelLoader responseId={example.lastResponseId} />
+            <Suspense fallback='Loading response...'>
+              <ResponsePanel responseId={example.lastResponseId} />
+            </Suspense>
           </Panel>
         </>
       )}
@@ -463,24 +458,14 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   );
 };
 
-interface ResponsePanelLoaderProps {
-  responseId: Response['responseId'];
-}
-
-const ResponsePanelLoader = ({ responseId }: ResponsePanelLoaderProps) => {
-  const responseGetQuery = useConnectQuery(responseGet, { responseId });
-  if (!responseGetQuery.isSuccess) return null;
-  return <ResponsePanel response={responseGetQuery.data} />;
-};
-
 interface ResponsePanelProps {
-  response: ResponseGetResponse;
+  responseId: Uint8Array;
 }
 
-const ResponsePanel = ({ response }: ResponsePanelProps) => {
-  const { responseId } = response;
-
+const ResponsePanel = ({ responseId }: ResponsePanelProps) => {
   const { responseTab } = Route.useSearch();
+
+  const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
 
   return (
     <Tabs className={tw`flex h-full flex-col`} selectedKey={responseTab}>
@@ -490,7 +475,6 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
             id='body'
             href={{
               from: Route.fullPath,
-              to: '.',
               search: ((_) => ({ ..._, responseTab: 'body' })) satisfies ToOptions['search'],
             }}
             className={({ isSelected }) =>
@@ -507,7 +491,6 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
             id='headers'
             href={{
               from: Route.fullPath,
-              to: '.',
               search: ((_) => ({ ..._, responseTab: 'headers' })) satisfies ToOptions['search'],
             }}
             className={({ isSelected }) =>
@@ -524,7 +507,6 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
             id='assertions'
             href={{
               from: Route.fullPath,
-              to: '.',
               search: ((_) => ({ ..._, responseTab: 'assertions' })) satisfies ToOptions['search'],
             }}
             className={({ isSelected }) =>
@@ -588,17 +570,19 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
       </div>
 
       <div className='flex-1 overflow-auto'>
-        <TabPanel id='body' className='flex h-full flex-col gap-4 p-4'>
-          <ResponseBodyView bodyBytes={response.body} />
-        </TabPanel>
+        <Suspense fallback='Loading tab...'>
+          <TabPanel id='body' className='flex h-full flex-col gap-4 p-4'>
+            <ResponseBodyView bodyBytes={response.body} />
+          </TabPanel>
 
-        <TabPanel id='headers' className='p-4'>
-          <ResponseHeaderTableLoader responseId={responseId} />
-        </TabPanel>
+          <TabPanel id='headers' className='p-4'>
+            <ResponseHeaderTable responseId={responseId} />
+          </TabPanel>
 
-        <TabPanel id='assertions' className='p-4'>
-          <ResponseAssertsTableLoader responseId={responseId} />
-        </TabPanel>
+          <TabPanel id='assertions' className='p-4'>
+            <ResponseAssertTable responseId={responseId} />
+          </TabPanel>
+        </Suspense>
       </div>
     </Tabs>
   );
@@ -748,21 +732,15 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
   );
 };
 
-interface ResponseHeaderTableLoaderProps {
-  responseId: Response['responseId'];
+interface ResponseHeaderTableProps {
+  responseId: Uint8Array;
 }
 
-const ResponseHeaderTableLoader = ({ responseId }: ResponseHeaderTableLoaderProps) => {
-  const responseHeaderListQuery = useConnectQuery(responseHeaderList, { responseId });
-  if (!responseHeaderListQuery.isSuccess) return null;
-  return <ResponseHeadersTable headers={responseHeaderListQuery.data.items} />;
-};
+const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(responseHeaderList, { responseId });
 
-interface ResponseHeadersTableProps {
-  headers: ResponseHeaderListItem[];
-}
-
-const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
   const columns = useMemo(() => {
     const { accessor } = createColumnHelper<ResponseHeaderListItem>();
     return [accessor('key', {}), accessor('value', {})];
@@ -770,46 +748,42 @@ const ResponseHeadersTable = ({ headers }: ResponseHeadersTableProps) => {
 
   const table = useReactTable({
     columns,
-    data: headers,
+    data: items,
     getCoreRowModel: getCoreRowModel(),
   });
 
   return <DataTable table={table} cellClassName={tw`px-5 py-1.5`} />;
 };
 
-interface ResponseAssertsTableLoaderProps {
-  responseId: Response['responseId'];
+interface ResponseAssertTableProps {
+  responseId: Uint8Array;
 }
 
-const ResponseAssertsTableLoader = ({ responseId }: ResponseAssertsTableLoaderProps) => {
-  const responseAssertListQuery = useConnectQuery(responseAssertList, { responseId });
-  if (!responseAssertListQuery.isSuccess) return null;
-  return <ResponseAssertsTable asserts={responseAssertListQuery.data.items} />;
+const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(responseAssertList, { responseId });
+
+  return (
+    <div className={tw`grid grid-cols-[auto_1fr] items-center gap-2 text-sm`}>
+      {items.map(({ assert, result }) => {
+        if (!assert) return null;
+        const assertIdCan = Ulid.construct(assert.assertId).toCanonical();
+        return (
+          <Fragment key={assertIdCan}>
+            <div
+              className={twJoin(
+                tw`rounded px-2 py-1 text-center font-light uppercase text-white`,
+                result ? tw`bg-green-600` : tw`bg-red-600`,
+              )}
+            >
+              {result ? 'Pass' : 'Fail'}
+            </div>
+
+            <span>{assert.path.map((_) => JSON.stringify(toJson(PathKeySchema, _))).join(' ')}</span>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
 };
-
-interface ResponseAssertsTableProps {
-  asserts: ResponseAssertListItem[];
-}
-
-const ResponseAssertsTable = ({ asserts }: ResponseAssertsTableProps) => (
-  <div className={tw`grid grid-cols-[auto_1fr] items-center gap-2 text-sm`}>
-    {asserts.map(({ assert, result }) => {
-      if (!assert) return null;
-      const assertIdCan = Ulid.construct(assert.assertId).toCanonical();
-      return (
-        <Fragment key={assertIdCan}>
-          <div
-            className={twJoin(
-              tw`rounded px-2 py-1 text-center font-light uppercase text-white`,
-              result ? tw`bg-green-600` : tw`bg-red-600`,
-            )}
-          >
-            {result ? 'Pass' : 'Fail'}
-          </div>
-
-          <span>{assert.path.map((_) => JSON.stringify(toJson(PathKeySchema, _))).join(' ')}</span>
-        </Fragment>
-      );
-    })}
-  </div>
-);

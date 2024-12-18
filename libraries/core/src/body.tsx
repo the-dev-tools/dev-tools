@@ -3,7 +3,7 @@ import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
   useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
+  useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -20,7 +20,6 @@ import { exampleUpdateSpec } from '@the-dev-tools/api/spec/collection/item/examp
 import {
   BodyFormItemCreateResponseSchema,
   BodyFormItemJson,
-  BodyFormItemListItem,
   BodyFormItemListItemSchema,
   BodyFormItemListResponseSchema,
   BodyFormItemSchema,
@@ -28,7 +27,6 @@ import {
   BodyKind,
   BodyUrlEncodedItemCreateResponseSchema,
   BodyUrlEncodedItemJson,
-  BodyUrlEncodedItemListItem,
   BodyUrlEncodedItemListItemSchema,
   BodyUrlEncodedItemListResponseSchema,
   BodyUrlEncodedItemSchema,
@@ -59,14 +57,14 @@ import { HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-const endpointRoute = getRouteApi(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-);
 
-export const BodyTab = () => {
-  const { endpointId, exampleId } = endpointRoute.useLoaderData();
+interface BodyViewProps {
+  endpointId: Uint8Array;
+  exampleId: Uint8Array;
+}
 
-  const query = useConnectQuery(exampleGet, { exampleId });
+export const BodyView = ({ endpointId, exampleId }: BodyViewProps) => {
+  const query = useConnectSuspenseQuery(exampleGet, { exampleId });
   const updateMutation = useSpecMutation(exampleUpdateSpec);
 
   if (!query.isSuccess) return null;
@@ -89,31 +87,27 @@ export const BodyTab = () => {
 
       {pipe(
         Match.value(bodyKind),
-        Match.when(BodyKind.FORM_ARRAY, () => <FormDataTableLoader />),
-        Match.when(BodyKind.URL_ENCODED_ARRAY, () => <UrlEncodedTableLoader />),
-        Match.when(BodyKind.RAW, () => <RawFormLoader />),
+        Match.when(BodyKind.FORM_ARRAY, () => <FormDataTable exampleId={exampleId} />),
+        Match.when(BodyKind.URL_ENCODED_ARRAY, () => <UrlEncodedTable exampleId={exampleId} />),
+        Match.when(BodyKind.RAW, () => <RawForm exampleId={exampleId} />),
         Match.orElse(() => null),
       )}
     </div>
   );
 };
 
-const FormDataTableLoader = () => {
-  const { exampleId } = endpointRoute.useLoaderData();
-  const query = useConnectQuery(bodyFormItemList, { exampleId });
-  if (!query.isSuccess) return null;
-  return <FormDataTable items={query.data.items} />;
-};
-
 interface FormDataTableProps {
-  items: BodyFormItemListItem[];
+  exampleId: Uint8Array;
 }
 
-const FormDataTable = ({ items }: FormDataTableProps) => {
+const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   const queryClient = useQueryClient();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { exampleId } = endpointRoute.useLoaderData();
+
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
 
   const createMutation = useConnectMutation(bodyFormItemCreate);
   const updateMutation = useConnectMutation(bodyFormItemUpdate);
@@ -249,22 +243,18 @@ const FormDataTable = ({ items }: FormDataTableProps) => {
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
-const UrlEncodedTableLoader = () => {
-  const { exampleId } = endpointRoute.useLoaderData();
-  const query = useConnectQuery(bodyUrlEncodedItemList, { exampleId });
-  if (!query.isSuccess) return null;
-  return <UrlEncodedTable items={query.data.items} />;
-};
-
 interface UrlEncodedTableProps {
-  items: BodyUrlEncodedItemListItem[];
+  exampleId: Uint8Array;
 }
 
-const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
+const UrlEncodedTable = ({ exampleId }: UrlEncodedTableProps) => {
   const queryClient = useQueryClient();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { exampleId } = endpointRoute.useLoaderData();
+
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
 
   const createMutation = useConnectMutation(bodyUrlEncodedItemCreate);
   const updateMutation = useConnectMutation(bodyUrlEncodedItemUpdate);
@@ -402,20 +392,15 @@ const UrlEncodedTable = ({ items }: UrlEncodedTableProps) => {
 
 const languages = ['text', 'json', 'html', 'xml'] as const;
 
-const RawFormLoader = () => {
-  const { exampleId } = endpointRoute.useLoaderData();
-  const query = useConnectQuery(bodyRawGet, { exampleId });
-  if (!query.isSuccess) return null;
-  const body = new TextDecoder().decode(query.data.data);
-  return <RawForm body={body} />;
-};
-
 interface RawFormProps {
-  body: string;
+  exampleId: Uint8Array;
 }
 
-const RawForm = ({ body }: RawFormProps) => {
-  const { exampleId } = endpointRoute.useLoaderData();
+const RawForm = ({ exampleId }: RawFormProps) => {
+  const {
+    data: { data },
+  } = useConnectSuspenseQuery(bodyRawGet, { exampleId });
+  const body = new TextDecoder().decode(data);
 
   const updateMutation = useSpecMutation(bodyRawUpdateSpec);
 

@@ -3,7 +3,7 @@ import {
   createConnectQueryKey,
   createProtobufSafeUpdater,
   useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
+  useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -16,7 +16,6 @@ import { LuTrash2 } from 'react-icons/lu';
 import {
   QueryCreateResponseSchema,
   QueryJson,
-  QueryListItem,
   QueryListItemSchema,
   QueryListResponseSchema,
   QuerySchema,
@@ -38,26 +37,19 @@ import { HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-const endpointRoute = getRouteApi(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-);
 
-export const QueryParamTab = () => {
-  const { exampleId } = endpointRoute.useLoaderData();
-  const query = useConnectQuery(queryList, { exampleId });
-  if (!query.isSuccess) return null;
-  return <Table items={query.data.items} />;
-};
-
-interface TableProps {
-  items: QueryListItem[];
+interface QueryTableProps {
+  exampleId: Uint8Array;
 }
 
-const Table = ({ items }: TableProps) => {
+export const QueryTable = ({ exampleId }: QueryTableProps) => {
   const queryClient = useQueryClient();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { exampleId } = endpointRoute.useLoaderData();
+
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(queryList, { exampleId });
 
   const createMutation = useConnectMutation(queryCreate);
   const updateMutation = useConnectMutation(queryUpdate);
