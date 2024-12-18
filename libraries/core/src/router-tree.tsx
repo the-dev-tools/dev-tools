@@ -19,10 +19,6 @@ import { Route as workspaceListImport } from './workspace-list';
 import { Route as workspaceMembersImport } from './workspace-members';
 import { Route as flowImport } from './flow';
 import { Route as endpointImport } from './endpoint';
-import { Route as headersImport } from './headers';
-import { Route as bodyImport } from './body';
-import { Route as assertionsImport } from './assertions';
-import { Route as queryImport } from './query';
 
 // Create/Update Routes
 
@@ -70,30 +66,6 @@ const endpointRoute = endpointImport.update({
   id: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   path: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   getParentRoute: () => workspaceLayoutRoute,
-} as any);
-
-const headersRoute = headersImport.update({
-  id: '/headers',
-  path: '/headers',
-  getParentRoute: () => endpointRoute,
-} as any);
-
-const bodyRoute = bodyImport.update({
-  id: '/body',
-  path: '/body',
-  getParentRoute: () => endpointRoute,
-} as any);
-
-const assertionsRoute = assertionsImport.update({
-  id: '/assertions',
-  path: '/assertions',
-  getParentRoute: () => endpointRoute,
-} as any);
-
-const queryRoute = queryImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => endpointRoute,
 } as any);
 
 // Populate the FileRoutesByPath interface
@@ -156,34 +128,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof endpointImport;
       parentRoute: typeof workspaceLayoutImport;
     };
-    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/': {
-      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/';
-      path: '/';
-      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/';
-      preLoaderRoute: typeof queryImport;
-      parentRoute: typeof endpointImport;
-    };
-    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions': {
-      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions';
-      path: '/assertions';
-      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions';
-      preLoaderRoute: typeof assertionsImport;
-      parentRoute: typeof endpointImport;
-    };
-    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': {
-      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body';
-      path: '/body';
-      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body';
-      preLoaderRoute: typeof bodyImport;
-      parentRoute: typeof endpointImport;
-    };
-    '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': {
-      id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
-      path: '/headers';
-      fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
-      preLoaderRoute: typeof headersImport;
-      parentRoute: typeof endpointImport;
-    };
   }
 }
 
@@ -201,34 +145,16 @@ const dashboardRouteWithChildren = dashboardRoute._addFileChildren(
   dashboardRouteChildren,
 );
 
-interface endpointRouteChildren {
-  queryRoute: typeof queryRoute;
-  assertionsRoute: typeof assertionsRoute;
-  bodyRoute: typeof bodyRoute;
-  headersRoute: typeof headersRoute;
-}
-
-const endpointRouteChildren: endpointRouteChildren = {
-  queryRoute: queryRoute,
-  assertionsRoute: assertionsRoute,
-  bodyRoute: bodyRoute,
-  headersRoute: headersRoute,
-};
-
-const endpointRouteWithChildren = endpointRoute._addFileChildren(
-  endpointRouteChildren,
-);
-
 interface workspaceLayoutRouteChildren {
   workspaceMembersRoute: typeof workspaceMembersRoute;
   flowRoute: typeof flowRoute;
-  endpointRoute: typeof endpointRouteWithChildren;
+  endpointRoute: typeof endpointRoute;
 }
 
 const workspaceLayoutRouteChildren: workspaceLayoutRouteChildren = {
   workspaceMembersRoute: workspaceMembersRoute,
   flowRoute: flowRoute,
-  endpointRoute: endpointRouteWithChildren,
+  endpointRoute: endpointRoute,
 };
 
 const workspaceLayoutRouteWithChildren = workspaceLayoutRoute._addFileChildren(
@@ -256,11 +182,7 @@ export interface FileRoutesByFullPath {
   '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
   '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRouteWithChildren;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/': typeof queryRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions': typeof assertionsRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': typeof bodyRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': typeof headersRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
 }
 
 export interface FileRoutesByTo {
@@ -270,10 +192,7 @@ export interface FileRoutesByTo {
   '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
   '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof queryRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions': typeof assertionsRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': typeof bodyRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': typeof headersRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
 }
 
 export interface FileRoutesById {
@@ -285,11 +204,7 @@ export interface FileRoutesById {
   '/_authorized/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
   '/_authorized/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
   '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowRoute;
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRouteWithChildren;
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/': typeof queryRoute;
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions': typeof assertionsRoute;
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body': typeof bodyRoute;
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers': typeof headersRoute;
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
 }
 
 export interface FileRouteTypes {
@@ -301,11 +216,7 @@ export interface FileRouteTypes {
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/members'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
   fileRoutesByTo: FileRoutesByTo;
   to:
     | ''
@@ -314,10 +225,7 @@ export interface FileRouteTypes {
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/members'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
   id:
     | '__root__'
     | '/_authorized'
@@ -327,11 +235,7 @@ export interface FileRouteTypes {
     | '/_authorized/workspace/$workspaceIdCan'
     | '/_authorized/workspace/$workspaceIdCan/members'
     | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan'
-    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/'
-    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions'
-    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body'
-    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers';
+    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
   fileRoutesById: FileRoutesById;
 }
 
@@ -399,29 +303,7 @@ export const routeTree = rootRoute
     },
     "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan": {
       "filePath": "endpoint.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan",
-      "children": [
-        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/",
-        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions",
-        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body",
-        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers"
-      ]
-    },
-    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/": {
-      "filePath": "query.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions": {
-      "filePath": "assertions.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body": {
-      "filePath": "body.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/headers": {
-      "filePath": "headers.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
+      "parent": "/_authorized/workspace/$workspaceIdCan"
     }
   }
 }

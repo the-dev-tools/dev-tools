@@ -408,12 +408,15 @@ interface EndpointTreeProps {
 }
 
 const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoint, example }: EndpointTreeProps) => {
+  const { endpointId, method, name } = endpoint;
+  const { exampleId, lastResponseId } = example;
+
   const match = useMatch({ strict: false });
 
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
 
-  const exampleIdCan = Ulid.construct(example.exampleId).toCanonical();
-  const { endpointId, method } = endpoint;
+  const exampleIdCan = Ulid.construct(exampleId).toCanonical();
+  const lastResponseIdCan = lastResponseId.length > 0 ? Ulid.construct(lastResponseId).toCanonical() : undefined;
 
   const [enabled, setEnabled] = useState(false);
 
@@ -429,18 +432,15 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
   return (
     <TreeItem
-      id={pipe(
-        new TreeKey({ collectionId, endpointId, exampleId: example.exampleId }),
-        Schema.encodeSync(TreeKey),
-        JSON.stringify,
-      )}
-      textValue={endpoint.name}
+      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      textValue={name}
       href={
         navigate
           ? {
               from: match.fullPath,
               to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
               params: { endpointIdCan, exampleIdCan },
+              search: { responseIdCan: lastResponseIdCan },
             }
           : undefined!
       }
@@ -461,7 +461,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
       <MethodBadge method={method} />
 
-      <Text className='flex-1 truncate'>{endpoint.name}</Text>
+      <Text className='flex-1 truncate'>{name}</Text>
 
       {showControls && (
         <>
@@ -512,11 +512,14 @@ interface ExampleItemProps {
 }
 
 const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: ExampleItemProps) => {
+  const { exampleId, lastResponseId, name } = example;
+
+  const endpointIdCan = Ulid.construct(endpointId).toCanonical();
+  const lastResponseIdCan = lastResponseId.length > 0 ? Ulid.construct(lastResponseId).toCanonical() : undefined;
+
   const match = useMatch({ strict: false });
 
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
-
-  const endpointIdCan = Ulid.construct(endpointId).toCanonical();
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
   const exampleDeleteMutation = useSpecMutation(exampleDeleteSpec);
@@ -524,18 +527,17 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
     onSuccess: invalidateCollectionListQuery,
   });
 
-  const { exampleId } = example;
-
   return (
     <TreeItem
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      textValue={example.name}
+      textValue={name}
       href={
         navigate
           ? {
               from: match.fullPath,
               to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
               params: { endpointIdCan, exampleIdCan },
+              search: { responseIdCan: lastResponseIdCan },
             }
           : undefined!
       }
@@ -543,7 +545,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
     >
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
-      <Text className='flex-1 truncate'>{example.name}</Text>
+      <Text className='flex-1 truncate'>{name}</Text>
 
       {showControls && (
         <MenuTrigger>

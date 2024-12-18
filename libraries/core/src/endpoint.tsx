@@ -5,10 +5,11 @@ import {
   createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
+  useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link, Outlet, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
@@ -23,12 +24,10 @@ import { twJoin, twMerge } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { queryCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
-import { EndpointGetResponse } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointGet,
   endpointUpdate,
 } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
-import { ExampleGetResponse } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
   exampleGet,
   exampleRun,
@@ -38,7 +37,6 @@ import {
   QueryCreateRequest,
   QueryCreateRequestSchema,
   QueryListItemSchema,
-  QueryListResponse,
   QueryListResponseSchema,
   QueryUpdateRequest,
   QueryUpdateRequestSchema,
@@ -69,27 +67,51 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
+import { AssertionTab } from './assertions';
+import { BodyTab } from './body';
+import { HeaderTab } from './headers';
+import { QueryParamTab } from './query';
+
+export class Search extends Schema.Class<Search>('EndpointRouteSearch')({
+  requestTab: pipe(
+    Schema.Literal('params', 'headers', 'body', 'assertions'),
+    Schema.optionalWith({ default: () => 'params' }),
+  ),
+  responseTab: pipe(Schema.Literal('body', 'headers', 'assertions'), Schema.optionalWith({ default: () => 'body' })),
+  responseIdCan: pipe(Schema.String, Schema.optional),
+}) {}
+
 export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 )({
   component: Page,
   pendingComponent: () => 'Loading example...',
-  loader: async ({ params: { workspaceIdCan, endpointIdCan, exampleIdCan }, context: { transport, queryClient } }) => {
+  validateSearch: (_) => Schema.decodeSync(Search)(_),
+  loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
+  loader: async ({
+    params: { workspaceIdCan, endpointIdCan, exampleIdCan },
+    deps: { responseIdCan },
+    context: { transport, queryClient },
+  }) => {
     const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
     const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;
+    const responseId = pipe(
+      Option.fromNullable(responseIdCan),
+      Option.map((_) => Ulid.fromCanonical(_).bytes),
+    );
 
     try {
-      const [{ lastResponseId }] = await Promise.all([
+      await Promise.all([
         queryClient.ensureQueryData(createQueryOptions(exampleGet, { exampleId }, { transport })),
         queryClient.ensureQueryData(createQueryOptions(endpointGet, { endpointId }, { transport })),
         queryClient.ensureQueryData(createQueryOptions(queryList, { exampleId }, { transport })),
+        ...pipe(
+          Option.map(responseId, (_) =>
+            queryClient.ensureQueryData(createQueryOptions(responseGet, { responseId: _ }, { transport })),
+          ),
+          Option.toArray,
+        ),
       ]);
-
-      if (lastResponseId.byteLength > 0) {
-        await queryClient.ensureQueryData(
-          createQueryOptions(responseGet, { responseId: lastResponseId }, { transport }),
-        );
-      }
     } catch {
       redirect({
         to: '/workspace/$workspaceIdCan',
@@ -98,21 +120,118 @@ export const Route = createFileRoute(
       });
     }
 
-    return { endpointId, exampleId };
+    return { endpointId, exampleId, responseId };
   },
 });
 
 function Page() {
   const { endpointId, exampleId } = Route.useLoaderData();
+  const { requestTab } = Route.useSearch();
 
-  const endpointGetQuery = useConnectQuery(endpointGet, { endpointId });
-  const exampleGetQuery = useConnectQuery(exampleGet, { exampleId });
-  const queryListQuery = useConnectQuery(queryList, { exampleId });
-
-  if (!endpointGetQuery.isSuccess || !exampleGetQuery.isSuccess || !queryListQuery.isSuccess) return null;
+  const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
 
   return (
-    <EndpointForm endpoint={endpointGetQuery.data} example={exampleGetQuery.data} queries={queryListQuery.data.items} />
+    <PanelGroup direction='vertical'>
+      <Panel id='request' order={1} className='flex h-full flex-col'>
+        <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+
+        <Tabs className={tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`} selectedKey={requestTab}>
+          <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+            <Tab
+              id='params'
+              href={{
+                from: Route.fullPath,
+                to: '.',
+                search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
+              }}
+              className={({ isSelected }) =>
+                twMerge(
+                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                  isSelected && tw`border-b-violet-700 text-slate-800`,
+                )
+              }
+            >
+              Params
+            </Tab>
+
+            <Tab
+              id='headers'
+              href={{
+                from: Route.fullPath,
+                to: '.',
+                search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
+              }}
+              className={({ isSelected }) =>
+                twMerge(
+                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                  isSelected && tw`border-b-violet-700 text-slate-800`,
+                )
+              }
+            >
+              Headers
+            </Tab>
+
+            <Tab
+              id='body'
+              href={{
+                from: Route.fullPath,
+                to: '.',
+                search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
+              }}
+              className={({ isSelected }) =>
+                twMerge(
+                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                  isSelected && tw`border-b-violet-700 text-slate-800`,
+                )
+              }
+            >
+              Body
+            </Tab>
+
+            <Tab
+              id='assertions'
+              href={{
+                from: Route.fullPath,
+                to: '.',
+                search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
+              }}
+              className={({ isSelected }) =>
+                twMerge(
+                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                  isSelected && tw`border-b-violet-700 text-slate-800`,
+                )
+              }
+            >
+              Assertion
+            </Tab>
+          </TabList>
+
+          <TabPanel id='params'>
+            <QueryParamTab />
+          </TabPanel>
+
+          <TabPanel id='headers'>
+            <HeaderTab />
+          </TabPanel>
+
+          <TabPanel id='body'>
+            <BodyTab />
+          </TabPanel>
+
+          <TabPanel id='assertions'>
+            <AssertionTab />
+          </TabPanel>
+        </Tabs>
+      </Panel>
+      {example.lastResponseId.byteLength > 0 && (
+        <>
+          <PanelResizeHandle direction='vertical' />
+          <Panel id='response' order={2} defaultSize={40}>
+            <ResponsePanelLoader responseId={example.lastResponseId} />
+          </Panel>
+        </>
+      )}
+    </PanelGroup>
   );
 }
 
@@ -124,13 +243,15 @@ class EndpointFormData extends Schema.Class<EndpointFormData>('EndpointFormData'
 }) {}
 
 interface EndpointFormProps {
-  endpoint: EndpointGetResponse;
-  example: ExampleGetResponse;
-  queries: QueryListResponse['items'];
+  endpointId: Uint8Array;
+  exampleId: Uint8Array;
 }
 
-const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
-  const { endpointId, exampleId } = Route.useLoaderData();
+export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
+  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
+  const {
+    data: { items: queries },
+  } = useConnectSuspenseQuery(queryList, { exampleId });
 
   const queryClient = useQueryClient();
 
@@ -245,159 +366,100 @@ const EndpointForm = ({ endpoint, example, queries }: EndpointFormProps) => {
   });
 
   return (
-    <PanelGroup direction='vertical'>
-      <Panel id='request' order={1} className='flex h-full flex-col'>
-        <form onSubmit={onSubmit}>
-          <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
-            {/* TODO: implement breadcrumbs */}
-            <div
-              className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}
-            >
-              {['Collection', 'Folder', 'Endpoint'].map((_) => (
-                <Fragment key={_}>
-                  <span className={tw`cursor-pointer`}>{_}</span>
-                  <span>/</span>
-                </Fragment>
-              ))}
+    <form onSubmit={onSubmit}>
+      <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
+        {/* TODO: implement breadcrumbs */}
+        <div className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}>
+          {['Collection', 'Folder', 'Endpoint'].map((_) => (
+            <Fragment key={_}>
+              <span className={tw`cursor-pointer`}>{_}</span>
+              <span>/</span>
+            </Fragment>
+          ))}
 
-              <h2 className={tw`cursor-pointer text-slate-800`}>Example</h2>
-            </div>
-
-            {/* TODO: implement response history */}
-            <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
-              <FiClock className={tw`size-4 text-slate-500`} /> Response History
-            </Button>
-
-            {/* TODO: implement copy link */}
-            <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
-              <FiLink className={tw`size-4 text-slate-500`} /> Copy Link
-            </Button>
-
-            <Separator orientation='vertical' className={tw`h-4`} />
-
-            <Button type='submit' variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
-              <FiSave className={tw`size-4 text-slate-500`} /> Save
-            </Button>
-
-            {/* TODO: implement overflow menu item functionality */}
-            <MenuTrigger>
-              <Button variant='ghost' className={tw`p-1`}>
-                <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-              </Button>
-
-              <Menu>
-                <MenuItem>Add example</MenuItem>
-                <Separator />
-                <MenuItem>Rename</MenuItem>
-                <MenuItem>View Documentation</MenuItem>
-                <MenuItem variant='danger'>Delete</MenuItem>
-              </Menu>
-            </MenuTrigger>
-          </div>
-
-          <div className={tw`flex gap-3 p-6 pb-0`}>
-            <div className='flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
-              <SelectRHF
-                control={form.control}
-                name='method'
-                aria-label='Method'
-                triggerClassName={tw`border-none p-0`}
-              >
-                {methods.map((_) => (
-                  <ListBoxItem key={_} id={_} textValue={_}>
-                    <MethodBadge method={_} size='lg' />
-                  </ListBoxItem>
-                ))}
-              </SelectRHF>
-
-              <Separator orientation='vertical' className={tw`h-7`} />
-
-              {/* TODO: update styles after component is refactored */}
-              <TextFieldRHF
-                control={form.control}
-                onBlur={onSubmit}
-                name='url'
-                aria-label='URL'
-                className={tw`flex-1`}
-                inputClassName={tw`border-none bg-transparent font-medium leading-5 tracking-tight text-slate-800`}
-              />
-            </div>
-
-            <Button
-              variant='primary'
-              className={tw`px-6`}
-              onPress={async () => {
-                await onSubmit();
-                const { responseId } = await exampleRunMutation.mutateAsync({
-                  exampleId,
-                });
-                queryClient.setQueryData(
-                  createConnectQueryKey({
-                    schema: exampleGet,
-                    cardinality: 'finite',
-                    input: { exampleId },
-                  }),
-                  createProtobufSafeUpdater(exampleGet, (old) => {
-                    if (old === undefined) return undefined;
-                    return { ...old, lastResponseId: responseId };
-                  }),
-                );
-              }}
-            >
-              Send
-            </Button>
-          </div>
-        </form>
-
-        <div className={tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`}>
-          <div className={tw`flex gap-3 border-b border-slate-200`}>
-            <Link
-              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
-              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
-              activeOptions={{ exact: true }}
-              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-              to='.'
-            >
-              Params
-            </Link>
-            <Link
-              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
-              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
-              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-              to='headers'
-            >
-              Headers
-            </Link>
-            <Link
-              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
-              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
-              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-              to='body'
-            >
-              Body
-            </Link>
-            <Link
-              className={tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`}
-              activeProps={{ className: tw`border-b-violet-700 text-slate-800` }}
-              from='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
-              to='assertions'
-            >
-              Assertion
-            </Link>
-          </div>
-
-          <Outlet />
+          <h2 className={tw`cursor-pointer text-slate-800`}>Example</h2>
         </div>
-      </Panel>
-      {example.lastResponseId.byteLength > 0 && (
-        <>
-          <PanelResizeHandle direction='vertical' />
-          <Panel id='response' order={2} defaultSize={40}>
-            <ResponsePanelLoader responseId={example.lastResponseId} />
-          </Panel>
-        </>
-      )}
-    </PanelGroup>
+
+        {/* TODO: implement response history */}
+        <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+          <FiClock className={tw`size-4 text-slate-500`} /> Response History
+        </Button>
+
+        {/* TODO: implement copy link */}
+        <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+          <FiLink className={tw`size-4 text-slate-500`} /> Copy Link
+        </Button>
+
+        <Separator orientation='vertical' className={tw`h-4`} />
+
+        <Button type='submit' variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+          <FiSave className={tw`size-4 text-slate-500`} /> Save
+        </Button>
+
+        {/* TODO: implement overflow menu item functionality */}
+        <MenuTrigger>
+          <Button variant='ghost' className={tw`p-1`}>
+            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+          </Button>
+
+          <Menu>
+            <MenuItem>Add example</MenuItem>
+            <Separator />
+            <MenuItem>Rename</MenuItem>
+            <MenuItem>View Documentation</MenuItem>
+            <MenuItem variant='danger'>Delete</MenuItem>
+          </Menu>
+        </MenuTrigger>
+      </div>
+
+      <div className={tw`flex gap-3 p-6 pb-0`}>
+        <div className='flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+          <SelectRHF control={form.control} name='method' aria-label='Method' triggerClassName={tw`border-none p-0`}>
+            {methods.map((_) => (
+              <ListBoxItem key={_} id={_} textValue={_}>
+                <MethodBadge method={_} size='lg' />
+              </ListBoxItem>
+            ))}
+          </SelectRHF>
+
+          <Separator orientation='vertical' className={tw`h-7`} />
+
+          {/* TODO: update styles after component is refactored */}
+          <TextFieldRHF
+            control={form.control}
+            onBlur={onSubmit}
+            name='url'
+            aria-label='URL'
+            className={tw`flex-1`}
+            inputClassName={tw`border-none bg-transparent font-medium leading-5 tracking-tight text-slate-800`}
+          />
+        </div>
+
+        <Button
+          variant='primary'
+          className={tw`px-6`}
+          onPress={async () => {
+            await onSubmit();
+            const { responseId } = await exampleRunMutation.mutateAsync({
+              exampleId,
+            });
+            queryClient.setQueryData(
+              createConnectQueryKey({
+                schema: exampleGet,
+                cardinality: 'finite',
+                input: { exampleId },
+              }),
+              createProtobufSafeUpdater(exampleGet, (old) => {
+                if (old === undefined) return undefined;
+                return { ...old, lastResponseId: responseId };
+              }),
+            );
+          }}
+        >
+          Send
+        </Button>
+      </div>
+    </form>
   );
 };
 
@@ -418,12 +480,19 @@ interface ResponsePanelProps {
 const ResponsePanel = ({ response }: ResponsePanelProps) => {
   const { responseId } = response;
 
+  const { responseTab } = Route.useSearch();
+
   return (
-    <Tabs className={tw`flex h-full flex-col`}>
+    <Tabs className={tw`flex h-full flex-col`} selectedKey={responseTab}>
       <div className={tw`flex items-center gap-3 border-b border-slate-200 px-4 text-md`}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             id='body'
+            href={{
+              from: Route.fullPath,
+              to: '.',
+              search: ((_) => ({ ..._, responseTab: 'body' })) satisfies ToOptions['search'],
+            }}
             className={({ isSelected }) =>
               twMerge(
                 tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
@@ -433,8 +502,14 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
           >
             Body
           </Tab>
+
           <Tab
             id='headers'
+            href={{
+              from: Route.fullPath,
+              to: '.',
+              search: ((_) => ({ ..._, responseTab: 'headers' })) satisfies ToOptions['search'],
+            }}
             className={({ isSelected }) =>
               twMerge(
                 tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
@@ -444,8 +519,14 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
           >
             Headers
           </Tab>
+
           <Tab
-            id='asserts'
+            id='assertions'
+            href={{
+              from: Route.fullPath,
+              to: '.',
+              search: ((_) => ({ ..._, responseTab: 'assertions' })) satisfies ToOptions['search'],
+            }}
             className={({ isSelected }) =>
               twMerge(
                 tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
@@ -515,7 +596,7 @@ const ResponsePanel = ({ response }: ResponsePanelProps) => {
           <ResponseHeaderTableLoader responseId={responseId} />
         </TabPanel>
 
-        <TabPanel id='asserts' className='p-4'>
+        <TabPanel id='assertions' className='p-4'>
           <ResponseAssertsTableLoader responseId={responseId} />
         </TabPanel>
       </div>

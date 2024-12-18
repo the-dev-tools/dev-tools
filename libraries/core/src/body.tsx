@@ -6,7 +6,7 @@ import {
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Match, pipe } from 'effect';
@@ -58,16 +58,12 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
-export const Route = createFileRoute(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/body',
-)({ component: Tab });
-
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 const endpointRoute = getRouteApi(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 );
 
-function Tab() {
+export const BodyTab = () => {
   const { endpointId, exampleId } = endpointRoute.useLoaderData();
 
   const query = useConnectQuery(exampleGet, { exampleId });
@@ -100,7 +96,7 @@ function Tab() {
       )}
     </div>
   );
-}
+};
 
 const FormDataTableLoader = () => {
   const { exampleId } = endpointRoute.useLoaderData();

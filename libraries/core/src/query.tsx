@@ -6,7 +6,7 @@ import {
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, pipe } from 'effect';
 import { useCallback, useMemo } from 'react';
@@ -37,23 +37,17 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
-export const Route = createFileRoute(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/',
-)({
-  component: Tab,
-});
-
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 const endpointRoute = getRouteApi(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 );
 
-function Tab() {
+export const QueryParamTab = () => {
   const { exampleId } = endpointRoute.useLoaderData();
   const query = useConnectQuery(queryList, { exampleId });
   if (!query.isSuccess) return null;
   return <Table items={query.data.items} />;
-}
+};
 
 interface TableProps {
   items: QueryListItem[];

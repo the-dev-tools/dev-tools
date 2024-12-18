@@ -1,6 +1,6 @@
 import { create, enumToJson, fromJson, toJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
-import { createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
 import { useEffect, useMemo } from 'react';
 import {
@@ -41,17 +41,11 @@ import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextAreaFieldRHF } from '@the-dev-tools/ui/text-field';
 
-export const Route = createFileRoute(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan/assertions',
-)({
-  component: TabLoader,
-});
-
 const endpointRoute = getRouteApi(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 );
 
-export function TabLoader() {
+export const AssertionTab = () => {
   const { exampleId } = endpointRoute.useLoaderData();
 
   const exampleGetQuery = useConnectQuery(exampleGet, { exampleId });
@@ -83,7 +77,7 @@ export function TabLoader() {
   );
 
   return <Tab data={{ body, headers }} items={assertListQuery.data.items} />;
-}
+};
 
 interface TabProps {
   data: Record<string, unknown>;
