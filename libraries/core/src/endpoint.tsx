@@ -61,12 +61,12 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { AssertionTab } from './assertions';
+import { AssertionView } from './assertions';
 import { BodyView } from './body';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
 
-export class Search extends Schema.Class<Search>('EndpointRouteSearch')({
+export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
   requestTab: pipe(
     Schema.Literal('params', 'headers', 'body', 'assertions'),
     Schema.optionalWith({ default: () => 'params' }),
@@ -81,7 +81,7 @@ export const Route = createFileRoute(
   component: Page,
   pendingComponent: () => 'Loading example...',
   shouldReload: false,
-  validateSearch: (_) => Schema.decodeSync(Search)(_),
+  validateSearch: (_) => Schema.decodeSync(EndpointRouteSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
   loader: async ({
     params: { workspaceIdCan, endpointIdCan, exampleIdCan },
@@ -128,93 +128,7 @@ function Page() {
   return (
     <PanelGroup direction='vertical'>
       <Panel id='request' order={1} className='flex h-full flex-col'>
-        <EndpointForm endpointId={endpointId} exampleId={exampleId} />
-
-        <Tabs className={tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`} selectedKey={requestTab}>
-          <TabList className={tw`flex gap-3 border-b border-slate-200`}>
-            <Tab
-              id='params'
-              href={{
-                from: Route.fullPath,
-                search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
-              }}
-              className={({ isSelected }) =>
-                twMerge(
-                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-                  isSelected && tw`border-b-violet-700 text-slate-800`,
-                )
-              }
-            >
-              Params
-            </Tab>
-
-            <Tab
-              id='headers'
-              href={{
-                from: Route.fullPath,
-                search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
-              }}
-              className={({ isSelected }) =>
-                twMerge(
-                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-                  isSelected && tw`border-b-violet-700 text-slate-800`,
-                )
-              }
-            >
-              Headers
-            </Tab>
-
-            <Tab
-              id='body'
-              href={{
-                from: Route.fullPath,
-                search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
-              }}
-              className={({ isSelected }) =>
-                twMerge(
-                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-                  isSelected && tw`border-b-violet-700 text-slate-800`,
-                )
-              }
-            >
-              Body
-            </Tab>
-
-            <Tab
-              id='assertions'
-              href={{
-                from: Route.fullPath,
-                search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
-              }}
-              className={({ isSelected }) =>
-                twMerge(
-                  tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-                  isSelected && tw`border-b-violet-700 text-slate-800`,
-                )
-              }
-            >
-              Assertion
-            </Tab>
-          </TabList>
-
-          <Suspense fallback='Loading tab...'>
-            <TabPanel id='params'>
-              <QueryTable exampleId={exampleId} />
-            </TabPanel>
-
-            <TabPanel id='headers'>
-              <HeaderTable exampleId={exampleId} />
-            </TabPanel>
-
-            <TabPanel id='body'>
-              <BodyView endpointId={endpointId} exampleId={exampleId} />
-            </TabPanel>
-
-            <TabPanel id='assertions'>
-              <AssertionTab />
-            </TabPanel>
-          </Suspense>
-        </Tabs>
+        <EndpointRequestView endpointId={endpointId} exampleId={exampleId} requestTab={requestTab} />
       </Panel>
       {example.lastResponseId.byteLength > 0 && (
         <>
@@ -229,6 +143,110 @@ function Page() {
     </PanelGroup>
   );
 }
+
+interface EndpointRequestViewProps {
+  endpointId: Uint8Array;
+  exampleId: Uint8Array;
+  requestTab: EndpointRouteSearch['requestTab'];
+  from?: ToOptions['from'];
+}
+
+export const EndpointRequestView = ({
+  endpointId,
+  exampleId,
+  requestTab,
+  from = Route.fullPath,
+}: EndpointRequestViewProps) => (
+  <>
+    <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+
+    <Tabs className={tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`} selectedKey={requestTab}>
+      <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+        <Tab
+          id='params'
+          href={{
+            from,
+            search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Params
+        </Tab>
+
+        <Tab
+          id='headers'
+          href={{
+            from,
+            search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Headers
+        </Tab>
+
+        <Tab
+          id='body'
+          href={{
+            from,
+            search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Body
+        </Tab>
+
+        <Tab
+          id='assertions'
+          href={{
+            from,
+            search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Assertion
+        </Tab>
+      </TabList>
+
+      <Suspense fallback='Loading tab...'>
+        <TabPanel id='params'>
+          <QueryTable exampleId={exampleId} />
+        </TabPanel>
+
+        <TabPanel id='headers'>
+          <HeaderTable exampleId={exampleId} />
+        </TabPanel>
+
+        <TabPanel id='body'>
+          <BodyView endpointId={endpointId} exampleId={exampleId} />
+        </TabPanel>
+
+        <TabPanel id='assertions'>
+          <AssertionView exampleId={exampleId} />
+        </TabPanel>
+      </Suspense>
+    </Tabs>
+  </>
+);
 
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 

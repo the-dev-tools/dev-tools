@@ -4,7 +4,7 @@ import {
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
 } from '@connectrpc/connect-query';
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
 import {
   addEdge,
   Background,
@@ -13,13 +13,13 @@ import {
   ConnectionLineComponentProps,
   Edge,
   EdgeProps,
+  Panel as FlowPanel,
   getConnectedEdges,
   getSmoothStepPath,
   HandleProps,
   Node,
   NodeProps,
   NodeTypes,
-  Panel,
   Position,
   ReactFlow,
   ReactFlowProps,
@@ -29,12 +29,13 @@ import {
   useReactFlow,
   useViewport,
 } from '@xyflow/react';
-import { Array, Option, pipe, String } from 'effect';
+import { Array, Match, Option, pipe, Schema, String } from 'effect';
 import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal } from 'react-icons/fi';
+import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
@@ -42,6 +43,7 @@ import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-Coll
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import {
+  NodeGetResponse,
   NodeKind,
   NodeKindJson,
   NodeKindSchema,
@@ -53,6 +55,7 @@ import {
 import {
   nodeCreate,
   nodeDelete,
+  nodeGet,
   nodeList,
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
@@ -74,14 +77,21 @@ import {
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from './collection';
+import { EndpointRequestView, EndpointRouteSearch } from './endpoint';
+
+class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
+  selectedNodeIdCan: pipe(Schema.String, Schema.optional),
+}) {}
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
   component: RouteComponent,
   pendingComponent: () => 'Loading flow...',
+  validateSearch: (_) => Schema.decodeSync(Search)(_),
   loader: async ({ params: { flowIdCan }, context: { transport, queryClient }, route }) => {
     const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
@@ -105,16 +115,34 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
 
 function RouteComponent() {
   const { flowId } = Route.useLoaderData();
+  const { selectedNodeIdCan } = Route.useSearch();
 
   const flowQuery = useConnectQuery(flowGet, { flowId });
   const edgeListQuery = useConnectQuery(edgeList, { flowId });
   const nodeListQuery = useConnectQuery(nodeList, { flowId });
+  const selectedNodeQuery = useConnectQuery(
+    nodeGet,
+    { nodeId: selectedNodeIdCan ? Ulid.fromCanonical(selectedNodeIdCan).bytes : undefined! },
+    { enabled: selectedNodeIdCan !== undefined },
+  );
 
   if (!flowQuery.data || !edgeListQuery.data || !nodeListQuery.data) return null;
 
   return (
     <ReactFlowProvider>
-      <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
+      <PanelGroup direction='vertical'>
+        <Panel id='request' order={1} className='flex h-full flex-col'>
+          <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
+        </Panel>
+        {selectedNodeQuery.data && (
+          <>
+            <PanelResizeHandle direction='vertical' />
+            <Panel id='response' order={2} defaultSize={40}>
+              <EditPanel node={selectedNodeQuery.data} />
+            </Panel>
+          </>
+        )}
+      </PanelGroup>
     </ReactFlowProvider>
   );
 }
@@ -303,6 +331,8 @@ interface RequestNode extends Node<NodeRequest, 'request'> {}
 const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
   const { nodeId, collectionId, endpointId, exampleId } = data;
 
+  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
   const { updateNodeData, getEdges, getNode, deleteElements } = useReactFlow();
 
   const collectionGetQuery = useConnectQuery(collectionGet, { collectionId }, { enabled: collectionId.length > 0 });
@@ -371,6 +401,14 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
             </Button>
 
             <Menu>
+              <MenuItem
+                href={{
+                  from: Route.fullPath,
+                  search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
+                }}
+              >
+                Edit
+              </MenuItem>
               <MenuItem>Rename</MenuItem>
               <MenuItem>Duplicate</MenuItem>
               <MenuItem
@@ -491,7 +529,7 @@ const TopBar = ({ flow }: TopBarProps) => {
   const { zoom } = useViewport();
 
   return (
-    <Panel className={tw`m-0 flex h-10 w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5`}>
+    <FlowPanel className={tw`m-0 flex h-10 w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5`}>
       <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`}>{flow.name}</div>
 
       <div className={tw`flex-1`} />
@@ -529,12 +567,12 @@ const TopBar = ({ flow }: TopBarProps) => {
           <MenuItem variant='danger'>Delete</MenuItem>
         </Menu>
       </MenuTrigger>
-    </Panel>
+    </FlowPanel>
   );
 };
 
 const ActionBar = () => (
-  <Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
+  <FlowPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
     <Button variant='ghost dark' className={tw`p-1`}>
       <TextBoxIcon className={tw`size-5 text-slate-300`} />
     </Button>
@@ -554,7 +592,7 @@ const ActionBar = () => (
       <PlayCircleIcon className={tw`size-4`} />
       Run
     </Button>
-  </Panel>
+  </FlowPanel>
 );
 
 interface FlowViewProps {
@@ -627,5 +665,35 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
       <TopBar flow={flow} />
       <ActionBar />
     </ReactFlow>
+  );
+};
+
+interface EditPanelProps {
+  node: NodeGetResponse;
+}
+
+const EditPanel = ({ node }: EditPanelProps) =>
+  pipe(
+    Match.value(node),
+    Match.when({ kind: NodeKind.REQUEST }, (_) => <EditRequestNodeView data={_.request!} />),
+    Match.orElse(() => null),
+  );
+
+interface EditRequestNodeViewProps {
+  data: NodeRequest;
+}
+
+const EditRequestNodeView = ({ data: { endpointId, exampleId } }: EditRequestNodeViewProps) => {
+  const { requestTab } = Route.useSearch();
+
+  return (
+    <div className={tw`border-t border-slate-200 bg-white p-5`}>
+      <EndpointRequestView
+        endpointId={endpointId}
+        exampleId={exampleId}
+        requestTab={requestTab}
+        from={Route.fullPath}
+      />
+    </div>
   );
 };

@@ -1,6 +1,5 @@
 import { create, enumToJson, fromJson, toJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
-import { getRouteApi } from '@tanstack/react-router';
 import { Array, Match, pipe, Predicate, Record, Tuple } from 'effect';
 import { useEffect, useMemo } from 'react';
 import {
@@ -41,13 +40,11 @@ import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextAreaFieldRHF } from '@the-dev-tools/ui/text-field';
 
-const endpointRoute = getRouteApi(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-);
+interface AssertionViewProps {
+  exampleId: Uint8Array;
+}
 
-export const AssertionTab = () => {
-  const { exampleId } = endpointRoute.useLoaderData();
-
+export const AssertionView = ({ exampleId }: AssertionViewProps) => {
   const exampleGetQuery = useConnectQuery(exampleGet, { exampleId });
 
   const responseId = exampleGetQuery.data?.lastResponseId;
@@ -76,17 +73,16 @@ export const AssertionTab = () => {
     Record.fromEntries,
   );
 
-  return <Tab data={{ body, headers }} items={assertListQuery.data.items} />;
+  return <Tab exampleId={exampleId} data={{ body, headers }} items={assertListQuery.data.items} />;
 };
 
 interface TabProps {
+  exampleId: Uint8Array;
   data: Record<string, unknown>;
   items: AssertListItem[];
 }
 
-const Tab = ({ data, items }: TabProps) => {
-  const { exampleId } = endpointRoute.useLoaderData();
-
+const Tab = ({ exampleId, data, items }: TabProps) => {
   const form = useForm({
     values: { items: items.map((_) => toJson(AssertListItemSchema, _)) },
   });
