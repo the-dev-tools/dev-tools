@@ -3,13 +3,21 @@ package rflow
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
+	"the-dev-tools/backend/pkg/model/mnode"
+	"the-dev-tools/backend/pkg/model/mnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sflow"
 	"the-dev-tools/backend/pkg/service/sflowtag"
+	"the-dev-tools/backend/pkg/service/snode"
+	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snoderequest"
+	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
@@ -28,6 +36,12 @@ type FlowServiceRPC struct {
 	us  suser.UserService
 	ts  stag.TagService
 	fts sflowtag.FlowTagService
+
+	// sub nodes
+	ns   snode.NodeService
+	rns  snoderequest.NodeRequestService
+	flns snodefor.NodeForService
+	sns  snodestart.NodeStartService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService,
@@ -187,6 +201,49 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 }
 
 func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream *connect.ServerStream[flowv1.FlowRunResponse]) error {
+	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
+	if err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	if rpcErr != nil {
+		return rpcErr
+	}
+
+	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	var forNodes []mnfor.MNFor
+	var requestNodes []mnrequest.MNRequest
+
+	for _, node := range nodes {
+		switch node.NodeKind {
+		case mnode.NODE_KIND_REQUEST:
+			rn, err := c.rns.GetNodeRequest(ctx, node.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			requestNodes = append(requestNodes, *rn)
+		case mnode.NODE_KIND_FOR:
+			fn, err := c.flns.GetNodeFor(ctx, node.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			forNodes = append(forNodes, *fn)
+		case mnode.NODE_KIND_START:
+			// TODO: add
+		case mnode.NODE_KIND_CONDITION:
+			// TODO: add
+		default:
+			return connect.NewError(connect.CodeInternal, errors.New("not supported node"))
+		}
+	}
+
+	// TODO: change the start node id to start node later
+	// flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, idwrap.NewNow(), FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration)
+
 	return connect.NewError(connect.CodeUnimplemented, nil)
 }
 

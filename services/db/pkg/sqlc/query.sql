@@ -1678,6 +1678,16 @@ where
   flow_node_id = ?
 LIMIT 1;
 
+-- name: GetFlowNodeStart :many
+SELECT
+  flow_node_id,
+  name
+FROM
+  flow_node_start
+where
+  flow_node_id = ?
+LIMIT 1;
+
 -- name: CreateFlowNodeStart :exec
 INSERT INTO
   flow_node_start (flow_node_id, name)

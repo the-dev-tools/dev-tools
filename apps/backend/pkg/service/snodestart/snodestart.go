@@ -50,6 +50,10 @@ func (nfs NodeStartService) GetNodeStart(ctx context.Context, id idwrap.IDWrap) 
 	return ConvertToModelNodeStart(nodeFor), nil
 }
 
+func (nfs NodeStartService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnstart.StartNode, error) {
+	return nil, nil
+}
+
 func (nfs NodeStartService) CreateNodeStart(ctx context.Context, nf mnstart.StartNode) error {
 	convertedNode := ConvertToDBNodeStart(nf)
 	return nfs.queries.CreateFlowNodeStart(ctx, gen.CreateFlowNodeStartParams{
