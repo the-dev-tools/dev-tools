@@ -27,6 +27,7 @@ enum BodyKind {
 @parentResource(Example.Example)
 model BodyFormItem {
   @key bodyId: Resource.Id;
+  @visibility("query") parentBodyId?: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
@@ -37,6 +38,7 @@ model BodyFormItem {
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
   @key bodyId: Resource.Id;
+  @visibility("query") parentBodyId?: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
