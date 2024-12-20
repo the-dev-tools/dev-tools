@@ -128,14 +128,19 @@ function Page() {
   return (
     <PanelGroup direction='vertical'>
       <Panel id='request' order={1} className='flex h-full flex-col'>
-        <EndpointRequestView endpointId={endpointId} exampleId={exampleId} requestTab={requestTab} />
+        <EndpointRequestView
+          endpointId={endpointId}
+          exampleId={exampleId}
+          requestTab={requestTab}
+          from={Route.fullPath}
+        />
       </Panel>
       {example.lastResponseId.byteLength > 0 && (
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
             <Suspense fallback='Loading response...'>
-              <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} />
+              <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} from={Route.fullPath} />
             </Suspense>
           </Panel>
         </>
@@ -148,15 +153,10 @@ interface EndpointRequestViewProps {
   endpointId: Uint8Array;
   exampleId: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
-  from?: ToOptions['from'];
+  from: string;
 }
 
-export const EndpointRequestView = ({
-  endpointId,
-  exampleId,
-  requestTab,
-  from = Route.fullPath,
-}: EndpointRequestViewProps) => (
+export const EndpointRequestView = ({ endpointId, exampleId, requestTab, from }: EndpointRequestViewProps) => (
   <>
     <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
@@ -479,10 +479,10 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 interface ResponsePanelProps {
   responseId: Uint8Array;
   responseTab: EndpointRouteSearch['responseTab'];
-  from?: ToOptions['from'];
+  from: string;
 }
 
-export const ResponsePanel = ({ responseId, responseTab, from = Route.fullPath }: ResponsePanelProps) => {
+export const ResponsePanel = ({ responseId, responseTab, from }: ResponsePanelProps) => {
   const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
 
   return (
