@@ -35,7 +35,7 @@ import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
-import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal } from 'react-icons/fi';
+import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
@@ -83,7 +83,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from './collection';
-import { EndpointRequestView, EndpointRouteSearch, ResponsePanel } from './endpoint';
+import { EndpointRequestView, EndpointRouteSearch, ResponsePanel, useEndpointUrl } from './endpoint';
 
 class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
   selectedNodeIdCan: pipe(Schema.String, Schema.optional),
@@ -138,7 +138,7 @@ function RouteComponent() {
         {selectedNodeQuery.data && (
           <>
             <PanelResizeHandle direction='vertical' />
-            <Panel id='response' order={2} defaultSize={40}>
+            <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
               <EditPanel node={selectedNodeQuery.data} />
             </Panel>
           </>
@@ -322,7 +322,7 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
         </ListBoxSection>
       </ListBox>
 
-      <Handle type='target' position={Position.Top} />
+      <Handle type='target' position={Position.Top} isConnectable={false} />
     </>
   );
 };
@@ -530,7 +530,7 @@ const TopBar = ({ flow }: TopBarProps) => {
   const { zoom } = useViewport();
 
   return (
-    <FlowPanel className={tw`m-0 flex h-10 w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5`}>
+    <FlowPanel className={tw`m-0 flex w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-3.5`}>
       <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`}>{flow.name}</div>
 
       <div className={tw`flex-1`} />
@@ -684,25 +684,88 @@ interface EditRequestNodeViewProps {
   data: NodeRequest;
 }
 
-const EditRequestNodeView = ({ data: { endpointId, exampleId } }: EditRequestNodeViewProps) => {
+const EditRequestNodeView = ({ data: { collectionId, endpointId, exampleId } }: EditRequestNodeViewProps) => {
   const { requestTab, responseTab } = Route.useSearch();
 
-  const {
-    data: { lastResponseId },
-  } = useConnectSuspenseQuery(exampleGet, { exampleId });
+  const { data: collection } = useConnectSuspenseQuery(collectionGet, { collectionId });
+  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
+  const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
+
+  const url = useEndpointUrl({ endpointId, exampleId });
+
+  const { lastResponseId } = example;
 
   return (
-    <div className={tw`border-t border-slate-200 bg-white p-5`}>
-      <EndpointRequestView
-        endpointId={endpointId}
-        exampleId={exampleId}
-        requestTab={requestTab}
-        from={Route.fullPath}
-      />
+    <>
+      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
+        <div>
+          <div className={tw`text-md leading-5 text-slate-400`}>{collection.name}</div>
+          <div className={tw`text-sm font-medium leading-5 text-slate-800`}>{example.name}</div>
+        </div>
+
+        <div className={tw`flex-1`} />
+
+        <ButtonAsLink
+          variant='ghost'
+          className={tw`px-2`}
+          href={{
+            from: Route.fullPath,
+            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+            params: {
+              endpointIdCan: Ulid.construct(endpointId).toCanonical(),
+              exampleIdCan: Ulid.construct(exampleId).toCanonical(),
+            },
+          }}
+        >
+          <FiExternalLink className={tw`size-4 text-slate-500`} />
+          Open API
+        </ButtonAsLink>
+
+        <div className={tw`ml-2 mr-3 h-5 w-px bg-slate-300`} />
+
+        <ButtonAsLink variant='ghost' className={tw`p-1`} href={{ from: Route.fullPath }}>
+          <FiX className={tw`size-5 text-slate-500`} />
+        </ButtonAsLink>
+      </div>
+
+      <div className='m-5 mb-4 flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+        <MethodBadge method={endpoint.method} size='lg' />
+        <div className={tw`h-7 w-px bg-slate-200`} />
+        <div className={tw`truncate font-medium leading-5 tracking-tight text-slate-800`}>{url}</div>
+      </div>
+
+      <div className={tw`mx-5 overflow-auto rounded-lg border border-slate-200`}>
+        <div
+          className={tw`border-b border-slate-200 bg-slate-50 px-3 py-2 text-md font-medium leading-5 tracking-tight text-slate-800`}
+        >
+          Request
+        </div>
+
+        <EndpointRequestView
+          className={tw`p-5 pt-3`}
+          endpointId={endpointId}
+          exampleId={exampleId}
+          requestTab={requestTab}
+          from={Route.fullPath}
+        />
+      </div>
 
       {lastResponseId.length > 0 && (
-        <ResponsePanel responseId={lastResponseId} responseTab={responseTab} from={Route.fullPath} />
+        <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
+          <div
+            className={tw`border-b border-slate-200 bg-slate-50 px-3 py-2 text-md font-medium leading-5 tracking-tight text-slate-800`}
+          >
+            Response
+          </div>
+
+          <ResponsePanel
+            className={tw`p-5 pt-3`}
+            responseId={lastResponseId}
+            responseTab={responseTab}
+            from={Route.fullPath}
+          />
+        </div>
       )}
-    </div>
+    </>
   );
 };

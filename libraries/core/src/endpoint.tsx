@@ -128,6 +128,8 @@ function Page() {
   return (
     <PanelGroup direction='vertical'>
       <Panel id='request' order={1} className='flex h-full flex-col'>
+        <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+
         <EndpointRequestView
           endpointId={endpointId}
           exampleId={exampleId}
@@ -140,7 +142,12 @@ function Page() {
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
             <Suspense fallback='Loading response...'>
-              <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} from={Route.fullPath} />
+              <ResponsePanel
+                responseId={example.lastResponseId}
+                responseTab={responseTab}
+                from={Route.fullPath}
+                fullWidth
+              />
             </Suspense>
           </Panel>
         </>
@@ -154,101 +161,134 @@ interface EndpointRequestViewProps {
   exampleId: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
   from: string;
+  className?: string;
 }
 
-export const EndpointRequestView = ({ endpointId, exampleId, requestTab, from }: EndpointRequestViewProps) => (
-  <>
-    <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+export const EndpointRequestView = ({
+  endpointId,
+  exampleId,
+  requestTab,
+  from,
+  className,
+}: EndpointRequestViewProps) => (
+  <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)} selectedKey={requestTab}>
+    <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+      <Tab
+        id='params'
+        href={{
+          from,
+          search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
+        }}
+        className={({ isSelected }) =>
+          twMerge(
+            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            isSelected && tw`border-b-violet-700 text-slate-800`,
+          )
+        }
+      >
+        Params
+      </Tab>
 
-    <Tabs className={tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`} selectedKey={requestTab}>
-      <TabList className={tw`flex gap-3 border-b border-slate-200`}>
-        <Tab
-          id='params'
-          href={{
-            from,
-            search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
-          }}
-          className={({ isSelected }) =>
-            twMerge(
-              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
-            )
-          }
-        >
-          Params
-        </Tab>
+      <Tab
+        id='headers'
+        href={{
+          from,
+          search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
+        }}
+        className={({ isSelected }) =>
+          twMerge(
+            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            isSelected && tw`border-b-violet-700 text-slate-800`,
+          )
+        }
+      >
+        Headers
+      </Tab>
 
-        <Tab
-          id='headers'
-          href={{
-            from,
-            search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
-          }}
-          className={({ isSelected }) =>
-            twMerge(
-              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
-            )
-          }
-        >
-          Headers
-        </Tab>
+      <Tab
+        id='body'
+        href={{
+          from,
+          search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
+        }}
+        className={({ isSelected }) =>
+          twMerge(
+            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            isSelected && tw`border-b-violet-700 text-slate-800`,
+          )
+        }
+      >
+        Body
+      </Tab>
 
-        <Tab
-          id='body'
-          href={{
-            from,
-            search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
-          }}
-          className={({ isSelected }) =>
-            twMerge(
-              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
-            )
-          }
-        >
-          Body
-        </Tab>
+      <Tab
+        id='assertions'
+        href={{
+          from,
+          search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
+        }}
+        className={({ isSelected }) =>
+          twMerge(
+            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            isSelected && tw`border-b-violet-700 text-slate-800`,
+          )
+        }
+      >
+        Assertion
+      </Tab>
+    </TabList>
 
-        <Tab
-          id='assertions'
-          href={{
-            from,
-            search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
-          }}
-          className={({ isSelected }) =>
-            twMerge(
-              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
-            )
-          }
-        >
-          Assertion
-        </Tab>
-      </TabList>
+    <Suspense fallback='Loading tab...'>
+      <TabPanel id='params'>
+        <QueryTable exampleId={exampleId} />
+      </TabPanel>
 
-      <Suspense fallback='Loading tab...'>
-        <TabPanel id='params'>
-          <QueryTable exampleId={exampleId} />
-        </TabPanel>
+      <TabPanel id='headers'>
+        <HeaderTable exampleId={exampleId} />
+      </TabPanel>
 
-        <TabPanel id='headers'>
-          <HeaderTable exampleId={exampleId} />
-        </TabPanel>
+      <TabPanel id='body'>
+        <BodyView endpointId={endpointId} exampleId={exampleId} />
+      </TabPanel>
 
-        <TabPanel id='body'>
-          <BodyView endpointId={endpointId} exampleId={exampleId} />
-        </TabPanel>
-
-        <TabPanel id='assertions'>
-          <AssertionView exampleId={exampleId} />
-        </TabPanel>
-      </Suspense>
-    </Tabs>
-  </>
+      <TabPanel id='assertions'>
+        <AssertionView exampleId={exampleId} />
+      </TabPanel>
+    </Suspense>
+  </Tabs>
 );
 
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
+
+interface UseEndpointUrlProps {
+  endpointId: Uint8Array;
+  exampleId: Uint8Array;
+}
+
+export const useEndpointUrl = ({ endpointId, exampleId }: UseEndpointUrlProps) => {
+  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
+  const {
+    data: { items: queries },
+  } = useConnectSuspenseQuery(queryList, { exampleId });
+
+  return useMemo(() => {
+    return pipe(
+      Option.fromNullable(endpoint.url || null),
+      Option.flatMap((url) =>
+        pipe(
+          Array.filterMap(queries, (_) => {
+            if (!_.enabled) return Option.none();
+            else return Option.some([_.key, _.value] as const);
+          }),
+          (_) => makeUrl(url, _, Option.none()),
+          Either.getRight,
+        ),
+      ),
+      Option.map((_) => _.toString()),
+      Option.getOrElse(() => endpoint.url),
+    );
+  }, [endpoint.url, queries]);
+};
 
 class EndpointFormData extends Schema.Class<EndpointFormData>('EndpointFormData')({
   method: Schema.String,
@@ -274,28 +314,14 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const queryUpdateMutation = useConnectMutation(queryUpdate);
   const queryCreateMutation = useSpecMutation(queryCreateSpec);
 
+  const url = useEndpointUrl({ endpointId, exampleId });
+
   const values = useMemo(() => {
-    return pipe(
-      Option.fromNullable(endpoint.url || null),
-      Option.flatMap((url) =>
-        pipe(
-          Array.filterMap(queries, (_) => {
-            if (!_.enabled) return Option.none();
-            else return Option.some([_.key, _.value] as const);
-          }),
-          (_) => makeUrl(url, _, Option.none()),
-          Either.getRight,
-        ),
-      ),
-      Option.map((_) => _.toString()),
-      Option.getOrElse(() => endpoint.url),
-      (_) =>
-        new EndpointFormData({
-          url: _,
-          method: Array.contains(methods, endpoint.method) ? endpoint.method : 'N/A',
-        }),
-    );
-  }, [endpoint.method, endpoint.url, queries]);
+    return new EndpointFormData({
+      url,
+      method: Array.contains(methods, endpoint.method) ? endpoint.method : 'N/A',
+    });
+  }, [endpoint.method, url]);
 
   const form = useForm({
     // TODO: use Effect resolver once it's updated
@@ -480,14 +506,24 @@ interface ResponsePanelProps {
   responseId: Uint8Array;
   responseTab: EndpointRouteSearch['responseTab'];
   from: string;
+  showActions?: boolean;
+  fullWidth?: boolean;
+  className?: string;
 }
 
-export const ResponsePanel = ({ responseId, responseTab, from }: ResponsePanelProps) => {
+export const ResponsePanel = ({
+  responseId,
+  responseTab,
+  from,
+  showActions = false,
+  fullWidth = false,
+  className,
+}: ResponsePanelProps) => {
   const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
 
   return (
-    <Tabs className={tw`flex h-full flex-col`} selectedKey={responseTab}>
-      <div className={tw`flex items-center gap-3 border-b border-slate-200 px-4 text-md`}>
+    <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)} selectedKey={responseTab}>
+      <div className={twMerge(tw`flex items-center gap-3 border-b border-slate-200 text-md`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             id='body'
@@ -563,41 +599,45 @@ export const ResponsePanel = ({ responseId, responseTab, from }: ResponsePanelPr
             <span>0.0 KB</span>
           </div>
 
-          <Separator orientation='vertical' className={tw`h-4`} />
+          {showActions && (
+            <>
+              <Separator orientation='vertical' className={tw`h-4`} />
 
-          {/* TODO: implement menu */}
-          <Button variant='ghost' className={tw`px-2 text-xs`}>
-            <FiSave className={tw`size-4 text-slate-500`} />
-            <span>Save as</span>
-            <FiChevronDown className={tw`size-4 text-slate-500`} />
-          </Button>
+              {/* TODO: implement menu */}
+              <Button variant='ghost' className={tw`px-2 text-xs`}>
+                <FiSave className={tw`size-4 text-slate-500`} />
+                <span>Save as</span>
+                <FiChevronDown className={tw`size-4 text-slate-500`} />
+              </Button>
 
-          <Separator orientation='vertical' className={tw`h-4`} />
+              <Separator orientation='vertical' className={tw`h-4`} />
 
-          {/* TODO: implement clear */}
-          <Button variant='ghost' className={tw`px-2 text-xs`}>
-            <FiX className={tw`size-4 text-slate-500`} />
-            <span>Clear</span>
-          </Button>
+              {/* TODO: implement clear */}
+              <Button variant='ghost' className={tw`px-2 text-xs`}>
+                <FiX className={tw`size-4 text-slate-500`} />
+                <span>Clear</span>
+              </Button>
 
-          {/* TODO: implement bottom card */}
-          <Button variant='ghost' className={tw`p-1`}>
-            <FiSidebar className={tw`size-4 text-slate-500`} />
-          </Button>
+              {/* TODO: implement bottom card */}
+              <Button variant='ghost' className={tw`p-1`}>
+                <FiSidebar className={tw`size-4 text-slate-500`} />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className='flex-1 overflow-auto'>
+      <div className={twJoin(tw`flex-1 overflow-auto pt-4`, fullWidth && tw`px-4`)}>
         <Suspense fallback='Loading tab...'>
-          <TabPanel id='body' className='flex h-full flex-col gap-4 p-4'>
+          <TabPanel id='body' className={twJoin(tw`flex h-full flex-col gap-4`)}>
             <ResponseBodyView bodyBytes={response.body} />
           </TabPanel>
 
-          <TabPanel id='headers' className='p-4'>
+          <TabPanel id='headers'>
             <ResponseHeaderTable responseId={responseId} />
           </TabPanel>
 
-          <TabPanel id='assertions' className='p-4'>
+          <TabPanel id='assertions'>
             <ResponseAssertTable responseId={responseId} />
           </TabPanel>
         </Suspense>
