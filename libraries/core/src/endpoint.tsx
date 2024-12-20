@@ -121,7 +121,7 @@ export const Route = createFileRoute(
 
 function Page() {
   const { endpointId, exampleId } = Route.useLoaderData();
-  const { requestTab } = Route.useSearch();
+  const { requestTab, responseTab } = Route.useSearch();
 
   const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
 
@@ -135,7 +135,7 @@ function Page() {
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
             <Suspense fallback='Loading response...'>
-              <ResponsePanel responseId={example.lastResponseId} />
+              <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} />
             </Suspense>
           </Panel>
         </>
@@ -478,11 +478,11 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
 interface ResponsePanelProps {
   responseId: Uint8Array;
+  responseTab: EndpointRouteSearch['responseTab'];
+  from?: ToOptions['from'];
 }
 
-const ResponsePanel = ({ responseId }: ResponsePanelProps) => {
-  const { responseTab } = Route.useSearch();
-
+export const ResponsePanel = ({ responseId, responseTab, from = Route.fullPath }: ResponsePanelProps) => {
   const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
 
   return (
@@ -492,7 +492,7 @@ const ResponsePanel = ({ responseId }: ResponsePanelProps) => {
           <Tab
             id='body'
             href={{
-              from: Route.fullPath,
+              from,
               search: ((_) => ({ ..._, responseTab: 'body' })) satisfies ToOptions['search'],
             }}
             className={({ isSelected }) =>
@@ -508,7 +508,7 @@ const ResponsePanel = ({ responseId }: ResponsePanelProps) => {
           <Tab
             id='headers'
             href={{
-              from: Route.fullPath,
+              from,
               search: ((_) => ({ ..._, responseTab: 'headers' })) satisfies ToOptions['search'],
             }}
             className={({ isSelected }) =>
@@ -524,7 +524,7 @@ const ResponsePanel = ({ responseId }: ResponsePanelProps) => {
           <Tab
             id='assertions'
             href={{
-              from: Route.fullPath,
+              from,
               search: ((_) => ({ ..._, responseTab: 'assertions' })) satisfies ToOptions['search'],
             }}
             className={({ isSelected }) =>

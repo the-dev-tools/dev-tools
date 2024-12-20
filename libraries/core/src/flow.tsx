@@ -3,6 +3,7 @@ import {
   createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
+  useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
 import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
 import {
@@ -82,7 +83,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from './collection';
-import { EndpointRequestView, EndpointRouteSearch } from './endpoint';
+import { EndpointRequestView, EndpointRouteSearch, ResponsePanel } from './endpoint';
 
 class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
   selectedNodeIdCan: pipe(Schema.String, Schema.optional),
@@ -684,7 +685,11 @@ interface EditRequestNodeViewProps {
 }
 
 const EditRequestNodeView = ({ data: { endpointId, exampleId } }: EditRequestNodeViewProps) => {
-  const { requestTab } = Route.useSearch();
+  const { requestTab, responseTab } = Route.useSearch();
+
+  const {
+    data: { lastResponseId },
+  } = useConnectSuspenseQuery(exampleGet, { exampleId });
 
   return (
     <div className={tw`border-t border-slate-200 bg-white p-5`}>
@@ -694,6 +699,10 @@ const EditRequestNodeView = ({ data: { endpointId, exampleId } }: EditRequestNod
         requestTab={requestTab}
         from={Route.fullPath}
       />
+
+      {lastResponseId.length > 0 && (
+        <ResponsePanel responseId={lastResponseId} responseTab={responseTab} from={Route.fullPath} />
+      )}
     </div>
   );
 };
