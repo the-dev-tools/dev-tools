@@ -2,6 +2,7 @@ package nif
 
 import (
 	"context"
+	"fmt"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -13,20 +14,22 @@ import (
 const NodeOutputKey = "nif"
 
 type NodeIf struct {
-	FlowNodeID    idwrap.IDWrap
-	Name          string
-	X             string
-	Y             interface{}
-	ConditionType mnif.ConditionType
-	Condition     string
+	FlowNodeID      idwrap.IDWrap
+	Name            string
+	ConditionType   mnif.ConditionType
+	ConditionCustom string
+	Path            string
+	Value           string
 }
 
-func New(id idwrap.IDWrap, name string, conditionType mnif.ConditionType, condition string) *NodeIf {
+func New(id idwrap.IDWrap, name string, conditionType mnif.ConditionType, condition string, path string, value string) *NodeIf {
 	return &NodeIf{
-		FlowNodeID:    id,
-		Name:          name,
-		ConditionType: conditionType,
-		Condition:     condition,
+		FlowNodeID:      id,
+		Name:            name,
+		ConditionType:   conditionType,
+		ConditionCustom: condition,
+		Path:            path,
+		Value:           value,
 	}
 }
 
@@ -49,19 +52,20 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 
 	var ok bool
 	var err error
+	rootLeaf := &leafmock.LeafMock{
+		Leafs: map[string]interface{}{
+			"var": req.VarMap,
+		},
+	}
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
 	if n.ConditionType == mnif.ConditionTypeCustom {
-		rootLeaf := &leafmock.LeafMock{}
-		root := assertv2.NewAssertRoot(rootLeaf)
-		assertSys := assertv2.NewAssertSystem(root)
-		ok, err = assertSys.AssertComplex(ctx, n.Condition)
+		ok, err = assertSys.AssertComplex(ctx, n.ConditionCustom)
 	} else {
-		rootLeaf := &leafmock.LeafMock{}
-		root := assertv2.NewAssertRoot(rootLeaf)
-		assertSys := assertv2.NewAssertSystem(root)
-		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.X, n.Y)
+		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
 	}
 	if err != nil {
-		result.Err = node.ErrNodeNotFound
+		result.Err = err
 		return result
 	}
 	if ok {
@@ -89,22 +93,24 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		rootLeaf := &leafmock.LeafMock{}
 		root := assertv2.NewAssertRoot(rootLeaf)
 		assertSys := assertv2.NewAssertSystem(root)
-		ok, err = assertSys.AssertComplex(ctx, n.Condition)
+		ok, err = assertSys.AssertComplex(ctx, n.ConditionCustom)
 	} else {
 		rootLeaf := &leafmock.LeafMock{}
 		root := assertv2.NewAssertRoot(rootLeaf)
 		assertSys := assertv2.NewAssertSystem(root)
-		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.X, n.Y)
+		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
 	}
 	if err != nil {
-		result.Err = node.ErrNodeNotFound
+		result.Err = err
 		resultChan <- result
 		return
 	}
 
 	if ok {
 		result.NextNodeID = trueID
+		fmt.Println("true")
 	} else {
+		fmt.Println("false")
 		result.NextNodeID = falseID
 	}
 
