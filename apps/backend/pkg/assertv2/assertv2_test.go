@@ -96,6 +96,43 @@ func TestAssertSys_Eval_InFalse(t *testing.T) {
 	testutil.Assert(t, false, ok)
 }
 
+func TestAssert_Simple_Eval_EqualTrue(t *testing.T) {
+	testAssertValue := 15
+	castedAssertValue := interface{}(testAssertValue)
+	rootLeaf := &leafmock.LeafMock{}
+	rootLeaf.Leafs = map[string]interface{}{
+		"a":     castedAssertValue,
+		"array": []interface{}{15, 16, 17},
+	}
+
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
+	ctx := context.Background()
+
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeEqual, "a", castedAssertValue)
+	testutil.Assert(t, nil, err)
+	testutil.Assert(t, true, ok)
+}
+
+func TestAssert_Simple_Eval_EqualFalse(t *testing.T) {
+	testAssertValue := 14
+	testOtherValue := 15
+	castedAssertValue := interface{}(testAssertValue)
+	castedOtherValue := interface{}(testOtherValue)
+	rootLeaf := &leafmock.LeafMock{}
+	rootLeaf.Leafs = map[string]interface{}{
+		"a": castedOtherValue,
+	}
+
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
+	ctx := context.Background()
+
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeEqual, "a", castedAssertValue)
+	testutil.Assert(t, nil, err)
+	testutil.Assert(t, false, ok)
+}
+
 func TestAssert_Simple_Eval_InTrue(t *testing.T) {
 	testAssertValue := 15
 	castedAssertValue := interface{}(testAssertValue)
