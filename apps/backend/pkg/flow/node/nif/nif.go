@@ -89,15 +89,16 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 
 	var ok bool
 	var err error
+	rootLeaf := &leafmock.LeafMock{
+		Leafs: map[string]interface{}{
+			"var": req.VarMap,
+		},
+	}
+	root := assertv2.NewAssertRoot(rootLeaf)
+	assertSys := assertv2.NewAssertSystem(root)
 	if n.ConditionType == mnif.ConditionTypeCustom {
-		rootLeaf := &leafmock.LeafMock{}
-		root := assertv2.NewAssertRoot(rootLeaf)
-		assertSys := assertv2.NewAssertSystem(root)
 		ok, err = assertSys.AssertComplex(ctx, n.ConditionCustom)
 	} else {
-		rootLeaf := &leafmock.LeafMock{}
-		root := assertv2.NewAssertRoot(rootLeaf)
-		assertSys := assertv2.NewAssertSystem(root)
 		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
 	}
 	if err != nil {
