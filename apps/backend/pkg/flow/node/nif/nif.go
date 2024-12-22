@@ -15,6 +15,8 @@ const NodeOutputKey = "nif"
 type NodeIf struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
+	X             string
+	Y             interface{}
 	ConditionType mnif.ConditionType
 	Condition     string
 }
@@ -45,18 +47,19 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
-	testAssertValue := 14
-	castedAssertValue := interface{}(testAssertValue)
-	rootLeaf := &leafmock.LeafMock{}
-	rootLeaf.Leafs = map[string]interface{}{
-		"a":     castedAssertValue,
-		"array": []interface{}{15, 16, 17},
+	var ok bool
+	var err error
+	if n.ConditionType == mnif.ConditionTypeCustom {
+		rootLeaf := &leafmock.LeafMock{}
+		root := assertv2.NewAssertRoot(rootLeaf)
+		assertSys := assertv2.NewAssertSystem(root)
+		ok, err = assertSys.AssertComplex(ctx, n.Condition)
+	} else {
+		rootLeaf := &leafmock.LeafMock{}
+		root := assertv2.NewAssertRoot(rootLeaf)
+		assertSys := assertv2.NewAssertSystem(root)
+		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.X, n.Y)
 	}
-
-	root := assertv2.NewAssertRoot(rootLeaf)
-	assertSys := assertv2.NewAssertSystem(root)
-
-	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeNotContains, "array", castedAssertValue)
 	if err != nil {
 		result.Err = node.ErrNodeNotFound
 		return result
@@ -73,28 +76,32 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleTrue)
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleFalse)
 	var result node.FlowNodeResult
+	// TODO: will change
 	if trueID == nil || falseID == nil {
 		result.Err = node.ErrNodeNotFound
 		resultChan <- result
 		return
 	}
 
-	testAssertValue := 14
-	castedAssertValue := interface{}(testAssertValue)
-	rootLeaf := &leafmock.LeafMock{}
-	rootLeaf.Leafs = map[string]interface{}{
-		"a":     castedAssertValue,
-		"array": []interface{}{15, 16, 17},
+	var ok bool
+	var err error
+	if n.ConditionType == mnif.ConditionTypeCustom {
+		rootLeaf := &leafmock.LeafMock{}
+		root := assertv2.NewAssertRoot(rootLeaf)
+		assertSys := assertv2.NewAssertSystem(root)
+		ok, err = assertSys.AssertComplex(ctx, n.Condition)
+	} else {
+		rootLeaf := &leafmock.LeafMock{}
+		root := assertv2.NewAssertRoot(rootLeaf)
+		assertSys := assertv2.NewAssertSystem(root)
+		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.X, n.Y)
 	}
-
-	root := assertv2.NewAssertRoot(rootLeaf)
-	assertSys := assertv2.NewAssertSystem(root)
-
-	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertTypeNotContains, "array", castedAssertValue)
 	if err != nil {
 		result.Err = node.ErrNodeNotFound
 		resultChan <- result
+		return
 	}
+
 	if ok {
 		result.NextNodeID = trueID
 	} else {
@@ -102,5 +109,4 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	}
 
 	resultChan <- result
-	return
 }

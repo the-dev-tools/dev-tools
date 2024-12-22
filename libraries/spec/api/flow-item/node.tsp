@@ -89,6 +89,13 @@ model NodeCondition {
   ...NodeBase;
   conditionType: ConditionType;
   customCondition?: string;
+  SimpleCondition?: SimpleCondition;
+}
+
+@autoFields
+model SimpleCondition {
+  Path: string;
+  Value: string; // for int use 1, for string use "1"
 }
 
 model NodeListItem is Resource.List.Item<Node>;
@@ -130,3 +137,4 @@ interface NodeService {
   NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }
+

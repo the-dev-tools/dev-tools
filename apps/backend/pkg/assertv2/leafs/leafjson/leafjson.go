@@ -14,6 +14,9 @@ func NewWithStruct(a interface{}) (*LeafJSON, error) {
 	}
 	var m map[string]interface{}
 	err = json.Unmarshal(jsonBytes, &m)
+	if err != nil {
+		return nil, err
+	}
 	return New(m), nil
 }
 
