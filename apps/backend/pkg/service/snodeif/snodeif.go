@@ -33,7 +33,8 @@ func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeIf {
 		FlowNodeID:    ni.FlowNodeID,
 		Name:          ni.Name,
 		ConditionType: int8(ni.ConditionType),
-		Condition:     ni.Condition,
+		Path:          ni.Path,
+		Value:         ni.Value,
 	}
 }
 
@@ -42,7 +43,8 @@ func ConvertToModelNodeIf(ni gen.FlowNodeIf) *mnif.MNIF {
 		FlowNodeID:    ni.FlowNodeID,
 		Name:          ni.Name,
 		ConditionType: mnif.ConditionType(ni.ConditionType),
-		Condition:     ni.Condition,
+		Path:          ni.Path,
+		Value:         ni.Value,
 	}
 }
 
@@ -60,7 +62,8 @@ func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) (*mnif
 		FlowNodeID:    nodeIf.FlowNodeID,
 		Name:          nodeIf.Name,
 		ConditionType: nodeIf.ConditionType,
-		Condition:     nodeIf.Condition,
+		Path:          nodeIf.Path,
+		Value:         nodeIf.Value,
 	})
 	if err != nil {
 		return nil, err
@@ -74,7 +77,8 @@ func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) (*mnif
 		FlowNodeID:    nodeIf.FlowNodeID,
 		Name:          nodeIf.Name,
 		ConditionType: nodeIf.ConditionType,
-		Condition:     nodeIf.Condition,
+		Path:          nodeIf.Path,
+		Value:         nodeIf.Value,
 	})
 	if err != nil {
 		return nil, err

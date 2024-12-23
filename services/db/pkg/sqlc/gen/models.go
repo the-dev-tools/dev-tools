@@ -136,7 +136,8 @@ type FlowNodeIf struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
 	ConditionType int8
-	Condition     string
+	Path          string
+	Value         string
 }
 
 type FlowNodeRequest struct {

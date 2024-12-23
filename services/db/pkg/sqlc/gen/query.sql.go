@@ -731,16 +731,17 @@ func (q *Queries) CreateFlowNodeFor(ctx context.Context, arg CreateFlowNodeForPa
 
 const createFlowNodeIf = `-- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (flow_node_id, name, condition_type, condition)
+  flow_node_if (flow_node_id, name, condition_type, path, value)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeIfParams struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
 	ConditionType int8
-	Condition     string
+	Path          string
+	Value         string
 }
 
 func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfParams) error {
@@ -748,7 +749,8 @@ func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfPara
 		arg.FlowNodeID,
 		arg.Name,
 		arg.ConditionType,
-		arg.Condition,
+		arg.Path,
+		arg.Value,
 	)
 	return err
 }
@@ -3266,7 +3268,8 @@ SELECT
   flow_node_id,
   name,
   condition_type,
-  condition
+  path,
+  value
 FROM
   flow_node_if
 WHERE
@@ -3281,7 +3284,8 @@ func (q *Queries) GetFlowNodeIf(ctx context.Context, flowNodeID idwrap.IDWrap) (
 		&i.FlowNodeID,
 		&i.Name,
 		&i.ConditionType,
-		&i.Condition,
+		&i.Path,
+		&i.Value,
 	)
 	return i, err
 }
@@ -5053,7 +5057,8 @@ UPDATE flow_node_if
 SET
   name = ?,
   condition_type = ?,
-  condition = ?
+  path = ?,
+  value = ?
 WHERE
   flow_node_id = ?
 `
@@ -5061,7 +5066,8 @@ WHERE
 type UpdateFlowNodeIfParams struct {
 	Name          string
 	ConditionType int8
-	Condition     string
+	Path          string
+	Value         string
 	FlowNodeID    idwrap.IDWrap
 }
 
@@ -5069,7 +5075,8 @@ func (q *Queries) UpdateFlowNodeIf(ctx context.Context, arg UpdateFlowNodeIfPara
 	_, err := q.exec(ctx, q.updateFlowNodeIfStmt, updateFlowNodeIf,
 		arg.Name,
 		arg.ConditionType,
-		arg.Condition,
+		arg.Path,
+		arg.Value,
 		arg.FlowNodeID,
 	)
 	return err

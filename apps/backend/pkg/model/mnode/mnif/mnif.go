@@ -21,5 +21,7 @@ type MNIF struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
 	ConditionType ConditionType
+	Path          string
+	Value         string
 	// TODO: Condition type
 }

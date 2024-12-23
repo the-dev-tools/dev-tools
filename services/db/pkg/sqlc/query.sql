@@ -1640,7 +1640,8 @@ SELECT
   flow_node_id,
   name,
   condition_type,
-  condition
+  path,
+  value
 FROM
   flow_node_if
 WHERE
@@ -1649,16 +1650,17 @@ LIMIT 1;
 
 -- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (flow_node_id, name, condition_type, condition)
+  flow_node_if (flow_node_id, name, condition_type, path, value)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeIf :exec
 UPDATE flow_node_if
 SET
   name = ?,
   condition_type = ?,
-  condition = ?
+  path = ?,
+  value = ?
 WHERE
   flow_node_id = ?;
 
@@ -1669,16 +1671,6 @@ WHERE
 
 
 -- name: GetFlowNodeStart :one
-SELECT
-  flow_node_id,
-  name
-FROM
-  flow_node_start
-where
-  flow_node_id = ?
-LIMIT 1;
-
--- name: GetFlowNodeStart :many
 SELECT
   flow_node_id,
   name

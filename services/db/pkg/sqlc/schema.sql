@@ -333,7 +333,8 @@ CREATE TABLE flow_node_if (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
   condition_type INT8 NOT NULL,
-  condition TEXT NOT NULL,
+  path TEXT NOT NULL,
+  value text NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
