@@ -2,6 +2,7 @@ import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { Array, flow, HashMap, MutableHashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useState } from 'react';
+import { mergeProps } from 'react-aria';
 import { Dialog, DialogTrigger } from 'react-aria-components';
 import { FieldPath, FieldValues, useController } from 'react-hook-form';
 import { LuLink } from 'react-icons/lu';
@@ -13,7 +14,7 @@ import { Workspace } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DropdownItem, DropdownListBox, DropdownPopover } from '@the-dev-tools/ui/dropdown';
 import { controllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
-import { TextField, TextFieldRHF, TextFieldRHFProps } from '@the-dev-tools/ui/text-field';
+import { TextField, TextFieldProps, TextFieldRHFProps } from '@the-dev-tools/ui/text-field';
 
 interface TextFieldWithVariablesProps<
   TFieldValues extends FieldValues = FieldValues,
@@ -29,6 +30,9 @@ export const TextFieldWithVariables = <
   workspaceId,
   ...props
 }: TextFieldWithVariablesProps<TFieldValues, TName>) => {
+  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
+  const controllerProps = Struct.pick(props, ...controllerPropKeys);
+
   const variableQuery = useConnectQuery(variableList, { workspaceId });
   const environmentQuery = useConnectQuery(environmentList, { workspaceId });
 
@@ -58,13 +62,22 @@ export const TextFieldWithVariables = <
     return Array.fromIterable(variableEnvironmentMap);
   }, [environmentQuery.data?.items, environmentQuery.isSuccess, variableQuery.data?.items, variableQuery.isSuccess]);
 
-  const controllerProps = Struct.pick(props, ...controllerPropKeys);
-  const { field } = useController(controllerProps);
+  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
+
+  const fieldProps: TextFieldProps = {
+    name: field.name,
+    value: field.value,
+    onChange: field.onChange,
+    onBlur: field.onBlur,
+    isDisabled: field.disabled ?? false,
+    validationBehavior: 'aria',
+    isInvalid: fieldState.invalid,
+    error: fieldState.error?.message,
+  };
 
   return (
     <div className='flex'>
-      <TextFieldRHF variant='table-cell' className='flex-1' {...props} />
-
+      <TextField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />
       <DialogTrigger>
         <Button variant='ghost'>
           <LuLink />
