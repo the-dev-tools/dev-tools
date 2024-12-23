@@ -37,4 +37,3 @@ model PathKey {
   key?: string;
   index?: int32;
 }
-

@@ -102,4 +102,3 @@ interface RequestService {
   AssertUpdate(...AssertUpdateRequest): AssertUpdateResponse;
   AssertDelete(...AssertDeleteRequest): AssertDeleteResponse;
 }
-
