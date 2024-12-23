@@ -1,5 +1,6 @@
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/// <reference types="@typescript-eslint/utils" />
+
+import { resolve } from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
@@ -13,9 +14,7 @@ import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
 import { Config, configs as ts } from 'typescript-eslint';
 
-import '@typescript-eslint/utils';
-
-const gitignore = includeIgnoreFile(resolve(dirname(fileURLToPath(import.meta.url)), '../../.gitignore'));
+const gitignore = includeIgnoreFile(resolve(import.meta.dirname, '../../.gitignore'));
 
 const commonjs: Linter.Config = {
   files: ['postcss.config.js'],
@@ -32,6 +31,9 @@ const settings: Linter.Config = {
   settings: {
     react: { version: 'detect' },
     tailwindcss: {
+      // This might not be needed after this PR is merged
+      // https://github.com/francoismassart/eslint-plugin-tailwindcss/pull/380
+      config: resolve(import.meta.dirname, '../config-tailwind/src/config.ts'),
       callees: ['tv', 'twMerge', 'twJoin'],
       tags: ['tw'],
     },

@@ -6,7 +6,7 @@ import resolveConfig from 'tailwindcss/resolveConfig';
 
 import { keyValue } from '@the-dev-tools/utils/helpers';
 
-import { config as rawConfig } from './config';
+import rawConfig from './config';
 
 interface TokenRecord<T> extends Record<string, { type: T; value: string } | TokenRecord<T>> {}
 
