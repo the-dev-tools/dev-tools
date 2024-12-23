@@ -16,17 +16,19 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { assertCreateSpec, assertUpdateSpec } from '@the-dev-tools/api/spec/collection/item/request';
-import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   AssertKind,
   AssertKindSchema,
-  AssertListItem,
-  AssertListItemSchema,
-  AssertUpdateRequestSchema,
   PathKey,
   PathKeyJson,
   PathKeySchema,
   PathKind,
+} from '@the-dev-tools/spec/assert/v1/assert_pb';
+import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import {
+  AssertListItem,
+  AssertListItemSchema,
+  AssertUpdateRequestSchema,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import { assertList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {

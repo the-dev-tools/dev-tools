@@ -23,6 +23,7 @@ import { twJoin, twMerge } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { queryCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
+import { PathKeySchema } from '@the-dev-tools/spec/assert/v1/assert_pb';
 import {
   endpointGet,
   endpointUpdate,
@@ -32,7 +33,6 @@ import {
   exampleRun,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
-  PathKeySchema,
   QueryCreateRequest,
   QueryCreateRequestSchema,
   QueryListItemSchema,
