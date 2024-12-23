@@ -33,6 +33,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sbodyraw"
 	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/scollection"
+	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/senv"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -43,6 +44,11 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
+	"the-dev-tools/backend/pkg/service/snode"
+	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snoderequest"
+	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/sresultapi"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
@@ -140,6 +146,14 @@ func main() {
 	ts := stag.New(queries)
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
+	fes := sedge.New(queries)
+
+	// nodes
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	lfns := snodefor.New(queries)
+	ins := snodeif.New(queries)
+	sns := snodestart.New(queries)
 
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
 	if dbMode != devtoolsdb.LOCAL {
@@ -266,7 +280,7 @@ func main() {
 	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
 
 	// Flow Service
-	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts)
+	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs, ns, rns, lfns, sns, *ins)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Start services

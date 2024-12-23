@@ -74,7 +74,7 @@ type FlowServiceRPC struct {
 func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
 	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
-	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodestart.NodeStartService, in snodeif.NodeIfService,
+	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodestart.NodeStartService, ins snodeif.NodeIfService,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
 		DB:  db,
@@ -98,7 +98,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 		rns:  rns,
 		flns: flns,
 		sns:  sns,
-		ins:  in,
+		ins:  ins,
 	}
 }
 
