@@ -7,7 +7,7 @@ import {
   useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
@@ -266,10 +266,19 @@ interface UseEndpointUrlProps {
 }
 
 export const useEndpointUrl = ({ endpointId, exampleId }: UseEndpointUrlProps) => {
-  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
-  const {
-    data: { items: queries },
-  } = useConnectSuspenseQuery(queryList, { exampleId });
+  const { transport } = Route.useRouteContext();
+
+  const [
+    { data: endpoint },
+    {
+      data: { items: queries },
+    },
+  ] = useSuspenseQueries({
+    queries: [
+      createQueryOptions(endpointGet, { endpointId }, { transport }),
+      createQueryOptions(queryList, { exampleId }, { transport }),
+    ],
+  });
 
   return useMemo(() => {
     return pipe(

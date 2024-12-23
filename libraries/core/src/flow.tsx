@@ -3,8 +3,8 @@ import {
   createQueryOptions,
   useMutation as useConnectMutation,
   useQuery as useConnectQuery,
-  useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
+import { useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
 import {
   addEdge,
@@ -694,10 +694,15 @@ interface EditRequestNodeViewProps {
 
 const EditRequestNodeView = ({ data: { collectionId, endpointId, exampleId } }: EditRequestNodeViewProps) => {
   const { requestTab, responseTab } = Route.useSearch();
+  const { transport } = Route.useRouteContext();
 
-  const { data: collection } = useConnectSuspenseQuery(collectionGet, { collectionId });
-  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
-  const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
+  const [{ data: collection }, { data: endpoint }, { data: example }] = useSuspenseQueries({
+    queries: [
+      createQueryOptions(collectionGet, { collectionId }, { transport }),
+      createQueryOptions(endpointGet, { endpointId }, { transport }),
+      createQueryOptions(exampleGet, { exampleId }, { transport }),
+    ],
+  });
 
   const url = useEndpointUrl({ endpointId, exampleId });
 
