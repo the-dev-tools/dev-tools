@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/testutil"
+	assertv1 "the-dev-tools/spec/dist/buf/go/assert/v1"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 
 	"connectrpc.com/connect"
@@ -479,9 +480,9 @@ func TestRPCRequestAssertCreate(t *testing.T) {
 
 	req := connect.NewRequest(&requestv1.AssertCreateRequest{
 		ExampleId: exampleID.Bytes(),
-		Path: []*requestv1.PathKey{{
+		Path: []*assertv1.PathKey{{
 			Key:  expectedPath,
-			Kind: requestv1.PathKind_PATH_KIND_UNSPECIFIED,
+			Kind: assertv1.PathKind_PATH_KIND_UNSPECIFIED,
 		}},
 		Value: expectedValue,
 	})
@@ -664,7 +665,7 @@ func TestRPCRequestAssertUpdate(t *testing.T) {
 		ExampleId: exampleID.Bytes(),
 		AssertId:  assert.ID.Bytes(),
 		Value:     updatedValue,
-		Type:      requestv1.AssertKind_ASSERT_KIND_EQUAL,
+		Type:      assertv1.AssertKind_ASSERT_KIND_EQUAL,
 	})
 
 	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)

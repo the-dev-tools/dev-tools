@@ -5,6 +5,7 @@ import "../../lib";
 
 import "../resource.tsp";
 import "../flow.tsp";
+import "../assert.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -69,33 +70,19 @@ model NodeFor {
   iteration: int32;
 }
 
-enum ConditionType {
-  CONDITION_TYPE_UNSPECIFIED: 0,
-  CONDITION_TYPE_EQUAL: 1,
-  CONDITION_TYPE_NOT_EQUAL: 2,
-  CONDITION_TYPE_CONTAINS: 3,
-  CONDITION_TYPE_NOT_CONTAINS: 4,
-  CONDITION_TYPE_GREATER: 5,
-  CONDITION_TYPE_ASSERT_TYPE_LESS: 6,
-  CONDITION_TYPE_GREATER_OR_EQUAL: 7,
-  CONDITION_TYPE_LESS_OR_EQUAL: 8,
-  CONDITION_TYPE_EXISTS: 9,
-  CONDITION_TYPE_NOT_EXISTS: 10,
-  CONDITION_TYPE_CUSTOM: 11,
-}
-
 @autoFields
 model NodeCondition {
   ...NodeBase;
-  conditionType: ConditionType;
   customCondition?: string;
   simpleCondition?: SimpleCondition;
 }
 
 @autoFields
 model SimpleCondition {
-  path: string;
-  value: string; // for int use 1, for string use "1"
+  conditionType: API.Assert.AssertKind;
+  path: API.Assert.PathKey[];
+  value: string;
+  type: API.Assert.AssertKind;
 }
 
 model NodeListItem is Resource.List.Item<Node>;

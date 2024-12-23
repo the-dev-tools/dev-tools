@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/backend/pkg/translate/theader"
 	"the-dev-tools/backend/pkg/translate/tquery"
+	assertv1 "the-dev-tools/spec/dist/buf/go/assert/v1"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/request/v1/requestv1connect"
 
@@ -325,13 +326,13 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if assert.Type == massert.AssertType(requestv1.AssertKind_ASSERT_KIND_UNSPECIFIED) {
+	if assert.Type == massert.AssertType(assertv1.AssertKind_ASSERT_KIND_UNSPECIFIED) {
 		assert.Type = assertDB.Type
 	}
 
 	for i, pathKey := range rpcAssert.Path {
-		if pathKey.GetKind() == requestv1.PathKind_PATH_KIND_UNSPECIFIED {
-			rpcAssert.Path[i].Kind = requestv1.PathKind_PATH_KIND_INDEX
+		if pathKey.GetKind() == assertv1.PathKind_PATH_KIND_UNSPECIFIED {
+			rpcAssert.Path[i].Kind = assertv1.PathKind_PATH_KIND_INDEX
 		}
 	}
 

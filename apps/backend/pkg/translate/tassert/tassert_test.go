@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/translate/tassert"
+	assertv1 "the-dev-tools/spec/dist/buf/go/assert/v1"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 )
 
@@ -120,17 +121,17 @@ func TestSerializeAssertRPCToModel(t *testing.T) {
 	keysAnyBool := []bool{false, false, true, false}
 	keyIndexBool := []bool{false, true, false, false}
 	keyIndexInt := []int32{-1, 2, -1, -1}
-	var pathKeys []*requestv1.PathKey
+	var pathKeys []*assertv1.PathKey
 	for i, s := range keys {
-		pathKey := requestv1.PathKey{
-			Kind: requestv1.PathKind_PATH_KIND_UNSPECIFIED,
+		pathKey := assertv1.PathKey{
+			Kind: assertv1.PathKind_PATH_KIND_UNSPECIFIED,
 			Key:  s,
 		}
 		if keysAnyBool[i] {
-			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX_ANY
+			pathKey.Kind = assertv1.PathKind_PATH_KIND_INDEX_ANY
 		}
 		if keyIndexBool[i] {
-			pathKey.Kind = requestv1.PathKind_PATH_KIND_INDEX
+			pathKey.Kind = assertv1.PathKind_PATH_KIND_INDEX
 			pathKey.Index = keyIndexInt[i]
 			pathKey.Key = ""
 		}
@@ -141,7 +142,7 @@ func TestSerializeAssertRPCToModel(t *testing.T) {
 		AssertId: id.Bytes(),
 		Path:     pathKeys,
 		Value:    "test",
-		Type:     requestv1.AssertKind_ASSERT_KIND_EQUAL,
+		Type:     assertv1.AssertKind_ASSERT_KIND_EQUAL,
 	}
 
 	assert, err := tassert.SerializeAssertRPCToModel(rpcAssert, exampleID)

@@ -3,6 +3,7 @@ import "@typespec/rest";
 
 import "../../lib";
 
+import "../assert.tsp";
 import "./example.tsp";
 
 using TypeSpec.Protobuf;
@@ -38,39 +39,14 @@ model Header {
   description: string;
 }
 
-enum PathKind {
-  PATH_KIND_UNSPECIFIED: 0,
-  PATH_KIND_INDEX: 1,
-  PATH_KIND_INDEX_ANY: 2,
-}
-
-@autoFields
-model PathKey {
-  kind: PathKind;
-  key?: string;
-  index?: int32;
-}
-
-enum AssertKind {
-  ASSERT_KIND_UNSPECIFIED: 0,
-  ASSERT_KIND_EQUAL: 1,
-  ASSERT_KIND_NOT_EQUAL: 2,
-  ASSERT_KIND_CONTAINS: 3,
-  ASSERT_KIND_NOT_CONTAINS: 4,
-  ASSERT_KIND_GREATER: 5,
-  ASSERT_KIND_LESS: 6,
-  ASSERT_KIND_GREATER_OR_EQUAL: 7,
-  ASSERT_KIND_LESS_OR_EQUAL: 8,
-}
-
 @autoFields
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.Id;
   @visibility("query") parentAssertId?: Resource.Id;
-  path: PathKey[];
+  path: API.Assert.PathKey[];
   value: string;
-  type: AssertKind;
+  type: API.Assert.AssertKind;
 }
 
 // Query
@@ -126,3 +102,4 @@ interface RequestService {
   AssertUpdate(...AssertUpdateRequest): AssertUpdateResponse;
   AssertDelete(...AssertDeleteRequest): AssertDeleteResponse;
 }
+
