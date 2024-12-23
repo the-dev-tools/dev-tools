@@ -1,7 +1,20 @@
-import { create, DescEnum, DescField, DescMessage, Message, ScalarType } from '@bufbuild/protobuf';
+import { create, DescEnum, DescField, DescMessage, Message, ScalarType, toJsonString } from '@bufbuild/protobuf';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { createRouterTransport, ServiceImpl } from '@connectrpc/connect';
-import { Context, DateTime, Effect, flow, Layer, pipe, Record, Ref, Runtime, Schema } from 'effect';
+import {
+  Context,
+  DateTime,
+  Effect,
+  flow,
+  Layer,
+  MutableHashMap,
+  Option,
+  pipe,
+  Record,
+  Ref,
+  Runtime,
+  Schema,
+} from 'effect';
 import { Ulid } from 'id128';
 import { UnsecuredJWT } from 'jose';
 import { Magic, PromiEvent } from 'magic-sdk';
@@ -174,6 +187,8 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Me
   return create(message, value);
 };
 
+const cache = MutableHashMap.empty<string, Message>();
+
 const ApiTransportMock = Layer.effect(
   ApiTransport,
   Effect.gen(function* () {
@@ -182,7 +197,18 @@ const ApiTransportMock = Layer.effect(
       (router) => {
         files.forEach((file) => {
           file.services.forEach((service) => {
-            const methods = Record.map(service.method, (method) => () => fakeMessage(faker, method.output));
+            const methods = Record.map(service.method, (method) => (input: Message) => {
+              const key = method.input.typeName + toJsonString(method.input, input);
+
+              const message = pipe(
+                MutableHashMap.get(cache, key),
+                Option.getOrElse(() => fakeMessage(faker, method.output)),
+              );
+
+              MutableHashMap.set(cache, key, message);
+
+              return message;
+            });
             router.service(service, methods as ServiceImpl<never>);
           });
         });
