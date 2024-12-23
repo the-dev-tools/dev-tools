@@ -6,18 +6,18 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "2.2.2",
+    "@bufbuild/protobuf": "2.2.3",
     "@connectrpc/connect": "2.0.0",
-    "@connectrpc/connect-query": "2.0.0",
+    "@connectrpc/connect-query": "2.0.1",
     "@connectrpc/connect-web": "2.0.0",
-    "@effect/platform": "0.69.26",
-    "@tanstack/react-query": "5.61.4",
+    "@effect/platform": "0.72.0",
+    "@tanstack/react-query": "5.62.8",
     "@the-dev-tools/spec": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "effect": "3.10.17",
+    "effect": "3.12.0",
     "id128": "1.6.6",
     "jose": "5.9.6",
-    "magic-sdk": "28.19.0"
+    "magic-sdk": "28.19.1"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",

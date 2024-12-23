@@ -160,7 +160,7 @@ interface EndpointRequestViewProps {
   endpointId: Uint8Array;
   exampleId: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
-  from: string;
+  from: NonNullable<ToOptions['from']>;
   className?: string;
 }
 
@@ -514,7 +514,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 interface ResponsePanelProps {
   responseId: Uint8Array;
   responseTab: EndpointRouteSearch['responseTab'];
-  from: string;
+  from: NonNullable<ToOptions['from']>;
   showActions?: boolean;
   fullWidth?: boolean;
   className?: string;

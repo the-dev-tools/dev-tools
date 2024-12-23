@@ -86,11 +86,11 @@ export const QueryTable = ({ exampleId }: QueryTableProps) => {
       createConnectQueryKey({
         schema: queryList,
         cardinality: 'finite',
-        input: { items },
+        input: { exampleId },
       }),
       createProtobufSafeUpdater(queryList, () => create(QueryListResponseSchema, { items })),
     );
-  }, [getValues, queryClient]);
+  }, [exampleId, getValues, queryClient]);
 
   const columns = useMemo(() => {
     const { accessor, display } = createColumnHelper<QueryJson>();

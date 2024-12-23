@@ -5,7 +5,7 @@ import {
   useTransport,
 } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, useMatch } from '@tanstack/react-router';
+import { getRouteApi, ToOptions, useMatchRoute } from '@tanstack/react-router';
 import { Effect, Match, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, useContext, useMemo, useRef, useState } from 'react';
@@ -411,7 +411,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
   const { endpointId, method, name } = endpoint;
   const { exampleId, lastResponseId } = example;
 
-  const match = useMatch({ strict: false });
+  const matchRoute = useMatchRoute();
 
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
 
@@ -430,21 +430,18 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
     onSuccess: invalidateCollectionListQuery,
   });
 
+  const route = {
+    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+    params: { endpointIdCan, exampleIdCan },
+    search: { responseIdCan: lastResponseIdCan },
+  } satisfies ToOptions;
+
   return (
     <TreeItem
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       textValue={name}
-      href={
-        navigate
-          ? {
-              from: match.fullPath,
-              to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-              params: { endpointIdCan, exampleIdCan },
-              search: { responseIdCan: lastResponseIdCan },
-            }
-          : undefined!
-      }
-      isActive={navigate && match.params.exampleIdCan === exampleIdCan}
+      href={navigate ? route : undefined!}
+      isActive={navigate && matchRoute(route) !== false}
       childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
@@ -517,7 +514,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
   const endpointIdCan = Ulid.construct(endpointId).toCanonical();
   const lastResponseIdCan = lastResponseId.length > 0 ? Ulid.construct(lastResponseId).toCanonical() : undefined;
 
-  const match = useMatch({ strict: false });
+  const matchRoute = useMatchRoute();
 
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
 
@@ -527,21 +524,18 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
     onSuccess: invalidateCollectionListQuery,
   });
 
+  const route = {
+    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+    params: { endpointIdCan, exampleIdCan },
+    search: { responseIdCan: lastResponseIdCan },
+  } satisfies ToOptions;
+
   return (
     <TreeItem
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       textValue={name}
-      href={
-        navigate
-          ? {
-              from: match.fullPath,
-              to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-              params: { endpointIdCan, exampleIdCan },
-              search: { responseIdCan: lastResponseIdCan },
-            }
-          : undefined!
-      }
-      isActive={navigate && match.params.exampleIdCan === exampleIdCan}
+      href={navigate ? route : undefined!}
+      isActive={navigate && matchRoute(route) !== false}
     >
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 

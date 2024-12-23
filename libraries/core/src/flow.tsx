@@ -107,8 +107,8 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
       ]);
     } catch {
       redirect({
-        from: route.fullPath,
-        to: '../..',
+        from: route.fullPath as NonNullable<ToOptions['from']>,
+        to: '../..' as NonNullable<ToOptions['to']>,
         throw: true,
       });
     }

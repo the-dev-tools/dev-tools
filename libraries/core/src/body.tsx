@@ -220,11 +220,11 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
       createConnectQueryKey({
         schema: bodyFormItemList,
         cardinality: 'finite',
-        input: { items },
+        input: { exampleId },
       }),
       createProtobufSafeUpdater(bodyFormItemList, () => create(BodyFormItemListResponseSchema, { items })),
     );
-  }, [getValues, queryClient]);
+  }, [exampleId, getValues, queryClient]);
 
   useFormTableSync({
     field: 'items',
@@ -367,11 +367,11 @@ const UrlEncodedTable = ({ exampleId }: UrlEncodedTableProps) => {
       createConnectQueryKey({
         schema: bodyUrlEncodedItemList,
         cardinality: 'finite',
-        input: { items },
+        input: { exampleId },
       }),
       createProtobufSafeUpdater(bodyUrlEncodedItemList, () => create(BodyUrlEncodedItemListResponseSchema, { items })),
     );
-  }, [getValues, queryClient]);
+  }, [exampleId, getValues, queryClient]);
 
   useFormTableSync({
     field: 'items',

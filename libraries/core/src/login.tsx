@@ -50,7 +50,7 @@ function LoginPage() {
             if (redirect) {
               router.history.push(redirect);
             } else {
-              yield* Effect.tryPromise(() => router.navigate({ to: '/' }));
+              yield* Effect.tryPromise(async () => router.navigate({ to: '/' }));
             }
 
             queueMicrotask(() => void location.reload());

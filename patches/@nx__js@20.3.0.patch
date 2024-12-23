@@ -1,5 +1,5 @@
 diff --git a/src/generators/typescript-sync/typescript-sync.js b/src/generators/typescript-sync/typescript-sync.js
-index ef9252d4e35abf28ddcf9d26e429c778ee18b9a0..c97005f8bddd6583ccaa10eca993576aee24e6ed 100644
+index 4fed53c39e4db468b0110d69983ee65c59afb3b0..f046671aff80237ec989dc9c9cd09341d56c3961 100644
 --- a/src/generators/typescript-sync/typescript-sync.js
 +++ b/src/generators/typescript-sync/typescript-sync.js
 @@ -5,6 +5,7 @@ const devkit_1 = require("@nx/devkit");
@@ -10,7 +10,7 @@ index ef9252d4e35abf28ddcf9d26e429c778ee18b9a0..c97005f8bddd6583ccaa10eca993576a
  const sync_generators_1 = require("nx/src/utils/sync-generators");
  const ts = require("typescript");
  const plugin_1 = require("../../plugins/typescript/plugin");
-@@ -254,6 +255,10 @@ function collectProjectDependencies(tree, projectName, projectGraph, collectedDe
+@@ -264,6 +265,10 @@ function collectProjectDependencies(tree, projectName, projectGraph, collectedDe
              // It's an npm dependency
              continue;
          }

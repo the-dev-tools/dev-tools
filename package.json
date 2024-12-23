@@ -10,34 +10,36 @@
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "~4.4.0",
     "@nx-go/nx-go": "~3.3.0",
-    "@nx/eslint": "~20.1.3",
-    "@nx/js": "~20.1.4",
+    "@nx/eslint": "~20.3.0",
+    "@nx/js": "~20.3.0",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
-    "@typespec/compiler": "~0.61.1",
-    "@typespec/prettier-plugin-typespec": "~0.61.0",
-    "eslint": "~9.15.0",
+    "@typespec/compiler": "~0.63.0",
+    "@typespec/prettier-plugin-typespec": "~0.63.0",
+    "eslint": "~9.17.0",
     "jiti": "~2.4.0",
-    "nx": "~20.1.3",
-    "prettier": "~3.4.1",
-    "react": "~18.3.1",
+    "nx": "~20.3.0",
+    "prettier": "~3.4.2",
+    "react": "~19.0.0",
     "syncpack": "~13.0.0",
     "typescript": "~5.7.2",
-    "wrangler": "~3.91.0"
+    "wrangler": "~3.99.0"
   },
   "pnpm": {
     "peerDependencyRules": {
       "allowedVersions": {
         "svgo": "^2.8.0",
-        "vite": "^6.0.0"
+        "vite": "^6.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
       }
     },
     "overrides": {
       "sharp": "0.33.5"
     },
     "patchedDependencies": {
-      "@nx/eslint@20.1.3": "patches/@nx__eslint@20.1.3.patch",
-      "@nx/js@20.1.4": "patches/@nx__js@20.1.4.patch"
+      "@nx/js@20.3.0": "patches/@nx__js@20.3.0.patch",
+      "@nx/eslint@20.3.0": "patches/@nx__eslint@20.3.0.patch"
     }
   }
 }

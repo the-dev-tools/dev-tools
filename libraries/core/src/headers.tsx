@@ -162,11 +162,11 @@ export const HeaderTable = ({ exampleId }: HeaderTableProps) => {
       createConnectQueryKey({
         schema: headerList,
         cardinality: 'finite',
-        input: { items },
+        input: { exampleId },
       }),
       createProtobufSafeUpdater(headerList, () => create(HeaderListResponseSchema, { items })),
     );
-  }, [getValues, queryClient]);
+  }, [exampleId, getValues, queryClient]);
 
   useFormTableSync({
     field: 'items',

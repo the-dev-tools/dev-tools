@@ -11,18 +11,18 @@
     "./*": "./dist/buf/typescript/*.ts"
   },
   "devDependencies": {
-    "@bufbuild/buf": "~1.45.0",
-    "@bufbuild/protobuf": "~2.2.2",
-    "@bufbuild/protoc-gen-es": "~2.2.0",
+    "@bufbuild/buf": "~1.48.0",
+    "@bufbuild/protobuf": "~2.2.3",
+    "@bufbuild/protoc-gen-es": "~2.2.3",
     "@changesets/changelog-github": "~0.5.0",
     "@changesets/cli": "~2.27.9",
-    "@connectrpc/protoc-gen-connect-query": "2.0.0-beta.2",
+    "@connectrpc/protoc-gen-connect-query": "~2.0.1",
     "@types/node": "~22.10.0",
-    "@typespec/json-schema": "~0.61.0",
-    "@typespec/protobuf": "~0.61.0",
-    "@typespec/rest": "~0.61.0",
-    "effect": "~3.10.17",
-    "prettier": "~3.4.1",
+    "@typespec/json-schema": "~0.63.0",
+    "@typespec/protobuf": "~0.63.0",
+    "@typespec/rest": "~0.63.0",
+    "effect": "~3.12.0",
+    "prettier": "~3.4.2",
     "quicktype": "~23.0.170",
     "typescript": "~5.7.2"
   }
