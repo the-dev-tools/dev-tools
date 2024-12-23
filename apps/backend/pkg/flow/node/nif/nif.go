@@ -14,22 +14,21 @@ import (
 const NodeOutputKey = "nif"
 
 type NodeIf struct {
-	FlowNodeID      idwrap.IDWrap
-	Name            string
-	ConditionType   mnif.ConditionType
-	ConditionCustom string
-	Path            string
-	Value           string
+	FlowNodeID    idwrap.IDWrap
+	Name          string
+	ConditionType mnif.ConditionType
+	// ConditionCustom string
+	Path  string
+	Value string
 }
 
-func New(id idwrap.IDWrap, name string, conditionType mnif.ConditionType, condition string, path string, value string) *NodeIf {
+func New(id idwrap.IDWrap, name string, conditionType mnif.ConditionType, path string, value string) *NodeIf {
 	return &NodeIf{
-		FlowNodeID:      id,
-		Name:            name,
-		ConditionType:   conditionType,
-		ConditionCustom: condition,
-		Path:            path,
-		Value:           value,
+		FlowNodeID:    id,
+		Name:          name,
+		ConditionType: conditionType,
+		Path:          path,
+		Value:         value,
 	}
 }
 
@@ -50,8 +49,6 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
-	var ok bool
-	var err error
 	rootLeaf := &leafmock.LeafMock{
 		Leafs: map[string]interface{}{
 			"var": req.VarMap,
@@ -59,11 +56,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
-	if n.ConditionType == mnif.ConditionTypeCustom {
-		ok, err = assertSys.AssertComplex(ctx, n.ConditionCustom)
-	} else {
-		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
-	}
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
 	if err != nil {
 		result.Err = err
 		return result
@@ -87,8 +80,6 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
-	var ok bool
-	var err error
 	rootLeaf := &leafmock.LeafMock{
 		Leafs: map[string]interface{}{
 			"var": req.VarMap,
@@ -96,11 +87,7 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
-	if n.ConditionType == mnif.ConditionTypeCustom {
-		ok, err = assertSys.AssertComplex(ctx, n.ConditionCustom)
-	} else {
-		ok, err = assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
-	}
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
