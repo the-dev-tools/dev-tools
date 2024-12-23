@@ -6,16 +6,30 @@ import (
 	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/flow/edge"
+	"the-dev-tools/backend/pkg/flow/node"
+	"the-dev-tools/backend/pkg/flow/node/nfor"
+	"the-dev-tools/backend/pkg/flow/node/nrequest"
+	"the-dev-tools/backend/pkg/flow/runner"
+	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnode/mnif"
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/service/sedge"
+	"the-dev-tools/backend/pkg/service/sexampleheader"
+	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
 	"the-dev-tools/backend/pkg/service/sflowtag"
+	"the-dev-tools/backend/pkg/service/sitemapi"
+	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/stag"
@@ -23,8 +37,11 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/nodes/pkg/httpclient"
+	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
+	"time"
 
 	"connectrpc.com/connect"
 )
@@ -37,15 +54,27 @@ type FlowServiceRPC struct {
 	ts  stag.TagService
 	fts sflowtag.FlowTagService
 
+	// flow
+	fes sedge.EdgeService
+
+	// request
+	as sitemapi.ItemApiService
+	es sitemapiexample.ItemApiExampleService
+	qs sexamplequery.ExampleQueryService
+	hs sexampleheader.HeaderService
+
 	// sub nodes
 	ns   snode.NodeService
 	rns  snoderequest.NodeRequestService
 	flns snodefor.NodeForService
 	sns  snodestart.NodeStartService
+	ins  snodeif.NodeIfService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
+	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
+	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodestart.NodeStartService, in snodeif.NodeIfService,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
 		DB:  db,
@@ -54,6 +83,22 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 		us:  us,
 		ts:  ts,
 		fts: fts,
+
+		// flow
+		fes: fes,
+
+		// request
+		as: as,
+		es: es,
+		qs: qs,
+		hs: hs,
+
+		// sub nodes
+		ns:   ns,
+		rns:  rns,
+		flns: flns,
+		sns:  sns,
+		ins:  in,
 	}
 }
 
@@ -217,6 +262,8 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 
 	var forNodes []mnfor.MNFor
 	var requestNodes []mnrequest.MNRequest
+	var ifNodes []mnif.MNIF
+	var startNodes *mnstart.StartNode
 
 	for _, node := range nodes {
 		switch node.NodeKind {
@@ -233,18 +280,88 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 			}
 			forNodes = append(forNodes, *fn)
 		case mnode.NODE_KIND_START:
-			// TODO: add
+			sn, err := c.sns.GetNodeStart(ctx, node.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			startNodes = sn
 		case mnode.NODE_KIND_CONDITION:
-			// TODO: add
+			in, err := c.ins.GetNodeIf(ctx, node.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			ifNodes = append(ifNodes, *in)
 		default:
 			return connect.NewError(connect.CodeInternal, errors.New("not supported node"))
 		}
 	}
 
-	// TODO: change the start node id to start node later
-	// flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, idwrap.NewNow(), FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration)
+	if startNodes == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("no start node"))
+	}
+	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
+	for _, forNode := range forNodes {
+		// TODO: timeout will added
+		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.Name, forNode.IterCount, time.Second)
+	}
+	for _, requestNode := range requestNodes {
+		endpoint, err := c.as.GetItemApi(ctx, requestNode.EndpointID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		example, err := c.es.GetApiExample(ctx, requestNode.ExampleID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		if example.ItemApiID != endpoint.ID {
+			return connect.NewError(connect.CodeInternal, errors.New("example and endpoint not match"))
+		}
+		headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		// TODO: add body later
+		body := []byte{}
 
-	return connect.NewError(connect.CodeUnimplemented, nil)
+		httpClient := httpclient.New()
+
+		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, *endpoint, *example, queries, headers, body, httpClient)
+	}
+
+	edges, err := c.fes.GetEdgesByFlowID(ctx, flowID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	edgeMap := edge.NewEdgesMap(edges)
+
+	// TODO: get timeout from flow config
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNodes.FlowNodeID, flowNodeMap, edgeMap, time.Second*10)
+
+	status := make(chan runner.FlowStatus, 10)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+		case a := <-status:
+			stream.Send(&flowv1.FlowRunResponse{
+				CurrentNode: &nodev1.Node{
+					// TODO: add other fields
+					NodeId: a.CurrentNodeID.Bytes(),
+				},
+			})
+		}
+	}()
+
+	err = runnerInst.Run(ctx, status)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	return nil
 }
 
 func CheckOwnerFlow(ctx context.Context, fs sflow.FlowService, us suser.UserService, flowID idwrap.IDWrap) (bool, error) {

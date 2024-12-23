@@ -2,7 +2,6 @@ package nif_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -19,7 +18,6 @@ func TestForNode_RunSync_true(t *testing.T) {
 
 	var runCounter int
 	testFuncInc := func() {
-		fmt.Println("testFuncInc")
 		runCounter++
 	}
 
@@ -61,7 +59,6 @@ func TestForNode_RunSync_false(t *testing.T) {
 
 	var runCounter int
 	testFuncInc := func() {
-		fmt.Println("testFuncInc")
 		runCounter++
 	}
 
@@ -103,7 +100,6 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 
 	var runCounter int
 	testFuncInc := func() {
-		fmt.Println("testFuncInc")
 		runCounter++
 	}
 
@@ -147,7 +143,6 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 
 	var runCounter int
 	testFuncInc := func() {
-		fmt.Println("testFuncInc")
 		runCounter++
 	}
 

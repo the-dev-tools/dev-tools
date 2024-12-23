@@ -2,7 +2,6 @@ package nif
 
 import (
 	"context"
-	"fmt"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -96,9 +95,7 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 
 	if ok {
 		result.NextNodeID = trueID
-		fmt.Println("true")
 	} else {
-		fmt.Println("false")
 		result.NextNodeID = falseID
 	}
 

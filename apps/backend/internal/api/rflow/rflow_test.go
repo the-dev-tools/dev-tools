@@ -9,8 +9,18 @@ import (
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mflowtag"
 	"the-dev-tools/backend/pkg/model/mtag"
+	"the-dev-tools/backend/pkg/service/sedge"
+	"the-dev-tools/backend/pkg/service/sexampleheader"
+	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
 	"the-dev-tools/backend/pkg/service/sflowtag"
+	"the-dev-tools/backend/pkg/service/sitemapi"
+	"the-dev-tools/backend/pkg/service/sitemapiexample"
+	"the-dev-tools/backend/pkg/service/snode"
+	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snoderequest"
+	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
@@ -25,6 +35,7 @@ func TestListFlow(t *testing.T) {
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
 	defer queries.Close()
+
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -33,7 +44,22 @@ func TestListFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts)
+	fes := sedge.New(queries)
+
+	as := sitemapi.New(queries)
+	es := sitemapiexample.New(queries)
+	qs := sexamplequery.New(queries)
+	hs := sexampleheader.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -148,7 +174,22 @@ func TestGetFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts)
+	fes := sedge.New(queries)
+
+	as := sitemapi.New(queries)
+	es := sitemapiexample.New(queries)
+	qs := sexamplequery.New(queries)
+	hs := sexampleheader.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -228,7 +269,22 @@ func TestCreateFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts)
+	fes := sedge.New(queries)
+
+	as := sitemapi.New(queries)
+	es := sitemapiexample.New(queries)
+	qs := sexamplequery.New(queries)
+	hs := sexampleheader.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -292,7 +348,22 @@ func TestUpdateFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts)
+	fes := sedge.New(queries)
+
+	as := sitemapi.New(queries)
+	es := sitemapiexample.New(queries)
+	qs := sexamplequery.New(queries)
+	hs := sexampleheader.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -350,12 +421,30 @@ func TestDeleteFlow(t *testing.T) {
 	queries := base.Queries
 	defer queries.Close()
 	db := base.DB
+
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts)
+
+	fes := sedge.New(queries)
+
+	as := sitemapi.New(queries)
+	es := sitemapiexample.New(queries)
+	qs := sexamplequery.New(queries)
+	hs := sexampleheader.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
