@@ -39,6 +39,7 @@ import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
+import { RHFDevTools } from './dev-tools';
 import { FormWatch, HidePlaceholderCell, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
@@ -102,7 +103,7 @@ export const QueryTable = ({ exampleId }: QueryTableProps) => {
     const { accessor, display } = createColumnHelper<QueryJson>();
     return [
       accessor('enabled', {
-        header: '',
+        header: () => <RHFDevTools control={form.control} className={tw`size-0`} />,
         size: 0,
         cell: ({ row, table }) => (
           <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
@@ -250,7 +251,7 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
     const { accessor, display } = createColumnHelper<Item>();
     return [
       accessor('value.enabled', {
-        header: '',
+        header: () => <RHFDevTools control={form.control} className={tw`size-0`} />,
         size: 0,
         cell: ({ row }) => (
           <div className={tw`flex justify-center`}>
