@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
+	"the-dev-tools/backend/pkg/flow/node/nif"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
+	"the-dev-tools/backend/pkg/flow/node/nstart"
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -246,49 +249,52 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 }
 
 func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream *connect.ServerStream[flowv1.FlowRunResponse]) error {
+	fmt.Println("test123")
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	fmt.Println("test123")
 	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
 	if rpcErr != nil {
 		return rpcErr
 	}
 
+	fmt.Println("test123")
 	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, errors.New("get nodes"))
 	}
 
 	var forNodes []mnfor.MNFor
 	var requestNodes []mnrequest.MNRequest
 	var ifNodes []mnif.MNIF
-	var startNodes *mnstart.StartNode
+	var startNode *mnstart.StartNode
 
 	for _, node := range nodes {
 		switch node.NodeKind {
 		case mnode.NODE_KIND_REQUEST:
 			rn, err := c.rns.GetNodeRequest(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node request: %w", err))
 			}
 			requestNodes = append(requestNodes, *rn)
 		case mnode.NODE_KIND_FOR:
 			fn, err := c.flns.GetNodeFor(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err))
 			}
 			forNodes = append(forNodes, *fn)
 		case mnode.NODE_KIND_START:
 			sn, err := c.sns.GetNodeStart(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node start: %w", err))
 			}
-			startNodes = sn
+			startNode = sn
 		case mnode.NODE_KIND_CONDITION:
 			in, err := c.ins.GetNodeIf(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, errors.New("get node if"))
 			}
 			ifNodes = append(ifNodes, *in)
 		default:
@@ -296,7 +302,7 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 		}
 	}
 
-	if startNodes == nil {
+	if startNode == nil {
 		return connect.NewError(connect.CodeInternal, errors.New("no start node"))
 	}
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
@@ -318,11 +324,11 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 		}
 		headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, errors.New("get headers"))
 		}
 		queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, errors.New("get queries"))
 		}
 		// TODO: add body later
 		body := []byte{}
@@ -332,14 +338,20 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, *endpoint, *example, queries, headers, body, httpClient)
 	}
 
+	for _, ifNode := range ifNodes {
+		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, ifNode.Name, ifNode.ConditionType, ifNode.Path, ifNode.Value)
+	}
+
+	flowNodeMap[startNode.FlowNodeID] = nstart.New(startNode.FlowNodeID, startNode.Name)
+
 	edges, err := c.fes.GetEdgesByFlowID(ctx, flowID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
 	}
 	edgeMap := edge.NewEdgesMap(edges)
 
 	// TODO: get timeout from flow config
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNodes.FlowNodeID, flowNodeMap, edgeMap, time.Second*10)
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNode.FlowNodeID, flowNodeMap, edgeMap, time.Second*10)
 
 	status := make(chan runner.FlowStatus, 10)
 
@@ -358,6 +370,7 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 
 	err = runnerInst.Run(ctx, status)
 	if err != nil {
+		err = fmt.Errorf("run flow: %w", err)
 		return connect.NewError(connect.CodeInternal, err)
 	}
 

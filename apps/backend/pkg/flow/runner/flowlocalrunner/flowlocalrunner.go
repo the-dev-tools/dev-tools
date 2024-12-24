@@ -37,9 +37,10 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 		NodeMap: r.FlowNodeMap,
 	}
 	for nextNodeID != nil {
+		fmt.Println("nextNodeID", nextNodeID)
 		currentNode, ok := r.FlowNodeMap[*nextNodeID]
 		if !ok {
-			return runner.ErrNodeNotFound
+			return fmt.Errorf("node not found: %v", nextNodeID)
 		}
 		if r.Timeout == 0 {
 			nextNodeID, err = RunNodeSync(ctx, currentNode, req)

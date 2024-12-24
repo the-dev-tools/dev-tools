@@ -8,7 +8,7 @@ import (
 
 var (
 	ErrFlowRunnerNotImplemented = errors.New("FlowRunner not implemented")
-	ErrNodeNotFound             = errors.New("Node not found")
+	ErrNodeNotFound             = errors.New("Next Node not found")
 )
 
 type FlowRunner interface {

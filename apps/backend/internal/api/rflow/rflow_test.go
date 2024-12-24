@@ -2,12 +2,17 @@ package rflow_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rflow"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mflowtag"
+	"the-dev-tools/backend/pkg/model/mnode"
+	"the-dev-tools/backend/pkg/model/mnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/model/mtag"
 	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
@@ -477,4 +482,115 @@ func TestDeleteFlow(t *testing.T) {
 	resp, err := serviceRPC.FlowDelete(authedCtx, req)
 	testutil.AssertFatal(t, nil, err)
 	testutil.AssertNotFatal(t, nil, resp.Msg)
+}
+
+func TestRunFlow(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
+
+	ws := sworkspace.New(queries)
+	us := suser.New(queries)
+	ts := stag.New(queries)
+	fs := sflow.New(queries)
+	fts := sflowtag.New(queries)
+
+	fes := sedge.New(queries)
+
+	as := sitemapi.New(queries)
+	es := sitemapiexample.New(queries)
+	qs := sexamplequery.New(queries)
+	hs := sexampleheader.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+	testTagID := idwrap.NewNow()
+	tagData := mtag.Tag{
+		ID:          testTagID,
+		WorkspaceID: wsID,
+		Name:        "test",
+		Color:       uint8(5),
+	}
+	err := ts.CreateTag(ctx, tagData)
+	testutil.AssertFatal(t, nil, err)
+	testFlowID := idwrap.NewNow()
+	flowData := mflow.Flow{
+		ID:          testFlowID,
+		WorkspaceID: wsID,
+		Name:        "test",
+	}
+	err = fs.CreateFlow(ctx, flowData)
+	testutil.AssertFatal(t, nil, err)
+
+	startNodeID := idwrap.NewNow()
+	err = ns.CreateNode(ctx, mnode.MNode{
+		ID:        startNodeID,
+		FlowID:    testFlowID,
+		NodeKind:  mnode.NODE_KIND_START,
+		PositionX: 0,
+		PositionY: 0,
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	err = sns.CreateNodeStart(ctx, mnstart.StartNode{
+		FlowNodeID: startNodeID,
+		Name:       "test",
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	forNodeID := idwrap.NewNow()
+	err = ns.CreateNode(ctx, mnode.MNode{
+		ID:        forNodeID,
+		FlowID:    testFlowID,
+		NodeKind:  mnode.NODE_KIND_FOR,
+		PositionX: 0,
+		PositionY: 0,
+	})
+	testutil.AssertFatal(t, nil, err)
+	err = flns.CreateNodeFor(ctx, mnfor.MNFor{
+		FlowNodeID: forNodeID,
+		Name:       "test",
+		IterCount:  0,
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), startNodeID, forNodeID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1}
+
+	for _, e := range edges {
+		err = fes.CreateEdge(ctx, e)
+		testutil.AssertFatal(t, nil, err)
+	}
+
+	fmt.Println("testFlowID", testFlowID)
+	fmt.Println("startNodeID", startNodeID)
+	fmt.Println("forNodeID", forNodeID)
+
+	req := connect.NewRequest(&flowv1.FlowRunRequest{
+		FlowId:        testFlowID.Bytes(),
+		EnvironmentId: idwrap.NewNow().Bytes(),
+	})
+
+	stream := &connect.ServerStream[flowv1.FlowRunResponse]{}
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	err = serviceRPC.FlowRun(authedCtx, req, stream)
+
+	testutil.Assert(t, nil, err)
 }
