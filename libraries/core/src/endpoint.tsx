@@ -8,7 +8,7 @@ import {
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect, ToOptions, useRouteContext } from '@tanstack/react-router';
+import { createFileRoute, redirect, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
@@ -130,24 +130,14 @@ function Page() {
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
-        <EndpointRequestView
-          endpointId={endpointId}
-          exampleId={exampleId}
-          requestTab={requestTab}
-          from={Route.fullPath}
-        />
+        <EndpointRequestView endpointId={endpointId} exampleId={exampleId} requestTab={requestTab} />
       </Panel>
       {example.lastResponseId.byteLength > 0 && (
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
             <Suspense fallback='Loading response...'>
-              <ResponsePanel
-                responseId={example.lastResponseId}
-                responseTab={responseTab}
-                from={Route.fullPath}
-                fullWidth
-              />
+              <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} fullWidth />
             </Suspense>
           </Panel>
         </>
@@ -160,24 +150,17 @@ interface EndpointRequestViewProps {
   endpointId: Uint8Array;
   exampleId: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
-  from: NonNullable<ToOptions['from']>;
   className?: string;
 }
 
-export const EndpointRequestView = ({
-  endpointId,
-  exampleId,
-  requestTab,
-  from,
-  className,
-}: EndpointRequestViewProps) => (
+export const EndpointRequestView = ({ endpointId, exampleId, requestTab, className }: EndpointRequestViewProps) => (
   <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)} selectedKey={requestTab}>
     <TabList className={tw`flex gap-3 border-b border-slate-200`}>
       <Tab
         id='params'
         href={{
-          from,
-          search: ((_) => ({ ..._, requestTab: 'params' })) satisfies ToOptions['search'],
+          to: '.',
+          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'params' }),
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -192,8 +175,8 @@ export const EndpointRequestView = ({
       <Tab
         id='headers'
         href={{
-          from,
-          search: ((_) => ({ ..._, requestTab: 'headers' })) satisfies ToOptions['search'],
+          to: '.',
+          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'headers' }),
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -208,8 +191,8 @@ export const EndpointRequestView = ({
       <Tab
         id='body'
         href={{
-          from,
-          search: ((_) => ({ ..._, requestTab: 'body' })) satisfies ToOptions['search'],
+          to: '.',
+          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'body' }),
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -224,8 +207,8 @@ export const EndpointRequestView = ({
       <Tab
         id='assertions'
         href={{
-          from,
-          search: ((_) => ({ ..._, requestTab: 'assertions' })) satisfies ToOptions['search'],
+          to: '.',
+          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'assertions' }),
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -514,7 +497,6 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 interface ResponsePanelProps {
   responseId: Uint8Array;
   responseTab: EndpointRouteSearch['responseTab'];
-  from: NonNullable<ToOptions['from']>;
   showActions?: boolean;
   fullWidth?: boolean;
   className?: string;
@@ -523,7 +505,6 @@ interface ResponsePanelProps {
 export const ResponsePanel = ({
   responseId,
   responseTab,
-  from,
   showActions = false,
   fullWidth = false,
   className,
@@ -537,8 +518,8 @@ export const ResponsePanel = ({
           <Tab
             id='body'
             href={{
-              from,
-              search: ((_) => ({ ..._, responseTab: 'body' })) satisfies ToOptions['search'],
+              to: '.',
+              search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, responseTab: 'body' }),
             }}
             className={({ isSelected }) =>
               twMerge(
@@ -553,8 +534,8 @@ export const ResponsePanel = ({
           <Tab
             id='headers'
             href={{
-              from,
-              search: ((_) => ({ ..._, responseTab: 'headers' })) satisfies ToOptions['search'],
+              to: '.',
+              search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, responseTab: 'headers' }),
             }}
             className={({ isSelected }) =>
               twMerge(
@@ -569,8 +550,9 @@ export const ResponsePanel = ({
           <Tab
             id='assertions'
             href={{
-              from,
-              search: ((_) => ({ ..._, responseTab: 'assertions' })) satisfies ToOptions['search'],
+              to: '.',
+              search: (_: Partial<EndpointRouteSearch>) =>
+                EndpointRouteSearch.make({ ..._, responseTab: 'assertions' }),
             }}
             className={({ isSelected }) =>
               twMerge(

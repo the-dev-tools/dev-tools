@@ -413,7 +413,7 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
             <Menu>
               <MenuItem
                 href={{
-                  from: Route.fullPath,
+                  to: '.',
                   search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
                 }}
               >
@@ -767,7 +767,6 @@ const EditRequestNodeView = ({
           endpointId={endpointId}
           exampleId={exampleId}
           requestTab={requestTab}
-          from={Route.fullPath}
         />
       </div>
 
@@ -779,12 +778,7 @@ const EditRequestNodeView = ({
             Response
           </div>
 
-          <ResponsePanel
-            className={tw`p-5 pt-3`}
-            responseId={lastResponseId}
-            responseTab={responseTab}
-            from={Route.fullPath}
-          />
+          <ResponsePanel className={tw`p-5 pt-3`} responseId={lastResponseId} responseTab={responseTab} />
         </div>
       )}
     </>

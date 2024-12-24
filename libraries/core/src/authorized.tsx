@@ -19,7 +19,7 @@ export const Route = createFileRoute('/_authorized')({
       Option.getOrThrowWith(await _, () =>
         redirect({
           to: '/login',
-          search: new LoginSearch({ redirect: location.href }),
+          search: LoginSearch.make({ redirect: location.href }),
         }),
       ),
     ),
