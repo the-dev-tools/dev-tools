@@ -1,6 +1,14 @@
 import { Array, pipe } from 'effect';
-import { ComponentProps, useEffect, useRef } from 'react';
-import { FieldArrayMethodProps, WatchObserver } from 'react-hook-form';
+import { ComponentProps, ReactNode, RefObject, useEffect, useRef } from 'react';
+import {
+  Control,
+  FieldArrayMethodProps,
+  FieldPath,
+  FieldPathValues,
+  FieldValues,
+  useWatch,
+  WatchObserver,
+} from 'react-hook-form';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -17,11 +25,12 @@ export interface UseFormTableSyncProps<TItem, TField extends string, TFieldValue
     watch: (callback: WatchObserver<TFieldValues>) => { unsubscribe: () => void };
   };
   fieldArray: {
-    append: (value: TItem, options?: FieldArrayMethodProps) => void;
+    append: (value: TItem | TItem[], options?: FieldArrayMethodProps) => void;
   };
+  dirtyRef?: RefObject<Map<string, TItem>>;
   getRowId: (item: TItem) => string;
-  makeItem: (id?: string, item?: Partial<TItem>) => TItem;
-  onCreate: (item: TItem) => Promise<string>;
+  makeItem?: (id?: string, item?: Partial<TItem>) => TItem;
+  onCreate?: (item: TItem) => Promise<string>;
   onUpdate: (item: TItem) => Promise<unknown>;
   onChange?: () => void;
   setData?: () => void;
@@ -31,6 +40,7 @@ export const useFormTableSync = <TItem, TField extends string, TFieldValues exte
   field,
   form: { getValues, setValue, watch },
   fieldArray,
+  dirtyRef: dirtyRefProp,
   getRowId,
   makeItem,
   onUpdate,
@@ -38,39 +48,47 @@ export const useFormTableSync = <TItem, TField extends string, TFieldValues exte
   onChange,
   setData,
 }: UseFormTableSyncProps<TItem, TField, TFieldValues>) => {
-  const isUpdatingItems = useRef(false);
-  const updateItemQueueMap = useRef(new Map<string, TItem>());
-  const updateItems = useDebouncedCallback(async () => {
+  const isPending = useRef(false);
+  const dirtyRef = useRef(dirtyRefProp?.current ?? new Map<string, TItem>());
+
+  const update = useDebouncedCallback(async () => {
     // Wait for all mutations to finish before processing new updates
-    if (isUpdatingItems.current) return void updateItems();
-    isUpdatingItems.current = true;
+    if (isPending.current) return void update();
+    isPending.current = true;
 
-    const updates = updateItemQueueMap.current;
+    const dirty = dirtyRef.current;
     await pipe(
-      Array.fromIterable(updates),
+      Array.fromIterable(dirty),
       Array.map(async ([updateId, item]) => {
-        updates.delete(updateId); // Un-queue update
+        dirty.delete(updateId); // Un-queue update
 
-        if (updateId) return void (await onUpdate(item));
+        if (updateId) {
+          const maybeId = await onUpdate(item);
+          // Unqueue update that gets created immediately after
+          if (typeof maybeId === 'string') dirty.delete(maybeId);
+          return;
+        }
+
+        if (!onCreate || !makeItem) return;
 
         const index = getValues(field).length - 1;
         const id = await onCreate(item);
 
         setValue(`${field}.${index}`, makeItem(id, item));
-        updates.delete(id); // Delete update that gets queued by setting new id
+        dirty.delete(id); // Delete update that gets queued by setting new id
 
         fieldArray.append(makeItem(), { shouldFocus: false });
 
         // Redirect outdated queued update to the new id
-        const outdated = updates.get('');
+        const outdated = dirty.get('');
         if (!outdated) return;
-        updates.delete(getRowId(outdated));
-        updates.set(id, makeItem(id, outdated));
+        dirty.delete(getRowId(outdated));
+        dirty.set(id, makeItem(id, outdated));
       }),
       (_) => Promise.allSettled(_),
     );
 
-    isUpdatingItems.current = false;
+    isPending.current = false;
     onChange?.();
   }, 500);
 
@@ -79,13 +97,13 @@ export const useFormTableSync = <TItem, TField extends string, TFieldValues exte
       const rowName = name?.match(new RegExp(`(^${field}.[\\d]+)`, 'g'))?.[0] as `${TField}.${number}` | undefined;
       if (!rowName) return;
       const rowValues = getValues(rowName);
-      updateItemQueueMap.current.set(getRowId(rowValues), rowValues);
-      void updateItems();
+      dirtyRef.current.set(getRowId(rowValues), rowValues);
+      void update();
     });
     return () => void subscription.unsubscribe();
-  }, [field, getRowId, getValues, updateItems, watch]);
+  }, [field, getRowId, getValues, update, watch]);
 
-  useEffect(() => () => void updateItems.flush()?.then(() => void setData?.()), [setData, updateItems]);
+  useEffect(() => () => void update.flush()?.then(() => void setData?.()), [setData, update]);
 };
 
 export interface HidePlaceholderCellProps extends ComponentProps<'div'> {
@@ -101,3 +119,23 @@ export const HidePlaceholderCell = ({
 }: HidePlaceholderCellProps) => (
   <div {...props} className={twJoin(className, index + 1 === getRowCount() && tw`invisible`)} />
 );
+
+interface FormWatchProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TFieldNames extends readonly FieldPath<TFieldValues>[] = readonly FieldPath<TFieldValues>[],
+> {
+  name: readonly [...TFieldNames];
+  control: Control<TFieldValues>;
+  children: (values: FieldPathValues<TFieldValues, TFieldNames>) => ReactNode;
+}
+
+export const FormWatch = <
+  TFieldValues extends FieldValues = FieldValues,
+  TFieldNames extends readonly FieldPath<TFieldValues>[] = readonly FieldPath<TFieldValues>[],
+>({
+  children,
+  ...props
+}: FormWatchProps<TFieldValues, TFieldNames>) => {
+  const values = useWatch(props) as FieldPathValues<TFieldValues, TFieldNames>;
+  return children(values);
+};

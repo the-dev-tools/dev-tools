@@ -8,7 +8,7 @@ import {
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
+import { createFileRoute, redirect, ToOptions, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
@@ -266,7 +266,7 @@ interface UseEndpointUrlProps {
 }
 
 export const useEndpointUrl = ({ endpointId, exampleId }: UseEndpointUrlProps) => {
-  const { transport } = Route.useRouteContext();
+  const { transport } = useRouteContext({ from: '__root__' });
 
   const [
     { data: endpoint },

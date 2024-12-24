@@ -87,6 +87,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from './collection';
 import { EndpointRequestView, EndpointRouteSearch, ResponsePanel, useEndpointUrl } from './endpoint';
+import { QueryDeltaTable } from './query';
 
 class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
   selectedNodeIdCan: pipe(Schema.String, Schema.optional),
@@ -692,7 +693,9 @@ interface EditRequestNodeViewProps {
   data: NodeRequest;
 }
 
-const EditRequestNodeView = ({ data: { collectionId, endpointId, exampleId } }: EditRequestNodeViewProps) => {
+const EditRequestNodeView = ({
+  data: { collectionId, endpointId, exampleId, deltaExampleId },
+}: EditRequestNodeViewProps) => {
   const { requestTab, responseTab } = Route.useSearch();
   const { transport } = Route.useRouteContext();
 
@@ -754,8 +757,13 @@ const EditRequestNodeView = ({ data: { collectionId, endpointId, exampleId } }: 
           Request
         </div>
 
+        <div className={tw`p-5 py-3`}>
+          <QueryDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
+        </div>
+
+        {/* TODO: implement delta views */}
         <EndpointRequestView
-          className={tw`p-5 pt-3`}
+          className={tw`hidden p-5 pt-3`}
           endpointId={endpointId}
           exampleId={exampleId}
           requestTab={requestTab}

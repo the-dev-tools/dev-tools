@@ -256,11 +256,17 @@ export const TextBoxIcon = (props: SVGProps<SVGSVGElement>) => (
 export const ChatAddIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 20 20' {...props}>
     <path
-      stroke='#CBD5E1'
+      stroke='currentColor'
       strokeWidth={1.2}
       d='M16.154 14.288a7.5 7.5 0 1 0-2.848 2.446c1.205.428 2.537.704 3.832.648.316-.014.473-.377.304-.645-.438-.693-.892-1.573-1.288-2.45Z'
     />
-    <path stroke='#CBD5E1' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.2} d='M10 7.5v5M12.5 10h-5' />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M10 7.5v5M12.5 10h-5'
+    />
   </svg>
 );
 
@@ -273,6 +279,25 @@ export const PlayCircleIcon = (props: SVGProps<SVGSVGElement>) => (
       strokeLinejoin='round'
       strokeWidth={1.2}
       d='m11 8-4.5 2.598V5.402L11 8Z'
+    />
+  </svg>
+);
+
+export const RedoIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 20 20' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M4.168 8.333h8.333a3.333 3.333 0 0 1 3.334 3.334v0A3.333 3.333 0 0 1 12.5 15h-1.666'
+    />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M7.501 11.666 4.168 8.333 7.501 5'
     />
   </svg>
 );
