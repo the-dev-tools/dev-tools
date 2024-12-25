@@ -4,8 +4,11 @@ import {
   Control,
   FieldArrayMethodProps,
   FieldPath,
+  FieldPathValue,
   FieldPathValues,
   FieldValues,
+  UseFormGetValues,
+  UseFormWatch,
   useWatch,
   WatchObserver,
 } from 'react-hook-form';
@@ -138,4 +141,85 @@ export const FormWatch = <
 }: FormWatchProps<TFieldValues, TFieldNames>) => {
   const values = useWatch(props) as FieldPathValues<TFieldValues, TFieldNames>;
   return children(values);
+};
+
+type TaskType = 'change' | (string & {});
+
+interface UseFieldArrayTasksProps<
+  TFieldValues extends FieldValues,
+  TItemPath extends FieldPath<TFieldValues>,
+  TKey,
+  TItem extends FieldPathValue<TFieldValues, TItemPath> = FieldPathValue<TFieldValues, TItemPath>,
+> {
+  form: {
+    getValues: UseFormGetValues<TFieldValues>;
+    watch: UseFormWatch<TFieldValues>;
+  };
+  itemPath: (index: number) => TItemPath;
+  itemKey: (item: TItem) => TKey;
+  onTask: (item: TItem, type: TaskType) => Promise<void>;
+  wait?: number;
+}
+
+export const useFieldArrayTasks = <
+  TFieldValues extends FieldValues,
+  TItemPath extends FieldPath<TFieldValues>,
+  TKey,
+  TItem extends FieldPathValue<TFieldValues, TItemPath> = FieldPathValue<TFieldValues, TItemPath>,
+>({
+  form,
+  itemPath,
+  itemKey,
+  onTask,
+  wait = 200,
+}: UseFieldArrayTasksProps<TFieldValues, TItemPath, TKey, TItem>) => {
+  const isPending = useRef(false);
+  const tasks = useRef(new Map<TKey, [TItem, TaskType]>()).current;
+  const ignoreChanges = useRef(new Set<TKey>()).current;
+
+  const processTasks = useDebouncedCallback(async () => {
+    // Wait for all mutations to finish before processing new updates
+    if (isPending.current) return void processTasks();
+    isPending.current = true;
+
+    await pipe(
+      Array.fromIterable(tasks),
+      Array.map(async ([key, task]) => {
+        const [item, type] = task;
+        ignoreChanges.add(key);
+        await onTask(item, type);
+        ignoreChanges.delete(key);
+        if (tasks.get(key) === task) tasks.delete(key);
+      }),
+      (_) => Promise.allSettled(_),
+    );
+
+    isPending.current = false;
+  }, wait);
+
+  useEffect(() => {
+    const subscription = form.watch((_, { name }) => {
+      const arrayPath = itemPath(0).slice(0, -1);
+      const indexRegex = new RegExp(`${arrayPath}([\\d]+)\\.`, 'g');
+      const indexMatch = name?.matchAll(indexRegex).next().value?.[1] as `${number}` | undefined;
+
+      if (indexMatch === undefined) return;
+
+      const index = parseInt(indexMatch);
+      const item = form.getValues(itemPath(index));
+      const key = itemKey(item);
+
+      if (ignoreChanges.has(key)) return;
+
+      tasks.set(key, [item, 'change']);
+      void processTasks();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      void processTasks.flush();
+    };
+  }, [tasks, form, ignoreChanges, itemKey, itemPath, processTasks]);
+
+  return { tasks, processTasks };
 };

@@ -12,7 +12,7 @@ import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { idEqual, Ulid } from 'id128';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
@@ -40,7 +40,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { RHFDevTools } from './dev-tools';
-import { FormWatch, HidePlaceholderCell, useFormTableSync } from './form-table';
+import { FormWatch, HidePlaceholderCell, useFieldArrayTasks, useFormTableSync } from './form-table';
 import { TextFieldWithVariables } from './variable';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -240,12 +240,32 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
 
   type Item = (typeof values)['items'][number];
 
-  const { mutate: deleteMutate } = useConnectMutation(queryDelete);
-
-  const { getValues, ...form } = useForm({ values });
+  const form = useForm({ values });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const dirtyRef = useRef(new Map<string, Item>());
+  const { tasks, processTasks } = useFieldArrayTasks({
+    form,
+    itemPath: (index) => `items.${index}`,
+    itemKey: (_) => _.baseIdCan,
+    onTask: async ({ baseIdCan, baseId, baseValue, value }, type) => {
+      if (type === 'change') {
+        const baseUlid = Ulid.construct(baseId);
+        const itemUlid = Ulid.construct(value.queryId);
+
+        if (idEqual(baseUlid, itemUlid)) {
+          const { queryId } = await requestService.queryCreate({ ...Struct.omit(value, '$typeName'), exampleId });
+          const index = form.getValues('items').findIndex((_) => _.baseIdCan === baseIdCan);
+          form.setValue(`items.${index}.value.queryId`, queryId);
+        }
+
+        await requestService.queryUpdate(Struct.omit(value, '$typeName'));
+      } else if (type === 'delete') {
+        await requestService.queryDelete({ queryId: value.queryId });
+        const index = form.getValues('items').findIndex((_) => _.baseIdCan === baseIdCan);
+        form.setValue(`items.${index}.value`, baseValue);
+      }
+    },
+  });
 
   const columns = useMemo(() => {
     const { accessor, display } = createColumnHelper<Item>();
@@ -309,13 +329,9 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
                   className={twJoin(tw`text-slate-500`, idEqual(baseUlid, itemUlid) && tw`invisible`)}
                   variant='ghost'
                   onPress={() => {
-                    const [deltaQueryId, baseQuery] = getValues([
-                      `items.${row.index}.value.queryId`,
-                      `items.${row.index}.baseValue`,
-                    ]);
-                    deleteMutate({ queryId: deltaQueryId });
-                    form.setValue(`items.${row.index}.value`, baseQuery);
-                    dirtyRef.current.delete(baseIdCan);
+                    const item = form.getValues(`items.${row.index}`);
+                    tasks.set(baseIdCan, [item, 'delete']);
+                    void processTasks();
                   }}
                 >
                   <RedoIcon />
@@ -326,7 +342,7 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
         ),
       }),
     ];
-  }, [form, workspaceId, getValues, deleteMutate]);
+  }, [form, workspaceId, tasks, processTasks]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
@@ -334,33 +350,6 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
     columns,
-  });
-
-  const onUpdate = useCallback(
-    async ({ baseIdCan, baseId, value }: Item) => {
-      const baseUlid = Ulid.construct(baseId);
-      const itemUlid = Ulid.construct(value.queryId);
-
-      if (idEqual(baseUlid, itemUlid)) {
-        const { queryId } = await requestService.queryCreate({ ...Struct.omit(value, '$typeName'), exampleId });
-        const index = getValues('items').findIndex((_) => _.baseIdCan === baseIdCan);
-        form.setValue(`items.${index}.value.queryId`, queryId);
-        return baseIdCan;
-      }
-
-      await requestService.queryUpdate(Struct.omit(value, '$typeName'));
-      return;
-    },
-    [exampleId, form, getValues, requestService],
-  );
-
-  useFormTableSync({
-    field: 'items',
-    form: { ...form, getValues },
-    fieldArray,
-    dirtyRef,
-    getRowId: (_) => _.baseIdCan,
-    onUpdate,
   });
 
   return <DataTable table={table} />;
