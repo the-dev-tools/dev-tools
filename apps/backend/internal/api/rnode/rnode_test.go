@@ -1,0 +1,111 @@
+package rnode_test
+
+import (
+	"bytes"
+	"context"
+	"testing"
+	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/internal/api/rnode"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mflow"
+	"the-dev-tools/backend/pkg/model/mnode"
+	"the-dev-tools/backend/pkg/model/mnode/mnstart"
+	"the-dev-tools/backend/pkg/model/mtag"
+	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/snode"
+	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snoderequest"
+	"the-dev-tools/backend/pkg/service/snodestart"
+	"the-dev-tools/backend/pkg/service/stag"
+	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/backend/pkg/testutil"
+	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
+
+	"connectrpc.com/connect"
+)
+
+func TestNodeList(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
+
+	us := suser.New(queries)
+	ts := stag.New(queries)
+	fs := sflow.New(queries)
+
+	ns := snode.New(queries)
+	rns := snoderequest.New(queries)
+	flns := snodefor.New(queries)
+	sns := snodestart.New(queries)
+	// TODO: Change this to raw struct no pointer
+	ins := snodeif.New(queries)
+
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns)
+
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+	testTagID := idwrap.NewNow()
+	tagData := mtag.Tag{
+		ID:          testTagID,
+		WorkspaceID: wsID,
+		Name:        "test",
+		Color:       uint8(5),
+	}
+	err := ts.CreateTag(ctx, tagData)
+	testutil.AssertFatal(t, nil, err)
+	testFlowID := idwrap.NewNow()
+	flowData := mflow.Flow{
+		ID:          testFlowID,
+		WorkspaceID: wsID,
+		Name:        "test",
+	}
+	err = fs.CreateFlow(ctx, flowData)
+	testutil.AssertFatal(t, nil, err)
+
+	startNodeID := idwrap.NewNow()
+	err = ns.CreateNode(ctx, mnode.MNode{
+		ID:        startNodeID,
+		FlowID:    testFlowID,
+		NodeKind:  mnode.NODE_KIND_START,
+		PositionX: 0,
+		PositionY: 0,
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	err = sns.CreateNodeStart(ctx, mnstart.StartNode{
+		FlowNodeID: startNodeID,
+		Name:       "test",
+	})
+
+	testutil.AssertFatal(t, nil, err)
+	req := connect.NewRequest(
+		&nodev1.NodeListRequest{
+			FlowId: testFlowID.Bytes(),
+		},
+	)
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := serviceRPC.NodeList(authedCtx, req)
+	testutil.AssertFatal(t, nil, err)
+	testutil.AssertNotFatal(t, nil, resp.Msg)
+
+	items := resp.Msg.Items
+	testutil.AssertFatal(t, 1, len(items))
+
+	startNode := items[0].Start
+	if startNode == nil {
+		t.Fatalf("Expected start node to be non-nil")
+	}
+	if startNode.NodeId == nil {
+		t.Fatalf("Expected start node id to be non-nil")
+	}
+	if !bytes.Equal(startNode.NodeId, startNodeID.Bytes()) {
+		t.Fatalf("Expected start node id to be %v, got %v", startNodeID.Bytes(), startNode.NodeId)
+	}
+}
