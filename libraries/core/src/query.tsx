@@ -243,26 +243,26 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
   const form = useForm({ values });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const { tasks, processTasks } = useFieldArrayTasks({
+  const { queueTask, itemTransaction } = useFieldArrayTasks({
     form,
     itemPath: (index) => `items.${index}`,
     itemKey: (_) => _.baseIdCan,
-    onTask: async ({ baseIdCan, baseId, baseValue, value }, type) => {
+    onTask: async ({ index, item, type }) => {
+      const { baseIdCan, baseId, baseValue, value } = item;
+
       if (type === 'change') {
         const baseUlid = Ulid.construct(baseId);
         const itemUlid = Ulid.construct(value.queryId);
 
         if (idEqual(baseUlid, itemUlid)) {
           const { queryId } = await requestService.queryCreate({ ...Struct.omit(value, '$typeName'), exampleId });
-          const index = form.getValues('items').findIndex((_) => _.baseIdCan === baseIdCan);
-          form.setValue(`items.${index}.value.queryId`, queryId);
+          itemTransaction(baseIdCan, () => void form.setValue(`items.${index}.value.queryId`, queryId));
         }
 
         await requestService.queryUpdate(Struct.omit(value, '$typeName'));
       } else if (type === 'delete') {
         await requestService.queryDelete({ queryId: value.queryId });
-        const index = form.getValues('items').findIndex((_) => _.baseIdCan === baseIdCan);
-        form.setValue(`items.${index}.value`, baseValue);
+        itemTransaction(baseIdCan, () => void form.setValue(`items.${index}.value`, baseValue));
       }
     },
   });
@@ -316,11 +316,8 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
         size: 0,
         meta: { divider: false },
         cell: ({ row }) => (
-          <FormWatch
-            control={form.control}
-            name={[`items.${row.index}.baseIdCan`, `items.${row.index}.baseId`, `items.${row.index}.value.queryId`]}
-          >
-            {([baseIdCan, baseId, itemId]) => {
+          <FormWatch control={form.control} name={[`items.${row.index}.baseId`, `items.${row.index}.value.queryId`]}>
+            {([baseId, itemId]) => {
               const baseUlid = Ulid.construct(baseId);
               const itemUlid = Ulid.construct(itemId);
 
@@ -328,11 +325,7 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
                 <Button
                   className={twJoin(tw`text-slate-500`, idEqual(baseUlid, itemUlid) && tw`invisible`)}
                   variant='ghost'
-                  onPress={() => {
-                    const item = form.getValues(`items.${row.index}`);
-                    tasks.set(baseIdCan, [item, 'delete']);
-                    void processTasks();
-                  }}
+                  onPress={() => void queueTask(row.index, 'delete')}
                 >
                   <RedoIcon />
                 </Button>
@@ -342,7 +335,7 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
         ),
       }),
     ];
-  }, [form, workspaceId, tasks, processTasks]);
+  }, [form.control, workspaceId, queueTask]);
 
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),

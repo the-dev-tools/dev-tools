@@ -1,5 +1,5 @@
 import { Array, pipe } from 'effect';
-import { ComponentProps, ReactNode, RefObject, useEffect, useRef } from 'react';
+import { ComponentProps, ReactNode, RefObject, useCallback, useEffect, useRef } from 'react';
 import {
   Control,
   FieldArrayMethodProps,
@@ -7,7 +7,9 @@ import {
   FieldPathValue,
   FieldPathValues,
   FieldValues,
+  Path,
   UseFormGetValues,
+  UseFormSetValue,
   UseFormWatch,
   useWatch,
   WatchObserver,
@@ -145,6 +147,12 @@ export const FormWatch = <
 
 type TaskType = 'change' | (string & {});
 
+interface Task<TItem> {
+  index: number;
+  item: TItem;
+  type: TaskType;
+}
+
 interface UseFieldArrayTasksProps<
   TFieldValues extends FieldValues,
   TItemPath extends FieldPath<TFieldValues>,
@@ -153,11 +161,12 @@ interface UseFieldArrayTasksProps<
 > {
   form: {
     getValues: UseFormGetValues<TFieldValues>;
+    setValue: UseFormSetValue<TFieldValues>;
     watch: UseFormWatch<TFieldValues>;
   };
   itemPath: (index: number) => TItemPath;
   itemKey: (item: TItem) => TKey;
-  onTask: (item: TItem, type: TaskType) => Promise<void>;
+  onTask: (task: Task<TItem>) => Promise<void>;
   wait?: number;
 }
 
@@ -174,8 +183,17 @@ export const useFieldArrayTasks = <
   wait = 200,
 }: UseFieldArrayTasksProps<TFieldValues, TItemPath, TKey, TItem>) => {
   const isPending = useRef(false);
-  const tasks = useRef(new Map<TKey, [TItem, TaskType]>()).current;
+  const tasks = useRef(new Map<TKey, Task<TItem>>()).current;
   const ignoreChanges = useRef(new Set<TKey>()).current;
+
+  const itemTransaction = useCallback(
+    (key: TKey, callback: () => void) => {
+      ignoreChanges.add(key);
+      callback();
+      ignoreChanges.delete(key);
+    },
+    [ignoreChanges],
+  );
 
   const processTasks = useDebouncedCallback(async () => {
     // Wait for all mutations to finish before processing new updates
@@ -185,11 +203,10 @@ export const useFieldArrayTasks = <
     await pipe(
       Array.fromIterable(tasks),
       Array.map(async ([key, task]) => {
-        const [item, type] = task;
-        ignoreChanges.add(key);
-        await onTask(item, type);
-        ignoreChanges.delete(key);
-        if (tasks.get(key) === task) tasks.delete(key);
+        await onTask(task);
+        const nextTask = tasks.get(key);
+        if (!nextTask) return;
+        if (nextTask.index === task.index && nextTask.type === task.type) tasks.delete(key);
       }),
       (_) => Promise.allSettled(_),
     );
@@ -197,29 +214,36 @@ export const useFieldArrayTasks = <
     isPending.current = false;
   }, wait);
 
-  useEffect(() => {
-    const subscription = form.watch((_, { name }) => {
-      const arrayPath = itemPath(0).slice(0, -1);
-      const indexRegex = new RegExp(`${arrayPath}([\\d]+)\\.`, 'g');
-      const indexMatch = name?.matchAll(indexRegex).next().value?.[1] as `${number}` | undefined;
-
-      if (indexMatch === undefined) return;
-
-      const index = parseInt(indexMatch);
+  const queueTask = useCallback(
+    (index: number, type: TaskType) => {
       const item = form.getValues(itemPath(index));
       const key = itemKey(item);
 
       if (ignoreChanges.has(key)) return;
 
-      tasks.set(key, [item, 'change']);
+      tasks.set(key, { index, item, type });
       void processTasks();
+    },
+    [form, ignoreChanges, itemKey, itemPath, processTasks, tasks],
+  );
+
+  useEffect(() => {
+    const subscription = form.watch((_, { name }) => {
+      const arrayPath = itemPath(0).slice(0, -2) as Path<TFieldValues>;
+      const indexRegex = new RegExp(`${arrayPath}\\.([\\d]+)`, 'g');
+      const indexMatch = name?.matchAll(indexRegex).next().value?.[1] as `${number}` | undefined;
+
+      if (indexMatch === undefined) return;
+
+      const index = parseInt(indexMatch);
+      queueTask(index, 'change');
     });
 
     return () => {
       subscription.unsubscribe();
       void processTasks.flush();
     };
-  }, [tasks, form, ignoreChanges, itemKey, itemPath, processTasks]);
+  }, [tasks, form, itemKey, itemPath, processTasks, ignoreChanges, queueTask]);
 
-  return { tasks, processTasks };
+  return { queueTask, itemTransaction };
 };
