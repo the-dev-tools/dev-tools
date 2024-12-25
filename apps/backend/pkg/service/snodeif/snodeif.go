@@ -56,34 +56,26 @@ func (nifs NodeIfService) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mni
 	return ConvertToModelNodeIf(nodeIf), nil
 }
 
-func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) (*mnif.MNIF, error) {
+func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error {
 	nodeIf := ConvertToDBNodeIf(ni)
-	err := nifs.queries.CreateFlowNodeIf(ctx, gen.CreateFlowNodeIfParams{
+	return nifs.queries.CreateFlowNodeIf(ctx, gen.CreateFlowNodeIfParams{
 		FlowNodeID:    nodeIf.FlowNodeID,
 		Name:          nodeIf.Name,
 		ConditionType: nodeIf.ConditionType,
 		Path:          nodeIf.Path,
 		Value:         nodeIf.Value,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &ni, nil
 }
 
-func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) (*mnif.MNIF, error) {
+func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error {
 	nodeIf := ConvertToDBNodeIf(ni)
-	err := nifs.queries.UpdateFlowNodeIf(ctx, gen.UpdateFlowNodeIfParams{
+	return nifs.queries.UpdateFlowNodeIf(ctx, gen.UpdateFlowNodeIfParams{
 		FlowNodeID:    nodeIf.FlowNodeID,
 		Name:          nodeIf.Name,
 		ConditionType: nodeIf.ConditionType,
 		Path:          nodeIf.Path,
 		Value:         nodeIf.Value,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &ni, nil
 }
 
 func (nifs NodeIfService) DeleteNodeIf(ctx context.Context, id idwrap.IDWrap) error {

@@ -271,25 +271,42 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 	// INFO: this is using reflection to check the type of subNode
 	// in future, this should be refactored to use a more explicit way to check the type
 	switch subNodeType := subNode.(type) {
-	case mnrequest.MNRequest:
+	case *mnrequest.MNRequest:
 		nrsTX, err := snoderequest.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = nrsTX.UpdateNodeRequest(ctx, subNodeType)
+		err = nrsTX.UpdateNodeRequest(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	case mnfor.MNFor:
+	case *mnfor.MNFor:
 		nlfTX, err := snodefor.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = nlfTX.UpdateNodeFor(ctx, subNodeType)
+		err = nlfTX.UpdateNodeFor(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	case mnif.MNIF:
+	case *mnif.MNIF:
+		nisTX, err := snodeif.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = nisTX.UpdateNodeIf(ctx, *subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	case *mnstart.StartNode:
+		nssTX, err := snodestart.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = nssTX.UpdateNodeStart(ctx, *subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
 	}
@@ -460,6 +477,10 @@ func ConvertRPCNodeToModel(ctx context.Context, rpcNode *nodev1.Node, flowID idw
 	id, err := idwrap.NewFromBytes(rpcNode.NodeId)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if rpcNode.Position == nil {
+		rpcNode.Position = &nodev1.Position{}
 	}
 
 	node = &mnode.MNode{
