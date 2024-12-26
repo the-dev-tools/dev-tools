@@ -433,8 +433,8 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 	var rpcNode *nodev1.Node
 
 	Position := &nodev1.Position{
-		X: float32(currentNode.PositionX + 0.1),
-		Y: float32(currentNode.PositionY + 0.1),
+		X: float32(currentNode.PositionX),
+		Y: float32(currentNode.PositionY),
 	}
 
 	switch currentNode.NodeKind {
