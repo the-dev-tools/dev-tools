@@ -452,7 +452,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		}
 
 		nodeList := &nodev1.Node{
-			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
+			Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
 			Position: Position,
 			Request: &nodev1.NodeRequest{
 				NodeId:     currentNode.ID.Bytes(),
