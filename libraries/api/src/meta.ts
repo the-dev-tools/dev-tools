@@ -12,3 +12,9 @@ export const getMessageId = (message: Message) =>
     Option.map((_) => message[_ as keyof Message] as unknown),
     Option.flatMap(Schema.validateOption(Schema.Uint8Array)),
   );
+
+export const setMessageId = <T extends Message>(message: T, id: Uint8Array) => {
+  const maybeKey = HashMap.get(messageIdHashMap, message.$typeName);
+  if (Option.isNone(maybeKey)) return message;
+  return { ...message, [maybeKey.value]: id };
+};
