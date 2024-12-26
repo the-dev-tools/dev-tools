@@ -70,8 +70,8 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, n
 	}
 }
 
-func CreateService(srv NodeServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := nodev1connect.NewNodeServiceHandler(&srv, options...)
+func CreateService(srv *NodeServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := nodev1connect.NewNodeServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

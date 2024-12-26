@@ -22,6 +22,7 @@ import (
 	"the-dev-tools/backend/internal/api/ritemapi"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/internal/api/ritemfolder"
+	"the-dev-tools/backend/internal/api/rnode"
 	"the-dev-tools/backend/internal/api/rrequest"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rvar"
@@ -282,6 +283,10 @@ func main() {
 	// Flow Service
 	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs, ns, rns, lfns, sns, *ins)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
+
+	// Node Service
+	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us, fs, *ins, rns, lfns, ns, sns)
+	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// Start services
 	go func() {
