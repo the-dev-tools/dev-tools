@@ -39,7 +39,10 @@ import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } fr
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
-import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import {
+  exampleCreate,
+  exampleGet,
+} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
@@ -50,6 +53,7 @@ import {
   NodeKindSchema,
   NodeListItem,
   NodeRequest,
+  NodeRequestSchema,
   NodeSchema,
   NodeStart,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
@@ -341,6 +345,7 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
   const endpointGetQuery = useConnectQuery(endpointGet, { endpointId }, { enabled: endpointId.length > 0 });
   const exampleGetQuery = useConnectQuery(exampleGet, { exampleId }, { enabled: exampleId.length > 0 });
 
+  const exampleCreateMutation = useConnectMutation(exampleCreate);
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
   const nodeDeleteMutation = useConnectMutation(nodeDelete);
   const edgeDeleteMutation = useConnectMutation(edgeDelete);
@@ -379,7 +384,8 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
       <CollectionListTree
         onAction={async ({ collectionId, endpointId, exampleId }) => {
           if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
-          const newData = { ...data, collectionId, endpointId, exampleId };
+          const { exampleId: deltaExampleId } = await exampleCreateMutation.mutateAsync({ endpointId });
+          const newData = create(NodeRequestSchema, { ...data, collectionId, endpointId, exampleId, deltaExampleId });
           await nodeUpdateMutation.mutateAsync({ nodeId, request: newData });
           updateNodeData(id, newData);
         }}
