@@ -182,7 +182,7 @@ func main() {
 	opitonsAll = append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
-	newServiceManager := NewServiceManager(15)
+	newServiceManager := NewServiceManager(20)
 
 	if dbMode != devtoolsdb.LOCAL {
 		// Email
