@@ -123,9 +123,11 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 
 	edgeID := idwrap.NewNow()
 	modelEdge := &edge.Edge{
-		ID:       edgeID,
-		SourceID: sourceID,
-		TargetID: targetID,
+		ID:            edgeID,
+		FlowID:        flowID,
+		SourceID:      sourceID,
+		TargetID:      targetID,
+		SourceHandler: edge.EdgeHandle(req.Msg.SourceHandle),
 	}
 
 	err = c.es.CreateEdge(ctx, *modelEdge)
