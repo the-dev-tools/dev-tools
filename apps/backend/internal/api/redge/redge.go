@@ -64,7 +64,7 @@ func (c *EdgeServiceRPC) EdgeList(ctx context.Context, req *connect.Request[edge
 	for i, edge := range edges {
 		rpcItems[i] = &edgev1.EdgeListItem{
 			EdgeId:       edge.ID.Bytes(),
-			SourceId:     edge.FlowID.Bytes(),
+			SourceId:     edge.SourceID.Bytes(),
 			TargetId:     edge.TargetID.Bytes(),
 			SourceHandle: edgev1.Handle(edge.SourceHandler),
 		}

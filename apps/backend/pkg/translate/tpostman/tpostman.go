@@ -185,10 +185,14 @@ func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwr
 			channels.Err <- errors.New("item is not an api")
 			return
 		}
-		URL, err := GetQueryParams(item.Request.URL)
-		if err != nil {
-			channels.Err <- err
-			return
+		var URL *murl.URL
+		var err error
+		if item.Request.URL != nil {
+			URL, err = GetQueryParams(item.Request.URL)
+			if err != nil {
+				channels.Err <- err
+				return
+			}
 		}
 		ApiID := idwrap.NewNow()
 		api := &mitemapi.ItemApi{
@@ -363,8 +367,8 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 		murlData = urlData.(murl.URL)
 	case map[string]interface{}:
 		urlDataNest := urlData.(map[string]interface{})
-		queryData := urlDataNest["query"].([]interface{})
-		queryParamsArr := make([]murl.QueryParamter, 0, len(queryData))
+		queryData, ok := urlDataNest["query"].([]interface{})
+		queryParamsArr := make([]murl.QueryParamter, 0)
 
 		raw, ok := urlDataNest["raw"].(string)
 		if !ok {
@@ -375,17 +379,15 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 			return nil, err
 		}
 
-		if queryData == nil {
-			if len(queryData) == 0 {
-				for k, vArr := range rawData.Query() {
-					for _, v := range vArr {
-						queryParamsArr = append(queryParamsArr, murl.QueryParamter{
-							Key:         k,
-							Value:       v,
-							Disabled:    false,
-							Description: "",
-						})
-					}
+		if ok {
+			for k, vArr := range rawData.Query() {
+				for _, v := range vArr {
+					queryParamsArr = append(queryParamsArr, murl.QueryParamter{
+						Key:         k,
+						Value:       v,
+						Disabled:    false,
+						Description: "",
+					})
 				}
 			}
 		} else {
