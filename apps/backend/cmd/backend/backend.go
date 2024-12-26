@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/middleware/mwcompress"
 	"the-dev-tools/backend/internal/api/rbody"
+	"the-dev-tools/backend/internal/api/redge"
 	"the-dev-tools/backend/internal/api/renv"
 	"the-dev-tools/backend/internal/api/resultapi"
 	"the-dev-tools/backend/internal/api/rflow"
@@ -287,6 +288,10 @@ func main() {
 	// Node Service
 	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us, fs, *ins, rns, lfns, ns, sns)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
+
+	// Edge Service
+	edgeSrv := redge.NewEdgeServiceRPC(currentDB, fs, us, fes, ns)
+	newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
 
 	// Start services
 	go func() {

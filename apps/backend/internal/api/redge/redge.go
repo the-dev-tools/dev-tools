@@ -40,8 +40,8 @@ func NewEdgeServiceRPC(db *sql.DB, fs sflow.FlowService, us suser.UserService, e
 	}
 }
 
-func CreateService(srv EdgeServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := edgev1connect.NewEdgeServiceHandler(&srv, options...)
+func CreateService(srv *EdgeServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := edgev1connect.NewEdgeServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
