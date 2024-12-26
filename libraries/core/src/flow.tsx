@@ -39,10 +39,7 @@ import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } fr
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
-import {
-  exampleCreate,
-  exampleGet,
-} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
@@ -230,8 +227,6 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
   const nodeCreateMutation = useConnectMutation(nodeCreate);
   const edgeCreateMutation = useConnectMutation(edgeCreate);
 
-  const exampleCreateMutation = useConnectMutation(exampleCreate);
-
   const position = useMemo(
     () => ({ x: positionAbsoluteX, y: positionAbsoluteY }),
     [positionAbsoluteX, positionAbsoluteY],
@@ -296,10 +291,7 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
             Icon={SendRequestIcon}
             title='Send Request'
             description='Send request from your collection'
-            onAction={async () => {
-              const { exampleId } = await exampleCreateMutation.mutateAsync({});
-              await makeNode(NodeKind.REQUEST, { request: { deltaExampleId: exampleId } });
-            }}
+            onAction={() => void makeNode(NodeKind.REQUEST)}
           />
 
           <CreateNodeItem
