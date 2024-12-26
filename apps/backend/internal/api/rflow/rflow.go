@@ -205,6 +205,29 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		return nil, err
 	}
 
+	id, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.ns.CreateNode(ctx, mnode.MNode{
+		ID:        id,
+		FlowID:    flowID,
+		NodeKind:  mnode.NODE_KIND_START,
+		PositionX: float64(0),
+		PositionY: float64(0),
+	})
+	if err != nil {
+		return nil, err
+	}
+	err = c.sns.CreateNodeStart(ctx, mnstart.StartNode{
+		FlowNodeID: id,
+		Name:       "Node1",
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return connect.NewResponse(&flowv1.FlowCreateResponse{
 		FlowId: flowID.Bytes(),
 	}), nil
@@ -249,18 +272,15 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 }
 
 func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream *connect.ServerStream[flowv1.FlowRunResponse]) error {
-	fmt.Println("test123")
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	fmt.Println("test123")
 	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
 	if rpcErr != nil {
 		return rpcErr
 	}
 
-	fmt.Println("test123")
 	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, errors.New("get nodes"))
