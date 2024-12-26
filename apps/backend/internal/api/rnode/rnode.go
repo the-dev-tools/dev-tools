@@ -168,7 +168,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModel(ctx, RpcNodeCreated, flowID)
+	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -190,6 +190,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 	// in future, this should be refactored to use a more explicit way to check the type
 	switch subNodeType := subNode.(type) {
 	case mnrequest.MNRequest:
+		subNodeType.FlowNodeID = node.ID
 		nrsTX, err := snoderequest.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -208,6 +209,14 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	case mnif.MNIF:
+		niTX, err := snodeif.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = niTX.CreateNodeIf(ctx, subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
 	}
@@ -250,7 +259,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModel(ctx, RpcNodeCreated, flowID)
+	node, subNode, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -471,20 +480,24 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 	return rpcNode, nil
 }
 
-func ConvertRPCNodeToModel(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
-	var node *mnode.MNode
-	var subNode interface{}
+func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
 	id, err := idwrap.NewFromBytes(rpcNode.NodeId)
 	if err != nil {
 		return nil, nil, err
 	}
+	return ConvertRPCNodeToModelWithoutID(ctx, rpcNode, flowID, id)
+}
+
+func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
+	var node *mnode.MNode
+	var subNode interface{}
 
 	if rpcNode.Position == nil {
 		rpcNode.Position = &nodev1.Position{}
 	}
 
 	node = &mnode.MNode{
-		ID:        id,
+		ID:        nodeID,
 		FlowID:    flowID,
 		NodeKind:  mnode.NodeKind(rpcNode.Kind),
 		PositionX: float64(rpcNode.Position.X),
@@ -504,24 +517,36 @@ func ConvertRPCNodeToModel(ctx context.Context, rpcNode *nodev1.Node, flowID idw
 		}
 
 		reqNode := &mnrequest.MNRequest{
-			FlowNodeID: id,
+			FlowNodeID: nodeID,
 			EndpointID: endpointID,
 			ExampleID:  exampleID,
 		}
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
 		forNode := &mnfor.MNFor{
-			FlowNodeID: id,
+			FlowNodeID: nodeID,
 			IterCount:  int64(rpcNode.For.Iteration),
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_START:
 		startNode := &mnstart.StartNode{
-			FlowNodeID: id,
+			FlowNodeID: nodeID,
 		}
 		subNode = startNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
-		// TODO: implement
+		// TODO: change to path creation
+		var path string
+		for _, v := range rpcNode.Condition.SimpleCondition.Path {
+			path += v.Key
+		}
+
+		ifNode := &mnif.MNIF{
+			FlowNodeID:    nodeID,
+			ConditionType: mnif.ConditionType(rpcNode.Condition.SimpleCondition.ConditionType),
+			Path:          path,
+			Value:         rpcNode.Condition.SimpleCondition.Value,
+		}
+		subNode = ifNode
 	}
 
 	return node, subNode, nil
