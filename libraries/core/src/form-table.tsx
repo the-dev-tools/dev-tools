@@ -1,3 +1,4 @@
+import { RowData } from '@tanstack/table-core';
 import { Array, pipe } from 'effect';
 import { ComponentProps, ReactNode, RefObject, useCallback, useEffect, useRef } from 'react';
 import {
@@ -147,7 +148,7 @@ export const FormWatch = <
 
 type TaskType = 'change' | (string & {});
 
-interface Task<TItem> {
+export interface Task<TItem> {
   index: number;
   item: TItem;
   type: TaskType;
@@ -247,3 +248,24 @@ export const useFieldArrayTasks = <
 
   return { queueTask, itemTransaction };
 };
+
+export interface TableFormData<T> {
+  items: T[];
+}
+
+export interface TableFormItem<T> {
+  data: T;
+}
+
+export interface DeltaTableFormItem<T> extends TableFormItem<T> {
+  parentData: T;
+}
+
+declare module '@tanstack/table-core' {
+  interface TableMeta<TData extends RowData> {
+    // Form table column dependencies must be stable to avoid full table re-renders
+    // which cause focus loss. Unstable dependencies must be passed via table meta
+    queueTask?: (index: number, type: TaskType) => void;
+    control?: Control<TableFormData<TData>>;
+  }
+}

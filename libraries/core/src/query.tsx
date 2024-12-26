@@ -1,37 +1,22 @@
-import { create, fromJson, toJson } from '@bufbuild/protobuf';
+import { create } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import {
-  createConnectQueryKey,
-  createProtobufSafeUpdater,
-  createQueryOptions,
-  useMutation as useConnectMutation,
-  useSuspenseQuery as useConnectSuspenseQuery,
-} from '@connectrpc/connect-query';
-import { useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
+import { createQueryOptions, useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
+import { useSuspenseQueries } from '@tanstack/react-query';
 import { getRouteApi, useRouteContext } from '@tanstack/react-router';
-import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { AccessorKeyColumnDef, createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { idEqual, Ulid } from 'id128';
-import { useCallback, useMemo } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useMemo } from 'react';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import {
-  QueryCreateResponseSchema,
-  QueryJson,
+  QueryListItem,
   QueryListItemSchema,
-  QueryListResponseSchema,
-  QuerySchema,
-  QueryUpdateRequestSchema,
   RequestService,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import {
-  queryCreate,
-  queryDelete,
-  queryList,
-  queryUpdate,
-} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
+import { queryList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTable } from '@the-dev-tools/ui/data-table';
@@ -40,7 +25,13 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { RHFDevTools } from './dev-tools';
-import { FormWatch, HidePlaceholderCell, useFieldArrayTasks, useFormTableSync } from './form-table';
+import {
+  DeltaTableFormItem,
+  HidePlaceholderCell,
+  TableFormData,
+  TableFormItem,
+  useFieldArrayTasks,
+} from './form-table';
 import { TextFieldWithVariables } from './variable';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -49,164 +40,191 @@ interface QueryTableProps {
   exampleId: Uint8Array;
 }
 
-export const QueryTable = ({ exampleId }: QueryTableProps) => {
-  const queryClient = useQueryClient();
+const queryTableHelper = createColumnHelper<TableFormItem<QueryListItem>>();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
+const queryTableCommonColumns = [
+  queryTableHelper.accessor('data.key', {
+    header: 'Key',
+    meta: { divider: false },
+    cell: ({ table, row: { index } }) => {
+      const { workspaceId } = workspaceRoute.useLoaderData();
+      return (
+        <TextFieldWithVariables
+          control={table.options.meta!.control!}
+          name={`items.${index}.data.key`}
+          workspaceId={workspaceId}
+          variant='table-cell'
+          className='flex-1'
+        />
+      );
+    },
+  }),
+  queryTableHelper.accessor('data.value', {
+    header: 'Value',
+    cell: ({ table, row: { index } }) => {
+      const { workspaceId } = workspaceRoute.useLoaderData();
+      return (
+        <TextFieldWithVariables
+          control={table.options.meta!.control!}
+          name={`items.${index}.data.value`}
+          workspaceId={workspaceId}
+          variant='table-cell'
+          className='flex-1'
+        />
+      );
+    },
+  }),
+  queryTableHelper.accessor('data.description', {
+    header: 'Description',
+    cell: ({ table, row }) => (
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.description`}
+        variant='table-cell'
+      />
+    ),
+  }),
+];
+
+const queryTableColumns = [
+  queryTableHelper.accessor('data.enabled', {
+    header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
+    size: 0,
+    cell: ({ table, row }) => (
+      <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
+        <CheckboxRHF
+          control={table.options.meta!.control!}
+          name={`items.${row.index}.data.enabled`}
+          variant='table-cell'
+        />
+      </HidePlaceholderCell>
+    ),
+  }),
+  ...queryTableCommonColumns,
+  queryTableHelper.display({
+    id: 'actions',
+    header: '',
+    size: 0,
+    meta: { divider: false },
+    cell: ({ table, row }) => (
+      <HidePlaceholderCell row={row} table={table}>
+        <Button
+          className='text-red-700'
+          variant='ghost'
+          onPress={() => void table.options.meta?.queueTask?.(row.index, 'delete')}
+        >
+          <LuTrash2 />
+        </Button>
+      </HidePlaceholderCell>
+    ),
+  }),
+];
+
+export const QueryTable = ({ exampleId }: QueryTableProps) => {
+  const { transport } = useRouteContext({ from: '__root__' });
+  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
   const {
     data: { items },
   } = useConnectSuspenseQuery(queryList, { exampleId });
 
-  const createMutation = useConnectMutation(queryCreate);
-  const updateMutation = useConnectMutation(queryUpdate);
-  const { mutate: deleteMutate } = useConnectMutation(queryDelete);
+  const emptyItem = (): TableFormItem<QueryListItem> => ({ data: create(QueryListItemSchema, { enabled: true }) });
 
-  const makeItem = useCallback(
-    (queryId?: string, item?: QueryJson) => ({
-      ...item,
-      queryId: queryId ?? '',
-      enabled: true,
-    }),
-    [],
-  );
-  const values = useMemo(
-    () => ({
-      items: [...items.map((_): QueryJson => toJson(QueryListItemSchema, _)), makeItem()],
-    }),
-    [items, makeItem],
-  );
-  const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({
-    control: form.control,
-    name: 'items',
-    keyName: 'queryId',
+  const values = useMemo((): TableFormData<TableFormItem<QueryListItem>> => {
+    return {
+      items: pipe(
+        Array.map(items, (_) => ({ id: Ulid.construct(_.queryId).toCanonical(), data: _ })),
+        Array.append(emptyItem()),
+      ),
+    };
+  }, [items]);
+
+  const form = useForm({ values });
+  const fieldArray = useFieldArray({ control: form.control, name: 'items' });
+
+  const { queueTask, itemTransaction } = useFieldArrayTasks({
+    form,
+    itemPath: (index) => `items.${index}`,
+    itemKey: (_) => Ulid.construct(_.data.queryId).toCanonical(),
+    onTask: async ({ index, item: { data }, type }) => {
+      if (type === 'change' && data.queryId.length === 0) {
+        const { queryId } = await requestService.queryCreate({ ...Struct.omit(data, '$typeName'), exampleId });
+        const newIdCan = Ulid.construct(queryId).toCanonical();
+        itemTransaction(newIdCan, () => {
+          form.setValue(`items.${index}.data.queryId`, queryId);
+          fieldArray.append(emptyItem());
+        });
+      } else if (type === 'change') {
+        await requestService.queryUpdate(Struct.omit(data, '$typeName'));
+      } else if (type === 'delete') {
+        await requestService.queryDelete({ queryId: data.queryId });
+        itemTransaction(Ulid.construct(data.queryId).toCanonical(), () => void fieldArray.remove(index));
+      }
+    },
   });
 
-  const setData = useCallback(() => {
-    const items = pipe(
-      getValues('items'),
-      Array.dropRight(1),
-      Array.map((_) => fromJson(QueryListItemSchema, _)),
-    );
-    queryClient.setQueryData(
-      createConnectQueryKey({
-        schema: queryList,
-        cardinality: 'finite',
-        input: { exampleId },
-      }),
-      createProtobufSafeUpdater(queryList, () => create(QueryListResponseSchema, { items })),
-    );
-  }, [exampleId, getValues, queryClient]);
-
-  const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<QueryJson>();
-    return [
-      accessor('enabled', {
-        header: () => <RHFDevTools control={form.control} className={tw`size-0`} />,
-        size: 0,
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
-            <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
-          </HidePlaceholderCell>
-        ),
-      }),
-      accessor('key', {
-        meta: { divider: false },
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.key`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('value', {
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.value`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('description', {
-        cell: ({ row }) => (
-          <TextFieldRHF control={form.control} name={`items.${row.index}.description`} variant='table-cell' />
-        ),
-      }),
-      display({
-        id: 'actions',
-        header: '',
-        size: 0,
-        meta: { divider: false },
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
-            <Button
-              className='text-red-700'
-              variant='ghost'
-              onPress={() => {
-                const queryIdJson = getValues(`items.${row.index}.queryId`);
-                if (queryIdJson === undefined) return;
-                const { queryId } = fromJson(QuerySchema, {
-                  queryId: queryIdJson,
-                });
-                deleteMutate({ queryId });
-                removeField(row.index);
-                void setData();
-              }}
-            >
-              <LuTrash2 />
-            </Button>
-          </HidePlaceholderCell>
-        ),
-      }),
-    ];
-  }, [form.control, workspaceId, deleteMutate, getValues, removeField, setData]);
-
-  const table = useReactTable<QueryJson>({
+  const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => _.queryId ?? '',
+    getRowId: (_) => (_ as (typeof fieldArray.fields)[number]).id,
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
-    columns,
-  });
-
-  useFormTableSync({
-    field: 'items',
-    form: { ...form, getValues },
-    fieldArray,
-    makeItem,
-    getRowId: (_) => _.queryId,
-    onCreate: async (query) => {
-      const response = await createMutation.mutateAsync({
-        ...query,
-        exampleId,
-      });
-      return toJson(QueryCreateResponseSchema, response).queryId ?? '';
-    },
-    onUpdate: (query) => updateMutation.mutateAsync(fromJson(QueryUpdateRequestSchema, query)),
-    onChange: setData,
-    setData,
+    meta: { queueTask, control: form.control },
+    columns: queryTableColumns,
   });
 
   return <DataTable table={table} />;
 };
 
-interface QueryDeltaTableProps {
-  exampleId: Uint8Array;
+const queryDeltaTableHelper = createColumnHelper<DeltaTableFormItem<QueryListItem>>();
+const queryDeltaTableColumns = [
+  queryDeltaTableHelper.accessor('data.enabled', {
+    header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
+    size: 0,
+    cell: ({ table, row }) => (
+      <div className={tw`flex justify-center`}>
+        <CheckboxRHF
+          control={table.options.meta!.control!}
+          name={`items.${row.index}.data.enabled`}
+          variant='table-cell'
+        />
+      </div>
+    ),
+  }),
+  ...(queryTableCommonColumns as AccessorKeyColumnDef<DeltaTableFormItem<QueryListItem>>[]),
+  queryDeltaTableHelper.display({
+    id: 'actions',
+    header: '',
+    size: 0,
+    meta: { divider: false },
+    cell: function ActionCell({ table, row }) {
+      const [parentId, itemId] = useWatch({
+        control: table.options.meta!.control!,
+        name: [`items.${row.index}.parentData.queryId`, `items.${row.index}.data.queryId`],
+      });
+
+      const parentUlid = Ulid.construct(parentId);
+      const itemUlid = Ulid.construct(itemId);
+
+      return (
+        <Button
+          className={twJoin(tw`text-slate-500`, idEqual(parentUlid, itemUlid) && tw`invisible`)}
+          variant='ghost'
+          onPress={() => void table.options.meta!.queueTask!(row.index, 'undo')}
+        >
+          <RedoIcon />
+        </Button>
+      );
+    },
+  }),
+];
+
+interface QueryDeltaTableProps extends QueryTableProps {
   deltaExampleId: Uint8Array;
 }
 
 export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
-
-  const { workspaceId } = workspaceRoute.useLoaderData();
 
   const [
     {
@@ -228,17 +246,15 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
       HashMap.fromIterable,
     );
 
-    const items = baseItems.map((_) => ({
-      baseIdCan: Ulid.construct(_.queryId).toCanonical(),
-      baseId: _.queryId,
-      baseValue: _,
-      value: Option.getOrElse(HashMap.get(deltaItemMap, _.queryId), () => _),
-    }));
+    const items = baseItems.map(
+      (_): DeltaTableFormItem<QueryListItem> => ({
+        parentData: _,
+        data: Option.getOrElse(HashMap.get(deltaItemMap, _.queryId), () => _),
+      }),
+    );
 
     return { items };
   }, [deltaItems, baseItems]);
-
-  type Item = (typeof values)['items'][number];
 
   const form = useForm({ values });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
@@ -246,103 +262,33 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
   const { queueTask, itemTransaction } = useFieldArrayTasks({
     form,
     itemPath: (index) => `items.${index}`,
-    itemKey: (_) => _.baseIdCan,
+    itemKey: (_) => Ulid.construct(_.data.queryId).toCanonical(),
     onTask: async ({ index, item, type }) => {
-      const { baseIdCan, baseId, baseValue, value } = item;
+      const { parentData, data } = item;
 
-      if (type === 'change') {
-        const baseUlid = Ulid.construct(baseId);
-        const itemUlid = Ulid.construct(value.queryId);
+      const parentUlid = Ulid.construct(parentData.queryId);
+      const itemUlid = Ulid.construct(data.queryId);
 
-        if (idEqual(baseUlid, itemUlid)) {
-          const { queryId } = await requestService.queryCreate({ ...Struct.omit(value, '$typeName'), exampleId });
-          itemTransaction(baseIdCan, () => void form.setValue(`items.${index}.value.queryId`, queryId));
-        }
-
-        await requestService.queryUpdate(Struct.omit(value, '$typeName'));
-      } else if (type === 'delete') {
-        await requestService.queryDelete({ queryId: value.queryId });
-        itemTransaction(baseIdCan, () => void form.setValue(`items.${index}.value`, baseValue));
+      if (type === 'change' && idEqual(parentUlid, itemUlid)) {
+        const { queryId } = await requestService.queryCreate({ ...Struct.omit(data, '$typeName'), exampleId });
+        const newIdCan = Ulid.construct(queryId).toCanonical();
+        itemTransaction(newIdCan, () => void form.setValue(`items.${index}.data.queryId`, queryId));
+      } else if (type === 'change') {
+        await requestService.queryUpdate(Struct.omit(data, '$typeName'));
+      } else if (type === 'undo') {
+        await requestService.queryDelete({ queryId: data.queryId });
+        itemTransaction(parentUlid.toCanonical(), () => void form.setValue(`items.${index}.data`, parentData));
       }
     },
   });
 
-  const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<Item>();
-    return [
-      accessor('value.enabled', {
-        header: () => <RHFDevTools control={form.control} className={tw`size-0`} />,
-        size: 0,
-        cell: ({ row }) => (
-          <div className={tw`flex justify-center`}>
-            <CheckboxRHF control={form.control} name={`items.${row.index}.value.enabled`} variant='table-cell' />
-          </div>
-        ),
-      }),
-      accessor('value.key', {
-        header: 'Key',
-        meta: { divider: false },
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.value.key`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('value.value', {
-        header: 'Value',
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.value.value`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('value.description', {
-        header: 'Description',
-        cell: ({ row }) => (
-          <TextFieldRHF control={form.control} name={`items.${row.index}.value.description`} variant='table-cell' />
-        ),
-      }),
-      display({
-        id: 'actions',
-        header: '',
-        size: 0,
-        meta: { divider: false },
-        cell: ({ row }) => (
-          <FormWatch control={form.control} name={[`items.${row.index}.baseId`, `items.${row.index}.value.queryId`]}>
-            {([baseId, itemId]) => {
-              const baseUlid = Ulid.construct(baseId);
-              const itemUlid = Ulid.construct(itemId);
-
-              return (
-                <Button
-                  className={twJoin(tw`text-slate-500`, idEqual(baseUlid, itemUlid) && tw`invisible`)}
-                  variant='ghost'
-                  onPress={() => void queueTask(row.index, 'delete')}
-                >
-                  <RedoIcon />
-                </Button>
-              );
-            }}
-          </FormWatch>
-        ),
-      }),
-    ];
-  }, [form.control, workspaceId, queueTask]);
-
   const table = useReactTable({
     getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => _.baseIdCan,
+    getRowId: (_) => (_ as (typeof fieldArray.fields)[number]).id,
     defaultColumn: { minSize: 0 },
     data: fieldArray.fields,
-    columns,
+    meta: { queueTask, control: form.control },
+    columns: queryDeltaTableColumns,
   });
 
   return <DataTable table={table} />;
