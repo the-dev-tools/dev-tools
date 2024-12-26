@@ -158,7 +158,10 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		return nil, fmt.Errorf("invalid flow owner: %w", rpcErr)
 	}
 
+	NodeID := idwrap.NewNow()
+
 	RpcNodeCreated := &nodev1.Node{
+		NodeId:    NodeID.Bytes(),
 		Position:  req.Msg.Position,
 		Kind:      req.Msg.Kind,
 		Start:     req.Msg.Start,
@@ -167,7 +170,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
+	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, NodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node: %w", err))
 	}
@@ -176,6 +179,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer tx.Rollback()
 	nsTX, err := snode.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -218,6 +222,10 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&nodev1.NodeCreateResponse{NodeId: RpcNodeCreated.NodeId}), nil
@@ -267,6 +275,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer tx.Rollback()
 	nsTX, err := snode.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -318,6 +327,11 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
 	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&nodev1.NodeUpdateResponse{}), nil
 }
 
@@ -418,21 +432,33 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 ) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
 
+	Position := &nodev1.Position{
+		X: float32(currentNode.PositionX + 0.1),
+		Y: float32(currentNode.PositionY + 0.1),
+	}
+
 	switch currentNode.NodeKind {
 	case mnode.NODE_KIND_REQUEST:
 		nodeReq, err := nrs.GetNodeRequest(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
 		}
+		var rpcExampleID, rpcEndpointID []byte
+		if nodeReq.ExampleID != nil {
+			rpcExampleID = nodeReq.ExampleID.Bytes()
+		}
+		if nodeReq.EndpointID != nil {
+			rpcEndpointID = nodeReq.EndpointID.Bytes()
+		}
+
 		nodeList := &nodev1.Node{
-			Kind: nodev1.NodeKind_NODE_KIND_FOR,
+			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
+			Position: Position,
 			Request: &nodev1.NodeRequest{
-				NodeId: currentNode.ID.Bytes(),
-				Position: &nodev1.Position{
-					X: float32(currentNode.PositionX),
-					Y: float32(currentNode.PositionY),
-				},
-				ExampleId: nodeReq.ExampleID.Bytes(),
+				NodeId:     currentNode.ID.Bytes(),
+				Position:   Position,
+				ExampleId:  rpcExampleID,
+				EndpointId: rpcEndpointID,
 			},
 		}
 		rpcNode = nodeList
@@ -443,17 +469,11 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		}
 		// TODO: ask which pos should be filled
 		nodeList := &nodev1.Node{
-			Kind: nodev1.NodeKind_NODE_KIND_FOR,
-			Position: &nodev1.Position{
-				X: float32(currentNode.PositionX),
-				Y: float32(currentNode.PositionY),
-			},
+			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
+			Position: Position,
 			For: &nodev1.NodeFor{
-				NodeId: currentNode.ID.Bytes(),
-				Position: &nodev1.Position{
-					X: float32(currentNode.PositionX),
-					Y: float32(currentNode.PositionY),
-				},
+				NodeId:    currentNode.ID.Bytes(),
+				Position:  Position,
 				Iteration: int32(nodeFor.IterCount),
 			},
 		}
@@ -465,17 +485,11 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 			return nil, err
 		}
 		rpcNode = &nodev1.Node{
-			Kind: nodev1.NodeKind_NODE_KIND_START,
-			Position: &nodev1.Position{
-				X: float32(currentNode.PositionX),
-				Y: float32(currentNode.PositionY),
-			},
+			Kind:     nodev1.NodeKind_NODE_KIND_START,
+			Position: Position,
 			Start: &nodev1.NodeStart{
-				Position: &nodev1.Position{
-					X: float32(currentNode.PositionX),
-					Y: float32(currentNode.PositionY),
-				},
-				NodeId: nodeStart.FlowNodeID.Bytes(),
+				Position: Position,
+				NodeId:   nodeStart.FlowNodeID.Bytes(),
 			},
 		}
 

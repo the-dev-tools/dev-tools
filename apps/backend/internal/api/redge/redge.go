@@ -94,7 +94,8 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	a, b := rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID)
+	rpcErr := permcheck.CheckPerm(a, b)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -120,8 +121,9 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source and target nodes must be in the same flow"))
 	}
 
+	edgeID := idwrap.NewNow()
 	modelEdge := &edge.Edge{
-		ID:       idwrap.NewNow(),
+		ID:       edgeID,
 		SourceID: sourceID,
 		TargetID: targetID,
 	}
@@ -131,7 +133,10 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&edgev1.EdgeCreateResponse{}), nil
+	resp := &edgev1.EdgeCreateResponse{
+		EdgeId: edgeID.Bytes(),
+	}
+	return connect.NewResponse(resp), nil
 }
 
 func (c *EdgeServiceRPC) EdgeUpdate(ctx context.Context, req *connect.Request[edgev1.EdgeUpdateRequest]) (*connect.Response[edgev1.EdgeUpdateResponse], error) {
