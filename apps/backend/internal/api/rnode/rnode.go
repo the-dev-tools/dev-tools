@@ -232,11 +232,6 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 }
 
 func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[nodev1.NodeUpdateRequest]) (*connect.Response[nodev1.NodeUpdateResponse], error) {
-	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
 	nodeID, err := idwrap.NewFromBytes(req.Msg.NodeId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -252,21 +247,17 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if node.FlowID != flowID {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node %s does not belong to flow %s", nodeID, flowID))
-	}
-
 	RpcNodeCreated := &nodev1.Node{
 		NodeId:    nodeID.Bytes(),
+		Kind:      nodev1.NodeKind(node.NodeKind),
 		Position:  req.Msg.Position,
-		Kind:      req.Msg.Kind,
 		Start:     req.Msg.Start,
 		Request:   req.Msg.Request,
 		For:       req.Msg.For,
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
+	node, subNode, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, node.FlowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -325,7 +316,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	default:
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T, %V", subNodeType, subNode))
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -535,7 +526,6 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			endpointIDPtr = &endpointID
 		}
 		if rpcNode.Request.ExampleId != nil {
-
 			exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
 			if err != nil {
 				return nil, nil, err
@@ -574,6 +564,8 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			Value:         rpcNode.Condition.SimpleCondition.Value,
 		}
 		subNode = ifNode
+	default:
+		return nil, nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
 	}
 
 	return node, subNode, nil
