@@ -331,11 +331,14 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.Name, forNode.IterCount, time.Second)
 	}
 	for _, requestNode := range requestNodes {
-		endpoint, err := c.as.GetItemApi(ctx, requestNode.EndpointID)
+		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID))
+		}
+		endpoint, err := c.as.GetItemApi(ctx, *requestNode.EndpointID)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
-		example, err := c.es.GetApiExample(ctx, requestNode.ExampleID)
+		example, err := c.es.GetApiExample(ctx, *requestNode.ExampleID)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}

@@ -150,16 +150,15 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[nodev1.NodeCreateRequest]) (*connect.Response[nodev1.NodeCreateResponse], error) {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 	}
 
 	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
 	if rpcErr != nil {
-		return nil, rpcErr
+		return nil, fmt.Errorf("invalid flow owner: %w", rpcErr)
 	}
 
 	RpcNodeCreated := &nodev1.Node{
-		NodeId:    idwrap.NewNow().Bytes(),
 		Position:  req.Msg.Position,
 		Kind:      req.Msg.Kind,
 		Start:     req.Msg.Start,
@@ -170,7 +169,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 
 	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node: %w", err))
 	}
 
 	tx, err := c.DB.Begin()
@@ -189,31 +188,31 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 	// INFO: this is using reflection to check the type of subNode
 	// in future, this should be refactored to use a more explicit way to check the type
 	switch subNodeType := subNode.(type) {
-	case mnrequest.MNRequest:
+	case *mnrequest.MNRequest:
 		subNodeType.FlowNodeID = node.ID
 		nrsTX, err := snoderequest.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = nrsTX.CreateNodeRequest(ctx, subNodeType)
+		err = nrsTX.CreateNodeRequest(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	case mnfor.MNFor:
+	case *mnfor.MNFor:
 		nlfTX, err := snodefor.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = nlfTX.CreateNodeFor(ctx, subNodeType)
+		err = nlfTX.CreateNodeFor(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	case mnif.MNIF:
+	case *mnif.MNIF:
 		niTX, err := snodeif.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = niTX.CreateNodeIf(ctx, subNodeType)
+		err = niTX.CreateNodeIf(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -259,7 +258,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
+	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, idwrap.NewNow())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -368,22 +367,29 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		itemApi, err := c.ias.GetItemApi(ctx, nodeReq.EndpointID)
+		if nodeReq.EndpointID == nil || nodeReq.ExampleID == nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", nodeReq.FlowNodeID))
+		}
+
+		endpointID := *nodeReq.EndpointID
+		exampleID := *nodeReq.ExampleID
+
+		itemApi, err := c.ias.GetItemApi(ctx, endpointID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		example, err := c.iaes.GetApiExample(ctx, nodeReq.ExampleID)
+		example, err := c.iaes.GetApiExample(ctx, exampleID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, nodeReq.ExampleID)
+		queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exampleID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		headers, err := c.ehs.GetHeaderByExampleID(ctx, nodeReq.ExampleID)
+		headers, err := c.ehs.GetHeaderByExampleID(ctx, exampleID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -480,7 +486,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 	return rpcNode, nil
 }
 
-func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
+func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
 	id, err := idwrap.NewFromBytes(rpcNode.NodeId)
 	if err != nil {
 		return nil, nil, err
@@ -506,20 +512,27 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 
 	switch rpcNode.Kind {
 	case nodev1.NodeKind_NODE_KIND_REQUEST:
-		endpointID, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
-		if err != nil {
-			return nil, nil, err
+		var endpointIDPtr, exampleIDPtr *idwrap.IDWrap
+		if rpcNode.Request.EndpointId != nil {
+			endpointID, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
+			if err != nil {
+				return nil, nil, err
+			}
+			endpointIDPtr = &endpointID
 		}
+		if rpcNode.Request.ExampleId != nil {
 
-		exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
-		if err != nil {
-			return nil, nil, err
+			exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
+			if err != nil {
+				return nil, nil, err
+			}
+			exampleIDPtr = &exampleID
 		}
 
 		reqNode := &mnrequest.MNRequest{
 			FlowNodeID: nodeID,
-			EndpointID: endpointID,
-			ExampleID:  exampleID,
+			EndpointID: endpointIDPtr,
+			ExampleID:  exampleIDPtr,
 		}
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:

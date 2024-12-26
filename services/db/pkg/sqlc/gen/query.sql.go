@@ -765,8 +765,8 @@ VALUES
 type CreateFlowNodeRequestParams struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
-	EndpointID idwrap.IDWrap
-	ExampleID  idwrap.IDWrap
+	EndpointID *idwrap.IDWrap
+	ExampleID  *idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
@@ -5094,8 +5094,8 @@ WHERE
 
 type UpdateFlowNodeRequestParams struct {
 	Name       string
-	EndpointID idwrap.IDWrap
-	ExampleID  idwrap.IDWrap
+	EndpointID *idwrap.IDWrap
+	ExampleID  *idwrap.IDWrap
 	FlowNodeID idwrap.IDWrap
 }
 

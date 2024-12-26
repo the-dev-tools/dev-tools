@@ -5,6 +5,6 @@ import "the-dev-tools/backend/pkg/idwrap"
 type MNRequest struct {
 	FlowNodeID idwrap.IDWrap
 	Name       string
-	EndpointID idwrap.IDWrap
-	ExampleID  idwrap.IDWrap
+	EndpointID *idwrap.IDWrap
+	ExampleID  *idwrap.IDWrap
 }

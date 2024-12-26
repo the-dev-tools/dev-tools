@@ -503,12 +503,14 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+              pointer: true
           ### example_id
           - column: 'flow_node_request.example_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+              pointer: true
           ## flow_node_if
           ### flow_node_id
           - column: 'flow_node_if.flow_node_id'
