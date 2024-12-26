@@ -1,5 +1,8 @@
-import { RowData } from '@tanstack/table-core';
-import { Array, pipe } from 'effect';
+import { Message } from '@bufbuild/protobuf';
+import { getRouteApi } from '@tanstack/react-router';
+import { AccessorKeyColumnDef, createColumnHelper, RowData } from '@tanstack/table-core';
+import { Array, Option, pipe } from 'effect';
+import { idEqual, Ulid } from 'id128';
 import { ComponentProps, ReactNode, RefObject, useCallback, useEffect, useRef } from 'react';
 import {
   Control,
@@ -15,10 +18,19 @@ import {
   useWatch,
   WatchObserver,
 } from 'react-hook-form';
+import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { getMessageId } from '@the-dev-tools/api/meta';
+import { Button } from '@the-dev-tools/ui/button';
+import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+
+import { RHFDevTools } from './dev-tools';
+import { TextFieldWithVariables } from './variable';
 
 export interface UseFormTableSyncProps<TItem, TField extends string, TFieldValues extends Record<TField, TItem[]>> {
   field: TField;
@@ -269,3 +281,142 @@ declare module '@tanstack/table-core' {
     control?: Control<TableFormData<TData>>;
   }
 }
+
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+
+interface GenericFormTableItem extends Message {
+  enabled: boolean;
+  key: string;
+  value: string;
+  description: string;
+}
+
+const genericFormTableColumnHelper = createColumnHelper<TableFormItem<GenericFormTableItem>>();
+
+const genericFormTableColumnsShared = [
+  genericFormTableColumnHelper.accessor('data.key', {
+    header: 'Key',
+    meta: { divider: false },
+    cell: ({ table, row: { index } }) => {
+      const { workspaceId } = workspaceRoute.useLoaderData();
+      return (
+        <TextFieldWithVariables
+          control={table.options.meta!.control!}
+          name={`items.${index}.data.key`}
+          workspaceId={workspaceId}
+          variant='table-cell'
+          className='flex-1'
+        />
+      );
+    },
+  }),
+  genericFormTableColumnHelper.accessor('data.value', {
+    header: 'Value',
+    cell: ({ table, row: { index } }) => {
+      const { workspaceId } = workspaceRoute.useLoaderData();
+      return (
+        <TextFieldWithVariables
+          control={table.options.meta!.control!}
+          name={`items.${index}.data.value`}
+          workspaceId={workspaceId}
+          variant='table-cell'
+          className='flex-1'
+        />
+      );
+    },
+  }),
+  genericFormTableColumnHelper.accessor('data.description', {
+    header: 'Description',
+    cell: ({ table, row }) => (
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.description`}
+        variant='table-cell'
+      />
+    ),
+  }),
+];
+
+const genericFormTableColumns = [
+  genericFormTableColumnHelper.accessor('data.enabled', {
+    header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
+    size: 0,
+    cell: ({ table, row }) => (
+      <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
+        <CheckboxRHF
+          control={table.options.meta!.control!}
+          name={`items.${row.index}.data.enabled`}
+          variant='table-cell'
+        />
+      </HidePlaceholderCell>
+    ),
+  }),
+  ...genericFormTableColumnsShared,
+  genericFormTableColumnHelper.display({
+    id: 'actions',
+    header: '',
+    size: 0,
+    meta: { divider: false },
+    cell: ({ table, row }) => (
+      <HidePlaceholderCell row={row} table={table}>
+        <Button
+          className='text-red-700'
+          variant='ghost'
+          onPress={() => void table.options.meta?.queueTask?.(row.index, 'delete')}
+        >
+          <LuTrash2 />
+        </Button>
+      </HidePlaceholderCell>
+    ),
+  }),
+];
+
+export const makeGenericFormTableColumns = <T extends GenericFormTableItem>() =>
+  genericFormTableColumns as AccessorKeyColumnDef<TableFormItem<T>>[];
+
+const genericDeltaFormTableColumnHelper = createColumnHelper<DeltaTableFormItem<GenericFormTableItem>>();
+
+const genericDeltaFormTableColumns = [
+  genericDeltaFormTableColumnHelper.accessor('data.enabled', {
+    header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
+    size: 0,
+    cell: ({ table, row }) => (
+      <div className={tw`flex justify-center`}>
+        <CheckboxRHF
+          control={table.options.meta!.control!}
+          name={`items.${row.index}.data.enabled`}
+          variant='table-cell'
+        />
+      </div>
+    ),
+  }),
+  ...genericFormTableColumnsShared,
+  genericDeltaFormTableColumnHelper.display({
+    id: 'actions',
+    header: '',
+    size: 0,
+    meta: { divider: false },
+    cell: function ActionCell({ table, row }) {
+      const [parentData, data] = useWatch({
+        control: table.options.meta!.control!,
+        name: [`items.${row.index}.parentData`, `items.${row.index}.data`],
+      });
+
+      const parentUlid = pipe(getMessageId(parentData), Option.getOrThrow, (_) => Ulid.construct(_));
+      const itemUlid = pipe(getMessageId(data), Option.getOrThrow, (_) => Ulid.construct(_));
+
+      return (
+        <Button
+          className={twJoin(tw`text-slate-500`, idEqual(parentUlid, itemUlid) && tw`invisible`)}
+          variant='ghost'
+          onPress={() => void table.options.meta!.queueTask!(row.index, 'undo')}
+        >
+          <RedoIcon />
+        </Button>
+      );
+    },
+  }),
+];
+
+export const makeGenericDeltaFormTableColumns = <T extends GenericFormTableItem>() =>
+  genericDeltaFormTableColumns as AccessorKeyColumnDef<DeltaTableFormItem<T>>[];
