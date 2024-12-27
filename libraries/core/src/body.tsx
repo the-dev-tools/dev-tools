@@ -1,62 +1,35 @@
-import { create, fromJson, toJson } from '@bufbuild/protobuf';
-import {
-  createConnectQueryKey,
-  createProtobufSafeUpdater,
-  useMutation as useConnectMutation,
-  useSuspenseQuery as useConnectSuspenseQuery,
-} from '@connectrpc/connect-query';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
-import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { createClient } from '@connectrpc/connect';
+import { useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
+import { useQuery } from '@tanstack/react-query';
+import { useRouteContext } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Match, pipe } from 'effect';
-import { useCallback, useMemo, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
-import { LuTrash2 } from 'react-icons/lu';
+import { Array, Match, pipe, Struct } from 'effect';
+import { useMemo, useState } from 'react';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { bodyRawUpdateSpec } from '@the-dev-tools/api/spec/collection/item/body';
 import { exampleUpdateSpec } from '@the-dev-tools/api/spec/collection/item/example';
 import {
-  BodyFormItemCreateResponseSchema,
-  BodyFormItemJson,
+  BodyFormItemListItem,
   BodyFormItemListItemSchema,
-  BodyFormItemListResponseSchema,
-  BodyFormItemSchema,
-  BodyFormItemUpdateRequestSchema,
   BodyKind,
-  BodyUrlEncodedItemCreateResponseSchema,
-  BodyUrlEncodedItemJson,
+  BodyUrlEncodedItemListItem,
   BodyUrlEncodedItemListItemSchema,
-  BodyUrlEncodedItemListResponseSchema,
-  BodyUrlEncodedItemSchema,
-  BodyUrlEncodedItemUpdateRequestSchema,
+  RequestService,
 } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import {
-  bodyFormItemCreate,
-  bodyFormItemDelete,
   bodyFormItemList,
-  bodyFormItemUpdate,
   bodyRawGet,
-  bodyUrlEncodedItemCreate,
-  bodyUrlEncodedItemDelete,
   bodyUrlEncodedItemList,
-  bodyUrlEncodedItemUpdate,
 } from '@the-dev-tools/spec/collection/item/body/v1/body-RequestService_connectquery';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
-import { Button } from '@the-dev-tools/ui/button';
-import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { HidePlaceholderCell, useFormTableSync } from './form-table';
-import { TextFieldWithVariables } from './variable';
-
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+import { makeGenericFormTableColumns, useFormTable } from './form-table';
 
 interface BodyViewProps {
   endpointId: Uint8Array;
@@ -101,143 +74,21 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
-  const queryClient = useQueryClient();
-
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { transport } = useRouteContext({ from: '__root__' });
+  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
   const {
     data: { items },
   } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
 
-  const createMutation = useConnectMutation(bodyFormItemCreate);
-  const updateMutation = useConnectMutation(bodyFormItemUpdate);
-  const { mutate: deleteMutate } = useConnectMutation(bodyFormItemDelete);
-
-  const makeItem = useCallback(
-    (bodyId?: string, item?: BodyFormItemJson) => ({
-      ...item,
-      bodyId: bodyId ?? '',
-      enabled: true,
-    }),
-    [],
-  );
-  const values = useMemo(
-    () => ({
-      items: [...items.map((_): BodyFormItemJson => toJson(BodyFormItemListItemSchema, _)), makeItem()],
-    }),
-    [items, makeItem],
-  );
-  const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({
-    control: form.control,
-    name: 'items',
-    keyName: 'bodyId',
-  });
-
-  const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<BodyFormItemJson>();
-    return [
-      accessor('enabled', {
-        header: '',
-        size: 0,
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
-            <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
-          </HidePlaceholderCell>
-        ),
-      }),
-      accessor('key', {
-        meta: { divider: false },
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.key`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('value', {
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.value`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('description', {
-        cell: ({ row }) => (
-          <TextFieldRHF control={form.control} name={`items.${row.index}.description`} variant='table-cell' />
-        ),
-      }),
-      display({
-        id: 'actions',
-        header: '',
-        size: 0,
-        meta: { divider: false },
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
-            <Button
-              className='text-red-700'
-              variant='ghost'
-              onPress={() => {
-                const bodyIdJson = getValues(`items.${row.index}.bodyId`);
-                if (bodyIdJson === undefined) return;
-                const { bodyId } = fromJson(BodyFormItemSchema, {
-                  bodyId: bodyIdJson,
-                });
-                deleteMutate({ bodyId });
-                removeField(row.index);
-              }}
-            >
-              <LuTrash2 />
-            </Button>
-          </HidePlaceholderCell>
-        ),
-      }),
-    ];
-  }, [form.control, workspaceId, deleteMutate, getValues, removeField]);
-
-  const table = useReactTable({
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => _.bodyId ?? '',
-    defaultColumn: { minSize: 0 },
-    data: fieldArray.fields,
-    columns,
-  });
-
-  const setData = useCallback(() => {
-    const items = pipe(
-      getValues('items'),
-      Array.dropRight(1),
-      Array.map((_) => fromJson(BodyFormItemListItemSchema, _)),
-    );
-    queryClient.setQueryData(
-      createConnectQueryKey({
-        schema: bodyFormItemList,
-        cardinality: 'finite',
-        input: { exampleId },
-      }),
-      createProtobufSafeUpdater(bodyFormItemList, () => create(BodyFormItemListResponseSchema, { items })),
-    );
-  }, [exampleId, getValues, queryClient]);
-
-  useFormTableSync({
-    field: 'items',
-    form: { ...form, getValues },
-    fieldArray,
-    makeItem,
-    getRowId: (_) => _.bodyId,
-    onCreate: async (body) => {
-      const response = await createMutation.mutateAsync({ ...body, exampleId });
-      return toJson(BodyFormItemCreateResponseSchema, response).bodyId ?? '';
-    },
-    onUpdate: (body) => updateMutation.mutateAsync(fromJson(BodyFormItemUpdateRequestSchema, body)),
-    setData,
+  const table = useFormTable({
+    items,
+    schema: BodyFormItemListItemSchema,
+    columns: makeGenericFormTableColumns<BodyFormItemListItem>(),
+    onCreate: (_) =>
+      requestService.bodyFormItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
+    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
+    onDelete: (_) => requestService.bodyFormItemDelete(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
@@ -248,143 +99,21 @@ interface UrlEncodedTableProps {
 }
 
 const UrlEncodedTable = ({ exampleId }: UrlEncodedTableProps) => {
-  const queryClient = useQueryClient();
-
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { transport } = useRouteContext({ from: '__root__' });
+  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
   const {
     data: { items },
   } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
 
-  const createMutation = useConnectMutation(bodyUrlEncodedItemCreate);
-  const updateMutation = useConnectMutation(bodyUrlEncodedItemUpdate);
-  const { mutate: deleteMutate } = useConnectMutation(bodyUrlEncodedItemDelete);
-
-  const makeItem = useCallback(
-    (bodyId?: string, item?: BodyUrlEncodedItemJson) => ({
-      ...item,
-      bodyId: bodyId ?? '',
-      enabled: true,
-    }),
-    [],
-  );
-  const values = useMemo(
-    () => ({
-      items: [...items.map((_): BodyUrlEncodedItemJson => toJson(BodyUrlEncodedItemListItemSchema, _)), makeItem()],
-    }),
-    [items, makeItem],
-  );
-  const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({
-    control: form.control,
-    name: 'items',
-    keyName: 'bodyId',
-  });
-
-  const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<BodyUrlEncodedItemJson>();
-    return [
-      accessor('enabled', {
-        header: '',
-        size: 0,
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
-            <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
-          </HidePlaceholderCell>
-        ),
-      }),
-      accessor('key', {
-        meta: { divider: false },
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.key`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('value', {
-        cell: ({ row: { index } }) => (
-          <TextFieldWithVariables
-            control={form.control}
-            name={`items.${index}.value`}
-            workspaceId={workspaceId}
-            variant='table-cell'
-            className='flex-1'
-          />
-        ),
-      }),
-      accessor('description', {
-        cell: ({ row }) => (
-          <TextFieldRHF control={form.control} name={`items.${row.index}.description`} variant='table-cell' />
-        ),
-      }),
-      display({
-        id: 'actions',
-        header: '',
-        size: 0,
-        meta: { divider: false },
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
-            <Button
-              className='text-red-700'
-              variant='ghost'
-              onPress={() => {
-                const bodyIdJson = getValues(`items.${row.index}.bodyId`);
-                if (bodyIdJson === undefined) return;
-                const { bodyId } = fromJson(BodyUrlEncodedItemSchema, {
-                  bodyId: bodyIdJson,
-                });
-                deleteMutate({ bodyId });
-                removeField(row.index);
-              }}
-            >
-              <LuTrash2 />
-            </Button>
-          </HidePlaceholderCell>
-        ),
-      }),
-    ];
-  }, [form.control, workspaceId, deleteMutate, getValues, removeField]);
-
-  const table = useReactTable({
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => _.bodyId ?? '',
-    defaultColumn: { minSize: 0 },
-    data: fieldArray.fields,
-    columns,
-  });
-
-  const setData = useCallback(() => {
-    const items = pipe(
-      getValues('items'),
-      Array.dropRight(1),
-      Array.map((_) => fromJson(BodyUrlEncodedItemListItemSchema, _)),
-    );
-    queryClient.setQueryData(
-      createConnectQueryKey({
-        schema: bodyUrlEncodedItemList,
-        cardinality: 'finite',
-        input: { exampleId },
-      }),
-      createProtobufSafeUpdater(bodyUrlEncodedItemList, () => create(BodyUrlEncodedItemListResponseSchema, { items })),
-    );
-  }, [exampleId, getValues, queryClient]);
-
-  useFormTableSync({
-    field: 'items',
-    form: { ...form, getValues },
-    fieldArray,
-    makeItem,
-    getRowId: (_) => _.bodyId,
-    onCreate: async (body) => {
-      const response = await createMutation.mutateAsync({ ...body, exampleId });
-      return toJson(BodyUrlEncodedItemCreateResponseSchema, response).bodyId ?? '';
-    },
-    onUpdate: (body) => updateMutation.mutateAsync(fromJson(BodyUrlEncodedItemUpdateRequestSchema, body)),
-    setData,
+  const table = useFormTable({
+    items,
+    schema: BodyUrlEncodedItemListItemSchema,
+    columns: makeGenericFormTableColumns<BodyUrlEncodedItemListItem>(),
+    onCreate: (_) =>
+      requestService.bodyUrlEncodedItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
+    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
+    onDelete: (_) => requestService.bodyUrlEncodedItemDelete(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;

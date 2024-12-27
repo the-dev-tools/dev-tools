@@ -1,47 +1,22 @@
-import { create, fromJson, toJson } from '@bufbuild/protobuf';
-import {
-  createConnectQueryKey,
-  createProtobufSafeUpdater,
-  createQueryOptions,
-  useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
-  useTransport,
-} from '@connectrpc/connect-query';
-import { useQueryClient } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
-import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Array, pipe } from 'effect';
+import { createClient } from '@connectrpc/connect';
+import { useQuery as useConnectQuery, useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
+import { getRouteApi, useRouteContext } from '@tanstack/react-router';
+import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
+import { Struct } from 'effect';
 import { Ulid } from 'id128';
-import { useCallback, useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
-import { useFieldArray, useForm } from 'react-hook-form';
 import { FiPlus } from 'react-icons/fi';
-import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { environmentCreateSpec } from '@the-dev-tools/api/spec/environment';
 import { workspaceUpdateSpec } from '@the-dev-tools/api/spec/workspace';
-import { Environment } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import { environmentList } from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
-import {
-  VariableCreateResponseSchema,
-  VariableJson,
-  VariableListItem,
-  VariableListItemSchema,
-  VariableListResponseSchema,
-  VariableSchema,
-  VariableUpdateRequestSchema,
-} from '@the-dev-tools/spec/variable/v1/variable_pb';
-import {
-  variableCreate,
-  variableDelete,
-  variableList,
-  variableUpdate,
-} from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
+import { VariableListItem, VariableListItemSchema, VariableService } from '@the-dev-tools/spec/variable/v1/variable_pb';
+import { variableList } from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
-import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
@@ -50,7 +25,7 @@ import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { HidePlaceholderCell, useFormTableSync } from './form-table';
+import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from './form-table';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -181,7 +156,9 @@ export const EnvironmentsWidget = () => {
                             </h1>
                           </div>
 
-                          <VariablesTableLoader environmentId={item.environmentId} />
+                          <Suspense fallback={'Loading variables...'}>
+                            <VariablesTable environmentId={item.environmentId} />
+                          </Suspense>
                         </div>
 
                         <div className={tw`flex-1`} />
@@ -206,139 +183,60 @@ export const EnvironmentsWidget = () => {
   );
 };
 
-interface VariablesTableLoaderProps {
-  environmentId: Environment['environmentId'];
+const variableColumnHelper = createColumnHelper<FormTableItem<VariableListItem>>();
+
+const variableColumns = [
+  genericFormTableEnableColumn,
+  variableColumnHelper.accessor('data.name', {
+    header: 'Name',
+    meta: { divider: false },
+    cell: ({ table, row }) => (
+      <TextFieldRHF control={table.options.meta!.control!} name={`items.${row.index}.data.name`} variant='table-cell' />
+    ),
+  }),
+  variableColumnHelper.accessor('data.value', {
+    header: 'Value',
+    cell: ({ table, row }) => (
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.value`}
+        variant='table-cell'
+      />
+    ),
+  }),
+  variableColumnHelper.accessor('data.description', {
+    header: 'Description',
+    cell: ({ table, row }) => (
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.description`}
+        variant='table-cell'
+      />
+    ),
+  }),
+  genericFormTableActionColumn,
+];
+
+interface VariablesTableProps {
+  environmentId: Uint8Array;
 }
 
-const VariablesTableLoader = ({ environmentId }: VariablesTableLoaderProps) => {
-  const variableListQuery = useConnectQuery(variableList, { environmentId });
-  if (!variableListQuery.isSuccess) return;
-  return <VariablesTable environmentId={environmentId} items={variableListQuery.data.items} />;
-};
+export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
+  const { transport } = useRouteContext({ from: '__root__' });
+  const variableService = useMemo(() => createClient(VariableService, transport), [transport]);
 
-interface VariablesTableProps extends VariablesTableLoaderProps {
-  items: VariableListItem[];
-}
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(variableList, { environmentId });
 
-const VariablesTable = ({ environmentId, items }: VariablesTableProps) => {
-  const queryClient = useQueryClient();
-  const transport = useTransport();
-
-  const { workspaceId } = workspaceRoute.useLoaderData();
-
-  const variableCreateMutation = useConnectMutation(variableCreate);
-  const variableUpdateMutation = useConnectMutation(variableUpdate);
-  const { mutate: variableDeleteMutate } = useConnectMutation(variableDelete);
-
-  const makeItem = useCallback(
-    (variableId?: string, item?: VariableJson) => ({ ...item, variableId: variableId ?? '', enabled: true }),
-    [],
-  );
-  const values = useMemo(
-    () => ({ items: [...items.map((_): VariableJson => toJson(VariableListItemSchema, _)), makeItem()] }),
-    [items, makeItem],
-  );
-  const { getValues, ...form } = useForm({ values });
-  const { remove: removeField, ...fieldArray } = useFieldArray({
-    control: form.control,
-    name: 'items',
-    keyName: 'variableId',
-  });
-
-  const onChange = useCallback(
-    () => queryClient.invalidateQueries(createQueryOptions(variableList, { workspaceId }, { transport })),
-    [queryClient, transport, workspaceId],
-  );
-
-  const columns = useMemo(() => {
-    const { accessor, display } = createColumnHelper<VariableJson>();
-    return [
-      accessor('enabled', {
-        header: '',
-        size: 0,
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
-            <CheckboxRHF control={form.control} name={`items.${row.index}.enabled`} variant='table-cell' />
-          </HidePlaceholderCell>
-        ),
-      }),
-      accessor('name', {
-        meta: { divider: false },
-        cell: ({ row }) => (
-          <TextFieldRHF control={form.control} name={`items.${row.index}.name`} variant='table-cell' />
-        ),
-      }),
-      accessor('value', {
-        cell: ({ row: { index } }) => (
-          <TextFieldRHF control={form.control} name={`items.${index}.value`} variant='table-cell' />
-        ),
-      }),
-      accessor('description', {
-        cell: ({ row }) => (
-          <TextFieldRHF control={form.control} name={`items.${row.index}.description`} variant='table-cell' />
-        ),
-      }),
-      display({
-        id: 'actions',
-        header: '',
-        size: 0,
-        meta: { divider: false },
-        cell: ({ row, table }) => (
-          <HidePlaceholderCell row={row} table={table}>
-            <Button
-              className={tw`text-red-700`}
-              variant='ghost'
-              onPress={() => {
-                const variableIdJson = getValues(`items.${row.index}.variableId`);
-                if (variableIdJson === undefined) return;
-                const { variableId } = fromJson(VariableSchema, { variableId: variableIdJson });
-                variableDeleteMutate({ variableId });
-                removeField(row.index);
-                void onChange();
-              }}
-            >
-              <LuTrash2 />
-            </Button>
-          </HidePlaceholderCell>
-        ),
-      }),
-    ];
-  }, [form.control, variableDeleteMutate, getValues, removeField, onChange]);
-
-  const table = useReactTable({
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => _.variableId ?? '',
-    defaultColumn: { minSize: 0 },
-    data: fieldArray.fields,
-    columns,
-  });
-
-  const setData = useCallback(async () => {
-    await onChange();
-    const items = pipe(
-      getValues('items'),
-      Array.dropRight(1),
-      Array.map((_) => fromJson(VariableListItemSchema, _)),
-    );
-    queryClient.setQueryData(
-      createConnectQueryKey({ schema: variableList, cardinality: 'finite', input: { workspaceId }, transport }),
-      createProtobufSafeUpdater(variableList, () => create(VariableListResponseSchema, { items })),
-    );
-  }, [getValues, onChange, queryClient, transport, workspaceId]);
-
-  useFormTableSync({
-    field: 'items',
-    form: { ...form, getValues },
-    fieldArray,
-    makeItem,
-    getRowId: (_) => _.variableId,
-    onCreate: async (variable) => {
-      const response = await variableCreateMutation.mutateAsync({ ...variable, environmentId });
-      return toJson(VariableCreateResponseSchema, response).variableId ?? '';
-    },
-    onUpdate: (variable) => variableUpdateMutation.mutateAsync(fromJson(VariableUpdateRequestSchema, variable)),
-    onChange,
-    setData,
+  const table = useFormTable({
+    items,
+    schema: VariableListItemSchema,
+    columns: variableColumns as ColumnDef<FormTableItem<VariableListItem>>[],
+    onCreate: (_) =>
+      variableService.variableCreate({ ...Struct.omit(_, '$typeName'), environmentId }).then((_) => _.variableId),
+    onUpdate: (_) => variableService.variableUpdate(Struct.omit(_, '$typeName')),
+    onDelete: (_) => variableService.variableDelete(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} />;

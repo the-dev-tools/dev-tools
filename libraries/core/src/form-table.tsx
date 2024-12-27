@@ -2,13 +2,19 @@ import { create, Message } from '@bufbuild/protobuf';
 import { GenMessage } from '@bufbuild/protobuf/codegenv1';
 import { getRouteApi } from '@tanstack/react-router';
 import { useReactTable } from '@tanstack/react-table';
-import { AccessorKeyColumnDef, ColumnDef, createColumnHelper, getCoreRowModel, RowData } from '@tanstack/table-core';
+import {
+  AccessorKeyColumnDef,
+  ColumnDef,
+  createColumnHelper,
+  DisplayColumnDef,
+  getCoreRowModel,
+  RowData,
+} from '@tanstack/table-core';
 import { Array, HashMap, Option, pipe } from 'effect';
 import { idEqual, Ulid } from 'id128';
-import { ComponentProps, ReactNode, RefObject, useCallback, useEffect, useMemo, useRef } from 'react';
+import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Control,
-  FieldArrayMethodProps,
   FieldPath,
   FieldPathValue,
   FieldPathValues,
@@ -20,7 +26,6 @@ import {
   UseFormSetValue,
   UseFormWatch,
   useWatch,
-  WatchObserver,
 } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
@@ -35,98 +40,6 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { RHFDevTools } from './dev-tools';
 import { TextFieldWithVariables } from './variable';
-
-export interface UseFormTableSyncProps<TItem, TField extends string, TFieldValues extends Record<TField, TItem[]>> {
-  field: TField;
-  form: {
-    getValues: {
-      (path: TField): NoInfer<TItem>[];
-      (path: `${TField}.${number}`): NoInfer<TItem>;
-    };
-    setValue: (path: `${TField}.${number}`, item: TItem) => void;
-    watch: (callback: WatchObserver<TFieldValues>) => { unsubscribe: () => void };
-  };
-  fieldArray: {
-    append: (value: TItem | TItem[], options?: FieldArrayMethodProps) => void;
-  };
-  dirtyRef?: RefObject<Map<string, TItem>>;
-  getRowId: (item: TItem) => string;
-  makeItem?: (id?: string, item?: Partial<TItem>) => TItem;
-  onCreate?: (item: TItem) => Promise<string>;
-  onUpdate: (item: TItem) => Promise<unknown>;
-  onChange?: () => void;
-  setData?: () => void;
-}
-
-export const useFormTableSync = <TItem, TField extends string, TFieldValues extends Record<TField, TItem[]>>({
-  field,
-  form: { getValues, setValue, watch },
-  fieldArray,
-  dirtyRef: dirtyRefProp,
-  getRowId,
-  makeItem,
-  onUpdate,
-  onCreate,
-  onChange,
-  setData,
-}: UseFormTableSyncProps<TItem, TField, TFieldValues>) => {
-  const isPending = useRef(false);
-  const dirtyRef = useRef(dirtyRefProp?.current ?? new Map<string, TItem>());
-
-  const update = useDebouncedCallback(async () => {
-    // Wait for all mutations to finish before processing new updates
-    if (isPending.current) return void update();
-    isPending.current = true;
-
-    const dirty = dirtyRef.current;
-    await pipe(
-      Array.fromIterable(dirty),
-      Array.map(async ([updateId, item]) => {
-        dirty.delete(updateId); // Un-queue update
-
-        if (updateId) {
-          const maybeId = await onUpdate(item);
-          // Unqueue update that gets created immediately after
-          if (typeof maybeId === 'string') dirty.delete(maybeId);
-          return;
-        }
-
-        if (!onCreate || !makeItem) return;
-
-        const index = getValues(field).length - 1;
-        const id = await onCreate(item);
-
-        setValue(`${field}.${index}`, makeItem(id, item));
-        dirty.delete(id); // Delete update that gets queued by setting new id
-
-        fieldArray.append(makeItem(), { shouldFocus: false });
-
-        // Redirect outdated queued update to the new id
-        const outdated = dirty.get('');
-        if (!outdated) return;
-        dirty.delete(getRowId(outdated));
-        dirty.set(id, makeItem(id, outdated));
-      }),
-      (_) => Promise.allSettled(_),
-    );
-
-    isPending.current = false;
-    onChange?.();
-  }, 500);
-
-  useEffect(() => {
-    const subscription = watch((_, { name }) => {
-      const rowName = name?.match(new RegExp(`(^${field}.[\\d]+)`, 'g'))?.[0] as `${TField}.${number}` | undefined;
-      if (!rowName) return;
-      const rowValues = getValues(rowName);
-      dirtyRef.current.set(getRowId(rowValues), rowValues);
-      void update();
-    });
-    return () => void subscription.unsubscribe();
-  }, [field, getRowId, getValues, update, watch]);
-
-  useEffect(() => () => void update.flush()?.then(() => void setData?.()), [setData, update]);
-};
 
 export interface HidePlaceholderCellProps extends ComponentProps<'div'> {
   row: { index: number };
@@ -297,6 +210,39 @@ interface GenericFormTableItem extends Message {
 
 const genericFormTableColumnHelper = createColumnHelper<FormTableItem<GenericFormTableItem>>();
 
+export const genericFormTableEnableColumn: AccessorKeyColumnDef<FormTableItem<{ enabled: boolean }>, boolean> = {
+  accessorKey: 'data.enabled',
+  header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
+  size: 0,
+  cell: ({ table, row }) => (
+    <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
+      <CheckboxRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.enabled`}
+        variant='table-cell'
+      />
+    </HidePlaceholderCell>
+  ),
+};
+
+export const genericFormTableActionColumn: DisplayColumnDef<FormTableItem<GenericFormTableItem>> = {
+  id: 'actions',
+  header: '',
+  size: 0,
+  meta: { divider: false },
+  cell: ({ table, row }) => (
+    <HidePlaceholderCell row={row} table={table}>
+      <Button
+        className='text-red-700'
+        variant='ghost'
+        onPress={() => void table.options.meta?.queueTask?.(row.index, 'delete')}
+      >
+        <LuTrash2 />
+      </Button>
+    </HidePlaceholderCell>
+  ),
+};
+
 const genericFormTableColumnsShared = [
   genericFormTableColumnHelper.accessor('data.key', {
     header: 'Key',
@@ -342,37 +288,9 @@ const genericFormTableColumnsShared = [
 ];
 
 const genericFormTableColumns = [
-  genericFormTableColumnHelper.accessor('data.enabled', {
-    header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
-    size: 0,
-    cell: ({ table, row }) => (
-      <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
-        <CheckboxRHF
-          control={table.options.meta!.control!}
-          name={`items.${row.index}.data.enabled`}
-          variant='table-cell'
-        />
-      </HidePlaceholderCell>
-    ),
-  }),
+  genericFormTableEnableColumn,
   ...genericFormTableColumnsShared,
-  genericFormTableColumnHelper.display({
-    id: 'actions',
-    header: '',
-    size: 0,
-    meta: { divider: false },
-    cell: ({ table, row }) => (
-      <HidePlaceholderCell row={row} table={table}>
-        <Button
-          className='text-red-700'
-          variant='ghost'
-          onPress={() => void table.options.meta?.queueTask?.(row.index, 'delete')}
-        >
-          <LuTrash2 />
-        </Button>
-      </HidePlaceholderCell>
-    ),
-  }),
+  genericFormTableActionColumn,
 ];
 
 export const makeGenericFormTableColumns = <T extends GenericFormTableItem>() =>
