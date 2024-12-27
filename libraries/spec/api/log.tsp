@@ -14,7 +14,7 @@ using TypeSpec.Protobuf;
 namespace API.Log;
 
 @autoFields
-model LogStreamItem {
+model LogStreamResponse {
   @key logId: Resource.Id;
   value: string;
 }
@@ -22,5 +22,5 @@ model LogStreamItem {
 @Protobuf.service
 interface LogService {
   @stream(StreamMode.Out)
-  LogStream(): LogStreamItem;
+  LogStream(): LogStreamResponse;
 }
