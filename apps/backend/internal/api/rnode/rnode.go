@@ -538,17 +538,24 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			EndpointID: endpointIDPtr,
 			ExampleID:  exampleIDPtr,
 		}
+		node.PositionX = float64(rpcNode.Request.Position.X)
+		node.PositionY = float64(rpcNode.Request.Position.Y)
+
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
 		forNode := &mnfor.MNFor{
 			FlowNodeID: nodeID,
 			IterCount:  int64(rpcNode.For.Iteration),
 		}
+		node.PositionX = float64(rpcNode.For.Position.X)
+		node.PositionY = float64(rpcNode.For.Position.Y)
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_START:
 		startNode := &mnstart.StartNode{
 			FlowNodeID: nodeID,
 		}
+		node.PositionX = float64(rpcNode.Start.Position.X)
+		node.PositionY = float64(rpcNode.Start.Position.Y)
 		subNode = startNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
 		// TODO: change to path creation
@@ -563,6 +570,8 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			Path:          path,
 			Value:         rpcNode.Condition.SimpleCondition.Value,
 		}
+		node.PositionX = float64(rpcNode.Condition.Position.X)
+		node.PositionY = float64(rpcNode.Condition.Position.Y)
 		subNode = ifNode
 	default:
 		return nil, nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
