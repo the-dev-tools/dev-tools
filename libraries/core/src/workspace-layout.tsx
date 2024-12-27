@@ -3,12 +3,16 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useRef, useState } from 'react';
-import { FileTrigger, Form, ListBox, MenuTrigger, Text } from 'react-aria-components';
+import { Button as AriaButton, FileTrigger, Form, ListBox, MenuTrigger, Text } from 'react-aria-components';
 import { FiChevronDown, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
-import { collectionCreateSpec, collectionImportPostmanSpec } from '@the-dev-tools/api/spec/collection';
+import {
+  collectionCreateSpec,
+  collectionImportHarSpec,
+  collectionImportPostmanSpec,
+} from '@the-dev-tools/api/spec/collection';
 import { flowCreateSpec, flowDeleteSpec, flowUpdateSpec } from '@the-dev-tools/api/spec/flow';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowList } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
@@ -44,6 +48,10 @@ function Layout() {
 
   const collectionCreateMutation = useSpecMutation(collectionCreateSpec);
   const collectionImportPostmanMutation = useSpecMutation(collectionImportPostmanSpec);
+  const collectionImportHarMutation = useSpecMutation(collectionImportHarSpec);
+
+  const postmanFileTriggerRef = useRef<HTMLInputElement>(null);
+  const harFileTriggerRef = useRef<HTMLInputElement>(null);
 
   const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
   if (!workspaceGetQuery.isSuccess) return;
@@ -105,7 +113,20 @@ function Layout() {
               <CollectionIcon className={tw`size-5 text-slate-500`} />
               <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
 
+              <MenuTrigger>
+                <Button className={tw`p-0.5`} variant='ghost'>
+                  <FileImportIcon className={tw`size-4 text-slate-500`} />
+                </Button>
+
+                <Menu popoverPlacement='bottom'>
+                  <MenuItem onAction={() => void postmanFileTriggerRef.current?.click()}>Postman</MenuItem>
+
+                  <MenuItem onAction={() => void harFileTriggerRef.current?.click()}>HAR</MenuItem>
+                </Menu>
+              </MenuTrigger>
+
               <FileTrigger
+                ref={postmanFileTriggerRef}
                 onSelect={async (_) => {
                   const file = _?.item(0);
                   if (!file) return;
@@ -113,9 +134,19 @@ function Layout() {
                   collectionImportPostmanMutation.mutate({ workspaceId, name: file.name, data });
                 }}
               >
-                <Button className={tw`p-0.5`} variant='ghost'>
-                  <FileImportIcon className={tw`size-4 text-slate-500`} />
-                </Button>
+                <AriaButton className={tw`hidden`} />
+              </FileTrigger>
+
+              <FileTrigger
+                ref={harFileTriggerRef}
+                onSelect={async (_) => {
+                  const file = _?.item(0);
+                  if (!file) return;
+                  const data = new Uint8Array(await file.arrayBuffer());
+                  collectionImportHarMutation.mutate({ workspaceId, name: file.name, data });
+                }}
+              >
+                <AriaButton className={tw`hidden`} />
               </FileTrigger>
 
               <Button

@@ -2,6 +2,7 @@ import {
   collectionCreate,
   collectionDelete,
   collectionGet,
+  collectionImportHar,
   collectionImportPostman,
   collectionList,
   collectionUpdate,
@@ -21,6 +22,16 @@ export const collectionCreateSpec = {
 
 export const collectionImportPostmanSpec = {
   mutation: collectionImportPostman,
+  key: 'collectionId',
+  parentKeys: ['workspaceId'],
+  onSuccess: [
+    ['query - get - add cache', { query: collectionGet }],
+    ['query - list - add item cache', { query: collectionList }],
+  ],
+} satisfies MutationSpec;
+
+export const collectionImportHarSpec = {
+  mutation: collectionImportHar,
   key: 'collectionId',
   parentKeys: ['workspaceId'],
   onSuccess: [
