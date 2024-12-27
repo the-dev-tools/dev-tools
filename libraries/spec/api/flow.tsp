@@ -63,7 +63,7 @@ model Result {
 
 @autoFields
 model FlowRunResponse {
-  currentNode: FlowItem.Node.Node;
+  currentNodeId?: Resource.Id;
 }
 
 @Protobuf.service
