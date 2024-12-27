@@ -63,8 +63,8 @@ import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
-import { HeaderTable } from './headers';
-import { QueryTable } from './query';
+import { HeaderDeltaTable, HeaderTable } from './headers';
+import { QueryDeltaTable, QueryTable } from './query';
 
 export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
   requestTab: pipe(
@@ -149,18 +149,26 @@ function Page() {
 interface EndpointRequestViewProps {
   endpointId: Uint8Array;
   exampleId: Uint8Array;
+  deltaExampleId?: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
   className?: string;
 }
 
-export const EndpointRequestView = ({ endpointId, exampleId, requestTab, className }: EndpointRequestViewProps) => (
+export const EndpointRequestView = ({
+  endpointId,
+  exampleId,
+  deltaExampleId,
+  requestTab,
+  className,
+}: EndpointRequestViewProps) => (
   <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)} selectedKey={requestTab}>
     <TabList className={tw`flex gap-3 border-b border-slate-200`}>
       <Tab
         id='params'
         href={{
           to: '.',
-          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'params' }),
+          search: (_: Partial<EndpointRouteSearch>) =>
+            ({ ..._, requestTab: 'params' }) satisfies Partial<EndpointRouteSearch>,
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -176,7 +184,8 @@ export const EndpointRequestView = ({ endpointId, exampleId, requestTab, classNa
         id='headers'
         href={{
           to: '.',
-          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'headers' }),
+          search: (_: Partial<EndpointRouteSearch>) =>
+            ({ ..._, requestTab: 'headers' }) satisfies Partial<EndpointRouteSearch>,
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -192,7 +201,8 @@ export const EndpointRequestView = ({ endpointId, exampleId, requestTab, classNa
         id='body'
         href={{
           to: '.',
-          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'body' }),
+          search: (_: Partial<EndpointRouteSearch>) =>
+            ({ ..._, requestTab: 'body' }) satisfies Partial<EndpointRouteSearch>,
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -208,7 +218,8 @@ export const EndpointRequestView = ({ endpointId, exampleId, requestTab, classNa
         id='assertions'
         href={{
           to: '.',
-          search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, requestTab: 'assertions' }),
+          search: (_: Partial<EndpointRouteSearch>) =>
+            ({ ..._, requestTab: 'assertions' }) satisfies Partial<EndpointRouteSearch>,
         }}
         className={({ isSelected }) =>
           twMerge(
@@ -223,15 +234,23 @@ export const EndpointRequestView = ({ endpointId, exampleId, requestTab, classNa
 
     <Suspense fallback='Loading tab...'>
       <TabPanel id='params'>
-        <QueryTable exampleId={exampleId} />
+        {deltaExampleId ? (
+          <QueryDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
+        ) : (
+          <QueryTable exampleId={exampleId} />
+        )}
       </TabPanel>
 
       <TabPanel id='headers'>
-        <HeaderTable exampleId={exampleId} />
+        {deltaExampleId ? (
+          <HeaderDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
+        ) : (
+          <HeaderTable exampleId={exampleId} />
+        )}
       </TabPanel>
 
       <TabPanel id='body'>
-        <BodyView endpointId={endpointId} exampleId={exampleId} />
+        <BodyView endpointId={endpointId} exampleId={exampleId} deltaExampleId={deltaExampleId} />
       </TabPanel>
 
       <TabPanel id='assertions'>
@@ -519,7 +538,8 @@ export const ResponsePanel = ({
             id='body'
             href={{
               to: '.',
-              search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, responseTab: 'body' }),
+              search: (_: Partial<EndpointRouteSearch>) =>
+                ({ ..._, responseTab: 'body' }) satisfies Partial<EndpointRouteSearch>,
             }}
             className={({ isSelected }) =>
               twMerge(
@@ -535,7 +555,8 @@ export const ResponsePanel = ({
             id='headers'
             href={{
               to: '.',
-              search: (_: Partial<EndpointRouteSearch>) => EndpointRouteSearch.make({ ..._, responseTab: 'headers' }),
+              search: (_: Partial<EndpointRouteSearch>) =>
+                ({ ..._, responseTab: 'headers' }) satisfies Partial<EndpointRouteSearch>,
             }}
             className={({ isSelected }) =>
               twMerge(
@@ -552,7 +573,7 @@ export const ResponsePanel = ({
             href={{
               to: '.',
               search: (_: Partial<EndpointRouteSearch>) =>
-                EndpointRouteSearch.make({ ..._, responseTab: 'assertions' }),
+                ({ ..._, responseTab: 'assertions' }) satisfies Partial<EndpointRouteSearch>,
             }}
             className={({ isSelected }) =>
               twMerge(
