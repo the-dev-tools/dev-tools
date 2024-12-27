@@ -757,16 +757,17 @@ func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfPara
 
 const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, name, endpoint_id, example_id)
+  flow_node_request (flow_node_id, name, endpoint_id, example_id, delta_example_id)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeRequestParams struct {
-	FlowNodeID idwrap.IDWrap
-	Name       string
-	EndpointID *idwrap.IDWrap
-	ExampleID  *idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
+	Name           string
+	EndpointID     *idwrap.IDWrap
+	ExampleID      *idwrap.IDWrap
+	DeltaExampleID *idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
@@ -775,6 +776,7 @@ func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeR
 		arg.Name,
 		arg.EndpointID,
 		arg.ExampleID,
+		arg.DeltaExampleID,
 	)
 	return err
 }
@@ -3295,7 +3297,8 @@ SELECT
   flow_node_id,
   name,
   endpoint_id,
-  example_id
+  example_id,
+  delta_example_id
 FROM
   flow_node_request
 WHERE
@@ -3311,6 +3314,7 @@ func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWr
 		&i.Name,
 		&i.EndpointID,
 		&i.ExampleID,
+		&i.DeltaExampleID,
 	)
 	return i, err
 }
@@ -5087,16 +5091,18 @@ UPDATE flow_node_request
 SET
   name = ?,
   endpoint_id = ?,
-  example_id = ?
+  example_id = ?,
+  delta_example_id = ?
 WHERE
   flow_node_id = ?
 `
 
 type UpdateFlowNodeRequestParams struct {
-	Name       string
-	EndpointID *idwrap.IDWrap
-	ExampleID  *idwrap.IDWrap
-	FlowNodeID idwrap.IDWrap
+	Name           string
+	EndpointID     *idwrap.IDWrap
+	ExampleID      *idwrap.IDWrap
+	DeltaExampleID *idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {
@@ -5104,6 +5110,7 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 		arg.Name,
 		arg.EndpointID,
 		arg.ExampleID,
+		arg.DeltaExampleID,
 		arg.FlowNodeID,
 	)
 	return err

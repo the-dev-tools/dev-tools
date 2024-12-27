@@ -141,10 +141,11 @@ type FlowNodeIf struct {
 }
 
 type FlowNodeRequest struct {
-	FlowNodeID idwrap.IDWrap
-	Name       string
-	EndpointID *idwrap.IDWrap
-	ExampleID  *idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
+	Name           string
+	EndpointID     *idwrap.IDWrap
+	ExampleID      *idwrap.IDWrap
+	DeltaExampleID *idwrap.IDWrap
 }
 
 type FlowNodeStart struct {

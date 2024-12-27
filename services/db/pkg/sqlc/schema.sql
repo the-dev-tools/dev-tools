@@ -324,9 +324,11 @@ CREATE TABLE flow_node_request (
   name TEXT NOT NULL,
   endpoint_id BLOB,
   example_id BLOB,
+  delta_example_id BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE SET NULL,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE SET NULL
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE SET NULL,
+  FOREIGN KEY (delta_example_id) REFERENCES item_api_example (id) ON DELETE SET NULL
 );
 
 CREATE TABLE flow_node_if (
