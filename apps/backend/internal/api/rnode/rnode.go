@@ -55,6 +55,8 @@ type NodeServiceRPC struct {
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
 	nlf snodefor.NodeForService, ns snode.NodeService, nss snodestart.NodeStartService,
+	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
+	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
 ) *NodeServiceRPC {
 	return &NodeServiceRPC{
 		DB: db,
@@ -67,6 +69,11 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, n
 		nrs:  nrs,
 		nfls: nlf,
 		nss:  nss,
+
+		ias:  ias,
+		iaes: ieas,
+		eqs:  eqs,
+		ehs:  ehs,
 	}
 }
 
@@ -105,6 +112,19 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			Request:   rpcNode.Request,
 			For:       rpcNode.For,
 			Condition: rpcNode.Condition,
+		}
+		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
+			if rpcNode.Request.ExampleId != nil {
+				example, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInvalidArgument, err)
+				}
+				ex, err := c.iaes.GetApiExample(ctx, example)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				rpcNode.Request.CollectionId = ex.CollectionID.Bytes()
+			}
 		}
 		NodeList[i] = convertedItem
 	}
@@ -446,10 +466,12 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 			Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
 			Position: Position,
 			Request: &nodev1.NodeRequest{
-				NodeId:     currentNode.ID.Bytes(),
-				Position:   Position,
-				ExampleId:  rpcExampleID,
-				EndpointId: rpcEndpointID,
+				NodeId:         currentNode.ID.Bytes(),
+				Position:       Position,
+				CollectionId:   rpcExampleID,
+				ExampleId:      rpcExampleID,
+				EndpointId:     rpcEndpointID,
+				DeltaExampleId: rpcExampleID,
 			},
 		}
 		rpcNode = nodeList

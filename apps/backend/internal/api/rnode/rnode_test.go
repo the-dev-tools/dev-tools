@@ -11,7 +11,11 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/model/mtag"
+	"the-dev-tools/backend/pkg/service/sexampleheader"
+	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sitemapi"
+	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
@@ -43,7 +47,13 @@ func TestNodeList(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	eqs := sexamplequery.New(queries)
+	ehs := sexampleheader.New(queries)
+
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns,
+		ias, iaes, eqs, ehs)
 
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -128,7 +138,13 @@ func TestNodeGet(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	eqs := sexamplequery.New(queries)
+	ehs := sexampleheader.New(queries)
+
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns,
+		ias, iaes, eqs, ehs)
 
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -210,7 +226,13 @@ func TestNodeUpdate(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	eqs := sexamplequery.New(queries)
+	ehs := sexampleheader.New(queries)
+
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns,
+		ias, iaes, eqs, ehs)
 
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()

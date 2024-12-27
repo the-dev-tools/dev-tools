@@ -286,7 +286,8 @@ func main() {
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
-	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us, fs, *ins, rns, lfns, ns, sns)
+	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us, fs, *ins, rns, lfns, ns, sns,
+		ias, iaes, eqs, ehs)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// Edge Service
