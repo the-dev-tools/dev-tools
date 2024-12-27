@@ -163,6 +163,19 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		For:       rpcNode.For,
 		Condition: rpcNode.Condition,
 	}
+	if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
+		if rpcNode.Request.ExampleId != nil {
+			example, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+			ex, err := c.iaes.GetApiExample(ctx, example)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			resp.Request.CollectionId = ex.CollectionID.Bytes()
+		}
+	}
 
 	return connect.NewResponse(&resp), nil
 }
