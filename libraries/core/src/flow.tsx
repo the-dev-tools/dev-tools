@@ -1,4 +1,5 @@
 import { create, enumToJson, MessageInitShape } from '@bufbuild/protobuf';
+import { createClient } from '@connectrpc/connect';
 import {
   createQueryOptions,
   useMutation as useConnectMutation,
@@ -64,7 +65,7 @@ import {
   nodeList,
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { FlowGetResponse } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { FlowGetResponse, FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import {
@@ -576,29 +577,35 @@ const TopBar = ({ flow }: TopBarProps) => {
   );
 };
 
-const ActionBar = () => (
-  <FlowPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
-    <Button variant='ghost dark' className={tw`p-1`}>
-      <TextBoxIcon className={tw`size-5 text-slate-300`} />
-    </Button>
+const ActionBar = () => {
+  const { flowId } = Route.useLoaderData();
+  const { transport } = Route.useRouteContext();
+  const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
 
-    <Button variant='ghost dark' className={tw`p-1`}>
-      <ChatAddIcon className={tw`size-5 text-slate-300`} />
-    </Button>
+  return (
+    <FlowPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
+      <Button variant='ghost dark' className={tw`p-1`}>
+        <TextBoxIcon className={tw`size-5 text-slate-300`} />
+      </Button>
 
-    <div className={tw`mx-2 h-5 w-px bg-white/20`} />
+      <Button variant='ghost dark' className={tw`p-1`}>
+        <ChatAddIcon className={tw`size-5 text-slate-300`} />
+      </Button>
 
-    <Button variant='ghost dark' className={tw`px-1.5 py-1`}>
-      <FiPlus className={tw`size-5 text-slate-300`} />
-      Add Node
-    </Button>
+      <div className={tw`mx-2 h-5 w-px bg-white/20`} />
 
-    <Button variant='primary' className={tw``}>
-      <PlayCircleIcon className={tw`size-4`} />
-      Run
-    </Button>
-  </FlowPanel>
-);
+      <Button variant='ghost dark' className={tw`px-1.5 py-1`}>
+        <FiPlus className={tw`size-5 text-slate-300`} />
+        Add Node
+      </Button>
+
+      <Button variant='primary' onPress={() => void flowRun({ flowId })}>
+        <PlayCircleIcon className={tw`size-4`} />
+        Run
+      </Button>
+    </FlowPanel>
+  );
+};
 
 interface FlowViewProps {
   flow: FlowGetResponse;
