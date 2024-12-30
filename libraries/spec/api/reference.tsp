@@ -25,7 +25,6 @@ enum ReferenceKind {
 @autoFields
 model Reference {
   kind: ReferenceKind;
-  key: string;
   map?: Map<string, Reference>;
   array?: Reference[];
 
