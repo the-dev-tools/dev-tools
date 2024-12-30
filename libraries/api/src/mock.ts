@@ -188,6 +188,7 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Me
 };
 
 const cache = MutableHashMap.empty<string, Message>();
+const streamCache = MutableHashMap.empty<string, AsyncIterable<Message>>();
 
 const ApiTransportMock = Layer.effect(
   ApiTransport,
@@ -197,17 +198,43 @@ const ApiTransportMock = Layer.effect(
       (router) => {
         files.forEach((file) => {
           file.services.forEach((service) => {
-            const methods = Record.map(service.method, (method) => (input: Message) => {
-              const key = method.input.typeName + toJsonString(method.input, input);
+            const methods = Record.map(service.method, (method) => {
+              const makeKey = (input: Message) => method.input.typeName + toJsonString(method.input, input);
+              const makeMessage = () => fakeMessage(faker, method.output);
 
-              const message = pipe(
-                MutableHashMap.get(cache, key),
-                Option.getOrElse(() => fakeMessage(faker, method.output)),
-              );
+              switch (method.methodKind) {
+                case 'unary':
+                  return (input: Message) => {
+                    const key = makeKey(input);
+                    const message = pipe(MutableHashMap.get(cache, key), Option.getOrElse(makeMessage));
+                    MutableHashMap.set(cache, key, message);
+                    return message;
+                  };
 
-              MutableHashMap.set(cache, key, message);
+                case 'server_streaming':
+                  return (input: Message) => {
+                    const key = makeKey(input);
 
-              return message;
+                    const stream = pipe(
+                      MutableHashMap.get(streamCache, key),
+                      Option.getOrElse(() =>
+                        (async function* () {
+                          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                          while (true) {
+                            await new Promise((_) => setTimeout(_, 2000));
+                            yield makeMessage();
+                          }
+                        })(),
+                      ),
+                    );
+
+                    MutableHashMap.set(streamCache, key, stream);
+                    return stream;
+                  };
+
+                default:
+                  throw new Error('Unimplemented method kind');
+              }
             });
             router.service(service, methods as ServiceImpl<never>);
           });
