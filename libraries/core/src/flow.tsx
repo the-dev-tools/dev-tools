@@ -36,7 +36,7 @@ import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } from 'react-icons/fi';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel } from 'react-resizable-panels';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
@@ -135,19 +135,17 @@ function RouteComponent() {
 
   return (
     <ReactFlowProvider>
-      <PanelGroup direction='vertical'>
-        <Panel id='request' order={1} className='flex h-full flex-col'>
-          <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
-        </Panel>
-        {selectedNodeQuery.data && (
-          <>
-            <PanelResizeHandle direction='vertical' />
-            <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
-              <EditPanel node={selectedNodeQuery.data} />
-            </Panel>
-          </>
-        )}
-      </PanelGroup>
+      <Panel id='request' order={1} className='flex h-full flex-col'>
+        <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
+      </Panel>
+      {selectedNodeQuery.data && (
+        <>
+          <PanelResizeHandle direction='vertical' />
+          <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
+            <EditPanel node={selectedNodeQuery.data} />
+          </Panel>
+        </>
+      )}
     </ReactFlowProvider>
   );
 }

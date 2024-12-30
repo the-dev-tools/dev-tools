@@ -18,7 +18,7 @@ import { Fragment, Suspense, useMemo, useState } from 'react';
 import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { FiChevronDown, FiClock, FiLink, FiMoreHorizontal, FiSave, FiSidebar, FiX } from 'react-icons/fi';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -126,7 +126,7 @@ function Page() {
   const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
 
   return (
-    <PanelGroup direction='vertical'>
+    <>
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
@@ -142,7 +142,7 @@ function Page() {
           </Panel>
         </>
       )}
-    </PanelGroup>
+    </>
   );
 }
 

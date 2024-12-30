@@ -1,11 +1,14 @@
-import { createQueryOptions, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { createClient } from '@connectrpc/connect';
+import { createConnectQueryKey, createQueryOptions, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
-import { Effect, pipe, Runtime, Schema } from 'effect';
+import { Array, Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Button as AriaButton, FileTrigger, Form, ListBox, MenuTrigger, Text } from 'react-aria-components';
-import { FiChevronDown, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
+import { FiChevronDown, FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
+import { twMerge } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import {
@@ -16,14 +19,15 @@ import {
 import { flowCreateSpec, flowDeleteSpec, flowUpdateSpec } from '@the-dev-tools/api/spec/flow';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowList } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { LogService, LogStreamResponse } from '@the-dev-tools/spec/log/v1/log_pb';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
-import { Button } from '@the-dev-tools/ui/button';
-import { CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { ArrowToLeftIcon, CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
-import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
+import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -31,9 +35,14 @@ import { DashboardLayout } from './authorized';
 import { CollectionListTree } from './collection';
 import { EnvironmentsWidget } from './environment';
 
+export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('WorkspaceRouteSearch')({
+  showLogs: pipe(Schema.Boolean, Schema.optional),
+}) {}
+
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   component: Layout,
   pendingComponent: () => 'Loading workspace...',
+  validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
   loader: async ({ params: { workspaceIdCan }, context: { transport, queryClient } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
     const options = createQueryOptions(workspaceGet, { workspaceId }, { transport });
@@ -164,8 +173,11 @@ function Layout() {
           </div>
         </Panel>
         <PanelResizeHandle direction='horizontal' />
-        <Panel className='h-full !overflow-auto'>
-          <Outlet />
+        <Panel className='flex h-full flex-col !overflow-auto'>
+          <PanelGroup direction='vertical'>
+            <Outlet />
+            <StatusBar />
+          </PanelGroup>
         </Panel>
       </PanelGroup>
     </DashboardLayout>
@@ -288,5 +300,120 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
         </Form>
       </Popover>
     </ListBoxItem>
+  );
+};
+
+const StatusBar = () => {
+  const { showLogs } = Route.useSearch();
+  const { transport, queryClient } = Route.useRouteContext();
+
+  const { logStream } = useMemo(() => createClient(LogService, transport), [transport]);
+
+  const queryKey = useMemo(
+    () =>
+      createConnectQueryKey({
+        schema: { ...LogService.method.logStream, methodKind: 'unary' },
+        cardinality: 'infinite',
+        transport,
+      }),
+    [transport],
+  );
+
+  const { data: logs } = useQuery({
+    queryKey,
+    initialData: [],
+    queryFn: async ({ queryKey, signal }) => {
+      for await (const log of logStream({})) {
+        queryClient.setQueryData(queryKey, Array.append(log));
+        if (signal.aborted) break;
+      }
+      return queryClient.getQueryData<LogStreamResponse[]>(queryKey)!;
+    },
+  });
+
+  const separator = <div className={tw`h-3.5 w-px bg-slate-200`} />;
+
+  const bar = (
+    <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
+      {/* TODO: implement sidebar collapse */}
+      <Button variant='ghost' className={tw`p-0.5`}>
+        <ArrowToLeftIcon className={tw`size-4 text-slate-500`} />
+      </Button>
+
+      {separator}
+
+      <ButtonAsLink
+        variant='ghost'
+        className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
+        href={{
+          to: '.',
+          search: (_: Partial<WorkspaceRouteSearch>) =>
+            ({ ..._, showLogs: true }) satisfies Partial<WorkspaceRouteSearch>,
+        }}
+      >
+        <FiTerminal className={tw`size-3`} />
+        <span>Logs</span>
+      </ButtonAsLink>
+
+      <div className={tw`flex-1`} />
+
+      {showLogs && (
+        <>
+          <Button
+            variant='ghost'
+            className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
+            onPress={() => void queryClient.setQueryData(queryKey, [])}
+          >
+            <FiTrash2 className={tw`size-3 text-slate-500`} />
+            <span>Clear Logs</span>
+          </Button>
+
+          {separator}
+
+          <ButtonAsLink
+            variant='ghost'
+            className={tw`p-0.5`}
+            href={{
+              to: '.',
+              search: (_: Partial<WorkspaceRouteSearch>) =>
+                ({ ..._, showLogs: undefined }) satisfies Partial<WorkspaceRouteSearch>,
+            }}
+          >
+            <FiX className={tw`size-4 text-slate-500`} />
+          </ButtonAsLink>
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {showLogs ? (
+        <PanelResizeHandle direction='vertical' />
+      ) : (
+        <div className={panelResizeHandleStyles({ direction: 'vertical' })} />
+      )}
+
+      {bar}
+
+      {showLogs && (
+        <Panel order={100} className={tw`p-4 pt-0`}>
+          <div
+            className={tw`flex size-full flex-col-reverse overflow-auto rounded-md border border-slate-200 bg-slate-800 p-3 font-mono text-sm leading-5 text-slate-200 shadow-sm`}
+          >
+            <div>
+              {logs.map((_) => {
+                const ulid = Ulid.construct(_.logId);
+                return (
+                  <div key={ulid.toCanonical()}>
+                    {ulid.time.toLocaleTimeString()}: {_.value}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Panel>
+      )}
+    </>
   );
 };

@@ -301,3 +301,15 @@ export const RedoIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const ArrowToLeftIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M14 8H4.667M8.667 4l-4 4 3.943 4M2 4v8'
+    />
+  </svg>
+);
