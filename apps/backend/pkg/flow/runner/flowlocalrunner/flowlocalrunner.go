@@ -25,6 +25,7 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 		FlowID:      flowID,
 		StartNodeID: StartNodeID,
 		FlowNodeMap: FlowNodeMap,
+		EdgesMap:    edgesMap,
 		Timeout:     timeout,
 	}
 }
@@ -33,8 +34,9 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 	nextNodeID := &r.StartNodeID
 	var err error
 	req := &node.FlowNodeRequest{
-		VarMap:  map[string]interface{}{},
-		NodeMap: r.FlowNodeMap,
+		VarMap:        map[string]interface{}{},
+		NodeMap:       r.FlowNodeMap,
+		EdgeSourceMap: r.EdgesMap,
 	}
 	for nextNodeID != nil {
 		fmt.Println("nextNodeID", nextNodeID)
