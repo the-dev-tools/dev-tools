@@ -21,7 +21,44 @@ const LocalDummyIDStr = "00000000000000000000000000"
 
 var LocalDummyID = idwrap.NewTextMust(LocalDummyIDStr)
 
-func NewAuthInterceptor(secret []byte) connect.UnaryInterceptorFunc {
+type authInterceptor struct{}
+
+func NewAuthInterceptor() *authInterceptor {
+	return &authInterceptor{}
+}
+
+var errNoToken = errors.New("no token")
+
+func (i *authInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	// Same as previous UnaryInterceptorFunc.
+	return connect.UnaryFunc(func(
+		ctx context.Context,
+		req connect.AnyRequest,
+	) (connect.AnyResponse, error) {
+		return next(CreateAuthedContext(ctx, LocalDummyID), req)
+	})
+}
+
+func (*authInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return connect.StreamingClientFunc(func(
+		ctx context.Context,
+		spec connect.Spec,
+	) connect.StreamingClientConn {
+		conn := next(CreateAuthedContext(ctx, LocalDummyID), spec)
+		return conn
+	})
+}
+
+func (i *authInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return connect.StreamingHandlerFunc(func(
+		ctx context.Context,
+		conn connect.StreamingHandlerConn,
+	) error {
+		return next(CreateAuthedContext(ctx, LocalDummyID), conn)
+	})
+}
+
+func NewAuthInterceptorOne(secret []byte) connect.UnaryInterceptorFunc {
 	data := AuthInterceptorData{secret: secret}
 	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
 		return connect.UnaryFunc(func(
@@ -85,6 +122,15 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 
 func AuthInterceptorLocal(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (connect.AnyResponse, error) {
 	return next(CreateAuthedContext(ctx, LocalDummyID), req)
+}
+
+func AuthInterceptorLocalStreamHandlerLocal(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return connect.StreamingHandlerFunc(func(
+		ctx context.Context,
+		conn connect.StreamingHandlerConn,
+	) error {
+		return next(CreateAuthedContext(ctx, LocalDummyID), conn)
+	})
 }
 
 func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.UnaryFunc) (resp connect.AnyResponse, err error) {

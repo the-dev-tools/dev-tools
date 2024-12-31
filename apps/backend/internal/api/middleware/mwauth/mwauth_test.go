@@ -19,7 +19,7 @@ type testResponse struct {
 
 func TestNewAuthInterceptor(t *testing.T) {
 	secret := []byte("secret")
-	middlewareFunc := mwauth.NewAuthInterceptor(secret)
+	middlewareFunc := mwauth.NewAuthInterceptorOne(secret)
 	if middlewareFunc == nil {
 		t.Error("Expected middleware function, got nil")
 	}

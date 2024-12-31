@@ -41,7 +41,6 @@ import (
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/nodes/pkg/httpclient"
-	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"time"
@@ -383,11 +382,9 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 		case <-ctx.Done():
 		case a := <-status:
 			stream.Send(&flowv1.FlowRunResponse{
-				CurrentNode: &nodev1.Node{
-					// TODO: add other fields
-					NodeId: a.CurrentNodeID.Bytes(),
-				},
-			})
+				CurrentNodeId: a.CurrentNodeID.Bytes(),
+			},
+			)
 		}
 	}()
 

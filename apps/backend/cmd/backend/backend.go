@@ -161,7 +161,8 @@ func main() {
 	if dbMode != devtoolsdb.LOCAL {
 		optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 		optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
-		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
+		// optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
+		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	} else {
 		_, err := us.GetUser(ctx, mwauth.LocalDummyID)
 		if err != nil {
@@ -178,7 +179,7 @@ func main() {
 			}
 		}
 
-		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptorLocal()))
+		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	}
 	opitonsAll = append(optionsAuth, optionsCompress...)
 
