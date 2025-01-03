@@ -2,10 +2,8 @@ package rlog
 
 import (
 	"context"
-	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
-	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/logconsole"
 	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
 	"the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
@@ -27,18 +25,6 @@ func NewRlogRPC(logMap logconsole.LogChanMap) *RlogRPC {
 func CreateService(srv *RlogRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := logv1connect.NewLogServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
-}
-
-func (r *RlogRPC) LogMessage(logID idwrap.IDWrap, value string) error {
-	ch, ok := r.logChannels[logID]
-	if !ok {
-		return fmt.Errorf("logID not found")
-	}
-	ch <- logconsole.LogMessage{
-		LogID: logID,
-		Value: value,
-	}
-	return nil
 }
 
 func (c *RlogRPC) LogStream(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[logv1.LogStreamResponse]) error {
