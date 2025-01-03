@@ -2,9 +2,9 @@ package rlog
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"the-dev-tools/backend/internal/api"
+	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/idwrap"
 	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
 	"the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
@@ -45,6 +45,25 @@ func (r *RlogRPC) LogMessage(logID idwrap.IDWrap, value string) error {
 	return nil
 }
 
-func (c *RlogRPC) LogStream(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[logv1.LogStreamResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("log.v1.LogService.LogStream is not implemented"))
+func (c *RlogRPC) LogStream(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[logv1.LogStreamResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	streamChan := make(chan LogMessage)
+	c.logChannels[userID] = streamChan
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case logMessage := <-streamChan:
+			b := &logv1.LogStreamResponse{
+				LogId: logMessage.LogID.Bytes(),
+				Value: logMessage.Value,
+			}
+			stream.Send(b)
+		}
+	}
 }
