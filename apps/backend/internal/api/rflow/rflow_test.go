@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/backend/internal/api/rflow"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mflowtag"
 	"the-dev-tools/backend/pkg/model/mnode"
@@ -63,8 +64,11 @@ func TestListFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
+	logChanMap := logconsole.NewLogChanMap()
+
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -193,8 +197,11 @@ func TestGetFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
+	logChanMap := logconsole.NewLogChanMap()
+
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -288,8 +295,11 @@ func TestCreateFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
+	logChanMap := logconsole.NewLogChanMap()
+
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -367,8 +377,11 @@ func TestUpdateFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
+	logChanMap := logconsole.NewLogChanMap()
+
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -447,8 +460,11 @@ func TestDeleteFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
+	logChanMap := logconsole.NewLogChanMap()
+
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		logChanMap)
 
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -511,8 +527,11 @@ func TestRunFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
+	logChanMap := logconsole.NewLogChanMap()
+
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins)
+		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		logChanMap)
 
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()

@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/logconsole"
 	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
 	"the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
 
@@ -13,18 +14,13 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type LogMessage struct {
-	LogID idwrap.IDWrap
-	Value string
-}
-
 type RlogRPC struct {
-	logChannels map[idwrap.IDWrap]chan LogMessage
+	logChannels logconsole.LogChanMap
 }
 
-func NewRlogRPC() *RlogRPC {
+func NewRlogRPC(logMap logconsole.LogChanMap) *RlogRPC {
 	return &RlogRPC{
-		logChannels: make(map[idwrap.IDWrap]chan LogMessage),
+		logChannels: logMap,
 	}
 }
 
@@ -38,7 +34,7 @@ func (r *RlogRPC) LogMessage(logID idwrap.IDWrap, value string) error {
 	if !ok {
 		return fmt.Errorf("logID not found")
 	}
-	ch <- LogMessage{
+	ch <- logconsole.LogMessage{
 		LogID: logID,
 		Value: value,
 	}
@@ -51,7 +47,7 @@ func (c *RlogRPC) LogStream(ctx context.Context, req *connect.Request[emptypb.Em
 		return err
 	}
 
-	streamChan := make(chan LogMessage)
+	streamChan := make(chan logconsole.LogMessage)
 	c.logChannels[userID] = streamChan
 
 	for {

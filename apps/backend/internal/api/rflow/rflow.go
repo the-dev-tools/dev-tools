@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
@@ -71,12 +72,15 @@ type FlowServiceRPC struct {
 	flns snodefor.NodeForService
 	sns  snodestart.NodeStartService
 	ins  snodeif.NodeIfService
+
+	logChanMap logconsole.LogChanMap
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
 	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
 	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodestart.NodeStartService, ins snodeif.NodeIfService,
+	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
 		DB:  db,
@@ -101,6 +105,8 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 		flns: flns,
 		sns:  sns,
 		ins:  ins,
+
+		logChanMap: logChanMap,
 	}
 }
 
@@ -385,6 +391,7 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 				CurrentNodeId: a.CurrentNodeID.Bytes(),
 			},
 			)
+			logconsole.SendMsgToUserWithContext(ctx, c.logChanMap, flowID, fmt.Sprintf("Node %s is done", a.CurrentNodeID))
 		}
 	}()
 

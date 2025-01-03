@@ -23,11 +23,13 @@ import (
 	"the-dev-tools/backend/internal/api/ritemapi"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/internal/api/ritemfolder"
+	"the-dev-tools/backend/internal/api/rlog"
 	"the-dev-tools/backend/internal/api/rnode"
 	"the-dev-tools/backend/internal/api/rrequest"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rvar"
 	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/muser"
 	"the-dev-tools/backend/pkg/service/sassert"
 	"the-dev-tools/backend/pkg/service/sassertres"
@@ -157,6 +159,9 @@ func main() {
 	ins := snodeif.New(queries)
 	sns := snodestart.New(queries)
 
+	// log/console
+	logMap := logconsole.NewLogChanMap()
+
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
 	if dbMode != devtoolsdb.LOCAL {
 		optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
@@ -283,7 +288,7 @@ func main() {
 	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
 
 	// Flow Service
-	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs, ns, rns, lfns, sns, *ins)
+	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs, ns, rns, lfns, sns, *ins, logMap)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
@@ -294,6 +299,10 @@ func main() {
 	// Edge Service
 	edgeSrv := redge.NewEdgeServiceRPC(currentDB, fs, us, fes, ns)
 	newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
+
+	// Log Service
+	logSrv := rlog.NewRlogRPC(logMap)
+	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
 	// Start services
 	go func() {
