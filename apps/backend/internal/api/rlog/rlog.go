@@ -2,6 +2,7 @@ package rlog
 
 import (
 	"context"
+	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/logconsole"
@@ -22,30 +23,51 @@ func NewRlogRPC(logMap logconsole.LogChanMap) *RlogRPC {
 	}
 }
 
+type ServerStreamAdHoc[Res any] interface {
+	Send(*Res) error
+}
+
+type ClientStreamAdHoc[Req any] interface {
+	Receive() (*Req, error)
+}
+
+type FullStreamAdHoc[Req, Res any] interface {
+	Send(*Res) error
+	Receive() (*Req, error)
+}
+
 func CreateService(srv *RlogRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := logv1connect.NewLogServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 func (c *RlogRPC) LogStream(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[logv1.LogStreamResponse]) error {
+	return c.LogStreamAdHoc(ctx, req, stream)
+}
+
+func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[emptypb.Empty], stream ServerStreamAdHoc[logv1.LogStreamResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return err
 	}
 
-	streamChan := make(chan logconsole.LogMessage)
-	c.logChannels[userID] = streamChan
+	lmc := c.logChannels.AddLogChannel(userID)
 
 	for {
 		select {
-		case <-ctx.Done():
-			return nil
-		case logMessage := <-streamChan:
+		case logMessage := <-lmc:
 			b := &logv1.LogStreamResponse{
 				LogId: logMessage.LogID.Bytes(),
 				Value: logMessage.Value,
 			}
+			fmt.Println("logMessage:", logMessage)
 			stream.Send(b)
+			continue
+		case <-ctx.Done():
+			err = ctx.Err()
 		}
+		break
 	}
+	c.logChannels.DeleteLogChannel(userID)
+	return err
 }

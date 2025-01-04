@@ -3,6 +3,7 @@ package logconsole
 import (
 	"context"
 	"fmt"
+	"sync"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/idwrap"
 )
@@ -12,10 +13,31 @@ type LogMessage struct {
 	Value string
 }
 
-type LogChanMap map[idwrap.IDWrap]chan LogMessage
+type LogChanMap struct {
+	mt      *sync.Mutex
+	chanMap map[idwrap.IDWrap]chan LogMessage
+}
 
 func NewLogChanMap() LogChanMap {
-	return make(LogChanMap)
+	chanMap := make(map[idwrap.IDWrap]chan LogMessage)
+	return LogChanMap{
+		chanMap: chanMap,
+		mt:      &sync.Mutex{},
+	}
+}
+
+func (l *LogChanMap) AddLogChannel(userID idwrap.IDWrap) chan LogMessage {
+	lm := make(chan LogMessage)
+	l.mt.Lock()
+	defer l.mt.Unlock()
+	l.chanMap[userID] = lm
+	return lm
+}
+
+func (l *LogChanMap) DeleteLogChannel(userID idwrap.IDWrap) {
+	l.mt.Lock()
+	defer l.mt.Unlock()
+	delete(l.chanMap, userID)
 }
 
 func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string) {
@@ -25,12 +47,14 @@ func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string) {
 	}
 }
 
-func SendMsgToUserWithContext(ctx context.Context, logChannels LogChanMap, logID idwrap.IDWrap, value string) error {
+func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, value string) error {
+	logChannels.mt.Lock()
+	defer logChannels.mt.Unlock()
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return err
 	}
-	ch, ok := logChannels[userID]
+	ch, ok := logChannels.chanMap[userID]
 	if !ok {
 		return fmt.Errorf("userID's log channel not found")
 	}

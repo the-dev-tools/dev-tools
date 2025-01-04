@@ -391,7 +391,7 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 				CurrentNodeId: a.CurrentNodeID.Bytes(),
 			},
 			)
-			logconsole.SendMsgToUserWithContext(ctx, c.logChanMap, flowID, fmt.Sprintf("Node %s is done", a.CurrentNodeID))
+			c.logChanMap.SendMsgToUserWithContext(ctx, flowID, fmt.Sprintf("Node %s is done", a.CurrentNodeID))
 		}
 	}()
 
