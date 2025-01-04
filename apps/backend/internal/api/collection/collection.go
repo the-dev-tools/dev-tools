@@ -6,6 +6,7 @@ import (
 	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/dbtime"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcollection"
@@ -23,6 +24,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tcollection"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+	"the-dev-tools/backend/pkg/translate/thar"
 	"the-dev-tools/backend/pkg/translate/tpostman"
 	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/v1/collectionv1connect"
@@ -180,7 +182,6 @@ func (c *CollectionServiceRPC) CollectionDelete(ctx context.Context, req *connec
 	return connect.NewResponse(&collectionv1.CollectionDeleteResponse{}), nil
 }
 
-// ImportPostman calls collection.v1.CollectionService.ImportPostman.
 func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req *connect.Request[collectionv1.CollectionImportPostmanRequest]) (*connect.Response[collectionv1.CollectionImportPostmanResponse], error) {
 	wsUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
@@ -314,8 +315,80 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 	return resp, nil
 }
 
-func (c *CollectionServiceRPC) CollectionImportHar(context.Context, *connect.Request[collectionv1.CollectionImportHarRequest]) (*connect.Response[collectionv1.CollectionImportHarResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CollectionImportHar is not implemented"))
+func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *connect.Request[collectionv1.CollectionImportHarRequest]) (*connect.Response[collectionv1.CollectionImportHarResponse], error) {
+	wsID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	harFileData := req.Msg.Data
+
+	harData, err := thar.ConvertRaw(harFileData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	resolved, err := thar.ConvertHAR(harData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	collectionID := idwrap.NewNow()
+	collectionData := mcollection.Collection{
+		ID:      collectionID,
+		Name:    req.Msg.GetName(),
+		OwnerID: wsID,
+	}
+
+	tx, err := c.DB.Begin()
+	defer tx.Rollback()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txCollectionService, err := scollection.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txCollectionService.CreateCollection(ctx, &collectionData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txItemApiService, err := sitemapi.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	for i := range resolved.Apis {
+		resolved.Apis[i].CollectionID = collectionID
+	}
+
+	err = txItemApiService.CreateItemApiBulk(ctx, resolved.Apis)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	resp := &collectionv1.CollectionImportHarResponse{
+		CollectionId: collectionID.Bytes(),
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {

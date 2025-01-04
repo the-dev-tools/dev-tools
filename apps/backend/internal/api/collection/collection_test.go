@@ -2,6 +2,8 @@ package collection_test
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 	"the-dev-tools/backend/internal/api/collection"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
@@ -261,5 +263,72 @@ func TestCollectionDelete(t *testing.T) {
 	}
 	if collection != nil {
 		t.Fatalf("collection is not deleted")
+	}
+}
+
+func TestCollectionImportHar(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	defer queries.Close()
+	db := base.DB
+
+	cs := scollection.New(queries)
+	ws := sworkspace.New(queries)
+	us := suser.New(queries)
+
+	serviceRPC := collection.New(db, cs, ws, us)
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	// print the current working directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("Current working directory: ", currentDir)
+
+	filePath := "../../../test/har/test2.har"
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	harFileData := fileData
+
+	req := connect.NewRequest(
+		&collectionv1.CollectionImportHarRequest{
+			WorkspaceId: wsID.Bytes(),
+			Name:        "test",
+			Data:        harFileData,
+		},
+	)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	resp, err := serviceRPC.CollectionImportHar(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	testCollectionID, err := idwrap.NewFromBytes(resp.Msg.CollectionId)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	collection, err := cs.GetCollection(ctx, testCollectionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if collection == nil {
+		t.Fatal("collection is nil")
 	}
 }

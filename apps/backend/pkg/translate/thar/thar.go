@@ -12,11 +12,11 @@ import (
 )
 
 type HarResvoled struct {
-	apis             []mitemapi.ItemApi
-	examples         []mitemapiexample.ItemApiExample
-	rawBodies        []mbodyraw.ExampleBodyRaw
-	formBodies       []mbodyform.BodyForm
-	urlEncodedBodies []mbodyurl.BodyURLEncoded
+	Apis             []mitemapi.ItemApi
+	Examples         []mitemapiexample.ItemApiExample
+	RawBodies        []mbodyraw.ExampleBodyRaw
+	FormBodies       []mbodyform.BodyForm
+	UrlEncodedBodies []mbodyurl.BodyURLEncoded
 }
 
 type HAR struct {
@@ -119,14 +119,14 @@ func ConvertHAR(har *HAR) (HarResvoled, error) {
 			Url:    entry.Request.URL,
 			Method: entry.Request.Method,
 		}
-		result.apis = append(result.apis, api)
+		result.Apis = append(result.Apis, api)
 
 		example := mitemapiexample.ItemApiExample{
 			ItemApiID: api.ID,
 			Name:      entry.Request.Method + " " + entry.Request.URL,
 			BodyType:  mitemapiexample.BodyTypeRaw,
 		}
-		result.examples = append(result.examples, example)
+		result.Examples = append(result.Examples, example)
 
 		if entry.Request.PostData != nil {
 			postData := entry.Request.PostData
@@ -136,13 +136,13 @@ func ConvertHAR(har *HAR) (HarResvoled, error) {
 					Data:          []byte(entry.Request.PostData.Text),
 					VisualizeMode: mbodyraw.VisualizeModeJSON,
 				}
-				result.rawBodies = append(result.rawBodies, rawBody)
+				result.RawBodies = append(result.RawBodies, rawBody)
 			case strings.Contains(postData.MimeType, "multipart/form-data"):
 				formBodies := ConvertParamToFormBodies(postData.Params, example.ID)
-				result.formBodies = append(result.formBodies, formBodies...)
+				result.FormBodies = append(result.FormBodies, formBodies...)
 			case strings.Contains(postData.MimeType, "application/x-www-form-urlencoded"):
 				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, example.ID)
-				result.urlEncodedBodies = append(result.urlEncodedBodies, urlEncodedBodies...)
+				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
 			}
 		}
 	}
