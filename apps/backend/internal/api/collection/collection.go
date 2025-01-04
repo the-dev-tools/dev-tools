@@ -333,12 +333,12 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	resolved, err := thar.ConvertHAR(harData)
+	collectionID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(harData, collectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	collectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
 		ID:      collectionID,
 		Name:    req.Msg.GetName(),

@@ -109,22 +109,37 @@ func ConvertParamToUrlBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyur
 	return result
 }
 
-func ConvertHAR(har *HAR) (HarResvoled, error) {
+func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
 
 	// Process each entry in the HAR file
 	for _, entry := range har.Log.Entries {
 		api := mitemapi.ItemApi{
-			ID:     idwrap.NewNow(),
-			Url:    entry.Request.URL,
-			Method: entry.Request.Method,
+			ID:           idwrap.NewNow(),
+			Url:          entry.Request.URL,
+			Method:       entry.Request.Method,
+			CollectionID: collectionID,
 		}
+
 		result.Apis = append(result.Apis, api)
 
-		example := mitemapiexample.ItemApiExample{
-			ItemApiID: api.ID,
+		exampleDefault := mitemapiexample.ItemApiExample{
 			Name:      entry.Request.Method + " " + entry.Request.URL,
-			BodyType:  mitemapiexample.BodyTypeRaw,
+			BodyType:  mitemapiexample.BodyTypeNone,
+			IsDefault: true,
+
+			CollectionID: collectionID,
+			ItemApiID:    api.ID,
+			ID:           idwrap.NewNow(),
+		}
+		result.Examples = append(result.Examples, exampleDefault)
+		example := mitemapiexample.ItemApiExample{
+			Name:     entry.Request.Method + " " + entry.Request.URL,
+			BodyType: mitemapiexample.BodyTypeNone,
+
+			CollectionID: collectionID,
+			ItemApiID:    api.ID,
+			ID:           idwrap.NewNow(),
 		}
 		result.Examples = append(result.Examples, example)
 
@@ -144,6 +159,33 @@ func ConvertHAR(har *HAR) (HarResvoled, error) {
 				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, example.ID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
 			}
+		}
+	}
+
+	// create prev and next fiels for each api and example
+	var prevApi *mitemapi.ItemApi
+	var prevExample *mitemapiexample.ItemApiExample
+	var nextApi *mitemapi.ItemApi
+	var nextExample *mitemapiexample.ItemApiExample
+	for i := range result.Apis {
+		if i > 0 {
+			prevApi = &result.Apis[i-1]
+			result.Apis[i].Prev = &prevApi.ID
+		}
+		if i < len(result.Apis)-1 {
+			nextApi = &result.Apis[i+1]
+			result.Apis[i].Next = &nextApi.ID
+		}
+	}
+
+	for i := range result.Examples {
+		if i > 0 {
+			prevExample = &result.Examples[i-1]
+			result.Examples[i].Prev = &prevExample.ID
+		}
+		if i < len(result.Examples)-1 {
+			nextExample = &result.Examples[i+1]
+			result.Examples[i].Next = &nextExample.ID
 		}
 	}
 
