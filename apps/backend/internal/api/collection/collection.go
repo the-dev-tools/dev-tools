@@ -377,7 +377,52 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
+	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txExampleHeaderService, err := sexampleheader.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txExampleHeaderService.CreateBulkHeader(ctx, resolved.Headers)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txExampleQueryService, err := sexamplequery.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txExampleQueryService.CreateBulkQuery(ctx, resolved.Queries)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolved.RawBodies)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyFormService.CreateBulkBodyForm(ctx, resolved.FormBodies)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolved.UrlEncodedBodies)
 
 	err = tx.Commit()
 	if err != nil {

@@ -7,6 +7,8 @@ import (
 	"the-dev-tools/backend/pkg/model/mbodyform"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
 	"the-dev-tools/backend/pkg/model/mbodyurl"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 )
@@ -14,6 +16,8 @@ import (
 type HarResvoled struct {
 	Apis             []mitemapi.ItemApi
 	Examples         []mitemapiexample.ItemApiExample
+	Queries          []mexamplequery.Query
+	Headers          []mexampleheader.Header
 	RawBodies        []mbodyraw.ExampleBodyRaw
 	FormBodies       []mbodyform.BodyForm
 	UrlEncodedBodies []mbodyurl.BodyURLEncoded
@@ -87,6 +91,7 @@ func ConvertParamToFormBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyf
 	result := make([]mbodyform.BodyForm, len(params))
 	for i, param := range params {
 		result[i] = mbodyform.BodyForm{
+			ID:        idwrap.NewNow(),
 			BodyKey:   param.Name,
 			Value:     param.Value,
 			Enable:    true,
@@ -100,6 +105,7 @@ func ConvertParamToUrlBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyur
 	result := make([]mbodyurl.BodyURLEncoded, len(params))
 	for i, param := range params {
 		result[i] = mbodyurl.BodyURLEncoded{
+			ID:        idwrap.NewNow(),
 			BodyKey:   param.Name,
 			Value:     param.Value,
 			Enable:    true,
@@ -109,13 +115,16 @@ func ConvertParamToUrlBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyur
 	return result
 }
 
+// TODO: refactor this function to make it more readable
 func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
 
 	// Process each entry in the HAR file
 	for _, entry := range har.Log.Entries {
+		// creating Endpoint/api
 		api := mitemapi.ItemApi{
 			ID:           idwrap.NewNow(),
+			Name:         entry.Request.Method + " " + entry.Request.URL,
 			Url:          entry.Request.URL,
 			Method:       entry.Request.Method,
 			CollectionID: collectionID,
@@ -123,6 +132,7 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 
 		result.Apis = append(result.Apis, api)
 
+		// Default Example
 		exampleDefault := mitemapiexample.ItemApiExample{
 			Name:      entry.Request.Method + " " + entry.Request.URL,
 			BodyType:  mitemapiexample.BodyTypeNone,
@@ -133,33 +143,52 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 			ID:           idwrap.NewNow(),
 		}
 		result.Examples = append(result.Examples, exampleDefault)
+
+		// Creating example
+		exampleID := idwrap.NewNow()
 		example := mitemapiexample.ItemApiExample{
 			Name:     entry.Request.Method + " " + entry.Request.URL,
 			BodyType: mitemapiexample.BodyTypeNone,
 
 			CollectionID: collectionID,
 			ItemApiID:    api.ID,
-			ID:           idwrap.NewNow(),
+			ID:           exampleID,
 		}
-		result.Examples = append(result.Examples, example)
+
+		// Get headers
+		headers := extractHeaders(entry.Request.Headers, exampleID)
+		result.Headers = append(result.Headers, headers...)
+
+		// Get queries
+		queries := extractQueryParams(entry.Request.QueryString, exampleID)
+		result.Queries = append(result.Queries, queries...)
+
+		rawBody := mbodyraw.ExampleBodyRaw{
+			ID:            idwrap.NewNow(),
+			ExampleID:     exampleID,
+			Data:          []byte(""),
+			VisualizeMode: mbodyraw.VisualizeModeText,
+		}
 
 		if entry.Request.PostData != nil {
 			postData := entry.Request.PostData
 			switch {
 			case strings.Contains(postData.MimeType, "application/json"):
-				rawBody := mbodyraw.ExampleBodyRaw{
-					Data:          []byte(entry.Request.PostData.Text),
-					VisualizeMode: mbodyraw.VisualizeModeJSON,
-				}
-				result.RawBodies = append(result.RawBodies, rawBody)
+				rawBody.Data = []byte(postData.Text)
+				example.BodyType = mitemapiexample.BodyTypeRaw
 			case strings.Contains(postData.MimeType, "multipart/form-data"):
-				formBodies := ConvertParamToFormBodies(postData.Params, example.ID)
+				formBodies := ConvertParamToFormBodies(postData.Params, exampleID)
 				result.FormBodies = append(result.FormBodies, formBodies...)
+				example.BodyType = mitemapiexample.BodyTypeUrlencoded
 			case strings.Contains(postData.MimeType, "application/x-www-form-urlencoded"):
-				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, example.ID)
+				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, exampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
+				example.BodyType = mitemapiexample.BodyTypeForm
 			}
 		}
+		result.RawBodies = append(result.RawBodies, rawBody)
+
+		result.Examples = append(result.Examples, example)
 	}
 
 	// create prev and next fiels for each api and example
@@ -192,18 +221,32 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 	return result, nil
 }
 
-func extractHeaders(headers []Header) map[string]string {
-	result := make(map[string]string)
+func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.Header {
+	var result []mexampleheader.Header
 	for _, header := range headers {
-		result[header.Name] = header.Value
+		h := mexampleheader.Header{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			HeaderKey: header.Name,
+			Value:     header.Value,
+			Enable:    true,
+		}
+		result = append(result, h)
 	}
 	return result
 }
 
-func extractQueryParams(queries []Query) map[string]string {
-	result := make(map[string]string)
+func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequery.Query {
+	var result []mexamplequery.Query
 	for _, query := range queries {
-		result[query.Name] = query.Value
+		q := mexamplequery.Query{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			QueryKey:  query.Name,
+			Value:     query.Value,
+			Enable:    true,
+		}
+		result = append(result, q)
 	}
 	return result
 }
