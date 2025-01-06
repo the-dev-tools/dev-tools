@@ -19,7 +19,7 @@ type LogChanMap struct {
 }
 
 func NewLogChanMap() LogChanMap {
-	chanMap := make(map[idwrap.IDWrap]chan LogMessage)
+	chanMap := make(map[idwrap.IDWrap]chan LogMessage, 10)
 	return LogChanMap{
 		chanMap: chanMap,
 		mt:      &sync.Mutex{},

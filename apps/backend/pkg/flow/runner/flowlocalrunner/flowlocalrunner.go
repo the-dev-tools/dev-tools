@@ -30,7 +30,7 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 	}
 }
 
-func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus) error {
+func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusResp) error {
 	nextNodeID := &r.StartNodeID
 	var err error
 	req := &node.FlowNodeRequest{
@@ -38,8 +38,9 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 		NodeMap:       r.FlowNodeMap,
 		EdgeSourceMap: r.EdgesMap,
 	}
+	status <- runner.NewFlowStatus(runner.FlowStatusStarting, node.NodeNone, nil)
 	for nextNodeID != nil {
-		fmt.Println("nextNodeID", nextNodeID)
+		status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, nextNodeID)
 		currentNode, ok := r.FlowNodeMap[*nextNodeID]
 		if !ok {
 			return fmt.Errorf("node not found: %v", nextNodeID)
@@ -50,9 +51,14 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatus)
 			nextNodeID, err = RunNodeAsync(ctx, currentNode, req, r.Timeout)
 		}
 		if err != nil {
+			if err == context.DeadlineExceeded {
+				status <- runner.NewFlowStatus(runner.FlowStatusTimeout, node.NodeStatusFailed, nextNodeID)
+			}
+			status <- runner.NewFlowStatus(runner.FlowStatusFailed, node.NodeStatusFailed, nextNodeID)
 			return err
 		}
 	}
+	status <- runner.NewFlowStatus(runner.FlowStatusSuccess, node.NodeStatusSuccess, nil)
 	return nil
 }
 

@@ -9,6 +9,20 @@ import (
 
 var ErrNodeNotFound = errors.New("node not found")
 
+type NodeStatus int8
+
+const (
+	NodeNone NodeStatus = iota
+	NodeStarting
+	NodeStatusRunning
+	NodeStatusSuccess
+	NodeStatusFailed
+)
+
+func (n NodeStatus) String() string {
+	return [...]string{"None", "Starting", "Running", "Success", "Failed"}[n]
+}
+
 type FlowNode interface {
 	GetID() idwrap.IDWrap
 

@@ -381,23 +381,47 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 	// TODO: get timeout from flow config
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNode.FlowNodeID, flowNodeMap, edgeMap, time.Second*10)
 
-	status := make(chan runner.FlowStatus, 10)
+	status := make(chan runner.FlowStatusResp, 10)
 
+	done := make(chan error)
 	go func() {
-		select {
-		case <-ctx.Done():
-		case a := <-status:
-			stream.Send(&flowv1.FlowRunResponse{
-				CurrentNodeId: a.CurrentNodeID.Bytes(),
-			},
-			)
-			c.logChanMap.SendMsgToUserWithContext(ctx, flowID, fmt.Sprintf("Node %s is done", a.CurrentNodeID))
+		for {
+			select {
+			case a := <-status:
+				c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
+				var nodeBytes []byte
+				if a.CurrentNodeID != nil {
+					nodeBytes = a.CurrentNodeID.Bytes()
+				}
+				err := ctx.Err()
+				if err != nil {
+					done <- err
+					return
+				}
+				err = stream.Send(&flowv1.FlowRunResponse{
+					CurrentNodeId: nodeBytes,
+				},
+				)
+				if err != nil {
+					done <- err
+					return
+				}
+				continue
+			case <-ctx.Done():
+			}
+			break
 		}
+		done <- nil
 	}()
 
 	err = runnerInst.Run(ctx, status)
 	if err != nil {
 		err = fmt.Errorf("run flow: %w", err)
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = <-done
+	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
