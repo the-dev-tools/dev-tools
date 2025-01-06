@@ -23,19 +23,6 @@ func NewRlogRPC(logMap logconsole.LogChanMap) *RlogRPC {
 	}
 }
 
-type ServerStreamAdHoc[Res any] interface {
-	Send(*Res) error
-}
-
-type ClientStreamAdHoc[Req any] interface {
-	Receive() (*Req, error)
-}
-
-type FullStreamAdHoc[Req, Res any] interface {
-	Send(*Res) error
-	Receive() (*Req, error)
-}
-
 func CreateService(srv *RlogRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := logv1connect.NewLogServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
@@ -45,7 +32,7 @@ func (c *RlogRPC) LogStream(ctx context.Context, req *connect.Request[emptypb.Em
 	return c.LogStreamAdHoc(ctx, req, stream)
 }
 
-func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[emptypb.Empty], stream ServerStreamAdHoc[logv1.LogStreamResponse]) error {
+func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[emptypb.Empty], stream api.ServerStreamAdHoc[logv1.LogStreamResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return err

@@ -500,6 +500,15 @@ func TestDeleteFlow(t *testing.T) {
 	testutil.AssertNotFatal(t, nil, resp.Msg)
 }
 
+type ServerStreamingHandlerMock[I any] struct {
+	SendStream func(*I)
+}
+
+func (s ServerStreamingHandlerMock[I]) Send(a *I) error {
+	s.SendStream(a)
+	return nil
+}
+
 func TestRunFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
@@ -527,7 +536,7 @@ func TestRunFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	logChanMap := logconsole.NewLogChanMap()
+	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
@@ -606,10 +615,22 @@ func TestRunFlow(t *testing.T) {
 		EnvironmentId: idwrap.NewNow().Bytes(),
 	})
 
-	stream := &connect.ServerStream[flowv1.FlowRunResponse]{}
+	logChan := logChanMap.AddLogChannel(userID)
+
+	stream := ServerStreamingHandlerMock[flowv1.FlowRunResponse]{
+		SendStream: func(a *flowv1.FlowRunResponse) {
+		},
+	}
+
+	go func() {
+		for {
+			a := <-logChan
+			fmt.Println("logChan", a)
+		}
+	}()
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	err = serviceRPC.FlowRun(authedCtx, req, stream)
+	err = serviceRPC.FlowRunAdHoc(authedCtx, req, stream)
 
 	testutil.Assert(t, nil, err)
 }

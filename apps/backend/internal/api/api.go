@@ -15,6 +15,19 @@ type Service struct {
 	Path    string
 }
 
+type ServerStreamAdHoc[Res any] interface {
+	Send(*Res) error
+}
+
+type ClientStreamAdHoc[Req any] interface {
+	Receive() (*Req, error)
+}
+
+type FullStreamAdHoc[Req, Res any] interface {
+	Send(*Res) error
+	Receive() (*Req, error)
+}
+
 func newCORS() *cors.Cors {
 	return cors.New(cors.Options{
 		AllowedMethods: []string{

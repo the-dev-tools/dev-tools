@@ -54,3 +54,7 @@ func (f FlowStatusResp) Log() string {
 	}
 	return flowStatus
 }
+
+func (f FlowStatusResp) Done() bool {
+	return f.FlowStatus == FlowStatusSuccess || f.FlowStatus == FlowStatusFailed || f.FlowStatus == FlowStatusTimeout
+}

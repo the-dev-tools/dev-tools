@@ -277,6 +277,10 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 }
 
 func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream *connect.ServerStream[flowv1.FlowRunResponse]) error {
+	return c.FlowRunAdHoc(ctx, req, stream)
+}
+
+func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream api.ServerStreamAdHoc[flowv1.FlowRunResponse]) error {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return connect.NewError(connect.CodeInvalidArgument, err)
@@ -388,7 +392,11 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 		for {
 			select {
 			case a := <-status:
-				c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
+				err = c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
+				if err != nil {
+					done <- err
+					return
+				}
 				var nodeBytes []byte
 				if a.CurrentNodeID != nil {
 					nodeBytes = a.CurrentNodeID.Bytes()
@@ -404,6 +412,10 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 				)
 				if err != nil {
 					done <- err
+					return
+				}
+				if a.Done() {
+					done <- nil
 					return
 				}
 				continue

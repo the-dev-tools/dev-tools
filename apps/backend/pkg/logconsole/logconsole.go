@@ -26,8 +26,18 @@ func NewLogChanMap() LogChanMap {
 	}
 }
 
+func NewLogChanMapWith(size int) LogChanMap {
+	chanMap := make(map[idwrap.IDWrap]chan LogMessage, size)
+	return LogChanMap{
+		chanMap: chanMap,
+		mt:      &sync.Mutex{},
+	}
+}
+
+const bufferSize = 10
+
 func (l *LogChanMap) AddLogChannel(userID idwrap.IDWrap) chan LogMessage {
-	lm := make(chan LogMessage)
+	lm := make(chan LogMessage, bufferSize)
 	l.mt.Lock()
 	defer l.mt.Unlock()
 	l.chanMap[userID] = lm

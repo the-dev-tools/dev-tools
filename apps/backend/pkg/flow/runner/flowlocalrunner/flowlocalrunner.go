@@ -38,6 +38,7 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 		NodeMap:       r.FlowNodeMap,
 		EdgeSourceMap: r.EdgesMap,
 	}
+	fmt.Println("FlowLocalRunner.Run")
 	status <- runner.NewFlowStatus(runner.FlowStatusStarting, node.NodeNone, nil)
 	for nextNodeID != nil {
 		status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, nextNodeID)
