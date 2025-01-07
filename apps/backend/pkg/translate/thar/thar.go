@@ -24,9 +24,11 @@ type HarResvoled struct {
 }
 
 type HAR struct {
-	Log struct {
-		Entries []Entry `json:"entries"`
-	} `json:"log"`
+	Log Log `json:"log"`
+}
+
+type Log struct {
+	Entries []Entry `json:"entries"`
 }
 
 type Entry struct {
@@ -133,6 +135,7 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 		result.Apis = append(result.Apis, api)
 
 		// Default Example
+		defaultExampleID := idwrap.NewNow()
 		exampleDefault := mitemapiexample.ItemApiExample{
 			Name:      entry.Request.Method + " " + entry.Request.URL,
 			BodyType:  mitemapiexample.BodyTypeNone,
@@ -140,15 +143,14 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 
 			CollectionID: collectionID,
 			ItemApiID:    api.ID,
-			ID:           idwrap.NewNow(),
+			ID:           defaultExampleID,
 		}
-		result.Examples = append(result.Examples, exampleDefault)
 
 		// Creating example
 		exampleID := idwrap.NewNow()
 		example := mitemapiexample.ItemApiExample{
 			Name:     entry.Request.Method + " " + entry.Request.URL,
-			BodyType: mitemapiexample.BodyTypeNone,
+			BodyType: mitemapiexample.BodyTypeRaw,
 
 			CollectionID: collectionID,
 			ItemApiID:    api.ID,
@@ -167,6 +169,7 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 			ID:            idwrap.NewNow(),
 			ExampleID:     exampleID,
 			Data:          []byte(""),
+			CompressType:  mbodyraw.CompressTypeNone,
 			VisualizeMode: mbodyraw.VisualizeModeText,
 		}
 
@@ -179,16 +182,27 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 			case strings.Contains(postData.MimeType, "multipart/form-data"):
 				formBodies := ConvertParamToFormBodies(postData.Params, exampleID)
 				result.FormBodies = append(result.FormBodies, formBodies...)
+				formBodiesDefault := ConvertParamToFormBodies(postData.Params, defaultExampleID)
+				result.FormBodies = append(result.FormBodies, formBodiesDefault...)
+
 				example.BodyType = mitemapiexample.BodyTypeUrlencoded
 			case strings.Contains(postData.MimeType, "application/x-www-form-urlencoded"):
 				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, exampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
+				urlEncodedBodiesDefault := ConvertParamToUrlBodies(postData.Params, defaultExampleID)
+				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodiesDefault...)
+
 				example.BodyType = mitemapiexample.BodyTypeForm
 			}
 		}
 		result.RawBodies = append(result.RawBodies, rawBody)
+		rawBodyDefault := rawBody
+		rawBodyDefault.ID = idwrap.NewNow()
+		rawBodyDefault.ExampleID = defaultExampleID
+		result.RawBodies = append(result.RawBodies, rawBodyDefault)
 
 		result.Examples = append(result.Examples, example)
+		result.Examples = append(result.Examples, exampleDefault)
 	}
 
 	// create prev and next fiels for each api and example

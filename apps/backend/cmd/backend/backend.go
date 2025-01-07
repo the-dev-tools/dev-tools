@@ -288,7 +288,9 @@ func main() {
 	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
 
 	// Flow Service
-	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs, ns, rns, lfns, sns, *ins, logMap)
+	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs,
+		brs, bfs, bues,
+		ns, rns, lfns, sns, *ins, logMap)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service

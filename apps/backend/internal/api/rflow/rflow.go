@@ -1,10 +1,13 @@
 package rflow
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"mime/multipart"
+	"net/url"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -18,12 +21,16 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnode/mnif"
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
 	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/service/sbodyform"
+	"the-dev-tools/backend/pkg/service/sbodyraw"
+	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -66,6 +73,11 @@ type FlowServiceRPC struct {
 	qs sexamplequery.ExampleQueryService
 	hs sexampleheader.HeaderService
 
+	// body
+	brs  sbodyraw.BodyRawService
+	bfs  sbodyform.BodyFormService
+	bues sbodyurl.BodyURLEncodedService
+
 	// sub nodes
 	ns   snode.NodeService
 	rns  snoderequest.NodeRequestService
@@ -79,6 +91,7 @@ type FlowServiceRPC struct {
 func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
 	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
+	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
 	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodestart.NodeStartService, ins snodeif.NodeIfService,
 	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
@@ -92,6 +105,11 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 
 		// flow
 		fes: fes,
+
+		// body
+		brs:  brs,
+		bfs:  bfs,
+		bues: bues,
 
 		// request
 		as: as,
@@ -362,6 +380,43 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, errors.New("get queries"))
 		}
+
+		exampleUlid := example.ID
+		bodyBytes := &bytes.Buffer{}
+		switch example.BodyType {
+		case mitemapiexample.BodyTypeNone:
+		case mitemapiexample.BodyTypeRaw:
+			bodyData, err := c.brs.GetBodyRawByExampleID(ctx, exampleUlid)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			bodyBytes.Write(bodyData.Data)
+		case mitemapiexample.BodyTypeForm:
+			forms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleUlid)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			writer := multipart.NewWriter(bodyBytes)
+
+			for _, v := range forms {
+				err = writer.WriteField(v.BodyKey, v.Value)
+				if err != nil {
+					return connect.NewError(connect.CodeInternal, err)
+				}
+			}
+
+		case mitemapiexample.BodyTypeUrlencoded:
+			urls, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleUlid)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			urlVal := url.Values{}
+			for _, url := range urls {
+				urlVal.Add(url.BodyKey, url.Value)
+			}
+
+		}
+
 		// TODO: add body later
 		body := []byte{}
 

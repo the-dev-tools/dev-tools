@@ -15,6 +15,9 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/model/mtag"
+	"the-dev-tools/backend/pkg/service/sbodyform"
+	"the-dev-tools/backend/pkg/service/sbodyraw"
+	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -57,6 +60,10 @@ func TestListFlow(t *testing.T) {
 	qs := sexamplequery.New(queries)
 	hs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
@@ -64,10 +71,12 @@ func TestListFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	logChanMap := logconsole.NewLogChanMap()
+	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		fes, as, es, qs, hs,
+		brs, bfs, bues,
+		ns, rns, flns, sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -190,6 +199,10 @@ func TestGetFlow(t *testing.T) {
 	qs := sexamplequery.New(queries)
 	hs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
@@ -197,10 +210,12 @@ func TestGetFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	logChanMap := logconsole.NewLogChanMap()
+	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		fes, as, es, qs, hs,
+		brs, bfs, bues,
+		ns, rns, flns, sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -288,6 +303,10 @@ func TestCreateFlow(t *testing.T) {
 	qs := sexamplequery.New(queries)
 	hs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
@@ -295,10 +314,12 @@ func TestCreateFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	logChanMap := logconsole.NewLogChanMap()
+	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		fes, as, es, qs, hs,
+		brs, bfs, bues,
+		ns, rns, flns, sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -370,6 +391,10 @@ func TestUpdateFlow(t *testing.T) {
 	qs := sexamplequery.New(queries)
 	hs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
@@ -377,10 +402,12 @@ func TestUpdateFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	logChanMap := logconsole.NewLogChanMap()
+	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		fes, as, es, qs, hs,
+		brs, bfs, bues,
+		ns, rns, flns, sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -453,6 +480,10 @@ func TestDeleteFlow(t *testing.T) {
 	qs := sexamplequery.New(queries)
 	hs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
@@ -460,10 +491,12 @@ func TestDeleteFlow(t *testing.T) {
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
-	logChanMap := logconsole.NewLogChanMap()
+	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		fes, as, es, qs, hs,
+		brs, bfs, bues,
+		ns, rns, flns, sns, *ins,
 		logChanMap)
 
 	wsID := idwrap.NewNow()
@@ -529,6 +562,10 @@ func TestRunFlow(t *testing.T) {
 	qs := sexamplequery.New(queries)
 	hs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
@@ -539,7 +576,9 @@ func TestRunFlow(t *testing.T) {
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
-		fes, as, es, qs, hs, ns, rns, flns, sns, *ins,
+		fes, as, es, qs, hs,
+		brs, bfs, bues,
+		ns, rns, flns, sns, *ins,
 		logChanMap)
 
 	wsID := idwrap.NewNow()

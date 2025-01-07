@@ -446,7 +446,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		for _, url := range urls {
 			urlVal.Add(url.BodyKey, url.Value)
 		}
-
+		// TODO: refactor url encode
+		itemApiCall.Url += urlVal.Encode()
 	}
 
 	if compressType != compress.CompressTypeNone {
