@@ -124,7 +124,7 @@ const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field:
 
 const fakeEnum = (faker: (typeof Faker)['Service'], enum_: DescEnum) =>
   faker.number.int({
-    min: 0,
+    min: 1,
     max: enum_.values.length - 1,
   });
 
