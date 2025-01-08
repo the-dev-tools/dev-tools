@@ -64,12 +64,12 @@ type Query struct {
 }
 
 type PostData struct {
-	MimeType string   `json:"mimeType"`
-	Text     string   `json:"text"`
-	Params   []Parmas `json:"params,omitempty"`
+	MimeType string  `json:"mimeType"`
+	Text     string  `json:"text"`
+	Params   []Param `json:"params,omitempty"`
 }
 
-type Parmas struct {
+type Param struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
@@ -80,6 +80,12 @@ type Content struct {
 	Text     string `json:"text"`
 }
 
+const (
+	RawBodyCheck        = "application/json"
+	FormBodyCheck       = "multipart/form-data"
+	UrlEncodedBodyCheck = "application/x-www-form-urlencoded"
+)
+
 func ConvertRaw(data []byte) (*HAR, error) {
 	var harFile HAR
 	err := json.Unmarshal(data, &harFile)
@@ -89,7 +95,7 @@ func ConvertRaw(data []byte) (*HAR, error) {
 	return &harFile, nil
 }
 
-func ConvertParamToFormBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyform.BodyForm {
+func ConvertParamToFormBodies(params []Param, exampleId idwrap.IDWrap) []mbodyform.BodyForm {
 	result := make([]mbodyform.BodyForm, len(params))
 	for i, param := range params {
 		result[i] = mbodyform.BodyForm{
@@ -103,7 +109,7 @@ func ConvertParamToFormBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyf
 	return result
 }
 
-func ConvertParamToUrlBodies(params []Parmas, exampleId idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
+func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
 	result := make([]mbodyurl.BodyURLEncoded, len(params))
 	for i, param := range params {
 		result[i] = mbodyurl.BodyURLEncoded{
@@ -176,17 +182,17 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 		if entry.Request.PostData != nil {
 			postData := entry.Request.PostData
 			switch {
-			case strings.Contains(postData.MimeType, "application/json"):
+			case strings.Contains(postData.MimeType, RawBodyCheck):
 				rawBody.Data = []byte(postData.Text)
 				example.BodyType = mitemapiexample.BodyTypeRaw
-			case strings.Contains(postData.MimeType, "multipart/form-data"):
+			case strings.Contains(postData.MimeType, FormBodyCheck):
 				formBodies := ConvertParamToFormBodies(postData.Params, exampleID)
 				result.FormBodies = append(result.FormBodies, formBodies...)
 				formBodiesDefault := ConvertParamToFormBodies(postData.Params, defaultExampleID)
 				result.FormBodies = append(result.FormBodies, formBodiesDefault...)
 
 				example.BodyType = mitemapiexample.BodyTypeUrlencoded
-			case strings.Contains(postData.MimeType, "application/x-www-form-urlencoded"):
+			case strings.Contains(postData.MimeType, UrlEncodedBodyCheck):
 				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, exampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
 				urlEncodedBodiesDefault := ConvertParamToUrlBodies(postData.Params, defaultExampleID)
