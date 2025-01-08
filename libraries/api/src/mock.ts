@@ -128,11 +128,7 @@ const fakeEnum = (faker: (typeof Faker)['Service'], enum_: DescEnum) =>
     max: enum_.values.length - 1,
   });
 
-const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Message => {
-  if (message.typeName === 'google.protobuf.Timestamp') {
-    return timestampFromDate(faker.date.anytime());
-  }
-
+const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, depth = 0): Message => {
   switch (message.typeName) {
     case 'google.protobuf.Timestamp':
       return timestampFromDate(faker.date.anytime());
@@ -157,7 +153,8 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Me
   const value = Record.map(message.field, (field) => {
     switch (field.fieldKind) {
       case 'message':
-        return fakeMessage(faker, field.message);
+        if (depth > 5) return undefined;
+        return fakeMessage(faker, field.message, depth + 1);
 
       case 'scalar':
         return fakeScalar(faker, field.scalar, field);
@@ -166,10 +163,11 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage): Me
         return fakeEnum(faker, field.enum);
 
       case 'list':
+        if (depth > 5) return [];
         return faker.helpers.multiple(() => {
           switch (field.listKind) {
             case 'message':
-              return fakeMessage(faker, field.message);
+              return fakeMessage(faker, field.message, depth + 1);
 
             case 'scalar':
               return fakeScalar(faker, field.scalar, field);
