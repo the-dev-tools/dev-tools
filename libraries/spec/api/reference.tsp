@@ -15,10 +15,10 @@ using TypeSpec.Protobuf;
 namespace API.Reference;
 
 enum ReferenceKeyKind {
-  PATH_KIND_UNSPECIFIED: 0,
-  PATH_KIND_KEY: 1,
-  PATH_KIND_INDEX: 2,
-  PATH_KIND_ANY: 3,
+  REFERENCE_KEY_KIND_UNSPECIFIED: 0,
+  REFERENCE_KEY_KIND_KEY: 1,
+  REFERENCE_KEY_KIND_INDEX: 2,
+  REFERENCE_KEY_KIND_ANY: 3,
 }
 
 @autoFields
