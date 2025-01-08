@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/backend/pkg/testutil"
 	assertv1 "the-dev-tools/spec/dist/buf/go/assert/v1"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
+	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 
 	"connectrpc.com/connect"
 )
@@ -480,9 +481,9 @@ func TestRPCRequestAssertCreate(t *testing.T) {
 
 	req := connect.NewRequest(&requestv1.AssertCreateRequest{
 		ExampleId: exampleID.Bytes(),
-		Path: []*assertv1.PathKey{{
+		Path: []*referencev1.ReferenceKey{{
 			Key:  expectedPath,
-			Kind: assertv1.PathKind_PATH_KIND_UNSPECIFIED,
+			Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED,
 		}},
 		Value: expectedValue,
 	})

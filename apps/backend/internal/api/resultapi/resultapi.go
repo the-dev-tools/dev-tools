@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
@@ -144,6 +145,7 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		fmt.Println(assert)
 
 		a, err := tassert.SerializeAssertModelToRPC(*assert)
 		if err != nil {

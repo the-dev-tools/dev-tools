@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/backend/pkg/translate/tassert"
 	assertv1 "the-dev-tools/spec/dist/buf/go/assert/v1"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
+	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 )
 
 func TestSerializeAssertModelToRPC(t *testing.T) {
@@ -121,17 +122,17 @@ func TestSerializeAssertRPCToModel(t *testing.T) {
 	keysAnyBool := []bool{false, false, true, false}
 	keyIndexBool := []bool{false, true, false, false}
 	keyIndexInt := []int32{-1, 2, -1, -1}
-	var pathKeys []*assertv1.PathKey
+	var pathKeys []*referencev1.ReferenceKey
 	for i, s := range keys {
-		pathKey := assertv1.PathKey{
-			Kind: assertv1.PathKind_PATH_KIND_UNSPECIFIED,
+		pathKey := referencev1.ReferenceKey{
+			Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED,
 			Key:  s,
 		}
 		if keysAnyBool[i] {
-			pathKey.Kind = assertv1.PathKind_PATH_KIND_INDEX_ANY
+			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_ANY
 		}
 		if keyIndexBool[i] {
-			pathKey.Kind = assertv1.PathKind_PATH_KIND_INDEX
+			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
 			pathKey.Index = keyIndexInt[i]
 			pathKey.Key = ""
 		}

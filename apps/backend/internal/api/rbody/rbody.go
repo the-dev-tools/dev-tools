@@ -54,7 +54,7 @@ func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.Item
 }
 
 func CreateService(srv BodyRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := bodyv1connect.NewRequestServiceHandler(&srv, options...)
+	path, handler := bodyv1connect.NewBodyServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
