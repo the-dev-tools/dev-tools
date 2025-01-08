@@ -1,7 +1,4 @@
-import {
-  bodyRawGet,
-  bodyRawUpdate,
-} from '@the-dev-tools/spec/collection/item/body/v1/body-RequestService_connectquery';
+import { bodyRawGet, bodyRawUpdate } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
 
 import { MutationSpec } from '../../../query.internal';
 

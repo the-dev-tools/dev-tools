@@ -13,15 +13,15 @@ import {
   BodyFormItemListItem,
   BodyFormItemListItemSchema,
   BodyKind,
+  BodyService,
   BodyUrlEncodedItemListItem,
   BodyUrlEncodedItemListItemSchema,
-  RequestService,
 } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import {
   bodyFormItemList,
   bodyRawGet,
   bodyUrlEncodedItemList,
-} from '@the-dev-tools/spec/collection/item/body/v1/body-RequestService_connectquery';
+} from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
@@ -93,7 +93,7 @@ interface FormDataTableProps {
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
+  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
   const {
     data: { items },
@@ -118,7 +118,7 @@ interface FormDeltaDataTableProps extends FormDataTableProps {
 
 const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
+  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
   const [
     {
@@ -154,7 +154,7 @@ interface UrlEncodedTableProps {
 
 const UrlEncodedTable = ({ exampleId }: UrlEncodedTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
+  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
   const {
     data: { items },
@@ -179,7 +179,7 @@ interface UrlEncodedDeltaTableProps extends UrlEncodedTableProps {
 
 const UrlEncodedDeltaTable = ({ exampleId, deltaExampleId }: UrlEncodedDeltaTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
+  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
   const [
     {
