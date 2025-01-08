@@ -3,9 +3,10 @@ import "@typespec/rest";
 
 import "../../lib";
 
-import "../resource.tsp";
-import "../flow.tsp";
 import "../assert.tsp";
+import "../flow.tsp";
+import "../reference.tsp";
+import "../resource.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -79,10 +80,10 @@ model NodeCondition {
 
 @autoFields
 model SimpleCondition {
-  conditionType: API.Assert.AssertKind;
-  path: API.Assert.PathKey[];
+  conditionType: Assert.AssertKind;
+  path: Reference.ReferenceKey[];
   value: string;
-  type: API.Assert.AssertKind;
+  type: Assert.AssertKind;
 }
 
 model NodeListItem is Resource.List.Item<Node>;

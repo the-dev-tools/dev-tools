@@ -1,5 +1,6 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
+
 import "../lib";
 
 using TypeSpec.Protobuf;
@@ -23,17 +24,4 @@ enum AssertKind {
   ASSERT_KIND_LESS: 6,
   ASSERT_KIND_GREATER_OR_EQUAL: 7,
   ASSERT_KIND_LESS_OR_EQUAL: 8,
-}
-
-enum PathKind {
-  PATH_KIND_UNSPECIFIED: 0,
-  PATH_KIND_INDEX: 1,
-  PATH_KIND_INDEX_ANY: 2,
-}
-
-@autoFields
-model PathKey {
-  kind: PathKind;
-  key?: string;
-  index?: int32;
 }

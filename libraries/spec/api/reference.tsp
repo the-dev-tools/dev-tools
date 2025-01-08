@@ -14,6 +14,21 @@ using TypeSpec.Protobuf;
 })
 namespace API.Reference;
 
+enum ReferenceKeyKind {
+  PATH_KIND_UNSPECIFIED: 0,
+  PATH_KIND_KEY: 1,
+  PATH_KIND_INDEX: 2,
+  PATH_KIND_ANY: 3,
+}
+
+@autoFields
+model ReferenceKey {
+  kind: ReferenceKeyKind;
+  key?: string;
+  index?: int32;
+  any?: WellKnown.Empty;
+}
+
 enum ReferenceKind {
   REFERENCE_KIND_UNSPECIFIED: 0,
   REFERENCE_KIND_MAP: 1,
@@ -25,13 +40,18 @@ enum ReferenceKind {
 @autoFields
 model Reference {
   kind: ReferenceKind;
-  map?: Map<string, Reference>;
+  key: ReferenceKey;
+
+  /** Child map references */
+  map?: Reference[];
+
+  /** Child array references */
   array?: Reference[];
 
   /** Primitive value - string, number, boolean, or null */
   value?: WellKnown.Any;
 
-  /** Environment names with the variable */
+  /** Environment names containing the variable */
   variable?: string[];
 }
 
@@ -44,7 +64,7 @@ model ReferenceGetRequest {
 
 @autoFields
 model ReferenceGetResponse {
-  root: Reference;
+  items: Reference[];
 }
 
 @Protobuf.service

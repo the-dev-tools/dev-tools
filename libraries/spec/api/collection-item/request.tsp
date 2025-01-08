@@ -4,6 +4,7 @@ import "@typespec/rest";
 import "../../lib";
 
 import "../assert.tsp";
+import "../reference.tsp";
 import "./example.tsp";
 
 using TypeSpec.Protobuf;
@@ -44,7 +45,7 @@ model Header {
 model Assert {
   @key assertId: Resource.Id;
   @visibility("query") parentAssertId?: Resource.Id;
-  path: API.Assert.PathKey[];
+  path: Reference.ReferenceKey[];
   value: string;
   type: API.Assert.AssertKind;
 }
