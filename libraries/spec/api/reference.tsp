@@ -48,8 +48,8 @@ model Reference {
   /** Child array references */
   array?: Reference[];
 
-  /** Primitive value - string, number, boolean, or null */
-  value?: WellKnown.Any;
+  /** Primitive value as JSON string */
+  value?: string;
 
   /** Environment names containing the variable */
   variable?: string[];
