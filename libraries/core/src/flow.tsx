@@ -1,4 +1,4 @@
-import { create, enumToJson, MessageInitShape } from '@bufbuild/protobuf';
+import { create, MessageInitShape } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import {
   createQueryOptions,
@@ -31,7 +31,7 @@ import {
   useReactFlow,
   useViewport,
 } from '@xyflow/react';
-import { Array, Match, Option, pipe, Schema, String } from 'effect';
+import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
@@ -39,6 +39,7 @@ import { IconType } from 'react-icons';
 import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 
+import { enumToString } from '@the-dev-tools/api/utils';
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
   exampleCreate,
@@ -50,7 +51,6 @@ import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/
 import {
   NodeGetResponse,
   NodeKind,
-  NodeKindJson,
   NodeKindSchema,
   NodeListItem,
   NodeRequest,
@@ -158,16 +158,8 @@ const mapEdgeToClient = (edge: EdgeListItem) =>
     target: Ulid.construct(edge.targetId).toCanonical(),
   }) satisfies Edge;
 
-const nodeKindToString = (kind: NodeKind) =>
-  pipe(
-    enumToJson(NodeKindSchema, kind),
-    String.substring('NODE_KIND_'.length),
-    (_) => _ as NodeKindJson extends `NODE_KIND_${infer Kind}` ? Kind : never,
-    String.toLowerCase,
-  );
-
 const mapNodeToClient = (node: Omit<NodeListItem, '$typeName'>) => {
-  const kind = nodeKindToString(node.kind);
+  const kind = enumToString(NodeKindSchema, 'NODE_KIND', node.kind);
   if (kind === 'unspecified') return Option.none();
 
   const data = node[kind]!;
@@ -236,7 +228,7 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
 
   const makeNode = useCallback(
     async (kind: NodeKind, initData?: Omit<MessageInitShape<typeof NodeSchema>, '$typeName'>) => {
-      const type = nodeKindToString(kind);
+      const type = enumToString(NodeKindSchema, 'NODE_KIND', kind);
       if (type === 'unspecified') return;
 
       const data = { ...initData, [type]: { ...initData?.[type], position } };
