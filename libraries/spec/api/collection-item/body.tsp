@@ -82,7 +82,7 @@ model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw>;
 model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
 
 @Protobuf.service
-interface RequestService {
+interface BodyService {
   // Form Array
   BodyFormItemList(...BodyFormItemListRequest): BodyFormItemListResponse;
   BodyFormItemCreate(...BodyFormItemCreateRequest): BodyFormItemCreateResponse;
