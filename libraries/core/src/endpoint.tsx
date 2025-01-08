@@ -23,7 +23,6 @@ import { twJoin, twMerge } from 'tailwind-merge';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { queryCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
-import { PathKeySchema } from '@the-dev-tools/spec/assert/v1/assert_pb';
 import {
   endpointGet,
   endpointUpdate,
@@ -50,6 +49,7 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
+import { ReferenceKeySchema } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
@@ -850,7 +850,7 @@ const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
               {result ? 'Pass' : 'Fail'}
             </div>
 
-            <span>{assert.path.map((_) => JSON.stringify(toJson(PathKeySchema, _))).join(' ')}</span>
+            <span>{assert.path.map((_) => JSON.stringify(toJson(ReferenceKeySchema, _))).join(' ')}</span>
           </Fragment>
         );
       })}

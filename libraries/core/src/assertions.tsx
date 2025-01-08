@@ -16,14 +16,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { assertCreateSpec, assertUpdateSpec } from '@the-dev-tools/api/spec/collection/item/request';
-import {
-  AssertKind,
-  AssertKindSchema,
-  PathKey,
-  PathKeyJson,
-  PathKeySchema,
-  PathKind,
-} from '@the-dev-tools/spec/assert/v1/assert_pb';
+import { AssertKind, AssertKindSchema } from '@the-dev-tools/spec/assert/v1/assert_pb';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   AssertListItem,
@@ -35,6 +28,12 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
+import {
+  ReferenceKey,
+  ReferenceKeyJson,
+  ReferenceKeyKind,
+  ReferenceKeySchema,
+} from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Popover } from '@the-dev-tools/ui/popover';
@@ -159,27 +158,27 @@ const Tab = ({ exampleId, data, items }: TabProps) => {
 
 interface PathPickerProps {
   data: Record<string, unknown>;
-  selectedPath: PathKeyJson[];
-  onSelectionChange: (path: PathKeyJson[]) => void;
+  selectedPath: ReferenceKeyJson[];
+  onSelectionChange: (path: ReferenceKeyJson[]) => void;
 }
 
 const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) => {
   const valueDisplay = pipe(
     selectedPath.map((_, index) =>
       pipe(
-        fromJson(PathKeySchema, _),
+        fromJson(ReferenceKeySchema, _),
         Match.value,
-        Match.when({ kind: PathKind.UNSPECIFIED }, (_) => (
+        Match.when({ kind: ReferenceKeyKind.KEY }, (_) => (
           <span key={`${index} ${_.key}`} className={tw`flex-none py-1`}>
             {_.key}
           </span>
         )),
-        Match.when({ kind: PathKind.INDEX }, (_) => (
+        Match.when({ kind: ReferenceKeyKind.INDEX }, (_) => (
           <span key={`${index} ${_.index}`} className={tw`flex-none bg-gray-300 p-1`}>
             entry {_.index}
           </span>
         )),
-        Match.when({ kind: PathKind.INDEX_ANY }, () => (
+        Match.when({ kind: ReferenceKeyKind.ANY }, () => (
           <span key={`${index} any`} className={tw`flex-none bg-gray-300 p-1`}>
             any entry
           </span>
@@ -193,8 +192,8 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
   const items = pipe(
     Array.fromRecord(data),
     Array.map(([key, data]) => {
-      const path = Array.make(create(PathKeySchema, { key }));
-      const ids = path.map((_) => toJson(PathKeySchema, _));
+      const path = Array.make(create(ReferenceKeySchema, { key }));
+      const ids = path.map((_) => toJson(ReferenceKeySchema, _));
       return { id: JSON.stringify(ids), data, path };
     }),
   );
@@ -212,7 +211,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
             className={tw`flex flex-col gap-1`}
             onAction={(id) => {
               if (typeof id !== 'string') return;
-              onSelectionChange(JSON.parse(id) as PathKeyJson[]);
+              onSelectionChange(JSON.parse(id) as ReferenceKeyJson[]);
               close();
             }}
           >
@@ -227,7 +226,7 @@ const PathPicker = ({ data, selectedPath, onSelectionChange }: PathPickerProps) 
 interface PathTreeItemProps {
   id: string;
   data: unknown;
-  path: Array.NonEmptyArray<PathKey>;
+  path: Array.NonEmptyArray<ReferenceKey>;
 }
 
 const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
@@ -237,13 +236,15 @@ const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
         Match.value(data),
         Match.when(Predicate.isRecord, (_) => ({
           kind: 'object' as const,
-          items: pipe(Array.fromRecord(_), Array.map(Tuple.mapFirst((_) => create(PathKeySchema, { key: _ })))),
+          items: pipe(Array.fromRecord(_), Array.map(Tuple.mapFirst((_) => create(ReferenceKeySchema, { key: _ })))),
         })),
         Match.when(Predicate.isIterable, (_) => ({
           kind: 'array' as const,
           items: pipe(
             Array.fromIterable(_),
-            Array.map((data, index) => [create(PathKeySchema, { kind: PathKind.INDEX, index }), data] as const),
+            Array.map(
+              (data, index) => [create(ReferenceKeySchema, { kind: ReferenceKeyKind.INDEX, index }), data] as const,
+            ),
             // Array.prepend([create(PathKeySchema, { kind: PathKind.INDEX_ANY }), null] as const), // TODO: construct 'any' object
           ),
         })),
@@ -258,7 +259,7 @@ const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
         value.kind !== 'unknown' ? value.items : [],
         Array.map(([key, data]) => {
           const itemPath = Array.append(path, key);
-          const ids = itemPath.map((_) => toJson(PathKeySchema, _));
+          const ids = itemPath.map((_) => toJson(ReferenceKeySchema, _));
           return { id: JSON.stringify(ids), data, path: itemPath };
         }),
       ),
@@ -269,14 +270,14 @@ const PathTreeItem = ({ id, data, path }: PathTreeItemProps) => {
 
   const keyDisplay = pipe(
     Match.value(key),
-    Match.when({ kind: PathKind.UNSPECIFIED }, (_) => JSON.stringify(_.key)),
+    Match.when({ kind: ReferenceKeyKind.UNSPECIFIED }, (_) => JSON.stringify(_.key)),
     Match.orElse(() => undefined),
   );
 
   let tag: string | undefined = undefined;
   if (value.kind !== 'unknown') tag = value.kind;
-  else if (key.kind !== PathKind.UNSPECIFIED) tag = 'entry';
-  if (key.kind !== PathKind.UNSPECIFIED) tag = `${tag} ${key.index}`;
+  else if (key.kind !== ReferenceKeyKind.UNSPECIFIED) tag = 'entry';
+  if (key.kind !== ReferenceKeyKind.UNSPECIFIED) tag = `${tag} ${key.index}`;
 
   const quantity = pipe(
     Match.value(value),
