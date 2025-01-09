@@ -25,6 +25,7 @@ import (
 	"the-dev-tools/backend/internal/api/ritemfolder"
 	"the-dev-tools/backend/internal/api/rlog"
 	"the-dev-tools/backend/internal/api/rnode"
+	"the-dev-tools/backend/internal/api/rreference"
 	"the-dev-tools/backend/internal/api/rrequest"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rvar"
@@ -305,6 +306,10 @@ func main() {
 	// Log Service
 	logSrv := rlog.NewRlogRPC(logMap)
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
+
+	// Refernce Service
+	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, us, ws, es, vs)
+	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
 	// Start services
 	go func() {
