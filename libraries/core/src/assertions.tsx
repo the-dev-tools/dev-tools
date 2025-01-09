@@ -1,6 +1,6 @@
 import { enumToJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
-import { Array, Match, pipe, Struct } from 'effect';
+import { Struct } from 'effect';
 import { Suspense, useEffect } from 'react';
 import { DialogTrigger } from 'react-aria-components';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
@@ -16,7 +16,7 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
-import { ReferenceKey, ReferenceKeyKind } from '@the-dev-tools/spec/reference/v1/reference_pb';
+import { ReferenceKey } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Popover } from '@the-dev-tools/ui/popover';
@@ -24,7 +24,7 @@ import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextAreaFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { ReferenceTree } from './reference';
+import { ReferencePath, ReferenceTree } from './reference';
 
 interface AssertionViewProps {
   exampleId: Uint8Array;
@@ -123,49 +123,26 @@ interface PathPickerProps {
   onSelectionChange: (path: ReferenceKey[]) => void;
 }
 
-const PathPicker = ({ selectedPath, onSelectionChange }: PathPickerProps) => {
-  const valueDisplay = pipe(
-    selectedPath.map((_, index) =>
-      pipe(
-        Match.value(_),
-        Match.whenOr({ kind: ReferenceKeyKind.KEY }, { kind: ReferenceKeyKind.GROUP }, (_) => (
-          <span key={`${index} ${_.key}`} className={tw`flex-none py-1`}>
-            {_.key}
-          </span>
-        )),
-        Match.when({ kind: ReferenceKeyKind.INDEX }, (_) => (
-          <span key={`${index} ${_.index}`} className={tw`flex-none bg-gray-300 p-1`}>
-            entry {_.index}
-          </span>
-        )),
-        Match.when({ kind: ReferenceKeyKind.ANY }, () => (
-          <span key={`${index} any`} className={tw`flex-none bg-gray-300 p-1`}>
-            any entry
-          </span>
-        )),
-        Match.orElseAbsurd,
-      ),
-    ),
-    Array.intersperse('.'),
-  );
-
-  return (
-    <DialogTrigger>
-      <Button className={tw`h-full flex-[2] flex-wrap justify-start`}>
-        {valueDisplay.length > 0 ? valueDisplay : <span className={tw`p-1`}>Select JSON path</span>}
-      </Button>
-      <Popover className={tw`h-full w-1/2`}>
-        {({ close }) => (
-          <Suspense fallback='Loading references...'>
-            <ReferenceTree
-              onSelect={(keys) => {
-                onSelectionChange(keys);
-                close();
-              }}
-            />
-          </Suspense>
-        )}
-      </Popover>
-    </DialogTrigger>
-  );
-};
+const PathPicker = ({ selectedPath, onSelectionChange }: PathPickerProps) => (
+  <DialogTrigger>
+    <Button className={tw`h-full flex-[2] flex-wrap justify-start`}>
+      {selectedPath.length > 0 ? (
+        <ReferencePath path={selectedPath} />
+      ) : (
+        <span className={tw`p-1`}>Select JSON path</span>
+      )}
+    </Button>
+    <Popover className={tw`h-full w-1/2`}>
+      {({ close }) => (
+        <Suspense fallback='Loading references...'>
+          <ReferenceTree
+            onSelect={(keys) => {
+              onSelectionChange(keys);
+              close();
+            }}
+          />
+        </Suspense>
+      )}
+    </Popover>
+  </DialogTrigger>
+);

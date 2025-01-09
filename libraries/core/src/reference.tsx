@@ -56,6 +56,22 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
   );
 };
 
+const getGroupText = (key: ReferenceKey) =>
+  pipe(
+    Match.value(key),
+    Match.when({ kind: ReferenceKeyKind.GROUP }, (_) => _.group),
+    Match.when({ kind: ReferenceKeyKind.KEY }, (_) => _.key),
+    Match.orElse(() => undefined),
+  );
+
+const getIndexText = (key: ReferenceKey) =>
+  pipe(
+    Match.value(key),
+    Match.when({ kind: ReferenceKeyKind.INDEX }, (_) => _.index.toString()),
+    Match.when({ kind: ReferenceKeyKind.ANY }, () => 'any'),
+    Match.orElse(() => undefined),
+  );
+
 interface ReferenceTreeItemProps {
   id: string;
   reference: Reference;
@@ -66,12 +82,7 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
-  const keyText = pipe(
-    Match.value(key),
-    Match.when({ kind: ReferenceKeyKind.GROUP }, (_) => _.group),
-    Match.when({ kind: ReferenceKeyKind.KEY }, (_) => _.key),
-    Match.orElse(() => undefined),
-  );
+  const keyText = getGroupText(key);
 
   const items = pipe(
     Match.value(reference),
@@ -87,12 +98,7 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
     Match.orElse(() => undefined),
   );
 
-  const indexText = pipe(
-    Match.value(key),
-    Match.when({ kind: ReferenceKeyKind.INDEX }, (_) => _.index.toString()),
-    Match.when({ kind: ReferenceKeyKind.ANY }, () => 'any'),
-    Match.orElse(() => undefined),
-  );
+  const indexText = getIndexText(key);
 
   const kindIndexTag = pipe(
     Array.fromNullable(kindText),
@@ -169,4 +175,39 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
       )}
     </TreeItemRoot>
   );
+};
+
+interface ReferencePath {
+  path: ReferenceKey[];
+}
+
+export const ReferencePath = ({ path }: ReferencePath) => {
+  const keys = path.map((key, index) => {
+    const indexText = getIndexText(key);
+
+    if (indexText) {
+      return (
+        <span
+          key={`${index} ${indexText}`}
+          className={tw`mx-0.5 flex-none rounded bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+        >
+          entry {indexText}
+        </span>
+      );
+    }
+
+    const keyText = getGroupText(key);
+
+    if (keyText) {
+      return (
+        <span key={`${index} ${keyText}`} className={tw`flex-none text-md leading-5 tracking-tight text-slate-800`}>
+          {key.key}
+        </span>
+      );
+    }
+
+    return null;
+  });
+
+  return <div className={tw`flex flex-wrap items-center`}>{Array.intersperse(keys, '.')}</div>;
 };
