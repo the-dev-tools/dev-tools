@@ -4,10 +4,8 @@ import { Array, Match, pipe } from 'effect';
 import {
   Collection as AriaCollection,
   UNSTABLE_Tree as AriaTree,
-  UNSTABLE_TreeItem as AriaTreeItem,
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
 } from 'react-aria-components';
-import { LuChevronRight } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import {
@@ -21,7 +19,9 @@ import {
 } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { referenceGet } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
+import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 
 const makeId = (keys: ReferenceKey[]) =>
   pipe(
@@ -42,7 +42,6 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
     <AriaTree
       aria-label='Reference Tree'
       items={items}
-      className={tw`flex flex-col gap-1`}
       onAction={(id) => {
         if (typeof id !== 'string') return;
         const keys = pipe(
@@ -69,6 +68,7 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
 
   const keyText = pipe(
     Match.value(key),
+    Match.when({ kind: ReferenceKeyKind.GROUP }, (_) => _.group),
     Match.when({ kind: ReferenceKeyKind.KEY }, (_) => _.key),
     Match.orElse(() => undefined),
   );
@@ -101,7 +101,10 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
     (_) => _ || undefined,
   );
 
-  const tags = pipe(Array.fromNullable(kindIndexTag), Array.appendAll(reference.variable));
+  const tags = pipe(
+    Array.fromNullable(kindIndexTag),
+    Array.appendAll(reference.kind === ReferenceKind.VARIABLE ? reference.variable : []),
+  );
 
   const quantity = pipe(
     Match.value(reference),
@@ -111,38 +114,51 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
   );
 
   return (
-    <AriaTreeItem id={id} textValue={keyText ?? indexText ?? ''}>
+    <TreeItemRoot id={id} textValue={keyText ?? kindIndexTag ?? ''} className={tw`py-1`}>
       <AriaTreeItemContent>
         {({ level, isExpanded }) => (
-          <div
-            className={tw`flex cursor-pointer items-center gap-2`}
-            style={{ marginInlineStart: (level - 1).toString() + 'rem' }}
-          >
+          <TreeItemWrapper level={level} className={tw`gap-1`}>
             {items && (
-              <Button variant='ghost' slot='chevron'>
-                <LuChevronRight
-                  className={twJoin(tw`transition-transform`, !isExpanded ? tw`rotate-0` : tw`rotate-90`)}
+              <Button variant='ghost' slot='chevron' className={tw`p-1`}>
+                <ChevronSolidDownIcon
+                  className={twJoin(
+                    tw`size-3 text-slate-500 transition-transform`,
+                    !isExpanded ? tw`rotate-0` : tw`rotate-90`,
+                  )}
                 />
               </Button>
             )}
 
-            {keyText && <span className={tw`font-mono text-red-700`}>{keyText}</span>}
+            {key.kind === ReferenceKeyKind.GROUP && (
+              <span className={tw`text-xs font-semibold leading-5 tracking-tight text-slate-800`}>{key.group}</span>
+            )}
+
+            {key.kind === ReferenceKeyKind.KEY && (
+              <span className={tw`font-mono text-xs leading-5 text-red-700`}>{key.key}</span>
+            )}
 
             {tags.map((tag, index) => (
-              <span key={index} className={tw`bg-gray-300 p-1`}>
+              <span
+                key={index}
+                className={tw`rounded bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+              >
                 {tag}
               </span>
             ))}
 
-            {quantity && <span className={tw`text-gray-700`}>{quantity}</span>}
+            {quantity && (
+              <span className={tw`text-xs font-medium leading-5 tracking-tight text-slate-500`}>{quantity}</span>
+            )}
 
             {reference.kind === ReferenceKind.VALUE && (
               <>
-                {': '}
-                <span className={tw`flex-1 break-all font-mono text-blue-700`}>{reference.value}</span>
+                <span className={tw`font-mono text-xs leading-5 text-slate-800`}>:</span>
+                <span className={tw`flex-1 break-all font-mono text-xs leading-5 text-blue-700`}>
+                  {reference.value}
+                </span>
               </>
             )}
-          </div>
+          </TreeItemWrapper>
         )}
       </AriaTreeItemContent>
 
@@ -151,6 +167,6 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
           {(_) => <ReferenceTreeItem id={makeId([...keys, _.key!])} reference={_} parentKeys={keys} />}
         </AriaCollection>
       )}
-    </AriaTreeItem>
+    </TreeItemRoot>
   );
 };
