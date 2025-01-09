@@ -53,11 +53,6 @@
                 jq
                 protoc-gen-connect-go
                 protoc-gen-go
-
-                # Cross-compilation dependencies
-                pkgsCross.mingw32.buildPackages.gcc
-                pkgsCross.mingwW64.buildPackages.gcc
-                pkgsCross.aarch64-multiplatform.buildPackages.gcc
               ]);
           };
 
