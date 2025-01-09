@@ -16,14 +16,16 @@ namespace API.Reference;
 
 enum ReferenceKeyKind {
   REFERENCE_KEY_KIND_UNSPECIFIED: 0,
-  REFERENCE_KEY_KIND_KEY: 1,
-  REFERENCE_KEY_KIND_INDEX: 2,
-  REFERENCE_KEY_KIND_ANY: 3,
+  REFERENCE_KEY_KIND_GROUP: 1,
+  REFERENCE_KEY_KIND_KEY: 2,
+  REFERENCE_KEY_KIND_INDEX: 3,
+  REFERENCE_KEY_KIND_ANY: 4,
 }
 
 @autoFields
 model ReferenceKey {
   kind: ReferenceKeyKind;
+  group?: string;
   key?: string;
   index?: int32;
   any?: WellKnown.Empty;

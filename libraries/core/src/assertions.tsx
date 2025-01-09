@@ -128,7 +128,7 @@ const PathPicker = ({ selectedPath, onSelectionChange }: PathPickerProps) => {
     selectedPath.map((_, index) =>
       pipe(
         Match.value(_),
-        Match.when({ kind: ReferenceKeyKind.KEY }, (_) => (
+        Match.whenOr({ kind: ReferenceKeyKind.KEY }, { kind: ReferenceKeyKind.GROUP }, (_) => (
           <span key={`${index} ${_.key}`} className={tw`flex-none py-1`}>
             {_.key}
           </span>
