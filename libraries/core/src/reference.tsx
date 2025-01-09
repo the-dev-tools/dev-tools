@@ -1,10 +1,13 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
 import { useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
 import { Array, Match, pipe } from 'effect';
+import { Suspense } from 'react';
 import {
   Collection as AriaCollection,
   UNSTABLE_Tree as AriaTree,
   UNSTABLE_TreeItemContent as AriaTreeItemContent,
+  Dialog,
+  DialogTrigger,
 } from 'react-aria-components';
 import { twJoin } from 'tailwind-merge';
 
@@ -18,10 +21,14 @@ import {
   ReferenceKind,
 } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { referenceGet } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
-import { Button } from '@the-dev-tools/ui/button';
+import { Button, ButtonProps } from '@the-dev-tools/ui/button';
+import { DropdownPopover } from '@the-dev-tools/ui/dropdown';
 import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
+import { listBoxStyles } from '@the-dev-tools/ui/list-box';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
+import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
+import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 const makeId = (keys: ReferenceKey[]) =>
   pipe(
@@ -120,10 +127,10 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
   );
 
   return (
-    <TreeItemRoot id={id} textValue={keyText ?? kindIndexTag ?? ''} className={tw`py-1`}>
+    <TreeItemRoot id={id} textValue={keyText ?? kindIndexTag ?? ''} className={tw`rounded-none py-1`}>
       <AriaTreeItemContent>
         {({ level, isExpanded }) => (
-          <TreeItemWrapper level={level} className={tw`gap-1`}>
+          <TreeItemWrapper level={level} className={tw`flex-wrap gap-1`}>
             {items && (
               <Button variant='ghost' slot='chevron' className={tw`p-1`}>
                 <ChevronSolidDownIcon
@@ -201,7 +208,7 @@ export const ReferencePath = ({ path }: ReferencePath) => {
     if (keyText) {
       return (
         <span key={`${index} ${keyText}`} className={tw`flex-none text-md leading-5 tracking-tight text-slate-800`}>
-          {key.key}
+          {keyText}
         </span>
       );
     }
@@ -210,4 +217,35 @@ export const ReferencePath = ({ path }: ReferencePath) => {
   });
 
   return <div className={tw`flex flex-wrap items-center`}>{Array.intersperse(keys, '.')}</div>;
+};
+
+interface ReferenceFieldProps extends ReferenceTreeProps, MixinProps<'button', ButtonProps> {
+  path: ReferenceKey[];
+}
+
+export const ReferenceField = ({ path, onSelect, buttonClassName, ...mixProps }: ReferenceFieldProps) => {
+  const props = splitProps(mixProps, 'button');
+
+  return (
+    <DialogTrigger>
+      <Button {...props.button} className={composeRenderPropsTW(buttonClassName, tw`justify-start`)}>
+        {path.length > 0 ? <ReferencePath path={path} /> : <span className={tw`p-1`}>Select JSON path</span>}
+      </Button>
+      <DropdownPopover placement='bottom left'>
+        <Dialog className={listBoxStyles({ className: tw`max-h-full w-96` })}>
+          {({ close }) => (
+            <Suspense fallback='Loading references...'>
+              <ReferenceTree
+                {...props.rest}
+                onSelect={(keys) => {
+                  onSelect?.(keys);
+                  close();
+                }}
+              />
+            </Suspense>
+          )}
+        </Dialog>
+      </DropdownPopover>
+    </DialogTrigger>
+  );
 };

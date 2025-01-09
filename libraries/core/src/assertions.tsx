@@ -1,8 +1,7 @@
 import { enumToJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { Struct } from 'effect';
-import { Suspense, useEffect } from 'react';
-import { DialogTrigger } from 'react-aria-components';
+import { useEffect } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -16,15 +15,13 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
-import { ReferenceKey } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
-import { Popover } from '@the-dev-tools/ui/popover';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextAreaFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { ReferencePath, ReferenceTree } from './reference';
+import { ReferenceField } from './reference';
 
 interface AssertionViewProps {
   exampleId: Uint8Array;
@@ -82,7 +79,9 @@ const Tab = ({ exampleId, items }: TabProps) => {
             control={form.control}
             name={`items.${index}.path`}
             defaultValue={[]}
-            render={({ field }) => <PathPicker selectedPath={field.value} onSelectionChange={field.onChange} />}
+            render={({ field }) => (
+              <ReferenceField path={field.value} onSelect={field.onChange} buttonClassName={tw`flex-[2]`} />
+            )}
           />
 
           <SelectRHF
@@ -117,32 +116,3 @@ const Tab = ({ exampleId, items }: TabProps) => {
     </>
   );
 };
-
-interface PathPickerProps {
-  selectedPath: ReferenceKey[];
-  onSelectionChange: (path: ReferenceKey[]) => void;
-}
-
-const PathPicker = ({ selectedPath, onSelectionChange }: PathPickerProps) => (
-  <DialogTrigger>
-    <Button className={tw`h-full flex-[2] flex-wrap justify-start`}>
-      {selectedPath.length > 0 ? (
-        <ReferencePath path={selectedPath} />
-      ) : (
-        <span className={tw`p-1`}>Select JSON path</span>
-      )}
-    </Button>
-    <Popover className={tw`h-full w-1/2`}>
-      {({ close }) => (
-        <Suspense fallback='Loading references...'>
-          <ReferenceTree
-            onSelect={(keys) => {
-              onSelectionChange(keys);
-              close();
-            }}
-          />
-        </Suspense>
-      )}
-    </Popover>
-  </DialogTrigger>
-);

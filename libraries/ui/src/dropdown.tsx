@@ -18,7 +18,7 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 export interface DropdownPopoverProps extends AriaPopoverProps {}
 
 export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) => (
-  <AriaPopover {...props} className={composeRenderPropsTW(className, tw`max-h-full min-w-[--trigger-width]`)} />
+  <AriaPopover {...props} className={composeRenderPropsTW(className, tw`h-full min-w-[--trigger-width]`)} />
 );
 
 // List box
