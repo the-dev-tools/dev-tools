@@ -3,7 +3,7 @@ import "@typespec/rest";
 
 import "../../lib";
 
-import "../assert.tsp";
+import "../condition.tsp";
 import "../reference.tsp";
 import "./example.tsp";
 
@@ -45,9 +45,7 @@ model Header {
 model Assert {
   @key assertId: Resource.Id;
   @visibility("query") parentAssertId?: Resource.Id;
-  path: Reference.ReferenceKey[];
-  value: string;
-  type: API.Assert.AssertKind;
+  condition: Condition.Condition;
 }
 
 // Query

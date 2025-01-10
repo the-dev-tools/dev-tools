@@ -3,7 +3,7 @@ import "@typespec/rest";
 
 import "../../lib";
 
-import "../assert.tsp";
+import "../condition.tsp";
 import "../flow.tsp";
 import "../reference.tsp";
 import "../resource.tsp";
@@ -74,16 +74,7 @@ model NodeFor {
 @autoFields
 model NodeCondition {
   ...NodeBase;
-  customCondition?: string;
-  simpleCondition?: SimpleCondition;
-}
-
-@autoFields
-model SimpleCondition {
-  conditionType: Assert.AssertKind;
-  path: Reference.ReferenceKey[];
-  value: string;
-  type: Assert.AssertKind;
+  conditions: Condition.Condition[];
 }
 
 model NodeListItem is Resource.List.Item<Node>;
