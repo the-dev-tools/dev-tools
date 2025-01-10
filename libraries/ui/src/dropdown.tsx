@@ -3,15 +3,17 @@ import {
   ListBox as AriaListBox,
   ListBoxItem as AriaListBoxItem,
   Popover as AriaPopover,
+  composeRenderProps,
   type ListBoxItemProps as AriaListBoxItemProps,
   type ListBoxProps as AriaListBoxProps,
   type PopoverProps as AriaPopoverProps,
 } from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 import { tv, type VariantProps } from 'tailwind-variants';
 
 import { focusRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
+import { composeRenderPropsTV } from './utils';
 
 // Popover
 
@@ -20,7 +22,13 @@ export interface DropdownPopoverProps extends AriaPopoverProps {}
 export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) => (
   <AriaPopover
     {...props}
-    className={composeRenderPropsTW(className, tw`pointer-events-none h-full min-w-[--trigger-width]`)}
+    className={composeRenderProps(className, (className, { placement }) =>
+      twMerge(
+        className,
+        tw`pointer-events-none flex h-full min-w-[--trigger-width] flex-col`,
+        placement === 'top' && tw`flex-col-reverse`,
+      ),
+    )}
   />
 );
 
