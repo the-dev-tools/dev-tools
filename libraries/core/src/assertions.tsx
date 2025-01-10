@@ -7,7 +7,6 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
 import { assertCreateSpec, assertUpdateSpec } from '@the-dev-tools/api/spec/collection/item/request';
-import { AssertKind, AssertKindSchema } from '@the-dev-tools/spec/assert/v1/assert_pb';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { AssertListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import { assertList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
@@ -15,6 +14,7 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
+import { ComparisonKind, ComparisonKindSchema } from '@the-dev-tools/spec/condition/v1/condition_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { SelectRHF } from '@the-dev-tools/ui/select';
@@ -77,7 +77,7 @@ const Tab = ({ exampleId, items }: TabProps) => {
 
           <Controller
             control={form.control}
-            name={`items.${index}.path`}
+            name={`items.${index}.condition.comparison.path`}
             defaultValue={[]}
             render={({ field }) => (
               <ReferenceField path={field.value} onSelect={field.onChange} buttonClassName={tw`flex-[2]`} />
@@ -86,26 +86,30 @@ const Tab = ({ exampleId, items }: TabProps) => {
 
           <SelectRHF
             control={form.control}
-            name={`items.${index}.type`}
+            name={`items.${index}.condition.comparison.kind`}
             className={tw`h-full flex-1`}
             triggerClassName={tw`h-full`}
             aria-label='Comparison Method'
           >
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.EQUAL)}>is equal to</ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.NOT_EQUAL)}>is not equal to</ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.CONTAINS)}>contains</ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.NOT_CONTAINS)}>does not contain</ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.GREATER)}>is greater than</ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.GREATER_OR_EQUAL)}>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.EQUAL)}>is equal to</ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.NOT_EQUAL)}>is not equal to</ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.CONTAINS)}>contains</ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.NOT_CONTAINS)}>
+              does not contain
+            </ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.GREATER)}>is greater than</ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.GREATER_OR_EQUAL)}>
               is greater or equal to
             </ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.LESS)}>is less than</ListBoxItem>
-            <ListBoxItem id={enumToJson(AssertKindSchema, AssertKind.LESS_OR_EQUAL)}>is less or equal to</ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.LESS)}>is less than</ListBoxItem>
+            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.LESS_OR_EQUAL)}>
+              is less or equal to
+            </ListBoxItem>
           </SelectRHF>
 
           <TextAreaFieldRHF
             control={form.control}
-            name={`items.${index}.value`}
+            name={`items.${index}.condition.comparison.value`}
             className={tw`h-full flex-[2]`}
             areaClassName={tw`h-full`}
           />

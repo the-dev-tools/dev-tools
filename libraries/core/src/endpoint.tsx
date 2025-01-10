@@ -864,7 +864,9 @@ const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
               {result ? 'Pass' : 'Fail'}
             </div>
 
-            <span>{assert.path.map((_) => JSON.stringify(toJson(ReferenceKeySchema, _))).join(' ')}</span>
+            <span>
+              {assert.condition!.comparison!.path.map((_) => JSON.stringify(toJson(ReferenceKeySchema, _))).join(' ')}
+            </span>
           </Fragment>
         );
       })}
