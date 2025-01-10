@@ -313,3 +313,15 @@ export const ArrowToLeftIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const CheckListAltIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='m2.667 4.667 1.855 2 3.811-4.334M13.333 6h-4M13.333 9.333H2.667M13.333 12.667H2.667'
+    />
+  </svg>
+);

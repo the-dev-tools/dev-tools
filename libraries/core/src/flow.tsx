@@ -33,7 +33,7 @@ import {
 } from '@xyflow/react';
 import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, useCallback, useMemo } from 'react';
+import { ComponentProps, ReactNode, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } from 'react-icons/fi';
@@ -49,6 +49,7 @@ import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-Coll
 import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import {
+  NodeCondition,
   NodeGetResponse,
   NodeKind,
   NodeKindSchema,
@@ -70,6 +71,7 @@ import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectque
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import {
   ChatAddIcon,
+  CheckListAltIcon,
   CollectIcon,
   DataSourceIcon,
   DelayIcon,
@@ -303,7 +305,13 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
         <ListBoxSection>
           <CreateNodeHeader>Logic</CreateNodeHeader>
 
-          <CreateNodeItem id='condition' Icon={IfIcon} title='If' description='Add true/false' />
+          <CreateNodeItem
+            id='condition'
+            Icon={IfIcon}
+            title='If'
+            description='Add true/false'
+            onAction={() => void makeNode(NodeKind.CONDITION)}
+          />
         </ListBoxSection>
 
         <ListBoxSection>
@@ -322,14 +330,90 @@ const CreateNodeView = ({ id, positionAbsoluteX, positionAbsoluteY }: NodeProps<
   );
 };
 
+interface BaseNodeViewProps {
+  id: string;
+  nodeId: Uint8Array;
+  Icon: IconType;
+  title: string;
+  children: ReactNode;
+}
+
+const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) => {
+  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+  const { getEdges, getNode, deleteElements } = useReactFlow();
+
+  const nodeDeleteMutation = useConnectMutation(nodeDelete);
+  const edgeDeleteMutation = useConnectMutation(edgeDelete);
+
+  return (
+    <div className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
+      <div className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}>
+        <Icon className={tw`size-5 text-slate-500`} />
+
+        <div className={tw`h-4 w-px bg-slate-300`} />
+
+        <span className={tw`flex-1 text-xs font-medium leading-5 tracking-tight`}>{title}</span>
+
+        <MenuTrigger>
+          <Button variant='ghost' className={tw`p-0.5`}>
+            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+          </Button>
+
+          <Menu>
+            <MenuItem
+              href={{
+                to: '.',
+                search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
+              }}
+            >
+              Edit
+            </MenuItem>
+            <MenuItem>Rename</MenuItem>
+            <MenuItem>Duplicate</MenuItem>
+            <MenuItem
+              variant='danger'
+              onAction={async () => {
+                const node = getNode(id);
+
+                const { createEdges = [], edges = [] } = pipe(
+                  getConnectedEdges([node!], getEdges()),
+                  Array.groupBy((_) => (_.id.startsWith('create-') ? 'createEdges' : 'edges')),
+                );
+
+                await nodeDeleteMutation.mutateAsync({ nodeId });
+
+                await Promise.allSettled(
+                  edges.map(({ id }) =>
+                    edgeDeleteMutation.mutateAsync({
+                      edgeId: Ulid.fromCanonicalTrusted(id).bytes,
+                    }),
+                  ),
+                );
+
+                await deleteElements({
+                  nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
+                  edges: [...createEdges, ...edges],
+                });
+              }}
+            >
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      </div>
+
+      {children}
+    </div>
+  );
+};
+
 interface RequestNode extends Node<NodeRequest, 'request'> {}
 
 const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
   const { nodeId, collectionId, endpointId, exampleId } = data;
 
-  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
-
-  const { updateNodeData, getEdges, getNode, deleteElements } = useReactFlow();
+  const { updateNodeData } = useReactFlow();
 
   const collectionGetQuery = useConnectQuery(collectionGet, { collectionId }, { enabled: collectionId.length > 0 });
   const endpointGetQuery = useConnectQuery(endpointGet, { endpointId }, { enabled: endpointId.length > 0 });
@@ -337,8 +421,6 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
 
   const exampleCreateMutation = useConnectMutation(exampleCreate);
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
-  const nodeDeleteMutation = useConnectMutation(nodeDelete);
-  const edgeDeleteMutation = useConnectMutation(edgeDelete);
 
   let content;
   if (collectionGetQuery.isSuccess && endpointGetQuery.isSuccess && exampleGetQuery.isSuccess) {
@@ -385,67 +467,54 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
 
   return (
     <>
-      <div className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
-        <div className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}>
-          <SendRequestIcon className={tw`size-5 text-slate-500`} />
-
-          <div className={tw`h-4 w-px bg-slate-300`} />
-
-          <span className={tw`flex-1 text-xs font-medium leading-5 tracking-tight`}>Send Request</span>
-
-          <MenuTrigger>
-            <Button variant='ghost' className={tw`p-0.5`}>
-              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-            </Button>
-
-            <Menu>
-              <MenuItem
-                href={{
-                  to: '.',
-                  search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
-                }}
-              >
-                Edit
-              </MenuItem>
-              <MenuItem>Rename</MenuItem>
-              <MenuItem>Duplicate</MenuItem>
-              <MenuItem
-                variant='danger'
-                onAction={async () => {
-                  const node = getNode(id);
-
-                  const { createEdges = [], edges = [] } = pipe(
-                    getConnectedEdges([node!], getEdges()),
-                    Array.groupBy((_) => (_.id.startsWith('create-') ? 'createEdges' : 'edges')),
-                  );
-
-                  await nodeDeleteMutation.mutateAsync({ nodeId });
-
-                  await Promise.allSettled(
-                    edges.map(({ id }) =>
-                      edgeDeleteMutation.mutateAsync({
-                        edgeId: Ulid.fromCanonicalTrusted(id).bytes,
-                      }),
-                    ),
-                  );
-
-                  await deleteElements({
-                    nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
-                    edges: [...createEdges, ...edges],
-                  });
-                }}
-              >
-                Delete
-              </MenuItem>
-            </Menu>
-          </MenuTrigger>
-        </div>
-
+      <BaseNodeView id={id} nodeId={nodeId} Icon={SendRequestIcon} title='Send Request'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>{content}</div>
-      </div>
+      </BaseNodeView>
 
       <Handle type='target' position={Position.Top} />
       <Handle type='source' position={Position.Bottom} />
+    </>
+  );
+};
+
+interface ConditionNode extends Node<NodeCondition, 'condition'> {}
+
+const ConditionNodeView = ({ id, data }: NodeProps<ConditionNode>) => {
+  const { nodeId, conditions } = data;
+
+  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+  return (
+    <>
+      <BaseNodeView id={id} nodeId={nodeId} Icon={IfIcon} title='If'>
+        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+          {conditions.length > 0 ? (
+            <div
+              className={tw`flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs font-medium leading-5 tracking-tight text-slate-800 shadow-sm`}
+            >
+              <CheckListAltIcon className={tw`size-5 text-slate-500`} />
+              <span>
+                {conditions.length} Condition{conditions.length > 1 && 's'}
+              </span>
+            </div>
+          ) : (
+            <ButtonAsLink
+              className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600 shadow-sm`}
+              href={{
+                to: '.',
+                search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
+              }}
+            >
+              <FiPlus className={tw`size-4`} />
+              <span>Setup Condition</span>
+            </ButtonAsLink>
+          )}
+        </div>
+      </BaseNodeView>
+
+      <Handle type='target' position={Position.Top} />
+      <Handle type='source' position={Position.Bottom} id='then' />
+      <Handle type='source' position={Position.Bottom} id='else' />
     </>
   );
 };
@@ -454,6 +523,7 @@ const nodeTypes: NodeTypes = {
   start: StartNodeView,
   create: CreateNodeView,
   request: RequestNodeView,
+  condition: ConditionNodeView,
 };
 
 const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: EdgeProps) => (
