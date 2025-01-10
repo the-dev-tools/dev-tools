@@ -39,7 +39,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { RHFDevTools } from './dev-tools';
-import { TextFieldWithVariables } from './variable';
+import { TextFieldWithReference } from './reference';
 
 export interface HidePlaceholderCellProps extends ComponentProps<'div'> {
   row: { index: number };
@@ -250,12 +250,12 @@ const genericFormTableColumnsShared = [
     cell: ({ table, row: { index } }) => {
       const { workspaceId } = workspaceRoute.useLoaderData();
       return (
-        <TextFieldWithVariables
+        <TextFieldWithReference
           control={table.options.meta!.control!}
           name={`items.${index}.data.key`}
-          workspaceId={workspaceId}
           variant='table-cell'
           className='flex-1'
+          context={{ workspaceId }}
         />
       );
     },
@@ -265,12 +265,12 @@ const genericFormTableColumnsShared = [
     cell: ({ table, row: { index } }) => {
       const { workspaceId } = workspaceRoute.useLoaderData();
       return (
-        <TextFieldWithVariables
+        <TextFieldWithReference
           control={table.options.meta!.control!}
           name={`items.${index}.data.value`}
-          workspaceId={workspaceId}
           variant='table-cell'
           className='flex-1'
+          context={{ workspaceId }}
         />
       );
     },
