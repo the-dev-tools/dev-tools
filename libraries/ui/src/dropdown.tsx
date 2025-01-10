@@ -18,13 +18,16 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 export interface DropdownPopoverProps extends AriaPopoverProps {}
 
 export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) => (
-  <AriaPopover {...props} className={composeRenderPropsTW(className, tw`h-full min-w-[--trigger-width]`)} />
+  <AriaPopover
+    {...props}
+    className={composeRenderPropsTW(className, tw`pointer-events-none h-full min-w-[--trigger-width]`)}
+  />
 );
 
 // List box
 
 export const dropdownListBoxStyles = tv({
-  base: tw`flex max-h-full flex-col gap-2 overflow-auto rounded border border-black bg-white p-2 outline-none`,
+  base: tw`pointer-events-auto flex max-h-full flex-col gap-2 overflow-auto rounded border border-black bg-white p-2 outline-none`,
 });
 
 export interface DropdownListBoxProps<T extends object>
