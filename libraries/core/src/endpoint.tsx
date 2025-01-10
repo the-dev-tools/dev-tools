@@ -8,7 +8,7 @@ import {
 } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect, useRouteContext } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi, redirect, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
@@ -65,6 +65,7 @@ import { AssertionView } from './assertions';
 import { BodyView } from './body';
 import { HeaderDeltaTable, HeaderTable } from './headers';
 import { QueryDeltaTable, QueryTable } from './query';
+import { ReferenceContext, ReferenceContextProps } from './reference';
 
 export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
   requestTab: pipe(
@@ -146,12 +147,15 @@ function Page() {
   );
 }
 
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+
 interface EndpointRequestViewProps {
   endpointId: Uint8Array;
   exampleId: Uint8Array;
   deltaExampleId?: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
   className?: string;
+  context?: ReferenceContextProps;
 }
 
 export const EndpointRequestView = ({
@@ -160,105 +164,115 @@ export const EndpointRequestView = ({
   deltaExampleId,
   requestTab,
   className,
-}: EndpointRequestViewProps) => (
-  <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)} selectedKey={requestTab}>
-    <TabList className={tw`flex gap-3 border-b border-slate-200`}>
-      <Tab
-        id='params'
-        href={{
-          to: '.',
-          search: (_: Partial<EndpointRouteSearch>) =>
-            ({ ..._, requestTab: 'params' }) satisfies Partial<EndpointRouteSearch>,
-        }}
-        className={({ isSelected }) =>
-          twMerge(
-            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-      >
-        Params
-      </Tab>
+  context,
+}: EndpointRequestViewProps) => {
+  const { workspaceId } = workspaceRoute.useLoaderData();
 
-      <Tab
-        id='headers'
-        href={{
-          to: '.',
-          search: (_: Partial<EndpointRouteSearch>) =>
-            ({ ..._, requestTab: 'headers' }) satisfies Partial<EndpointRouteSearch>,
-        }}
-        className={({ isSelected }) =>
-          twMerge(
-            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-      >
-        Headers
-      </Tab>
+  return (
+    <Tabs
+      className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}
+      selectedKey={requestTab}
+    >
+      <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+        <Tab
+          id='params'
+          href={{
+            to: '.',
+            search: (_: Partial<EndpointRouteSearch>) =>
+              ({ ..._, requestTab: 'params' }) satisfies Partial<EndpointRouteSearch>,
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Params
+        </Tab>
 
-      <Tab
-        id='body'
-        href={{
-          to: '.',
-          search: (_: Partial<EndpointRouteSearch>) =>
-            ({ ..._, requestTab: 'body' }) satisfies Partial<EndpointRouteSearch>,
-        }}
-        className={({ isSelected }) =>
-          twMerge(
-            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-      >
-        Body
-      </Tab>
+        <Tab
+          id='headers'
+          href={{
+            to: '.',
+            search: (_: Partial<EndpointRouteSearch>) =>
+              ({ ..._, requestTab: 'headers' }) satisfies Partial<EndpointRouteSearch>,
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Headers
+        </Tab>
 
-      <Tab
-        id='assertions'
-        href={{
-          to: '.',
-          search: (_: Partial<EndpointRouteSearch>) =>
-            ({ ..._, requestTab: 'assertions' }) satisfies Partial<EndpointRouteSearch>,
-        }}
-        className={({ isSelected }) =>
-          twMerge(
-            tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-      >
-        Assertion
-      </Tab>
-    </TabList>
+        <Tab
+          id='body'
+          href={{
+            to: '.',
+            search: (_: Partial<EndpointRouteSearch>) =>
+              ({ ..._, requestTab: 'body' }) satisfies Partial<EndpointRouteSearch>,
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Body
+        </Tab>
 
-    <Suspense fallback='Loading tab...'>
-      <TabPanel id='params'>
-        {deltaExampleId ? (
-          <QueryDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
-        ) : (
-          <QueryTable exampleId={exampleId} />
-        )}
-      </TabPanel>
+        <Tab
+          id='assertions'
+          href={{
+            to: '.',
+            search: (_: Partial<EndpointRouteSearch>) =>
+              ({ ..._, requestTab: 'assertions' }) satisfies Partial<EndpointRouteSearch>,
+          }}
+          className={({ isSelected }) =>
+            twMerge(
+              tw`-mb-px border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+        >
+          Assertion
+        </Tab>
+      </TabList>
 
-      <TabPanel id='headers'>
-        {deltaExampleId ? (
-          <HeaderDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
-        ) : (
-          <HeaderTable exampleId={exampleId} />
-        )}
-      </TabPanel>
+      <ReferenceContext value={{ exampleId, workspaceId, ...context }}>
+        <Suspense fallback='Loading tab...'>
+          <TabPanel id='params'>
+            {deltaExampleId ? (
+              <QueryDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
+            ) : (
+              <QueryTable exampleId={exampleId} />
+            )}
+          </TabPanel>
 
-      <TabPanel id='body'>
-        <BodyView endpointId={endpointId} exampleId={exampleId} deltaExampleId={deltaExampleId} />
-      </TabPanel>
+          <TabPanel id='headers'>
+            {deltaExampleId ? (
+              <HeaderDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
+            ) : (
+              <HeaderTable exampleId={exampleId} />
+            )}
+          </TabPanel>
 
-      <TabPanel id='assertions'>
-        <AssertionView exampleId={exampleId} />
-      </TabPanel>
-    </Suspense>
-  </Tabs>
-);
+          <TabPanel id='body'>
+            <BodyView endpointId={endpointId} exampleId={exampleId} deltaExampleId={deltaExampleId} />
+          </TabPanel>
+
+          <TabPanel id='assertions'>
+            <AssertionView exampleId={exampleId} />
+          </TabPanel>
+        </Suspense>
+      </ReferenceContext>
+    </Tabs>
+  );
+};
 
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 

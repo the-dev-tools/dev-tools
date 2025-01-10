@@ -1,6 +1,5 @@
 import { create, Message } from '@bufbuild/protobuf';
 import { GenMessage } from '@bufbuild/protobuf/codegenv1';
-import { getRouteApi } from '@tanstack/react-router';
 import { useReactTable } from '@tanstack/react-table';
 import {
   AccessorKeyColumnDef,
@@ -199,8 +198,6 @@ declare module '@tanstack/table-core' {
   }
 }
 
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-
 interface GenericFormTableItem extends Message {
   enabled: boolean;
   key: string;
@@ -247,33 +244,25 @@ const genericFormTableColumnsShared = [
   genericFormTableColumnHelper.accessor('data.key', {
     header: 'Key',
     meta: { divider: false },
-    cell: ({ table, row: { index } }) => {
-      const { workspaceId } = workspaceRoute.useLoaderData();
-      return (
-        <TextFieldWithReference
-          control={table.options.meta!.control!}
-          name={`items.${index}.data.key`}
-          variant='table-cell'
-          className='flex-1'
-          context={{ workspaceId }}
-        />
-      );
-    },
+    cell: ({ table, row: { index } }) => (
+      <TextFieldWithReference
+        control={table.options.meta!.control!}
+        name={`items.${index}.data.key`}
+        variant='table-cell'
+        className='flex-1'
+      />
+    ),
   }),
   genericFormTableColumnHelper.accessor('data.value', {
     header: 'Value',
-    cell: ({ table, row: { index } }) => {
-      const { workspaceId } = workspaceRoute.useLoaderData();
-      return (
-        <TextFieldWithReference
-          control={table.options.meta!.control!}
-          name={`items.${index}.data.value`}
-          variant='table-cell'
-          className='flex-1'
-          context={{ workspaceId }}
-        />
-      );
-    },
+    cell: ({ table, row: { index } }) => (
+      <TextFieldWithReference
+        control={table.options.meta!.control!}
+        name={`items.${index}.data.value`}
+        variant='table-cell'
+        className='flex-1'
+      />
+    ),
   }),
   genericFormTableColumnHelper.accessor('data.description', {
     header: 'Description',

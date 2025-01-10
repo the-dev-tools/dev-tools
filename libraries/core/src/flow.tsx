@@ -98,7 +98,7 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
   component: RouteComponent,
   pendingComponent: () => 'Loading flow...',
   validateSearch: (_) => Schema.decodeSync(Search)(_),
-  loader: async ({ params: { flowIdCan }, context: { transport, queryClient }, route }) => {
+  loader: async ({ params: { flowIdCan }, context: { transport, queryClient } }) => {
     const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
     try {
@@ -109,8 +109,8 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
       ]);
     } catch {
       redirect({
-        from: route.fullPath as NonNullable<ToOptions['from']>,
-        to: '../..' as NonNullable<ToOptions['to']>,
+        from: Route.fullPath,
+        to: '../..',
         throw: true,
       });
     }
@@ -688,7 +688,7 @@ interface EditRequestNodeViewProps {
 }
 
 const EditRequestNodeView = ({
-  data: { collectionId, endpointId, exampleId, deltaExampleId },
+  data: { nodeId, collectionId, endpointId, exampleId, deltaExampleId },
 }: EditRequestNodeViewProps) => {
   const { requestTab, responseTab } = Route.useSearch();
   const { transport } = Route.useRouteContext();
@@ -757,6 +757,7 @@ const EditRequestNodeView = ({
           exampleId={exampleId}
           deltaExampleId={deltaExampleId}
           requestTab={requestTab}
+          context={{ nodeId }}
         />
       </div>
 

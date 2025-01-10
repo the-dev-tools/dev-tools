@@ -1,7 +1,7 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
 import { useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
 import { Array, Match, pipe, Struct } from 'effect';
-import { Suspense } from 'react';
+import { createContext, Suspense, useContext } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Collection as AriaCollection,
@@ -41,16 +41,20 @@ const makeId = (keys: ReferenceKey[]) =>
     JSON.stringify,
   );
 
-interface ReferenceContext extends Partial<Omit<ReferenceGetRequest, keyof Message>> {}
+export interface ReferenceContextProps extends Partial<Omit<ReferenceGetRequest, keyof Message>> {}
 
-interface ReferenceTreeProps extends ReferenceContext {
+export const ReferenceContext = createContext<ReferenceContextProps>({});
+
+interface ReferenceTreeProps extends ReferenceContextProps {
   onSelect?: (keys: ReferenceKey[]) => void;
 }
 
 export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
+  const context = useContext(ReferenceContext);
+
   const {
     data: { items },
-  } = useConnectSuspenseQuery(referenceGet, props);
+  } = useConnectSuspenseQuery(referenceGet, { ...props, ...context });
 
   return (
     <AriaTree
@@ -271,7 +275,7 @@ interface TextFieldWithReferenceProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 > extends TextFieldRHFProps<TFieldValues, TName> {
-  context?: ReferenceContext;
+  context?: ReferenceContextProps;
 }
 
 export const TextFieldWithReference = <
