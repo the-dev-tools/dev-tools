@@ -604,24 +604,32 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		node.PositionY = float64(rpcNode.Start.Position.Y)
 		subNode = startNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
-		// TODO: change to path creation
-		/*
-			var path string
+		var path string
 
-					for _, v := range rpcNode.Condition.SimpleCondition.Path {
-						path += v.Key
-					}
+		if rpcNode.Condition == nil {
+			return nil, nil, fmt.Errorf("condition is nil")
+		}
+		if rpcNode.Condition.Condition == nil {
+			return nil, nil, fmt.Errorf("condition is nil")
+		}
+		if rpcNode.Condition.Condition.Comparison == nil {
+			return nil, nil, fmt.Errorf("condition is nil")
+		}
+		comp := rpcNode.Condition.Condition.Comparison
 
-				ifNode := &mnif.MNIF{
-					FlowNodeID:    nodeID,
-					ConditionType: mnif.ConditionType(rpcNode.Condition.SimpleCondition.ConditionType),
-					Path:          path,
-					Value:         rpcNode.Condition.SimpleCondition.Value,
-				}
-				node.PositionX = float64(rpcNode.Condition.Position.X)
-				node.PositionY = float64(rpcNode.Condition.Position.Y)
-				subNode = ifNode
-		*/
+		for _, v := range comp.Path {
+			path += v.Key
+		}
+
+		ifNode := &mnif.MNIF{
+			FlowNodeID:    nodeID,
+			ConditionType: mnif.ConditionType(comp.Kind),
+			Path:          path,
+			Value:         comp.Value,
+		}
+		node.PositionX = float64(rpcNode.Condition.Position.X)
+		node.PositionY = float64(rpcNode.Condition.Position.Y)
+		subNode = ifNode
 	default:
 		return nil, nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
 	}

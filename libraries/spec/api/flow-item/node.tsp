@@ -74,7 +74,7 @@ model NodeFor {
 @autoFields
 model NodeCondition {
   ...NodeBase;
-  conditions: Condition.Condition[];
+  condition: Condition.Condition;
 }
 
 model NodeListItem is Resource.List.Item<Node>;
@@ -116,3 +116,4 @@ interface NodeService {
   NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }
+
