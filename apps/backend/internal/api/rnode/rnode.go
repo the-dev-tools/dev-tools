@@ -605,20 +605,23 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		subNode = startNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
 		// TODO: change to path creation
-		var path string
-		for _, v := range rpcNode.Condition.SimpleCondition.Path {
-			path += v.Key
-		}
+		/*
+			var path string
 
-		ifNode := &mnif.MNIF{
-			FlowNodeID:    nodeID,
-			ConditionType: mnif.ConditionType(rpcNode.Condition.SimpleCondition.ConditionType),
-			Path:          path,
-			Value:         rpcNode.Condition.SimpleCondition.Value,
-		}
-		node.PositionX = float64(rpcNode.Condition.Position.X)
-		node.PositionY = float64(rpcNode.Condition.Position.Y)
-		subNode = ifNode
+					for _, v := range rpcNode.Condition.SimpleCondition.Path {
+						path += v.Key
+					}
+
+				ifNode := &mnif.MNIF{
+					FlowNodeID:    nodeID,
+					ConditionType: mnif.ConditionType(rpcNode.Condition.SimpleCondition.ConditionType),
+					Path:          path,
+					Value:         rpcNode.Condition.SimpleCondition.Value,
+				}
+				node.PositionX = float64(rpcNode.Condition.Position.X)
+				node.PositionY = float64(rpcNode.Condition.Position.Y)
+				subNode = ifNode
+		*/
 	default:
 		return nil, nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
 	}

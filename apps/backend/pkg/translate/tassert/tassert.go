@@ -7,8 +7,8 @@ import (
 	"strings"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
-	assertv1 "the-dev-tools/spec/dist/buf/go/assert/v1"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
+	conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 )
 
@@ -37,44 +37,28 @@ func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 	}
 
 	return &requestv1.Assert{
-		AssertId: a.ID.Bytes(),
-		Path:     pathKeys,
-		Value:    a.Value,
-		Type:     assertv1.AssertKind(a.Type),
+		AssertId:       a.ID.Bytes(),
+		ParentAssertId: nil,
+		Condition: &conditionv1.Condition{
+			Comparison: &conditionv1.Comparison{
+				Kind:  conditionv1.ComparisonKind(a.Type),
+				Path:  pathKeys,
+				Value: a.Value,
+			},
+		},
 	}, nil
 }
 
 func SerializeAssertModelToRPCItem(a massert.Assert) (*requestv1.AssertListItem, error) {
-	var pathKeys []*referencev1.ReferenceKey
-	str := strings.Split(a.Path, ".")
-	arrayRegex := regexp.MustCompile(`\[(\d+)\]`)
-	for _, s := range str {
-		pathKey := referencev1.ReferenceKey{
-			Key: s,
-		}
-		arr := arrayRegex.MatchString(s)
-		if arr {
-			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
-			path := arrayRegex.FindStringSubmatch(s)[1]
-			pathInt, err := strconv.Atoi(path)
-			if err != nil {
-				return nil, err
-			}
-			pathKey.Index = int32(pathInt)
-		}
-		if s != "any" {
-			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED
-		} else {
-			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_ANY
-		}
-		pathKeys = append(pathKeys, &pathKey)
+	assertRpc, err := SerializeAssertModelToRPC(a)
+	if err != nil {
+		return nil, err
 	}
 
 	return &requestv1.AssertListItem{
-		AssertId: a.ID.Bytes(),
-		Path:     pathKeys,
-		Value:    a.Value,
-		Type:     assertv1.AssertKind(a.Type),
+		AssertId:       assertRpc.AssertId,
+		ParentAssertId: assertRpc.ParentAssertId,
+		Condition:      assertRpc.Condition,
 	}, nil
 }
 
@@ -90,7 +74,9 @@ func SerializeAssertRPCToModel(assert *requestv1.Assert, exampleID idwrap.IDWrap
 
 func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.IDWrap) massert.Assert {
 	path := ""
-	for _, p := range a.Path {
+	comp := a.Condition.Comparison
+
+	for _, p := range comp.Path {
 		switch p.Kind {
 		case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED:
 			path += "." + p.Key
@@ -105,7 +91,7 @@ func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.ID
 	return massert.Assert{
 		ExampleID: exampleID,
 		Path:      path,
-		Value:     a.Value,
-		Type:      massert.AssertType(a.Type),
+		Value:     comp.Value,
+		Type:      massert.AssertType(comp.Kind),
 	}
 }

@@ -296,9 +296,7 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 		return nil, rpcErr
 	}
 	rpcAssert := requestv1.Assert{
-		Path:  req.Msg.GetPath(),
-		Value: req.Msg.GetValue(),
-		Type:  req.Msg.GetType(),
+		Condition: req.Msg.GetCondition(),
 	}
 	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID)
 	assert.Enable = true
@@ -312,10 +310,8 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 
 func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[requestv1.AssertUpdateRequest]) (*connect.Response[requestv1.AssertUpdateResponse], error) {
 	rpcAssert := requestv1.Assert{
-		AssertId: req.Msg.GetAssertId(),
-		Path:     req.Msg.GetPath(),
-		Value:    req.Msg.GetValue(),
-		Type:     req.Msg.GetType(),
+		AssertId:  req.Msg.GetAssertId(),
+		Condition: req.Msg.GetCondition(),
 	}
 	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
 	assert.Enable = true
@@ -330,9 +326,10 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 		assert.Type = assertDB.Type
 	}
 
-	for i, pathKey := range rpcAssert.Path {
+	comp := rpcAssert.Condition.Comparison
+	for i, pathKey := range comp.Path {
 		if pathKey.GetKind() == referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED {
-			rpcAssert.Path[i].Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
+			comp.Path[i].Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
 		}
 	}
 
