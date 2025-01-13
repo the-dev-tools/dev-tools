@@ -111,6 +111,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createItemFolderBulkStmt, err = db.PrepareContext(ctx, createItemFolderBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemFolderBulk: %w", err)
 	}
+	if q.createMigrationStmt, err = db.PrepareContext(ctx, createMigration); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateMigration: %w", err)
+	}
 	if q.createQueryStmt, err = db.PrepareContext(ctx, createQuery); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateQuery: %w", err)
 	}
@@ -200,6 +203,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteItemFolderStmt, err = db.PrepareContext(ctx, deleteItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteItemFolder: %w", err)
+	}
+	if q.deleteMigrationStmt, err = db.PrepareContext(ctx, deleteMigration); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteMigration: %w", err)
 	}
 	if q.deleteQueryStmt, err = db.PrepareContext(ctx, deleteQuery); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteQuery: %w", err)
@@ -362,6 +368,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemsApiByCollectionID: %w", err)
+	}
+	if q.getMigrationStmt, err = db.PrepareContext(ctx, getMigration); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMigration: %w", err)
+	}
+	if q.getMigrationsStmt, err = db.PrepareContext(ctx, getMigrations); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMigrations: %w", err)
 	}
 	if q.getQueriesByExampleIDStmt, err = db.PrepareContext(ctx, getQueriesByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetQueriesByExampleID: %w", err)
@@ -669,6 +681,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createItemFolderBulkStmt: %w", cerr)
 		}
 	}
+	if q.createMigrationStmt != nil {
+		if cerr := q.createMigrationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createMigrationStmt: %w", cerr)
+		}
+	}
 	if q.createQueryStmt != nil {
 		if cerr := q.createQueryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createQueryStmt: %w", cerr)
@@ -817,6 +834,11 @@ func (q *Queries) Close() error {
 	if q.deleteItemFolderStmt != nil {
 		if cerr := q.deleteItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.deleteMigrationStmt != nil {
+		if cerr := q.deleteMigrationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteMigrationStmt: %w", cerr)
 		}
 	}
 	if q.deleteQueryStmt != nil {
@@ -1087,6 +1109,16 @@ func (q *Queries) Close() error {
 	if q.getItemsApiByCollectionIDStmt != nil {
 		if cerr := q.getItemsApiByCollectionIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemsApiByCollectionIDStmt: %w", cerr)
+		}
+	}
+	if q.getMigrationStmt != nil {
+		if cerr := q.getMigrationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMigrationStmt: %w", cerr)
+		}
+	}
+	if q.getMigrationsStmt != nil {
+		if cerr := q.getMigrationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMigrationsStmt: %w", cerr)
 		}
 	}
 	if q.getQueriesByExampleIDStmt != nil {
@@ -1417,6 +1449,7 @@ type Queries struct {
 	createItemApiExampleBulkStmt               *sql.Stmt
 	createItemFolderStmt                       *sql.Stmt
 	createItemFolderBulkStmt                   *sql.Stmt
+	createMigrationStmt                        *sql.Stmt
 	createQueryStmt                            *sql.Stmt
 	createQueryBulkStmt                        *sql.Stmt
 	createResultApiStmt                        *sql.Stmt
@@ -1447,6 +1480,7 @@ type Queries struct {
 	deleteItemApiStmt                          *sql.Stmt
 	deleteItemApiExampleStmt                   *sql.Stmt
 	deleteItemFolderStmt                       *sql.Stmt
+	deleteMigrationStmt                        *sql.Stmt
 	deleteQueryStmt                            *sql.Stmt
 	deleteResultApiStmt                        *sql.Stmt
 	deleteTagStmt                              *sql.Stmt
@@ -1501,6 +1535,8 @@ type Queries struct {
 	getItemFolderOwnerIDStmt                   *sql.Stmt
 	getItemFoldersByCollectionIDStmt           *sql.Stmt
 	getItemsApiByCollectionIDStmt              *sql.Stmt
+	getMigrationStmt                           *sql.Stmt
+	getMigrationsStmt                          *sql.Stmt
 	getQueriesByExampleIDStmt                  *sql.Stmt
 	getQueryStmt                               *sql.Stmt
 	getResultApiStmt                           *sql.Stmt
@@ -1588,6 +1624,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createItemApiExampleBulkStmt:               q.createItemApiExampleBulkStmt,
 		createItemFolderStmt:                       q.createItemFolderStmt,
 		createItemFolderBulkStmt:                   q.createItemFolderBulkStmt,
+		createMigrationStmt:                        q.createMigrationStmt,
 		createQueryStmt:                            q.createQueryStmt,
 		createQueryBulkStmt:                        q.createQueryBulkStmt,
 		createResultApiStmt:                        q.createResultApiStmt,
@@ -1618,6 +1655,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
 		deleteItemFolderStmt:                       q.deleteItemFolderStmt,
+		deleteMigrationStmt:                        q.deleteMigrationStmt,
 		deleteQueryStmt:                            q.deleteQueryStmt,
 		deleteResultApiStmt:                        q.deleteResultApiStmt,
 		deleteTagStmt:                              q.deleteTagStmt,
@@ -1672,6 +1710,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemFolderOwnerIDStmt:                   q.getItemFolderOwnerIDStmt,
 		getItemFoldersByCollectionIDStmt:           q.getItemFoldersByCollectionIDStmt,
 		getItemsApiByCollectionIDStmt:              q.getItemsApiByCollectionIDStmt,
+		getMigrationStmt:                           q.getMigrationStmt,
+		getMigrationsStmt:                          q.getMigrationsStmt,
 		getQueriesByExampleIDStmt:                  q.getQueriesByExampleIDStmt,
 		getQueryStmt:                               q.getQueryStmt,
 		getResultApiStmt:                           q.getResultApiStmt,

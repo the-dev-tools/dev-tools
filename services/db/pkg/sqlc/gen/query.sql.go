@@ -1679,6 +1679,30 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 	return err
 }
 
+const createMigration = `-- name: CreateMigration :exec
+INSERT INTO
+  migration (id, version, description, apply_at)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateMigrationParams struct {
+	ID          []byte
+	Version     int32
+	Description string
+	ApplyAt     int64
+}
+
+func (q *Queries) CreateMigration(ctx context.Context, arg CreateMigrationParams) error {
+	_, err := q.exec(ctx, q.createMigrationStmt, createMigration,
+		arg.ID,
+		arg.Version,
+		arg.Description,
+		arg.ApplyAt,
+	)
+	return err
+}
+
 const createQuery = `-- name: CreateQuery :exec
 INSERT INTO
   example_query (id, example_id, query_key, enable, description, value)
@@ -2315,6 +2339,17 @@ WHERE
 
 func (q *Queries) DeleteItemFolder(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteItemFolderStmt, deleteItemFolder, id)
+	return err
+}
+
+const deleteMigration = `-- name: DeleteMigration :exec
+DELETE FROM migration
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteMigration(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteMigrationStmt, deleteMigration, id)
 	return err
 }
 
@@ -3920,6 +3955,69 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 			&i.Method,
 			&i.Prev,
 			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMigration = `-- name: GetMigration :one
+SELECT
+  id,
+  version,
+  description,
+  apply_at
+FROM
+  migration
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetMigration(ctx context.Context, id []byte) (Migration, error) {
+	row := q.queryRow(ctx, q.getMigrationStmt, getMigration, id)
+	var i Migration
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Description,
+		&i.ApplyAt,
+	)
+	return i, err
+}
+
+const getMigrations = `-- name: GetMigrations :many
+SELECT
+  id,
+  version,
+  description,
+  apply_at
+FROM
+  migration
+`
+
+func (q *Queries) GetMigrations(ctx context.Context) ([]Migration, error) {
+	rows, err := q.query(ctx, q.getMigrationsStmt, getMigrations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Migration{}
+	for rows.Next() {
+		var i Migration
+		if err := rows.Scan(
+			&i.ID,
+			&i.Version,
+			&i.Description,
+			&i.ApplyAt,
 		); err != nil {
 			return nil, err
 		}

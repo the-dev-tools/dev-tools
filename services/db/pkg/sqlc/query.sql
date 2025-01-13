@@ -1699,3 +1699,45 @@ WHERE
 DELETE from flow_node_start
 WHERE
   flow_node_id = ?;
+
+-- name: GetMigration :one
+SELECT
+  id,
+  version,
+  description,
+  apply_at
+FROM
+  migration
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetMigrations :many
+SELECT
+  id,
+  version,
+  description,
+  apply_at
+FROM
+  migration;
+
+-- name: GetMigrations :many
+SELECT
+  id,
+  version,
+  description,
+  apply_at
+FROM
+  migration;
+
+
+-- name: CreateMigration :exec
+INSERT INTO
+  migration (id, version, description, apply_at)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: DeleteMigration :exec
+DELETE FROM migration
+WHERE
+  id = ?;

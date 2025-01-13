@@ -190,6 +190,13 @@ type ItemFolder struct {
 	Next         *idwrap.IDWrap
 }
 
+type Migration struct {
+	ID          []byte
+	Version     int32
+	Description string
+	ApplyAt     int64
+}
+
 type ResultApi struct {
 	ID          idwrap.IDWrap
 	TriggerType mresultapi.TriggerType
