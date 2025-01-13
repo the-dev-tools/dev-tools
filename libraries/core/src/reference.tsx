@@ -264,7 +264,7 @@ export const ReferenceField = ({ path, buttonClassName, ...mixProps }: Reference
   return (
     <DialogTrigger>
       <Button {...props.button} className={composeRenderPropsTW(buttonClassName, tw`justify-start`)}>
-        {path.length > 0 ? <ReferencePath path={path} /> : <span className={tw`p-1`}>Select JSON path</span>}
+        {path.length > 0 ? <ReferencePath path={path} /> : <span className={tw`p-1`}>Select reference</span>}
       </Button>
       <ReferenceTreePopover dropdownPlacement='bottom left' {...props.rest} />
     </DialogTrigger>
