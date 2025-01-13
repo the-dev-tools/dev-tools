@@ -480,7 +480,7 @@ const RequestNodeView = ({ id, data }: NodeProps<RequestNode>) => {
 interface ConditionNode extends Node<NodeCondition, 'condition'> {}
 
 const ConditionNodeView = ({ id, data }: NodeProps<ConditionNode>) => {
-  const { nodeId, conditions } = data;
+  const { nodeId, condition } = data;
 
   const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
@@ -488,14 +488,12 @@ const ConditionNodeView = ({ id, data }: NodeProps<ConditionNode>) => {
     <>
       <BaseNodeView id={id} nodeId={nodeId} Icon={IfIcon} title='If'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
-          {conditions.length > 0 ? (
+          {condition ? (
             <div
               className={tw`flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs font-medium leading-5 tracking-tight text-slate-800 shadow-sm`}
             >
               <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-              <span>
-                {conditions.length} Condition{conditions.length > 1 && 's'}
-              </span>
+              <span>Edit Condition</span>
             </div>
           ) : (
             <ButtonAsLink
