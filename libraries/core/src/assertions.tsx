@@ -1,8 +1,7 @@
-import { enumToJson } from '@bufbuild/protobuf';
 import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { Struct } from 'effect';
 import { useEffect } from 'react';
-import { Controller, useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useSpecMutation } from '@the-dev-tools/api/query';
@@ -14,14 +13,10 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
-import { ComparisonKind, ComparisonKindSchema } from '@the-dev-tools/spec/condition/v1/condition_pb';
 import { Button } from '@the-dev-tools/ui/button';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
-import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextAreaFieldRHF } from '@the-dev-tools/ui/text-field';
 
-import { ReferenceField } from './reference';
+import { ConditionField } from './condition';
 
 interface AssertionViewProps {
   exampleId: Uint8Array;
@@ -70,53 +65,12 @@ const Tab = ({ exampleId, items }: TabProps) => {
   }, [assertUpdateCallback, form]);
 
   return (
-    <>
+    <div className={tw`flex flex-col gap-2`}>
       {fieldArray.fields.map((item, index) => (
-        <div key={item.id} className={tw`flex items-center gap-2`}>
-          <span>Target object</span>
-
-          <Controller
-            control={form.control}
-            name={`items.${index}.condition.comparison.path`}
-            defaultValue={[]}
-            render={({ field }) => (
-              <ReferenceField path={field.value} onSelect={field.onChange} buttonClassName={tw`flex-[2]`} />
-            )}
-          />
-
-          <SelectRHF
-            control={form.control}
-            name={`items.${index}.condition.comparison.kind`}
-            className={tw`h-full flex-1`}
-            triggerClassName={tw`h-full`}
-            aria-label='Comparison Method'
-          >
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.EQUAL)}>is equal to</ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.NOT_EQUAL)}>is not equal to</ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.CONTAINS)}>contains</ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.NOT_CONTAINS)}>
-              does not contain
-            </ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.GREATER)}>is greater than</ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.GREATER_OR_EQUAL)}>
-              is greater or equal to
-            </ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.LESS)}>is less than</ListBoxItem>
-            <ListBoxItem id={enumToJson(ComparisonKindSchema, ComparisonKind.LESS_OR_EQUAL)}>
-              is less or equal to
-            </ListBoxItem>
-          </SelectRHF>
-
-          <TextAreaFieldRHF
-            control={form.control}
-            name={`items.${index}.condition.comparison.value`}
-            className={tw`h-full flex-[2]`}
-            areaClassName={tw`h-full`}
-          />
-        </div>
+        <ConditionField key={item.id} control={form.control} path={`items.${index}.condition`} />
       ))}
 
       <Button onPress={() => void assertCreateMutation.mutate({ exampleId })}>New Assertion</Button>
-    </>
+    </div>
   );
 };
