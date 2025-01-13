@@ -116,4 +116,3 @@ interface NodeService {
   NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }
-
