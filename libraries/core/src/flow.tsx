@@ -33,11 +33,13 @@ import {
 } from '@xyflow/react';
 import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, ReactNode, useCallback, useMemo } from 'react';
+import { ComponentProps, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
+import { useForm } from 'react-hook-form';
 import { IconType } from 'react-icons';
 import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { enumToString } from '@the-dev-tools/api/utils';
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
@@ -90,6 +92,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from './collection';
+import { ConditionField } from './condition';
 import { EndpointRequestView, EndpointRouteSearch, ResponsePanel, useEndpointUrl } from './endpoint';
 
 class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
@@ -748,7 +751,8 @@ const EditPanel = ({ node }: EditPanelProps) =>
   pipe(
     Match.value(node),
     Match.when({ kind: NodeKind.REQUEST }, (_) => <EditRequestNodeView data={_.request!} />),
-    Match.orElse((_) => <EditRequestNodeView data={_.request!} />),
+    Match.when({ kind: NodeKind.CONDITION }, (_) => <EditConditionNodeView data={_.condition!} />),
+    Match.orElse(() => null),
   );
 
 interface EditRequestNodeViewProps {
@@ -840,6 +844,50 @@ const EditRequestNodeView = ({
           <ResponsePanel className={tw`p-5 pt-3`} responseId={lastResponseId} responseTab={responseTab} />
         </div>
       )}
+    </>
+  );
+};
+
+interface EditConditionNodeViewProps {
+  data: NodeCondition;
+}
+
+const EditConditionNodeView = ({ data: { nodeId, condition } }: EditConditionNodeViewProps) => {
+  const { control, handleSubmit, watch } = useForm({ values: { condition: condition! } });
+
+  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+
+  const update = useDebouncedCallback(async () => {
+    await handleSubmit(async (data) => {
+      await nodeUpdateMutation.mutateAsync({
+        condition: { nodeId, ...data },
+      });
+    })();
+  }, 200);
+
+  useEffect(() => {
+    const subscription = watch(() => void update());
+    return () => void subscription.unsubscribe();
+  }, [update, watch]);
+
+  return (
+    <>
+      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
+        <div>
+          <div className={tw`text-md leading-5 text-slate-400`}>If Condition</div>
+          <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Node Name</div>
+        </div>
+
+        <div className={tw`flex-1`} />
+
+        <ButtonAsLink variant='ghost' className={tw`p-1`} href={{ from: Route.fullPath }}>
+          <FiX className={tw`size-5 text-slate-500`} />
+        </ButtonAsLink>
+      </div>
+
+      <div className={tw`m-5`}>
+        <ConditionField control={control} path='condition' />
+      </div>
     </>
   );
 };
