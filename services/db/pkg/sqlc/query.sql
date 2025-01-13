@@ -1721,16 +1721,6 @@ SELECT
 FROM
   migration;
 
--- name: GetMigrations :many
-SELECT
-  id,
-  version,
-  description,
-  apply_at
-FROM
-  migration;
-
-
 -- name: CreateMigration :exec
 INSERT INTO
   migration (id, version, description, apply_at)
