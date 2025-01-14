@@ -25,7 +25,7 @@ import {
   AuthService,
 } from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
-import { NodeKind, NodeListResponseSchema, NodeSpecialKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeKind, NodeListResponseSchema, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
@@ -139,8 +139,8 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, dep
           {
             nodeId: new Uint8Array(),
             position: { x: 0, y: 0 },
-            kind: NodeKind.SPECIAL,
-            special: { kind: NodeSpecialKind.START },
+            kind: NodeKind.NO_OP,
+            noOp: NodeNoOpKind.START,
           },
         ],
       });

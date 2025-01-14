@@ -40,7 +40,6 @@ import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } fr
 import { Panel } from 'react-resizable-panels';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { enumToString } from '@the-dev-tools/api/utils';
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
   exampleCreate,
@@ -53,11 +52,10 @@ import {
   Node,
   NodeGetResponse,
   NodeKind,
-  NodeKindSchema,
   NodeListItem,
+  NodeNoOpKind,
   NodeRequestSchema,
   NodeSchema,
-  NodeSpecialKind,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   nodeCreate,
@@ -162,29 +160,26 @@ const mapEdgeToClient = (edge: Omit<EdgeListItem, keyof Message>) =>
     target: Ulid.construct(edge.targetId).toCanonical(),
   }) satisfies RFEdge;
 
-const mapNodeToClient = (node: Omit<NodeListItem, keyof Message>) => {
-  const kind = enumToString(NodeKindSchema, 'NODE_KIND', node.kind);
-
-  return {
+const mapNodeToClient = (node: Omit<NodeListItem, keyof Message>) =>
+  ({
     id: Ulid.construct(node.nodeId).toCanonical(),
     position: Struct.pick(node.position!, 'x', 'y'),
     origin: [0.5, 0],
-    type: kind as typeof kind | 'create',
+    type: node.kind.toString(),
     data: node,
-  } satisfies Partial<RFNode>;
-};
+  }) satisfies Partial<RFNode>;
 
 interface RFNodeProps extends RFBaseNodeProps<RFNode<Node>> {}
 
-const SpecialNodeView = (props: RFNodeProps) => {
-  const { kind } = props.data.special!;
+const NoOpNodeView = (props: RFNodeProps) => {
+  const kind = props.data.noOp;
 
-  if (kind === NodeSpecialKind.CREATE) return <CreateNodeView {...props} />;
+  if (kind === NodeNoOpKind.CREATE) return <CreateNodeView {...props} />;
 
   return (
     <>
       <div className={tw`flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white shadow-sm`}>
-        {kind === NodeSpecialKind.START && (
+        {kind === NodeNoOpKind.START && (
           <>
             <PlayIcon className={tw`-ml-2 size-4`} />
             <div className={tw`w-px self-stretch bg-slate-700`} />
@@ -194,16 +189,16 @@ const SpecialNodeView = (props: RFNodeProps) => {
         <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>
           {pipe(
             Match.value(kind),
-            Match.when(NodeSpecialKind.START, () => 'Manual start'),
-            Match.when(NodeSpecialKind.THEN, () => 'Then'),
-            Match.when(NodeSpecialKind.ELSE, () => 'Else'),
-            Match.when(NodeSpecialKind.LOOP, () => 'Loop'),
+            Match.when(NodeNoOpKind.START, () => 'Manual start'),
+            Match.when(NodeNoOpKind.THEN, () => 'Then'),
+            Match.when(NodeNoOpKind.ELSE, () => 'Else'),
+            Match.when(NodeNoOpKind.LOOP, () => 'Loop'),
             Match.orElseAbsurd,
           )}
         </span>
       </div>
 
-      {kind !== NodeSpecialKind.START && <RFHandle type='target' position={Position.Top} isConnectable={false} />}
+      {kind !== NodeNoOpKind.START && <RFHandle type='target' position={Position.Top} isConnectable={false} />}
       <RFHandle type='source' position={Position.Bottom} />
     </>
   );
@@ -323,13 +318,13 @@ const CreateNodeView = ({ id }: RFNodeProps) => {
               const [node, nodeThen, nodeElse] = await Promise.all([
                 makeNode({ kind: NodeKind.CONDITION, condition: {}, position }),
                 makeNode({
-                  kind: NodeKind.SPECIAL,
-                  special: { kind: NodeSpecialKind.THEN },
+                  kind: NodeKind.NO_OP,
+                  noOp: NodeNoOpKind.THEN,
                   position: { x: x - offset, y: y + offset },
                 }),
                 makeNode({
-                  kind: NodeKind.SPECIAL,
-                  special: { kind: NodeSpecialKind.ELSE },
+                  kind: NodeKind.NO_OP,
+                  noOp: NodeNoOpKind.ELSE,
                   position: { x: x + offset, y: y + offset },
                 }),
               ]);
@@ -561,10 +556,9 @@ const ConditionNodeView = ({ id, data }: RFNodeProps) => {
 };
 
 const nodeTypes: RFNodeTypes = {
-  special: SpecialNodeView,
-  create: CreateNodeView,
-  request: RequestNodeView,
-  condition: ConditionNodeView,
+  [NodeKind.NO_OP.toString()]: NoOpNodeView,
+  [NodeKind.REQUEST.toString()]: RequestNodeView,
+  [NodeKind.CONDITION.toString()]: ConditionNodeView,
 };
 
 const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: RFEdgeProps) => (
@@ -733,8 +727,8 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
 
       const node = await makeNode({
         position: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
-        kind: NodeKind.SPECIAL,
-        special: { kind: NodeSpecialKind.CREATE },
+        kind: NodeKind.NO_OP,
+        noOp: NodeNoOpKind.CREATE,
       });
 
       const edge = await makeEdge({
@@ -769,7 +763,6 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      // onConnect={onConnect}
       onConnectEnd={onConnectEnd}
     >
       <Background
