@@ -4,6 +4,7 @@ import {
   type FieldErrorProps as AriaFieldErrorProps,
   type LabelProps as AriaLabelProps,
 } from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTW } from './utils';
@@ -12,7 +13,12 @@ import { composeRenderPropsTW } from './utils';
 
 export interface FieldLabelProps extends AriaLabelProps {}
 
-export const FieldLabel = (props: FieldLabelProps) => <AriaLabel {...props} />;
+export const FieldLabel = ({ className, ...props }: FieldLabelProps) => (
+  <AriaLabel
+    className={twMerge(className, tw`flex items-center text-sm font-medium leading-5 tracking-tight text-slate-800`)}
+    {...props}
+  />
+);
 
 // Error
 
