@@ -27,47 +27,40 @@ model Position {
 
 enum NodeKind {
   NODE_KIND_UNSPECIFIED: 0,
-  NODE_KIND_COSMETIC: 1,
+  NODE_KIND_SPECIAL: 1,
   NODE_KIND_REQUEST: 2,
   NODE_KIND_FOR: 3,
   NODE_KIND_CONDITION: 4,
 }
 
-@autoFields
-model NodeBase {
-  @key nodeId: Resource.Id;
-  position: Position;
-}
-
-// TODO: replace with union when supported
 @parentResource(Flow.Flow)
 @autoFields
 model Node {
-  ...NodeBase;
+  @key nodeId: Resource.Id;
+  position: Position;
   kind: NodeKind;
-  cosmetic?: NodeCosmetic;
+  special?: NodeSpecial;
   request?: NodeRequest;
   for?: NodeFor;
   condition?: NodeCondition;
 }
 
-enum NodeCosmeticKind {
-  NODE_COSMETIC_KIND_UNSPECIFIED: 0,
-  NODE_COSMETIC_KIND_START: 1,
-  NODE_COSMETIC_KIND_THEN: 2,
-  NODE_COSMETIC_KIND_ELSE: 3,
-  NODE_COSMETIC_KIND_LOOP: 4,
+enum NodeSpecialKind {
+  NODE_SPECIAL_KIND_UNSPECIFIED: 0,
+  NODE_SPECIAL_KIND_START: 1,
+  NODE_SPECIAL_KIND_CREATE: 2,
+  NODE_SPECIAL_KIND_THEN: 3,
+  NODE_SPECIAL_KIND_ELSE: 4,
+  NODE_SPECIAL_KIND_LOOP: 5,
 }
 
 @autoFields
-model NodeCosmetic {
-  ...NodeBase;
-  kind: NodeCosmeticKind;
+model NodeSpecial {
+  kind: NodeSpecialKind;
 }
 
 @autoFields
 model NodeRequest {
-  ...NodeBase;
   collectionId: bytes;
   endpointId: bytes;
   exampleId: bytes;
@@ -76,13 +69,11 @@ model NodeRequest {
 
 @autoFields
 model NodeFor {
-  ...NodeBase;
   iteration: int32;
 }
 
 @autoFields
 model NodeCondition {
-  ...NodeBase;
   condition: Condition.Condition;
 }
 

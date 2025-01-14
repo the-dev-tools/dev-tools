@@ -19,8 +19,8 @@ namespace API.FlowItem.Edge;
 
 enum Handle {
   HANDLE_UNSPECIFIED: 0,
-  HANDLE_TRUE: 1,
-  HANDLE_FALSE: 2,
+  HANDLE_THEN: 1,
+  HANDLE_ELSE: 2,
   HANDLE_LOOP: 3,
 }
 
