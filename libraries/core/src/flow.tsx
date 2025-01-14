@@ -711,7 +711,7 @@ interface FlowViewProps {
 }
 
 const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProps) => {
-  const { addNodes, addEdges, getEdges, getNodes, screenToFlowPosition } = useReactFlow();
+  const { addNodes, addEdges, screenToFlowPosition } = useReactFlow();
 
   const [edges, _setEdges, onEdgesChange] = pipe(serverEdges, Array.map(mapEdgeToClient), useEdgesState);
   const [nodes, _setNodes, onNodesChange] = pipe(serverNodes, Array.map(mapNodeToClient), useNodesState);
@@ -736,14 +736,10 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
         targetId: node.nodeId,
       });
 
-      console.log({ node, edge });
-
       addNodes(mapNodeToClient(node));
       addEdges(mapEdgeToClient(edge));
-
-      console.log({ nodes: getNodes(), edges: getEdges() });
     },
-    [addEdges, addNodes, getEdges, getNodes, makeEdge, makeNode, screenToFlowPosition],
+    [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition],
   );
 
   return (
