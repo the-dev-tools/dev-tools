@@ -308,7 +308,7 @@ func main() {
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
 	// Refernce Service
-	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, us, ws, es, vs)
+	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, us, ws, es, vs, ers, erhs)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
 	// Start services

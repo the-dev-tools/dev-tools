@@ -84,6 +84,7 @@ func CheckStringHasAnyVarKey(raw string) bool {
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
+		fmt.Println("raw", raw)
 		startIndex := strings.Index(raw, mvar.Prefix)
 		if startIndex == -1 {
 			result += raw
@@ -95,20 +96,21 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 			return "", ErrInvalidKey
 		}
 
-		key := raw[startIndex : startIndex+endIndex+mvar.SuffixSize]
-		if !CheckIsVar(key) {
+		rawVar := raw[startIndex : startIndex+endIndex+mvar.SuffixSize]
+		if !CheckIsVar(rawVar) {
 			return "", ErrInvalidKey
 		}
 
 		// Check if key is present in the map
-		key = GetVarKeyFromRaw(key)
+		key := GetVarKeyFromRaw(rawVar)
+		fmt.Println("key", key)
 		val, ok := vm.Get(key)
 		if !ok {
 			return "", ErrKeyNotFound
 		}
 
 		result += raw[:startIndex] + val.Value
-		raw = raw[startIndex+mvar.PrefixSize+endIndex:]
+		raw = raw[startIndex+len(rawVar):]
 	}
 
 	return result, nil

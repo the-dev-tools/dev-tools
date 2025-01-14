@@ -52,7 +52,7 @@ func TestGetVars(t *testing.T) {
 	})
 
 	t.Run("raw var", func(t *testing.T) {
-		raw := fmt.Sprintf("{{%s}}", key1)
+		raw := fmt.Sprintf("{{env.%s}}", key1)
 		result := varsystem.GetVarKeyFromRaw(raw)
 		if result != key1 {
 			t.Errorf("Expected %s, got %s", key1, result)
@@ -83,7 +83,7 @@ func TestLongStringReplace(t *testing.T) {
 		expectedUrl += fmt.Sprintf("%s%d", val_prefix, i)
 	}
 	for i := 0; i < total_key; i++ {
-		testUrl += fmt.Sprintf("{{%s%d}}", key_prefix, i)
+		testUrl += fmt.Sprintf("{{env.%s%d}}", key_prefix, i)
 	}
 
 	a := make([]mvar.Var, total_key)
