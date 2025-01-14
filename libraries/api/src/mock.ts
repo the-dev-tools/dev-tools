@@ -25,7 +25,7 @@ import {
   AuthService,
 } from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
-import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeCosmeticKind, NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
@@ -137,10 +137,11 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, dep
       return create(NodeListResponseSchema, {
         items: [
           {
-            kind: NodeKind.START,
-            start: {
+            kind: NodeKind.COSMETIC,
+            cosmetic: {
               nodeId: new Uint8Array(),
               position: { x: 0, y: 0 },
+              kind: NodeCosmeticKind.START,
             },
           },
         ],

@@ -52,6 +52,8 @@ import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import {
   NodeCondition,
+  NodeCosmetic,
+  NodeCosmeticKind,
   NodeGetResponse,
   NodeKind,
   NodeKindSchema,
@@ -59,7 +61,6 @@ import {
   NodeRequest,
   NodeRequestSchema,
   NodeSchema,
-  NodeStart,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   nodeCreate,
@@ -177,16 +178,31 @@ const mapNodeToClient = (node: Omit<NodeListItem, '$typeName'>) => {
   } satisfies Partial<Node>);
 };
 
-interface StartNode extends Node<NodeStart, 'start'> {}
+interface CosmeticNode extends Node<NodeCosmetic, 'cosmetic'> {}
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const StartNodeView = (_: NodeProps<StartNode>) => (
+const CosmeticNodeView = ({ data }: NodeProps<CosmeticNode>) => (
   <>
-    <div className={tw`flex w-40 items-center gap-2 rounded-md bg-slate-800 px-2 text-white shadow-sm`}>
-      <PlayIcon className={tw`size-4`} />
-      <div className={tw`w-px self-stretch bg-slate-700`} />
-      <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>Manual start</span>
+    <div className={tw`flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white shadow-sm`}>
+      {data.kind === NodeCosmeticKind.START && (
+        <>
+          <PlayIcon className={tw`-ml-2 size-4`} />
+          <div className={tw`w-px self-stretch bg-slate-700`} />
+        </>
+      )}
+
+      <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>
+        {pipe(
+          Match.value(data),
+          Match.when({ kind: NodeCosmeticKind.START }, () => 'Manual start'),
+          Match.when({ kind: NodeCosmeticKind.THEN }, () => 'Then'),
+          Match.when({ kind: NodeCosmeticKind.ELSE }, () => 'Else'),
+          Match.when({ kind: NodeCosmeticKind.LOOP }, () => 'Loop'),
+          Match.orElseAbsurd,
+        )}
+      </span>
     </div>
+
+    {data.kind !== NodeCosmeticKind.START && <Handle type='target' position={Position.Top} />}
     <Handle type='source' position={Position.Bottom} />
   </>
 );
@@ -521,7 +537,7 @@ const ConditionNodeView = ({ id, data }: NodeProps<ConditionNode>) => {
 };
 
 const nodeTypes: NodeTypes = {
-  start: StartNodeView,
+  cosmetic: CosmeticNodeView,
   create: CreateNodeView,
   request: RequestNodeView,
   condition: ConditionNodeView,

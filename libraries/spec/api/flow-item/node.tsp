@@ -27,7 +27,7 @@ model Position {
 
 enum NodeKind {
   NODE_KIND_UNSPECIFIED: 0,
-  NODE_KIND_START: 1,
+  NODE_KIND_COSMETIC: 1,
   NODE_KIND_REQUEST: 2,
   NODE_KIND_FOR: 3,
   NODE_KIND_CONDITION: 4,
@@ -45,15 +45,24 @@ model NodeBase {
 model Node {
   ...NodeBase;
   kind: NodeKind;
-  start?: NodeStart;
+  cosmetic?: NodeCosmetic;
   request?: NodeRequest;
   for?: NodeFor;
   condition?: NodeCondition;
 }
 
+enum NodeCosmeticKind {
+  NODE_COSMETIC_KIND_UNSPECIFIED: 0,
+  NODE_COSMETIC_KIND_START: 1,
+  NODE_COSMETIC_KIND_THEN: 2,
+  NODE_COSMETIC_KIND_ELSE: 3,
+  NODE_COSMETIC_KIND_LOOP: 4,
+}
+
 @autoFields
-model NodeStart {
+model NodeCosmetic {
   ...NodeBase;
+  kind: NodeCosmeticKind;
 }
 
 @autoFields
