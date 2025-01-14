@@ -10,6 +10,9 @@ export const enumToString = <RuntimeShape extends number, JsonType extends JsonV
   pipe(
     enumToJson(schema, value) as string,
     String.substring(`${name}_`.length),
-    (_) => _ as JsonType extends `${Name}_${infer Kind}` ? Kind : never,
+    (_) => {
+      if (_ === 'UNSPECIFIED') throw Error(`Enum ${name} is unspecified`);
+      return _ as JsonType extends `${Name}_${infer Kind}` ? Exclude<Kind, 'UNSPECIFIED'> : never;
+    },
     String.toLowerCase,
   );
