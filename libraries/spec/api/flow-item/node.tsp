@@ -62,9 +62,17 @@ model NodeRequest {
   deltaExampleId: bytes;
 }
 
+enum ErrorHandling {
+  ERROR_HANDLING_UNSPECIFIED: 0,
+  ERROR_HANDLING_IGNORE: 1,
+  ERROR_HANDLING_BREAK: 2,
+}
+
 @autoFields
 model NodeFor {
-  iteration: int32;
+  iterations: int32;
+  condition: Condition.Condition;
+  errorHandling: ErrorHandling;
 }
 
 @autoFields
