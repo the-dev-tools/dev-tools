@@ -34,7 +34,7 @@ import { Array, Match, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ComponentProps, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { IconType } from 'react-icons';
 import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
@@ -68,6 +68,7 @@ import {
 import { FlowGetResponse, FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { FieldLabel } from '@the-dev-tools/ui/field';
 import {
   ChatAddIcon,
   CheckListAltIcon,
@@ -93,6 +94,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { CollectionListTree } from './collection';
 import { ConditionField } from './condition';
 import { EndpointRequestView, EndpointRouteSearch, ResponsePanel, useEndpointUrl } from './endpoint';
+import { ReferenceField } from './reference';
 
 class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
   selectedNodeIdCan: pipe(Schema.String, Schema.optional),
@@ -394,7 +396,43 @@ const CreateNodeView = ({ id }: RFNodeProps) => {
             }}
           />
 
-          <CreateNodeItem id='foreach' Icon={ForIcon} title='For Each Loop' description='Loop' />
+          <CreateNodeItem
+            id='foreach'
+            Icon={ForIcon}
+            title='For Each Loop'
+            description='Loop'
+            onAction={async () => {
+              const [node, nodeLoop, nodeThen] = await Promise.all([
+                makeNode({ kind: NodeKind.FOR_EACH, forEach: {}, position }),
+                makeNode({
+                  kind: NodeKind.NO_OP,
+                  noOp: NodeNoOpKind.LOOP,
+                  position: { x: x - offset, y: y + offset },
+                }),
+                makeNode({
+                  kind: NodeKind.NO_OP,
+                  noOp: NodeNoOpKind.THEN,
+                  position: { x: x + offset, y: y + offset },
+                }),
+              ]);
+
+              const edges = await Promise.all([
+                makeEdge({ sourceId, targetId: node.nodeId }),
+                makeEdge({
+                  sourceId: node.nodeId,
+                  sourceHandle: Handle.LOOP,
+                  targetId: nodeLoop.nodeId,
+                }),
+                makeEdge({
+                  sourceId: node.nodeId,
+                  sourceHandle: Handle.THEN,
+                  targetId: nodeThen.nodeId,
+                }),
+              ]);
+
+              await add([node, nodeLoop, nodeThen], edges);
+            }}
+          />
         </ListBoxSection>
       </ListBox>
 
@@ -621,11 +659,39 @@ const ForNodeView = ({ id, data: { nodeId } }: RFNodeProps) => {
   );
 };
 
+const ForEachNodeView = ({ id, data: { nodeId } }: RFNodeProps) => {
+  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+  return (
+    <>
+      <BaseNodeView id={id} nodeId={nodeId} Icon={ForIcon} title='For Each Loop'>
+        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+          <ButtonAsLink
+            className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
+            href={{
+              to: '.',
+              search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
+            }}
+          >
+            <CheckListAltIcon className={tw`size-5 text-slate-500`} />
+            <span>Edit Loop</span>
+          </ButtonAsLink>
+        </div>
+      </BaseNodeView>
+
+      <RFHandle type='target' position={Position.Top} />
+      <RFHandle type='source' position={Position.Bottom} id={Handle.LOOP.toString()} isConnectable={false} />
+      <RFHandle type='source' position={Position.Bottom} id={Handle.THEN.toString()} isConnectable={false} />
+    </>
+  );
+};
+
 const nodeTypes: RFNodeTypes = {
   [NodeKind.NO_OP.toString()]: NoOpNodeView,
   [NodeKind.REQUEST.toString()]: RequestNodeView,
   [NodeKind.CONDITION.toString()]: ConditionNodeView,
   [NodeKind.FOR.toString()]: ForNodeView,
+  [NodeKind.FOR_EACH.toString()]: ForEachNodeView,
 };
 
 const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: RFEdgeProps) => (
@@ -852,6 +918,7 @@ const EditPanel = ({ node }: EditPanelProps) =>
     Match.when(NodeKind.REQUEST, () => <EditRequestNodeView node={node} />),
     Match.when(NodeKind.CONDITION, () => <EditConditionNodeView node={node} />),
     Match.when(NodeKind.FOR, () => <EditForNodeView node={node} />),
+    Match.when(NodeKind.FOR_EACH, () => <EditForEachNodeView node={node} />),
     Match.orElseAbsurd,
   );
 
@@ -1020,6 +1087,70 @@ const EditForNodeView = ({ node: { nodeId, for: data } }: EditPanelProps) => {
           label='Iterations'
           className={tw`contents`}
           groupClassName={tw`min-w-[30%] justify-self-start`}
+        />
+
+        <ConditionField control={control} path='condition' label='Break If' className={tw`contents`} />
+
+        <SelectRHF
+          control={control}
+          name='errorHandling'
+          label='On Error'
+          className={tw`contents`}
+          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
+        >
+          <ListBoxItem id={ErrorHandling.UNSPECIFIED}>Throw</ListBoxItem>
+          <ListBoxItem id={ErrorHandling.IGNORE}>Ignore</ListBoxItem>
+          <ListBoxItem id={ErrorHandling.BREAK}>Break</ListBoxItem>
+        </SelectRHF>
+      </div>
+    </>
+  );
+};
+
+const EditForEachNodeView = ({ node: { nodeId, forEach } }: EditPanelProps) => {
+  const { control, handleSubmit, watch } = useForm({ values: forEach! });
+
+  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+
+  const update = useDebouncedCallback(async () => {
+    await handleSubmit(async (forEach) => {
+      await nodeUpdateMutation.mutateAsync({ nodeId, forEach });
+    })();
+  }, 200);
+
+  useEffect(() => {
+    const subscription = watch(() => void update());
+    return () => void subscription.unsubscribe();
+  }, [update, watch]);
+
+  return (
+    <>
+      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
+        <div>
+          <div className={tw`text-md leading-5 text-slate-400`}>For Each Loop</div>
+          <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Node Name</div>
+        </div>
+
+        <div className={tw`flex-1`} />
+
+        <ButtonAsLink variant='ghost' className={tw`p-1`} href={{ from: Route.fullPath }}>
+          <FiX className={tw`size-5 text-slate-500`} />
+        </ButtonAsLink>
+      </div>
+
+      <div className={tw`m-5 grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
+        <FieldLabel>Array to Loop</FieldLabel>
+        <Controller
+          control={control}
+          name='path'
+          defaultValue={[]}
+          render={({ field }) => (
+            <ReferenceField
+              path={field.value}
+              onSelect={field.onChange}
+              buttonClassName={tw`min-w-[30%] justify-self-start`}
+            />
+          )}
         />
 
         <ConditionField control={control} path='condition' label='Break If' className={tw`contents`} />
