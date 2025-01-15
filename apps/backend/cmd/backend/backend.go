@@ -52,8 +52,8 @@ import (
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
-	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/sresultapi"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
@@ -158,7 +158,7 @@ func main() {
 	rns := snoderequest.New(queries)
 	lfns := snodefor.New(queries)
 	ins := snodeif.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 
 	// log/console
 	logMap := logconsole.NewLogChanMap()

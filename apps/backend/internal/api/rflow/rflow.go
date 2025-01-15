@@ -14,8 +14,8 @@ import (
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
 	"the-dev-tools/backend/pkg/flow/node/nif"
+	"the-dev-tools/backend/pkg/flow/node/nnoop"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
-	"the-dev-tools/backend/pkg/flow/node/nstart"
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -25,8 +25,8 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
-	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
@@ -41,8 +41,8 @@ import (
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
-	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
@@ -82,7 +82,7 @@ type FlowServiceRPC struct {
 	ns   snode.NodeService
 	rns  snoderequest.NodeRequestService
 	flns snodefor.NodeForService
-	sns  snodestart.NodeStartService
+	sns  snodenoop.NodeNoopService
 	ins  snodeif.NodeIfService
 
 	logChanMap logconsole.LogChanMap
@@ -92,7 +92,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
 	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
-	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodestart.NodeStartService, ins snodeif.NodeIfService,
+	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodenoop.NodeNoopService, ins snodeif.NodeIfService,
 	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
@@ -236,15 +236,16 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	err = c.ns.CreateNode(ctx, mnode.MNode{
 		ID:        id,
 		FlowID:    flowID,
-		NodeKind:  mnode.NODE_KIND_START,
+		NodeKind:  mnode.NODE_KIND_NOOP,
 		PositionX: float64(0),
 		PositionY: float64(0),
 	})
 	if err != nil {
 		return nil, err
 	}
-	err = c.sns.CreateNodeStart(ctx, mnstart.StartNode{
+	err = c.sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: id,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
 		Name:       "Node1",
 	})
 	if err != nil {
@@ -316,7 +317,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var forNodes []mnfor.MNFor
 	var requestNodes []mnrequest.MNRequest
 	var ifNodes []mnif.MNIF
-	var startNode *mnstart.StartNode
+	var noopNodes []mnnoop.NoopNode
+	var startNodeID idwrap.IDWrap
 
 	for _, node := range nodes {
 		switch node.NodeKind {
@@ -332,12 +334,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err))
 			}
 			forNodes = append(forNodes, *fn)
-		case mnode.NODE_KIND_START:
-			sn, err := c.sns.GetNodeStart(ctx, node.ID)
+		case mnode.NODE_KIND_NOOP:
+			sn, err := c.sns.GetNodeNoop(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node start: %w", err))
 			}
-			startNode = sn
+			noopNodes = append(noopNodes, *sn)
 		case mnode.NODE_KIND_CONDITION:
 			in, err := c.ins.GetNodeIf(ctx, node.ID)
 			if err != nil {
@@ -349,9 +351,20 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	if startNode == nil {
+	var foundStartNode bool
+	for _, node := range noopNodes {
+		if node.Type == mnnoop.NODE_NO_OP_KIND_START {
+			if foundStartNode {
+				return connect.NewError(connect.CodeInternal, errors.New("multiple start nodes"))
+			}
+			foundStartNode = true
+			startNodeID = node.FlowNodeID
+		}
+	}
+	if !foundStartNode {
 		return connect.NewError(connect.CodeInternal, errors.New("no start node"))
 	}
+
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
 		// TODO: timeout will added
@@ -429,7 +442,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, ifNode.Name, ifNode.ConditionType, ifNode.Path, ifNode.Value)
 	}
 
-	flowNodeMap[startNode.FlowNodeID] = nstart.New(startNode.FlowNodeID, startNode.Name)
+	for _, noopNode := range noopNodes {
+		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID, noopNode.Name)
+	}
 
 	edges, err := c.fes.GetEdgesByFlowID(ctx, flowID)
 	if err != nil {
@@ -438,12 +453,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	edgeMap := edge.NewEdgesMap(edges)
 
 	// TODO: get timeout from flow config
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNode.FlowNodeID, flowNodeMap, edgeMap, time.Second*10)
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
 
 	status := make(chan runner.FlowStatusResp, 10)
 
 	done := make(chan error)
 	go func() {
+		defer close(done)
 		for {
 			select {
 			case a := <-status:
@@ -478,7 +494,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 			break
 		}
-		done <- nil
 	}()
 
 	err = runnerInst.Run(ctx, status)
@@ -491,6 +506,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	fmt.Println("FlowServiceRPC FlowRunAdHoc")
 
 	return nil
 }

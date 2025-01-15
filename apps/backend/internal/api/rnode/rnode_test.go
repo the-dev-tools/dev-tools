@@ -9,7 +9,7 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnode"
-	"the-dev-tools/backend/pkg/model/mnode/mnstart"
+	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mtag"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -19,8 +19,8 @@ import (
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
-	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/testutil"
@@ -43,7 +43,7 @@ func TestNodeList(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -83,14 +83,15 @@ func TestNodeList(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_START,
+		NodeKind:  mnode.NODE_KIND_NOOP,
 		PositionX: 0,
 		PositionY: 0,
 	})
 	testutil.AssertFatal(t, nil, err)
 
-	err = sns.CreateNodeStart(ctx, mnstart.StartNode{
+	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
 		Name:       "test",
 	})
 
@@ -108,11 +109,8 @@ func TestNodeList(t *testing.T) {
 	items := resp.Msg.Items
 	testutil.AssertFatal(t, 1, len(items))
 
-	startNode := items[0].Start
+	startNode := items[0]
 	if startNode == nil {
-		t.Fatalf("Expected start node to be non-nil")
-	}
-	if startNode.NodeId == nil {
 		t.Fatalf("Expected start node id to be non-nil")
 	}
 	if !bytes.Equal(startNode.NodeId, startNodeID.Bytes()) {
@@ -134,7 +132,7 @@ func TestNodeGet(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -174,13 +172,13 @@ func TestNodeGet(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_START,
+		NodeKind:  mnode.NODE_KIND_NOOP,
 		PositionX: 0,
 		PositionY: 0,
 	})
 	testutil.AssertFatal(t, nil, err)
 
-	err = sns.CreateNodeStart(ctx, mnstart.StartNode{
+	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
 		Name:       "test",
 	})
@@ -196,7 +194,7 @@ func TestNodeGet(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 	testutil.AssertNotFatal(t, nil, resp.Msg)
 
-	startNode := resp.Msg.Start
+	startNode := resp.Msg
 	if startNode == nil {
 		t.Fatalf("Expected start node to be non-nil")
 	}
@@ -222,7 +220,7 @@ func TestNodeUpdate(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -262,13 +260,13 @@ func TestNodeUpdate(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_START,
+		NodeKind:  mnode.NODE_KIND_NOOP,
 		PositionX: 0,
 		PositionY: 0,
 	})
 	testutil.AssertFatal(t, nil, err)
 
-	err = sns.CreateNodeStart(ctx, mnstart.StartNode{
+	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
 		Name:       "test",
 	})
@@ -281,13 +279,11 @@ func TestNodeUpdate(t *testing.T) {
 		&nodev1.NodeUpdateRequest{
 			NodeId: startNodeID.Bytes(),
 			FlowId: testFlowID.Bytes(),
-			Kind:   nodev1.NodeKind_NODE_KIND_START,
-			Start: &nodev1.NodeStart{
-				NodeId: startNodeID.Bytes(),
-				Position: &nodev1.Position{
-					X: float32(newPosX),
-					Y: float32(NewPosY),
-				},
+			Kind:   nodev1.NodeKind_NODE_KIND_NO_OP,
+			NoOp:   nodev1.NodeNoOpKind_NODE_NO_OP_KIND_START,
+			Position: &nodev1.Position{
+				X: float32(newPosX),
+				Y: float32(NewPosY),
 			},
 		},
 	)

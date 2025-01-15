@@ -1672,31 +1672,32 @@ WHERE
   flow_node_id = ?;
 
 
--- name: GetFlowNodeStart :one
+-- name: GetFlowNodeNoop :one
 SELECT
   flow_node_id,
+  node_type,
   name
 FROM
-  flow_node_start
+  flow_node_noop
 where
   flow_node_id = ?
 LIMIT 1;
 
--- name: CreateFlowNodeStart :exec
+-- name: CreateFlowNodeNoop :exec
 INSERT INTO
-  flow_node_start (flow_node_id, name)
+  flow_node_noop (flow_node_id, node_type, name)
 VALUES
-  (?, ?);
+  (?, ?, ?);
 
--- name: UpdateFlowNodeStart :exec
-UPDATE flow_node_start
+-- name: UpdateFlowNodeNoop :exec
+UPDATE flow_node_noop
 SET
   name = ?
 WHERE
   flow_node_id = ?;
 
--- name: DeleteFlowNodeStart :exec
-DELETE from flow_node_start
+-- name: DeleteFlowNodeNoop :exec
+DELETE from flow_node_noop
 WHERE
   flow_node_id = ?;
 

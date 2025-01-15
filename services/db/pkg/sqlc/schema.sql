@@ -340,8 +340,9 @@ CREATE TABLE flow_node_if (
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
-CREATE TABLE flow_node_start (
+CREATE TABLE flow_node_noop (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
+  node_type TINYINT NOT NULL,
   name TEXT NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );

@@ -3,6 +3,7 @@ package rflow_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rflow"
@@ -13,7 +14,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mflowtag"
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
-	"the-dev-tools/backend/pkg/model/mnode/mnstart"
+	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mtag"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
@@ -28,8 +29,8 @@ import (
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
-	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
@@ -67,7 +68,7 @@ func TestListFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -206,7 +207,7 @@ func TestGetFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -310,7 +311,7 @@ func TestCreateFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -398,7 +399,7 @@ func TestUpdateFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -487,7 +488,7 @@ func TestDeleteFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -569,7 +570,7 @@ func TestRunFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
-	sns := snodestart.New(queries)
+	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
@@ -609,15 +610,17 @@ func TestRunFlow(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_START,
+		NodeKind:  mnode.NODE_KIND_NOOP,
 		PositionX: 0,
 		PositionY: 0,
 	})
 	testutil.AssertFatal(t, nil, err)
 
-	err = sns.CreateNodeStart(ctx, mnstart.StartNode{
+	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
-		Name:       "test",
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
+
+		Name: "test",
 	})
 	testutil.AssertFatal(t, nil, err)
 
@@ -661,10 +664,17 @@ func TestRunFlow(t *testing.T) {
 		},
 	}
 
+	var mu sync.Mutex
+
 	go func() {
 		for {
-			a := <-logChan
+			a, ok := <-logChan
+			if !ok {
+				break
+			}
+			mu.Lock()
 			fmt.Println("logChan", a)
+			mu.Unlock()
 		}
 	}()
 

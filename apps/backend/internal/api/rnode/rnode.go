@@ -11,8 +11,8 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
-	"the-dev-tools/backend/pkg/model/mnode/mnstart"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -22,8 +22,8 @@ import (
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
-	"the-dev-tools/backend/pkg/service/snodestart"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/nodes/pkg/httpclient"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
@@ -44,7 +44,7 @@ type NodeServiceRPC struct {
 	nis  snodeif.NodeIfService
 	nrs  snoderequest.NodeRequestService
 	nfls snodefor.NodeForService
-	nss  snodestart.NodeStartService
+	nss  snodenoop.NodeNoopService
 
 	// api
 	ias  sitemapi.ItemApiService
@@ -54,7 +54,7 @@ type NodeServiceRPC struct {
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
-	nlf snodefor.NodeForService, ns snode.NodeService, nss snodestart.NodeStartService,
+	nlf snodefor.NodeForService, ns snode.NodeService, nss snodenoop.NodeNoopService,
 	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
 	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
 ) *NodeServiceRPC {
@@ -108,7 +108,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			NodeId:    rpcNode.NodeId,
 			Position:  rpcNode.Position,
 			Kind:      rpcNode.Kind,
-			Start:     rpcNode.Start,
+			NoOp:      rpcNode.NoOp,
 			Request:   rpcNode.Request,
 			For:       rpcNode.For,
 			Condition: rpcNode.Condition,
@@ -158,7 +158,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		NodeId:    rpcNode.NodeId,
 		Position:  rpcNode.Position,
 		Kind:      rpcNode.Kind,
-		Start:     rpcNode.Start,
+		NoOp:      rpcNode.NoOp,
 		Request:   rpcNode.Request,
 		For:       rpcNode.For,
 		Condition: rpcNode.Condition,
@@ -197,7 +197,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		NodeId:    NodeID.Bytes(),
 		Position:  req.Msg.Position,
 		Kind:      req.Msg.Kind,
-		Start:     req.Msg.Start,
+		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
 		For:       req.Msg.For,
 		Condition: req.Msg.Condition,
@@ -253,6 +253,15 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	case *mnnoop.NoopNode:
+		noopTX, err := snodenoop.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = noopTX.CreateNodeNoop(ctx, *subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
 	}
@@ -284,7 +293,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		NodeId:    nodeID.Bytes(),
 		Kind:      nodev1.NodeKind(node.NodeKind),
 		Position:  req.Msg.Position,
-		Start:     req.Msg.Start,
+		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
 		For:       req.Msg.For,
 		Condition: req.Msg.Condition,
@@ -339,12 +348,12 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	case *mnstart.StartNode:
-		nssTX, err := snodestart.NewTX(ctx, tx)
+	case *mnnoop.NoopNode:
+		nssTX, err := snodenoop.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		err = nssTX.UpdateNodeStart(ctx, *subNodeType)
+		err = nssTX.UpdateNodeNoop(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -452,7 +461,7 @@ func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserServ
 }
 
 func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
-	nlf snodefor.NodeForService, nss snodestart.NodeStartService,
+	nlf snodefor.NodeForService, nss snodenoop.NodeNoopService,
 ) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
 
@@ -479,11 +488,10 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		}
 
 		nodeList := &nodev1.Node{
+			NodeId:   currentNode.ID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
 			Position: Position,
 			Request: &nodev1.NodeRequest{
-				NodeId:         currentNode.ID.Bytes(),
-				Position:       Position,
 				CollectionId:   rpcExampleID,
 				ExampleId:      rpcExampleID,
 				EndpointId:     rpcEndpointID,
@@ -498,28 +506,26 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		}
 		// TODO: ask which pos should be filled
 		nodeList := &nodev1.Node{
+			NodeId:   currentNode.ID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
 			Position: Position,
 			For: &nodev1.NodeFor{
-				NodeId:    currentNode.ID.Bytes(),
-				Position:  Position,
-				Iteration: int32(nodeFor.IterCount),
+				ErrorHandling: nodev1.ErrorHandling_ERROR_HANDLING_BREAK,
+				Iterations:    int32(nodeFor.IterCount),
 			},
 		}
 		rpcNode = nodeList
-	case mnode.NODE_KIND_START:
+	case mnode.NODE_KIND_NOOP:
 		// TODO: can be remove later no need to fetch just id
-		nodeStart, err := nss.GetNodeStart(ctx, currentNode.ID)
+		nodeStart, err := nss.GetNodeNoop(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
 		}
 		rpcNode = &nodev1.Node{
-			Kind:     nodev1.NodeKind_NODE_KIND_START,
+			NodeId:   nodeStart.FlowNodeID.Bytes(),
+			Kind:     nodev1.NodeKind_NODE_KIND_NO_OP,
 			Position: Position,
-			Start: &nodev1.NodeStart{
-				Position: Position,
-				NodeId:   nodeStart.FlowNodeID.Bytes(),
-			},
+			NoOp:     nodev1.NodeNoOpKind(nodeStart.Type),
 		}
 
 	case mnode.NODE_KIND_CONDITION:
@@ -584,25 +590,21 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			ExampleID:      exampleIDPtr,
 			DeltaExampleID: deltaExampleIDPtr,
 		}
-		node.PositionX = float64(rpcNode.Request.Position.X)
-		node.PositionY = float64(rpcNode.Request.Position.Y)
 
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
 		forNode := &mnfor.MNFor{
 			FlowNodeID: nodeID,
-			IterCount:  int64(rpcNode.For.Iteration),
+			IterCount:  int64(rpcNode.For.Iterations),
 		}
-		node.PositionX = float64(rpcNode.For.Position.X)
-		node.PositionY = float64(rpcNode.For.Position.Y)
 		subNode = forNode
-	case nodev1.NodeKind_NODE_KIND_START:
-		startNode := &mnstart.StartNode{
+	case nodev1.NodeKind_NODE_KIND_NO_OP:
+		noopNode := &mnnoop.NoopNode{
 			FlowNodeID: nodeID,
+			Type:       mnnoop.NoopTypes(rpcNode.NoOp),
+			Name:       "NoOp",
 		}
-		node.PositionX = float64(rpcNode.Start.Position.X)
-		node.PositionY = float64(rpcNode.Start.Position.Y)
-		subNode = startNode
+		subNode = noopNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
 		var path string
 
@@ -627,8 +629,6 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			Path:          path,
 			Value:         comp.Value,
 		}
-		node.PositionX = float64(rpcNode.Condition.Position.X)
-		node.PositionY = float64(rpcNode.Condition.Position.Y)
 		subNode = ifNode
 	default:
 		return nil, nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)

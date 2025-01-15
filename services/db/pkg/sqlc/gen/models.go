@@ -140,17 +140,18 @@ type FlowNodeIf struct {
 	Value         string
 }
 
+type FlowNodeNoop struct {
+	FlowNodeID idwrap.IDWrap
+	NodeType   int16
+	Name       string
+}
+
 type FlowNodeRequest struct {
 	FlowNodeID     idwrap.IDWrap
 	Name           string
 	EndpointID     *idwrap.IDWrap
 	ExampleID      *idwrap.IDWrap
 	DeltaExampleID *idwrap.IDWrap
-}
-
-type FlowNodeStart struct {
-	FlowNodeID idwrap.IDWrap
-	Name       string
 }
 
 type FlowTag struct {
