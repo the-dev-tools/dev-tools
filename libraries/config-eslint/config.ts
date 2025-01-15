@@ -1,5 +1,3 @@
-/// <reference types="@typescript-eslint/utils" />
-
 import { resolve } from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
@@ -12,7 +10,7 @@ import react from 'eslint-plugin-react';
 import reactHooksOld from 'eslint-plugin-react-hooks';
 import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
-import { Config, configs as ts } from 'typescript-eslint';
+import { ConfigArray, configs as ts } from 'typescript-eslint';
 
 const gitignore = includeIgnoreFile(resolve(import.meta.dirname, '../../.gitignore'));
 
@@ -67,7 +65,7 @@ const rules: Linter.Config = {
   },
 };
 
-export default [
+const config: ConfigArray = [
   gitignore,
   settings,
   commonjs,
@@ -84,8 +82,8 @@ export default [
   importX.typescript,
   importX.react,
 
-  react.configs.flat!['recommended'] as Linter.Config,
-  react.configs.flat!['jsx-runtime'] as Linter.Config,
+  react.configs.flat['recommended']!,
+  react.configs.flat['jsx-runtime']!,
   reactHooks,
 
   jsxA11y.flatConfigs.recommended,
@@ -93,4 +91,6 @@ export default [
   ...tailwind.configs['flat/recommended'],
 
   rules,
-] satisfies Config;
+];
+
+export default config;

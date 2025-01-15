@@ -179,6 +179,7 @@ export const addResponse = (
       header,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-misused-spread
     const newRequest = new Postman.Item({ ...request, response: [responseItem] });
     const newNavigation = Struct.evolve(navigation, {
       item: (_) => Array.replace(_ ?? [], (_?.length ?? 0) - index.request, newRequest),

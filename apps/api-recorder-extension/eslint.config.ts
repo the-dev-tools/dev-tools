@@ -1,8 +1,8 @@
-import { Config } from 'typescript-eslint';
+import { ConfigArray } from 'typescript-eslint';
 
 import base from '@the-dev-tools/config-eslint';
 
-export default [
+const config: ConfigArray = [
   ...base,
   {
     rules: {
@@ -13,4 +13,6 @@ export default [
       'import-x/no-unresolved': 'off',
     },
   },
-] satisfies Config;
+];
+
+export default config;

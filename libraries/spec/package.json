@@ -18,11 +18,11 @@
     "@changesets/changelog-github": "~0.5.0",
     "@changesets/cli": "~2.27.9",
     "@connectrpc/protoc-gen-connect-query": "~2.0.1",
-    "@types/node": "~22.10.5",
+    "@types/node": "~22.10.6",
     "@typespec/json-schema": "~0.63.0",
     "@typespec/protobuf": "~0.63.0",
     "@typespec/rest": "~0.63.1",
-    "effect": "~3.12.1",
+    "effect": "~3.12.4",
     "prettier": "~3.4.2",
     "quicktype": "~23.0.170",
     "typescript": "~5.7.3"

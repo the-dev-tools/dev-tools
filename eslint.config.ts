@@ -1,10 +1,12 @@
-import { Config } from 'typescript-eslint';
+import { ConfigArray } from 'typescript-eslint';
 
 import base from '@the-dev-tools/config-eslint';
 
-export default [
+const config: ConfigArray = [
   ...base,
   {
     ignores: ['apps', 'libraries'],
   },
-] satisfies Config;
+];
+
+export default config;
