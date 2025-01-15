@@ -39,7 +39,8 @@
     },
     "patchedDependencies": {
       "@nx/eslint@20.3.1": "patches/@nx__eslint@20.3.1.patch",
-      "@nx/js@20.3.1": "patches/@nx__js@20.3.1.patch"
+      "@nx/js@20.3.1": "patches/@nx__js@20.3.1.patch",
+      "@typespec/protobuf@0.63.0": "patches/@typespec__protobuf@0.63.0.patch"
     }
   }
 }

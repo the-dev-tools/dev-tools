@@ -14,6 +14,9 @@ patchedDependencies:
   '@nx/js@20.3.1':
     hash: vz3dnucnuyveby5kzaega4oc6u
     path: patches/@nx__js@20.3.1.patch
+  '@typespec/protobuf@0.63.0':
+    hash: 76b2kvpt7y3jzchpohbqjg6n3m
+    path: patches/@typespec__protobuf@0.63.0.patch
 
 importers:
 
@@ -457,7 +460,7 @@ importers:
         specifier: 3.10.0
         version: 3.10.0(react-hook-form@7.54.2(react@19.0.0))
       '@normy/react-query':
-        specifier: ^0.18.0
+        specifier: 0.18.0
         version: 0.18.0(@tanstack/react-query@5.64.1(react@19.0.0))
       '@prettier/plugin-xml':
         specifier: 3.4.1
@@ -651,7 +654,7 @@ importers:
         version: 0.63.0(@typespec/compiler@0.63.0)
       '@typespec/protobuf':
         specifier: ~0.63.0
-        version: 0.63.0(@typespec/compiler@0.63.0)
+        version: 0.63.0(patch_hash=76b2kvpt7y3jzchpohbqjg6n3m)(@typespec/compiler@0.63.0)
       '@typespec/rest':
         specifier: ~0.63.1
         version: 0.63.1(@typespec/compiler@0.63.0)(@typespec/http@0.63.0(@typespec/compiler@0.63.0))
@@ -15194,7 +15197,7 @@ snapshots:
     dependencies:
       prettier: 3.3.3
 
-  '@typespec/protobuf@0.63.0(@typespec/compiler@0.63.0)':
+  '@typespec/protobuf@0.63.0(patch_hash=76b2kvpt7y3jzchpohbqjg6n3m)(@typespec/compiler@0.63.0)':
     dependencies:
       '@typespec/compiler': 0.63.0
 
