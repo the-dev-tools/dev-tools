@@ -23,3 +23,13 @@ type Comparison struct {
 	Path  string
 	Value string
 }
+
+func Default() *Condition {
+	return &Condition{
+		Comparisons: Comparison{
+			Kind:  COMPARISON_KIND_UNSPECIFIED,
+			Path:  "",
+			Value: "",
+		},
+	}
+}

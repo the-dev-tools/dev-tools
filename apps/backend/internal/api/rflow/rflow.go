@@ -236,7 +236,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	err = c.ns.CreateNode(ctx, mnode.MNode{
 		ID:        id,
 		FlowID:    flowID,
-		NodeKind:  mnode.NODE_KIND_NOOP,
+		NodeKind:  mnode.NODE_KIND_NO_OP,
 		PositionX: float64(0),
 		PositionY: float64(0),
 	})
@@ -334,7 +334,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err))
 			}
 			forNodes = append(forNodes, *fn)
-		case mnode.NODE_KIND_NOOP:
+		case mnode.NODE_KIND_NO_OP:
 			sn, err := c.sns.GetNodeNoop(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node start: %w", err))
@@ -458,32 +458,31 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	status := make(chan runner.FlowStatusResp, 10)
 
-	done := make(chan error)
+	done := make(chan error, 1)
 	go func() {
 		defer close(done)
 		for {
 			select {
 			case a := <-status:
-				err = c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
-				if err != nil {
-					done <- err
+				localErr := c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
+				if localErr != nil {
+					done <- localErr
 					return
 				}
 				var nodeBytes []byte
 				if a.CurrentNodeID != nil {
 					nodeBytes = a.CurrentNodeID.Bytes()
 				}
-				err := ctx.Err()
-				if err != nil {
-					done <- err
+				localErr = ctx.Err()
+				if localErr != nil {
+					done <- localErr
 					return
 				}
-				err = stream.Send(&flowv1.FlowRunResponse{
+				localErr = stream.Send(&flowv1.FlowRunResponse{
 					CurrentNodeId: nodeBytes,
-				},
-				)
-				if err != nil {
-					done <- err
+				})
+				if localErr != nil {
+					done <- localErr
 					return
 				}
 				if a.Done() {
@@ -507,7 +506,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	fmt.Println("FlowServiceRPC FlowRunAdHoc")
 
 	return nil
 }

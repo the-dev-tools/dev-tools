@@ -83,7 +83,7 @@ func TestNodeList(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NOOP,
+		NodeKind:  mnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -172,7 +172,7 @@ func TestNodeGet(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NOOP,
+		NodeKind:  mnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -260,7 +260,7 @@ func TestNodeUpdate(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NOOP,
+		NodeKind:  mnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})

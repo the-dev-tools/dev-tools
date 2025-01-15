@@ -3,7 +3,6 @@ package rflow_test
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rflow"
@@ -610,7 +609,7 @@ func TestRunFlow(t *testing.T) {
 	err = ns.CreateNode(ctx, mnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NOOP,
+		NodeKind:  mnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -661,20 +660,16 @@ func TestRunFlow(t *testing.T) {
 
 	stream := ServerStreamingHandlerMock[flowv1.FlowRunResponse]{
 		SendStream: func(a *flowv1.FlowRunResponse) {
+			fmt.Println("a", a)
 		},
 	}
 
-	var mu sync.Mutex
-
 	go func() {
 		for {
-			a, ok := <-logChan
+			_, ok := <-logChan
 			if !ok {
 				break
 			}
-			mu.Lock()
-			fmt.Println("logChan", a)
-			mu.Unlock()
 		}
 	}()
 

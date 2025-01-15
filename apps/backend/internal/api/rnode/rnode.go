@@ -32,6 +32,7 @@ import (
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/pkg/errors"
 )
 
 type NodeServiceRPC struct {
@@ -150,11 +151,11 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 
 	node, err := c.ns.GetNode(ctx, nodeID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("root node not found"))
 	}
 	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nss)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("sub node not found"))
 	}
 	resp := nodev1.NodeGetResponse{
 		NodeId:    rpcNode.NodeId,
@@ -517,7 +518,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 			},
 		}
 		rpcNode = nodeList
-	case mnode.NODE_KIND_NOOP:
+	case mnode.NODE_KIND_NO_OP:
 		// TODO: can be remove later no need to fetch just id
 		nodeStart, err := nss.GetNodeNoop(ctx, currentNode.ID)
 		if err != nil {
@@ -542,13 +543,13 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		}
 
 		rpcNode = &nodev1.Node{
-			NodeId: currentNode.ID.Bytes(),
-			Kind:   nodev1.NodeKind_NODE_KIND_CONDITION,
+			NodeId:   nodeCondition.FlowNodeID.Bytes(),
+			Kind:     nodev1.NodeKind_NODE_KIND_CONDITION,
+			Position: Position,
 			Condition: &nodev1.NodeCondition{
 				Condition: rpcCondition,
 			},
 		}
-		// TODO: implement
 	}
 
 	return rpcNode, nil
@@ -625,32 +626,38 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		}
 		subNode = noopNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
+
+		var condition *mcondition.Condition
 		var path string
 
 		if rpcNode.Condition == nil {
-			return nil, nil, fmt.Errorf("condition is nil")
-		}
-		if rpcNode.Condition.Condition == nil {
-			return nil, nil, fmt.Errorf("condition is nil")
-		}
-		if rpcNode.Condition.Condition.Comparison == nil {
-			return nil, nil, fmt.Errorf("condition is nil")
-		}
-		comp := rpcNode.Condition.Condition.Comparison
-
-		for _, v := range comp.Path {
-			path += v.Key
-		}
-
-		ifNode := &mnif.MNIF{
-			FlowNodeID: nodeID,
-			Condition: mcondition.Condition{
+			condition = mcondition.Default()
+		} else if rpcNode.Condition.Condition == nil {
+			condition = mcondition.Default()
+		} else if rpcNode.Condition.Condition.Comparison == nil {
+			condition = mcondition.Default()
+		} else {
+			comp := rpcNode.Condition.Condition.Comparison
+			for _, v := range comp.Path {
+				path += v.Key
+			}
+			condition = &mcondition.Condition{
 				Comparisons: mcondition.Comparison{
 					Value: comp.Value,
 					Path:  path,
 					Kind:  mcondition.ComparisonKind(comp.Kind),
 				},
-			},
+			}
+		}
+
+		if condition == nil {
+			return nil, nil, fmt.Errorf("condition is nil")
+		}
+
+		ifNode := &mnif.MNIF{
+			FlowNodeID: nodeID,
+			Name:       "Condition",
+			Condition:  *condition,
 		}
 		subNode = ifNode
 	default:
