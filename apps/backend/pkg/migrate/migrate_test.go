@@ -1,0 +1,121 @@
+package migrate_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"testing"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/migrate"
+	"the-dev-tools/backend/pkg/testutil"
+)
+
+func TestMigrateManager_CreateNewDBForTesting(t *testing.T) {
+	file, err := os.Create("currentDBPath")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testData := bytes.NewBufferString("test data")
+	_, err = file.Write(testData.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = file.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = migrate.CreateNewDBForTesting("currentDBPath", "testDBPath")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("currentDBPath")
+	defer os.Remove("testDBPath")
+	testFile, err := os.ReadFile("testDBPath")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(testFile) != "test data" {
+		t.Fatal("expected test data")
+	}
+}
+
+func TestMigrateManager_ParsePath(t *testing.T) {
+	folder := "migrations"
+	// create folder
+	os.Mkdir(folder, 0755)
+	defer os.RemoveAll(folder)
+
+	sqlQuery := "SELECT * FROM migration;"
+
+	mig1ID := idwrap.NewNow()
+	migration := migrate.MigrationRaw{
+		ID:          mig1ID.String(),
+		Version:     1,
+		Description: "test",
+		Sql:         []string{sqlQuery, sqlQuery},
+	}
+	jsonData, err := json.Marshal(migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := os.OpenFile(folder+"/test.json", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	_, err = file.Write(jsonData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mig2ID := idwrap.NewNow()
+	migration.ID = mig2ID.String()
+
+	file2, err := os.OpenFile(folder+"/test2.json", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file2.Close()
+	_, err = file2.Write(jsonData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	migrations, err := migrate.ParsePath("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(migrations) != 2 {
+		t.Fatal("expected 2 migrations")
+	}
+
+	if migrations[0].Version != 1 || migrations[1].Version != 1 {
+		t.Error("version should be 1")
+	}
+	mig1 := migrations[0]
+	if !bytes.Equal(mig1.ID.Bytes(), mig1ID.Bytes()) {
+		t.Errorf("expected mig1ID: %s to be equal to mig1ID: %s", mig1.ID.String(), mig1ID.String())
+	}
+}
+
+func TestMigration(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	migrateManager := migrate.NewTX(base.DB)
+
+	mig1ID := idwrap.NewNow()
+	migration := migrate.Migration{
+		ID:          mig1ID,
+		Version:     1,
+		Description: "test",
+		Sql:         []string{"SELECT * FROM migration;", "SELECT * FROM migration;"},
+	}
+
+	err := migrateManager.ApplyMigration(migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
