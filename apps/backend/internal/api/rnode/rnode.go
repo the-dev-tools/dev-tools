@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/backend/internal/api/rflow"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mcondition"
 	"the-dev-tools/backend/pkg/model/mnode"
 	"the-dev-tools/backend/pkg/model/mnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnode/mnif"
@@ -25,6 +26,7 @@ import (
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/backend/pkg/translate/tcondition"
 	"the-dev-tools/nodes/pkg/httpclient"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
@@ -529,6 +531,23 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		}
 
 	case mnode.NODE_KIND_CONDITION:
+		nodeCondition, err := nis.GetNodeIf(ctx, currentNode.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		rpcCondition, err := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
+		if err != nil {
+			return nil, err
+		}
+
+		rpcNode = &nodev1.Node{
+			NodeId: currentNode.ID.Bytes(),
+			Kind:   nodev1.NodeKind_NODE_KIND_CONDITION,
+			Condition: &nodev1.NodeCondition{
+				Condition: rpcCondition,
+			},
+		}
 		// TODO: implement
 	}
 
@@ -624,10 +643,14 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		}
 
 		ifNode := &mnif.MNIF{
-			FlowNodeID:    nodeID,
-			ConditionType: mnif.ConditionType(comp.Kind),
-			Path:          path,
-			Value:         comp.Value,
+			FlowNodeID: nodeID,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{
+					Value: comp.Value,
+					Path:  path,
+					Kind:  mcondition.ComparisonKind(comp.Kind),
+				},
+			},
 		}
 		subNode = ifNode
 	default:

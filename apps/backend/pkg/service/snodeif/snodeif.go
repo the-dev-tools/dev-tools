@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mcondition"
 	"the-dev-tools/backend/pkg/model/mnode/mnif"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
@@ -32,19 +33,23 @@ func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeIf {
 	return gen.FlowNodeIf{
 		FlowNodeID:    ni.FlowNodeID,
 		Name:          ni.Name,
-		ConditionType: int8(ni.ConditionType),
-		Path:          ni.Path,
-		Value:         ni.Value,
+		ConditionType: int8(ni.Condition.Comparisons.Kind),
+		Path:          ni.Condition.Comparisons.Path,
+		Value:         ni.Condition.Comparisons.Value,
 	}
 }
 
 func ConvertToModelNodeIf(ni gen.FlowNodeIf) *mnif.MNIF {
 	return &mnif.MNIF{
-		FlowNodeID:    ni.FlowNodeID,
-		Name:          ni.Name,
-		ConditionType: mnif.ConditionType(ni.ConditionType),
-		Path:          ni.Path,
-		Value:         ni.Value,
+		FlowNodeID: ni.FlowNodeID,
+		Name:       ni.Name,
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{
+				Kind:  mcondition.ComparisonKind(ni.ConditionType),
+				Path:  ni.Path,
+				Value: ni.Value,
+			},
+		},
 	}
 }
 

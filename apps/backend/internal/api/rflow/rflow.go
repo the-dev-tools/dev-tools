@@ -439,7 +439,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	for _, ifNode := range ifNodes {
-		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, ifNode.Name, ifNode.ConditionType, ifNode.Path, ifNode.Value)
+		comp := ifNode.Condition.Comparisons
+		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, ifNode.Name, comp.Kind, comp.Path, comp.Value)
 	}
 
 	for _, noopNode := range noopNodes {

@@ -3,12 +3,17 @@ package migrate_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/migrate"
 	"the-dev-tools/backend/pkg/testutil"
+	"time"
+
+	"golang.org/x/exp/rand"
 )
 
 func TestMigrateManager_CreateNewDBForTesting(t *testing.T) {
@@ -106,16 +111,70 @@ func TestMigration(t *testing.T) {
 	base := testutil.CreateBaseDB(ctx, t)
 	migrateManager := migrate.NewTX(base.DB)
 
-	mig1ID := idwrap.NewNow()
-	migration := migrate.Migration{
-		ID:          mig1ID,
+	// Generate a random table name
+	rand.Seed(uint64(time.Now().UnixNano()))
+	tableName := fmt.Sprintf("test_table_%d", rand.Int())
+
+	// Create table migration
+	createTableMigration := migrate.Migration{
+		ID:          idwrap.NewNow(),
 		Version:     1,
-		Description: "test",
-		Sql:         []string{"SELECT * FROM migration;", "SELECT * FROM migration;"},
+		Description: "create test table",
+		Sql:         []string{fmt.Sprintf("CREATE TABLE %s (id INTEGER PRIMARY KEY);", tableName)},
 	}
 
-	err := migrateManager.ApplyMigration(migration)
+	err := migrateManager.ApplyMigration(createTableMigration)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// Verify table creation
+	var tableExists string
+	err = base.DB.QueryRowContext(ctx, fmt.Sprintf("SELECT name FROM sqlite_master WHERE type='table' AND name='%s';", tableName)).Scan(&tableExists)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tableExists != tableName {
+		t.Fatalf("expected table '%s' to be created", tableName)
+	}
+
+	// Alter table migration
+	alterTableMigration := migrate.Migration{
+		ID:          idwrap.NewNow(),
+		Version:     2,
+		Description: "alter test table",
+		Sql:         []string{fmt.Sprintf("ALTER TABLE %s ADD COLUMN name TEXT;", tableName)},
+	}
+
+	// Apply alter table migration
+	err = migrateManager.ApplyMigration(alterTableMigration)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check if the table is altered
+	rows, err := base.DB.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s);", tableName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+
+	columnExists := false
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt_value sql.NullString
+		err = rows.Scan(&cid, &name, &ctype, &notnull, &dflt_value, &pk)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if name == "name" {
+			columnExists = true
+			break
+		}
+	}
+	if !columnExists {
+		t.Fatalf("expected column 'name' to be present in table '%s'", tableName)
 	}
 }

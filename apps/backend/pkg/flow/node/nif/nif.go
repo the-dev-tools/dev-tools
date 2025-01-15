@@ -7,7 +7,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mnode/mnif"
+	"the-dev-tools/backend/pkg/model/mcondition"
 )
 
 const NodeOutputKey = "nif"
@@ -15,13 +15,13 @@ const NodeOutputKey = "nif"
 type NodeIf struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
-	ConditionType mnif.ConditionType
+	ConditionType mcondition.ComparisonKind
 	// ConditionCustom string
 	Path  string
 	Value string
 }
 
-func New(id idwrap.IDWrap, name string, conditionType mnif.ConditionType, path string, value string) *NodeIf {
+func New(id idwrap.IDWrap, name string, conditionType mcondition.ComparisonKind, path string, value string) *NodeIf {
 	return &NodeIf{
 		FlowNodeID:    id,
 		Name:          name,
