@@ -1,14 +1,15 @@
 import { createClient } from '@connectrpc/connect';
-import { createQueryOptions, useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
+import {
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useSuspenseQuery as useConnectSuspenseQuery,
+} from '@connectrpc/connect-query';
 import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
 import { useMemo, useState } from 'react';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { bodyRawUpdateSpec } from '@the-dev-tools/api/spec/collection/item/body';
-import { exampleUpdateSpec } from '@the-dev-tools/api/spec/collection/item/example';
 import {
   BodyFormItemListItem,
   BodyFormItemListItemSchema,
@@ -20,9 +21,13 @@ import {
 import {
   bodyFormItemList,
   bodyRawGet,
+  bodyRawUpdate,
   bodyUrlEncodedItemList,
 } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
-import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import {
+  exampleGet,
+  exampleUpdate,
+} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
@@ -44,7 +49,7 @@ interface BodyViewProps {
 
 export const BodyView = ({ endpointId, exampleId, deltaExampleId }: BodyViewProps) => {
   const query = useConnectSuspenseQuery(exampleGet, { exampleId });
-  const updateMutation = useSpecMutation(exampleUpdateSpec);
+  const updateMutation = useConnectMutation(exampleUpdate);
 
   if (!query.isSuccess) return null;
   const { bodyKind } = query.data;
@@ -221,7 +226,7 @@ const RawForm = ({ exampleId }: RawFormProps) => {
   } = useConnectSuspenseQuery(bodyRawGet, { exampleId });
   const body = new TextDecoder().decode(data);
 
-  const updateMutation = useSpecMutation(bodyRawUpdateSpec);
+  const updateMutation = useConnectMutation(bodyRawUpdate);
 
   const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<(typeof languages)[number]>('text');

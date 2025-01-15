@@ -1,4 +1,4 @@
-import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DateTime, Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -6,10 +6,13 @@ import { useState } from 'react';
 import { Form, MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { workspaceCreateSpec, workspaceDeleteSpec, workspaceUpdateSpec } from '@the-dev-tools/api/spec/workspace';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
-import { workspaceList } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import {
+  workspaceCreate,
+  workspaceDelete,
+  workspaceList,
+  workspaceUpdate,
+} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { AddButton } from '@the-dev-tools/ui/add-button';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
@@ -30,7 +33,7 @@ function Page() {
   const { email } = Route.useRouteContext();
 
   const workspaceListQuery = useConnectQuery(workspaceList);
-  const workspaceCreateMutation = useSpecMutation(workspaceCreateSpec);
+  const workspaceCreateMutation = useConnectMutation(workspaceCreate);
 
   if (!workspaceListQuery.isSuccess) return null;
   const { items: workspaces } = workspaceListQuery.data;
@@ -74,8 +77,8 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
 
   const [renaming, setRenaming] = useState(false);
 
-  const workspaceUpdateMutation = useSpecMutation(workspaceUpdateSpec);
-  const workspaceDeleteMutation = useSpecMutation(workspaceDeleteSpec);
+  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
+  const workspaceDeleteMutation = useConnectMutation(workspaceDelete);
 
   return (
     <div className={tw`flex items-center gap-3 px-5 py-4`}>

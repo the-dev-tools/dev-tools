@@ -1,9 +1,9 @@
+import { useMutation as useConnectMutation } from '@connectrpc/connect-query';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { workspaceMemberCreateSpec } from '@the-dev-tools/api/spec/workspace';
+import { workspaceMemberCreate } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -21,7 +21,7 @@ function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { runtime } = workspaceRoute.useRouteContext();
 
-  const workspaceMemberCreateMutation = useSpecMutation(workspaceMemberCreateSpec);
+  const workspaceMemberCreateMutation = useConnectMutation(workspaceMemberCreate);
 
   return (
     <div className='p-4'>

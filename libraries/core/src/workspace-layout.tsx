@@ -1,5 +1,10 @@
 import { createClient } from '@connectrpc/connect';
-import { createConnectQueryKey, createQueryOptions, useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import {
+  createConnectQueryKey,
+  createQueryOptions,
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+} from '@connectrpc/connect-query';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { Array, Effect, pipe, Runtime, Schema } from 'effect';
@@ -10,15 +15,18 @@ import { FiChevronDown, FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } fr
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
 import {
-  collectionCreateSpec,
-  collectionImportHarSpec,
-  collectionImportPostmanSpec,
-} from '@the-dev-tools/api/spec/collection';
-import { flowCreateSpec, flowDeleteSpec, flowUpdateSpec } from '@the-dev-tools/api/spec/flow';
+  collectionCreate,
+  collectionImportHar,
+  collectionImportPostman,
+} from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { flowList } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import {
+  flowCreate,
+  flowDelete,
+  flowList,
+  flowUpdate,
+} from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { LogService, LogStreamResponse } from '@the-dev-tools/spec/log/v1/log_pb';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
@@ -55,9 +63,9 @@ function Layout() {
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
-  const collectionCreateMutation = useSpecMutation(collectionCreateSpec);
-  const collectionImportPostmanMutation = useSpecMutation(collectionImportPostmanSpec);
-  const collectionImportHarMutation = useSpecMutation(collectionImportHarSpec);
+  const collectionCreateMutation = useConnectMutation(collectionCreate);
+  const collectionImportPostmanMutation = useConnectMutation(collectionImportPostman);
+  const collectionImportHarMutation = useConnectMutation(collectionImportHar);
 
   const postmanFileTriggerRef = useRef<HTMLInputElement>(null);
   const harFileTriggerRef = useRef<HTMLInputElement>(null);
@@ -188,7 +196,7 @@ const FlowList = () => {
   const { workspaceId } = Route.useLoaderData();
 
   const flowListQuery = useConnectQuery(flowList, { workspaceId });
-  const flowCreateMutation = useSpecMutation(flowCreateSpec);
+  const flowCreateMutation = useConnectMutation(flowCreate);
 
   if (!flowListQuery.isSuccess) return null;
   const flows = flowListQuery.data.items;
@@ -228,8 +236,8 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
-  const flowDeleteMutation = useSpecMutation(flowDeleteSpec);
-  const flowUpdateMutation = useSpecMutation(flowUpdateSpec);
+  const flowDeleteMutation = useConnectMutation(flowDelete);
+  const flowUpdateMutation = useConnectMutation(flowUpdate);
 
   const triggerRef = useRef(null);
 
@@ -322,6 +330,7 @@ const StatusBar = () => {
   const { data: logs } = useQuery({
     queryKey,
     initialData: [],
+    meta: { normalize: false },
     queryFn: async ({ queryKey, signal }) => {
       for await (const log of logStream({})) {
         queryClient.setQueryData(queryKey, Array.append(log));

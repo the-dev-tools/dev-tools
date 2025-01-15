@@ -21,8 +21,6 @@ import { FiChevronDown, FiClock, FiLink, FiMoreHorizontal, FiSave, FiSidebar, Fi
 import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { queryCreateSpec } from '@the-dev-tools/api/spec/collection/item/request';
 import {
   endpointGet,
   endpointUpdate,
@@ -40,6 +38,7 @@ import {
   QueryUpdateRequestSchema,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
+  queryCreate,
   queryList,
   queryUpdate,
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
@@ -337,7 +336,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const exampleRunMutation = useConnectMutation(exampleRun);
 
   const queryUpdateMutation = useConnectMutation(queryUpdate);
-  const queryCreateMutation = useSpecMutation(queryCreateSpec);
+  const queryCreateMutation = useConnectMutation(queryCreate);
 
   const url = useEndpointUrl({ endpointId, exampleId });
 

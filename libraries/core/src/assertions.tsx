@@ -1,14 +1,16 @@
-import { useQuery as useConnectQuery } from '@connectrpc/connect-query';
+import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { Struct } from 'effect';
 import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { assertCreateSpec, assertUpdateSpec } from '@the-dev-tools/api/spec/collection/item/request';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { AssertListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import { assertList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
+import {
+  assertCreate,
+  assertList,
+  assertUpdate,
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import {
   responseGet,
   responseHeaderList,
@@ -48,8 +50,8 @@ const Tab = ({ exampleId, items }: TabProps) => {
   const form = useForm({ values: { items } });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const assertCreateMutation = useSpecMutation(assertCreateSpec);
-  const assertUpdateMutation = useSpecMutation(assertUpdateSpec);
+  const assertCreateMutation = useConnectMutation(assertCreate);
+  const assertUpdateMutation = useConnectMutation(assertUpdate);
 
   const assertUpdateCallback = useDebouncedCallback(
     form.handleSubmit(async ({ items }) => {

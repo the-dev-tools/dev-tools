@@ -1,5 +1,9 @@
 import { createClient } from '@connectrpc/connect';
-import { useQuery as useConnectQuery, useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
+import {
+  useMutation as useConnectMutation,
+  useQuery as useConnectQuery,
+  useSuspenseQuery as useConnectSuspenseQuery,
+} from '@connectrpc/connect-query';
 import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { Struct } from 'effect';
@@ -9,13 +13,16 @@ import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 
 import { FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { environmentCreateSpec } from '@the-dev-tools/api/spec/environment';
-import { workspaceUpdateSpec } from '@the-dev-tools/api/spec/workspace';
-import { environmentList } from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
+import {
+  environmentCreate,
+  environmentList,
+} from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
 import { VariableListItem, VariableListItemSchema, VariableService } from '@the-dev-tools/spec/variable/v1/variable_pb';
 import { variableList } from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
-import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import {
+  workspaceGet,
+  workspaceUpdate,
+} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
@@ -33,10 +40,10 @@ export const EnvironmentsWidget = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
-  const workspaceUpdateMutation = useSpecMutation(workspaceUpdateSpec);
+  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
 
   const environmentListQuery = useConnectQuery(environmentList, { workspaceId });
-  const environmentCreateMutation = useSpecMutation(environmentCreateSpec);
+  const environmentCreateMutation = useConnectMutation(environmentCreate);
 
   if (!environmentListQuery.isSuccess || !workspaceGetQuery.isSuccess) return null;
 

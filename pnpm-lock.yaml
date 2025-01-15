@@ -456,6 +456,9 @@ importers:
       '@hookform/resolvers':
         specifier: 3.10.0
         version: 3.10.0(react-hook-form@7.54.2(react@19.0.0))
+      '@normy/react-query':
+        specifier: ^0.18.0
+        version: 0.18.0(@tanstack/react-query@5.64.1(react@19.0.0))
       '@prettier/plugin-xml':
         specifier: 3.4.1
         version: 3.4.1(prettier@3.4.2)
@@ -3070,6 +3073,14 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
+
+  '@normy/core@0.12.0':
+    resolution: {integrity: sha512-gJENZfGegkOLYR7uMJKtVWdeeGckvOrgXbDEfggXn54K5ByxFtemMDwSY6jIkgJic7dR8C1nAaL6rYxs9/7Rbw==}
+
+  '@normy/react-query@0.18.0':
+    resolution: {integrity: sha512-nOGCCHwPSirPXrmbhEagQZOiWlo/HaW4A/omSWLCeGMpghLQAENyw07xG7MTj4jfha8s2uMVOUUXJXW3GTXa6A==}
+    peerDependencies:
+      '@tanstack/react-query': '>=5.4.3'
 
   '@nx-go/nx-go@3.3.1':
     resolution: {integrity: sha512-0BJXOvwUxQgqUEEn7NYjDhU4v4sweLkJKmTUY8UTSA93nGVpdXuEDgChNxa7Nq3TTLzIIJQODFB1hcnf/5UsyA==}
@@ -12151,6 +12162,16 @@ snapshots:
       fastq: 1.18.0
 
   '@nolyfill/is-core-module@1.0.39': {}
+
+  '@normy/core@0.12.0':
+    dependencies:
+      '@babel/runtime': 7.26.0
+      deepmerge: 4.3.1
+
+  '@normy/react-query@0.18.0(@tanstack/react-query@5.64.1(react@19.0.0))':
+    dependencies:
+      '@normy/core': 0.12.0
+      '@tanstack/react-query': 5.64.1(react@19.0.0)
 
   '@nx-go/nx-go@3.3.1(nx@20.3.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
     dependencies:

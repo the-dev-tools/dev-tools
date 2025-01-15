@@ -13,23 +13,33 @@ import { Form, MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-compo
 import { FiFolder, FiMoreHorizontal, FiRotateCw } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 
-import { useSpecMutation } from '@the-dev-tools/api/query';
-import { collectionDeleteSpec, collectionUpdateSpec } from '@the-dev-tools/api/spec/collection';
-import { endpointCreateSpec, endpointDeleteSpec } from '@the-dev-tools/api/spec/collection/item/endpoint';
-import { exampleCreateSpec, exampleDeleteSpec } from '@the-dev-tools/api/spec/collection/item/example';
-import { folderCreateSpec, folderDeleteSpec, folderUpdateSpec } from '@the-dev-tools/api/spec/collection/item/folder';
 import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
-import { endpointDuplicate } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
+import {
+  endpointCreate,
+  endpointDelete,
+  endpointDuplicate,
+} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
+  exampleCreate,
+  exampleDelete,
   exampleDuplicate,
   exampleList,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { Folder, FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
+import {
+  folderCreate,
+  folderDelete,
+  folderUpdate,
+} from '@the-dev-tools/spec/collection/item/folder/v1/folder-FolderService_connectquery';
 import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
-import { collectionList } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import {
+  collectionDelete,
+  collectionList,
+  collectionUpdate,
+} from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
@@ -114,11 +124,11 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const [enabled, setEnabled] = useState(false);
 
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
-  const collectionDeleteMutation = useSpecMutation(collectionDeleteSpec);
-  const collectionUpdateMutation = useSpecMutation(collectionUpdateSpec);
+  const collectionDeleteMutation = useConnectMutation(collectionDelete);
+  const collectionUpdateMutation = useConnectMutation(collectionUpdate);
 
-  const folderCreateMutation = useSpecMutation(folderCreateSpec);
-  const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
+  const folderCreateMutation = useConnectMutation(folderCreate);
+  const endpointCreateMutation = useConnectMutation(endpointCreate);
 
   const triggerRef = useRef(null);
 
@@ -266,11 +276,11 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
     [collectionItemListQuery.data?.items],
   );
 
-  const folderCreateMutation = useSpecMutation(folderCreateSpec);
-  const folderUpdateMutation = useSpecMutation(folderUpdateSpec);
-  const folderDeleteMutation = useSpecMutation(folderDeleteSpec);
+  const folderCreateMutation = useConnectMutation(folderCreate);
+  const folderUpdateMutation = useConnectMutation(folderUpdate);
+  const folderDeleteMutation = useConnectMutation(folderDelete);
 
-  const endpointCreateMutation = useSpecMutation(endpointCreateSpec);
+  const endpointCreateMutation = useConnectMutation(endpointCreate);
 
   const triggerRef = useRef(null);
 
@@ -424,8 +434,8 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
 
-  const exampleCreateMutation = useSpecMutation(exampleCreateSpec);
-  const endpointDeleteMutation = useSpecMutation(endpointDeleteSpec);
+  const exampleCreateMutation = useConnectMutation(exampleCreate);
+  const endpointDeleteMutation = useConnectMutation(endpointDelete);
   const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
@@ -519,7 +529,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
-  const exampleDeleteMutation = useSpecMutation(exampleDeleteSpec);
+  const exampleDeleteMutation = useConnectMutation(exampleDelete);
   const exampleDuplicateMutation = useConnectMutation(exampleDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
