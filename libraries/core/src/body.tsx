@@ -143,7 +143,7 @@ const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTablePro
     items,
     deltaItems,
     columns: makeGenericDeltaFormTableColumns<BodyFormItemListItem>(),
-    getParentId: (_) => _.parentBodyId,
+    getParentId: (_) => _.parentBodyId!,
     onCreate: (_) =>
       requestService.bodyFormItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
     onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
@@ -204,7 +204,7 @@ const UrlEncodedDeltaTable = ({ exampleId, deltaExampleId }: UrlEncodedDeltaTabl
     items,
     deltaItems,
     columns: makeGenericDeltaFormTableColumns<BodyUrlEncodedItemListItem>(),
-    getParentId: (_) => _.parentBodyId,
+    getParentId: (_) => _.parentBodyId!,
     onCreate: (_) =>
       requestService.bodyUrlEncodedItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
     onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),

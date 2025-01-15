@@ -85,7 +85,7 @@ const getGroupText = (key: ReferenceKey) =>
 const getIndexText = (key: ReferenceKey) =>
   pipe(
     Match.value(key),
-    Match.when({ kind: ReferenceKeyKind.INDEX }, (_) => _.index.toString()),
+    Match.when({ kind: ReferenceKeyKind.INDEX }, (_) => _.index!.toString()),
     Match.when({ kind: ReferenceKeyKind.ANY }, () => 'any'),
     Match.orElse(() => undefined),
   );

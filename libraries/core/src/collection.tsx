@@ -426,7 +426,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
   const { navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const exampleIdCan = Ulid.construct(exampleId).toCanonical();
-  const lastResponseIdCan = lastResponseId.length > 0 ? Ulid.construct(lastResponseId).toCanonical() : undefined;
+  const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
 
   const [enabled, setEnabled] = useState(false);
 
@@ -522,7 +522,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
   const { exampleId, lastResponseId, name } = example;
 
   const endpointIdCan = Ulid.construct(endpointId).toCanonical();
-  const lastResponseIdCan = lastResponseId.length > 0 ? Ulid.construct(lastResponseId).toCanonical() : undefined;
+  const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
 
   const matchRoute = useMatchRoute();
 

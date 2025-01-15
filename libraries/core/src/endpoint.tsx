@@ -132,7 +132,7 @@ function Page() {
 
         <EndpointRequestView endpointId={endpointId} exampleId={exampleId} requestTab={requestTab} />
       </Panel>
-      {example.lastResponseId.byteLength > 0 && (
+      {example.lastResponseId && (
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>

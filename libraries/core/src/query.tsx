@@ -70,7 +70,7 @@ export const QueryDeltaTable = ({ exampleId, deltaExampleId }: QueryDeltaTablePr
     items,
     deltaItems,
     columns: makeGenericDeltaFormTableColumns<QueryListItem>(),
-    getParentId: (_) => _.parentQueryId,
+    getParentId: (_) => _.parentQueryId!,
     onCreate: (_) => requestService.queryCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.queryId),
     onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.queryDelete(Struct.omit(_, '$typeName')),

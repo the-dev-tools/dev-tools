@@ -996,7 +996,7 @@ const EditRequestNodeView = ({ node: { nodeId, request } }: EditPanelProps) => {
         />
       </div>
 
-      {lastResponseId.length > 0 && (
+      {lastResponseId && (
         <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
           <div
             className={tw`border-b border-slate-200 bg-slate-50 px-3 py-2 text-md font-medium leading-5 tracking-tight text-slate-800`}

@@ -70,7 +70,7 @@ export const HeaderDeltaTable = ({ exampleId, deltaExampleId }: HeaderDeltaTable
     items,
     deltaItems,
     columns: makeGenericDeltaFormTableColumns<HeaderListItem>(),
-    getParentId: (_) => _.parentHeaderId,
+    getParentId: (_) => _.parentHeaderId!,
     onCreate: (_) => requestService.headerCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.headerId),
     onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.headerDelete(Struct.omit(_, '$typeName')),
