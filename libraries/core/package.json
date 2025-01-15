@@ -20,7 +20,7 @@
     "@effect/platform": "0.73.1",
     "@effect/platform-browser": "0.52.1",
     "@hookform/resolvers": "3.10.0",
-    "@normy/react-query": "^0.18.0",
+    "@normy/react-query": "0.18.0",
     "@prettier/plugin-xml": "3.4.1",
     "@react-aria/collections": "3.0.0-alpha.6",
     "@tanstack/react-query": "5.64.1",
