@@ -117,7 +117,7 @@ func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Req
 	var rpcHeaders []*responsev1.ResponseHeaderListItem
 	for _, header := range headers {
 		rpcHeader := &responsev1.ResponseHeaderListItem{
-			ResponseheaderId: header.ID.Bytes(),
+			ResponseHeaderId: header.ID.Bytes(),
 			Key:              header.HeaderKey,
 			Value:            header.Value,
 		}

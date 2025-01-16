@@ -3,7 +3,6 @@ package rreference
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -265,7 +264,6 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
 			Map:  nodeRefs,
 		})
-		fmt.Println("nodeID")
 	}
 
 	response := &referencev1.ReferenceGetResponse{
