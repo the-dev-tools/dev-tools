@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/service/scollection"
+	"the-dev-tools/backend/pkg/service/sexampleresp"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
@@ -29,6 +30,7 @@ func TestCreateItemApi(t *testing.T) {
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ers := sexampleresp.New(queries)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -53,7 +55,7 @@ func TestCreateItemApi(t *testing.T) {
 		ParentFolderId: expectedParentID,
 	})
 
-	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes)
+	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes, ers)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemApi.EndpointCreate(authedCtx, req)
 	if err != nil {
@@ -110,6 +112,7 @@ func TestGetItemApi(t *testing.T) {
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ers := sexampleresp.New(queries)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -142,7 +145,7 @@ func TestGetItemApi(t *testing.T) {
 		EndpointId: item.ID.Bytes(),
 	})
 
-	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes)
+	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes, ers)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemApi.EndpointGet(authedCtx, req)
 	if err != nil {
@@ -182,6 +185,7 @@ func TestUpdateItemApi(t *testing.T) {
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ers := sexampleresp.New(queries)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -223,7 +227,7 @@ func TestUpdateItemApi(t *testing.T) {
 		ParentFolderId: nil,
 	})
 
-	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes)
+	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes, ers)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemApi.EndpointUpdate(authedCtx, req)
 	if err != nil {
@@ -267,6 +271,7 @@ func TestDeleteItemApi(t *testing.T) {
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ers := sexampleresp.New(queries)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -299,7 +304,7 @@ func TestDeleteItemApi(t *testing.T) {
 		EndpointId: item.ID.Bytes(),
 	})
 
-	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes)
+	rpcItemApi := ritemapi.New(db, ias, cs, ifs, us, iaes, ers)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemApi.EndpointDelete(authedCtx, req)
 	if err != nil {

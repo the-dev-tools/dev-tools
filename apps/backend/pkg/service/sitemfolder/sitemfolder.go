@@ -163,7 +163,7 @@ func (ifs ItemFolderService) GetLastFolder(ctx context.Context, collectionID idw
 		return nil, err
 	}
 	var folderParentSelected []mitemfolder.ItemFolder
-	if parentIDPtr != nil {
+	if parentIDPtr == nil {
 		for _, folder := range folders {
 			if folder.ParentID == nil {
 				folderParentSelected = append(folderParentSelected, folder)

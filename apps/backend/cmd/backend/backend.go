@@ -257,7 +257,7 @@ func main() {
 
 	// Item API Service
 	itemapiSrv := ritemapi.New(currentDB, ias, cs,
-		ifs, us, iaes)
+		ifs, us, iaes, ers)
 	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
 
 	// Folder API Service

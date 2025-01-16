@@ -8,9 +8,11 @@ import (
 	"the-dev-tools/backend/internal/api/collection"
 	"the-dev-tools/backend/internal/api/ritemfolder"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/scollection"
+	"the-dev-tools/backend/pkg/service/sexampleresp"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
@@ -29,11 +31,14 @@ type ItemApiRPC struct {
 	cs   *scollection.CollectionService
 	us   *suser.UserService
 	iaes *sitemapiexample.ItemApiExampleService
+
+	ers *sexampleresp.ExampleRespService
 }
 
 func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionService,
 	ifs sitemfolder.ItemFolderService, us suser.UserService,
 	iaes sitemapiexample.ItemApiExampleService,
+	ers sexampleresp.ExampleRespService,
 ) ItemApiRPC {
 	return ItemApiRPC{
 		DB:   db,
@@ -42,6 +47,8 @@ func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionServi
 		cs:   &cs,
 		us:   &us,
 		iaes: &iaes,
+
+		ers: &ers,
 	}
 }
 
@@ -110,7 +117,98 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 }
 
 func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request[endpointv1.EndpointDuplicateRequest]) (*connect.Response[endpointv1.EndpointDuplicateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	apiUlid, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, apiUlid))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	api, err := c.ias.GetItemApi(ctx, apiUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get api"))
+	}
+
+	examples, err := c.iaes.GetApiExamples(ctx, api.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get examples"))
+	}
+
+	defaultExample, err := c.iaes.GetDefaultApiExample(ctx, api.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get default example"))
+	}
+
+	examples = append(examples, *defaultExample)
+
+	api.ID = idwrap.NewNow()
+	api.Name = api.Name + " Copy"
+
+	var exampleResps []mexampleresp.ExampleResp
+	for i, v := range examples {
+		resp, err := c.ers.GetExampleRespByExampleID(ctx, v.ID)
+		if err != nil {
+			if err != sexampleresp.ErrNoRespFound {
+				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get example response"))
+			}
+		}
+		examples[i].ID = idwrap.NewNow()
+		examples[i].ItemApiID = api.ID
+		if resp != nil {
+			resp.ID = idwrap.NewNow()
+			resp.ExampleID = examples[i].ID
+			exampleResps = append(exampleResps, *resp)
+		}
+	}
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	iasTX, err := sitemapi.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	iaesTX, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	ersTX, err := sexampleresp.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = iasTX.CreateItemApi(ctx, api)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = iaesTX.CreateApiExampleBulk(ctx, examples)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, resp := range exampleResps {
+		err = ersTX.CreateExampleResp(ctx, resp)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	resp := &endpointv1.EndpointDuplicateResponse{}
+	return connect.NewResponse(resp), nil
 }
 
 func (c *ItemApiRPC) EndpointGet(ctx context.Context, req *connect.Request[endpointv1.EndpointGetRequest]) (*connect.Response[endpointv1.EndpointGetResponse], error) {

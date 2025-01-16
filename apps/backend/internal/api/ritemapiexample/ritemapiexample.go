@@ -324,6 +324,9 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	example.Name = fmt.Sprintf("%s - Copy", example.Name)
 	example.ID = exampleIDWrapNew
 	err = c.iaes.CreateApiExample(ctx, example)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	return connect.NewResponse(&examplev1.ExampleDuplicateResponse{}), nil
 }
