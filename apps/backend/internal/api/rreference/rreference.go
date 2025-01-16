@@ -199,6 +199,9 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		}
 		flowID := node.FlowID
 		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
 		var reqNodeIDs []idwrap.IDWrap
 		for _, n := range nodes {

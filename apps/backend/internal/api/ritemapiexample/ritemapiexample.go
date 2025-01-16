@@ -49,6 +49,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ItemAPIExampleRPC struct {
@@ -280,11 +281,51 @@ func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&examplev1.ExampleDeleteResponse{}), nil
+	a := &examplev1.ExampleChange{
+		ExampleId: exampleUlid.Bytes(),
+	}
+
+	var changes []*anypb.Any
+
+	changeAny, err := anypb.New(a)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	changes = append(changes, changeAny)
+
+	resp := &examplev1.ExampleDeleteResponse{
+		Changes: changes,
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.Request[examplev1.ExampleDuplicateRequest]) (*connect.Response[examplev1.ExampleDuplicateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	exampleUlid, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
+	}
+
+	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !isMember {
+		// return not found
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	}
+
+	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	exampleIDWrapNew := idwrap.NewNow()
+	example.Name = fmt.Sprintf("%s - Copy", example.Name)
+	example.ID = exampleIDWrapNew
+	err = c.iaes.CreateApiExample(ctx, example)
+
+	return connect.NewResponse(&examplev1.ExampleDuplicateResponse{}), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request[examplev1.ExampleRunRequest]) (*connect.Response[examplev1.ExampleRunResponse], error) {
@@ -633,175 +674,3 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 	}
 	return collection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }
-
-/*
-// Asserts
-func (c ItemAPIExampleRPC) CreateAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateAssertRequest]) (*connect.Response[itemapiexamplev1.CreateAssertResponse], error) {
-	assert, err := tassert.SerializeAssertRPCToModelWithoutID(req.Msg.GetAssert())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	assert.ID = idwrap.NewNow()
-	err = c.as.CreateAssert(ctx, assert)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&itemapiexamplev1.CreateAssertResponse{Id: assert.ID.String()}), nil
-}
-
-func (c ItemAPIExampleRPC) UpdateAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateAssertRequest]) (*connect.Response[itemapiexamplev1.UpdateAssertResponse], error) {
-	assert, err := tassert.SerializeAssertRPCToModel(req.Msg.GetAssert())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	err = c.as.UpdateAssert(ctx, assert)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&itemapiexamplev1.UpdateAssertResponse{}), nil
-}
-
-func (c ItemAPIExampleRPC) DeleteAssert(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteAssertRequest]) (*connect.Response[itemapiexamplev1.DeleteAssertResponse], error) {
-	id, err := idwrap.NewWithParse(req.Msg.GetId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	err = c.as.DeleteAssert(ctx, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&itemapiexamplev1.DeleteAssertResponse{}), nil
-}
-
-// Headers
-func (c *ItemAPIExampleRPC) CreateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateHeaderRequest]) (*connect.Response[itemapiexamplev1.CreateHeaderResponse], error) {
-	headerData := req.Msg.GetHeader()
-	if headerData == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("header is nil"))
-	}
-
-	headerModel, err := theader.SerlializeHeaderRPCtoModelNoID(req.Msg.GetHeader())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	newIDWrap := idwrap.NewNow()
-	headerModel.ID = newIDWrap
-
-	ok, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, headerModel.ExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
-	}
-
-	err = c.hs.CreateHeader(ctx, headerModel)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&itemapiexamplev1.CreateHeaderResponse{Id: newIDWrap.String()}), nil
-}
-
-func (c *ItemAPIExampleRPC) UpdateHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateHeaderRequest]) (*connect.Response[itemapiexamplev1.UpdateHeaderResponse], error) {
-	HeaderModel, err := theader.SerlializeHeaderRPCtoModel(req.Msg.GetHeader())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	ok, err := CheckOwnerHeader(ctx, *c.hs, *c.iaes, *c.cs, *c.us, HeaderModel.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no header found"))
-	}
-	err = c.hs.UpdateHeader(ctx, HeaderModel)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&itemapiexamplev1.UpdateHeaderResponse{}), nil
-}
-
-func (c *ItemAPIExampleRPC) DeleteHeader(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteHeaderRequest]) (*connect.Response[itemapiexamplev1.DeleteHeaderResponse], error) {
-	ulidWrap, err := idwrap.NewWithParse(req.Msg.GetId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	ok, err := CheckOwnerHeader(ctx, *c.hs, *c.iaes, *c.cs, *c.us, ulidWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no header found"))
-	}
-	err = c.hs.DeleteHeader(ctx, ulidWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&itemapiexamplev1.DeleteHeaderResponse{}), nil
-}
-
-// Query
-func (c *ItemAPIExampleRPC) CreateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.CreateQueryRequest]) (*connect.Response[itemapiexamplev1.CreateQueryResponse], error) {
-	queryData, err := tquery.SerlializeQueryRPCtoModelNoID(req.Msg.GetQuery())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	idWrap := idwrap.NewNow()
-	queryData.ID = idWrap
-	ok, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, queryData.ExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
-	}
-	err = c.qs.CreateExampleQuery(ctx, queryData)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&itemapiexamplev1.CreateQueryResponse{Id: idWrap.String()}), nil
-}
-
-func (c *ItemAPIExampleRPC) UpdateQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.UpdateQueryRequest]) (*connect.Response[itemapiexamplev1.UpdateQueryResponse], error) {
-	queryData, err := tquery.SerlializeQueryRPCtoModel(req.Msg.GetQuery())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	ok, err := CheckOwnerQuery(ctx, *c.qs, *c.iaes, *c.cs, *c.us, queryData.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no query found"))
-	}
-	err = c.qs.UpdateExampleQuery(ctx, queryData)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&itemapiexamplev1.UpdateQueryResponse{}), nil
-}
-
-func (c *ItemAPIExampleRPC) DeleteQuery(ctx context.Context, req *connect.Request[itemapiexamplev1.DeleteQueryRequest]) (*connect.Response[itemapiexamplev1.DeleteQueryResponse], error) {
-	ulidWrap, err := idwrap.NewWithParse(req.Msg.GetId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	ok, err := CheckOwnerQuery(ctx, *c.qs, *c.iaes, *c.cs, *c.us, ulidWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no query found"))
-	}
-	err = c.qs.DeleteExampleQuery(ctx, ulidWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&itemapiexamplev1.DeleteQueryResponse{}), nil
-}
-*/

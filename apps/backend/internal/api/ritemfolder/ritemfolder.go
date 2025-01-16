@@ -66,43 +66,6 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		}
 	}
 
-	/*
-		folder, err := c.ifs.GetLastFolder(ctx, reqFolder.CollectionID, reqFolder.ParentID, nil)
-		if err != nil && err != sitemfolder.ErrNoItemFolderFound {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-			    TODO: order of folders
-				if folder != nil {
-					reqFolder.Prev = &folder.ID
-					folder.Next = &reqFolder.ID
-
-					tx, err := c.DB.Begin()
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-					ifsTX, err := sitemfolder.NewTX(ctx, tx)
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-
-					err = ifsTX.UpdateItemFolder(ctx, folder)
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-
-					err = ifsTX.CreateItemFolder(ctx, reqFolder)
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-
-					err = tx.Commit()
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-				}
-
-	*/
 	err = c.ifs.CreateItemFolder(ctx, reqFolder)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -113,41 +76,6 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	}
 	return connect.NewResponse(respRaw), nil
 }
-
-/*
-func (c *ItemFolderRPC) GetFolder(ctx context.Context, req *connect.Request[folderv1.Folder]) (*connect.Response[itemfolderv1.GetFolderResponse], error) {
-	ulidID, err := idwrap.NewWithParse(req.Msg.GetId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	isOwner, err := CheckOwnerFolder(ctx, c.ifs, c.cs, c.us, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isOwner {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
-	}
-
-	folder, err := c.ifs.GetFolder(ctx, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// TODO: add items
-	respRaw := &itemfolderv1.GetFolderResponse{
-		Folder: &itemfolderv1.Folder{
-			Meta: &itemfolderv1.FolderMeta{
-				Id:   folder.ID.String(),
-				Name: folder.Name,
-			},
-			Items: []*itemfolderv1.Item{},
-		},
-	}
-
-	return connect.NewResponse(respRaw), nil
-}
-*/
 
 func (c *ItemFolderRPC) FolderUpdate(ctx context.Context, req *connect.Request[folderv1.FolderUpdateRequest]) (*connect.Response[folderv1.FolderUpdateResponse], error) {
 	folderID, err := idwrap.NewFromBytes(req.Msg.GetFolderId())
