@@ -30,7 +30,7 @@ model Response {
 @autoFields
 @parentResource(Response)
 model ResponseHeader {
-  @key ResponseheaderId: Resource.Id;
+  @key responseHeaderId: Resource.Id;
   key: string;
   value: string;
 }
