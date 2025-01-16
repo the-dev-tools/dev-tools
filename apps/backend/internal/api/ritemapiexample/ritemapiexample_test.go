@@ -305,8 +305,8 @@ func TestUpdateExampleApi(t *testing.T) {
 	req := connect.NewRequest(&examplev1.ExampleUpdateRequest{
 		ExampleId:  expectedID.Bytes(),
 		EndpointId: item.ID.Bytes(),
-		Name:       updatedName,
-		BodyKind:   updatedBodyType,
+		Name:       &updatedName,
+		BodyKind:   &updatedBodyType,
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,

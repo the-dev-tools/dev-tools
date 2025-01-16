@@ -164,15 +164,16 @@ func TestUpdateTag(t *testing.T) {
 		t.Error(err)
 	}
 
-	const UpdatedName = "updated"
-	const UpdatedColor = uint8(7)
+	UpdatedName := "updated"
+	UpdatedColor := uint8(7)
+	UpdatedTagColor := tagv1.TagColor(UpdatedColor)
 
 	req := connect.NewRequest(
 		&tagv1.TagUpdateRequest{
 			TagId:       testTagID.Bytes(),
 			WorkspaceId: wsID.Bytes(),
-			Name:        UpdatedName,
-			Color:       tagv1.TagColor(UpdatedColor),
+			Name:        &UpdatedName,
+			Color:       &UpdatedTagColor,
 		},
 	)
 

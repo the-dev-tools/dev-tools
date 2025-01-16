@@ -216,9 +216,9 @@ func TestUpdateItemApi(t *testing.T) {
 
 	req := connect.NewRequest(&endpointv1.EndpointUpdateRequest{
 		EndpointId:     item.ID.Bytes(),
-		Name:           updatedName,
-		Url:            updatedUrl,
-		Method:         updatedMethod,
+		Name:           &updatedName,
+		Url:            &updatedUrl,
+		Method:         &updatedMethod,
 		CollectionId:   CollectionID.Bytes(),
 		ParentFolderId: nil,
 	})

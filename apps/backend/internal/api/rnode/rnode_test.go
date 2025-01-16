@@ -275,12 +275,14 @@ func TestNodeUpdate(t *testing.T) {
 	NewPosY := 10.0
 
 	testutil.AssertFatal(t, nil, err)
+	var kind nodev1.NodeKind = nodev1.NodeKind_NODE_KIND_NO_OP
+	var noOpKind nodev1.NodeNoOpKind = nodev1.NodeNoOpKind_NODE_NO_OP_KIND_START
 	req := connect.NewRequest(
 		&nodev1.NodeUpdateRequest{
 			NodeId: startNodeID.Bytes(),
 			FlowId: testFlowID.Bytes(),
-			Kind:   nodev1.NodeKind_NODE_KIND_NO_OP,
-			NoOp:   nodev1.NodeNoOpKind_NODE_NO_OP_KIND_START,
+			Kind:   &kind,
+			NoOp:   &noOpKind,
 			Position: &nodev1.Position{
 				X: float32(newPosX),
 				Y: float32(NewPosY),

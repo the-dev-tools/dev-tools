@@ -181,7 +181,7 @@ func TestCollectionUpdate(t *testing.T) {
 	req := connect.NewRequest(
 		&collectionv1.CollectionUpdateRequest{
 			CollectionId: testCollectionID.Bytes(),
-			Name:         collectionNewName,
+			Name:         &collectionNewName,
 		},
 	)
 

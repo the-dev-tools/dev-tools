@@ -437,12 +437,12 @@ func TestUpdateFlow(t *testing.T) {
 	err = fs.CreateFlow(ctx, flowData)
 	testutil.AssertFatal(t, nil, err)
 
-	const UpdatedName = "test2"
+	UpdatedName := "test2"
 
 	req := connect.NewRequest(
 		&flowv1.FlowUpdateRequest{
 			FlowId: testFlowID.Bytes(),
-			Name:   UpdatedName,
+			Name:   &UpdatedName,
 		},
 	)
 

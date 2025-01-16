@@ -120,7 +120,7 @@ func TestUpdateItemFolder(t *testing.T) {
 
 	req := connect.NewRequest(&folderv1.FolderUpdateRequest{
 		FolderId:       item.ID.Bytes(),
-		Name:           updatedName,
+		Name:           &updatedName,
 		CollectionId:   CollectionID.Bytes(),
 		ParentFolderId: nil,
 	})

@@ -154,12 +154,31 @@ func (v *VarRPC) VariableCreate(ctx context.Context, req *connect.Request[variab
 }
 
 func (c *VarRPC) VariableUpdate(ctx context.Context, req *connect.Request[variablev1.VariableUpdateRequest]) (*connect.Response[variablev1.VariableUpdateResponse], error) {
+	msg := req.Msg
+
+	var name string
+	var value string
+	var enabled bool
+	var description string
+	if msg.Name != nil {
+		name = *msg.Name
+	}
+	if msg.Value != nil {
+		value = *msg.Value
+	}
+	if msg.Enabled != nil {
+		enabled = *msg.Enabled
+	}
+	if msg.Description != nil {
+		description = *msg.Description
+	}
+
 	varConverted := &variablev1.Variable{
-		VariableId:  req.Msg.GetVariableId(),
-		Name:        req.Msg.Name,
-		Value:       req.Msg.Value,
-		Enabled:     req.Msg.Enabled,
-		Description: req.Msg.Description,
+		VariableId:  msg.GetVariableId(),
+		Name:        name,
+		Value:       value,
+		Enabled:     enabled,
+		Description: description,
 	}
 	varReq, err := tvar.DeserializeRPCToModel(varConverted)
 	if err != nil {

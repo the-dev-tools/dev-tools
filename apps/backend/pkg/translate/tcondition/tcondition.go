@@ -33,8 +33,11 @@ func DeserializeComparisonRPCToModel(c *conditionv1.Comparison) mcondition.Compa
 	path := ""
 	for _, p := range c.Path {
 		switch p.Kind {
-		case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED:
-			path += "." + p.Key
+		case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
+			if p.Key == nil {
+				break
+			}
+			path += "." + *p.Key
 		case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX:
 			path += fmt.Sprintf("[%d]", p.Index)
 		case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_ANY:

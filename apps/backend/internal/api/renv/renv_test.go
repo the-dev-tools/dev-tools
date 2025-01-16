@@ -193,8 +193,8 @@ func TestUpdateEnv(t *testing.T) {
 
 	req := connect.NewRequest(&environmentv1.EnvironmentUpdateRequest{
 		EnvironmentId: envID.Bytes(),
-		Name:          newName,
-		Description:   newDesc,
+		Name:          &newName,
+		Description:   &newDesc,
 	})
 
 	rpcEnv := renv.New(db, es, vs, us)

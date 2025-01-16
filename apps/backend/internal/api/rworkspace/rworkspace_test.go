@@ -237,7 +237,7 @@ func TestWorkspaceUpdate(t *testing.T) {
 	req := connect.NewRequest(
 		&workspacev1.WorkspaceUpdateRequest{
 			WorkspaceId:           testWsID.Bytes(),
-			Name:                  testNewWsName,
+			Name:                  &testNewWsName,
 			SelectedEnvironmentId: env.ID.Bytes(),
 		},
 	)

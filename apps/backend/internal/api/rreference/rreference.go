@@ -140,7 +140,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			envRef := &referencev1.Reference{
 				Key: &referencev1.ReferenceKey{
 					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  v.VarKey,
+					Key:  &v.VarKey,
 				},
 				Kind:     referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE,
 				Variable: containsEnv,
@@ -148,10 +148,11 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			envMap = append(envMap, envRef)
 		}
 
+		groupStr := "env"
 		Items = append(Items, &referencev1.Reference{
 			Key: &referencev1.ReferenceKey{
 				Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
-				Group: "env",
+				Group: &groupStr,
 			},
 			Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
 			Map:  envMap,
@@ -174,17 +175,18 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			headersSub = append(headersSub, &referencev1.Reference{
 				Key: &referencev1.ReferenceKey{
 					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  header.HeaderKey,
+					Key:  &header.HeaderKey,
 				},
 				Kind:  referencev1.ReferenceKind_REFERENCE_KIND_VALUE,
-				Value: header.Value,
+				Value: &header.Value,
 			})
 		}
 
+		headerKey := "headers"
 		Items = append(Items, &referencev1.Reference{
 			Key: &referencev1.ReferenceKey{
 				Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-				Key:  "headers",
+				Key:  &headerKey,
 			},
 			Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
 			Map:  headersSub,
@@ -236,27 +238,29 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 				headersSubRefs = append(headersSubRefs, &referencev1.Reference{
 					Key: &referencev1.ReferenceKey{
 						Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-						Key:  header.HeaderKey,
+						Key:  &header.HeaderKey,
 					},
 					Kind:  referencev1.ReferenceKind_REFERENCE_KIND_VALUE,
-					Value: header.Value,
+					Value: &header.Value,
 				})
 			}
 
+			flowNodeIDStr := req.FlowNodeID.String()
 			nodeRefs = append(nodeRefs, &referencev1.Reference{
 				Key: &referencev1.ReferenceKey{
 					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  req.FlowNodeID.String(),
+					Key:  &flowNodeIDStr,
 				},
 				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
 				Map:  headersSubRefs,
 			})
 		}
 
+		refGroupVarStr := "var"
 		Items = append(Items, &referencev1.Reference{
 			Key: &referencev1.ReferenceKey{
 				Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
-				Group: "var",
+				Group: &refGroupVarStr,
 			},
 			Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
 			Map:  nodeRefs,

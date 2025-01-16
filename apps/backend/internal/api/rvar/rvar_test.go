@@ -250,10 +250,10 @@ func TestUpdateVar(t *testing.T) {
 
 	req := connect.NewRequest(&variablev1.VariableUpdateRequest{
 		VariableId:  ID.Bytes(),
-		Name:        updatedVarName,
-		Value:       updatedVarValue,
-		Enabled:     updatedVarEnabled,
-		Description: updatedVarDescription,
+		Name:        &updatedVarName,
+		Value:       &updatedVarValue,
+		Enabled:     &updatedVarEnabled,
+		Description: &updatedVarDescription,
 	})
 
 	rpcVar := rvar.New(db, us, es, vs)

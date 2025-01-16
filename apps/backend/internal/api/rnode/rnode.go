@@ -524,11 +524,13 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 		if err != nil {
 			return nil, err
 		}
+		a := nodev1.NodeNoOpKind(nodeStart.Type)
+
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeStart.FlowNodeID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_NO_OP,
 			Position: Position,
-			NoOp:     nodev1.NodeNoOpKind(nodeStart.Type),
+			NoOp:     &a,
 		}
 
 	case mnode.NODE_KIND_CONDITION:
@@ -619,9 +621,10 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_NO_OP:
+		a := mnnoop.NoopTypes(*rpcNode.NoOp)
 		noopNode := &mnnoop.NoopNode{
 			FlowNodeID: nodeID,
-			Type:       mnnoop.NoopTypes(rpcNode.NoOp),
+			Type:       a,
 			Name:       "NoOp",
 		}
 		subNode = noopNode
@@ -639,7 +642,10 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		} else {
 			comp := rpcNode.Condition.Condition.Comparison
 			for _, v := range comp.Path {
-				path += v.Key
+				if v.Key == nil {
+					return nil, nil, fmt.Errorf("key is nil")
+				}
+				path += *v.Key
 			}
 			condition = &mcondition.Condition{
 				Comparisons: mcondition.Comparison{

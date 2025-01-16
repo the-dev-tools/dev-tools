@@ -3,6 +3,7 @@ package rtag
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -119,10 +120,17 @@ func (c TagServiceRPC) TagCreate(ctx context.Context, req *connect.Request[tagv1
 }
 
 func (c TagServiceRPC) TagUpdate(ctx context.Context, req *connect.Request[tagv1.TagUpdateRequest]) (*connect.Response[tagv1.TagUpdateResponse], error) {
+	if req.Msg.TagId == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("tag id is required"))
+	}
+	if req.Msg.Name == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+	}
+
 	rpcTag := tagv1.Tag{
 		TagId: req.Msg.TagId,
-		Name:  req.Msg.Name,
-		Color: req.Msg.Color,
+		Name:  *req.Msg.Name,
+		Color: *req.Msg.Color,
 	}
 	tag, err := ttag.SeralizeRpcToModel(&rpcTag, idwrap.IDWrap{})
 	if err != nil {

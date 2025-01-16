@@ -3,6 +3,7 @@ package renv
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rworkspace"
@@ -125,7 +126,16 @@ func (e *EnvRPC) EnvironmentGet(ctx context.Context, req *connect.Request[enviro
 
 func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentUpdateRequest]) (*connect.Response[environmentv1.EnvironmentUpdateResponse], error) {
 	msg := req.Msg
-	env := &environmentv1.Environment{EnvironmentId: msg.EnvironmentId, Name: msg.Name, Description: msg.Description}
+	if msg.Name == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+	}
+	if msg.EnvironmentId == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment id is required"))
+	}
+	if msg.Description == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("description is required"))
+	}
+	env := &environmentv1.Environment{EnvironmentId: msg.EnvironmentId, Name: *msg.Name, Description: *msg.Description}
 	envReq, err := tenv.DeserializeRPCToModel(env)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)

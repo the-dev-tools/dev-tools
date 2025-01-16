@@ -18,7 +18,7 @@ func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 	arrayRegex := regexp.MustCompile(`\[(\d+)\]`)
 	for _, s := range str {
 		pathKey := referencev1.ReferenceKey{
-			Key: s,
+			Key: &s,
 		}
 		arr := arrayRegex.MatchString(s)
 		if arr {
@@ -28,7 +28,8 @@ func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 			if err != nil {
 				return nil, err
 			}
-			pathKey.Index = int32(pathInt)
+			index := int32(pathInt)
+			pathKey.Index = &index
 		}
 		if s != "any" {
 			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY
@@ -82,7 +83,10 @@ func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.ID
 			for _, p := range comp.Path {
 				switch p.Kind {
 				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
-					path += "." + p.Key
+					if p.Key == nil {
+						break
+					}
+					path += "." + *p.Key
 				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX:
 					path += fmt.Sprintf("[%d]", p.Index)
 				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_ANY:

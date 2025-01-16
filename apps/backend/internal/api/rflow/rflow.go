@@ -258,9 +258,17 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 }
 
 func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[flowv1.FlowUpdateRequest]) (*connect.Response[flowv1.FlowUpdateResponse], error) {
+	msg := req.Msg
+	if msg.FlowId == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+	}
+	if msg.Name == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+	}
+
 	rpcFlow := flowv1.Flow{
 		FlowId: req.Msg.FlowId,
-		Name:   req.Msg.Name,
+		Name:   *req.Msg.Name,
 	}
 	flow, err := tflow.SeralizeRpcToModel(&rpcFlow, idwrap.IDWrap{})
 	if err != nil {
