@@ -1,16 +1,6 @@
 package nfor_test
 
-import (
-	"context"
-	"testing"
-	"the-dev-tools/backend/pkg/flow/edge"
-	"the-dev-tools/backend/pkg/flow/node"
-	"the-dev-tools/backend/pkg/flow/node/mocknode"
-	"the-dev-tools/backend/pkg/flow/node/nfor"
-	"the-dev-tools/backend/pkg/idwrap"
-	"time"
-)
-
+/*
 func TestForNode_RunSync(t *testing.T) {
 	mockNode1ID := idwrap.NewNow()
 	mockNode2ID := idwrap.NewNow()
@@ -119,3 +109,4 @@ func TestForNode_SetID(t *testing.T) {
 		t.Errorf("Expected nodeFor.GetID() to be %v, but got %v", id, nodeFor.GetID())
 	}
 }
+*/

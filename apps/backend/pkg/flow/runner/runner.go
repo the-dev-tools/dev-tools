@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	ErrFlowRunnerNotImplemented = errors.New("FlowRunner not implemented")
-	ErrNodeNotFound             = errors.New("Next Node not found")
+	ErrFlowRunnerNotImplemented = errors.New("flowrunner not implemented")
+	ErrNodeNotFound             = errors.New("next node not found")
 )
 
 type FlowRunner interface {

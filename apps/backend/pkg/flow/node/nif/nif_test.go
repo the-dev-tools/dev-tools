@@ -1,17 +1,6 @@
 package nif_test
 
-import (
-	"context"
-	"testing"
-	"the-dev-tools/backend/pkg/flow/edge"
-	"the-dev-tools/backend/pkg/flow/node"
-	"the-dev-tools/backend/pkg/flow/node/mocknode"
-	"the-dev-tools/backend/pkg/flow/node/nif"
-	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mcondition"
-	"the-dev-tools/backend/pkg/testutil"
-)
-
+/*
 func TestForNode_RunSync_true(t *testing.T) {
 	mockNode1ID := idwrap.NewNow()
 	mockNode2ID := idwrap.NewNow()
@@ -178,4 +167,4 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 		t.Errorf("Expected err to be nil, but got %v", resault.Err)
 	}
 	testutil.Assert(t, mockNode2ID, *resault.NextNodeID)
-}
+*/

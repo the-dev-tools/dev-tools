@@ -3,6 +3,7 @@ package flowlocalrunner
 import (
 	"context"
 	"fmt"
+	"sync"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/runner"
@@ -40,44 +41,61 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	}
 	fmt.Println("FlowLocalRunner.Run")
 	status <- runner.NewFlowStatus(runner.FlowStatusStarting, node.NodeNone, nil)
-	for nextNodeID != nil {
-		status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, nextNodeID)
-		currentNode, ok := r.FlowNodeMap[*nextNodeID]
-		if !ok {
-			return fmt.Errorf("node not found: %v", nextNodeID)
-		}
-		if r.Timeout == 0 {
-			nextNodeID, err = RunNodeSync(ctx, currentNode, req)
-		} else {
-			nextNodeID, err = RunNodeAsync(ctx, currentNode, req, r.Timeout)
-		}
-		if err != nil {
-			if err == context.DeadlineExceeded {
-				status <- runner.NewFlowStatus(runner.FlowStatusTimeout, node.NodeStatusFailed, nextNodeID)
-			}
-			status <- runner.NewFlowStatus(runner.FlowStatusFailed, node.NodeStatusFailed, nextNodeID)
-			return err
-		}
+	currentNode, ok := r.FlowNodeMap[*nextNodeID]
+	if !ok {
+		return fmt.Errorf("node not found: %v", nextNodeID)
+	}
+	_, err = r.RunNodeSync(ctx, currentNode, req, status)
+	if err != nil {
+		status <- runner.NewFlowStatus(runner.FlowStatusFailed, node.NodeStatusFailed, nextNodeID)
+		return err
 	}
 	status <- runner.NewFlowStatus(runner.FlowStatusSuccess, node.NodeStatusSuccess, nil)
 	return nil
 }
 
-func RunNodeSync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest) (*idwrap.IDWrap, error) {
-	res := currentNode.RunSync(ctx, req)
-	return res.NextNodeID, res.Err
-}
+func (r FlowLocalRunner) RunNodeSync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest, status chan runner.FlowStatusResp) ([]idwrap.IDWrap, error) {
+	var wg sync.WaitGroup
 
-func RunNodeAsync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest, timeout time.Duration) (*idwrap.IDWrap, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	resultChan := make(chan node.FlowNodeResult, 1)
-	go currentNode.RunAsync(ctx, req, resultChan)
-	select {
-	case <-ctx.Done():
-		fmt.Println("timeout")
-		return nil, ctx.Err()
-	case result := <-resultChan:
-		return result.NextNodeID, result.Err
+	id := currentNode.GetID()
+	status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, &id)
+	res := currentNode.RunSync(ctx, req)
+
+	nextNodeLen := len(res.NextNodeID)
+	if nextNodeLen == 0 {
+		return nil, res.Err
 	}
+	if nextNodeLen == 1 {
+		return res.NextNodeID, res.Err
+	}
+
+	parallel := make(chan node.FlowNodeResult, nextNodeLen)
+	for _, v := range res.NextNodeID {
+		currentNode, ok := r.FlowNodeMap[v]
+		if !ok {
+			return nil, fmt.Errorf("node not found: %v", v)
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, err := r.RunNodeSync(ctx, currentNode, req, status)
+			parallel <- node.FlowNodeResult{
+				NextNodeID: res,
+				Err:        err,
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	var nextNodeID []idwrap.IDWrap
+	for i := 0; i < nextNodeLen; i++ {
+		a := <-parallel
+		if a.Err != nil {
+			return nil, a.Err
+		}
+		nextNodeID = append(nextNodeID, a.NextNodeID...)
+	}
+
+	return nextNodeID, res.Err
 }

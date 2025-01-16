@@ -38,6 +38,6 @@ type FlowNodeRequest struct {
 }
 
 type FlowNodeResult struct {
-	NextNodeID *idwrap.IDWrap
+	NextNodeID []idwrap.IDWrap
 	Err        error
 }

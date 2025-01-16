@@ -33,10 +33,10 @@ type Edge struct {
 }
 
 type (
-	EdgesMap map[idwrap.IDWrap]map[EdgeHandle]idwrap.IDWrap
+	EdgesMap map[idwrap.IDWrap]map[EdgeHandle][]idwrap.IDWrap
 )
 
-func GetNextNodeID(edgesMap EdgesMap, sourceID idwrap.IDWrap, handle EdgeHandle) *idwrap.IDWrap {
+func GetNextNodeID(edgesMap EdgesMap, sourceID idwrap.IDWrap, handle EdgeHandle) []idwrap.IDWrap {
 	edges, ok := edgesMap[sourceID]
 	if !ok {
 		return nil
@@ -46,7 +46,7 @@ func GetNextNodeID(edgesMap EdgesMap, sourceID idwrap.IDWrap, handle EdgeHandle)
 		return nil
 	}
 
-	return &edge
+	return edge
 }
 
 func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle) Edge {
@@ -66,9 +66,11 @@ func NewEdgesMap(edges []Edge) EdgesMap {
 	edgesMap := make(EdgesMap)
 	for _, edge := range edges {
 		if _, ok := edgesMap[edge.SourceID]; !ok {
-			edgesMap[edge.SourceID] = make(map[EdgeHandle]idwrap.IDWrap)
+			edgesMap[edge.SourceID] = make(map[EdgeHandle][]idwrap.IDWrap)
 		}
-		edgesMap[edge.SourceID][edge.SourceHandler] = edge.TargetID
+		a := edgesMap[edge.SourceID][edge.SourceHandler]
+		a = append(a, edge.TargetID)
+		edgesMap[edge.SourceID][edge.SourceHandler] = a
 	}
 	return edgesMap
 }

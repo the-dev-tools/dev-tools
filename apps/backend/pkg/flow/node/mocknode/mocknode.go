@@ -8,11 +8,11 @@ import (
 
 type MockNode struct {
 	ID    idwrap.IDWrap
-	Next  *idwrap.IDWrap
+	Next  []idwrap.IDWrap
 	OnRun func()
 }
 
-func NewMockNode(id idwrap.IDWrap, next *idwrap.IDWrap, onRun func()) *MockNode {
+func NewMockNode(id idwrap.IDWrap, next []idwrap.IDWrap, onRun func()) *MockNode {
 	return &MockNode{
 		ID:    id,
 		Next:  next,

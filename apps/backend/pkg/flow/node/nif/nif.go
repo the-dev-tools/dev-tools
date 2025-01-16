@@ -35,7 +35,7 @@ func (n NodeIf) GetID() idwrap.IDWrap {
 	return n.FlowNodeID
 }
 
-func (n NodeIf) SetID(id idwrap.IDWrap) {
+func (n *NodeIf) SetID(id idwrap.IDWrap) {
 	n.FlowNodeID = id
 }
 
