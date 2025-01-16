@@ -1,7 +1,10 @@
-import { Message } from '@bufbuild/protobuf';
+import { createRegistry, Message } from '@bufbuild/protobuf';
 import { Array, HashMap, Option, pipe, Schema } from 'effect';
 
+import { files } from '@the-dev-tools/spec/files';
 import messageIdMap from '@the-dev-tools/spec/meta/message-id-map.json';
+
+export const registry = createRegistry(...files);
 
 const messageIdHashMap = pipe(Array.fromRecord<string, string>(messageIdMap), HashMap.fromIterable);
 

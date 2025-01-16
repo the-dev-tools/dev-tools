@@ -1,15 +1,12 @@
-import { isMessage } from '@bufbuild/protobuf';
 import { TransportProvider } from '@connectrpc/connect-query';
-import { QueryNormalizerProvider } from '@normy/react-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, NavigateOptions, RouterProvider, ToOptions } from '@tanstack/react-router';
-import { Array, Effect, Option, pipe, Runtime } from 'effect';
-import { Ulid } from 'id128';
+import { Effect, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
-import { getMessageId, getMessageIdKey } from '@the-dev-tools/api/meta';
+import { QueryNormalizerProvider } from '@the-dev-tools/api/normalizer';
 import { ApiTransport } from '@the-dev-tools/api/transport';
 
 import { RouterContext } from './root';
@@ -48,22 +45,7 @@ export const app = Effect.gen(function* () {
   root.render(
     <StrictMode>
       <TransportProvider transport={transport}>
-        <QueryNormalizerProvider
-          queryClient={queryClient}
-          normalizerConfig={{
-            getNormalizationObjectKey: (data) => {
-              console.log({ data });
-              if (!isMessage(data)) return undefined;
-              const key = getMessageIdKey(data);
-              const idCan = pipe(
-                getMessageId(data),
-                Option.map((_) => Ulid.construct(_).toCanonical()),
-              );
-              const a = pipe(Option.product(key, idCan), Option.map(Array.join(' ')), Option.getOrUndefined);
-              console.log(a);
-            },
-          }}
-        >
+        <QueryNormalizerProvider queryClient={queryClient}>
           <QueryClientProvider client={queryClient}>
             <AriaRouterProvider
               navigate={(to, options) => {

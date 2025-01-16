@@ -302,6 +302,9 @@ importers:
       '@effect/platform':
         specifier: 0.73.1
         version: 0.73.1(effect@3.12.4)
+      '@normy/core':
+        specifier: 0.12.0
+        version: 0.12.0
       '@tanstack/react-query':
         specifier: 5.64.1
         version: 5.64.1(react@19.0.0)
@@ -323,10 +326,22 @@ importers:
       magic-sdk:
         specifier: 28.21.0
         version: 28.21.0
+      react:
+        specifier: 19.0.0
+        version: 19.0.0
+      react-dom:
+        specifier: 19.0.0
+        version: 19.0.0(react@19.0.0)
     devDependencies:
       '@the-dev-tools/config-eslint':
         specifier: workspace:^
         version: link:../config-eslint
+      '@types/react':
+        specifier: ~19.0.7
+        version: 19.0.7
+      '@types/react-dom':
+        specifier: ~19.0.3
+        version: 19.0.3(@types/react@19.0.7)
       typescript:
         specifier: ~5.7.3
         version: 5.7.3
@@ -459,9 +474,6 @@ importers:
       '@hookform/resolvers':
         specifier: 3.10.0
         version: 3.10.0(react-hook-form@7.54.2(react@19.0.0))
-      '@normy/react-query':
-        specifier: 0.18.0
-        version: 0.18.0(@tanstack/react-query@5.64.1(react@19.0.0))
       '@prettier/plugin-xml':
         specifier: 3.4.1
         version: 3.4.1(prettier@3.4.2)
@@ -3079,11 +3091,6 @@ packages:
 
   '@normy/core@0.12.0':
     resolution: {integrity: sha512-gJENZfGegkOLYR7uMJKtVWdeeGckvOrgXbDEfggXn54K5ByxFtemMDwSY6jIkgJic7dR8C1nAaL6rYxs9/7Rbw==}
-
-  '@normy/react-query@0.18.0':
-    resolution: {integrity: sha512-nOGCCHwPSirPXrmbhEagQZOiWlo/HaW4A/omSWLCeGMpghLQAENyw07xG7MTj4jfha8s2uMVOUUXJXW3GTXa6A==}
-    peerDependencies:
-      '@tanstack/react-query': '>=5.4.3'
 
   '@nx-go/nx-go@3.3.1':
     resolution: {integrity: sha512-0BJXOvwUxQgqUEEn7NYjDhU4v4sweLkJKmTUY8UTSA93nGVpdXuEDgChNxa7Nq3TTLzIIJQODFB1hcnf/5UsyA==}
@@ -12170,11 +12177,6 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.26.0
       deepmerge: 4.3.1
-
-  '@normy/react-query@0.18.0(@tanstack/react-query@5.64.1(react@19.0.0))':
-    dependencies:
-      '@normy/core': 0.12.0
-      '@tanstack/react-query': 5.64.1(react@19.0.0)
 
   '@nx-go/nx-go@3.3.1(nx@20.3.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
     dependencies:

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./*": "./src/*.ts"
+    "./*": "./src/*.tsx"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.2.3",
@@ -11,16 +11,21 @@
     "@connectrpc/connect-query": "2.0.1",
     "@connectrpc/connect-web": "2.0.1",
     "@effect/platform": "0.73.1",
+    "@normy/core": "0.12.0",
     "@tanstack/react-query": "5.64.1",
     "@the-dev-tools/spec": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "effect": "3.12.4",
     "id128": "1.6.6",
     "jose": "5.9.6",
-    "magic-sdk": "28.21.0"
+    "magic-sdk": "28.21.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
+    "@types/react": "~19.0.7",
+    "@types/react-dom": "~19.0.3",
     "typescript": "~5.7.3"
   }
 }
