@@ -9,6 +9,15 @@ namespace API.Resource;
 
 alias Id = bytes;
 
+model Change<Resource> {
+  ...KeyOf<Resource>;
+  ...OptionalProperties<OmitKey<Resource>>;
+}
+
+model Changes {
+  @autoField changes?: WellKnown.Any[];
+}
+
 namespace List {
   @withVisibility("query", "list")
   @withDefaultKeyVisibility("query")
@@ -48,6 +57,7 @@ namespace Create {
 
   model Response<Resource> {
     ...KeyOf<Resource>;
+    ...Changes;
   }
 }
 
@@ -60,7 +70,9 @@ namespace Update {
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
-  model Response<Resource> {}
+  model Response<Resource> {
+    ...Changes;
+  }
 }
 
 namespace Delete {
@@ -69,5 +81,7 @@ namespace Delete {
     ...ParentKeyOf<Resource>;
   }
 
-  model Response<Resource> {}
+  model Response<Resource> {
+    ...Changes;
+  }
 }

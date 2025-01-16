@@ -42,9 +42,11 @@ model ResponseAssert {
   result: boolean;
 }
 
+model ResponseChange is Resource.Change<Response>;
 model ResponseGetRequest is Resource.Get.Request<Response>;
 model ResponseGetResponse is Resource.Get.Response<Response>;
 
+model ResponseHeaderChange is Resource.Change<ResponseHeader>;
 model ResponseHeaderListItem is Resource.List.Item<ResponseHeader>;
 model ResponseHeaderListRequest is Resource.List.Request<ResponseHeader>;
 model ResponseHeaderListResponse is Resource.List.Response<ResponseHeaderListItem>;

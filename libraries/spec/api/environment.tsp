@@ -27,6 +27,7 @@ model Environment {
   @visibility("query") isGlobal: boolean;
 }
 
+model EnvironmentChange is Resource.Change<Environment>;
 model EnvironmentListItem is Resource.List.Item<Environment>;
 model EnvironmentListRequest is Resource.List.Request<Environment>;
 model EnvironmentListResponse is Resource.List.Response<EnvironmentListItem>;

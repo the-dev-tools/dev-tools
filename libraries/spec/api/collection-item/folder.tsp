@@ -25,6 +25,7 @@ model Folder {
   name: string;
 }
 
+model FolderChange is Resource.Change<Folder>;
 model FolderListItem is Resource.List.Item<Folder>;
 model FolderCreateRequest is Resource.Create.Request<Folder>;
 model FolderCreateResponse is Resource.Create.Response<Folder>;

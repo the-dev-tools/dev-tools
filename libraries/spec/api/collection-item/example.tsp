@@ -29,6 +29,7 @@ model Example {
   @visibility("get", "mutate") bodyKind: Body.BodyKind;
 }
 
+model ExampleChange is Resource.Change<Example>;
 model ExampleListItem is Resource.List.Item<Example>;
 model ExampleListRequest is Resource.List.Request<Example>;
 model ExampleListResponse is Resource.List.Response<ExampleListItem>;

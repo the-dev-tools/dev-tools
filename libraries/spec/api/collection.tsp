@@ -24,6 +24,7 @@ model Collection {
   name: string;
 }
 
+model CollectionChange is Resource.Change<Collection>;
 model CollectionListItem is Resource.List.Item<Collection>;
 model CollectionListRequest is Resource.List.Request<Collection>;
 model CollectionListResponse is Resource.List.Response<CollectionListItem>;

@@ -25,6 +25,7 @@ model Flow {
   name: string;
 }
 
+model FlowChange is Resource.Change<Flow>;
 model FlowListItem is Resource.List.Item<Flow>;
 
 @autoFields

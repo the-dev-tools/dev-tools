@@ -33,6 +33,7 @@ model Edge {
   sourceHandle: Handle;
 }
 
+model EdgeChange is Resource.Change<Edge>;
 model EdgeListItem is Resource.List.Item<Edge>;
 model EdgeListRequest is Resource.List.Request<Edge>;
 model EdgeListResponse is Resource.List.Response<EdgeListItem>;

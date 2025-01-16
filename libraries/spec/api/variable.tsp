@@ -27,6 +27,7 @@ model Variable {
   description: string;
 }
 
+model VariableChange is Resource.Change<Variable>;
 model VariableListItem is Resource.List.Item<Variable> {
   ...ParentKeyOf<Variable>;
 }
