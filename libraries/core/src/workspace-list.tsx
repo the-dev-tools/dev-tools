@@ -1,4 +1,3 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DateTime, Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -6,6 +5,7 @@ import { useState } from 'react';
 import { Form, MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 
+import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import {
   workspaceCreate,

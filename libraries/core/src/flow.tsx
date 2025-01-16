@@ -1,10 +1,6 @@
 import { create, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import {
-  createQueryOptions,
-  useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
-} from '@connectrpc/connect-query';
+import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
 import {
@@ -40,6 +36,7 @@ import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } fr
 import { Panel } from 'react-resizable-panels';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
   exampleCreate,

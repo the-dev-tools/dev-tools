@@ -1,9 +1,4 @@
 import { createClient } from '@connectrpc/connect';
-import {
-  useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
-  useSuspenseQuery as useConnectSuspenseQuery,
-} from '@connectrpc/connect-query';
 import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { Struct } from 'effect';
@@ -13,6 +8,7 @@ import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 
 import { FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
+import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   environmentCreate,
   environmentList,

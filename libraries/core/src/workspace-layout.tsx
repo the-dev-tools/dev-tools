@@ -1,10 +1,5 @@
 import { createClient } from '@connectrpc/connect';
-import {
-  createConnectQueryKey,
-  createQueryOptions,
-  useMutation as useConnectMutation,
-  useQuery as useConnectQuery,
-} from '@connectrpc/connect-query';
+import { createConnectQueryKey, createQueryOptions } from '@connectrpc/connect-query';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { Array, Effect, pipe, Runtime, Schema } from 'effect';
@@ -15,6 +10,7 @@ import { FiChevronDown, FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } fr
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 
+import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import {
   collectionCreate,
   collectionImportHar,

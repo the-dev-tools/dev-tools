@@ -1,10 +1,11 @@
 import { createClient } from '@connectrpc/connect';
-import { createQueryOptions, useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
+import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { Struct } from 'effect';
 import { useMemo } from 'react';
 
+import { useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   QueryListItem,
   QueryListItemSchema,

@@ -1,9 +1,9 @@
-import { useMutation as useConnectMutation, useQuery as useConnectQuery } from '@connectrpc/connect-query';
 import { Struct } from 'effect';
 import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import { exampleGet } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { AssertListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {

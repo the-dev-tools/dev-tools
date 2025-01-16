@@ -1,5 +1,4 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
-import { useSuspenseQuery as useConnectSuspenseQuery } from '@connectrpc/connect-query';
 import { Array, Match, pipe, Struct } from 'effect';
 import { createContext, Suspense, useContext } from 'react';
 import { mergeProps } from 'react-aria';
@@ -14,6 +13,7 @@ import { FieldPath, FieldValues, useController } from 'react-hook-form';
 import { LuLink } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
+import { useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   Reference,
   ReferenceGetRequest,
