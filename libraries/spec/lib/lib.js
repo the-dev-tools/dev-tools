@@ -39,9 +39,18 @@ export function $copyParentKey(context, target) {
   const resourceKey = getResourceTypeKey(program, parentType);
   if (!resourceKey) return;
 
-  const { keyProperty } = resourceKey;
+  let { keyProperty } = resourceKey;
   const keyName = getKeyName(program, keyProperty);
   if (!keyName) return;
+
+  /** @type {import('@typespec/compiler').ModelProperty} */
+  keyProperty = {
+    ...keyProperty,
+    // Remove key decorator
+    decorators: keyProperty.decorators.filter(
+      (_) => !(_.definition?.namespace.name === 'TypeSpec' && _.definition?.name === '@key'),
+    ),
+  };
 
   target.properties.set(keyName, keyProperty);
 }
