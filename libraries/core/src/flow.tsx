@@ -2,7 +2,7 @@ import { create, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect, ToOptions } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi, redirect, ToOptions } from '@tanstack/react-router';
 import {
   Background,
   BackgroundVariant,
@@ -91,7 +91,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { CollectionListTree } from './collection';
 import { ConditionField } from './condition';
 import { EndpointRequestView, EndpointRouteSearch, ResponsePanel, useEndpointUrl } from './endpoint';
-import { ReferenceField } from './reference';
+import { ReferenceContext, ReferenceField } from './reference';
 
 class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
   selectedNodeIdCan: pipe(Schema.String, Schema.optional),
@@ -122,18 +122,20 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
   },
 });
 
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+
 function RouteComponent() {
   const { flowId } = Route.useLoaderData();
   const { selectedNodeIdCan } = Route.useSearch();
 
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
+  const nodeId = selectedNodeIdCan ? Ulid.fromCanonical(selectedNodeIdCan).bytes : undefined!;
+
   const flowQuery = useConnectQuery(flowGet, { flowId });
   const edgeListQuery = useConnectQuery(edgeList, { flowId });
   const nodeListQuery = useConnectQuery(nodeList, { flowId });
-  const selectedNodeQuery = useConnectQuery(
-    nodeGet,
-    { nodeId: selectedNodeIdCan ? Ulid.fromCanonical(selectedNodeIdCan).bytes : undefined! },
-    { enabled: selectedNodeIdCan !== undefined },
-  );
+  const selectedNodeQuery = useConnectQuery(nodeGet, { nodeId }, { enabled: selectedNodeIdCan !== undefined });
 
   if (!flowQuery.data || !edgeListQuery.data || !nodeListQuery.data) return null;
 
@@ -143,12 +145,12 @@ function RouteComponent() {
         <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
       </Panel>
       {selectedNodeQuery.data && (
-        <>
+        <ReferenceContext value={{ nodeId, workspaceId }}>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
             <EditPanel node={selectedNodeQuery.data} />
           </Panel>
-        </>
+        </ReferenceContext>
       )}
     </ReactFlowProvider>
   );
@@ -925,6 +927,8 @@ const EditRequestNodeView = ({ node: { nodeId, request } }: EditPanelProps) => {
   const { requestTab, responseTab } = Route.useSearch();
   const { transport } = Route.useRouteContext();
 
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
   const [{ data: collection }, { data: endpoint }, { data: example }] = useSuspenseQueries({
     queries: [
       createQueryOptions(collectionGet, { collectionId }, { transport }),
@@ -983,14 +987,15 @@ const EditRequestNodeView = ({ node: { nodeId, request } }: EditPanelProps) => {
           Request
         </div>
 
-        <EndpointRequestView
-          className={tw`p-5 pt-3`}
-          endpointId={endpointId}
-          exampleId={exampleId}
-          deltaExampleId={deltaExampleId}
-          requestTab={requestTab}
-          context={{ nodeId }}
-        />
+        <ReferenceContext value={{ nodeId, exampleId, workspaceId }}>
+          <EndpointRequestView
+            className={tw`p-5 pt-3`}
+            endpointId={endpointId}
+            exampleId={exampleId}
+            deltaExampleId={deltaExampleId}
+            requestTab={requestTab}
+          />
+        </ReferenceContext>
       </div>
 
       {lastResponseId && (
