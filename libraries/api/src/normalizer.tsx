@@ -3,10 +3,10 @@ import { AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { ConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
 import { QueryClient, QueryKey } from '@tanstack/react-query';
-import { Array, Option, pipe, Predicate, Record } from 'effect';
+import { Array, Option, pipe, Predicate, Record, Struct } from 'effect';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-import { getMessageIdKey, registry } from './meta';
+import { getMessageMeta, registry } from './meta';
 
 interface NormyReactQueryMeta extends Record<string, unknown> {
   normalize?: boolean;
@@ -27,11 +27,15 @@ const toNormalMessage = (data: unknown) => {
   if (!schema) return Option.none();
 
   const json = toJson(schema, data, { registry });
-  const key = pipe(getMessageIdKey(data), Option.getOrNull);
+  if (!Predicate.isRecord(json)) return Option.none();
 
-  if (!key || !Predicate.isRecord(json) || !Predicate.isString(json[key])) return Option.none();
+  const { base, key, normalKeys } = pipe(getMessageMeta(data), Option.getOrNull) ?? {};
+  if (!base) return Option.none();
 
-  return Option.some({ ...json, $id: `${key} ${json[key]}` });
+  const keys = pipe(Array.fromNullable(key), Array.appendAll(normalKeys ?? []));
+  const $id = { $typeName: base, ...Struct.pick(json, ...keys) };
+
+  return Option.some({ ...json, $id });
 };
 
 const toNormalMessageDeep = (data: unknown): Option.Option<unknown> => {
@@ -109,7 +113,7 @@ const updateQueriesFromMutationData = (
 export const createQueryNormalizer = (queryClient: QueryClient) => {
   const normalizer = createNormalizer({
     getNormalizationObjectKey: (data) => {
-      if (Predicate.hasProperty(data, '$id') && Predicate.isString(data.$id)) return data.$id;
+      if (Predicate.hasProperty(data, '$id')) return JSON.stringify(data.$id);
       return undefined;
     },
   });

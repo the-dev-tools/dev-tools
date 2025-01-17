@@ -6,31 +6,42 @@ import metaJson from '@the-dev-tools/spec/meta/meta.json';
 
 export const registry = createRegistry(...files);
 
-const meta = pipe(
-  Array.fromRecord<string, { base?: string; key?: string; normalKeys?: string[] }>(metaJson),
-  HashMap.fromIterable,
-);
+interface Meta {
+  key?: string;
+  normalKeys?: string[];
+  base?: string;
+}
 
-export const getMessageIdKey = (message: Message): Option.Option<string> =>
+const metaMap = pipe(Array.fromRecord<string, Meta>(metaJson), HashMap.fromIterable);
+
+export const getMessageMeta = (message: Message): Option.Option<Meta> =>
   pipe(
-    HashMap.get(meta, message.$typeName),
+    HashMap.get(metaMap, message.$typeName),
     Option.flatMap((_) => {
-      if (_.key) return Option.some(_.key);
-      if (_.base) return getMessageIdKey({ $typeName: _.base });
-      return Option.none();
+      if (_.base) return getMessageMeta({ $typeName: _.base });
+      return Option.some({ ..._, base: message.$typeName });
     }),
+  );
+
+export const getMessageKey = (message: Message): Option.Option<string> =>
+  pipe(
+    getMessageMeta(message),
+    Option.flatMapNullable((_) => _.key),
   );
 
 export const getMessageId = (message: Message) =>
   pipe(
-    getMessageIdKey(message),
+    getMessageKey(message),
     Option.filter((_) => _ in message),
     Option.map((_) => message[_ as keyof Message] as unknown),
     Option.flatMap(Schema.validateOption(Schema.Uint8Array)),
   );
 
-export const setMessageId = <T extends Message>(message: T, id: Uint8Array) => {
-  const maybeKey = getMessageIdKey(message);
-  if (Option.isNone(maybeKey)) return message;
-  return { ...message, [maybeKey.value]: id };
-};
+export const setMessageId = <T extends Message>(message: T, id: Uint8Array) =>
+  pipe(
+    getMessageKey(message),
+    Option.match({
+      onNone: () => message,
+      onSome: (key) => ({ ...message, [key]: id }),
+    }),
+  );
