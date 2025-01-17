@@ -1,6 +1,25 @@
 package nrequest_test
 
-/*
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"testing"
+	"the-dev-tools/backend/pkg/flow/edge"
+	"the-dev-tools/backend/pkg/flow/node"
+	"the-dev-tools/backend/pkg/flow/node/nrequest"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/backend/pkg/model/mitemapi"
+	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/testutil"
+	"the-dev-tools/nodes/pkg/httpclient"
+	"the-dev-tools/nodes/pkg/httpclient/httpmockclient"
+)
+
 func TestNodeRequest_Run(t *testing.T) {
 	id := idwrap.NewNow()
 	next := idwrap.NewNow()
@@ -42,7 +61,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		}
 		ctx := context.TODO()
 		resault := requestNode.RunSync(ctx, req)
-		testutil.Assert(t, next, *resault.NextNodeID)
+		testutil.Assert(t, next, resault.NextNodeID[0])
 		testutil.Assert(t, nil, resault.Err)
 		testutil.Assert(t, id, requestNode.GetID())
 		testutil.AssertNot(t, req, nil)
@@ -91,7 +110,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		resChan := make(chan node.FlowNodeResult, 1)
 		go requestNode.RunAsync(ctx, req, resChan)
 		resault := <-resChan
-		testutil.Assert(t, next, *resault.NextNodeID)
+		testutil.Assert(t, next, resault.NextNodeID[0])
 		testutil.Assert(t, nil, resault.Err)
 		testutil.Assert(t, id, requestNode.GetID())
 		testutil.AssertNot(t, nil, req)
@@ -138,4 +157,3 @@ func TestNodeRequest_SetID(t *testing.T) {
 		t.Errorf("Expected ID to be %v, but got %v", newID, requestNode.GetID())
 	}
 }
-*/

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
+	"time"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
@@ -35,7 +36,11 @@ type FlowNodeRequest struct {
 	VarMap        map[string]interface{}
 	NodeMap       map[idwrap.IDWrap]FlowNode
 	EdgeSourceMap edge.EdgesMap
+	Timeout       time.Duration
+	LogPushFunc   LogPushFunc
 }
+
+type LogPushFunc func(status NodeStatus, id idwrap.IDWrap)
 
 type FlowNodeResult struct {
 	NextNodeID []idwrap.IDWrap

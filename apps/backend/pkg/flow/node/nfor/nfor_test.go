@@ -1,18 +1,29 @@
 package nfor_test
 
-/*
+import (
+	"context"
+	"sync/atomic"
+	"testing"
+	"the-dev-tools/backend/pkg/flow/edge"
+	"the-dev-tools/backend/pkg/flow/node"
+	"the-dev-tools/backend/pkg/flow/node/mocknode"
+	"the-dev-tools/backend/pkg/flow/node/nfor"
+	"the-dev-tools/backend/pkg/idwrap"
+	"time"
+)
+
 func TestForNode_RunSync(t *testing.T) {
 	mockNode1ID := idwrap.NewNow()
 	mockNode2ID := idwrap.NewNow()
 	mockNode3ID := idwrap.NewNow()
 
-	var runCounter int
+	var runCounter atomic.Int32
 	testFuncInc := func() {
-		runCounter++
+		runCounter.Add(1)
 	}
 
-	mockNode1 := mocknode.NewMockNode(mockNode1ID, &mockNode2ID, testFuncInc)
-	mockNode2 := mocknode.NewMockNode(mockNode2ID, &mockNode3ID, testFuncInc)
+	mockNode1 := mocknode.NewMockNode(mockNode1ID, []idwrap.IDWrap{mockNode2ID}, testFuncInc)
+	mockNode2 := mocknode.NewMockNode(mockNode2ID, []idwrap.IDWrap{mockNode3ID}, testFuncInc)
 	mockNode3 := mocknode.NewMockNode(mockNode3ID, nil, testFuncInc)
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
@@ -36,18 +47,23 @@ func TestForNode_RunSync(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
+	logMockFunc := func(node.NodeStatus, idwrap.IDWrap) {
+	}
+
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
+		Timeout:       timeOut,
+		LogPushFunc:   logMockFunc,
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
 	if resault.Err != nil {
 		t.Errorf("Expected err to be nil, but got %v", resault.Err)
 	}
-	if runCounter != 9 {
-		t.Errorf("Expected runCounter to be 9, but got %d", runCounter)
+	if runCounter.Load() != 9 {
+		t.Errorf("Expected runCounter to be 9, but got %d", runCounter.Load())
 	}
 }
 
@@ -61,8 +77,8 @@ func TestForNode_RunAsync(t *testing.T) {
 		runCounter++
 	}
 
-	mockNode1 := mocknode.NewMockNode(mockNode1ID, &mockNode2ID, testFuncInc)
-	mockNode2 := mocknode.NewMockNode(mockNode2ID, &mockNode3ID, testFuncInc)
+	mockNode1 := mocknode.NewMockNode(mockNode1ID, []idwrap.IDWrap{mockNode2ID}, testFuncInc)
+	mockNode2 := mocknode.NewMockNode(mockNode2ID, []idwrap.IDWrap{mockNode3ID}, testFuncInc)
 	mockNode3 := mocknode.NewMockNode(mockNode3ID, nil, testFuncInc)
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
@@ -84,10 +100,14 @@ func TestForNode_RunAsync(t *testing.T) {
 
 	ctx := context.Background()
 
+	logMockFunc := func(node.NodeStatus, idwrap.IDWrap) {
+	}
+
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
+		LogPushFunc:   logMockFunc,
 	}
 
 	resultChan := make(chan node.FlowNodeResult, 1)
@@ -109,4 +129,3 @@ func TestForNode_SetID(t *testing.T) {
 		t.Errorf("Expected nodeFor.GetID() to be %v, but got %v", id, nodeFor.GetID())
 	}
 }
-*/

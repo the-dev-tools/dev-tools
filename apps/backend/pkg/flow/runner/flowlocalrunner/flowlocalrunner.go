@@ -34,10 +34,17 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusResp) error {
 	nextNodeID := &r.StartNodeID
 	var err error
+
+	logWorkaround := func(a node.NodeStatus, id idwrap.IDWrap) {
+		status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, &id)
+	}
+
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
 		NodeMap:       r.FlowNodeMap,
 		EdgeSourceMap: r.EdgesMap,
+		LogPushFunc:   node.LogPushFunc(logWorkaround),
+		Timeout:       r.Timeout,
 	}
 	fmt.Println("FlowLocalRunner.Run")
 	status <- runner.NewFlowStatus(runner.FlowStatusStarting, node.NodeNone, nil)
@@ -45,7 +52,12 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	if !ok {
 		return fmt.Errorf("node not found: %v", nextNodeID)
 	}
-	_, err = r.RunNodeSync(ctx, currentNode, req, status)
+	if r.Timeout == 0 {
+		_, err = RunNodeSync(ctx, currentNode, req, logWorkaround)
+	} else {
+		_, err = RunNodeASync(ctx, currentNode, req, logWorkaround)
+	}
+
 	if err != nil {
 		status <- runner.NewFlowStatus(runner.FlowStatusFailed, node.NodeStatusFailed, nextNodeID)
 		return err
@@ -54,11 +66,9 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	return nil
 }
 
-func (r FlowLocalRunner) RunNodeSync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest, status chan runner.FlowStatusResp) ([]idwrap.IDWrap, error) {
-	var wg sync.WaitGroup
-
+func RunNodeSync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc) ([]idwrap.IDWrap, error) {
 	id := currentNode.GetID()
-	status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, &id)
+	statusLogFunc(node.NodeStatusRunning, id)
 	res := currentNode.RunSync(ctx, req)
 
 	nextNodeLen := len(res.NextNodeID)
@@ -66,19 +76,21 @@ func (r FlowLocalRunner) RunNodeSync(ctx context.Context, currentNode node.FlowN
 		return nil, res.Err
 	}
 	if nextNodeLen == 1 {
-		return res.NextNodeID, res.Err
+		// TODO: check for hashmap before getting the next node
+		return RunNodeSync(ctx, req.NodeMap[res.NextNodeID[0]], req, statusLogFunc)
 	}
+	var wg sync.WaitGroup
 
 	parallel := make(chan node.FlowNodeResult, nextNodeLen)
 	for _, v := range res.NextNodeID {
-		currentNode, ok := r.FlowNodeMap[v]
+		currentNode, ok := req.NodeMap[v]
 		if !ok {
 			return nil, fmt.Errorf("node not found: %v", v)
 		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			res, err := r.RunNodeSync(ctx, currentNode, req, status)
+			res, err := RunNodeSync(ctx, currentNode, req, statusLogFunc)
 			parallel <- node.FlowNodeResult{
 				NextNodeID: res,
 				Err:        err,
@@ -91,6 +103,72 @@ func (r FlowLocalRunner) RunNodeSync(ctx context.Context, currentNode node.FlowN
 	var nextNodeID []idwrap.IDWrap
 	for i := 0; i < nextNodeLen; i++ {
 		a := <-parallel
+		if a.Err != nil {
+			return nil, a.Err
+		}
+		nextNodeID = append(nextNodeID, a.NextNodeID...)
+	}
+
+	return nextNodeID, res.Err
+}
+
+func RunNodeASync(ctx context.Context, currentNode node.FlowNode, req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc) ([]idwrap.IDWrap, error) {
+	id := currentNode.GetID()
+	statusLogFunc(node.NodeStatusRunning, id)
+
+	resChan := make(chan node.FlowNodeResult, 1)
+	go func() {
+		res := currentNode.RunSync(ctx, req)
+		resChan <- res
+	}()
+
+	var res *node.FlowNodeResult
+	timedCtx, cancel := context.WithTimeout(ctx, req.Timeout)
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context done")
+	case resLocal := <-resChan:
+		res = &resLocal
+	case <-timedCtx.Done():
+		return nil, fmt.Errorf("timeout")
+	}
+
+	nextNodeLen := len(res.NextNodeID)
+	if nextNodeLen == 0 {
+		return nil, res.Err
+	}
+	if nextNodeLen == 1 {
+		return RunNodeASync(ctx, req.NodeMap[res.NextNodeID[0]], req, statusLogFunc)
+	}
+
+	var wg sync.WaitGroup
+	parallel := make(chan node.FlowNodeResult, nextNodeLen)
+	for _, v := range res.NextNodeID {
+		currentNode, ok := req.NodeMap[v]
+		if !ok {
+			return nil, fmt.Errorf("node not found: %v", v)
+		}
+		wg.Add(1)
+		go func(currentNode node.FlowNode) {
+			defer wg.Done()
+			_, err := RunNodeASync(ctx, currentNode, req, statusLogFunc)
+			if err != nil {
+				parallel <- node.FlowNodeResult{
+					NextNodeID: nil,
+					Err:        err,
+				}
+				return
+			}
+		}(currentNode)
+	}
+
+	wg.Wait()
+	close(parallel)
+
+	var nextNodeID []idwrap.IDWrap
+	for a := range parallel {
 		if a.Err != nil {
 			return nil, a.Err
 		}

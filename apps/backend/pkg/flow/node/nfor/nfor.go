@@ -4,6 +4,7 @@ import (
 	"context"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
+	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
 	"time"
 )
@@ -37,7 +38,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
 
 	for i := int64(0); i < nr.IterCount; i++ {
-		for _, nextNodeID := range loopID {
+		for j, nextNodeID := range loopID {
 			currentNode, ok := req.NodeMap[nextNodeID]
 			if !ok {
 				return node.FlowNodeResult{
@@ -45,10 +46,12 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					Err:        node.ErrNodeNotFound,
 				}
 			}
-			res := currentNode.RunSync(ctx, req)
+			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
 			// TODO: add run for subflow
-			if res.Err != nil {
-				return res
+			if err != nil {
+				return node.FlowNodeResult{
+					Err: err,
+				}
 			}
 		}
 	}
@@ -60,32 +63,32 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 }
 
 func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	/*
-		loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
-		nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
 
-		result := node.FlowNodeResult{
-			NextNodeID: nextID,
-			Err:        nil,
-		}
-		if loopID != nil {
-			for i := int64(0); i < nr.IterCount; i++ {
-				for nextNodeID := loopID; nextNodeID != nil; {
-					currentNode, ok := req.NodeMap[*nextNodeID]
-					if !ok {
-						result.Err = node.ErrNodeNotFound
-						resultChan <- result
-					}
-					id, err := flowlocalrunner.RunNodeAsync(ctx, currentNode, req, nr.Timeout)
-					if err != nil {
-						result.Err = node.ErrNodeNotFound
-						resultChan <- result
-					}
-					nextNodeID = id
+	for i := int64(0); i < nr.IterCount; i++ {
+		for j, nextNodeID := range loopID {
+			currentNode, ok := req.NodeMap[nextNodeID]
+			if !ok {
+				resultChan <- node.FlowNodeResult{
+					NextNodeID: nil,
+					Err:        node.ErrNodeNotFound,
 				}
+				return
+			}
+			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
+			// TODO: add run for subflow
+			if err != nil {
+				resultChan <- node.FlowNodeResult{
+					Err: err,
+				}
+				return
 			}
 		}
+	}
 
-		resultChan <- result
-	*/
+	resultChan <- node.FlowNodeResult{
+		NextNodeID: nextID,
+		Err:        nil,
+	}
 }
