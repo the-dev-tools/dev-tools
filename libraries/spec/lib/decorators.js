@@ -1,9 +1,11 @@
 import { getKeyName } from '@typespec/compiler';
 import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
-import { Hash, Number } from 'effect';
+import { Array, Hash, Number, pipe } from 'effect';
 
-/** @import { DecoratorContext, Model, ModelProperty } from '@typespec/compiler' */
+import { $lib } from './lib.js';
+
+/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty } from '@typespec/compiler' */
 
 /**
  * @param {DecoratorContext} context
@@ -45,16 +47,15 @@ export function $copyParentKey(context, target) {
   const keyName = getKeyName(program, keyProperty);
   if (!keyName) return;
 
-  /** @type {ModelProperty} */
-  keyProperty = {
-    ...keyProperty,
+  const decorators = pipe(
+    keyProperty.decorators,
     // Remove key decorator
-    decorators: keyProperty.decorators.filter(
-      (_) => !(_.definition?.namespace.name === 'TypeSpec' && _.definition?.name === '@key'),
-    ),
-  };
+    Array.filter((_) => !(_.definition?.namespace.name === 'TypeSpec' && _.definition?.name === '@key')),
+    // Add normal key decorator
+    Array.append(/** @type {DecoratorApplication} */ ({ decorator: $normalKey, args: [] })),
+  );
 
-  target.properties.set(keyName, keyProperty);
+  target.properties.set(keyName, { ...keyProperty, decorators });
 }
 
 /**
@@ -125,4 +126,21 @@ export function $autoFields(context, target) {
       ],
     });
   });
+}
+
+/**
+ * @param {DecoratorContext} context
+ * @param {ModelProperty} target
+ */
+export function $normalKey(context, target) {
+  if (!target.model) return;
+
+  const normalKeyMap = context.program.stateMap($lib.stateKeys.normalKey);
+
+  if (!normalKeyMap.has(target.model)) normalKeyMap.set(target.model, []);
+
+  /** @type {string[]} */
+  const normalKeys = normalKeyMap.get(target.model);
+
+  normalKeys.push(target.name);
 }

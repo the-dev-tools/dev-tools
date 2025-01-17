@@ -1,6 +1,8 @@
 import { createTypeSpecLibrary, emitFile, resolvePath } from '@typespec/compiler';
 import { Array, HashMap, Option, pipe, Record } from 'effect';
 
+import { $lib } from './lib.js';
+
 /** @import { EmitContext, Model, Namespace } from '@typespec/compiler' */
 
 /** @param {EmitContext} context */
@@ -29,19 +31,21 @@ export async function $onEmit({ program, emitterOutputDir }) {
         return pipe(
           models.values(),
           Array.fromIterable,
-          Array.map((model) =>
-            pipe(
-              HashMap.get(keys, model),
-              Option.map(
-                /** @returns {[string, string]} */
-                (key) => [`${packageName}.${model.name}`, key],
-              ),
-            ),
-          ),
+          Array.map((model) => {
+            const typeName = `${packageName}.${model.name}`;
+
+            const key = pipe(HashMap.get(keys, model), Option.getOrUndefined);
+
+            /** @type {string[]} */
+            let normalKeys = program.stateMap($lib.stateKeys.normalKey).get(model) ?? [];
+            if (key) normalKeys.unshift(key);
+            if (!normalKeys.length) normalKeys = undefined;
+
+            return [typeName, { key, normalKeys }];
+          }),
         );
       },
     ),
-    Array.getSomes,
     Record.fromEntries,
   );
 
