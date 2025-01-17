@@ -3,9 +3,11 @@ import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
 import { Hash, Number } from 'effect';
 
+/** @import { DecoratorContext, Model, ModelProperty } from '@typespec/compiler' */
+
 /**
- * @param {import('@typespec/compiler').DecoratorContext} context
- * @param {import('@typespec/compiler').Model} target
+ * @param {DecoratorContext} context
+ * @param {Model} target
  */
 export function $copyKey(context, target) {
   const { program } = context;
@@ -24,8 +26,8 @@ export function $copyKey(context, target) {
 }
 
 /**
- * @param {import('@typespec/compiler').DecoratorContext} context
- * @param {import('@typespec/compiler').Model} target
+ * @param {DecoratorContext} context
+ * @param {Model} target
  */
 export function $copyParentKey(context, target) {
   const { program } = context;
@@ -43,7 +45,7 @@ export function $copyParentKey(context, target) {
   const keyName = getKeyName(program, keyProperty);
   if (!keyName) return;
 
-  /** @type {import('@typespec/compiler').ModelProperty} */
+  /** @type {ModelProperty} */
   keyProperty = {
     ...keyProperty,
     // Remove key decorator
@@ -56,8 +58,8 @@ export function $copyParentKey(context, target) {
 }
 
 /**
- * @param {import('@typespec/compiler').DecoratorContext} context
- * @param {import('@typespec/compiler').Model} target
+ * @param {DecoratorContext} context
+ * @param {Model} target
  */
 export function $omitKey(context, target) {
   const { program } = context;
@@ -82,8 +84,8 @@ const fieldNumberFromName = (value) => {
 };
 
 /**
- * @param {import('@typespec/compiler').DecoratorContext} context
- * @param {import('@typespec/compiler').ModelProperty} target
+ * @param {DecoratorContext} context
+ * @param {ModelProperty} target
  */
 export function $autoField(context, target) {
   const fieldNumber = fieldNumberFromName(target.name);
@@ -103,8 +105,8 @@ export function $autoField(context, target) {
 }
 
 /**
- * @param {import('@typespec/compiler').DecoratorContext} context
- * @param {import('@typespec/compiler').Model} target
+ * @param {DecoratorContext} context
+ * @param {Model} target
  */
 export function $autoFields(context, target) {
   target.properties.forEach((property) => {
