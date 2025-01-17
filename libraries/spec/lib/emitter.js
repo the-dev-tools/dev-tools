@@ -50,8 +50,3 @@ export async function $onEmit({ program, emitterOutputDir }) {
     content: JSON.stringify(messageIdMap, undefined, 2),
   });
 }
-
-export const $lib = createTypeSpecLibrary({
-  name: 'meta',
-  diagnostics: {},
-});

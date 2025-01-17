@@ -1,6 +1,6 @@
 import "@typespec/protobuf";
 
-import "./lib.js";
+import "./index.js";
 
 using TypeSpec.Reflection;
 
