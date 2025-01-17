@@ -18,6 +18,7 @@ using TypeSpec.Rest;
 namespace API.Workspace;
 
 @autoFields
+@normalize
 model Workspace {
   @key workspaceId: Resource.Id;
   selectedEnvironmentId: Resource.Id;
@@ -33,6 +34,7 @@ enum MemberRole {
 }
 
 @autoFields
+@normalize
 @parentResource(Workspace)
 model WorkspaceMember {
   @key memberId: Resource.Id;

@@ -24,6 +24,7 @@ enum BodyKind {
 }
 
 @autoFields
+@normalize
 @parentResource(Example.Example)
 model BodyFormItem {
   @key bodyId: Resource.Id;
@@ -35,6 +36,7 @@ model BodyFormItem {
 }
 
 @autoFields
+@normalize
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
   @key bodyId: Resource.Id;

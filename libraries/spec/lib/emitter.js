@@ -9,7 +9,7 @@ import { $lib } from './lib.js';
 export async function $onEmit({ program, emitterOutputDir }) {
   if (program.compilerOptions.noEmit) return;
 
-  const keys = pipe(
+  const modelKeyMap = pipe(
     program.stateMap(Symbol.for('TypeSpec.key')).entries(),
     Array.fromIterable,
     Array.map(
@@ -19,8 +19,10 @@ export async function $onEmit({ program, emitterOutputDir }) {
     HashMap.fromIterable,
   );
 
-  const messageIdMap = pipe(
-    program.stateMap(Symbol.for('@typespec/protobuf.package')).entries(),
+  const packageStateMap = program.stateMap(Symbol.for('@typespec/protobuf.package'));
+
+  const typeMap = pipe(
+    packageStateMap.entries(),
     Array.fromIterable,
     Array.flatMap(
       /** @param {[Namespace, Model]} entry */
@@ -34,23 +36,37 @@ export async function $onEmit({ program, emitterOutputDir }) {
           Array.map((model) => {
             const typeName = `${packageName}.${model.name}`;
 
-            const key = pipe(HashMap.get(keys, model), Option.getOrUndefined);
+            /** @type {Model | undefined} */
+            const base = program.stateMap($lib.stateKeys.base).get(model);
 
-            /** @type {string[]} */
-            let normalKeys = program.stateMap($lib.stateKeys.normalKey).get(model) ?? [];
-            if (key) normalKeys.unshift(key);
-            if (!normalKeys.length) normalKeys = undefined;
+            if (!base) return Option.none();
 
-            return [typeName, { key, normalKeys }];
+            if (base !== model) {
+              const hasBase = program.stateMap($lib.stateKeys.base).get(base) === base;
+              if (!hasBase) return Option.none();
+
+              /** @type {string} */
+              const basePackageName = packageStateMap.get(base.namespace).properties.get('name').type.value;
+              const baseTypeName = `${basePackageName}.${base.name}`;
+              return Option.some(/** @type {const} */ ([typeName, { base: baseTypeName }]));
+            }
+
+            const key = pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined);
+
+            /** @type {string[] | undefined} */
+            const normalKeys = program.stateMap($lib.stateKeys.normalKeys).get(model);
+
+            return Option.some(/** @type {const} */ ([typeName, { key, normalKeys }]));
           }),
         );
       },
     ),
+    Array.getSomes,
     Record.fromEntries,
   );
 
   await emitFile(program, {
-    path: resolvePath(emitterOutputDir, 'message-id-map.json'),
-    content: JSON.stringify(messageIdMap, undefined, 2),
+    path: resolvePath(emitterOutputDir, 'meta.json'),
+    content: JSON.stringify(typeMap, undefined, 2),
   });
 }

@@ -21,6 +21,7 @@ using TypeSpec.Rest.Resource;
 namespace API.CollectionItem.Example;
 
 @autoFields
+@normalize
 @parentResource(Endpoint.Endpoint)
 model Example {
   @key exampleId: Resource.Id;

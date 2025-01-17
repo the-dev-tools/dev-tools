@@ -18,6 +18,7 @@ using TypeSpec.Rest;
 namespace API.CollectionItem.Folder;
 
 @autoFields
+@normalize
 @parentResource(Collection.Collection)
 model Folder {
   @key folderId: Resource.Id;

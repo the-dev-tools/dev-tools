@@ -19,6 +19,7 @@ using TypeSpec.Rest;
 namespace API.CollectionItem.Request;
 
 @autoFields
+@normalize
 @parentResource(Example.Example)
 model Query {
   @key queryId: Resource.Id;
@@ -30,6 +31,7 @@ model Query {
 }
 
 @autoFields
+@normalize
 @parentResource(Example.Example)
 model Header {
   @key headerId: Resource.Id;
@@ -41,6 +43,7 @@ model Header {
 }
 
 @autoFields
+@normalize
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.Id;

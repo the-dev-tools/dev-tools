@@ -25,6 +25,7 @@ enum Handle {
 }
 
 @parentResource(Flow.Flow)
+@normalize
 @autoFields
 model Edge {
   @key edgeId: Resource.Id;

@@ -18,6 +18,7 @@ using TypeSpec.Rest;
 namespace API.Collection;
 
 @autoFields
+@normalize
 @parentResource(Workspace.Workspace)
 model Collection {
   @key collectionId: Resource.Id;

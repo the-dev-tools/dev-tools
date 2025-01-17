@@ -4,6 +4,7 @@ export const $lib = createTypeSpecLibrary({
   name: 'meta',
   diagnostics: {},
   state: {
-    normalKey: {},
+    base: {},
+    normalKeys: {},
   },
 });

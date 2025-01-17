@@ -24,4 +24,5 @@ model OmitKey<Resource> {
 extern dec autoField(target: ModelProperty);
 extern dec autoFields(target: Model);
 
+extern dec normalize(target: Model, base?: Model);
 extern dec normalKey(target: ModelProperty);

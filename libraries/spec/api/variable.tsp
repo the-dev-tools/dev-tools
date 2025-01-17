@@ -18,6 +18,7 @@ using TypeSpec.Rest;
 namespace API.Variable;
 
 @autoFields
+@normalize
 @parentResource(Environment.Environment)
 model Variable {
   @key variableId: Resource.Id;

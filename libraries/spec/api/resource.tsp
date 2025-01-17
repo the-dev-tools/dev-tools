@@ -3,13 +3,15 @@ import "@typespec/protobuf";
 import "../lib";
 
 using TypeSpec.Protobuf;
+using TypeSpec.Reflection;
 using TypeSpec.Rest.Resource;
 
 namespace API.Resource;
 
 alias Id = bytes;
 
-model Change<Resource> {
+@normalize(Resource)
+model Change<Resource extends Model> {
   ...KeyOf<Resource>;
   ...OptionalProperties<OmitKey<Resource>>;
 }
@@ -19,9 +21,10 @@ model Changes {
 }
 
 namespace List {
-  @withVisibility("query", "list")
+  @normalize(Resource)
   @withDefaultKeyVisibility("query")
-  model Item<Resource> {
+  @withVisibility("query", "list")
+  model Item<Resource extends Model> {
     ...Resource;
   }
 
@@ -40,16 +43,17 @@ namespace Get {
     ...KeyOf<Resource>;
   }
 
-  @withVisibility("query", "get")
+  @normalize(Resource)
   @withDefaultKeyVisibility("query")
-  model Response<Resource> {
+  @withVisibility("query", "get")
+  model Response<Resource extends Model> {
     ...Resource;
   }
 }
 
 namespace Create {
-  @withVisibility("mutate", "create")
   @withDefaultKeyVisibility("mutate")
+  @withVisibility("mutate", "create")
   model Request<Resource> {
     ...ParentKeyOf<Resource>;
     ...OmitKey<Resource>;
@@ -62,9 +66,10 @@ namespace Create {
 }
 
 namespace Update {
-  @withVisibility("mutate", "update")
+  @normalize(Resource)
   @withDefaultKeyVisibility("mutate")
-  model Request<Resource extends {}> {
+  @withVisibility("mutate", "update")
+  model Request<Resource extends Model> {
     ...KeyOf<Resource>;
     ...ParentKeyOf<Resource>;
     ...OptionalProperties<OmitKey<Resource>>;

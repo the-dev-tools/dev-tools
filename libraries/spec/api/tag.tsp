@@ -30,6 +30,7 @@ enum TagColor {
 }
 
 @autoFields
+@normalize
 @parentResource(Workspace.Workspace)
 model Tag {
   @key tagId: Resource.Id;

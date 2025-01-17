@@ -35,6 +35,7 @@ enum NodeKind {
 }
 
 @parentResource(Flow.Flow)
+@normalize
 @autoFields
 model Node {
   @key nodeId: Resource.Id;

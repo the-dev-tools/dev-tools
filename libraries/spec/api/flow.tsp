@@ -19,6 +19,7 @@ using TypeSpec.Rest;
 namespace API.Flow;
 
 @autoFields
+@normalize
 @parentResource(Workspace.Workspace)
 model Flow {
   @key flowId: Resource.Id;

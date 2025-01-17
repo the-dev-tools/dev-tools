@@ -18,6 +18,7 @@ using TypeSpec.Rest;
 namespace API.CollectionItem.Response;
 
 @autoFields
+@normalize
 @parentResource(Example.Example)
 model Response {
   @key responseId: Resource.Id;
@@ -28,6 +29,7 @@ model Response {
 }
 
 @autoFields
+@normalize
 @parentResource(Response)
 model ResponseHeader {
   @key responseHeaderId: Resource.Id;

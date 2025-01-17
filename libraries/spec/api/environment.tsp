@@ -18,6 +18,7 @@ using TypeSpec.Rest;
 namespace API.Environment;
 
 @autoFields
+@normalize
 @parentResource(Workspace.Workspace)
 model Environment {
   @key environmentId: Resource.Id;

@@ -135,7 +135,7 @@ export function $autoFields(context, target) {
 export function $normalKey(context, target) {
   if (!target.model) return;
 
-  const normalKeyMap = context.program.stateMap($lib.stateKeys.normalKey);
+  const normalKeyMap = context.program.stateMap($lib.stateKeys.normalKeys);
 
   if (!normalKeyMap.has(target.model)) normalKeyMap.set(target.model, []);
 
@@ -143,4 +143,13 @@ export function $normalKey(context, target) {
   const normalKeys = normalKeyMap.get(target.model);
 
   normalKeys.push(target.name);
+}
+
+/**
+ * @param {DecoratorContext} context
+ * @param {Model} target
+ * @param {Model | undefined} base
+ */
+export function $normalize(context, target, base) {
+  context.program.stateMap($lib.stateKeys.base).set(target, base ?? target);
 }
