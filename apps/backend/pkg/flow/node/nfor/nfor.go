@@ -38,7 +38,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
 
 	for i := int64(0); i < nr.IterCount; i++ {
-		for j, nextNodeID := range loopID {
+		for _, nextNodeID := range loopID {
 			currentNode, ok := req.NodeMap[nextNodeID]
 			if !ok {
 				return node.FlowNodeResult{
@@ -67,7 +67,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
 
 	for i := int64(0); i < nr.IterCount; i++ {
-		for j, nextNodeID := range loopID {
+		for _, nextNodeID := range loopID {
 			currentNode, ok := req.NodeMap[nextNodeID]
 			if !ok {
 				resultChan <- node.FlowNodeResult{
