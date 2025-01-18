@@ -162,7 +162,7 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, dep
         return fakeEnum(faker, field.enum);
 
       case 'list':
-        if (field.name === 'changes' && field.message?.typeName === 'google.protobuf.Any') return [];
+        if (field.name === 'changes' && field.message?.typeName === 'change.v1.Change') return [];
         if (depth > 5) return [];
         return faker.helpers.multiple(() => {
           switch (field.listKind) {

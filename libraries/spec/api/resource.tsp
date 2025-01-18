@@ -2,6 +2,8 @@ import "@typespec/protobuf";
 
 import "../lib";
 
+import "./change.tsp";
+
 using TypeSpec.Protobuf;
 using TypeSpec.Reflection;
 using TypeSpec.Rest.Resource;
@@ -14,10 +16,6 @@ alias Id = bytes;
 model Change<Resource extends Model> {
   ...KeyOf<Resource>;
   ...OptionalProperties<OmitKey<Resource>>;
-}
-
-model Changes {
-  @autoField changes?: WellKnown.Any[];
 }
 
 namespace List {
@@ -61,7 +59,7 @@ namespace Create {
 
   model Response<Resource> {
     ...KeyOf<Resource>;
-    ...Changes;
+    ...API.Change.Changes;
   }
 }
 
@@ -76,7 +74,7 @@ namespace Update {
   }
 
   model Response<Resource> {
-    ...Changes;
+    ...API.Change.Changes;
   }
 }
 
@@ -87,6 +85,6 @@ namespace Delete {
   }
 
   model Response<Resource> {
-    ...Changes;
+    ...API.Change.Changes;
   }
 }

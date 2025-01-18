@@ -1,10 +1,12 @@
-import { create, DescMethodUnary, fromJson, isMessage, JsonObject, toJson } from '@bufbuild/protobuf';
+import { create, DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJson } from '@bufbuild/protobuf';
 import { AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { ConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
 import { QueryClient, QueryKey } from '@tanstack/react-query';
 import { Array, Option, pipe, Predicate, Record, Struct } from 'effect';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+
+import { Change, ChangeKind, ChangeSchema } from '@the-dev-tools/spec/change/v1/change_pb';
 
 import { getMessageMeta, registry } from './meta';
 
@@ -23,13 +25,17 @@ declare module '@tanstack/react-query' {
 const toNormalMessage = (data: unknown) => {
   if (!isMessage(data)) return Option.none();
 
-  const schema = registry.getMessage(data.$typeName);
+  let message: Message | undefined = data;
+  if (isMessage(message, AnySchema)) message = anyUnpack(message, registry);
+  if (!message) return Option.none();
+
+  const schema = registry.getMessage(message.$typeName);
   if (!schema) return Option.none();
 
-  const json = toJson(schema, data, { registry });
+  const json = toJson(schema, message, { registry });
   if (!Predicate.isRecord(json)) return Option.none();
 
-  const { base, key, normalKeys } = pipe(getMessageMeta(data), Option.getOrNull) ?? {};
+  const { base, key, normalKeys } = pipe(getMessageMeta(message), Option.getOrNull) ?? {};
   if (!base) return Option.none();
 
   const keys = pipe(Array.fromNullable(key), Array.appendAll(normalKeys ?? []));
@@ -55,59 +61,82 @@ const toNormalMessageDeep = (data: unknown): Option.Option<unknown> => {
   return Option.none();
 };
 
-const getNormalMessages = (data: unknown): JsonObject[] => {
-  let messages = Array.empty<JsonObject>();
-
-  if (isMessage(data, AnySchema))
-    messages = pipe(anyUnpack(data, registry), getNormalMessages, Array.appendAll(messages));
-
-  const normal = toNormalMessage(data);
-  if (Option.isSome(normal)) messages = Array.append(messages, normal.value);
-
-  if (Array.isArray(data)) messages = pipe(Array.flatMap(data, getNormalMessages), Array.appendAll(messages));
-
-  if (Predicate.isRecord(data)) messages = pipe(Record.values(data), getNormalMessages, Array.appendAll(messages));
-
-  return messages;
+const getChanges = (data: unknown): Change[] => {
+  if (isMessage(data, ChangeSchema)) return [data];
+  if (Array.isArray(data)) return Array.flatMap(data, getChanges);
+  if (Predicate.isRecord(data)) return pipe(Record.values(data), getChanges);
+  return [];
 };
 
-const updateQueriesFromMutationData = (
+const updateQueriesFromMutationData = async (
   mutationData: Data,
   normalizer: ReturnType<typeof createNormalizer>,
   queryClient: QueryClient,
 ) => {
-  const messages = getNormalMessages(mutationData);
-  const queriesToUpdate = normalizer.getQueriesToUpdate(messages as Data);
+  const changesByKind: Record<string, Change[]> = pipe(
+    getChanges(mutationData),
+    Array.groupBy((_) => _.kind.toString()),
+  );
 
-  queriesToUpdate.forEach((query) => {
-    const queryKey = JSON.parse(query.queryKey) as QueryKey;
-    const cachedQuery = queryClient.getQueryCache().find({ queryKey });
+  // Perform updates
+  pipe(
+    changesByKind[ChangeKind.UPDATE.toString()] ?? [],
+    Array.map((_) => toNormalMessage(_.data)),
+    Array.getSomes,
+    normalizer.getQueriesToUpdate,
+    Array.forEach((query) => {
+      const queryKey = JSON.parse(query.queryKey) as QueryKey;
+      const cachedQuery = queryClient.getQueryCache().find({ queryKey });
 
-    if (cachedQuery?.queryKey[0] !== 'connect-query' || !Predicate.isRecord(query.data)) return;
+      if (cachedQuery?.queryKey[0] !== 'connect-query' || !Predicate.isRecord(query.data)) return;
 
-    const [_, { serviceName, methodName }] = cachedQuery.queryKey as ConnectQueryKey;
-    const methodKey = `${methodName?.[0]?.toLowerCase()}${methodName?.slice(1)}`;
-    const method = registry.getService(serviceName)?.method[methodKey];
+      const [_, { serviceName, methodName }] = cachedQuery.queryKey as ConnectQueryKey;
+      const methodKey = `${methodName?.[0]?.toLowerCase()}${methodName?.slice(1)}`;
+      const method = registry.getService(serviceName)?.method[methodKey];
 
-    if (!method) return;
+      if (!method) return;
 
-    // `react-query` resets some state when `setQueryData` is called
-    // We reapply state that should not be reset when a query is updated via Normy
-    // `dataUpdatedAt` and `isInvalidated` determine if a query is stale or not,
-    // and we only want data updates from the network to change it
-    const dataUpdatedAt = cachedQuery.state.dataUpdatedAt;
-    const isInvalidated = cachedQuery.state.isInvalidated;
-    const error = cachedQuery.state.error ?? null;
-    const status = cachedQuery.state.status;
+      // `react-query` resets some state when `setQueryData` is called
+      // We reapply state that should not be reset when a query is updated via Normy
+      // `dataUpdatedAt` and `isInvalidated` determine if a query is stale or not,
+      // and we only want data updates from the network to change it
+      const dataUpdatedAt = cachedQuery.state.dataUpdatedAt;
+      const isInvalidated = cachedQuery.state.isInvalidated;
+      const error = cachedQuery.state.error ?? null;
+      const status = cachedQuery.state.status;
 
-    const message = fromJson(method.output, query.data as JsonObject, { ignoreUnknownFields: true });
+      const message = fromJson(method.output, query.data as JsonObject, { ignoreUnknownFields: true });
 
-    queryClient.setQueryData(queryKey, () => message, {
-      updatedAt: dataUpdatedAt,
-    });
+      queryClient.setQueryData(queryKey, () => message, {
+        updatedAt: dataUpdatedAt,
+      });
 
-    cachedQuery.setState({ isInvalidated, error, status, dataUpdatedAt });
-  });
+      cachedQuery.setState({ isInvalidated, error, status, dataUpdatedAt });
+    }),
+  );
+
+  // Perform invalidations
+  await pipe(
+    changesByKind[ChangeKind.INVALIDATE.toString()] ?? [],
+    Array.map(async (_) => {
+      if (!_.service) return;
+
+      const queryKey: ConnectQueryKey = ['connect-query', { serviceName: _.service }];
+
+      if (_.method) queryKey[1].methodName = _.method;
+
+      pipe(
+        Option.fromNullable(_.data),
+        Option.flatMapNullable((_) => toJson(AnySchema, _, { registry })),
+        Option.flatMap(Option.liftPredicate(Predicate.isRecord)),
+        Option.map(Struct.omit('@type')),
+        Option.map((_) => (queryKey[1].input = _)),
+      );
+
+      await queryClient.invalidateQueries({ queryKey });
+    }),
+    (_) => Promise.allSettled(_),
+  );
 };
 
 export const createQueryNormalizer = (queryClient: QueryClient) => {
@@ -123,7 +152,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
 
   return {
     getNormalizedData: normalizer.getNormalizedData,
-    setNormalizedData: (data: Data) => void updateQueriesFromMutationData(data, normalizer, queryClient),
+    setNormalizedData: (data: Data) => updateQueriesFromMutationData(data, normalizer, queryClient),
     clear: normalizer.clearNormalizedData,
     subscribe: () => {
       unsubscribeQueryCache = queryClient.getQueryCache().subscribe((event) => {
@@ -149,7 +178,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
         }
       });
 
-      unsubscribeMutationCache = queryClient.getMutationCache().subscribe((event) => {
+      unsubscribeMutationCache = queryClient.getMutationCache().subscribe(async (event) => {
         if (
           event.type === 'updated' &&
           event.action.type === 'success' &&
@@ -159,7 +188,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
           const data: unknown[] = [event.action.data];
           if (event.mutation.options.meta?.schema && Predicate.isRecord(event.mutation.state.variables))
             data.push(create(event.mutation.options.meta.schema.input, event.mutation.state.variables));
-          updateQueriesFromMutationData(data as Data, normalizer, queryClient);
+          await updateQueriesFromMutationData(data as Data, normalizer, queryClient);
         } else if (
           event.type === 'updated' &&
           event.action.type === 'pending' &&
@@ -169,7 +198,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
           const data: unknown[] = [(event.mutation.state.context as { optimisticData: Data }).optimisticData];
           if (event.mutation.options.meta?.schema && Predicate.isRecord(event.mutation.state.variables))
             data.push(create(event.mutation.options.meta.schema.input, event.mutation.state.variables));
-          updateQueriesFromMutationData(data as Data, normalizer, queryClient);
+          await updateQueriesFromMutationData(data as Data, normalizer, queryClient);
         } else if (
           event.type === 'updated' &&
           event.action.type === 'error' &&
@@ -179,7 +208,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
           const data: unknown[] = [(event.mutation.state.context as { rollbackData: Data }).rollbackData];
           if (event.mutation.options.meta?.schema && Predicate.isRecord(event.mutation.state.variables))
             data.push(create(event.mutation.options.meta.schema.input, event.mutation.state.variables));
-          updateQueriesFromMutationData(data as Data, normalizer, queryClient);
+          await updateQueriesFromMutationData(data as Data, normalizer, queryClient);
         }
       });
     },
