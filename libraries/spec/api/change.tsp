@@ -22,12 +22,15 @@ enum ChangeKind {
   /** Merge the new data onto the old data */
   CHANGE_KIND_UPDATE: 1,
 
+  /** Delete the data */
+  CHANGE_KIND_DELETE: 2,
+
   /**
    * Force re-fetch of `service`'s `method` request, where `data` is used as a query filter
    *
    * Useful for non-normalizable data, or large/complex data that may not be needed immediately
    */
-  CHANGE_KIND_INVALIDATE: 2,
+  CHANGE_KIND_INVALIDATE: 3,
 }
 
 @autoFields

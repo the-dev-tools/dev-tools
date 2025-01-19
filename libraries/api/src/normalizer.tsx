@@ -2,7 +2,7 @@ import { create, DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJs
 import { AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { ConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
-import { QueryClient, QueryKey } from '@tanstack/react-query';
+import { Query, QueryClient, QueryKey, Updater } from '@tanstack/react-query';
 import { Array, Option, pipe, Predicate, Record, Struct } from 'effect';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
@@ -68,6 +68,42 @@ const getChanges = (data: unknown): Change[] => {
   return [];
 };
 
+const removeMessageDeep =
+  ($id: string) =>
+  (data: unknown): Option.Option<unknown> => {
+    if (Predicate.hasProperty(data, '$id') && JSON.stringify(data.$id) === $id) return Option.none();
+
+    if (Array.isArray(data)) return pipe(data, Array.map(removeMessageDeep($id)), Array.getSomes, Option.some);
+
+    if (Predicate.isRecord(data)) return pipe(Record.map(data, removeMessageDeep($id)), Record.getSomes, Option.some);
+
+    return Option.some(data);
+  };
+
+interface SetQueryDataProps {
+  query: Query;
+  queryClient: QueryClient;
+  queryKey: QueryKey;
+  updater: Updater<unknown, unknown>;
+}
+
+const setQueryData = ({ query, queryClient, queryKey, updater }: SetQueryDataProps) => {
+  // `react-query` resets some state when `setQueryData` is called
+  // We reapply state that should not be reset when a query is updated via Normy
+  // `dataUpdatedAt` and `isInvalidated` determine if a query is stale or not,
+  // and we only want data updates from the network to change it
+  const dataUpdatedAt = query.state.dataUpdatedAt;
+  const isInvalidated = query.state.isInvalidated;
+  const error = query.state.error ?? null;
+  const status = query.state.status;
+
+  queryClient.setQueryData(queryKey, updater, {
+    updatedAt: dataUpdatedAt,
+  });
+
+  query.setState({ isInvalidated, error, status, dataUpdatedAt });
+};
+
 const updateQueriesFromMutationData = async (
   mutationData: Data,
   normalizer: ReturnType<typeof createNormalizer>,
@@ -77,6 +113,56 @@ const updateQueriesFromMutationData = async (
     getChanges(mutationData),
     Array.groupBy((_) => _.kind.toString()),
   );
+
+  const deletes = pipe(
+    changesByKind[ChangeKind.DELETE] ?? [],
+    Array.map((_) => toNormalMessage(_.data)),
+    Array.getSomes,
+    Array.map((_) => [_, normalizer.getDependentQueries(_)] as const),
+  );
+
+  // Perform deletes
+  for (const [data, queryKeysJson] of deletes) {
+    const $id = JSON.stringify(data.$id);
+
+    for (const queryKeyJson of queryKeysJson) {
+      const queryKey = JSON.parse(queryKeyJson) as QueryKey;
+      const query = queryClient.getQueryCache().find({ queryKey });
+
+      if (query?.queryKey[0] !== 'connect-query') continue;
+
+      const isTopLevel = pipe(
+        toNormalMessage(query.state.data),
+        Option.exists((_) => JSON.stringify(_.$id) === $id),
+      );
+
+      if (isTopLevel) {
+        await queryClient.invalidateQueries({ queryKey, exact: true });
+        continue;
+      }
+
+      setQueryData({
+        query,
+        queryKey,
+        queryClient,
+        updater: (data: unknown) => {
+          const schema = pipe(
+            Option.liftPredicate(data, isMessage),
+            Option.flatMapNullable((_) => registry.getMessage(_.$typeName)),
+          );
+
+          if (Option.isNone(schema)) return data;
+
+          return pipe(
+            toNormalMessageDeep(data),
+            Option.flatMap(removeMessageDeep($id)),
+            Option.map((_) => fromJson(schema.value, _ as JsonObject, { ignoreUnknownFields: true })),
+            Option.getOrElse(() => data),
+          );
+        },
+      });
+    }
+  }
 
   // Perform updates
   pipe(
@@ -88,30 +174,20 @@ const updateQueriesFromMutationData = async (
       const queryKey = JSON.parse(query.queryKey) as QueryKey;
       const cachedQuery = queryClient.getQueryCache().find({ queryKey });
 
-      if (cachedQuery?.queryKey[0] !== 'connect-query' || !Predicate.isRecord(query.data)) return;
+      if (cachedQuery?.queryKey[0] !== 'connect-query') return;
 
-      const [_, { serviceName, methodName }] = cachedQuery.queryKey as ConnectQueryKey;
-      const methodKey = `${methodName?.[0]?.toLowerCase()}${methodName?.slice(1)}`;
-      const method = registry.getService(serviceName)?.method[methodKey];
-
-      if (!method) return;
-
-      // `react-query` resets some state when `setQueryData` is called
-      // We reapply state that should not be reset when a query is updated via Normy
-      // `dataUpdatedAt` and `isInvalidated` determine if a query is stale or not,
-      // and we only want data updates from the network to change it
-      const dataUpdatedAt = cachedQuery.state.dataUpdatedAt;
-      const isInvalidated = cachedQuery.state.isInvalidated;
-      const error = cachedQuery.state.error ?? null;
-      const status = cachedQuery.state.status;
-
-      const message = fromJson(method.output, query.data as JsonObject, { ignoreUnknownFields: true });
-
-      queryClient.setQueryData(queryKey, () => message, {
-        updatedAt: dataUpdatedAt,
+      setQueryData({
+        query: cachedQuery,
+        queryKey,
+        queryClient,
+        updater: (data: unknown) =>
+          pipe(
+            Option.liftPredicate(data, isMessage),
+            Option.flatMapNullable((_) => registry.getMessage(_.$typeName)),
+            Option.map((_) => fromJson(_, query.data as JsonObject, { ignoreUnknownFields: true })),
+            Option.getOrElse(() => data),
+          ),
       });
-
-      cachedQuery.setState({ isInvalidated, error, status, dataUpdatedAt });
     }),
   );
 
