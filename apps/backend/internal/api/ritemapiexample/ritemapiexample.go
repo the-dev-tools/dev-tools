@@ -43,6 +43,7 @@ import (
 	"the-dev-tools/backend/pkg/varsystem"
 	"the-dev-tools/backend/pkg/zstdcompress"
 	"the-dev-tools/nodes/pkg/httpclient"
+	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
@@ -285,13 +286,19 @@ func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Requ
 		ExampleId: exampleUlid.Bytes(),
 	}
 
-	var changes []*anypb.Any
-
 	changeAny, err := anypb.New(a)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	changes = append(changes, changeAny)
+
+	changeKind := changev1.ChangeKind_CHANGE_KIND_DELETE
+
+	changes := []*changev1.Change{
+		{
+			Kind: &changeKind,
+			Data: changeAny,
+		},
+	}
 
 	resp := &examplev1.ExampleDeleteResponse{
 		Changes: changes,
