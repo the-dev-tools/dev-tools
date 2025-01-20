@@ -11,7 +11,7 @@
     "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@types/react": "~19.0.7",
-    "effect": "~3.12.4",
+    "effect": "~3.12.5",
     "react": "~19.0.0",
     "react-dom": "~19.0.0",
     "react-email": "~3.0.6",

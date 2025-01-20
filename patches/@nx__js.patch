@@ -1,5 +1,4 @@
 diff --git a/src/generators/typescript-sync/typescript-sync.js b/src/generators/typescript-sync/typescript-sync.js
-index 380a523045ef26ec65f6b6f67c936270a4c0c09e..43bd5660632467bcae386faeb4f54525e0594756 100644
 --- a/src/generators/typescript-sync/typescript-sync.js
 +++ b/src/generators/typescript-sync/typescript-sync.js
 @@ -5,6 +5,7 @@ const devkit_1 = require("@nx/devkit");

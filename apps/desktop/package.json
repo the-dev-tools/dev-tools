@@ -8,14 +8,14 @@
     "dev": "electron-vite dev"
   },
   "dependencies": {
-    "@effect/platform": "0.73.1",
-    "@effect/platform-browser": "0.52.1",
-    "@effect/platform-node": "0.69.1",
+    "@effect/platform": "0.74.0",
+    "@effect/platform-browser": "0.53.0",
+    "@effect/platform-node": "0.70.0",
     "@the-dev-tools/api": "workspace:^",
     "@the-dev-tools/backend": "workspace:^",
     "@the-dev-tools/core": "workspace:^",
     "@vitejs/plugin-react": "4.3.4",
-    "effect": "3.12.4",
+    "effect": "3.12.5",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
@@ -29,6 +29,6 @@
     "eslint": "~9.18.0",
     "tailwindcss": "~3.4.15",
     "typescript": "~5.7.3",
-    "vite": "~6.0.7"
+    "vite": "~6.0.9"
   }
 }

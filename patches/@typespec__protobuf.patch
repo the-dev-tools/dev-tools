@@ -1,5 +1,4 @@
 diff --git a/dist/src/transform/index.js b/dist/src/transform/index.js
-index 00ab1a95d25eadc56d57b0eb44cc77a67da87a66..ad15120364a2c262f327da4fe266553026ca703c 100644
 --- a/dist/src/transform/index.js
 +++ b/dist/src/transform/index.js
 @@ -615,6 +615,8 @@ function tspToProto(program, emitterOptions) {
@@ -12,7 +11,6 @@ index 00ab1a95d25eadc56d57b0eb44cc77a67da87a66..ad15120364a2c262f327da4fe2665530
      }
      /**
 diff --git a/dist/src/write.js b/dist/src/write.js
-index 9c0c05f925541641306da8d6d506519e3981d7a9..a7598a4fda7ce254355f7df8b1edfaa5332e6b59 100644
 --- a/dist/src/write.js
 +++ b/dist/src/write.js
 @@ -137,7 +137,7 @@ function writeVariant(decl, indentLevel) {
