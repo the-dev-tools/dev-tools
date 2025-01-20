@@ -6,5 +6,6 @@ export const $lib = createTypeSpecLibrary({
   state: {
     base: {},
     normalKeys: {},
+    autoChanges: {},
   },
 });

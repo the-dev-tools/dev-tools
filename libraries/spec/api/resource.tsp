@@ -52,13 +52,18 @@ namespace Get {
 }
 
 namespace Create {
+  @normalize(Resource)
   @withDefaultKeyVisibility("mutate")
   @withVisibility("mutate", "create")
-  model Request<Resource> {
+  model Request<Resource extends Model> {
     ...ParentKeyOf<Resource>;
     ...OmitKey<Resource>;
   }
 
+  @autoChange(#{
+    $data: API.Change.Source.RESPONSE,
+    $list: #[#{ kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND, $parent: API.Change.Source.REQUEST }],
+  })
   model Response<Resource> {
     ...KeyOf<Resource>;
     ...API.Change.Changes;
@@ -75,17 +80,20 @@ namespace Update {
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
+  @autoChange(#{ kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE, $data: API.Change.Source.REQUEST })
   model Response<Resource> {
     ...API.Change.Changes;
   }
 }
 
 namespace Delete {
-  model Request<Resource> {
+  @normalize(Resource)
+  model Request<Resource extends Model> {
     ...KeyOf<Resource>;
     ...ParentKeyOf<Resource>;
   }
 
+  @autoChange(#{ kind: API.Change.ChangeKind.CHANGE_KIND_DELETE, $data: API.Change.Source.REQUEST })
   model Response<Resource> {
     ...API.Change.Changes;
   }

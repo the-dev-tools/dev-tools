@@ -36,32 +36,24 @@ export async function $onEmit({ program, emitterOutputDir }) {
           Array.map((model) => {
             const typeName = `${packageName}.${model.name}`;
 
+            const meta = {
+              autoChanges: program.stateMap($lib.stateKeys.autoChanges).get(model),
+              key: pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined),
+              normalKeys: program.stateMap($lib.stateKeys.normalKeys).get(model),
+            };
+
             /** @type {Model | undefined} */
-            const base = program.stateMap($lib.stateKeys.base).get(model);
-
-            if (!base) return Option.none();
-
-            if (base !== model) {
-              const hasBase = program.stateMap($lib.stateKeys.base).get(base) === base;
-              if (!hasBase) return Option.none();
-
-              /** @type {string} */
-              const basePackageName = packageStateMap.get(base.namespace).properties.get('name').type.value;
-              const baseTypeName = `${basePackageName}.${base.name}`;
-              return Option.some(/** @type {const} */ ([typeName, { base: baseTypeName }]));
+            let baseModel = program.stateMap($lib.stateKeys.base).get(model);
+            if (baseModel) {
+              const basePackageName = packageStateMap.get(baseModel.namespace).properties.get('name').type.value;
+              meta.base = `${basePackageName}.${baseModel.name}`;
             }
 
-            const key = pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined);
-
-            /** @type {string[] | undefined} */
-            const normalKeys = program.stateMap($lib.stateKeys.normalKeys).get(model);
-
-            return Option.some(/** @type {const} */ ([typeName, { key, normalKeys }]));
+            return /** @type {const} */ ([typeName, meta]);
           }),
         );
       },
     ),
-    Array.getSomes,
     Record.fromEntries,
   );
 

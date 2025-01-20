@@ -1,11 +1,11 @@
-import { getKeyName } from '@typespec/compiler';
+import { getKeyName, isValue, serializeValueAsJson } from '@typespec/compiler';
 import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
-import { Array, Hash, Number, pipe } from 'effect';
+import { Array, Hash, Match, Number, pipe, Predicate, Record } from 'effect';
 
 import { $lib } from './lib.js';
 
-/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty } from '@typespec/compiler' */
+/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty, Type, Value } from '@typespec/compiler' */
 
 /**
  * @param {DecoratorContext} context
@@ -152,4 +152,27 @@ export function $normalKey(context, target) {
  */
 export function $normalize(context, target, base) {
   context.program.stateMap($lib.stateKeys.base).set(target, base ?? target);
+}
+
+/**
+ * @param {unknown} data
+ * @returns {unknown}
+ */
+function valueToJson(data) {
+  if (isValue(data) && data.valueKind === 'EnumValue') return data.value.name;
+  if (Array.isArray(data)) return Array.map(data, valueToJson);
+  if (Predicate.isRecord(data)) return Record.map(data, valueToJson);
+  return data;
+}
+
+/**
+ * @param {DecoratorContext} context
+ * @param {Model} target
+ * @param {unknown} value
+ */
+export function $autoChange(context, target, value) {
+  /** @type {Map<Type, unknown[]>} */
+  const autoChangesMap = context.program.stateMap($lib.stateKeys.autoChanges);
+  const change = valueToJson(value);
+  pipe(autoChangesMap.get(target) ?? [], Array.append(change), (_) => autoChangesMap.set(target, _));
 }

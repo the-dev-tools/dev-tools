@@ -1,31 +1,46 @@
 import { createRegistry, Message } from '@bufbuild/protobuf';
 import { Array, HashMap, Option, pipe, Schema } from 'effect';
 
+import { ChangeJson, ListChangeJson } from '@the-dev-tools/spec/change/v1/change_pb';
 import { files } from '@the-dev-tools/spec/files';
 import metaJson from '@the-dev-tools/spec/meta/meta.json';
 
 export const registry = createRegistry(...files);
 
-interface Meta {
-  key?: string;
-  normalKeys?: string[];
-  base?: string;
+export type AutoChangeSource = 'REQUEST' | 'RESPONSE';
+
+interface AutoListChange extends Omit<ListChangeJson, 'parent'> {
+  $parent: AutoChangeSource;
 }
 
-const metaMap = pipe(Array.fromRecord<string, Meta>(metaJson), HashMap.fromIterable);
+interface AutoChange extends Omit<ChangeJson, 'data' | 'list'> {
+  $data?: AutoChangeSource;
+  $list?: AutoListChange[];
+}
 
-export const getMessageMeta = (message: Message): Option.Option<Meta> =>
+interface Meta {
+  autoChanges?: AutoChange[];
+  base?: string;
+  key?: string;
+  normalKeys?: string[];
+}
+
+const metaMap = pipe(Array.fromRecord(metaJson as Record<string, Meta>), HashMap.fromIterable);
+
+export const getMessageMeta = (message: Message) => HashMap.get(metaMap, message.$typeName);
+
+export const getBaseMessageMeta = (message: Message): Option.Option<Meta> =>
   pipe(
-    HashMap.get(metaMap, message.$typeName),
+    getMessageMeta(message),
     Option.flatMap((_) => {
-      if (_.base) return getMessageMeta({ $typeName: _.base });
-      return Option.some({ ..._, base: message.$typeName });
+      if (_.base && _.base !== message.$typeName) return getBaseMessageMeta({ $typeName: _.base });
+      return Option.some(_);
     }),
   );
 
 export const getMessageKey = (message: Message): Option.Option<string> =>
   pipe(
-    getMessageMeta(message),
+    getBaseMessageMeta(message),
     Option.flatMapNullable((_) => _.key),
   );
 

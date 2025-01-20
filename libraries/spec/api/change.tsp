@@ -16,6 +16,24 @@ model Changes {
   @autoField changes?: Change[];
 }
 
+enum Source {
+  REQUEST,
+  RESPONSE,
+}
+
+@withoutOmittedProperties("parent")
+model AutoListChange {
+  ...ListChange;
+  $parent: Source;
+}
+
+@withoutOmittedProperties("data" | "list")
+model AutoChange {
+  ...Change;
+  $data: Source;
+  $list?: AutoListChange[];
+}
+
 enum ChangeKind {
   CHANGE_KIND_UNSPECIFIED: 0,
 
@@ -35,7 +53,7 @@ enum ChangeKind {
 
 @autoFields
 model Change {
-  kind: ChangeKind;
+  kind?: ChangeKind;
 
   /** Data to change, must be normalizable */
   data: WellKnown.Any;

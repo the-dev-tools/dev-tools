@@ -1,14 +1,21 @@
-import { DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJson } from '@bufbuild/protobuf';
-import { AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
+import { create, DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJson } from '@bufbuild/protobuf';
+import { anyPack, AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { ConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
 import { Query, QueryClient, QueryKey, Updater } from '@tanstack/react-query';
-import { Array, Boolean, flow, Option, pipe, Predicate, Record, Struct } from 'effect';
+import { Array, Boolean, flow, Match, Option, pipe, Predicate, Record, Struct } from 'effect';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-import { Change, ChangeKind, ChangeSchema, ListChangeKind } from '@the-dev-tools/spec/change/v1/change_pb';
+import {
+  Change,
+  ChangeKind,
+  ChangeSchema,
+  ListChange,
+  ListChangeKind,
+  ListChangeSchema,
+} from '@the-dev-tools/spec/change/v1/change_pb';
 
-import { getMessageMeta, registry } from './meta';
+import { AutoChangeSource, getBaseMessageMeta, getMessageMeta, registry } from './meta';
 
 interface NormyReactQueryMeta extends Record<string, unknown> {
   normalize?: boolean;
@@ -35,7 +42,7 @@ const toNormalMessage = (data: unknown) => {
   const json = toJson(schema, message, { registry });
   if (!Predicate.isRecord(json)) return Option.none();
 
-  const { base, key, normalKeys } = pipe(getMessageMeta(message), Option.getOrNull) ?? {};
+  const { base, key, normalKeys } = pipe(getBaseMessageMeta(message), Option.getOrNull) ?? {};
   if (!base) return Option.none();
 
   const keys = pipe(Array.fromNullable(key), Array.appendAll(normalKeys ?? []));
@@ -137,7 +144,7 @@ const updateQueries = ({ data, normalizer, queryClient }: UpdateQueriesProps) =>
 
 const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesProps) => {
   const changes = getChanges(data);
-  const changesByKind: Record<string, Change[]> = Array.groupBy(changes, (_) => _.kind.toString());
+  const changesByKind: Record<string, Change[]> = Array.groupBy(changes, (_) => _.kind?.toString() ?? '');
 
   // Perform deletes
   await pipe(
@@ -335,7 +342,58 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
           event.action.data &&
           event.mutation.meta?.normalize !== false
         ) {
-          await processChanges({ data: event.action.data, normalizer, queryClient });
+          const input: unknown = event.mutation.state.variables;
+          const output: unknown = event.action.data;
+
+          const autoChanges = pipe(
+            Option.fromNullable(event.mutation.options.meta?.schema),
+            Option.map((schema) => {
+              const sourceToData = (source?: AutoChangeSource) =>
+                pipe(
+                  Match.value(source),
+                  Match.when('REQUEST', () =>
+                    pipe(
+                      Option.liftPredicate(input, Predicate.isRecord),
+                      Option.map((_) => create(schema.input, _)),
+                      Option.map((_) => anyPack(schema.input, _)),
+                    ),
+                  ),
+                  Match.when('RESPONSE', () =>
+                    pipe(
+                      Option.liftPredicate(output, (_) => isMessage(_, schema.output)),
+                      Option.map((_) => anyPack(schema.output, _)),
+                    ),
+                  ),
+                  Match.orElse(() => Option.none()),
+                  Option.getOrUndefined,
+                );
+
+              const autoChanges = pipe(
+                getMessageMeta({ $typeName: schema.output.typeName }),
+                Option.flatMapNullable((_) => _.autoChanges),
+                Option.toArray,
+                Array.flatten,
+                Array.flatMapNullable(({ $data, $list, ...change }): Change | undefined => {
+                  const data = sourceToData($data);
+
+                  const list = Array.flatMapNullable($list ?? [], ({ $parent, ...change }): ListChange | undefined => {
+                    const parent = sourceToData($parent);
+                    if (!parent) return;
+                    return { ...fromJson(ListChangeSchema, change), parent };
+                  });
+
+                  if (data === undefined) return;
+                  return { ...fromJson(ChangeSchema, change), data, list };
+                }),
+              );
+
+              return autoChanges;
+            }),
+            Option.toArray,
+            Array.flatten,
+          );
+
+          await processChanges({ data: [output, autoChanges], normalizer, queryClient });
         }
       });
     },
