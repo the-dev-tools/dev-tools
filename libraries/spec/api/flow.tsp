@@ -32,10 +32,13 @@ model FlowListItem is Resource.List.Item<Flow>;
 @autoFields
 model FlowListRequest {
   ...Resource.List.Request<Flow>;
-  tagId?: Resource.Id;
+  @normalKey tagId?: Resource.Id;
 }
 
-model FlowListResponse is Resource.List.Response<Flow, FlowListItem>;
+model FlowListResponse is Resource.List.Response<{}, FlowListItem> {
+  ...FlowListRequest;
+}
+
 model FlowGetRequest is Resource.Get.Request<Flow>;
 model FlowGetResponse is Resource.Get.Response<Flow>;
 model FlowCreateRequest is Resource.Create.Request<Flow>;

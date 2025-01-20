@@ -38,10 +38,12 @@ model CollectionItem {
 
 @autoFields
 model CollectionItemListRequest is Resource.List.Request<CollectionItem> {
-  folderId?: Resource.Id;
+  @normalKey folderId?: Resource.Id;
 }
 
-model CollectionItemListResponse is Resource.List.Response<CollectionItem>;
+model CollectionItemListResponse is Resource.List.Response<{}, CollectionItem> {
+  ...CollectionItemListRequest;
+}
 
 @autoFields
 model CollectionItemMoveRequest {
