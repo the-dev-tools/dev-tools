@@ -31,7 +31,7 @@ model CollectionListRequest is Resource.List.Request<Collection>;
 model CollectionListResponse is Resource.List.Response<Collection, CollectionListItem>;
 model CollectionGetRequest is Resource.Get.Request<Collection>;
 model CollectionGetResponse is Resource.Get.Response<Collection>;
-model CollectionCreateRequest is Resource.Create.Request<Collection>;
+model CollectionCreateRequest is Resource.Create.Request<Collection, CollectionListResponse>;
 model CollectionCreateResponse is Resource.Create.Response<Collection>;
 model CollectionUpdateRequest is Resource.Update.Request<Collection>;
 model CollectionUpdateResponse is Resource.Update.Response<Collection>;
@@ -40,14 +40,14 @@ model CollectionDeleteResponse is Resource.Delete.Response<Collection>;
 
 @autoFields
 model CollectionImportPostmanRequest {
-  ...Resource.Create.Request<Collection>;
+  ...Resource.Create.Request<Collection, CollectionListResponse>;
   data: bytes;
 }
 model CollectionImportPostmanResponse is Resource.Create.Response<Collection>;
 
 @autoFields
 model CollectionImportHarRequest {
-  ...Resource.Create.Request<Collection>;
+  ...Resource.Create.Request<Collection, CollectionListResponse>;
   data: bytes;
 }
 model CollectionImportHarResponse is Resource.Create.Response<Collection>;

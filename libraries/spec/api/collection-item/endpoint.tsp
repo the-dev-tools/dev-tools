@@ -33,7 +33,7 @@ model EndpointChange is Resource.Change<Endpoint>;
 model EndpointListItem is Resource.List.Item<Endpoint>;
 model EndpointGetRequest is Resource.Get.Request<Endpoint>;
 model EndpointGetResponse is Resource.Get.Response<Endpoint>;
-model EndpointCreateRequest is Resource.Create.Request<Endpoint>;
+model EndpointCreateRequest is Resource.Create.Request<Endpoint, EndpointListResponse>;
 model EndpointCreateResponse is Resource.Create.Response<Endpoint> {
   ...KeyOf<Example.Example>;
 }

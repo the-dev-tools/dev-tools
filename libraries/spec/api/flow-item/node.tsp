@@ -96,7 +96,7 @@ model NodeListRequest is Resource.List.Request<Node>;
 model NodeListResponse is Resource.List.Response<Node, NodeListItem>;
 model NodeGetRequest is Resource.Get.Request<Node>;
 model NodeGetResponse is Resource.Get.Response<Node>;
-model NodeCreateRequest is Resource.Create.Request<Node>;
+model NodeCreateRequest is Resource.Create.Request<Node, NodeListResponse>;
 model NodeCreateResponse is Resource.Create.Response<Node>;
 model NodeUpdateRequest is Resource.Update.Request<Node>;
 model NodeUpdateResponse is Resource.Update.Response<Node>;

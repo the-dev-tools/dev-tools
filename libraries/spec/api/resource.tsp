@@ -52,10 +52,10 @@ namespace Get {
 }
 
 namespace Create {
-  @normalize(Resource)
+  @normalize(ListResponse)
   @withDefaultKeyVisibility("mutate")
   @withVisibility("mutate", "create")
-  model Request<Resource extends Model> {
+  model Request<Resource extends Model, ListResponse extends Model = Resource> {
     ...ParentKeyOf<Resource>;
     ...OmitKey<Resource>;
   }
@@ -64,7 +64,8 @@ namespace Create {
     $data: API.Change.Source.RESPONSE,
     $list: #[#{ kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND, $parent: API.Change.Source.REQUEST }],
   })
-  model Response<Resource> {
+  @normalize(Resource)
+  model Response<Resource extends Model> {
     ...KeyOf<Resource>;
     ...API.Change.Changes;
   }

@@ -41,7 +41,7 @@ model FlowListResponse is Resource.List.Response<{}, FlowListItem> {
 
 model FlowGetRequest is Resource.Get.Request<Flow>;
 model FlowGetResponse is Resource.Get.Response<Flow>;
-model FlowCreateRequest is Resource.Create.Request<Flow>;
+model FlowCreateRequest is Resource.Create.Request<Flow, FlowListResponse>;
 model FlowCreateResponse is Resource.Create.Response<Flow>;
 model FlowUpdateRequest is Resource.Update.Request<Flow>;
 model FlowUpdateResponse is Resource.Update.Response<Flow>;

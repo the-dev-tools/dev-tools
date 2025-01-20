@@ -44,7 +44,7 @@ model TagListRequest is Resource.List.Request<Tag>;
 model TagListResponse is Resource.List.Response<Tag, TagListItem>;
 model TagGetRequest is Resource.Get.Request<Tag>;
 model TagGetResponse is Resource.Get.Response<Tag>;
-model TagCreateRequest is Resource.Create.Request<Tag>;
+model TagCreateRequest is Resource.Create.Request<Tag, TagListResponse>;
 model TagCreateResponse is Resource.Create.Response<Tag>;
 model TagUpdateRequest is Resource.Update.Request<Tag>;
 model TagUpdateResponse is Resource.Update.Response<Tag>;

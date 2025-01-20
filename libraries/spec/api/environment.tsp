@@ -34,7 +34,7 @@ model EnvironmentListRequest is Resource.List.Request<Environment>;
 model EnvironmentListResponse is Resource.List.Response<Environment, EnvironmentListItem>;
 model EnvironmentGetRequest is Resource.Get.Request<Environment>;
 model EnvironmentGetResponse is Resource.Get.Response<Environment>;
-model EnvironmentCreateRequest is Resource.Create.Request<Environment>;
+model EnvironmentCreateRequest is Resource.Create.Request<Environment, EnvironmentListResponse>;
 model EnvironmentCreateResponse is Resource.Create.Response<Environment>;
 model EnvironmentUpdateRequest is Resource.Update.Request<Environment>;
 model EnvironmentUpdateResponse is Resource.Update.Response<Environment>;
