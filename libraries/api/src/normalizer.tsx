@@ -393,7 +393,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
             Array.flatten,
           );
 
-          await processChanges({ data: [output, autoChanges], normalizer, queryClient });
+          await processChanges({ data: [autoChanges, output], normalizer, queryClient });
         }
       });
     },
