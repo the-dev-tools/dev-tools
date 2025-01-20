@@ -30,6 +30,7 @@ import (
 	"the-dev-tools/nodes/pkg/httpclient"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
+	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 
 	"connectrpc.com/connect"
 	"github.com/pkg/errors"
@@ -641,11 +642,28 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			condition = mcondition.Default()
 		} else {
 			comp := rpcNode.Condition.Condition.Comparison
-			for _, v := range comp.Path {
-				if v.Key == nil {
-					return nil, nil, fmt.Errorf("key is nil")
+			for i, v := range comp.Path {
+				switch v.Kind {
+				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
+					if v.Group == nil {
+						return nil, nil, fmt.Errorf("group is nil")
+					}
+					if i != 0 {
+						path += "."
+					}
+					path += *v.Group
+				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
+					if v.Key == nil {
+						return nil, nil, fmt.Errorf("key is nil")
+					}
+					if i != 0 {
+						path += "."
+					}
+					path += *v.Key
+				default:
+					// TODO: Add other types of reference keys here
+					return nil, nil, fmt.Errorf("unknown reference key kind: %v", v.Kind)
 				}
-				path += *v.Key
 			}
 			condition = &mcondition.Condition{
 				Comparisons: mcondition.Comparison{

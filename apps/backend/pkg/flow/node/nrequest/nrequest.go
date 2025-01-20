@@ -3,6 +3,7 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -13,7 +14,7 @@ import (
 	"the-dev-tools/nodes/pkg/httpclient"
 )
 
-const NodeOutputKey = "request"
+const NodeOutputKey = "header"
 
 type NodeRequest struct {
 	FlownNodeID idwrap.IDWrap
@@ -81,7 +82,12 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		result.Err = err
 		return result
 	}
-	req.VarMap[NodeOutputKey] = respMap
+
+	fmt.Println(respMap)
+	err = node.AddVar(req, respMap, nr.GetID(), "request")
+	if err != nil {
+		result.Err = err
+	}
 
 	return result
 }

@@ -2,6 +2,7 @@ package nif
 
 import (
 	"context"
+	"fmt"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -47,11 +48,13 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		result.Err = node.ErrNodeNotFound
 		return result
 	}
+	a := map[string]interface{}{
+		"var": req.VarMap,
+	}
+	fmt.Println(a)
 
 	rootLeaf := &leafmock.LeafMock{
-		Leafs: map[string]interface{}{
-			"var": req.VarMap,
-		},
+		Leafs: a,
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)

@@ -39,12 +39,14 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 		status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, &id)
 	}
 
+	var readerWriterLock sync.RWMutex
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
 		NodeMap:       r.FlowNodeMap,
 		EdgeSourceMap: r.EdgesMap,
 		LogPushFunc:   node.LogPushFunc(logWorkaround),
 		Timeout:       r.Timeout,
+		ReadWriteLock: &readerWriterLock,
 	}
 	fmt.Println("FlowLocalRunner.Run")
 	status <- runner.NewFlowStatus(runner.FlowStatusStarting, node.NodeNone, nil)
@@ -59,6 +61,8 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	}
 
 	if err != nil {
+		fmt.Println(err)
+
 		status <- runner.NewFlowStatus(runner.FlowStatusFailed, node.NodeStatusFailed, nextNodeID)
 		return err
 	}

@@ -224,18 +224,20 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 
 		var nodeRefs []*referencev1.Reference
 		for _, req := range reqs {
-			if req.ExampleID != nil {
+			if req.ExampleID == nil {
 				continue
 			}
 			resp, err := c.ers.GetExampleRespByExampleID(ctx, *req.ExampleID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+
 			var headersSubRefs []*referencev1.Reference
 			subRespHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+
 			for _, header := range subRespHeaders {
 				headersSubRefs = append(headersSubRefs, &referencev1.Reference{
 					Key: &referencev1.ReferenceKey{
@@ -247,6 +249,28 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 				})
 			}
 
+			headerGroupKey := "headers"
+			headerGroupRef := &referencev1.Reference{
+				Key: &referencev1.ReferenceKey{
+					Group: &headerGroupKey,
+					Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
+				},
+				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
+				Map:  headersSubRefs,
+			}
+			var RequestSub []*referencev1.Reference
+			RequestSub = append(RequestSub, headerGroupRef)
+
+			requestGroupKey := "request"
+			requestGroupRef := &referencev1.Reference{
+				Key: &referencev1.ReferenceKey{
+					Group: &requestGroupKey,
+					Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
+				},
+				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
+				Map:  RequestSub,
+			}
+
 			flowNodeIDStr := req.FlowNodeID.String()
 			nodeRefs = append(nodeRefs, &referencev1.Reference{
 				Key: &referencev1.ReferenceKey{
@@ -254,8 +278,9 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 					Key:  &flowNodeIDStr,
 				},
 				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-				Map:  headersSubRefs,
+				Map:  []*referencev1.Reference{requestGroupRef},
 			})
+
 		}
 
 		refGroupVarStr := "var"
