@@ -56,6 +56,7 @@ namespace Create {
   @withDefaultKeyVisibility("mutate")
   @withVisibility("mutate", "create")
   model Request<Resource extends Model, ListResponse extends Model = Resource> {
+    ...KeyOf<Resource>;
     ...ParentKeyOf<Resource>;
     ...OmitKey<Resource>;
   }
