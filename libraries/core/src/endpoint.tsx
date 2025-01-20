@@ -397,8 +397,8 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           const { queryId } = await queryCreateMutation.mutateAsync(query);
           newQueryList.push(
             create(QueryListItemSchema, {
-              queryId,
               ...Struct.omit(query, '$typeName'),
+              queryId,
             }),
           );
         }
