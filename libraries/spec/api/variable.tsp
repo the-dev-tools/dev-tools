@@ -35,7 +35,7 @@ model VariableListItem is Resource.List.Item<Variable> {
 model VariableListRequest is Resource.List.Request<Variable> {
   @autoField @visibility("list") workspaceId?: Resource.Id;
 }
-model VariableListResponse is Resource.List.Response<VariableListItem>;
+model VariableListResponse is Resource.List.Response<Variable, VariableListItem>;
 model VariableGetRequest is Resource.Get.Request<Variable>;
 model VariableGetResponse is Resource.Get.Response<Variable>;
 model VariableCreateRequest is Resource.Create.Request<Variable>;

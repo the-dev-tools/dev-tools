@@ -35,7 +35,7 @@ model FlowListRequest {
   tagId?: Resource.Id;
 }
 
-model FlowListResponse is Resource.List.Response<FlowListItem>;
+model FlowListResponse is Resource.List.Response<Flow, FlowListItem>;
 model FlowGetRequest is Resource.Get.Request<Flow>;
 model FlowGetResponse is Resource.Get.Response<Flow>;
 model FlowCreateRequest is Resource.Create.Request<Flow>;

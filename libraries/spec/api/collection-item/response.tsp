@@ -51,11 +51,11 @@ model ResponseGetResponse is Resource.Get.Response<Response>;
 model ResponseHeaderChange is Resource.Change<ResponseHeader>;
 model ResponseHeaderListItem is Resource.List.Item<ResponseHeader>;
 model ResponseHeaderListRequest is Resource.List.Request<ResponseHeader>;
-model ResponseHeaderListResponse is Resource.List.Response<ResponseHeaderListItem>;
+model ResponseHeaderListResponse is Resource.List.Response<ResponseHeader, ResponseHeaderListItem>;
 
 model ResponseAssertListItem is Resource.List.Item<ResponseAssert>;
 model ResponseAssertListRequest is Resource.List.Request<ResponseAssert>;
-model ResponseAssertListResponse is Resource.List.Response<ResponseAssertListItem>;
+model ResponseAssertListResponse is Resource.List.Response<ResponseAssert, ResponseAssertListItem>;
 
 @Protobuf.service
 interface ResponseService {

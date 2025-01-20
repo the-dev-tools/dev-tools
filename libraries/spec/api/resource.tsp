@@ -31,7 +31,9 @@ namespace List {
   }
 
   @autoFields
-  model Response<Item> {
+  @normalize
+  model Response<Resource, Item = Resource> {
+    ...ParentKeyOf<Resource>;
     items: Item[];
   }
 }

@@ -37,7 +37,7 @@ model Edge {
 model EdgeChange is Resource.Change<Edge>;
 model EdgeListItem is Resource.List.Item<Edge>;
 model EdgeListRequest is Resource.List.Request<Edge>;
-model EdgeListResponse is Resource.List.Response<EdgeListItem>;
+model EdgeListResponse is Resource.List.Response<Edge, EdgeListItem>;
 model EdgeGetRequest is Resource.Get.Request<Edge>;
 model EdgeGetResponse is Resource.Get.Response<Edge>;
 model EdgeCreateRequest is Resource.Create.Request<Edge>;

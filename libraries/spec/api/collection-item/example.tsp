@@ -33,7 +33,7 @@ model Example {
 model ExampleChange is Resource.Change<Example>;
 model ExampleListItem is Resource.List.Item<Example>;
 model ExampleListRequest is Resource.List.Request<Example>;
-model ExampleListResponse is Resource.List.Response<ExampleListItem>;
+model ExampleListResponse is Resource.List.Response<Example, ExampleListItem>;
 model ExampleGetRequest is Resource.Get.Request<Example>;
 model ExampleGetResponse is Resource.Get.Response<Example>;
 model ExampleCreateRequest is Resource.Create.Request<Example>;

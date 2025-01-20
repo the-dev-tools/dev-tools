@@ -93,7 +93,7 @@ model NodeCondition {
 model NodeChange is Resource.Change<Node>;
 model NodeListItem is Resource.List.Item<Node>;
 model NodeListRequest is Resource.List.Request<Node>;
-model NodeListResponse is Resource.List.Response<NodeListItem>;
+model NodeListResponse is Resource.List.Response<Node, NodeListItem>;
 model NodeGetRequest is Resource.Get.Request<Node>;
 model NodeGetResponse is Resource.Get.Response<Node>;
 model NodeCreateRequest is Resource.Create.Request<Node>;

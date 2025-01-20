@@ -46,7 +46,7 @@ model WorkspaceMember {
 model WorkspaceChange is Resource.Change<Workspace>;
 model WorkspaceListItem is Resource.List.Item<Workspace>;
 model WorkspaceListRequest is Resource.List.Request<Workspace>;
-model WorkspaceListResponse is Resource.List.Response<WorkspaceListItem>;
+model WorkspaceListResponse is Resource.List.Response<Workspace, WorkspaceListItem>;
 model WorkspaceGetRequest is Resource.Get.Request<Workspace>;
 model WorkspaceGetResponse is Resource.Get.Response<Workspace>;
 model WorkspaceCreateRequest is Resource.Create.Request<Workspace>;
@@ -60,7 +60,7 @@ model WorkspaceDeleteResponse is Resource.Delete.Response<Workspace>;
 model WorkspaceMemberChange is Resource.Change<WorkspaceMember>;
 model WorkspaceMemberListItem is Resource.List.Item<WorkspaceMember>;
 model WorkspaceMemberListRequest is Resource.List.Request<WorkspaceMember>;
-model WorkspaceMemberListResponse is Resource.List.Response<WorkspaceMemberListItem>;
+model WorkspaceMemberListResponse is Resource.List.Response<WorkspaceMember, WorkspaceMemberListItem>;
 model WorkspaceMemberCreateRequest is Resource.Create.Request<WorkspaceMember>;
 model WorkspaceMemberCreateResponse is Resource.Create.Response<WorkspaceMember>;
 model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember>;

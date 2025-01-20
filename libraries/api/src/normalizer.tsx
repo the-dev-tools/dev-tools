@@ -1,12 +1,12 @@
-import { create, DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJson } from '@bufbuild/protobuf';
+import { DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJson } from '@bufbuild/protobuf';
 import { AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { ConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
 import { Query, QueryClient, QueryKey, Updater } from '@tanstack/react-query';
-import { Array, Option, pipe, Predicate, Record, Struct } from 'effect';
+import { Array, Boolean, flow, Option, pipe, Predicate, Record, Struct } from 'effect';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-import { Change, ChangeKind, ChangeSchema } from '@the-dev-tools/spec/change/v1/change_pb';
+import { Change, ChangeKind, ChangeSchema, ListChangeKind } from '@the-dev-tools/spec/change/v1/change_pb';
 
 import { getMessageMeta, registry } from './meta';
 
@@ -104,32 +104,56 @@ const setQueryData = ({ query, queryClient, queryKey, updater }: SetQueryDataPro
   query.setState({ isInvalidated, error, status, dataUpdatedAt });
 };
 
-const updateQueriesFromMutationData = async (
-  mutationData: Data,
-  normalizer: ReturnType<typeof createNormalizer>,
-  queryClient: QueryClient,
-) => {
-  const changesByKind: Record<string, Change[]> = pipe(
-    getChanges(mutationData),
-    Array.groupBy((_) => _.kind.toString()),
-  );
+interface UpdateQueriesProps {
+  data: unknown;
+  normalizer: ReturnType<typeof createNormalizer>;
+  queryClient: QueryClient;
+}
 
-  const deletes = pipe(
+const updateQueries = ({ data, normalizer, queryClient }: UpdateQueriesProps) => {
+  pipe(
+    normalizer.getQueriesToUpdate(data as Data),
+    Array.forEach((query) => {
+      const queryKey = JSON.parse(query.queryKey) as QueryKey;
+      const cachedQuery = queryClient.getQueryCache().find({ queryKey });
+
+      if (cachedQuery?.queryKey[0] !== 'connect-query') return;
+
+      setQueryData({
+        query: cachedQuery,
+        queryKey,
+        queryClient,
+        updater: (data: unknown) =>
+          pipe(
+            Option.liftPredicate(data, isMessage),
+            Option.flatMapNullable((_) => registry.getMessage(_.$typeName)),
+            Option.map((_) => fromJson(_, query.data as JsonObject, { ignoreUnknownFields: true })),
+            Option.getOrElse(() => data),
+          ),
+      });
+    }),
+  );
+};
+
+const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesProps) => {
+  const changes = getChanges(data);
+  const changesByKind: Record<string, Change[]> = Array.groupBy(changes, (_) => _.kind.toString());
+
+  // Perform deletes
+  await pipe(
     changesByKind[ChangeKind.DELETE] ?? [],
     Array.map((_) => toNormalMessage(_.data)),
     Array.getSomes,
-    Array.map((_) => [_, normalizer.getDependentQueries(_)] as const),
-  );
-
-  // Perform deletes
-  for (const [data, queryKeysJson] of deletes) {
-    const $id = JSON.stringify(data.$id);
-
-    for (const queryKeyJson of queryKeysJson) {
-      const queryKey = JSON.parse(queryKeyJson) as QueryKey;
+    Array.flatMap((data) =>
+      pipe(
+        normalizer.getDependentQueries(data),
+        Array.map((_) => [JSON.stringify(data.$id), JSON.parse(_) as QueryKey] as const),
+      ),
+    ),
+    Array.map(async ([$id, queryKey]) => {
       const query = queryClient.getQueryCache().find({ queryKey });
 
-      if (query?.queryKey[0] !== 'connect-query') continue;
+      if (query?.queryKey[0] !== 'connect-query') return;
 
       const isTopLevel = pipe(
         toNormalMessage(query.state.data),
@@ -138,7 +162,7 @@ const updateQueriesFromMutationData = async (
 
       if (isTopLevel) {
         await queryClient.invalidateQueries({ queryKey, exact: true });
-        continue;
+        return;
       }
 
       setQueryData({
@@ -161,39 +185,85 @@ const updateQueriesFromMutationData = async (
           );
         },
       });
-    }
-  }
+    }),
+    (_) => Promise.allSettled(_),
+  );
 
   // Perform updates
   pipe(
-    changesByKind[ChangeKind.UPDATE.toString()] ?? [],
+    changesByKind[ChangeKind.UPDATE] ?? [],
     Array.map((_) => toNormalMessage(_.data)),
     Array.getSomes,
-    normalizer.getQueriesToUpdate,
-    Array.forEach((query) => {
-      const queryKey = JSON.parse(query.queryKey) as QueryKey;
-      const cachedQuery = queryClient.getQueryCache().find({ queryKey });
+    (_) => void updateQueries({ data: _, normalizer, queryClient }),
+  );
 
-      if (cachedQuery?.queryKey[0] !== 'connect-query') return;
+  // Perform list changes
+  pipe(
+    Array.flatMap(changes, ({ list, data }) => {
+      const messageMaybe = pipe(
+        Option.fromNullable(data),
+        Option.flatMapNullable((_) => anyUnpack(_, registry)),
+        Option.flatMap(toNormalMessage),
+      );
 
-      setQueryData({
-        query: cachedQuery,
-        queryKey,
-        queryClient,
-        updater: (data: unknown) =>
-          pipe(
-            Option.liftPredicate(data, isMessage),
-            Option.flatMapNullable((_) => registry.getMessage(_.$typeName)),
-            Option.map((_) => fromJson(_, query.data as JsonObject, { ignoreUnknownFields: true })),
-            Option.getOrElse(() => data),
-          ),
-      });
+      if (Option.isNone(messageMaybe)) return [];
+
+      const messageId = JSON.stringify(messageMaybe.value.$id);
+      const message = normalizer.getObjectById<typeof messageMaybe.value>(messageId) ?? messageMaybe.value;
+
+      return list.map((change) => ({ change, message, messageId }));
     }),
+    Array.flatMapNullable(({ change, message, messageId }) => {
+      const parentMessage = pipe(
+        Option.fromNullable(change.parent),
+        Option.flatMapNullable((_) => anyUnpack(_, registry)),
+      );
+
+      const parentId = pipe(
+        Option.flatMap(parentMessage, toNormalMessage),
+        Option.map((_) => JSON.stringify(_.$id)),
+        Option.getOrElse(() => ''),
+      );
+
+      const key = change.key ?? 'items';
+      const parent = normalizer.getObjectById(parentId);
+
+      if (!Predicate.isRecord(parent) || !(key in parent) || !Array.isArray(parent[key])) return;
+
+      let list = parent[key] as unknown[];
+
+      if (change.kind === ListChangeKind.APPEND) list = Array.append(list, message);
+      if (change.kind === ListChangeKind.PREPEND) list = Array.prepend(list, message);
+
+      if (change.kind === ListChangeKind.REMOVE || change.kind === ListChangeKind.MOVE) {
+        list = Array.filter(
+          list,
+          flow(
+            Option.liftPredicate(Predicate.hasProperty('$id')),
+            Option.exists((_) => JSON.stringify(_.$id) === messageId),
+            Boolean.not,
+          ),
+        );
+      }
+
+      if (
+        change.index !== undefined &&
+        (change.kind === ListChangeKind.INSERT || change.kind === ListChangeKind.MOVE)
+      ) {
+        list = pipe(
+          Array.insertAt(list, change.index, message),
+          Option.getOrElse(() => list),
+        );
+      }
+
+      return { ...parent, [key]: list };
+    }),
+    (_) => void updateQueries({ data: _, normalizer, queryClient }),
   );
 
   // Perform invalidations
   await pipe(
-    changesByKind[ChangeKind.INVALIDATE.toString()] ?? [],
+    changesByKind[ChangeKind.INVALIDATE] ?? [],
     Array.map(async (_) => {
       if (!_.service) return;
 
@@ -228,7 +298,11 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
 
   return {
     getNormalizedData: normalizer.getNormalizedData,
-    setNormalizedData: (data: Data) => updateQueriesFromMutationData(data, normalizer, queryClient),
+    setNormalizedData: (data: unknown) => {
+      const message = toNormalMessageDeep(data);
+      if (Option.isNone(message)) return;
+      updateQueries({ data: message.value, normalizer, queryClient });
+    },
     clear: normalizer.clearNormalizedData,
     subscribe: () => {
       unsubscribeQueryCache = queryClient.getQueryCache().subscribe((event) => {
@@ -261,30 +335,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
           event.action.data &&
           event.mutation.meta?.normalize !== false
         ) {
-          const data: unknown[] = [event.action.data];
-          if (event.mutation.options.meta?.schema && Predicate.isRecord(event.mutation.state.variables))
-            data.push(create(event.mutation.options.meta.schema.input, event.mutation.state.variables));
-          await updateQueriesFromMutationData(data as Data, normalizer, queryClient);
-        } else if (
-          event.type === 'updated' &&
-          event.action.type === 'pending' &&
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          (event.mutation.state?.context as { optimisticData?: Data })?.optimisticData
-        ) {
-          const data: unknown[] = [(event.mutation.state.context as { optimisticData: Data }).optimisticData];
-          if (event.mutation.options.meta?.schema && Predicate.isRecord(event.mutation.state.variables))
-            data.push(create(event.mutation.options.meta.schema.input, event.mutation.state.variables));
-          await updateQueriesFromMutationData(data as Data, normalizer, queryClient);
-        } else if (
-          event.type === 'updated' &&
-          event.action.type === 'error' &&
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          (event.mutation.state?.context as { rollbackData?: Data })?.rollbackData
-        ) {
-          const data: unknown[] = [(event.mutation.state.context as { rollbackData: Data }).rollbackData];
-          if (event.mutation.options.meta?.schema && Predicate.isRecord(event.mutation.state.variables))
-            data.push(create(event.mutation.options.meta.schema.input, event.mutation.state.variables));
-          await updateQueriesFromMutationData(data as Data, normalizer, queryClient);
+          await processChanges({ data: event.action.data, normalizer, queryClient });
         }
       });
     },

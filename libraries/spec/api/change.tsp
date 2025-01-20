@@ -40,9 +40,49 @@ model Change {
   /** Data to change, must be normalizable */
   data: WellKnown.Any;
 
+  /** Lists changes to apply with provided data */
+  list?: ListChange[];
+
   /** Fully qualified service name for invalidation */
   service?: string;
 
   /** Method name of a `service` for invalidation */
   method?: string;
+}
+
+enum ListChangeKind {
+  LIST_CHANGE_KIND_UNSPECIFIED: 0,
+
+  /** Add the data to the end of the list */
+  LIST_CHANGE_KIND_APPEND: 1,
+
+  /** Add the data to the start of the list */
+  LIST_CHANGE_KIND_PREPEND: 2,
+
+  /** Insert the data into `index` position of the list */
+  LIST_CHANGE_KIND_INSERT: 3,
+
+  /** Remove the data from the list */
+  LIST_CHANGE_KIND_REMOVE: 4,
+
+  /** Move the data to the `index` position of the list */
+  LIST_CHANGE_KIND_MOVE: 5,
+}
+
+@autoFields
+model ListChange {
+  kind: ListChangeKind;
+
+  /** Message containing the list, must be normalizable */
+  parent: WellKnown.Any;
+
+  /**
+   * Key of the list property in the `parent` message
+   *
+   * Defaults to `items` if not specified
+   */
+  key?: string;
+
+  /** List index for insert/move changes */
+  index?: int32;
 }

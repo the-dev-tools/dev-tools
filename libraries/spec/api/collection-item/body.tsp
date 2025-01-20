@@ -57,7 +57,7 @@ model BodyRaw {
 model BodyFormItemChange is Resource.Change<BodyFormItem>;
 model BodyFormItemListItem is Resource.List.Item<BodyFormItem>;
 model BodyFormItemListRequest is Resource.List.Request<BodyFormItem>;
-model BodyFormItemListResponse is Resource.List.Response<BodyFormItemListItem>;
+model BodyFormItemListResponse is Resource.List.Response<BodyFormItem, BodyFormItemListItem>;
 model BodyFormItemCreateRequest is Resource.Create.Request<BodyFormItem>;
 model BodyFormItemCreateResponse is Resource.Create.Response<BodyFormItem>;
 model BodyFormItemUpdateRequest is Resource.Update.Request<BodyFormItem>;
@@ -69,7 +69,7 @@ model BodyFormItemDeleteResponse is Resource.Delete.Response<BodyFormItem>;
 model BodyUrlEncodedItemChange is Resource.Change<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemListItem is Resource.List.Item<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemListRequest is Resource.List.Request<BodyUrlEncodedItem>;
-model BodyUrlEncodedItemListResponse is Resource.List.Response<BodyUrlEncodedItemListItem>;
+model BodyUrlEncodedItemListResponse is Resource.List.Response<BodyUrlEncodedItem, BodyUrlEncodedItemListItem>;
 model BodyUrlEncodedItemCreateRequest is Resource.Create.Request<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemCreateResponse is Resource.Create.Response<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemUpdateRequest is Resource.Update.Request<BodyUrlEncodedItem>;

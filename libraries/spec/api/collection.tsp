@@ -28,7 +28,7 @@ model Collection {
 model CollectionChange is Resource.Change<Collection>;
 model CollectionListItem is Resource.List.Item<Collection>;
 model CollectionListRequest is Resource.List.Request<Collection>;
-model CollectionListResponse is Resource.List.Response<CollectionListItem>;
+model CollectionListResponse is Resource.List.Response<Collection, CollectionListItem>;
 model CollectionGetRequest is Resource.Get.Request<Collection>;
 model CollectionGetResponse is Resource.Get.Response<Collection>;
 model CollectionCreateRequest is Resource.Create.Request<Collection>;
