@@ -2,10 +2,8 @@
   "extends": ["../../tsconfig.base"],
   "files": [],
   "references": [
-    { "path": "../../libraries/ui" },
     { "path": "../../libraries/core" },
     { "path": "../../libraries/api" },
-    { "path": "../../libraries/utils" },
     { "path": "../../libraries/config-tailwind" },
     { "path": "../../libraries/config-eslint" },
     { "path": "./tsconfig.lib.json" }
