@@ -29,7 +29,9 @@ declare module '@tanstack/react-query' {
   }
 }
 
-const toNormalMessage = (data: unknown) => {
+const toNormalMessage = (data: unknown, options = { alwaysEmitImplicit: false }) => {
+  const { alwaysEmitImplicit } = options;
+
   if (!isMessage(data)) return Option.none();
 
   let message: Message | undefined = data;
@@ -39,7 +41,7 @@ const toNormalMessage = (data: unknown) => {
   const schema = registry.getMessage(message.$typeName);
   if (!schema) return Option.none();
 
-  const json = toJson(schema, message, { registry });
+  const json = toJson(schema, message, { registry, alwaysEmitImplicit });
   if (!Predicate.isRecord(json)) return Option.none();
 
   const { base, key, normalKeys } = pipe(getBaseMessageMeta(message), Option.getOrNull) ?? {};
@@ -56,7 +58,7 @@ const toNormalMessageDeep = (data: unknown): Option.Option<unknown> => {
 
   if (Predicate.isRecord(data)) {
     const normal = pipe(
-      toNormalMessage(data),
+      toNormalMessage(data, { alwaysEmitImplicit: true }),
       Option.getOrElse(() => ({})),
     );
 
@@ -210,7 +212,7 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
       const messageMaybe = pipe(
         Option.fromNullable(data),
         Option.flatMapNullable((_) => anyUnpack(_, registry)),
-        Option.flatMap(toNormalMessage),
+        Option.flatMap((_) => toNormalMessage(_, { alwaysEmitImplicit: true })),
       );
 
       if (Option.isNone(messageMaybe)) return [];
