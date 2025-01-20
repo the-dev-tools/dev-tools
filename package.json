@@ -39,7 +39,6 @@
     },
     "patchedDependencies": {
       "@nx/eslint": "patches/@nx__eslint.patch",
-      "@nx/js": "patches/@nx__js.patch",
       "@typespec/protobuf": "patches/@typespec__protobuf.patch"
     }
   }
