@@ -49,11 +49,13 @@ type FlowNodeResult struct {
 	Err        error
 }
 
-func AddVar(a *FlowNodeRequest, v interface{}, nodeID idwrap.IDWrap, key string) error {
+func AddNodeVar(a *FlowNodeRequest, v interface{}, nodeID idwrap.IDWrap, key string) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()
 
-	oldV, ok := a.VarMap[key]
+	nodeStr := nodeID.String()
+
+	oldV, ok := a.VarMap[nodeID.String()]
 	if !ok {
 		oldV = map[string]interface{}{}
 	}
@@ -64,15 +66,37 @@ func AddVar(a *FlowNodeRequest, v interface{}, nodeID idwrap.IDWrap, key string)
 	}
 
 	mapV[key] = v
-	a.VarMap[key] = mapV
+	a.VarMap[nodeStr] = mapV
 	return nil
 }
 
-func ReadVar(a *FlowNodeRequest, key string) (interface{}, error) {
+func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
 	defer a.ReadWriteLock.RUnlock()
 
 	v, ok := a.VarMap[key]
+	if !ok {
+		return nil, errors.New("key not found")
+	}
+
+	return v, nil
+}
+
+func ReadNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string) (interface{}, error) {
+	a.ReadWriteLock.RLock()
+	defer a.ReadWriteLock.RUnlock()
+
+	nodeVarMap, ok := a.VarMap[id.String()]
+	if !ok {
+		return nil, errors.New("node not found")
+	}
+
+	castedNodeVarMap, ok := nodeVarMap.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("value is not a map")
+	}
+
+	v, ok := castedNodeVarMap[key]
 	if !ok {
 		return nil, errors.New("key not found")
 	}

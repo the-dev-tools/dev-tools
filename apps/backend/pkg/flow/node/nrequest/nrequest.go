@@ -3,7 +3,6 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -14,7 +13,10 @@ import (
 	"the-dev-tools/nodes/pkg/httpclient"
 )
 
-const NodeOutputKey = "header"
+const (
+	NodeOutputKey  = "header"
+	NodeRequestKey = "request"
+)
 
 type NodeRequest struct {
 	FlownNodeID idwrap.IDWrap
@@ -83,10 +85,10 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	fmt.Println(respMap)
-	err = node.AddVar(req, respMap, nr.GetID(), "request")
+	err = node.AddNodeVar(req, respMap, nr.GetID(), NodeRequestKey)
 	if err != nil {
 		result.Err = err
+		return result
 	}
 
 	return result
@@ -111,6 +113,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	if err != nil {
 		result.Err = err
 		resultChan <- result
+		return
 	}
 
 	respMap := map[string]interface{}{}
@@ -119,13 +122,21 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	if err != nil {
 		result.Err = err
 		resultChan <- result
+		return
 	}
 	err = json.Unmarshal(marshaledResp, &respMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
+		return
 	}
-	req.VarMap[NodeOutputKey] = respMap
+
+	err = node.AddNodeVar(req, respMap, nr.GetID(), NodeRequestKey)
+	if err != nil {
+		result.Err = err
+		resultChan <- result
+		return
+	}
 
 	// TODO: add some functionality here
 	resultChan <- result

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -55,8 +56,10 @@ func TestNodeRequest_Run(t *testing.T) {
 		edges := []edge.Edge{edge1}
 		edgesMap := edge.NewEdgesMap(edges)
 
+		var RWLock sync.RWMutex
 		req := &node.FlowNodeRequest{
 			VarMap:        map[string]interface{}{},
+			ReadWriteLock: &RWLock,
 			EdgeSourceMap: edgesMap,
 		}
 		ctx := context.TODO()
@@ -68,11 +71,10 @@ func TestNodeRequest_Run(t *testing.T) {
 		if req.VarMap == nil {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
-		testutil.AssertNot(t, req.VarMap[nrequest.NodeOutputKey], nil)
+		RawOutput, err := node.ReadNodeVar(req, id, nrequest.NodeRequestKey)
+		testutil.Assert(t, nil, err)
+		testutil.AssertNot(t, nil, RawOutput)
 		var httpResp httpclient.Response
-		RawOutput, ok := req.VarMap[nrequest.NodeOutputKey]
-		testutil.Assert(t, true, ok)
-
 		CastedOutput := RawOutput.(map[string]interface{})
 		jsonOutput, err := json.Marshal(CastedOutput)
 		testutil.Assert(t, nil, err)
@@ -102,8 +104,10 @@ func TestNodeRequest_Run(t *testing.T) {
 		edges := []edge.Edge{edge1}
 		edgesMap := edge.NewEdgesMap(edges)
 
+		var RWLock sync.RWMutex
 		req := &node.FlowNodeRequest{
 			VarMap:        map[string]interface{}{},
+			ReadWriteLock: &RWLock,
 			EdgeSourceMap: edgesMap,
 		}
 		ctx := context.TODO()
@@ -117,14 +121,16 @@ func TestNodeRequest_Run(t *testing.T) {
 		if req.VarMap == nil {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
-		testutil.AssertNot(t, req.VarMap[nrequest.NodeOutputKey], nil)
+
+		RawOutput, err := node.ReadNodeVar(req, id, nrequest.NodeRequestKey)
+		testutil.Assert(t, nil, err)
+		testutil.AssertNot(t, nil, RawOutput)
 		var httpResp httpclient.Response
-		RawOutput, ok := req.VarMap[nrequest.NodeOutputKey]
-		testutil.Assert(t, true, ok)
 		CastedOutput := RawOutput.(map[string]interface{})
 		jsonOutput, err := json.Marshal(CastedOutput)
 		testutil.Assert(t, nil, err)
 		err = json.Unmarshal(jsonOutput, &httpResp)
+
 		testutil.Assert(t, nil, err)
 		testutil.Assert(t, 200, httpResp.StatusCode)
 		if !bytes.Equal(httpResp.Body, expectedBody) {
