@@ -11,7 +11,10 @@ import (
 	"the-dev-tools/backend/pkg/model/mcondition"
 )
 
-const NodeOutputKey = "nif"
+const (
+	NodeOutputKey = "nif"
+	NodeVarKey    = "var"
+)
 
 type NodeIf struct {
 	FlowNodeID    idwrap.IDWrap
@@ -49,7 +52,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 	a := map[string]interface{}{
-		"var": req.VarMap,
+		NodeVarKey: req.VarMap,
 	}
 	fmt.Println(a)
 

@@ -49,6 +49,11 @@ type FlowNodeResult struct {
 	Err        error
 }
 
+var (
+	ErrVarNodeNotFound error = errors.New("node not found")
+	ErrVarKeyNotFound  error = errors.New("key not found")
+)
+
 func AddNodeVar(a *FlowNodeRequest, v interface{}, nodeID idwrap.IDWrap, key string) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()
@@ -76,7 +81,7 @@ func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 
 	v, ok := a.VarMap[key]
 	if !ok {
-		return nil, errors.New("key not found")
+		return nil, ErrVarKeyNotFound
 	}
 
 	return v, nil
@@ -88,7 +93,7 @@ func ReadNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string) (interface{},
 
 	nodeVarMap, ok := a.VarMap[id.String()]
 	if !ok {
-		return nil, errors.New("node not found")
+		return nil, ErrVarNodeNotFound
 	}
 
 	castedNodeVarMap, ok := nodeVarMap.(map[string]interface{})
@@ -98,7 +103,7 @@ func ReadNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string) (interface{},
 
 	v, ok := castedNodeVarMap[key]
 	if !ok {
-		return nil, errors.New("key not found")
+		return nil, ErrVarKeyNotFound
 	}
 
 	return v, nil
