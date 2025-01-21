@@ -28,7 +28,7 @@ import {
 } from '@xyflow/react';
 import { Array, Match, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { Controller, useForm } from 'react-hook-form';
 import { IconType } from 'react-icons';
@@ -80,7 +80,7 @@ import {
   TextBoxIcon,
 } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { NumberFieldRHF } from '@the-dev-tools/ui/number-field';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -456,21 +456,31 @@ const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) 
   const nodeDeleteMutation = useConnectMutation(nodeDelete);
   const edgeDeleteMutation = useConnectMutation(edgeDelete);
 
+  const ref = useRef<HTMLDivElement>(null);
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
   return (
-    <div className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
-      <div className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}>
+    <div ref={ref} className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
+      <div
+        className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}
+        onContextMenu={(event) => {
+          const offset = ref.current?.getBoundingClientRect();
+          if (!offset) return;
+          onContextMenu(event, offset);
+        }}
+      >
         <Icon className={tw`size-5 text-slate-500`} />
 
         <div className={tw`h-4 w-px bg-slate-300`} />
 
         <span className={tw`flex-1 text-xs font-medium leading-5 tracking-tight`}>{title}</span>
 
-        <MenuTrigger>
+        <MenuTrigger {...menuTriggerProps}>
           <Button variant='ghost' className={tw`p-0.5`}>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
-          <Menu>
+          <Menu {...menuProps}>
             <MenuItem
               href={{
                 to: '.',
@@ -763,9 +773,13 @@ const TopBar = ({ flow }: TopBarProps) => {
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
 
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
   return (
     <RFPanel className={tw`m-0 flex w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-3.5`}>
-      <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`}>{flow.name}</div>
+      <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
+        {flow.name}
+      </div>
 
       <div className={tw`flex-1`} />
 
@@ -791,12 +805,12 @@ const TopBar = ({ flow }: TopBarProps) => {
         <FiPlus className={tw`size-4 text-slate-500`} />
       </Button>
 
-      <MenuTrigger>
+      <MenuTrigger {...menuTriggerProps}>
         <Button variant='ghost' className={tw`bg-slate-200 p-0.5`}>
           <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
         </Button>
 
-        <Menu>
+        <Menu {...menuProps}>
           <MenuItem>Rename</MenuItem>
           <Separator />
           <MenuItem variant='danger'>Delete</MenuItem>

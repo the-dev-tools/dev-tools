@@ -61,10 +61,13 @@ export const useContextMenuState = () => {
     contextMenuPosition?: ContextMenuPosition;
   }>({ isOpen: false });
 
-  const onContextMenu = useCallback((event: React.MouseEvent) => {
+  const onContextMenu = useCallback((event: React.MouseEvent, offset?: ContextMenuPosition) => {
     setState({
       isOpen: true,
-      contextMenuPosition: { left: event.pageX, top: event.pageY },
+      contextMenuPosition: {
+        left: event.pageX - (offset?.left ?? 0),
+        top: event.pageY - (offset?.top ?? 0),
+      },
     });
 
     event.preventDefault();

@@ -38,7 +38,7 @@ import {
 } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -127,6 +127,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const endpointCreateMutation = useConnectMutation(endpointCreate);
 
   const triggerRef = useRef(null);
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const [isRenaming, setIsRenaming] = useState(false);
 
@@ -143,6 +144,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       childItem={mapCollectionItemTree(collectionId)}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
+      wrapperOnContextMenu={onContextMenu}
     >
       {collectionItemListQuery.isLoading && (
         <Button variant='ghost' isDisabled className={tw`p-1`}>
@@ -156,12 +158,12 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
       {showControls && (
         <>
-          <MenuTrigger>
+          <MenuTrigger {...menuTriggerProps}>
             <Button variant='ghost' className={tw`p-0.5`}>
               <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
             </Button>
 
-            <Menu>
+            <Menu {...menuProps}>
               <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
               <MenuItem onAction={() => void endpointCreateMutation.mutate({ collectionId, name: 'New API call' })}>
@@ -279,6 +281,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
   const endpointCreateMutation = useConnectMutation(endpointCreate);
 
   const triggerRef = useRef(null);
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const [isRenaming, setIsRenaming] = useState(false);
 
@@ -290,6 +293,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
       childItem={mapCollectionItemTree(collectionId, folderId)}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
+      wrapperOnContextMenu={onContextMenu}
     >
       {({ isExpanded }) => (
         <>
@@ -311,12 +315,12 @@ const FolderTree = ({ collectionId, parentFolderId, folder }: FolderTreeProps) =
 
           {showControls && (
             <>
-              <MenuTrigger>
+              <MenuTrigger {...menuTriggerProps}>
                 <Button variant='ghost' className={tw`p-0.5`}>
                   <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
                 </Button>
 
-                <Menu>
+                <Menu {...menuProps}>
                   <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
                   <MenuItem
@@ -436,6 +440,8 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
     onSuccess: invalidateCollectionListQuery,
   });
 
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
   const route = {
     to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
     params: { endpointIdCan, exampleIdCan },
@@ -455,6 +461,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
       }}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
+      wrapperOnContextMenu={onContextMenu}
     >
       {exampleListQuery.isLoading && (
         <Button variant='ghost' isDisabled className={tw`p-1`}>
@@ -468,12 +475,12 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
       {showControls && (
         <>
-          <MenuTrigger>
+          <MenuTrigger {...menuTriggerProps}>
             <Button variant='ghost' className={tw`p-0.5`}>
               <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
             </Button>
 
-            <Menu>
+            <Menu {...menuProps}>
               <MenuItem
                 onAction={() =>
                   void exampleCreateMutation.mutate({
@@ -530,6 +537,8 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
     onSuccess: invalidateCollectionListQuery,
   });
 
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
   const route = {
     to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
     params: { endpointIdCan, exampleIdCan },
@@ -542,18 +551,19 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
       textValue={name}
       href={navigate ? route : undefined!}
       isActive={navigate && matchRoute(route) !== false}
+      wrapperOnContextMenu={onContextMenu}
     >
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
       <Text className='flex-1 truncate'>{name}</Text>
 
       {showControls && (
-        <MenuTrigger>
+        <MenuTrigger {...menuTriggerProps}>
           <Button variant='ghost' className={tw`p-0.5`}>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
-          <Menu>
+          <Menu {...menuProps}>
             <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
             <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>

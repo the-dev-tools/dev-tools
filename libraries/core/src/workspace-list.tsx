@@ -17,7 +17,7 @@ import { AddButton } from '@the-dev-tools/ui/add-button';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
@@ -80,8 +80,10 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
   const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
   const workspaceDeleteMutation = useConnectMutation(workspaceDelete);
 
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
   return (
-    <div className={tw`flex items-center gap-3 px-5 py-4`}>
+    <div className={tw`flex items-center gap-3 px-5 py-4`} onContextMenu={onContextMenu}>
       <Avatar shape='square' size='md'>
         {workspace.name}
       </Avatar>
@@ -160,13 +162,13 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
         </div>
       </div>
 
-      <MenuTrigger>
+      <MenuTrigger {...menuTriggerProps}>
         <Button className={tw`ml-6 p-1`} variant='ghost'>
           <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-slate-500`} />
         </Button>
 
         {/* TODO: new menu */}
-        <Menu popoverPlacement='bottom right'>
+        <Menu {...menuProps}>
           <MenuItem onAction={() => void setRenaming(true)}>Rename</MenuItem>
           <MenuItem onAction={() => void workspaceDeleteMutation.mutate({ workspaceId })} variant='danger'>
             Delete

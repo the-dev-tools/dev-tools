@@ -29,7 +29,7 @@ import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ArrowToLeftIcon, CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -236,6 +236,7 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
   const flowUpdateMutation = useConnectMutation(flowUpdate);
 
   const triggerRef = useRef(null);
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const [isRenaming, setIsRenaming] = useState(false);
 
@@ -247,23 +248,25 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
       className={tw`rounded-md pl-9 text-md font-medium leading-5`}
       showSelectIndicator={false}
     >
-      <Text ref={triggerRef} className='flex-1 truncate' slot='label'>
-        {name}
-      </Text>
+      <div className={tw`contents`} onContextMenu={onContextMenu}>
+        <Text ref={triggerRef} className='flex-1 truncate' slot='label'>
+          {name}
+        </Text>
 
-      <MenuTrigger>
-        <Button variant='ghost' className={tw`p-0.5`}>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-        </Button>
+        <MenuTrigger {...menuTriggerProps}>
+          <Button variant='ghost' className={tw`p-0.5`}>
+            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+          </Button>
 
-        <Menu>
-          <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+          <Menu {...menuProps}>
+            <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
 
-          <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
-            Delete
-          </MenuItem>
-        </Menu>
-      </MenuTrigger>
+            <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      </div>
 
       <Popover
         triggerRef={triggerRef}

@@ -47,7 +47,7 @@ import { ReferenceKeySchema } from '@the-dev-tools/spec/reference/v1/reference_p
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
+import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
@@ -416,11 +416,16 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
     );
   });
 
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
   return (
     <form onSubmit={onSubmit}>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
         {/* TODO: implement breadcrumbs */}
-        <div className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}>
+        <div
+          className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}
+          onContextMenu={onContextMenu}
+        >
           {['Collection', 'Folder', 'Endpoint'].map((_) => (
             <Fragment key={_}>
               <span className={tw`cursor-pointer`}>{_}</span>
@@ -448,12 +453,12 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
         </Button>
 
         {/* TODO: implement overflow menu item functionality */}
-        <MenuTrigger>
+        <MenuTrigger {...menuTriggerProps}>
           <Button variant='ghost' className={tw`p-1`}>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
-          <Menu>
+          <Menu {...menuProps}>
             <MenuItem>Add example</MenuItem>
             <Separator />
             <MenuItem>Rename</MenuItem>
