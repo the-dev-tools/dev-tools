@@ -29,4 +29,4 @@ extern dec autoFields(target: Model);
 extern dec normalize(target: Model, base?: Model);
 extern dec normalKey(target: ModelProperty);
 
-extern dec autoChange(target: TypeSpec.Reflection.Model, change: valueof API.Change.AutoChange);
+extern dec autoChange(target: TypeSpec.Reflection.Model, change: API.Change.AutoChange);

@@ -16,9 +16,15 @@ model Changes {
   @autoField changes?: Change[];
 }
 
-enum Source {
+model Source {
+  kind: SourceKind;
+  $type: Reflection.Model;
+}
+
+enum SourceKind {
   REQUEST,
   RESPONSE,
+  MERGE,
 }
 
 @withoutOmittedProperties("parent")

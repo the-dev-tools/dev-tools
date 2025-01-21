@@ -42,8 +42,8 @@ model VariableListResponse is Resource.List.Response<{}, VariableListItem> {
 
 model VariableGetRequest is Resource.Get.Request<Variable>;
 model VariableGetResponse is Resource.Get.Response<Variable>;
-model VariableCreateRequest is Resource.Create.Request<Variable, VariableListResponse>;
-model VariableCreateResponse is Resource.Create.Response<Variable>;
+model VariableCreateRequest is Resource.Create.Request<Variable>;
+model VariableCreateResponse is Resource.Create.Response<Variable, VariableListResponse>;
 model VariableUpdateRequest is Resource.Update.Request<Variable>;
 model VariableUpdateResponse is Resource.Update.Response<Variable>;
 model VariableDeleteRequest is Resource.Delete.Request<Variable>;

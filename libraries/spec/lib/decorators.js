@@ -1,11 +1,11 @@
-import { getKeyName, isValue, serializeValueAsJson } from '@typespec/compiler';
+import { getKeyName } from '@typespec/compiler';
 import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
-import { Array, Hash, Match, Number, pipe, Predicate, Record } from 'effect';
+import { Array, Hash, Number, Option, pipe, Record } from 'effect';
 
 import { $lib } from './lib.js';
 
-/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty, Type, Value } from '@typespec/compiler' */
+/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty, Type } from '@typespec/compiler' */
 
 /**
  * @param {DecoratorContext} context
@@ -155,24 +155,46 @@ export function $normalize(context, target, base) {
 }
 
 /**
- * @param {unknown} data
- * @returns {unknown}
- */
-function valueToJson(data) {
-  if (isValue(data) && data.valueKind === 'EnumValue') return data.value.name;
-  if (Array.isArray(data)) return Array.map(data, valueToJson);
-  if (Predicate.isRecord(data)) return Record.map(data, valueToJson);
-  return data;
-}
-
-/**
  * @param {DecoratorContext} context
  * @param {Model} target
- * @param {unknown} value
+ * @param {Type} value
  */
 export function $autoChange(context, target, value) {
+  const packageStateMap = context.program.stateMap(Symbol.for('@typespec/protobuf.package'));
+
+  /**
+   * @param {Type} type
+   * @returns {unknown}
+   */
+  function typeToJson(type) {
+    if (type.kind === 'Model') {
+      return pipe(
+        type.properties.entries(),
+        Record.fromEntries,
+        Record.filterMap((property, key) => {
+          if (key !== '$type') return pipe(property.type, typeToJson, Option.some);
+          if (property.type.kind !== 'Model') return Option.none();
+
+          return pipe(
+            Option.fromNullable(property.type.namespace),
+            Option.flatMapNullable((_) => packageStateMap.get(_)),
+            Option.flatMapNullable((/** @type {Model} */ _) => _.properties.get('name')?.type.value),
+            Option.map((packageName) => `${packageName}.${property.type.name}`),
+          );
+        }),
+      );
+    }
+
+    if (type.kind === 'Tuple') return Array.map(type.values, typeToJson);
+    if (type.kind === 'EnumMember') return type.name;
+    if ('value' in type) return type.value;
+
+    return undefined;
+  }
+
+  const change = typeToJson(value);
+
   /** @type {Map<Type, unknown[]>} */
   const autoChangesMap = context.program.stateMap($lib.stateKeys.autoChanges);
-  const change = valueToJson(value);
   pipe(autoChangesMap.get(target) ?? [], Array.append(change), (_) => autoChangesMap.set(target, _));
 }

@@ -3,7 +3,7 @@ import { anyPack, AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
 import { ConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
 import { Query, QueryClient, QueryKey, Updater } from '@tanstack/react-query';
-import { Array, Boolean, flow, Match, Option, pipe, Predicate, Record, Struct } from 'effect';
+import { Array, Boolean, flow, Option, pipe, Predicate, Record, Struct } from 'effect';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 import {
@@ -350,29 +350,39 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
 
           const autoChanges = pipe(
             Option.fromNullable(event.mutation.options.meta?.schema),
-            Option.map((schema) => {
-              const sourceToData = (source?: AutoChangeSource) =>
-                pipe(
-                  Match.value(source),
-                  Match.when('REQUEST', () =>
-                    pipe(
-                      Option.liftPredicate(input, Predicate.isRecord),
-                      Option.map((_) => create(schema.input, _)),
-                      Option.map((_) => anyPack(schema.input, _)),
-                    ),
-                  ),
-                  Match.when('RESPONSE', () =>
-                    pipe(
-                      Option.liftPredicate(output, (_) => isMessage(_, schema.output)),
-                      Option.map((_) => anyPack(schema.output, _)),
-                    ),
-                  ),
-                  Match.orElse(() => Option.none()),
+            Option.map((method) => {
+              const sourceToData = (source?: AutoChangeSource) => {
+                const schema = registry.getMessage(source?.$type ?? '');
+                if (!source || !schema) return undefined;
+
+                let data = Option.none<Message>();
+
+                if (source.kind !== 'RESPONSE') {
+                  data = pipe(
+                    Option.liftPredicate(input, Predicate.isRecord),
+                    Option.map((_) => create(method.input, _)),
+                  );
+                }
+
+                if (source.kind !== 'REQUEST') {
+                  data = pipe(
+                    Option.liftPredicate(output, (_) => isMessage(_, method.output)),
+                    Option.map((response) => ({
+                      ...Option.getOrElse(data, () => ({})),
+                      ...response,
+                    })),
+                  );
+                }
+
+                return pipe(
+                  Option.map(data, (_) => create(schema, Struct.omit(_, '$typeName'))),
+                  Option.map((_) => anyPack(schema, _)),
                   Option.getOrUndefined,
                 );
+              };
 
               const autoChanges = pipe(
-                getMessageMeta({ $typeName: schema.output.typeName }),
+                getMessageMeta({ $typeName: method.output.typeName }),
                 Option.flatMapNullable((_) => _.autoChanges),
                 Option.toArray,
                 Array.flatten,

@@ -31,8 +31,8 @@ model CollectionListRequest is Resource.List.Request<Collection>;
 model CollectionListResponse is Resource.List.Response<Collection, CollectionListItem>;
 model CollectionGetRequest is Resource.Get.Request<Collection>;
 model CollectionGetResponse is Resource.Get.Response<Collection>;
-model CollectionCreateRequest is Resource.Create.Request<Collection, CollectionListResponse>;
-model CollectionCreateResponse is Resource.Create.Response<Collection>;
+model CollectionCreateRequest is Resource.Create.Request<Collection>;
+model CollectionCreateResponse is Resource.Create.Response<Collection, CollectionListResponse>;
 model CollectionUpdateRequest is Resource.Update.Request<Collection>;
 model CollectionUpdateResponse is Resource.Update.Response<Collection>;
 model CollectionDeleteRequest is Resource.Delete.Request<Collection>;
@@ -40,17 +40,17 @@ model CollectionDeleteResponse is Resource.Delete.Response<Collection>;
 
 @autoFields
 model CollectionImportPostmanRequest {
-  ...Resource.Create.Request<Collection, CollectionListResponse>;
+  ...Resource.Create.Request<Collection>;
   data: bytes;
 }
-model CollectionImportPostmanResponse is Resource.Create.Response<Collection>;
+model CollectionImportPostmanResponse is Resource.Create.Response<Collection, CollectionListResponse>;
 
 @autoFields
 model CollectionImportHarRequest {
-  ...Resource.Create.Request<Collection, CollectionListResponse>;
+  ...Resource.Create.Request<Collection>;
   data: bytes;
 }
-model CollectionImportHarResponse is Resource.Create.Response<Collection>;
+model CollectionImportHarResponse is Resource.Create.Response<Collection, CollectionListResponse>;
 
 @Protobuf.service
 interface CollectionService {

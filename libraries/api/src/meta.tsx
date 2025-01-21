@@ -7,7 +7,12 @@ import metaJson from '@the-dev-tools/spec/meta/meta.json';
 
 export const registry = createRegistry(...files);
 
-export type AutoChangeSource = 'REQUEST' | 'RESPONSE';
+type AutoChangeSourceKind = 'REQUEST' | 'RESPONSE' | 'MERGE';
+
+export interface AutoChangeSource {
+  kind: AutoChangeSourceKind;
+  $type: string;
+}
 
 interface AutoListChange extends Omit<ListChangeJson, 'parent'> {
   $parent: AutoChangeSource;

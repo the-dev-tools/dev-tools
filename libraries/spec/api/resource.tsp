@@ -52,21 +52,31 @@ namespace Get {
 }
 
 namespace Create {
-  @normalize(ListResponse)
+  @normalize(Resource)
   @withDefaultKeyVisibility("mutate")
   @withVisibility("mutate", "create")
-  model Request<Resource extends Model, ListResponse extends Model = Resource> {
-    ...KeyOf<Resource>;
+  model Request<Resource extends Model> {
     ...ParentKeyOf<Resource>;
-    ...OmitKey<Resource>;
+    ...Resource;
   }
 
-  @autoChange(#{
-    $data: API.Change.Source.RESPONSE,
-    $list: #[#{ kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND, $parent: API.Change.Source.REQUEST }],
+  @autoChange({
+    $data: {
+      kind: API.Change.SourceKind.MERGE,
+      $type: Resource,
+    },
+    $list: [
+      {
+        kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND,
+        $parent: {
+          kind: API.Change.SourceKind.REQUEST,
+          $type: ListResponse,
+        },
+      }
+    ],
   })
   @normalize(Resource)
-  model Response<Resource extends Model> {
+  model Response<Resource extends Model, ListResponse extends Model = Resource> {
     ...KeyOf<Resource>;
     ...API.Change.Changes;
   }
@@ -82,8 +92,14 @@ namespace Update {
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
-  @autoChange(#{ kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE, $data: API.Change.Source.REQUEST })
-  model Response<Resource> {
+  @autoChange({
+    kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE,
+    $data: {
+      kind: API.Change.SourceKind.REQUEST,
+      $type: Resource,
+    },
+  })
+  model Response<Resource extends Model> {
     ...API.Change.Changes;
   }
 }
@@ -95,8 +111,14 @@ namespace Delete {
     ...ParentKeyOf<Resource>;
   }
 
-  @autoChange(#{ kind: API.Change.ChangeKind.CHANGE_KIND_DELETE, $data: API.Change.Source.REQUEST })
-  model Response<Resource> {
+  @autoChange({
+    kind: API.Change.ChangeKind.CHANGE_KIND_DELETE,
+    $data: {
+      kind: API.Change.SourceKind.REQUEST,
+      $type: Resource,
+    },
+  })
+  model Response<Resource extends Model> {
     ...API.Change.Changes;
   }
 }
