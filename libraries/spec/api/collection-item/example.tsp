@@ -48,9 +48,11 @@ model ExampleDeleteResponse is Resource.Delete.Response<Example>;
 model ExampleDuplicateRequest is KeyOf<Example>;
 
 model ExampleRunRequest is KeyOf<Example>;
+
+@autoFields
 model ExampleRunResponse {
-  response: Resource.Get.Request<Response.Response>;
-  changes: Resource.Change<Response.Response>;
+  ...Resource.Get.Response<Response.Response>;
+  ...Change.Changes;
 }
 
 @Protobuf.service

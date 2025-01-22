@@ -47,10 +47,12 @@ import (
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
+	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ItemAPIExampleRPC struct {
@@ -664,8 +666,38 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
+	changeStatus := int32(exampleResp.Status)
+	size := int32(len(exampleResp.Body))
+
+	changeResp := responsev1.ResponseChange{
+		ResponseId: exampleResp.ID.Bytes(),
+		Status:     &changeStatus,
+		Body:       exampleResp.Body,
+		Time:       timestamppb.New(time.Now()),
+		Duration:   &exampleResp.Duration,
+		Size:       &size,
+	}
+
+	kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
+
+	anyData, err := anypb.New(&changeResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeRoot := changev1.Change{
+		Kind: &kind,
+		Data: anyData,
+	}
+
 	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
+		Status:     int32(exampleResp.Status),
+		Body:       exampleResp.Body,
+		Time:       timestamppb.New(time.Now()),
+		Duration:   exampleResp.Duration,
+		Size:       size,
+		Changes:    []*changev1.Change{&changeRoot},
 	})
 	rpcResponse.Header().Set("Cache-Control", "max-age=0")
 
