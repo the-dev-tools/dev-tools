@@ -132,6 +132,8 @@ export const EnvironmentsWidget = () => {
                           <span className={tw`text-md font-semibold leading-5`}>
                             {item.isGlobal ? 'Global Variables' : item.name}
                           </span>
+
+                          {/* TODO: add context menu for renaming/deleting environments */}
                         </Tab>
                       );
                     }}
@@ -157,6 +159,8 @@ export const EnvironmentsWidget = () => {
                             <h1 className={tw`font-semibold leading-5 tracking-tight text-slate-800`}>
                               {item.isGlobal ? 'Global Variables' : item.name}
                             </h1>
+
+                            {/* TODO: add context menu for renaming/deleting environments */}
                           </div>
 
                           <Suspense fallback={'Loading variables...'}>
@@ -167,10 +171,8 @@ export const EnvironmentsWidget = () => {
                         <div className={tw`flex-1`} />
 
                         <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
-                          {/* TODO: implement cancel (undo) */}
-                          <Button onPress={close}>Cancel</Button>
                           <Button variant='primary' onPress={close}>
-                            Save
+                            Close
                           </Button>
                         </div>
                       </TabPanel>

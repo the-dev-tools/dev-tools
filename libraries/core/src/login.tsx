@@ -74,7 +74,7 @@ function LoginPage() {
 
       <div className={tw`h-10 flex-1`} />
 
-      {/* TODO: implement */}
+      {/* TODO: implement TOS */}
       <span className={tw`mb-10 text-sm leading-5 text-slate-500`}>
         By clicking “Login” you agree with our{' '}
         <a href='.' className={tw`text-violet-600 underline`}>

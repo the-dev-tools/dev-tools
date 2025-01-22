@@ -63,11 +63,10 @@ import {
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse, FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { flowDelete, flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import {
-  ChatAddIcon,
   CheckListAltIcon,
   CollectIcon,
   DataSourceIcon,
@@ -77,7 +76,6 @@ import {
   PlayCircleIcon,
   PlayIcon,
   SendRequestIcon,
-  TextBoxIcon,
 } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -769,16 +767,20 @@ interface TopBarProps {
   flow: FlowGetResponse;
 }
 
-const TopBar = ({ flow }: TopBarProps) => {
+const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
+  const flowDeleteMutation = useConnectMutation(flowDelete);
+
   return (
     <RFPanel className={tw`m-0 flex w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-3.5`}>
       <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
-        {flow.name}
+        {name}
       </div>
 
       <div className={tw`flex-1`} />
@@ -811,9 +813,12 @@ const TopBar = ({ flow }: TopBarProps) => {
         </Button>
 
         <Menu {...menuProps}>
+          {/* TODO: implement rename */}
           <MenuItem>Rename</MenuItem>
           <Separator />
-          <MenuItem variant='danger'>Delete</MenuItem>
+          <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
+            Delete
+          </MenuItem>
         </Menu>
       </MenuTrigger>
     </RFPanel>
@@ -827,16 +832,17 @@ const ActionBar = () => {
 
   return (
     <RFPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
-      <Button variant='ghost dark' className={tw`p-1`}>
+      {/* <Button variant='ghost dark' className={tw`p-1`}>
         <TextBoxIcon className={tw`size-5 text-slate-300`} />
-      </Button>
+      </Button> */}
 
-      <Button variant='ghost dark' className={tw`p-1`}>
+      {/* <Button variant='ghost dark' className={tw`p-1`}>
         <ChatAddIcon className={tw`size-5 text-slate-300`} />
-      </Button>
+      </Button> */}
 
-      <div className={tw`mx-2 h-5 w-px bg-white/20`} />
+      {/* <div className={tw`mx-2 h-5 w-px bg-white/20`} /> */}
 
+      {/* TODO: implement add node action */}
       <Button variant='ghost dark' className={tw`px-1.5 py-1`}>
         <FiPlus className={tw`size-5 text-slate-300`} />
         Add Node

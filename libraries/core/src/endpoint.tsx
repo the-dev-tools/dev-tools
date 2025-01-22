@@ -12,7 +12,7 @@ import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
 import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
-import { FiChevronDown, FiClock, FiLink, FiMoreHorizontal, FiSave, FiSidebar, FiX } from 'react-icons/fi';
+import { FiMoreHorizontal, FiSave } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
@@ -22,6 +22,8 @@ import {
   endpointUpdate,
 } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
+  exampleCreate,
+  exampleDelete,
   exampleGet,
   exampleRun,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
@@ -322,6 +324,8 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const queryClient = useQueryClient();
 
   const endpointUpdateMutation = useConnectMutation(endpointUpdate);
+  const exampleCreateMutation = useConnectMutation(exampleCreate);
+  const exampleDeleteMutation = useConnectMutation(exampleDelete);
   const exampleRunMutation = useConnectMutation(exampleRun);
 
   const queryUpdateMutation = useConnectMutation(queryUpdate);
@@ -436,33 +440,36 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
         </div>
 
         {/* TODO: implement response history */}
-        <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+        {/* <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
           <FiClock className={tw`size-4 text-slate-500`} /> Response History
-        </Button>
+        </Button> */}
 
         {/* TODO: implement copy link */}
-        <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+        {/* <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
           <FiLink className={tw`size-4 text-slate-500`} /> Copy Link
-        </Button>
+        </Button> */}
 
-        <Separator orientation='vertical' className={tw`h-4`} />
+        {/* <Separator orientation='vertical' className={tw`h-4`} /> */}
 
         <Button type='submit' variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
           <FiSave className={tw`size-4 text-slate-500`} /> Save
         </Button>
 
-        {/* TODO: implement overflow menu item functionality */}
         <MenuTrigger {...menuTriggerProps}>
           <Button variant='ghost' className={tw`p-1`}>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
           <Menu {...menuProps}>
-            <MenuItem>Add example</MenuItem>
+            <MenuItem onAction={() => void exampleCreateMutation.mutate({ endpointId, name: 'New Example' })}>
+              Add example
+            </MenuItem>
             <Separator />
+            {/* TODO: implement rename */}
             <MenuItem>Rename</MenuItem>
-            <MenuItem>View Documentation</MenuItem>
-            <MenuItem variant='danger'>Delete</MenuItem>
+            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
+              Delete
+            </MenuItem>
           </Menu>
         </MenuTrigger>
       </div>
@@ -479,14 +486,13 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
           <Separator orientation='vertical' className={tw`h-7`} />
 
-          {/* TODO: update styles after component is refactored */}
           <TextFieldRHF
             control={form.control}
             onBlur={onSubmit}
             name='url'
             aria-label='URL'
             className={tw`flex-1`}
-            inputClassName={tw`border-none bg-transparent font-medium leading-5 tracking-tight text-slate-800`}
+            inputClassName={tw`border-none font-medium tracking-tight`}
           />
         </div>
 
@@ -521,18 +527,11 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 interface ResponsePanelProps {
   responseId: Uint8Array;
   responseTab: EndpointRouteSearch['responseTab'];
-  showActions?: boolean;
   fullWidth?: boolean;
   className?: string;
 }
 
-export const ResponsePanel = ({
-  responseId,
-  responseTab,
-  showActions = false,
-  fullWidth = false,
-  className,
-}: ResponsePanelProps) => {
+export const ResponsePanel = ({ responseId, responseTab, fullWidth = false, className }: ResponsePanelProps) => {
   const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
 
   return (
@@ -616,31 +615,24 @@ export const ResponsePanel = ({
             <span>0.0 KB</span>
           </div>
 
-          {showActions && (
-            <>
-              <Separator orientation='vertical' className={tw`h-4`} />
+          {/* <Separator orientation='vertical' className={tw`h-4`} />
 
-              {/* TODO: implement menu */}
-              <Button variant='ghost' className={tw`px-2 text-xs`}>
-                <FiSave className={tw`size-4 text-slate-500`} />
-                <span>Save as</span>
-                <FiChevronDown className={tw`size-4 text-slate-500`} />
-              </Button>
+          <Button variant='ghost' className={tw`px-2 text-xs`}>
+            <FiSave className={tw`size-4 text-slate-500`} />
+            <span>Save as</span>
+            <FiChevronDown className={tw`size-4 text-slate-500`} />
+          </Button>
 
-              <Separator orientation='vertical' className={tw`h-4`} />
+          <Separator orientation='vertical' className={tw`h-4`} />
 
-              {/* TODO: implement clear */}
-              <Button variant='ghost' className={tw`px-2 text-xs`}>
-                <FiX className={tw`size-4 text-slate-500`} />
-                <span>Clear</span>
-              </Button>
+          <Button variant='ghost' className={tw`px-2 text-xs`}>
+            <FiX className={tw`size-4 text-slate-500`} />
+            <span>Clear</span>
+          </Button>
 
-              {/* TODO: implement bottom card */}
-              <Button variant='ghost' className={tw`p-1`}>
-                <FiSidebar className={tw`size-4 text-slate-500`} />
-              </Button>
-            </>
-          )}
+          <Button variant='ghost' className={tw`p-1`}>
+            <FiSidebar className={tw`size-4 text-slate-500`} />
+          </Button> */}
         </div>
       </div>
 

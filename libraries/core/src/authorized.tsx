@@ -1,13 +1,9 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { Effect, Option, pipe, Runtime } from 'effect';
-import { MenuTrigger } from 'react-aria-components';
 
-import * as Auth from '@the-dev-tools/api/auth';
 import { getUser } from '@the-dev-tools/api/auth';
-import { AvatarButton } from '@the-dev-tools/ui/avatar';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
-import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { NavigationBar, NavigationBarDivider } from '@the-dev-tools/ui/navigation-bar';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
@@ -31,20 +27,18 @@ export interface DashboardLayoutProps {
   children?: React.ReactNode;
 }
 
-export const DashboardLayout = ({ navbar, children }: DashboardLayoutProps) => {
-  const { email, runtime } = Route.useRouteContext();
-  return (
-    <div className='flex h-full flex-col'>
-      <NavigationBar>
-        <ButtonAsLink href={{ to: '/' }} variant='ghost' className={tw`p-0`}>
-          <Logo className={tw`size-7`} />
-        </ButtonAsLink>
+export const DashboardLayout = ({ navbar, children }: DashboardLayoutProps) => (
+  <div className='flex h-full flex-col'>
+    <NavigationBar>
+      <ButtonAsLink href={{ to: '/' }} variant='ghost' className={tw`p-0`}>
+        <Logo className={tw`size-7`} />
+      </ButtonAsLink>
 
-        <NavigationBarDivider />
+      <NavigationBarDivider />
 
-        {navbar}
+      {navbar}
 
-        <NavigationBarDivider />
+      {/* <NavigationBarDivider />
 
         <MenuTrigger>
           <AvatarButton size='base'>{email}</AvatarButton>
@@ -60,10 +54,9 @@ export const DashboardLayout = ({ navbar, children }: DashboardLayoutProps) => {
               Log out
             </MenuItem>
           </Menu>
-        </MenuTrigger>
-      </NavigationBar>
+        </MenuTrigger> */}
+    </NavigationBar>
 
-      {children ?? <Outlet />}
-    </div>
-  );
-};
+    {children ?? <Outlet />}
+  </div>
+);

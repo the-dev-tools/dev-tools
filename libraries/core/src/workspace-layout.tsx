@@ -6,7 +6,7 @@ import { Array, Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo, useRef, useState } from 'react';
 import { Button as AriaButton, FileTrigger, Form, ListBox, MenuTrigger, Text } from 'react-aria-components';
-import { FiChevronDown, FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
+import { FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 
@@ -74,15 +74,19 @@ function Layout() {
     <DashboardLayout
       navbar={
         <>
-          <MenuTrigger>
-            <Button variant='ghost dark' className={tw`-ml-3 gap-2 px-2 py-1`}>
-              <Avatar shape='square' size='base'>
-                {workspace.name}
-              </Avatar>
-              <span className={tw`text-xs font-semibold leading-5 tracking-tight`}>{workspace.name}</span>
-              <FiChevronDown className={tw`size-4`} />
-            </Button>
+          <ButtonAsLink
+            variant='ghost dark'
+            className={tw`-ml-3 gap-2 px-2 py-1`}
+            href={{ to: '/workspace/$workspaceIdCan', params: { workspaceIdCan } }}
+          >
+            <Avatar shape='square' size='base'>
+              {workspace.name}
+            </Avatar>
+            <span className={tw`text-xs font-semibold leading-5 tracking-tight`}>{workspace.name}</span>
+            {/* <FiChevronDown className={tw`size-4`} /> */}
+          </ButtonAsLink>
 
+          {/* <MenuTrigger>
             <Menu>
               <MenuItem
                 href={{
@@ -101,7 +105,7 @@ function Layout() {
                 Members
               </MenuItem>
             </Menu>
-          </MenuTrigger>
+          </MenuTrigger> */}
           <div className='flex-1' />
         </>
       }
@@ -117,6 +121,7 @@ function Layout() {
           <EnvironmentsWidget />
 
           <div className={tw`flex flex-col gap-2 p-1.5`}>
+            {/* TODO: implement overview */}
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <OverviewIcon className={tw`size-5 text-slate-500`} />
               <h2 className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>Overview</h2>
