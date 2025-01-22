@@ -1,9 +1,9 @@
 module the-dev-tools/backend
 
-go 1.23
+go 1.23.5
 
 require (
-	connectrpc.com/connect v1.17.0
+	connectrpc.com/connect v1.18.1
 	github.com/PaesslerAG/gval v1.2.3
 	github.com/bufbuild/httplb v0.3.0
 	github.com/goccy/go-json v0.10.3
@@ -11,7 +11,9 @@ require (
 	github.com/klauspost/compress v1.17.9
 	github.com/magiclabs/magic-admin-go v1.0.0
 	github.com/oklog/ulid/v2 v2.1.0
+	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.11.0
+	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 	golang.org/x/net v0.29.0
 	google.golang.org/protobuf v1.35.1
 )

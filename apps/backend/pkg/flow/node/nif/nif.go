@@ -54,7 +54,20 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	a := map[string]interface{}{
 		NodeVarKey: req.VarMap,
 	}
-	fmt.Println(a)
+
+	/*
+		b := a[NodeVarKey]
+		b1 := b.(map[string]interface{})
+		c := b1["01JJ7P6PHZ0Y80V4N9FRJAM0PA"]
+		c1 := c.(map[string]interface{})
+		d := c1["request"]
+		d1 := d.(map[string]interface{})
+		e := d1["headers"]
+		e1 := e.(map[string]interface{})
+		fmt.Println(e1)
+
+		fmt.Println(n.Path)
+	*/
 
 	rootLeaf := &leafmock.LeafMock{
 		Leafs: a,
@@ -85,10 +98,13 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
+	a := map[string]interface{}{
+		NodeVarKey: req.VarMap,
+	}
+	fmt.Println(a)
+
 	rootLeaf := &leafmock.LeafMock{
-		Leafs: map[string]interface{}{
-			"var": req.VarMap,
-		},
+		Leafs: a,
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)

@@ -37,6 +37,25 @@ type Response struct {
 	Headers    []mexamplerespheader.ExampleRespHeader `json:"headers"`
 }
 
+type ResponseVar struct {
+	StatusCode int               `json:"status"`
+	Body       []byte            `json:"body"`
+	Headers    map[string]string `json:"headers"`
+}
+
+func ConvertResponseToVar(r Response) ResponseVar {
+	headersMaps := make(map[string]string)
+	for _, header := range r.Headers {
+		headersMaps[header.HeaderKey] = header.Value
+	}
+
+	return ResponseVar{
+		StatusCode: r.StatusCode,
+		Body:       r.Body,
+		Headers:    headersMaps,
+	}
+}
+
 func SendRequest(client HttpClient, req Request) (*http.Response, error) {
 	reqRaw, err := http.NewRequest(req.Method, req.URL, nil)
 	if err != nil {

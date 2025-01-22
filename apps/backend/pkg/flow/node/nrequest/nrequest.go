@@ -71,10 +71,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		result.Err = err
 		return result
 	}
-
+	varResp := httpclient.ConvertResponseToVar(resp)
 	respMap := map[string]interface{}{}
-	// TODO: change map conversion non json
-	marshaledResp, err := json.Marshal(resp)
+	marshaledResp, err := json.Marshal(varResp)
 	if err != nil {
 		result.Err = err
 		return result
@@ -118,7 +117,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	respMap := map[string]interface{}{}
 	// TODO: change map conversion non json
-	marshaledResp, err := json.Marshal(resp)
+	varResp := httpclient.ConvertResponseToVar(resp)
+	marshaledResp, err := json.Marshal(varResp)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"sync"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -468,9 +469,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	done := make(chan error, 1)
 	go func() {
+		var wLock sync.Mutex
 		defer close(done)
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case a := <-status:
 				localErr := c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
 				if localErr != nil {
@@ -486,21 +490,28 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					done <- localErr
 					return
 				}
-				localErr = stream.Send(&flowv1.FlowRunResponse{
+				resp := &flowv1.FlowRunResponse{
 					CurrentNodeId: nodeBytes,
-				})
+				}
+				wLock.Lock()
+
+				streamCasted := stream.(*connect.ServerStream[flowv1.FlowRunResponse])
+				if streamCasted == nil {
+					panic("streamCasted is nil")
+				}
+				localErr = streamCasted.Send(resp)
 				if localErr != nil {
 					done <- localErr
+					fmt.Println("Error in sending response")
 					return
 				}
+				wLock.Unlock()
 				if a.Done() {
+					fmt.Println("Done")
 					done <- nil
 					return
 				}
-				continue
-			case <-ctx.Done():
 			}
-			break
 		}
 	}()
 
