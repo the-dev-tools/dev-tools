@@ -1,6 +1,7 @@
 import { create, toJson } from '@bufbuild/protobuf';
 import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi, redirect, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
@@ -336,9 +337,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   }, [endpoint.method, url]);
 
   const form = useForm({
-    // TODO: use Effect resolver once it's updated
-    // https://github.com/react-hook-form/resolvers/pull/720
-    // resolver: effectTsResolver(EndpointFormData),
+    resolver: effectTsResolver(EndpointFormData),
     values,
   });
 
