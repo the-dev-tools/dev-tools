@@ -27,6 +27,7 @@ model Example {
   @key exampleId: Resource.Id;
   lastResponseId?: Resource.Id;
   name: string;
+  @visibility("get") breadcrumbs: string[];
   @visibility("get", "mutate") bodyKind: Body.BodyKind;
 }
 

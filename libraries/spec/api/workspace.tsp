@@ -24,6 +24,8 @@ model Workspace {
   selectedEnvironmentId: Resource.Id;
   name: string;
   @visibility("query") updated: WellKnown.Timestamp;
+  @visibility("query") collectionCount: int32;
+  @visibility("query") flowCount: int32;
 }
 
 enum MemberRole {

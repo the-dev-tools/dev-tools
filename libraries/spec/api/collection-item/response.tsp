@@ -26,6 +26,7 @@ model Response {
   body: bytes;
   time: WellKnown.Timestamp;
   duration: int32;
+  size: int32;
 }
 
 @autoFields

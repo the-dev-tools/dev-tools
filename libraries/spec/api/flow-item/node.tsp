@@ -40,6 +40,7 @@ enum NodeKind {
 model Node {
   @key nodeId: Resource.Id;
   position: Position;
+  name: string;
   kind: NodeKind;
   noOp?: NodeNoOpKind;
   request?: NodeRequest;
