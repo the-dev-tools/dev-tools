@@ -60,9 +60,11 @@ func TestReadNodeVar(t *testing.T) {
 	}
 
 	nodeID := idwrap.NewNow()
+
+	id := node.NodeVarPrefix + nodeID.String()
 	key := "testKey"
 	value := "testValue"
-	req.VarMap[nodeID.String()] = map[string]interface{}{key: value}
+	req.VarMap[id] = map[string]interface{}{key: value}
 
 	storedValue, err := node.ReadNodeVar(req, nodeID, key)
 	if err != nil {
@@ -100,7 +102,8 @@ func TestReadNodeVar_KeyNotFound(t *testing.T) {
 	}
 
 	nodeID := idwrap.NewNow()
-	req.VarMap[nodeID.String()] = map[string]interface{}{}
+	id := node.NodeVarPrefix + nodeID.String()
+	req.VarMap[id] = map[string]interface{}{}
 
 	key := "testKey"
 

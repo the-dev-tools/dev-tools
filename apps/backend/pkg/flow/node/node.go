@@ -21,6 +21,9 @@ const (
 	NodeStatusFailed
 )
 
+// TODO: this is workaround for expr lang
+const NodeVarPrefix = "node"
+
 func (n NodeStatus) String() string {
 	return [...]string{"None", "Starting", "Running", "Success", "Failed"}[n]
 }
@@ -54,13 +57,13 @@ var (
 	ErrVarKeyNotFound  error = errors.New("key not found")
 )
 
-func AddNodeVar(a *FlowNodeRequest, v interface{}, nodeID idwrap.IDWrap, key string) error {
+func AddNodeVar(a *FlowNodeRequest, v interface{}, id idwrap.IDWrap, key string) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()
 
-	nodeStr := nodeID.String()
+	nodeKey := NodeVarPrefix + id.String()
 
-	oldV, ok := a.VarMap[nodeID.String()]
+	oldV, ok := a.VarMap[nodeKey]
 	if !ok {
 		oldV = map[string]interface{}{}
 	}
@@ -71,7 +74,7 @@ func AddNodeVar(a *FlowNodeRequest, v interface{}, nodeID idwrap.IDWrap, key str
 	}
 
 	mapV[key] = v
-	a.VarMap[nodeStr] = mapV
+	a.VarMap[nodeKey] = mapV
 	return nil
 }
 
@@ -91,7 +94,9 @@ func ReadNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string) (interface{},
 	a.ReadWriteLock.RLock()
 	defer a.ReadWriteLock.RUnlock()
 
-	nodeVarMap, ok := a.VarMap[id.String()]
+	nodeKey := NodeVarPrefix + id.String()
+
+	nodeVarMap, ok := a.VarMap[nodeKey]
 	if !ok {
 		return nil, ErrVarNodeNotFound
 	}

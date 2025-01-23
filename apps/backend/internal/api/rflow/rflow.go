@@ -375,7 +375,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
-		// TODO: timeout will added
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.Name, forNode.IterCount, time.Second)
 	}
 	for _, requestNode := range requestNodes {
@@ -437,9 +436,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 
 		}
-
-		// TODO: add body later
-		body := []byte{}
+		body := bodyBytes.Bytes()
 
 		httpClient := httpclient.New()
 

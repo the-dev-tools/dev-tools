@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"unicode"
 
 	"github.com/PaesslerAG/gval"
 )
@@ -115,8 +116,8 @@ func (s AssertSystem) EvalBool(ctx context.Context, expr string, extensions ...g
 func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, path string, value interface{}) (bool, error) {
 	// Regex should not contain any special characters
 	// only dot (.) is allowed
-	// TODO: change the regex to allow only dot (.) and underscore (_)
-	re := regexp.MustCompile(`^[a-zA-Z0-9.]+$`)
+	// TODO: change the regex to allow only dot (.), underscore (_), and hyphen (-)
+	re := regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 	if !re.MatchString(path) {
 		return false, fmt.Errorf("invalid path: %s", path)
 	}
@@ -124,6 +125,13 @@ func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, p
 	assertTypeStr := ConvertAssertTypeToExpr(assertType)
 
 	langs := []gval.Language{
+		gval.NewLanguage(
+			gval.Init(func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
+				p.SetIsIdentRuneFunc(func(r rune, pos int) bool {
+					return unicode.IsLetter(r) || r == '_' || (pos > 0 && unicode.IsDigit(r)) || (pos > 0 && r == '-')
+				})
+				return p.ParseExpression(ctx)
+			})),
 		gval.Constant("y", value),
 		gval.InfixOperator("notin", NotinArray),
 	}

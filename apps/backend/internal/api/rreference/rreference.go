@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
 	"the-dev-tools/backend/pkg/model/mnode"
@@ -193,11 +194,11 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 
 	}
 	if nodeID != nil {
-		node, err := c.fns.GetNode(ctx, *nodeID)
+		nodeInst, err := c.fns.GetNode(ctx, *nodeID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		flowID := node.FlowID
+		flowID := nodeInst.FlowID
 		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -271,7 +272,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 				Map:  RequestSub,
 			}
 
-			flowNodeIDStr := req.FlowNodeID.String()
+			flowNodeIDStr := node.NodeVarPrefix + req.FlowNodeID.String()
 			nodeRefs = append(nodeRefs, &referencev1.Reference{
 				Key: &referencev1.ReferenceKey{
 					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,

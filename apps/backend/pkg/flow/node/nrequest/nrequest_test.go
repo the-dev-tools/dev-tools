@@ -74,7 +74,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		RawOutput, err := node.ReadNodeVar(req, id, nrequest.NodeRequestKey)
 		testutil.Assert(t, nil, err)
 		testutil.AssertNot(t, nil, RawOutput)
-		var httpResp httpclient.Response
+		var httpResp httpclient.ResponseVar
 		CastedOutput := RawOutput.(map[string]interface{})
 		jsonOutput, err := json.Marshal(CastedOutput)
 		testutil.Assert(t, nil, err)
@@ -125,7 +125,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		RawOutput, err := node.ReadNodeVar(req, id, nrequest.NodeRequestKey)
 		testutil.Assert(t, nil, err)
 		testutil.AssertNot(t, nil, RawOutput)
-		var httpResp httpclient.Response
+		var httpResp httpclient.ResponseVar
 		CastedOutput := RawOutput.(map[string]interface{})
 		jsonOutput, err := json.Marshal(CastedOutput)
 		testutil.Assert(t, nil, err)
