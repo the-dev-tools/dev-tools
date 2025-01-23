@@ -144,12 +144,12 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
         <span>Collection</span>
         <div className={tw`flex items-center gap-1`}>
           <CollectionIcon />
-          <strong className={tw`font-semibold text-slate-800`}>N/A</strong> {/* TODO: implement */}
+          <strong className={tw`font-semibold text-slate-800`}>{workspace.collectionCount}</strong>
         </div>
         <span>Flows</span>
         <div className={tw`flex items-center gap-1`}>
           <FlowsIcon />
-          <strong className={tw`font-semibold text-slate-800`}>N/A</strong> {/* TODO: implement */}
+          <strong className={tw`font-semibold text-slate-800`}>{workspace.flowCount}</strong>
         </div>
         {/* <span>N/A Members</span> */}
         {/* <div className={tw`flex gap-2`}>
