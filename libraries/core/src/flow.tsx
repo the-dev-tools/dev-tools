@@ -63,7 +63,7 @@ import {
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse, FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { flowDelete, flowGet } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import {
@@ -85,6 +85,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
 import { CollectionListTree } from './collection';
 import { ConditionField } from './condition';
@@ -446,6 +447,7 @@ interface BaseNodeViewProps {
   children: ReactNode;
 }
 
+// TODO: add node name
 const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) => {
   const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
@@ -487,8 +489,9 @@ const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) 
             >
               Edit
             </MenuItem>
+
             <MenuItem>Rename</MenuItem>
-            <MenuItem>Duplicate</MenuItem>
+
             <MenuItem
               variant='danger'
               onAction={async () => {
@@ -773,15 +776,29 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
 
+  const flowUpdateMutation = useConnectMutation(flowUpdate);
+  const flowDeleteMutation = useConnectMutation(flowDelete);
+
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const flowDeleteMutation = useConnectMutation(flowDelete);
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    value: name,
+    onSuccess: (_) => flowUpdateMutation.mutateAsync({ workspaceId, flowId, name: _ }),
+  });
 
   return (
     <RFPanel className={tw`m-0 flex w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-3.5`}>
-      <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
-        {name}
-      </div>
+      {isEditing ? (
+        <TextField
+          inputClassName={tw`-my-1 py-1 text-md font-medium leading-none tracking-tight text-slate-800`}
+          isDisabled={flowUpdateMutation.isPending}
+          {...textFieldProps}
+        />
+      ) : (
+        <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
+          {name}
+        </div>
+      )}
 
       <div className={tw`flex-1`} />
 
@@ -813,9 +830,10 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
         </Button>
 
         <Menu {...menuProps}>
-          {/* TODO: implement rename */}
-          <MenuItem>Rename</MenuItem>
+          <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
           <Separator />
+
           <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
             Delete
           </MenuItem>

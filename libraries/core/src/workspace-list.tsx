@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { DateTime, Duration, Effect, pipe, Runtime, Schema } from 'effect';
+import { DateTime, Duration, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { useState } from 'react';
-import { Form, MenuTrigger } from 'react-aria-components';
+import { MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 
 import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
@@ -18,16 +17,12 @@ import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField } from '@the-dev-tools/ui/text-field';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { durationHumanFormat } from '@the-dev-tools/utils/helpers';
 
 export const Route = createFileRoute('/_authorized/_dashboard/')({
   component: Page,
 });
-
-class RenameForm extends Schema.Class<RenameForm>('WorkspaceRenameForm')({
-  name: Schema.String,
-}) {}
 
 function Page() {
   const workspaceListQuery = useConnectQuery(workspaceList);
@@ -73,14 +68,15 @@ interface RowProps {
 }
 
 const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspaceUlid }: RowProps) => {
-  const { runtime } = Route.useRouteContext();
-
-  const [renaming, setRenaming] = useState(false);
-
   const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
   const workspaceDeleteMutation = useConnectMutation(workspaceDelete);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    value: workspace.name,
+    onSuccess: (_) => workspaceUpdateMutation.mutateAsync({ workspaceId, name: _ }),
+  });
 
   return (
     <div className={tw`flex items-center gap-3 px-5 py-4`} onContextMenu={onContextMenu}>
@@ -91,44 +87,21 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
       <div
         className={tw`grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight text-slate-500`}
       >
-        <div>
-          {renaming ? (
-            <Form
-              className='flex flex-row gap-4'
-              onSubmit={(event) =>
-                Effect.gen(function* () {
-                  event.preventDefault();
+        {isEditing ? (
+          <TextField
+            className={tw`justify-self-start`}
+            inputClassName={tw`-my-1 py-1 text-md font-semibold leading-none tracking-tight text-slate-800`}
+            isDisabled={workspaceUpdateMutation.isPending}
+            {...textFieldProps}
+          />
+        ) : (
+          <div className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+            <Link to='/workspace/$workspaceIdCan' params={{ workspaceIdCan }}>
+              {workspace.name}
+            </Link>
+          </div>
+        )}
 
-                  const { name } = yield* pipe(
-                    new FormData(event.currentTarget),
-                    Object.fromEntries,
-                    Schema.decode(RenameForm),
-                  );
-
-                  workspaceUpdateMutation.mutate({ workspaceId, name });
-
-                  setRenaming(false);
-                }).pipe(Runtime.runPromise(runtime))
-              }
-            >
-              <TextField
-                aria-label='Workspace name'
-                name='name'
-                className={tw`text-md font-semibold tracking-tight text-slate-800`}
-                defaultValue={workspace.name}
-                // eslint-disable-next-line jsx-a11y/no-autofocus
-                autoFocus
-              />
-              <Button type='submit'>Save</Button>
-            </Form>
-          ) : (
-            <div className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
-              <Link to='/workspace/$workspaceIdCan' params={{ workspaceIdCan }}>
-                {workspace.name}
-              </Link>
-            </div>
-          )}
-        </div>
         <div className={tw`flex items-center gap-2`}>
           {/* <span>
             by <strong className={tw`font-medium`}>N/A</strong>
@@ -171,7 +144,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
         </Button>
 
         <Menu {...menuProps}>
-          <MenuItem onAction={() => void setRenaming(true)}>Rename</MenuItem>
+          <MenuItem onAction={() => void edit()}>Rename</MenuItem>
           <MenuItem onAction={() => void workspaceDeleteMutation.mutate({ workspaceId })} variant='danger'>
             Delete
           </MenuItem>

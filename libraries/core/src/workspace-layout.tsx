@@ -2,13 +2,13 @@ import { createClient } from '@connectrpc/connect';
 import { createConnectQueryKey, createQueryOptions } from '@connectrpc/connect-query';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
-import { Array, Effect, pipe, Runtime, Schema } from 'effect';
+import { Array, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { useMemo, useRef, useState } from 'react';
-import { Button as AriaButton, FileTrigger, Form, ListBox, MenuTrigger, Text } from 'react-aria-components';
+import { RefObject, useMemo, useRef } from 'react';
+import { Button as AriaButton, FileTrigger, ListBox, MenuTrigger, Text } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
-import { twMerge } from 'tailwind-merge';
+import { twJoin, twMerge } from 'tailwind-merge';
 
 import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import {
@@ -30,10 +30,10 @@ import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ArrowToLeftIcon, CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
-import { Popover } from '@the-dev-tools/ui/popover';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField } from '@the-dev-tools/ui/text-field';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useEscapePortal } from '@the-dev-tools/ui/utils';
 
 import { DashboardLayout } from './authorized';
 import { CollectionListTree } from './collection';
@@ -199,6 +199,8 @@ const FlowList = () => {
   const flowListQuery = useConnectQuery(flowList, { workspaceId });
   const flowCreateMutation = useConnectMutation(flowCreate);
 
+  const listRef = useRef<HTMLDivElement>(null);
+
   if (!flowListQuery.isSuccess) return null;
   const flows = flowListQuery.data.items;
 
@@ -217,12 +219,14 @@ const FlowList = () => {
         </Button>
       </div>
 
-      <ListBox aria-label='Flow list' selectionMode='single' items={flows} className={tw`w-full`}>
-        {(_) => {
-          const id = Ulid.construct(_.flowId).toCanonical();
-          return <FlowItem id={id} flow={_} />;
-        }}
-      </ListBox>
+      <div ref={listRef} className={tw`relative`}>
+        <ListBox aria-label='Flow list' selectionMode='single' items={flows} className={tw`w-full`}>
+          {(_) => {
+            const id = Ulid.construct(_.flowId).toCanonical();
+            return <FlowItem id={id} flow={_} listRef={listRef} />;
+          }}
+        </ListBox>
+      </div>
     </>
   );
 };
@@ -230,20 +234,24 @@ const FlowList = () => {
 interface FlowItemProps {
   id: string;
   flow: FlowListItem;
+  listRef: RefObject<HTMLDivElement | null>;
 }
 
-const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
-  const { runtime } = Route.useRouteContext();
+const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemProps) => {
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
   const flowDeleteMutation = useConnectMutation(flowDelete);
   const flowUpdateMutation = useConnectMutation(flowUpdate);
 
-  const triggerRef = useRef(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const [isRenaming, setIsRenaming] = useState(false);
+  const escape = useEscapePortal(listRef);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    value: name,
+    onSuccess: (_) => flowUpdateMutation.mutateAsync({ workspaceId, flowId, name: _ }),
+  });
 
   return (
     <ListBoxItem
@@ -254,9 +262,19 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
       showSelectIndicator={false}
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>
-        <Text ref={triggerRef} className='flex-1 truncate' slot='label'>
+        <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} slot='label'>
           {name}
         </Text>
+
+        {isEditing &&
+          escape.render(
+            <TextField
+              className={tw`w-full`}
+              inputClassName={tw`-my-1 py-1`}
+              isDisabled={flowUpdateMutation.isPending}
+              {...textFieldProps}
+            />,
+          )}
 
         <MenuTrigger {...menuTriggerProps}>
           <Button variant='ghost' className={tw`p-0.5`}>
@@ -264,7 +282,7 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
           </Button>
 
           <Menu {...menuProps}>
-            <MenuItem onAction={() => void setIsRenaming(true)}>Rename</MenuItem>
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
               Delete
@@ -272,45 +290,6 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name } }: FlowItemProps) => {
           </Menu>
         </MenuTrigger>
       </div>
-
-      <Popover
-        triggerRef={triggerRef}
-        isOpen={isRenaming}
-        onOpenChange={setIsRenaming}
-        dialogAria-label='Rename collection'
-      >
-        <Form
-          className='flex flex-1 items-center gap-2'
-          onSubmit={(event) =>
-            Effect.gen(function* () {
-              event.preventDefault();
-
-              const { name } = yield* pipe(
-                new FormData(event.currentTarget),
-                Object.fromEntries,
-                Schema.decode(Schema.Struct({ name: Schema.String })),
-              );
-
-              flowUpdateMutation.mutate({ workspaceId, flowId, name });
-
-              setIsRenaming(false);
-            }).pipe(Runtime.runPromise(runtime))
-          }
-        >
-          <TextField
-            name='name'
-            defaultValue={name}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            label='New name:'
-            className={tw`contents`}
-            labelClassName={tw`text-nowrap`}
-            inputClassName={tw`w-full bg-transparent`}
-          />
-
-          <Button type='submit'>Save</Button>
-        </Form>
-      </Popover>
     </ListBoxItem>
   );
 };

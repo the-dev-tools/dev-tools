@@ -26,6 +26,7 @@ import {
   exampleDelete,
   exampleGet,
   exampleRun,
+  exampleUpdate,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   QueryCreateRequest,
@@ -56,7 +57,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/utils/helpers';
 
 import { AssertionView } from './assertions';
@@ -336,6 +337,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const queryClient = useQueryClient();
 
   const endpointUpdateMutation = useConnectMutation(endpointUpdate);
+  const exampleUpdateMutation = useConnectMutation(exampleUpdate);
   const exampleCreateMutation = useConnectMutation(exampleCreate);
   const exampleDeleteMutation = useConnectMutation(exampleDelete);
   const exampleRunMutation = useConnectMutation(exampleRun);
@@ -433,24 +435,33 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    value: example.name,
+    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ endpointId, exampleId, name: _ }),
+  });
+
   return (
     <form onSubmit={onSubmit}>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
         <div className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}>
           {example.breadcrumbs.map((_, index) => (
             <Fragment key={`${index} ${_}`}>
-              {index !== example.breadcrumbs.length - 1 ? (
-                <>
-                  <span>{_}</span>
-                  <span>/</span>
-                </>
-              ) : (
-                <h2 className={tw`cursor-pointer text-slate-800`} onContextMenu={onContextMenu}>
-                  {_}
-                </h2>
-              )}
+              <span>{_}</span>
+              <span>/</span>
             </Fragment>
           ))}
+
+          {isEditing ? (
+            <TextField
+              inputClassName={tw`-my-1 py-1 leading-none text-slate-800`}
+              isDisabled={exampleUpdateMutation.isPending}
+              {...textFieldProps}
+            />
+          ) : (
+            <h2 className={tw`cursor-pointer text-slate-800`} onContextMenu={onContextMenu}>
+              {example.name}
+            </h2>
+          )}
         </div>
 
         {/* TODO: implement response history */}
@@ -478,9 +489,11 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
             <MenuItem onAction={() => void exampleCreateMutation.mutate({ endpointId, name: 'New Example' })}>
               Add example
             </MenuItem>
+
             <Separator />
-            {/* TODO: implement rename */}
-            <MenuItem>Rename</MenuItem>
+
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
             <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
               Delete
             </MenuItem>
