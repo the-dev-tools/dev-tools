@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { DateTime, Effect, pipe, Runtime, Schema } from 'effect';
+import { DateTime, Duration, Effect, pipe, Runtime, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { useState } from 'react';
 import { Form, MenuTrigger } from 'react-aria-components';
@@ -54,8 +54,11 @@ function Page() {
         </div>
 
         {workspaces.map((_) => {
-          const workspaceIdCan = Ulid.construct(_.workspaceId).toCanonical();
-          return <Row key={workspaceIdCan} workspaceIdCan={workspaceIdCan} workspace={_} />;
+          const workspaceUlid = Ulid.construct(_.workspaceId);
+          const workspaceIdCan = workspaceUlid.toCanonical();
+          return (
+            <Row key={workspaceIdCan} workspace={_} workspaceIdCan={workspaceIdCan} workspaceUlid={workspaceUlid} />
+          );
         })}
       </div>
     </div>
@@ -63,14 +66,13 @@ function Page() {
 }
 
 interface RowProps {
-  workspaceIdCan: string;
   workspace: WorkspaceListItem;
+  workspaceIdCan: string;
+  workspaceUlid: Ulid;
 }
 
-const Row = ({ workspaceIdCan, workspace }: RowProps) => {
+const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspaceUlid }: RowProps) => {
   const { runtime } = Route.useRouteContext();
-
-  const { workspaceId } = workspace;
 
   const [renaming, setRenaming] = useState(false);
 
@@ -131,9 +133,13 @@ const Row = ({ workspaceIdCan, workspace }: RowProps) => {
             by <strong className={tw`font-medium`}>N/A</strong>
           </span> */}
           {/* <div className={tw`size-0.5 rounded-full bg-slate-400`} /> */}
-          <span>Created N/A ago</span> {/* TODO: implement */}
+          <span>
+            Created {pipe(Date.now() - workspaceUlid.time.getMilliseconds(), Duration.decode, Duration.format)} ago
+          </span>
           <div className={tw`size-0.5 rounded-full bg-slate-400`} />
-          <span>Updated N/A ago</span> {/* TODO: implement */}
+          {workspace.updated && (
+            <span>Updated {pipe(Date.now() - workspace.updated.nanos, Duration.decode, Duration.format)} ago</span>
+          )}
         </div>
         <span>Collection</span>
         <div className={tw`flex items-center gap-1`}>
