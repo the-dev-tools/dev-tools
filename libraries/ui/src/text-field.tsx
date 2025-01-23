@@ -1,5 +1,5 @@
-import { String, Struct } from 'effect';
-import { forwardRef } from 'react';
+import { pipe, Record, String, Struct } from 'effect';
+import { forwardRef, useCallback, useState } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Input as AriaInput,
@@ -16,22 +16,71 @@ import { tv, VariantProps } from 'tailwind-variants';
 import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 
 import { FieldError, FieldLabel, type FieldErrorProps, type FieldLabelProps } from './field';
-import { focusRingStyles } from './focus-ring';
+import { isFocusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 // Input
 
-const inputStyles = tv({
-  extend: focusRingStyles,
+export const inputStyles = tv({
+  extend: isFocusVisibleRingStyles,
   base: tw`rounded-md border border-slate-200 px-3 py-1.5 text-md leading-5 text-slate-800`,
   variants: {
+    ...isFocusVisibleRingStyles.variants,
     variant: {
       'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
     },
+    isDisabled: {
+      true: tw`bg-slate-100 opacity-50`,
+    },
   },
 });
+
+const inputVariantKeys = pipe(
+  Struct.omit(inputStyles.variants, ...isFocusVisibleRingStyles.variantKeys, 'isDisabled'),
+  Record.keys,
+);
+
+// Editable text state
+
+export interface UseEditableTextStateProps {
+  value: string;
+  onSuccess: (value: string) => Promise<unknown>;
+}
+
+export const useEditableTextState = ({ value, onSuccess }: UseEditableTextStateProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+
+  const edit = useCallback(() => void setIsEditing(true), []);
+
+  const onBlur = useCallback(
+    async (event: React.FocusEvent<HTMLInputElement>) => {
+      await onSuccess(event.currentTarget.value);
+      setIsEditing(false);
+    },
+    [onSuccess],
+  );
+
+  const onKeyDown = useCallback(
+    async (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') await onSuccess(event.currentTarget.value);
+      if (['Enter', 'Escape'].includes(event.key)) setIsEditing(false);
+    },
+    [onSuccess],
+  );
+
+  return {
+    isEditing,
+    edit,
+    textFieldProps: {
+      autoFocus: true,
+      defaultValue: value,
+      inputOnBlur: onBlur,
+      inputOnKeyDown: onKeyDown,
+    } satisfies TextFieldProps,
+  };
+};
 
 // Root
 
@@ -74,8 +123,8 @@ export const TextField = forwardRef(
   ({ inputClassName, ...props }: TextFieldProps, ref: React.ForwardedRef<HTMLInputElement>) => {
     const forwardedProps = splitProps(props, 'input');
 
-    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...inputStyles.variantKeys);
-    const variantProps = Struct.pick(forwardedProps.rest, ...inputStyles.variantKeys);
+    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...inputVariantKeys);
+    const variantProps = Struct.pick(forwardedProps.rest, ...inputVariantKeys);
 
     return (
       <Root {...rootForwardedProps}>
