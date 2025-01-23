@@ -316,10 +316,21 @@ interface EndpointFormProps {
 }
 
 export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
-  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
-  const {
-    data: { items: queries },
-  } = useConnectSuspenseQuery(queryList, { exampleId });
+  const { transport } = Route.useRouteContext();
+
+  const [
+    { data: endpoint },
+    { data: example },
+    {
+      data: { items: queries },
+    },
+  ] = useSuspenseQueries({
+    queries: [
+      createQueryOptions(endpointGet, { endpointId }, { transport }),
+      createQueryOptions(exampleGet, { exampleId }, { transport }),
+      createQueryOptions(queryList, { exampleId }, { transport }),
+    ],
+  });
 
   const queryClient = useQueryClient();
 
@@ -424,19 +435,21 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   return (
     <form onSubmit={onSubmit}>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
-        {/* TODO: implement breadcrumbs */}
-        <div
-          className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}
-          onContextMenu={onContextMenu}
-        >
-          {['Collection', 'Folder', 'Endpoint'].map((_) => (
-            <Fragment key={_}>
-              <span className={tw`cursor-pointer`}>{_}</span>
-              <span>/</span>
+        <div className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}>
+          {example.breadcrumbs.map((_, index) => (
+            <Fragment key={`${index} ${_}`}>
+              {index !== example.breadcrumbs.length - 1 ? (
+                <>
+                  <span>{_}</span>
+                  <span>/</span>
+                </>
+              ) : (
+                <h2 className={tw`cursor-pointer text-slate-800`} onContextMenu={onContextMenu}>
+                  {_}
+                </h2>
+              )}
             </Fragment>
           ))}
-
-          <h2 className={tw`cursor-pointer text-slate-800`}>Example</h2>
         </div>
 
         {/* TODO: implement response history */}
