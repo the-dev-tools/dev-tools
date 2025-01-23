@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
-	"sync"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -466,17 +465,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
 
 	status := make(chan runner.FlowStatusResp, 10)
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	done := make(chan error, 1)
 	go func() {
-		var wLock sync.Mutex
 		defer close(done)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-subCtx.Done():
 				return
 			case a := <-status:
-				localErr := c.logChanMap.SendMsgToUserWithContext(ctx, flowID, a.Log())
+				localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), a.Log())
 				if localErr != nil {
 					done <- localErr
 					return
@@ -493,19 +493,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				resp := &flowv1.FlowRunResponse{
 					CurrentNodeId: nodeBytes,
 				}
-				wLock.Lock()
 
-				streamCasted := stream.(*connect.ServerStream[flowv1.FlowRunResponse])
-				if streamCasted == nil {
-					panic("streamCasted is nil")
-				}
-				localErr = streamCasted.Send(resp)
+				localErr = stream.Send(resp)
 				if localErr != nil {
 					done <- localErr
 					fmt.Println("Error in sending response")
 					return
 				}
-				wLock.Unlock()
 				if a.Done() {
 					fmt.Println("Done")
 					done <- nil
@@ -516,13 +510,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}()
 
 	err = runnerInst.Run(ctx, status)
+	flowErr := <-done
 	if err != nil {
 		err = fmt.Errorf("run flow: %w", err)
 		return connect.NewError(connect.CodeInternal, err)
 	}
-
-	err = <-done
-	if err != nil {
+	if flowErr != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
