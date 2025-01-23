@@ -19,6 +19,7 @@ import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
+import { durationHumanFormat } from '@the-dev-tools/utils/helpers';
 
 export const Route = createFileRoute('/_authorized/_dashboard/')({
   component: Page,
@@ -134,11 +135,11 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
           </span> */}
           {/* <div className={tw`size-0.5 rounded-full bg-slate-400`} /> */}
           <span>
-            Created {pipe(Date.now() - workspaceUlid.time.getMilliseconds(), Duration.decode, Duration.format)} ago
+            Created {pipe(Date.now() - workspaceUlid.time.getMilliseconds(), Duration.decode, durationHumanFormat)} ago
           </span>
           <div className={tw`size-0.5 rounded-full bg-slate-400`} />
           {workspace.updated && (
-            <span>Updated {pipe(Date.now() - workspace.updated.nanos, Duration.decode, Duration.format)} ago</span>
+            <span>Updated {pipe(Date.now() - workspace.updated.nanos, Duration.decode, durationHumanFormat)} ago</span>
           )}
         </div>
         <span>Collection</span>
