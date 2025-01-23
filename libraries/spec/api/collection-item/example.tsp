@@ -38,8 +38,7 @@ model ExampleListResponse is Resource.List.Response<Example, ExampleListItem>;
 model ExampleGetRequest is Resource.Get.Request<Example>;
 model ExampleGetResponse is Resource.Get.Response<Example>;
 model ExampleCreateRequest is Resource.Create.Request<Example>;
-model ExampleCreateResponse
-  is Resource.Create.Response<Example, ExampleListResponse>;
+model ExampleCreateResponse is Resource.Create.Response<Example, ExampleListResponse>;
 model ExampleUpdateRequest is Resource.Update.Request<Example>;
 model ExampleUpdateResponse is Resource.Update.Response<Example>;
 model ExampleDeleteRequest is Resource.Delete.Request<Example>;
