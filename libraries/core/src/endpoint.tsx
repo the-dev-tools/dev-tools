@@ -57,6 +57,7 @@ import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { formatSize } from '@the-dev-tools/utils/helpers';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
@@ -622,10 +623,9 @@ export const ResponsePanel = ({ responseId, responseTab, fullWidth = false, clas
 
           <Separator orientation='vertical' className={tw`h-4`} />
 
-          {/* TODO: implement response size */}
           <div className={tw`flex gap-1 p-2`}>
             <span>Size:</span>
-            <span>0.0 KB</span>
+            <span>{formatSize(response.size)}</span>
           </div>
 
           {/* <Separator orientation='vertical' className={tw`h-4`} />
