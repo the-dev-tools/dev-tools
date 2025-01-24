@@ -4,14 +4,17 @@ import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { Struct } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useMemo } from 'react';
-import { Collection, Dialog, DialogTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
-import { FiPlus } from 'react-icons/fi';
+import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
+import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
   environmentCreate,
+  environmentDelete,
   environmentList,
+  environmentUpdate,
 } from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
 import { VariableListItem, VariableListItemSchema, VariableService } from '@the-dev-tools/spec/variable/v1/variable_pb';
 import { variableList } from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
@@ -23,10 +26,11 @@ import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
+import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
 import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from './form-table';
 
@@ -87,7 +91,7 @@ export const EnvironmentsWidget = () => {
         <Modal modalClassName={tw`size-full`}>
           <Dialog className={tw`h-full outline-none`}>
             {({ close }) => (
-              <Tabs className={tw`flex h-full`}>
+              <Tabs className={tw`flex h-full`} orientation='vertical'>
                 <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
                   <div className={tw`-order-3 mb-4`}>
                     <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Variable Settings</div>
@@ -132,59 +136,101 @@ export const EnvironmentsWidget = () => {
                           <span className={tw`text-md font-semibold leading-5`}>
                             {item.isGlobal ? 'Global Variables' : item.name}
                           </span>
-
-                          {/* TODO: add context menu for renaming/deleting environments */}
                         </Tab>
                       );
                     }}
                   </TabList>
                 </div>
 
-                <Collection items={environments}>
-                  {(item) => {
-                    const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
-                    return (
-                      <TabPanel id={environmentIdCan} className={tw`flex h-full min-w-0 flex-1 flex-col`}>
-                        <div className={tw`px-6 py-4`}>
-                          <div className={tw`mb-4 flex items-center gap-2`}>
-                            {item.isGlobal ? (
-                              <VariableIcon className={tw`size-6 text-slate-500`} />
-                            ) : (
-                              <div
-                                className={tw`flex size-6 items-center justify-center rounded-md bg-slate-300 text-xs leading-3 text-slate-500`}
-                              >
-                                {item.name[0]}
-                              </div>
-                            )}
-                            <h1 className={tw`font-semibold leading-5 tracking-tight text-slate-800`}>
-                              {item.isGlobal ? 'Global Variables' : item.name}
-                            </h1>
+                <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
+                  <Collection items={environments}>
+                    {(_) => {
+                      const id = Ulid.construct(_.environmentId).toCanonical();
+                      return <EnvironmentPanel id={id} environment={_} />;
+                    }}
+                  </Collection>
 
-                            {/* TODO: add context menu for renaming/deleting environments */}
-                          </div>
+                  <div className={tw`flex-1`} />
 
-                          <Suspense fallback={'Loading variables...'}>
-                            <VariablesTable environmentId={item.environmentId} />
-                          </Suspense>
-                        </div>
-
-                        <div className={tw`flex-1`} />
-
-                        <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
-                          <Button variant='primary' onPress={close}>
-                            Close
-                          </Button>
-                        </div>
-                      </TabPanel>
-                    );
-                  }}
-                </Collection>
+                  <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
+                    <Button variant='primary' onPress={close}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
               </Tabs>
             )}
           </Dialog>
         </Modal>
       </DialogTrigger>
     </div>
+  );
+};
+
+interface EnvironmentPanelProps {
+  id: string;
+  environment: EnvironmentListItem;
+}
+
+const EnvironmentPanel = ({ id, environment: { environmentId, isGlobal, name } }: EnvironmentPanelProps) => {
+  const environmentUpdateMutation = useConnectMutation(environmentUpdate);
+  const environmentDeleteMutation = useConnectMutation(environmentDelete);
+
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    value: name,
+    onSuccess: (_) => environmentUpdateMutation.mutateAsync({ environmentId, name: _ }),
+  });
+
+  return (
+    <TabPanel id={id} className={tw`px-6 py-4`}>
+      <div className={tw`mb-4 flex items-center gap-2`} onContextMenu={onContextMenu}>
+        {isGlobal ? (
+          <VariableIcon className={tw`size-6 text-slate-500`} />
+        ) : (
+          <div
+            className={tw`flex size-6 items-center justify-center rounded-md bg-slate-300 text-xs leading-3 text-slate-500`}
+          >
+            {name[0]}
+          </div>
+        )}
+
+        {isEditing ? (
+          <TextField
+            inputClassName={tw`-my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
+            isDisabled={environmentUpdateMutation.isPending}
+            {...textFieldProps}
+          />
+        ) : (
+          <h1 className={tw`font-semibold leading-5 tracking-tight text-slate-800`}>
+            {isGlobal ? 'Global Variables' : name}
+          </h1>
+        )}
+
+        <div className={tw`flex-1`} />
+
+        {!isGlobal && (
+          <MenuTrigger {...menuTriggerProps}>
+            <Button variant='ghost' className={tw`p-1`}>
+              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            </Button>
+
+            <Menu {...menuProps}>
+              <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+              <MenuItem variant='danger' onAction={() => void environmentDeleteMutation.mutate({ environmentId })}>
+                Delete
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+        )}
+      </div>
+
+      <Suspense fallback={'Loading variables...'}>
+        <VariablesTable environmentId={environmentId} />
+      </Suspense>
+    </TabPanel>
   );
 };
 
