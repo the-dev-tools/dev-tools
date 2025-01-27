@@ -1,9 +1,15 @@
 package leafjson
 
-import "encoding/json"
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"the-dev-tools/backend/pkg/assertv2"
+)
 
 type LeafJSON struct {
-	jsonMap map[string]interface{}
+	JsonMap map[string]interface{}
 }
 
 // TODO: refactor this to not use json.Marshal
@@ -17,11 +23,23 @@ func NewWithStruct(a interface{}) (*LeafJSON, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(m)
+
 	return New(m), nil
 }
 
 func New(input map[string]interface{}) *LeafJSON {
 	return &LeafJSON{
-		jsonMap: input,
+		JsonMap: input,
 	}
+}
+
+// TODO: add tests
+func (l *LeafJSON) SelectGVal(ctx context.Context, k string) (interface{}, error) {
+	leaf, ok := l.JsonMap[k]
+	if !ok {
+		return assertv2.AssertLeafResponse{}, errors.New("key not found")
+	}
+	return leaf, nil
 }

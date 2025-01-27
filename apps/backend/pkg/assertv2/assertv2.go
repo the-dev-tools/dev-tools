@@ -138,6 +138,7 @@ func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, p
 
 	expr := fmt.Sprintf("y %s %s", assertTypeStr, path)
 	fmt.Println("expr", expr)
+	fmt.Println("value type", reflect.TypeOf(value))
 	a, err := s.EvalBool(ctx, expr, langs...)
 
 	if assertType == AssertTypeNotContains {

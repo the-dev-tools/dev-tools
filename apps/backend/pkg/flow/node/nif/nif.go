@@ -3,7 +3,6 @@ package nif
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -55,22 +54,6 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	a := map[string]interface{}{
 		NodeVarKey: req.VarMap,
 	}
-
-	var recursiveFunc func(interface{}, string)
-	recursiveFunc = func(value interface{}, prefix string) {
-		if reflect.TypeOf(value).Kind() == reflect.Map {
-			for k, v := range value.(map[string]interface{}) {
-				newKey := prefix + k
-				recursiveFunc(v, newKey+".")
-			}
-		} else {
-			fmt.Println(prefix, value)
-		}
-	}
-
-	recursiveFunc(a, "")
-
-	fmt.Println(n.Path)
 
 	rootLeaf := &leafmock.LeafMock{
 		Leafs: a,

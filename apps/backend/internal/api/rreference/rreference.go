@@ -3,6 +3,7 @@ package rreference
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -12,6 +13,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
 	"the-dev-tools/backend/pkg/model/mvar"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/reference"
 	"the-dev-tools/backend/pkg/service/senv"
 	"the-dev-tools/backend/pkg/service/sexampleresp"
 	"the-dev-tools/backend/pkg/service/sexamplerespheader"
@@ -21,6 +23,7 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
 	"the-dev-tools/backend/pkg/service/sworkspace"
+	"the-dev-tools/nodes/pkg/httpclient"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 	"the-dev-tools/spec/dist/buf/go/reference/v1/referencev1connect"
 
@@ -170,27 +173,34 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		headersSub := make([]*referencev1.Reference, 0, len(respHeaders))
+		headerMap := make(map[string]string)
 		for _, header := range respHeaders {
-			headersSub = append(headersSub, &referencev1.Reference{
-				Key: &referencev1.ReferenceKey{
-					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  &header.HeaderKey,
-				},
-				Kind:  referencev1.ReferenceKind_REFERENCE_KIND_VALUE,
-				Value: &header.Value,
-			})
+			headerVal, ok := headerMap[header.HeaderKey]
+			if ok {
+				headerMap[header.HeaderKey] = headerVal + ", " + header.Value
+			} else {
+				headerMap[header.HeaderKey] = header.Value
+			}
 		}
 
-		headerKey := "headers"
-		Items = append(Items, &referencev1.Reference{
-			Key: &referencev1.ReferenceKey{
-				Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-				Key:  &headerKey,
-			},
-			Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-			Map:  headersSub,
-		})
+		httpResp := httpclient.ResponseVar{
+			StatusCode: int(resp.Status),
+			Body:       resp.Body,
+			Headers:    headerMap,
+		}
+
+		var m map[string]interface{}
+		data, err := json.Marshal(httpResp)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		json.Unmarshal(data, &m)
+
+		localRef, err := reference.ConvertMapToReference(m, "response")
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		Items = append(Items, reference.ConvertRpc(localRef))
 
 	}
 	if nodeID != nil {

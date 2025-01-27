@@ -2,6 +2,7 @@ package reference
 
 import (
 	"errors"
+	"fmt"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 )
 
@@ -62,7 +63,7 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 		if !ok {
 			vStr, ok := v.(string)
 			if !ok {
-				return ref, errors.New("value is not a string")
+				vStr = fmt.Sprintf("%v", v)
 			}
 			valueRef := Reference{
 				Key:   key,

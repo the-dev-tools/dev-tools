@@ -69,10 +69,12 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 		}
 	}
 
+	rootMap := make(CustomMap)
 	respMap := make(CustomMap)
 	respMap[BodyKey] = bodyMap
 	respMap[HeaderKey] = headerMap
 	respMap[StatusKey] = respHttp.StatusCode
+	rootMap["response"] = respMap
 
 	gvalFunc := gval.Function("contains", func(args ...interface{}) (bool, error) {
 		if len(args) != 2 {

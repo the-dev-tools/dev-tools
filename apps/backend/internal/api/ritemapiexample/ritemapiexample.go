@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"strconv"
 	"strings"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/collection"
 	"the-dev-tools/backend/internal/api/ritemapi"
-	"the-dev-tools/backend/pkg/assertsys"
+	"the-dev-tools/backend/pkg/assertv2"
+	"the-dev-tools/backend/pkg/assertv2/leafs/leafjson"
 	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
@@ -646,9 +648,40 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 		assertions = []massert.Assert{}
 	}
+
 	for _, assertion := range assertions {
 		if assertion.Enable {
-			assertionResult, err := assertsys.New().Eval(respHttp, assertion.Type, assertion.Path, assertion.Value)
+
+			tempStruct := struct {
+				Response httpclient.ResponseVar `json:"response"`
+			}{
+				Response: httpclient.ConvertResponseToVar(respHttp),
+			}
+
+			rootLeaf, err := leafjson.NewWithStruct(tempStruct)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			root := assertv2.NewAssertRoot(rootLeaf)
+			assertSys := assertv2.NewAssertSystem(root)
+			val := assertion.Value
+			var value interface{} = val
+
+			// check if string is int or float
+			if strings.Contains(val, ".") {
+				feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64)
+				if err == nil {
+					value = feetFloat
+				}
+			} else {
+				feetInt, err := strconv.Atoi(strings.TrimSpace(val))
+				if err == nil {
+					value = feetInt
+				}
+			}
+
+			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(assertion.Type), assertion.Path, value)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -656,7 +689,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				ID:         idwrap.NewNow(),
 				ResponseID: exampleResp.ID,
 				AssertID:   assertion.ID,
-				Result:     assertionResult,
+				Result:     ok,
 			}
 			err = c.ars.CreateAssertResult(ctx, res)
 			if err != nil {
