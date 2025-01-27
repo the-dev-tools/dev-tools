@@ -39,7 +39,7 @@ enum MemberRole {
 @normalize
 @parentResource(Workspace)
 model WorkspaceMember {
-  @key memberId: Resource.Id;
+  @key userID: Resource.Id;
   @visibility("create", "query") email: string;
   role: MemberRole;
 }
@@ -65,9 +65,13 @@ model WorkspaceMemberListRequest is Resource.List.Request<WorkspaceMember>;
 model WorkspaceMemberListResponse is Resource.List.Response<WorkspaceMember, WorkspaceMemberListItem>;
 model WorkspaceMemberCreateRequest is Resource.Create.Request<WorkspaceMember>;
 model WorkspaceMemberCreateResponse is Resource.Create.Response<WorkspaceMember, WorkspaceMemberListResponse>;
-model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember>;
+model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember> {
+  ...ParentKeyOf<WorkspaceMember>;
+}
 model WorkspaceMemberUpdateResponse is Resource.Update.Response<WorkspaceMember>;
-model WorkspaceMemberDeleteRequest is Resource.Delete.Request<WorkspaceMember>;
+model WorkspaceMemberDeleteRequest is Resource.Delete.Request<WorkspaceMember> {
+  ...ParentKeyOf<WorkspaceMember>;
+}
 model WorkspaceMemberDeleteResponse is Resource.Delete.Response<WorkspaceMember>;
 
 @Protobuf.service

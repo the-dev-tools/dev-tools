@@ -385,9 +385,9 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *conn
 		}
 
 		rpcUser[i] = &workspacev1.WorkspaceMemberListItem{
-			MemberId: wsUser.UserID.Bytes(),
-			Email:    user.Email,
-			Role:     workspacev1.MemberRole(wsUser.Role),
+			UserID: wsUser.UserID.Bytes(),
+			Email:  user.Email,
+			Role:   workspacev1.MemberRole(wsUser.Role),
 		}
 	}
 
@@ -469,9 +469,8 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberCreate(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&workspacev1.WorkspaceMemberCreateResponse{
-		MemberId: invitedUser.ID.Bytes(),
-	}), nil
+	// TODO: look into this with new spec member id return just not possible
+	return connect.NewResponse(&workspacev1.WorkspaceMemberCreateResponse{}), nil
 }
 
 func (c *WorkspaceServiceRPC) WorkspaceMemberDelete(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberDeleteRequest]) (*connect.Response[workspacev1.WorkspaceMemberDeleteResponse], error) {
@@ -483,7 +482,7 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberDelete(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.GetMemberId())
+	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.UserID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
@@ -522,7 +521,7 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberUpdate(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.GetMemberId())
+	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.UserID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
