@@ -303,10 +303,9 @@ func TestUpdateExampleApi(t *testing.T) {
 	updatedBodyType := bodyv1.BodyKind_BODY_KIND_RAW
 
 	req := connect.NewRequest(&examplev1.ExampleUpdateRequest{
-		ExampleId:  expectedID.Bytes(),
-		EndpointId: item.ID.Bytes(),
-		Name:       &updatedName,
-		BodyKind:   &updatedBodyType,
+		ExampleId: expectedID.Bytes(),
+		Name:      &updatedName,
+		BodyKind:  &updatedBodyType,
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
@@ -406,8 +405,7 @@ func TestDeleteExampleApi(t *testing.T) {
 	}
 
 	req := connect.NewRequest(&examplev1.ExampleDeleteRequest{
-		ExampleId:  expectedID.Bytes(),
-		EndpointId: item.ID.Bytes(),
+		ExampleId: expectedID.Bytes(),
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,

@@ -16,14 +16,13 @@ func SerializeModelToRPC(v mvar.Var) *variablev1.Variable {
 	}
 }
 
-func SerializeModelToRPCItem(v mvar.Var, envID idwrap.IDWrap) *variablev1.VariableListItem {
+func SerializeModelToRPCItem(v mvar.Var) *variablev1.VariableListItem {
 	return &variablev1.VariableListItem{
-		VariableId:    v.ID.Bytes(),
-		Name:          v.VarKey,
-		Value:         v.Value,
-		Enabled:       v.Enabled,
-		Description:   v.Description,
-		EnvironmentId: envID.Bytes(),
+		VariableId:  v.ID.Bytes(),
+		Name:        v.VarKey,
+		Value:       v.Value,
+		Enabled:     v.Enabled,
+		Description: v.Description,
 	}
 }
 

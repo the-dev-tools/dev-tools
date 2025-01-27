@@ -10,10 +10,12 @@ import (
 	"the-dev-tools/backend/internal/api/renv"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mvar"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/senv"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/backend/pkg/translate/tvar"
 	variablev1 "the-dev-tools/spec/dist/buf/go/variable/v1"
 	"the-dev-tools/spec/dist/buf/go/variable/v1/variablev1connect"
@@ -55,17 +57,15 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		variables, err := v.vs.GetVariableByEnvID(ctx, envID)
+		vars, err := v.vs.GetVariableByEnvID(ctx, envID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		sort.Slice(variables, func(i, j int) bool {
-			return variables[i].ID.Compare(variables[j].ID) < 0
+		sort.Slice(vars, func(i, j int) bool {
+			return vars[i].ID.Compare(vars[j].ID) < 0
 		})
-		var rpcVars []*variablev1.VariableListItem
-		for _, variable := range variables {
-			rpcVars = append(rpcVars, tvar.SerializeModelToRPCItem(variable, envID))
-		}
+
+		rpcVars := tgeneric.MassConvert(vars, tvar.SerializeModelToRPCItem)
 		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
 
 	} else if len(workspaceIDRaw) != 0 {
@@ -81,21 +81,21 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		var rpcVars []*variablev1.VariableListItem
+		var vars []mvar.Var
 		for _, env := range envs {
 			envVars, err := v.vs.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-			for _, variable := range envVars {
-				rpcVars = append(rpcVars, tvar.SerializeModelToRPCItem(variable, env.ID))
-			}
+			vars = append(vars, envVars...)
 		}
 
-		sort.Slice(rpcVars, func(i, j int) bool {
-			return bytes.Compare(rpcVars[i].EnvironmentId, rpcVars[j].EnvironmentId) < 0
+		sort.Slice(vars, func(i, j int) bool {
+			return bytes.Compare(vars[i].EnvID.Bytes(), vars[j].EnvID.Bytes()) < 0
 		})
+
+		rpcVars := tgeneric.MassConvert(vars, tvar.SerializeModelToRPCItem)
 
 		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
 	}

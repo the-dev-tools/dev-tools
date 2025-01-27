@@ -223,7 +223,6 @@ func TestUpdateItemApi(t *testing.T) {
 		Name:           &updatedName,
 		Url:            &updatedUrl,
 		Method:         &updatedMethod,
-		CollectionId:   CollectionID.Bytes(),
 		ParentFolderId: nil,
 	})
 

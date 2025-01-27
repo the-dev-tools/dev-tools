@@ -170,10 +170,9 @@ func TestUpdateTag(t *testing.T) {
 
 	req := connect.NewRequest(
 		&tagv1.TagUpdateRequest{
-			TagId:       testTagID.Bytes(),
-			WorkspaceId: wsID.Bytes(),
-			Name:        &UpdatedName,
-			Color:       &UpdatedTagColor,
+			TagId: testTagID.Bytes(),
+			Name:  &UpdatedName,
+			Color: &UpdatedTagColor,
 		},
 	)
 

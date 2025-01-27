@@ -280,7 +280,6 @@ func TestNodeUpdate(t *testing.T) {
 	req := connect.NewRequest(
 		&nodev1.NodeUpdateRequest{
 			NodeId: startNodeID.Bytes(),
-			FlowId: testFlowID.Bytes(),
 			Kind:   &kind,
 			NoOp:   &noOpKind,
 			Position: &nodev1.Position{

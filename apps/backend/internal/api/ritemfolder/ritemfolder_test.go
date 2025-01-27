@@ -121,7 +121,6 @@ func TestUpdateItemFolder(t *testing.T) {
 	req := connect.NewRequest(&folderv1.FolderUpdateRequest{
 		FolderId:       item.ID.Bytes(),
 		Name:           &updatedName,
-		CollectionId:   CollectionID.Bytes(),
 		ParentFolderId: nil,
 	})
 
@@ -182,9 +181,7 @@ func TestDeleteItemFolder(t *testing.T) {
 	}
 
 	req := connect.NewRequest(&folderv1.FolderDeleteRequest{
-		FolderId:       item.ID.Bytes(),
-		CollectionId:   CollectionID.Bytes(),
-		ParentFolderId: nil,
+		FolderId: item.ID.Bytes(),
 	})
 
 	rpcItemFolder := ritemfolder.New(db, ifs, us, cs)
