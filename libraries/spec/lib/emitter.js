@@ -36,17 +36,21 @@ export async function $onEmit({ program, emitterOutputDir }) {
           Array.map((model) => {
             const typeName = `${packageName}.${model.name}`;
 
-            const meta = {
-              autoChanges: program.stateMap($lib.stateKeys.autoChanges).get(model),
-              key: pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined),
-              normalKeys: program.stateMap($lib.stateKeys.normalKeys).get(model),
-            };
+            let meta = { autoChanges: program.stateMap($lib.stateKeys.autoChanges).get(model) };
 
             /** @type {Model | undefined} */
             let baseModel = program.stateMap($lib.stateKeys.base).get(model);
             if (baseModel) {
               const basePackageName = packageStateMap.get(baseModel.namespace).properties.get('name').type.value;
-              meta.base = `${basePackageName}.${baseModel.name}`;
+              meta = { ...meta, base: `${basePackageName}.${baseModel.name}` };
+            }
+
+            if (baseModel === model) {
+              meta = {
+                ...meta,
+                key: pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined),
+                normalKeys: program.stateMap($lib.stateKeys.normalKeys).get(model),
+              };
             }
 
             return /** @type {const} */ ([typeName, meta]);
