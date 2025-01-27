@@ -771,8 +771,6 @@ interface TopBarProps {
 }
 
 const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
-  const { workspaceId } = workspaceRoute.useLoaderData();
-
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
 
@@ -783,7 +781,7 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     value: name,
-    onSuccess: (_) => flowUpdateMutation.mutateAsync({ workspaceId, flowId, name: _ }),
+    onSuccess: (_) => flowUpdateMutation.mutateAsync({ flowId, name: _ }),
   });
 
   return (
@@ -834,7 +832,7 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
 
           <Separator />
 
-          <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
+          <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ flowId })}>
             Delete
           </MenuItem>
         </Menu>
@@ -1028,7 +1026,6 @@ const EditRequestNodeView = ({ node: { nodeId, request } }: EditPanelProps) => {
         <ReferenceContext value={{ nodeId, exampleId, workspaceId }}>
           <EndpointRequestView
             className={tw`p-5 pt-3`}
-            endpointId={endpointId}
             exampleId={exampleId}
             deltaExampleId={deltaExampleId}
             requestTab={requestTab}

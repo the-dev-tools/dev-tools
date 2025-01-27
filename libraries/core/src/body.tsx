@@ -39,12 +39,11 @@ import {
 } from './form-table';
 
 interface BodyViewProps {
-  endpointId: Uint8Array;
   exampleId: Uint8Array;
   deltaExampleId?: Uint8Array | undefined;
 }
 
-export const BodyView = ({ endpointId, exampleId, deltaExampleId }: BodyViewProps) => {
+export const BodyView = ({ exampleId, deltaExampleId }: BodyViewProps) => {
   const query = useConnectSuspenseQuery(exampleGet, { exampleId });
   const updateMutation = useConnectMutation(exampleUpdate);
 
@@ -58,7 +57,7 @@ export const BodyView = ({ endpointId, exampleId, deltaExampleId }: BodyViewProp
         className='h-7 justify-center'
         orientation='horizontal'
         value={bodyKind.toString()}
-        onChange={(key) => void updateMutation.mutate({ endpointId, exampleId, bodyKind: parseInt(key) })}
+        onChange={(key) => void updateMutation.mutate({ exampleId, bodyKind: parseInt(key) })}
       >
         <Radio value={BodyKind.UNSPECIFIED.toString()}>none</Radio>
         <Radio value={BodyKind.FORM_ARRAY.toString()}>form-data</Radio>
@@ -263,7 +262,7 @@ const RawForm = ({ exampleId }: RawFormProps) => {
       <CodeMirror
         value={value}
         onChange={setValue}
-        onBlur={() => void updateMutation.mutate({ exampleId, data: new TextEncoder().encode(value) })}
+        onBlur={() => void updateMutation.mutate({ data: new TextEncoder().encode(value) })}
         height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}

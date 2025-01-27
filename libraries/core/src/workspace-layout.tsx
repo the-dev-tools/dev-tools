@@ -238,7 +238,6 @@ interface FlowItemProps {
 }
 
 const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemProps) => {
-  const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
   const flowDeleteMutation = useConnectMutation(flowDelete);
@@ -250,7 +249,7 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemPr
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     value: name,
-    onSuccess: (_) => flowUpdateMutation.mutateAsync({ workspaceId, flowId, name: _ }),
+    onSuccess: (_) => flowUpdateMutation.mutateAsync({ flowId, name: _ }),
   });
 
   return (
@@ -284,7 +283,7 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemPr
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ workspaceId, flowId })}>
+            <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ flowId })}>
               Delete
             </MenuItem>
           </Menu>

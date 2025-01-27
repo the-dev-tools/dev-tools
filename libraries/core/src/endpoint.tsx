@@ -133,7 +133,7 @@ function Page() {
         <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
         <ReferenceContext value={{ exampleId, workspaceId }}>
-          <EndpointRequestView endpointId={endpointId} exampleId={exampleId} requestTab={requestTab} />
+          <EndpointRequestView exampleId={exampleId} requestTab={requestTab} />
         </ReferenceContext>
       </Panel>
       {example.lastResponseId && (
@@ -153,20 +153,13 @@ function Page() {
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 interface EndpointRequestViewProps {
-  endpointId: Uint8Array;
   exampleId: Uint8Array;
   deltaExampleId?: Uint8Array;
   requestTab: EndpointRouteSearch['requestTab'];
   className?: string;
 }
 
-export const EndpointRequestView = ({
-  endpointId,
-  exampleId,
-  deltaExampleId,
-  requestTab,
-  className,
-}: EndpointRequestViewProps) => (
+export const EndpointRequestView = ({ exampleId, deltaExampleId, requestTab, className }: EndpointRequestViewProps) => (
   <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)} selectedKey={requestTab}>
     <TabList className={tw`flex gap-3 border-b border-slate-200`}>
       <Tab
@@ -256,7 +249,7 @@ export const EndpointRequestView = ({
       </TabPanel>
 
       <TabPanel id='body'>
-        <BodyView endpointId={endpointId} exampleId={exampleId} deltaExampleId={deltaExampleId} />
+        <BodyView exampleId={exampleId} deltaExampleId={deltaExampleId} />
       </TabPanel>
 
       <TabPanel id='assertions'>
@@ -437,7 +430,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     value: example.name,
-    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ endpointId, exampleId, name: _ }),
+    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ exampleId, name: _ }),
   });
 
   return (
@@ -494,7 +487,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
+            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ exampleId })}>
               Delete
             </MenuItem>
           </Menu>

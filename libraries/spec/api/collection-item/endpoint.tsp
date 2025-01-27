@@ -20,6 +20,7 @@ using TypeSpec.Rest.Resource;
 namespace API.CollectionItem.Endpoint;
 
 @autoFields
+@normalize
 @parentResource(Collection.Collection)
 model Endpoint {
   @key endpointId: Resource.Id;
@@ -39,9 +40,7 @@ model EndpointCreateResponse is Resource.Create.Response<Endpoint> {
 }
 model EndpointUpdateRequest is Resource.Update.Request<Endpoint>;
 model EndpointUpdateResponse is Resource.Update.Response<Endpoint>;
-model EndpointDeleteRequest is Resource.Delete.Request<Endpoint> {
-  @autoField parentFolderId?: Resource.Id;
-}
+model EndpointDeleteRequest is Resource.Delete.Request<Endpoint>;
 model EndpointDeleteResponse is Resource.Delete.Response<Endpoint>;
 
 model EndpointDuplicateRequest is KeyOf<Endpoint>;

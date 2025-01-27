@@ -119,8 +119,6 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
-  const { workspaceId } = workspaceRoute.useLoaderData();
-
   const { showControls, containerRef } = useContext(CollectionListTreeContext);
 
   const { collectionId } = collection;
@@ -139,7 +137,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     value: collection.name,
-    onSuccess: (_) => collectionUpdateMutation.mutateAsync({ workspaceId, collectionId, name: _ }),
+    onSuccess: (_) => collectionUpdateMutation.mutateAsync({ collectionId, name: _ }),
   });
 
   const childItems = useMemo(
@@ -194,10 +192,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
               Add Folder
             </MenuItem>
 
-            <MenuItem
-              variant='danger'
-              onAction={() => void collectionDeleteMutation.mutate({ workspaceId, collectionId })}
-            >
+            <MenuItem variant='danger' onAction={() => void collectionDeleteMutation.mutate({ collectionId })}>
               Delete
             </MenuItem>
           </Menu>
@@ -265,7 +260,6 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
     value: folder.name,
     onSuccess: (_) =>
       folderUpdateMutation.mutateAsync({
-        collectionId,
         folderId,
         parentFolderId: parentFolderId!,
         name: _,
@@ -345,9 +339,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
 
                 <MenuItem
                   variant='danger'
-                  onAction={() =>
-                    void folderDeleteMutation.mutate({ collectionId, folderId, parentFolderId: parentFolderId! })
-                  }
+                  onAction={() => void folderDeleteMutation.mutate({ folderId, parentFolderId: parentFolderId! })}
                 >
                   Delete
                 </MenuItem>
@@ -398,7 +390,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     value: endpoint.name,
-    onSuccess: (_) => endpointUpdateMutation.mutateAsync({ collectionId, endpointId, name: _ }),
+    onSuccess: (_) => endpointUpdateMutation.mutateAsync({ endpointId, name: _ }),
   });
 
   const route = {
@@ -470,7 +462,6 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
               variant='danger'
               onAction={() =>
                 void endpointDeleteMutation.mutate({
-                  collectionId,
                   endpointId,
                   parentFolderId: parentFolderId!,
                 })
@@ -515,7 +506,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     value: name,
-    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ endpointId, exampleId, name: _ }),
+    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ exampleId, name: _ }),
   });
 
   const route = {
@@ -559,7 +550,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
 
             <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ endpointId, exampleId })}>
+            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ exampleId })}>
               Delete
             </MenuItem>
           </Menu>

@@ -55,7 +55,7 @@ const Tab = ({ exampleId, items }: TabProps) => {
 
   const assertUpdateCallback = useDebouncedCallback(
     form.handleSubmit(async ({ items }) => {
-      const updates = items.map((_) => assertUpdateMutation.mutateAsync({ ...Struct.omit(_, '$typeName'), exampleId }));
+      const updates = items.map((_) => assertUpdateMutation.mutateAsync({ ...Struct.omit(_, '$typeName') }));
       await Promise.allSettled(updates);
     }),
     500,

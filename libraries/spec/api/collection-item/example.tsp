@@ -49,10 +49,7 @@ model ExampleDuplicateRequest is KeyOf<Example>;
 model ExampleRunRequest is KeyOf<Example>;
 
 @autoFields
-model ExampleRunResponse {
-  ...Resource.Get.Response<Response.Response>;
-  ...Change.Changes;
-}
+model ExampleRunResponse is Resource.Get.Response<Response.Response>;
 
 @Protobuf.service
 interface ExampleService {

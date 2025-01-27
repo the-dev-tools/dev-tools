@@ -29,9 +29,7 @@ model Variable {
 }
 
 model VariableChange is Resource.Change<Variable>;
-model VariableListItem is Resource.List.Item<Variable> {
-  ...ParentKeyOf<Variable>;
-}
+model VariableListItem is Resource.List.Item<Variable>;
 model VariableListRequest is Resource.List.Request<Variable> {
   @autoField @normalKey workspaceId?: Resource.Id;
 }

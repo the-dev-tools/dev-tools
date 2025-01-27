@@ -75,7 +75,6 @@ namespace Create {
       }
     ],
   })
-  @normalize(Resource)
   model Response<Resource extends Model, ListResponse extends Model = Resource> {
     ...KeyOf<Resource>;
     ...API.Change.Changes;
@@ -88,7 +87,6 @@ namespace Update {
   @withVisibility("mutate", "update")
   model Request<Resource extends Model> {
     ...KeyOf<Resource>;
-    ...ParentKeyOf<Resource>;
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
@@ -108,7 +106,6 @@ namespace Delete {
   @normalize(Resource)
   model Request<Resource extends Model> {
     ...KeyOf<Resource>;
-    ...ParentKeyOf<Resource>;
   }
 
   @autoChange({
