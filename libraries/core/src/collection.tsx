@@ -215,13 +215,7 @@ const mapCollectionItemTree =
       Match.when({ kind: ItemKind.ENDPOINT }, (_) => {
         const endpointIdCan = Ulid.construct(_.endpoint!.endpointId).toCanonical();
         return (
-          <EndpointTree
-            id={endpointIdCan}
-            collectionId={collectionId}
-            parentFolderId={parentFolderId}
-            endpoint={_.endpoint!}
-            example={_.example!}
-          />
+          <EndpointTree id={endpointIdCan} collectionId={collectionId} endpoint={_.endpoint!} example={_.example!} />
         );
       }),
       Match.orElse(() => null),
@@ -337,10 +331,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
                   Add Folder
                 </MenuItem>
 
-                <MenuItem
-                  variant='danger'
-                  onAction={() => void folderDeleteMutation.mutate({ folderId, parentFolderId: parentFolderId! })}
-                >
+                <MenuItem variant='danger' onAction={() => void folderDeleteMutation.mutate({ folderId })}>
                   Delete
                 </MenuItem>
               </Menu>
@@ -355,12 +346,11 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
 interface EndpointTreeProps {
   id: string;
   collectionId: Collection['collectionId'];
-  parentFolderId: Folder['folderId'] | undefined;
   endpoint: EndpointListItem;
   example: ExampleListItem;
 }
 
-const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoint, example }: EndpointTreeProps) => {
+const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: EndpointTreeProps) => {
   const { endpointId, method, name } = endpoint;
   const { exampleId, lastResponseId } = example;
 
@@ -458,15 +448,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, parentFolderId, endpoin
 
             <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
-            <MenuItem
-              variant='danger'
-              onAction={() =>
-                void endpointDeleteMutation.mutate({
-                  endpointId,
-                  parentFolderId: parentFolderId!,
-                })
-              }
-            >
+            <MenuItem variant='danger' onAction={() => void endpointDeleteMutation.mutate({ endpointId })}>
               Delete
             </MenuItem>
           </Menu>
