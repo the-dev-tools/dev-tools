@@ -10,7 +10,7 @@ import { FiMoreHorizontal, FiPlus, FiTerminal, FiTrash2, FiX } from 'react-icons
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   collectionCreate,
   collectionImportHar,
@@ -66,9 +66,7 @@ function Layout() {
   const postmanFileTriggerRef = useRef<HTMLInputElement>(null);
   const harFileTriggerRef = useRef<HTMLInputElement>(null);
 
-  const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
-  if (!workspaceGetQuery.isSuccess) return;
-  const workspace = workspaceGetQuery.data;
+  const { data: workspace } = useConnectSuspenseQuery(workspaceGet, { workspaceId });
 
   return (
     <DashboardLayout
@@ -196,13 +194,13 @@ function Layout() {
 const FlowList = () => {
   const { workspaceId } = Route.useLoaderData();
 
-  const flowListQuery = useConnectQuery(flowList, { workspaceId });
+  const {
+    data: { items: flows },
+  } = useConnectSuspenseQuery(flowList, { workspaceId });
+
   const flowCreateMutation = useConnectMutation(flowCreate);
 
   const listRef = useRef<HTMLDivElement>(null);
-
-  if (!flowListQuery.isSuccess) return null;
-  const flows = flowListQuery.data.items;
 
   return (
     <>

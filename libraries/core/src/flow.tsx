@@ -36,7 +36,7 @@ import { FiExternalLink, FiMinus, FiMoreHorizontal, FiPlus, FiTerminal, FiX } fr
 import { Panel } from 'react-resizable-panels';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
   exampleCreate,
@@ -52,6 +52,7 @@ import {
   NodeKind,
   NodeListItem,
   NodeNoOpKind,
+  NodeRequest,
   NodeRequestSchema,
   NodeSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
@@ -126,31 +127,22 @@ const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 function RouteComponent() {
   const { flowId } = Route.useLoaderData();
   const { selectedNodeIdCan } = Route.useSearch();
+  const { transport } = Route.useRouteContext();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
-
-  const nodeId = selectedNodeIdCan ? Ulid.fromCanonical(selectedNodeIdCan).bytes : undefined!;
-
-  const flowQuery = useConnectQuery(flowGet, { flowId });
-  const edgeListQuery = useConnectQuery(edgeList, { flowId });
-  const nodeListQuery = useConnectQuery(nodeList, { flowId });
-  const selectedNodeQuery = useConnectQuery(nodeGet, { nodeId }, { enabled: selectedNodeIdCan !== undefined });
-
-  if (!flowQuery.data || !edgeListQuery.data || !nodeListQuery.data) return null;
+  const [flowQuery, edgeListQuery, nodeListQuery] = useSuspenseQueries({
+    queries: [
+      createQueryOptions(flowGet, { flowId }, { transport }),
+      createQueryOptions(edgeList, { flowId }, { transport }),
+      createQueryOptions(nodeList, { flowId }, { transport }),
+    ],
+  });
 
   return (
     <ReactFlowProvider>
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
       </Panel>
-      {selectedNodeQuery.data && (
-        <ReferenceContext value={{ nodeId, workspaceId }}>
-          <PanelResizeHandle direction='vertical' />
-          <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
-            <EditPanel node={selectedNodeQuery.data} />
-          </Panel>
-        </ReferenceContext>
-      )}
+      {selectedNodeIdCan !== undefined && <EditPanel nodeIdCan={selectedNodeIdCan} />}
     </ReactFlowProvider>
   );
 }
@@ -531,75 +523,90 @@ const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) 
 
 const RequestNodeView = ({ id, data }: RFNodeProps) => {
   const { nodeId } = data;
-  const { collectionId, endpointId, exampleId } = data.request!;
-
   const { updateNodeData } = useReactFlow();
-
-  const collectionGetQuery = useConnectQuery(collectionGet, { collectionId }, { enabled: collectionId.length > 0 });
-  const endpointGetQuery = useConnectQuery(endpointGet, { endpointId }, { enabled: endpointId.length > 0 });
-  const exampleGetQuery = useConnectQuery(exampleGet, { exampleId }, { enabled: exampleId.length > 0 });
 
   const exampleCreateMutation = useConnectMutation(exampleCreate);
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
 
-  let content;
-  if (collectionGetQuery.isSuccess && endpointGetQuery.isSuccess && exampleGetQuery.isSuccess) {
-    const { name: collectionName } = collectionGetQuery.data;
-    const { method } = endpointGetQuery.data;
-    const { name } = exampleGetQuery.data;
-
-    content = (
-      <div className={tw`space-y-1.5 p-2`}>
-        <div className={tw`text-xs leading-4 tracking-tight text-slate-400`}>{collectionName}</div>
-        <div className={tw`flex items-center gap-1.5`}>
-          <MethodBadge method={method} />
-          <div className={tw`flex-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
-          <ButtonAsLink
-            variant='ghost'
-            className={tw`p-0.5`}
-            href={{
-              from: Route.fullPath,
-              to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-              params: {
-                endpointIdCan: Ulid.construct(endpointId).toCanonical(),
-                exampleIdCan: Ulid.construct(exampleId).toCanonical(),
-              },
-            }}
-          >
-            <FiExternalLink className={tw`size-4 text-slate-500`} />
-          </ButtonAsLink>
-        </div>
-      </div>
-    );
-  } else {
-    content = (
-      <CollectionListTree
-        onAction={async ({ collectionId, endpointId, exampleId }) => {
-          if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
-          const { exampleId: deltaExampleId } = await exampleCreateMutation.mutateAsync({ endpointId });
-          const request = create(NodeRequestSchema, {
-            ...data.request!,
-            collectionId,
-            endpointId,
-            exampleId,
-            deltaExampleId,
-          });
-          await nodeUpdateMutation.mutateAsync({ nodeId, request });
-          updateNodeData(id, { ...data, request });
-        }}
-      />
-    );
-  }
-
   return (
     <>
       <BaseNodeView id={id} nodeId={nodeId} Icon={SendRequestIcon} title='Send Request'>
-        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>{content}</div>
+        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+          {data.request?.exampleId.length !== 0 ? (
+            <RequestNodeFullView request={data.request!} />
+          ) : (
+            <CollectionListTree
+              onAction={async ({ collectionId, endpointId, exampleId }) => {
+                if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
+                const { exampleId: deltaExampleId } = await exampleCreateMutation.mutateAsync({ endpointId });
+                const request = create(NodeRequestSchema, {
+                  ...data.request!,
+                  collectionId,
+                  endpointId,
+                  exampleId,
+                  deltaExampleId,
+                });
+                await nodeUpdateMutation.mutateAsync({ nodeId, request });
+                updateNodeData(id, { ...data, request });
+              }}
+            />
+          )}
+        </div>
       </BaseNodeView>
 
       <RFHandle type='target' position={Position.Top} />
       <RFHandle type='source' position={Position.Bottom} />
     </>
+  );
+};
+
+interface RequestNodeFullViewProps {
+  request: NodeRequest;
+}
+
+const RequestNodeFullView = ({ request: { collectionId, endpointId, exampleId } }: RequestNodeFullViewProps) => {
+  const { transport } = Route.useRouteContext();
+
+  const [
+    {
+      data: { name: collectionName },
+    },
+    {
+      data: { method },
+    },
+    {
+      data: { name },
+    },
+  ] = useSuspenseQueries({
+    queries: [
+      createQueryOptions(collectionGet, { collectionId }, { transport }),
+      createQueryOptions(endpointGet, { endpointId }, { transport }),
+      createQueryOptions(exampleGet, { exampleId }, { transport }),
+    ],
+  });
+
+  return (
+    <div className={tw`space-y-1.5 p-2`}>
+      <div className={tw`text-xs leading-4 tracking-tight text-slate-400`}>{collectionName}</div>
+      <div className={tw`flex items-center gap-1.5`}>
+        <MethodBadge method={method} />
+        <div className={tw`flex-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
+        <ButtonAsLink
+          variant='ghost'
+          className={tw`p-0.5`}
+          href={{
+            from: Route.fullPath,
+            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+            params: {
+              endpointIdCan: Ulid.construct(endpointId).toCanonical(),
+              exampleIdCan: Ulid.construct(exampleId).toCanonical(),
+            },
+          }}
+        >
+          <FiExternalLink className={tw`size-4 text-slate-500`} />
+        </ButtonAsLink>
+      </div>
+    </div>
   );
 };
 
@@ -944,11 +951,17 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
 };
 
 interface EditPanelProps {
-  node: NodeGetResponse;
+  nodeIdCan: string;
 }
 
-const EditPanel = ({ node }: EditPanelProps) =>
-  pipe(
+const EditPanel = ({ nodeIdCan }: EditPanelProps) => {
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
+  const nodeId = Ulid.fromCanonical(nodeIdCan).bytes;
+
+  const { data: node } = useConnectSuspenseQuery(nodeGet, { nodeId });
+
+  const view = pipe(
     Match.value(node.kind),
     Match.when(NodeKind.REQUEST, () => <EditRequestNodeView node={node} />),
     Match.when(NodeKind.CONDITION, () => <EditConditionNodeView node={node} />),
@@ -957,7 +970,21 @@ const EditPanel = ({ node }: EditPanelProps) =>
     Match.orElseAbsurd,
   );
 
-const EditRequestNodeView = ({ node: { nodeId, request } }: EditPanelProps) => {
+  return (
+    <ReferenceContext value={{ nodeId, workspaceId }}>
+      <PanelResizeHandle direction='vertical' />
+      <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
+        {view}
+      </Panel>
+    </ReferenceContext>
+  );
+};
+
+interface EditNodeViewProps {
+  node: NodeGetResponse;
+}
+
+const EditRequestNodeView = ({ node: { nodeId, request } }: EditNodeViewProps) => {
   const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
 
   const { requestTab, responseTab } = Route.useSearch();
@@ -1048,7 +1075,7 @@ const EditRequestNodeView = ({ node: { nodeId, request } }: EditPanelProps) => {
   );
 };
 
-const EditConditionNodeView = ({ node: { nodeId, condition } }: EditPanelProps) => {
+const EditConditionNodeView = ({ node: { nodeId, condition } }: EditNodeViewProps) => {
   const { control, handleSubmit, watch } = useForm({ values: condition! });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
@@ -1086,7 +1113,7 @@ const EditConditionNodeView = ({ node: { nodeId, condition } }: EditPanelProps) 
   );
 };
 
-const EditForNodeView = ({ node: { nodeId, for: data } }: EditPanelProps) => {
+const EditForNodeView = ({ node: { nodeId, for: data } }: EditNodeViewProps) => {
   const { control, handleSubmit, watch } = useForm({ values: data! });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
@@ -1144,7 +1171,7 @@ const EditForNodeView = ({ node: { nodeId, for: data } }: EditPanelProps) => {
   );
 };
 
-const EditForEachNodeView = ({ node: { nodeId, forEach } }: EditPanelProps) => {
+const EditForEachNodeView = ({ node: { nodeId, forEach } }: EditNodeViewProps) => {
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);

@@ -9,7 +9,7 @@ import { FiFolder, FiMoreHorizontal, FiRotateCw } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointCreate,
@@ -80,12 +80,11 @@ interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'conta
 export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const collectionListQuery = useConnectQuery(collectionList, { workspaceId });
+  const {
+    data: { items: collections },
+  } = useConnectSuspenseQuery(collectionList, { workspaceId });
 
   const ref = useRef<HTMLDivElement>(null);
-
-  if (!collectionListQuery.isSuccess) return null;
-  const collections = collectionListQuery.data.items;
 
   return (
     <CollectionListTreeContext.Provider value={{ ...context, containerRef: ref }}>

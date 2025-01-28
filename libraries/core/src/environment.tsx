@@ -1,4 +1,6 @@
 import { createClient } from '@connectrpc/connect';
+import { createQueryOptions } from '@connectrpc/connect-query';
+import { useSuspenseQueries } from '@tanstack/react-query';
 import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { Struct } from 'effect';
@@ -8,7 +10,7 @@ import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel,
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
   environmentCreate,
@@ -38,14 +40,17 @@ const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const EnvironmentsWidget = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
+  const { transport } = workspaceRoute.useRouteContext();
 
-  const workspaceGetQuery = useConnectQuery(workspaceGet, { workspaceId });
+  const [workspaceGetQuery, environmentListQuery] = useSuspenseQueries({
+    queries: [
+      createQueryOptions(workspaceGet, { workspaceId }, { transport }),
+      createQueryOptions(environmentList, { workspaceId }, { transport }),
+    ],
+  });
+
   const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
-
-  const environmentListQuery = useConnectQuery(environmentList, { workspaceId });
   const environmentCreateMutation = useConnectMutation(environmentCreate);
-
-  if (!environmentListQuery.isSuccess || !workspaceGetQuery.isSuccess) return null;
 
   const environments = environmentListQuery.data.items;
   const { selectedEnvironmentId } = workspaceGetQuery.data;

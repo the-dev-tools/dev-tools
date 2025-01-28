@@ -4,7 +4,7 @@ import { Ulid } from 'id128';
 import { MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 
-import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import {
   workspaceCreate,
@@ -25,11 +25,10 @@ export const Route = createFileRoute('/_authorized/_dashboard/')({
 });
 
 function Page() {
-  const workspaceListQuery = useConnectQuery(workspaceList);
+  const {
+    data: { items: workspaces },
+  } = useConnectSuspenseQuery(workspaceList);
   const workspaceCreateMutation = useConnectMutation(workspaceCreate);
-
-  if (!workspaceListQuery.isSuccess) return null;
-  const { items: workspaces } = workspaceListQuery.data;
 
   return (
     <div className={tw`container mx-auto my-12 grid gap-x-10 gap-y-6`}>
