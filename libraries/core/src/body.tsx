@@ -262,7 +262,7 @@ const RawForm = ({ exampleId }: RawFormProps) => {
       <CodeMirror
         value={value}
         onChange={setValue}
-        onBlur={() => void updateMutation.mutate({ data: new TextEncoder().encode(value) })}
+        onBlur={() => void updateMutation.mutate({ exampleId, data: new TextEncoder().encode(value) })}
         height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}
