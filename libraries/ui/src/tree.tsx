@@ -15,7 +15,7 @@ import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Button, ButtonProps } from './button';
 import { isFocusVisibleRingStyles } from './focus-ring';
-import { ChevronSolidDownIcon } from './icons';
+import { ChevronSolidDownIcon, Spinner } from './icons';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
@@ -69,6 +69,7 @@ export interface TreeItemProps<T extends object>
   children?: AriaTreeItemContentProps['children'];
   childItem?: CollectionProps<T>['children'];
   expandButtonIsForced?: boolean;
+  loading?: boolean;
 }
 
 export const TreeItem = <T extends object>({
@@ -76,6 +77,7 @@ export const TreeItem = <T extends object>({
   childItem,
   expandButtonClassName,
   expandButtonIsForced,
+  loading,
   ...mixProps
 }: TreeItemProps<T>) => {
   const props = splitProps(mixProps, 'content', 'wrapper', 'expandButton', 'expandIndicator', 'child');
@@ -84,7 +86,11 @@ export const TreeItem = <T extends object>({
       <AriaTreeItemContent {...props.content}>
         {composeRenderProps(children, (children, { level, hasChildRows, isExpanded }) => (
           <TreeItemWrapper level={level} {...props.wrapper}>
-            {hasChildRows || expandButtonIsForced ? (
+            {loading ? (
+              <Button variant='ghost' isDisabled className={tw`p-1`}>
+                <Spinner className={tw`size-3`} />
+              </Button>
+            ) : hasChildRows || expandButtonIsForced ? (
               <Button
                 variant='ghost'
                 slot='chevron'

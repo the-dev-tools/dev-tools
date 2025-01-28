@@ -28,7 +28,7 @@ import {
 } from '@xyflow/react';
 import { Array, Match, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
+import { ComponentProps, ReactNode, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
 import { Controller, useForm } from 'react-hook-form';
 import { IconType } from 'react-icons';
@@ -77,6 +77,7 @@ import {
   PlayCircleIcon,
   PlayIcon,
   SendRequestIcon,
+  Spinner,
 } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -99,8 +100,12 @@ class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
   component: RouteComponent,
-  pendingComponent: () => 'Loading flow...',
   validateSearch: (_) => Schema.decodeSync(Search)(_),
+  pendingComponent: () => (
+    <div className={tw`flex h-full items-center justify-center`}>
+      <Spinner className={tw`size-16`} />
+    </div>
+  ),
   loader: async ({ params: { flowIdCan }, context: { transport, queryClient } }) => {
     const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
@@ -142,7 +147,7 @@ function RouteComponent() {
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
       </Panel>
-      {selectedNodeIdCan !== undefined && <EditPanel nodeIdCan={selectedNodeIdCan} />}
+      <Suspense>{selectedNodeIdCan !== undefined && <EditPanel nodeIdCan={selectedNodeIdCan} />}</Suspense>
     </ReactFlowProvider>
   );
 }

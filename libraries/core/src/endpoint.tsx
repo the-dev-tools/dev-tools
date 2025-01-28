@@ -50,6 +50,7 @@ import {
 import { ReferenceKeySchema } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
+import { Spinner } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
@@ -79,7 +80,6 @@ export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
 )({
   component: Page,
-  pendingComponent: () => 'Loading example...',
   shouldReload: false,
   validateSearch: (_) => Schema.decodeSync(EndpointRouteSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
@@ -140,9 +140,7 @@ function Page() {
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel id='response' order={2} defaultSize={40}>
-            <Suspense fallback='Loading response...'>
-              <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} fullWidth />
-            </Suspense>
+            <ResponsePanel responseId={example.lastResponseId} responseTab={responseTab} fullWidth />
           </Panel>
         </>
       )}
@@ -231,7 +229,13 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, requestTab, cla
       </Tab>
     </TabList>
 
-    <Suspense fallback='Loading tab...'>
+    <Suspense
+      fallback={
+        <div className={tw`flex h-full items-center justify-center`}>
+          <Spinner className={tw`size-12`} />
+        </div>
+      }
+    >
       <TabPanel id='params'>
         {deltaExampleId ? (
           <QueryDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
@@ -656,7 +660,13 @@ export const ResponsePanel = ({ responseId, responseTab, fullWidth = false, clas
       </div>
 
       <div className={twJoin(tw`flex-1 overflow-auto pt-4`, fullWidth && tw`px-4`)}>
-        <Suspense fallback='Loading tab...'>
+        <Suspense
+          fallback={
+            <div className={tw`flex h-full items-center justify-center`}>
+              <Spinner className={tw`size-12`} />
+            </div>
+          }
+        >
           <TabPanel id='body' className={twJoin(tw`flex h-full flex-col gap-4`)}>
             <ResponseBodyView bodyBytes={response.body} />
           </TabPanel>

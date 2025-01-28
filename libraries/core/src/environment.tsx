@@ -26,7 +26,7 @@ import {
 } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
+import { GlobalEnvironmentIcon, Spinner, VariableIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
@@ -189,7 +189,7 @@ const EnvironmentPanel = ({ id, environment: { environmentId, isGlobal, name } }
   });
 
   return (
-    <TabPanel id={id} className={tw`px-6 py-4`}>
+    <TabPanel id={id} className={tw`h-full px-6 py-4`}>
       <div className={tw`mb-4 flex items-center gap-2`} onContextMenu={onContextMenu}>
         {isGlobal ? (
           <VariableIcon className={tw`size-6 text-slate-500`} />
@@ -232,7 +232,13 @@ const EnvironmentPanel = ({ id, environment: { environmentId, isGlobal, name } }
         )}
       </div>
 
-      <Suspense fallback={'Loading variables...'}>
+      <Suspense
+        fallback={
+          <div className={tw`flex h-full items-center justify-center`}>
+            <Spinner className={tw`size-12`} />
+          </div>
+        }
+      >
         <VariablesTable environmentId={environmentId} />
       </Suspense>
     </TabPanel>

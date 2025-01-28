@@ -45,7 +45,6 @@ export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('Wo
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   component: Layout,
-  pendingComponent: () => 'Loading workspace...',
   validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
   loader: async ({ params: { workspaceIdCan }, context: { transport, queryClient } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;

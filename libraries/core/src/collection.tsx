@@ -5,7 +5,7 @@ import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef, useState } from 'react';
 import { MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
-import { FiFolder, FiMoreHorizontal, FiRotateCw } from 'react-icons/fi';
+import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 
@@ -153,13 +153,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       wrapperOnContextMenu={onContextMenu}
+      loading={collectionItemListQuery.isLoading}
     >
-      {collectionItemListQuery.isLoading && (
-        <Button variant='ghost' isDisabled className={tw`p-1`}>
-          <FiRotateCw className={tw`size-3 animate-spin text-slate-500`} />
-        </Button>
-      )}
-
       <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>
         {collection.name}
       </Text>
@@ -268,15 +263,10 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       wrapperOnContextMenu={onContextMenu}
+      loading={collectionItemListQuery.isLoading}
     >
       {({ isExpanded }) => (
         <>
-          {collectionItemListQuery.isLoading && (
-            <Button variant='ghost' isDisabled className={tw`p-1`}>
-              <FiRotateCw className={tw`size-3 animate-spin text-slate-500`} />
-            </Button>
-          )}
-
           {isExpanded ? (
             <FolderOpenedIcon className={tw`size-4 text-slate-500`} />
           ) : (
@@ -402,13 +392,8 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: En
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       wrapperOnContextMenu={onContextMenu}
+      loading={exampleListQuery.isLoading}
     >
-      {exampleListQuery.isLoading && (
-        <Button variant='ghost' isDisabled className={tw`p-1`}>
-          <FiRotateCw className={tw`size-3 animate-spin text-slate-500`} />
-        </Button>
-      )}
-
       <MethodBadge method={method} />
 
       <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>

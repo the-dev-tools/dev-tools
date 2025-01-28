@@ -1,4 +1,7 @@
 import { SVGProps } from 'react';
+import { twMerge } from 'tailwind-merge';
+
+import { tw } from './tailwind-literal';
 
 // Generated using this SVGR playground: https://react-svgr.com/playground/?exportType=named&icon=true&jsxRuntime=automatic&replaceAttrValues=%2364748B%3DcurrentColor&svgoConfig=%7B%0A%20%20%22plugins%22%3A%20%5B%0A%20%20%20%20%7B%0A%20%20%20%20%20%20%22name%22%3A%20%22preset-default%22%2C%0A%20%20%20%20%20%20%22params%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22overrides%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%22removeTitle%22%3A%20false%2C%0A%20%20%20%20%20%20%20%20%20%20%22removeViewBox%22%3A%20false%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%5D%0A%7D&typescript=true
 
@@ -323,5 +326,24 @@ export const CheckListAltIcon = (props: SVGProps<SVGSVGElement>) => (
       strokeWidth={1.2}
       d='m2.667 4.667 1.855 2 3.811-4.334M13.333 6h-4M13.333 9.333H2.667M13.333 12.667H2.667'
     />
+  </svg>
+);
+
+export const Spinner = ({ className, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns='http://www.w3.org/2000/svg'
+    width='1em'
+    height='1em'
+    fill='none'
+    viewBox='0 0 60 60'
+    className={twMerge(tw`animate-spin`, className)}
+    {...props}
+  >
+    <clipPath id='spinner'>
+      <path d='M55 30c0 13.807-11.193 25-25 25S5 43.807 5 30 16.193 5 30 5s25 11.193 25 25Zm-41.25 0c0 8.975 7.275 16.25 16.25 16.25S46.25 38.975 46.25 30 38.975 13.75 30 13.75 13.75 21.025 13.75 30Z' />
+    </clipPath>
+    <foreignObject x='0' y='0' width='100%' height='100%' clipPath='url(#spinner)'>
+      <div className={tw`size-full rounded-full`} style={{ backgroundImage: 'conic-gradient(#E2E8F0, #64748B)' }} />
+    </foreignObject>
   </svg>
 );

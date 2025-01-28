@@ -26,7 +26,7 @@ import {
 import { referenceGet } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
 import { Button, ButtonProps } from '@the-dev-tools/ui/button';
 import { DropdownPopover, DropdownPopoverProps } from '@the-dev-tools/ui/dropdown';
-import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
+import { ChevronSolidDownIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { listBoxStyles } from '@the-dev-tools/ui/list-box';
 import { controllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -239,7 +239,13 @@ const ReferenceTreePopover = ({ onSelect, ...mixProps }: ReferenceTreePopoverPro
     <DropdownPopover {...props.dropdown}>
       <Dialog className={listBoxStyles({ className: tw`pointer-events-auto max-h-full w-96` })}>
         {({ close }) => (
-          <Suspense fallback='Loading references...'>
+          <Suspense
+            fallback={
+              <div className={tw`flex items-center justify-center py-4`}>
+                <Spinner className={tw`size-8`} />
+              </div>
+            }
+          >
             <ReferenceTree
               {...props.rest}
               onSelect={(keys) => {
