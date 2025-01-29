@@ -39,9 +39,8 @@ const toNormalMessage = (data: unknown, options = { alwaysEmitImplicit: false })
   if (!message) return Option.none();
 
   const { base, key, normalKeys } = pipe(getBaseMessageMeta(message), Option.getOrNull) ?? {};
-  if (!base) return Option.none();
 
-  const schema = registry.getMessage(base);
+  const schema = base ? registry.getMessage(base) : registry.getMessage(message.$typeName);
   if (!schema) return Option.none();
 
   message = create(schema, message);
@@ -49,7 +48,7 @@ const toNormalMessage = (data: unknown, options = { alwaysEmitImplicit: false })
   if (!Predicate.isRecord(json)) return Option.none();
 
   const keys = pipe(Array.fromNullable(key), Array.appendAll(normalKeys ?? []));
-  const $id = { $typeName: base, ...Struct.pick(json, ...keys) };
+  const $id = base ? { $typeName: base, ...Struct.pick(json, ...keys) } : undefined;
 
   return Option.some({ ...json, $id });
 };
