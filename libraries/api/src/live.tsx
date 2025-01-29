@@ -3,6 +3,7 @@ import { Config, Effect, Layer, pipe } from 'effect';
 import { Magic } from 'magic-sdk';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
+import { LocalMode } from './local';
 import { registry } from './meta';
 import { ApiTransport, effectInterceptor } from './transport';
 
@@ -24,6 +25,8 @@ const AuthTransportLive = Layer.effect(
 const MagicClientLive = Layer.effect(
   MagicClient,
   Effect.gen(function* () {
+    // TODO: improve auth layer composition for local mode
+    if (yield* LocalMode) return {} as Magic;
     const apiKey = yield* Config.string('PUBLIC_MAGIC_KEY');
     return new Magic(apiKey, {
       useStorageCache: true,

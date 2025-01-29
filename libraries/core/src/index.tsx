@@ -1,11 +1,19 @@
 import { TransportProvider } from '@connectrpc/connect-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, NavigateOptions, RouterProvider, ToOptions } from '@tanstack/react-router';
+import {
+  createBrowserHistory,
+  createHashHistory,
+  createRouter,
+  NavigateOptions,
+  RouterProvider,
+  ToOptions,
+} from '@tanstack/react-router';
 import { Effect, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
+import { LocalMode } from '@the-dev-tools/api/local';
 import { QueryNormalizerProvider } from '@the-dev-tools/api/normalizer';
 import { ApiTransport } from '@the-dev-tools/api/transport';
 
@@ -16,11 +24,15 @@ import '@xyflow/react/dist/style.css';
 import '@the-dev-tools/ui/fonts';
 import './styles.css';
 
-const router = createRouter({ routeTree, context: {} as RouterContext });
+const makeRouter = Effect.gen(function* () {
+  // TODO: create an Electron-related layer instead to better represent this logic
+  const history = (yield* LocalMode) ? createHashHistory() : createBrowserHistory();
+  return createRouter({ routeTree, context: {} as RouterContext, history });
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
-    router: typeof router;
+    router: Effect.Effect.Success<typeof makeRouter>;
   }
 }
 
@@ -40,6 +52,7 @@ export const app = Effect.gen(function* () {
 
   const transport = yield* ApiTransport;
   const queryClient = new QueryClient();
+  const router = yield* makeRouter;
 
   const root = createRoot(rootEl);
   root.render(

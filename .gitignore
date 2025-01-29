@@ -13,5 +13,6 @@ data
 dist
 next-env.d.ts
 node_modules
+out
 tsconfig.tsbuildinfo
 tsp-output

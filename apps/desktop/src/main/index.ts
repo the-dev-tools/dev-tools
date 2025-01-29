@@ -30,7 +30,7 @@ const server = Effect.gen(function* () {
   const server = yield* pipe(
     import.meta.resolve('@the-dev-tools/backend'),
     fileURLToPath,
-    (_) => `${_}/backend`,
+    (_) => `${_}/backend`.replaceAll('/app.asar/', '/app.asar.unpacked/'),
     Command.make,
     Command.env({
       DB_PATH: './',

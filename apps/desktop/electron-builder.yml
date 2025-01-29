@@ -1,0 +1,16 @@
+appId: com.devtools.devtools
+productName: DevTools
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+directories:
+  buildResources: build
+files:
+  - '!src/*'
+  - '!*.{js,ts}'
+  - '!{tsconfig.json,tsconfig.*.json}'
+asarUnpack:
+  - resources/**
+linux:
+  target:
+    - AppImage
+  category: Development
+npmRebuild: false
