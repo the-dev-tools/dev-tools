@@ -30,6 +30,7 @@ import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
+import { registry } from './meta';
 import { AnyFnEffect, ApiTransport, effectInterceptor, Request } from './transport';
 
 class EmailRef extends Context.Tag('EmailRef')<EmailRef, Ref.Ref<string>>() {}
@@ -60,7 +61,12 @@ const AuthTransportMock = Layer.effect(
             ),
         });
       },
-      { transport: { interceptors: [yield* effectInterceptor(mockInterceptor)] } },
+      {
+        transport: {
+          interceptors: [yield* effectInterceptor(mockInterceptor)],
+          jsonOptions: { registry },
+        },
+      },
     );
   }),
 );

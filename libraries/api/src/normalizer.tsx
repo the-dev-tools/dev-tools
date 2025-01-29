@@ -137,7 +137,7 @@ const updateQueries = ({ data, normalizer, queryClient }: UpdateQueriesProps) =>
           pipe(
             Option.liftPredicate(data, isMessage),
             Option.flatMapNullable((_) => registry.getMessage(_.$typeName)),
-            Option.map((_) => fromJson(_, query.data as JsonObject, { ignoreUnknownFields: true })),
+            Option.map((_) => fromJson(_, query.data as JsonObject, { registry, ignoreUnknownFields: true })),
             Option.getOrElse(() => data),
           ),
       });
@@ -190,7 +190,7 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
           return pipe(
             toNormalMessageDeep(data),
             Option.flatMap(removeMessageDeep($id)),
-            Option.map((_) => fromJson(schema.value, _ as JsonObject, { ignoreUnknownFields: true })),
+            Option.map((_) => fromJson(schema.value, _ as JsonObject, { registry, ignoreUnknownFields: true })),
             Option.getOrElse(() => data),
           );
         },
@@ -392,11 +392,11 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
                   const list = Array.flatMapNullable($list ?? [], ({ $parent, ...change }): ListChange | undefined => {
                     const parent = sourceToData($parent);
                     if (!parent) return;
-                    return { ...fromJson(ListChangeSchema, change), parent };
+                    return { ...fromJson(ListChangeSchema, change, { registry }), parent };
                   });
 
                   if (data === undefined) return;
-                  return { ...fromJson(ChangeSchema, change), data, list };
+                  return { ...fromJson(ChangeSchema, change, { registry }), data, list };
                 }),
               );
 
