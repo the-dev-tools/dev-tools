@@ -41,6 +41,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sresultapi"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
+	"the-dev-tools/backend/pkg/translate/tassert"
 	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/varsystem"
 	"the-dev-tools/backend/pkg/zstdcompress"
@@ -49,6 +50,7 @@ import (
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 	"time"
@@ -144,7 +146,12 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 		respsRpc = append(respsRpc, texample.SerializeModelToRPCItem(example, exampleRespID))
 
 	}
-	return connect.NewResponse(&examplev1.ExampleListResponse{Items: respsRpc}), nil
+	resp := &examplev1.ExampleListResponse{
+		EndpointId: apiUlid.Bytes(),
+		Items:      respsRpc,
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request[examplev1.ExampleGetRequest]) (*connect.Response[examplev1.ExampleGetResponse], error) {
@@ -694,6 +701,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		assertions = []massert.Assert{}
 	}
 
+	var ListResponseChanges responsev1.ResponseAssertListResponse
+
 	for _, assertion := range assertions {
 		if assertion.Enable {
 
@@ -736,6 +745,23 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				AssertID:   assertion.ID,
 				Result:     ok,
 			}
+
+			assertItemRpc, err := tassert.SerializeAssertModelToRPCItem(assertion)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			rpcAssert := requestv1.Assert{
+				AssertId:       assertItemRpc.AssertId,
+				ParentAssertId: assertItemRpc.ParentAssertId,
+				Condition:      assertItemRpc.Condition,
+			}
+
+			ListResponseChanges.Items = append(ListResponseChanges.Items, &responsev1.ResponseAssertListItem{
+				Assert: &rpcAssert,
+				Result: ok,
+			})
+
 			err = c.ars.CreateAssertResult(ctx, res)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -746,6 +772,20 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 	changeStatus := int32(exampleResp.Status)
 	size := int32(len(exampleResp.Body))
+
+	changeAny, err := anypb.New(&ListResponseChanges)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+
+	ListChanges := []*changev1.ListChange{
+		{
+			Kind:   changeKind,
+			Parent: changeAny,
+		},
+	}
 
 	changeResp := responsev1.ResponseChange{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -766,7 +806,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	changeRoot := changev1.Change{
 		Kind: &kind,
 		Data: anyData,
+		List: ListChanges,
 	}
+
+	changes := []*changev1.Change{&changeRoot}
 
 	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -775,7 +818,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
 		Size:       size,
-		Changes:    []*changev1.Change{&changeRoot},
+		Changes:    changes,
 	})
 	rpcResponse.Header().Set("Cache-Control", "max-age=0")
 

@@ -94,7 +94,8 @@ func (c RequestRPC) QueryList(ctx context.Context, req *connect.Request[requestv
 
 	rpcQueries := tgeneric.MassConvert(queries, tquery.SerializeQueryModelToRPCItem)
 	resp := &requestv1.QueryListResponse{
-		Items: rpcQueries,
+		ExampleId: exID.Bytes(),
+		Items:     rpcQueries,
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -187,7 +188,8 @@ func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[request
 	}
 	rpcHeaders := tgeneric.MassConvert(headers, theader.SerializeHeaderModelToRPCItem)
 	resp := &requestv1.HeaderListResponse{
-		Items: rpcHeaders,
+		ExampleId: exID.Bytes(),
+		Items:     rpcHeaders,
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -215,6 +217,7 @@ func (c RequestRPC) HeaderCreate(ctx context.Context, req *connect.Request[reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	return connect.NewResponse(&requestv1.HeaderCreateResponse{HeaderId: headerID.Bytes()}), nil
 }
 
@@ -281,7 +284,8 @@ func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[request
 	}
 
 	resp := &requestv1.AssertListResponse{
-		Items: rpcAssserts,
+		ExampleId: exID.Bytes(),
+		Items:     rpcAssserts,
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -305,6 +309,7 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	return connect.NewResponse(&requestv1.AssertCreateResponse{AssertId: assert.ID.Bytes()}), nil
 }
 

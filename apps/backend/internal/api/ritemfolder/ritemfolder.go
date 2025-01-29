@@ -76,7 +76,8 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// TODO: refactor changes stuff
+	// INFO: this part added with new normalisation stuff
+	// should be removed after spec api change to auto do this
 	folderChange := itemv1.CollectionItem{
 		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
 		Folder: &folderv1.FolderListItem{

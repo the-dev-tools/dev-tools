@@ -66,18 +66,19 @@ func (c *CollectionServiceRPC) CollectionList(ctx context.Context, req *connect.
 		return nil, rpcErr
 	}
 
-	org, err := c.ws.Get(ctx, workspaceUlid)
+	workspaceID, err := c.ws.Get(ctx, workspaceUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
-	simpleCollections, err := c.cs.ListCollections(ctx, org.ID)
+	simpleCollections, err := c.cs.ListCollections(ctx, workspaceID.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	respRaw := &collectionv1.CollectionListResponse{
-		Items: tgeneric.MassConvert(simpleCollections, tcollection.SerializeCollectionModelToRPC),
+		WorkspaceId: req.Msg.WorkspaceId,
+		Items:       tgeneric.MassConvert(simpleCollections, tcollection.SerializeCollectionModelToRPC),
 	}
 	return connect.NewResponse(respRaw), nil
 }
@@ -108,6 +109,7 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	return connect.NewResponse(&collectionv1.CollectionCreateResponse{
 		CollectionId: collectionID.Bytes(),
 	}), nil

@@ -17,10 +17,12 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
 	"the-dev-tools/backend/pkg/service/suser"
+	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/translate/titemapi"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1/endpointv1connect"
+	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 
 	"connectrpc.com/connect"
@@ -73,6 +75,11 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		Url:            msg.GetUrl(),
 		ParentFolderId: msg.GetParentFolderId(),
 	}
+
+	if endpointReq.Method == "" {
+		endpointReq.Method = "GET"
+	}
+
 	itemApiReq, err := titemapi.SeralizeRPCToModelWithoutID(endpointReq, collectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -100,13 +107,15 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	name := "Default"
+	// INFO: this part added with new normalisation stuff
+	// should be removed after spec api change to auto do this
+	exampleNanem := "Default"
 	example := &mitemapiexample.ItemApiExample{
 		ID:           idwrap.NewNow(),
 		ItemApiID:    itemApiReq.ID,
 		CollectionID: itemApiReq.CollectionID,
 		IsDefault:    true,
-		Name:         name,
+		Name:         exampleNanem,
 		BodyType:     mitemapiexample.BodyTypeNone,
 	}
 	err = c.iaes.CreateApiExample(ctx, example)
@@ -114,21 +123,16 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	EndpointChange := itemv1.CollectionItem{
-		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
-		Endpoint: &endpointv1.EndpointListItem{
-			EndpointId:     ID.Bytes(),
-			ParentFolderId: req.Msg.ParentFolderId,
-			Name:           name,
+	a := &itemv1.CollectionItemListResponse{
+		CollectionId: collectionID.Bytes(),
+		FolderId:     req.Msg.ParentFolderId,
+		Items: []*itemv1.CollectionItem{
+			{
+				Kind:    itemv1.ItemKind_ITEM_KIND_UNSPECIFIED,
+				Example: texample.SerializeModelToRPCItem(*example, nil),
+			},
 		},
 	}
-
-	ChangeAny, err := anypb.New(&EndpointChange)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	a := &itemv1.CollectionItemListResponse{}
 
 	changeAny, err := anypb.New(a)
 	if err != nil {
@@ -136,7 +140,6 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	}
 
 	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
-
 	listChanges := []*changev1.ListChange{
 		{
 			Kind:   changeKind,
@@ -144,11 +147,31 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		},
 	}
 
+	endpointChange := itemv1.CollectionItem{
+		Kind: itemv1.ItemKind_ITEM_KIND_ENDPOINT,
+		Endpoint: &endpointv1.EndpointListItem{
+			EndpointId:     ID.Bytes(),
+			ParentFolderId: req.Msg.ParentFolderId,
+			Name:           req.Msg.Name,
+			Method:         itemApiReq.Method,
+		},
+		Example: &examplev1.ExampleListItem{
+			ExampleId:      example.ID.Bytes(),
+			LastResponseId: nil,
+			Name:           exampleNanem,
+		},
+	}
+
+	endpointChangeAny, err := anypb.New(&endpointChange)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
 	change := &changev1.Change{
 		Kind: &kind,
 		List: listChanges,
-		Data: ChangeAny,
+		Data: endpointChangeAny,
 	}
 
 	changes := []*changev1.Change{
