@@ -1,7 +1,7 @@
 import { createQueryOptions, useTransport } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, ToOptions, useMatchRoute } from '@tanstack/react-router';
-import { Match, pipe, Schema } from 'effect';
+import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef, useState } from 'react';
 import { MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
@@ -10,6 +10,7 @@ import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
+import { enumToString } from '@the-dev-tools/api/utils';
 import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointCreate,
@@ -31,7 +32,7 @@ import {
   folderDelete,
   folderUpdate,
 } from '@the-dev-tools/spec/collection/item/folder/v1/folder-FolderService_connectquery';
-import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
+import { CollectionItem, ItemKind, ItemKindSchema } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import {
@@ -140,7 +141,11 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   });
 
   const childItems = useMemo(
-    () => (collectionItemListQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
+    () =>
+      Array.filterMap(collectionItemListQuery.data?.items ?? [], (_) => {
+        const kind = enumToString(ItemKindSchema, 'ITEM_KIND', _.kind);
+        return Option.liftPredicate(_, (_) => _[kind] !== undefined);
+      }),
     [collectionItemListQuery.data?.items],
   );
 
@@ -230,7 +235,11 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
 
   const childItems = useMemo(
-    () => (collectionItemListQuery.data?.items ?? []).filter((_) => _.kind !== ItemKind.UNSPECIFIED),
+    () =>
+      Array.filterMap(collectionItemListQuery.data?.items ?? [], (_) => {
+        const kind = enumToString(ItemKindSchema, 'ITEM_KIND', _.kind);
+        return Option.liftPredicate(_, (_) => _[kind] !== undefined);
+      }),
     [collectionItemListQuery.data?.items],
   );
 
