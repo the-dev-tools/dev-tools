@@ -5,8 +5,8 @@
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build && electron-builder build"
+    "build": "electron-vite build && electron-builder build",
+    "dev": "electron-vite dev"
   },
   "dependencies": {
     "@effect/platform": "0.74.0",
@@ -26,7 +26,7 @@
     "@types/react": "~19.0.7",
     "@types/react-dom": "~19.0.3",
     "electron": "~34.0.0",
-    "electron-builder": "^26.0.0",
+    "electron-builder": "~26.0.0",
     "electron-vite": "~2.3.0",
     "eslint": "~9.18.0",
     "tailwindcss": "~3.4.15",
