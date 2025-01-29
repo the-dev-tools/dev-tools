@@ -403,7 +403,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: En
       wrapperOnContextMenu={onContextMenu}
       loading={exampleListQuery.isLoading}
     >
-      <MethodBadge method={method} />
+      {method && <MethodBadge method={method} />}
 
       <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>
         {name}
