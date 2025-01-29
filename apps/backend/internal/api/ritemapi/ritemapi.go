@@ -18,10 +18,13 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemfolder"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/translate/titemapi"
+	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1/endpointv1connect"
+	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ItemApiRPC struct {
@@ -89,19 +92,21 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 
 	// TODO: add ordering it should append into end
 
-	itemApiReq.ID = idwrap.NewNow()
+	ID := idwrap.NewNow()
+	itemApiReq.ID = ID
 
 	err = c.ias.CreateItemApi(ctx, itemApiReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	name := "Default"
 	example := &mitemapiexample.ItemApiExample{
 		ID:           idwrap.NewNow(),
 		ItemApiID:    itemApiReq.ID,
 		CollectionID: itemApiReq.CollectionID,
 		IsDefault:    true,
-		Name:         "Default",
+		Name:         name,
 		BodyType:     mitemapiexample.BodyTypeNone,
 	}
 	err = c.iaes.CreateApiExample(ctx, example)
@@ -109,10 +114,53 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	EndpointChange := itemv1.CollectionItem{
+		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+		Endpoint: &endpointv1.EndpointListItem{
+			EndpointId:     ID.Bytes(),
+			ParentFolderId: req.Msg.ParentFolderId,
+			Name:           name,
+		},
+	}
+
+	ChangeAny, err := anypb.New(&EndpointChange)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	a := &itemv1.CollectionItemListResponse{}
+
+	changeAny, err := anypb.New(a)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+
+	listChanges := []*changev1.ListChange{
+		{
+			Kind:   changeKind,
+			Parent: changeAny,
+		},
+	}
+
+	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
+	change := &changev1.Change{
+		Kind: &kind,
+		List: listChanges,
+		Data: ChangeAny,
+	}
+
+	changes := []*changev1.Change{
+		change,
+	}
+
 	respRaw := &endpointv1.EndpointCreateResponse{
 		EndpointId: itemApiReq.ID.Bytes(),
 		ExampleId:  example.ID.Bytes(),
+		Changes:    changes,
 	}
+
 	return connect.NewResponse(respRaw), nil
 }
 

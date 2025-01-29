@@ -12,10 +12,13 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemfolder"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/translate/tfolder"
+	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/folder/v1/folderv1connect"
+	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ItemFolderRPC struct {
@@ -53,7 +56,9 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	reqFolder.ID = idwrap.NewNow()
+
+	ID := idwrap.NewNow()
+	reqFolder.ID = ID
 
 	rpcErr := permcheck.CheckPerm(collection.CheckOwnerCollection(ctx, c.cs, c.us, reqFolder.CollectionID))
 	if rpcErr != nil {
@@ -71,8 +76,53 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// TODO: refactor changes stuff
+	folderChange := itemv1.CollectionItem{
+		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+		Folder: &folderv1.FolderListItem{
+			FolderId:       ID.Bytes(),
+			ParentFolderId: req.Msg.ParentFolderId,
+			Name:           reqFolder.Name,
+		},
+	}
+
+	folderChangeAny, err := anypb.New(&folderChange)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	a := &itemv1.CollectionItemListResponse{
+		FolderId: ID.Bytes(),
+	}
+
+	changeAny, err := anypb.New(a)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+
+	listChanges := []*changev1.ListChange{
+		{
+			Kind:   changeKind,
+			Parent: changeAny,
+		},
+	}
+
+	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
+	change := &changev1.Change{
+		Kind: &kind,
+		List: listChanges,
+		Data: folderChangeAny,
+	}
+
+	changes := []*changev1.Change{
+		change,
+	}
+
 	respRaw := &folderv1.FolderCreateResponse{
-		FolderId: reqFolder.ID.Bytes(),
+		FolderId: ID.Bytes(),
+		Changes:  changes,
 	}
 	return connect.NewResponse(respRaw), nil
 }

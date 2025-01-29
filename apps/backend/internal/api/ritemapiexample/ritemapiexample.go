@@ -50,6 +50,7 @@ import (
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
+	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 	"time"
 
 	"connectrpc.com/connect"
@@ -205,9 +206,9 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 	}
 
 	// TODO: make this a transaction
-	ExampleIDWrapNew := idwrap.NewNow()
+	ExampleID := idwrap.NewNow()
 	ex := &mitemapiexample.ItemApiExample{
-		ID:           ExampleIDWrapNew,
+		ID:           ExampleID,
 		ItemApiID:    apiIDWrap,
 		CollectionID: itemApi.CollectionID,
 		Name:         req.Msg.Name,
@@ -220,7 +221,7 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 	}
 	bodyRaw := mbodyraw.ExampleBodyRaw{
 		ID:            idwrap.NewNow(),
-		ExampleID:     ExampleIDWrapNew,
+		ExampleID:     ExampleID,
 		VisualizeMode: mbodyraw.VisualizeModeBinary,
 		CompressType:  mbodyraw.CompressTypeNone,
 		Data:          []byte{},
@@ -231,8 +232,52 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// TODO: refactor changes stuff
+	folderChange := itemv1.CollectionItem{
+		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+		Example: &examplev1.ExampleListItem{
+			ExampleId: ExampleID.Bytes(),
+			Name:      req.Msg.Name,
+		},
+	}
+
+	folderChangeAny, err := anypb.New(&folderChange)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	a := &examplev1.ExampleListResponse{
+		EndpointId: ExampleID.Bytes(),
+	}
+
+	changeAny, err := anypb.New(a)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+
+	listChanges := []*changev1.ListChange{
+		{
+			Kind:   changeKind,
+			Parent: changeAny,
+		},
+	}
+
+	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
+	change := &changev1.Change{
+		Kind: &kind,
+		List: listChanges,
+		Data: folderChangeAny,
+	}
+
+	changes := []*changev1.Change{
+		change,
+	}
+
 	return connect.NewResponse(&examplev1.ExampleCreateResponse{
-		ExampleId: ExampleIDWrapNew.Bytes(),
+		ExampleId: ExampleID.Bytes(),
+		Changes:   changes,
 	}), nil
 }
 
