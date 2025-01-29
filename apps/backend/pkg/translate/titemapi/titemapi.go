@@ -57,7 +57,7 @@ func DeseralizeModelToRPC(item *mitemapi.ItemApi) *endpointv1.Endpoint {
 	}
 }
 
-func DeseralizeModelToRPCItem(item *mitemapi.ItemApi) *endpointv1.EndpointListItem {
+func SeralizeModelToRPCItem(item *mitemapi.ItemApi) *endpointv1.EndpointListItem {
 	var parentID []byte = nil
 	if item.ParentID != nil {
 		parentID = item.ParentID.Bytes()

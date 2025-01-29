@@ -101,7 +101,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 				// grow the slice
 				items = append(items, &itemv1.CollectionItem{
 					Kind:   itemv1.ItemKind_ITEM_KIND_FOLDER,
-					Folder: tfolder.DeseralizeModelToRPCItem(folder),
+					Folder: tfolder.SeralizeModelToRPCItem(folder),
 				})
 			}
 		}
@@ -125,7 +125,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 
 				items = append(items, &itemv1.CollectionItem{
 					Kind:     itemv1.ItemKind_ITEM_KIND_ENDPOINT,
-					Endpoint: titemapi.DeseralizeModelToRPCItem(&endpoint),
+					Endpoint: titemapi.SeralizeModelToRPCItem(&endpoint),
 					Example:  texample.SerializeModelToRPCItem(*ex, respID),
 				})
 			}
@@ -136,7 +136,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 			if folder.ParentID == nil {
 				items = append(items, &itemv1.CollectionItem{
 					Kind:   itemv1.ItemKind_ITEM_KIND_FOLDER,
-					Folder: tfolder.DeseralizeModelToRPCItem(folder),
+					Folder: tfolder.SeralizeModelToRPCItem(folder),
 				})
 			}
 		}
@@ -161,7 +161,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 
 				items = append(items, &itemv1.CollectionItem{
 					Kind:     itemv1.ItemKind_ITEM_KIND_ENDPOINT,
-					Endpoint: titemapi.DeseralizeModelToRPCItem(&endpoint),
+					Endpoint: titemapi.SeralizeModelToRPCItem(&endpoint),
 					Example:  rpcEx,
 				})
 			}
@@ -169,7 +169,9 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 	}
 
 	resp := &itemv1.CollectionItemListResponse{
-		Items: items,
+		Items:        items,
+		CollectionId: req.Msg.CollectionId,
+		FolderId:     req.Msg.FolderId,
 	}
 	return connect.NewResponse(resp), nil
 }

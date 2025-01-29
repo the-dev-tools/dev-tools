@@ -56,7 +56,7 @@ func DeseralizeModelToRPC(item mitemfolder.ItemFolder) *folderv1.Folder {
 	}
 }
 
-func DeseralizeModelToRPCItem(item mitemfolder.ItemFolder) *folderv1.FolderListItem {
+func SeralizeModelToRPCItem(item mitemfolder.ItemFolder) *folderv1.FolderListItem {
 	var parentIDBytes []byte = nil
 	if item.ParentID != nil {
 		parentIDBytes = item.ParentID.Bytes()

@@ -92,7 +92,8 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	}
 
 	a := &itemv1.CollectionItemListResponse{
-		FolderId: ID.Bytes(),
+		CollectionId: collectionID.Bytes(),
+		FolderId:     req.Msg.ParentFolderId,
 	}
 
 	changeAny, err := anypb.New(a)
