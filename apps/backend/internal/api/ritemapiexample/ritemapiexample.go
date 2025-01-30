@@ -50,7 +50,6 @@ import (
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
-	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 	"time"
@@ -701,7 +700,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		assertions = []massert.Assert{}
 	}
 
-	var ListResponseChanges responsev1.ResponseAssertListResponse
+	var resultArr []massertres.AssertResult
 
 	for _, assertion := range assertions {
 		if assertion.Enable {
@@ -746,21 +745,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				Result:     ok,
 			}
 
-			assertItemRpc, err := tassert.SerializeAssertModelToRPCItem(assertion)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-
-			rpcAssert := requestv1.Assert{
-				AssertId:       assertItemRpc.AssertId,
-				ParentAssertId: assertItemRpc.ParentAssertId,
-				Condition:      assertItemRpc.Condition,
-			}
-
-			ListResponseChanges.Items = append(ListResponseChanges.Items, &responsev1.ResponseAssertListItem{
-				Assert: &rpcAssert,
-				Result: ok,
-			})
+			resultArr = append(resultArr, res)
 
 			err = c.ars.CreateAssertResult(ctx, res)
 			if err != nil {
@@ -771,21 +756,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	changeStatus := int32(exampleResp.Status)
-	size := int32(len(exampleResp.Body))
-
-	changeAny, err := anypb.New(&ListResponseChanges)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
-
-	ListChanges := []*changev1.ListChange{
-		{
-			Kind:   changeKind,
-			Parent: changeAny,
-		},
-	}
 
 	changeResp := responsev1.ResponseChange{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -793,7 +763,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Body:       exampleResp.Body,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   &exampleResp.Duration,
-		Size:       &size,
 	}
 
 	kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
@@ -806,10 +775,35 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	changeRoot := changev1.Change{
 		Kind: &kind,
 		Data: anyData,
-		List: ListChanges,
 	}
 
-	changes := []*changev1.Change{&changeRoot}
+	responseChangeNormal := responsev1.ResponseAssertListResponse{
+		ResponseId: exampleResp.ID.Bytes(),
+		Items:      make([]*responsev1.ResponseAssertListItem, 0),
+	}
+	for i, result := range assertions {
+
+		rpcAssert, err := tassert.SerializeAssertModelToRPC(result)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		responseChangeNormal.Items = append(responseChangeNormal.Items, &responsev1.ResponseAssertListItem{
+			Assert: rpcAssert,
+			Result: resultArr[i].Result,
+		})
+	}
+	assertRespAny, err := anypb.New(&responseChangeNormal)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	assertRespChange := changev1.Change{
+		Kind: &kind,
+		Data: assertRespAny,
+	}
+
+	changes := []*changev1.Change{&changeRoot, &assertRespChange}
 
 	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -817,7 +811,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Body:       exampleResp.Body,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
-		Size:       size,
 		Changes:    changes,
 	})
 	rpcResponse.Header().Set("Cache-Control", "max-age=0")

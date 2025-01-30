@@ -92,12 +92,12 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	a := &itemv1.CollectionItemListResponse{
+	listChangeRaw := &itemv1.CollectionItemListResponse{
 		CollectionId: collectionID.Bytes(),
 		FolderId:     req.Msg.ParentFolderId,
 	}
 
-	changeAny, err := anypb.New(a)
+	changeListAny, err := anypb.New(listChangeRaw)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -107,7 +107,7 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	listChanges := []*changev1.ListChange{
 		{
 			Kind:   changeKind,
-			Parent: changeAny,
+			Parent: changeListAny,
 		},
 	}
 
