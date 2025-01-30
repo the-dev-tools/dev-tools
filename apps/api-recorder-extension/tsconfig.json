@@ -1,5 +1,5 @@
 {
-  "extends": ["../../tsconfig.base"],
+  "extends": ["../../tsconfig.base.json"],
   "files": [],
   "references": [
     { "path": "../../libraries/ui" },
