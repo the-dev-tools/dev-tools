@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
@@ -73,6 +72,7 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	// TODO: add permission check
 
 	result, err := c.ers.GetExampleResp(ctx, ResponseID)
 	if err != nil {
@@ -108,6 +108,8 @@ func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	// TODO: add permission check
+
 	headers, err := c.erhs.GetHeaderByRespID(ctx, ResponseID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -133,6 +135,8 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	// TODO: add permission check
+
 	assertResponse, err := c.asrs.GetAssertResultsByResponseID(ctx, ResponseID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -145,7 +149,6 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		fmt.Println(assert)
 
 		a, err := tassert.SerializeAssertModelToRPC(*assert)
 		if err != nil {
@@ -159,68 +162,13 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 		rpcAssertResponses = append(rpcAssertResponses, rpcAssertResp)
 	}
 
-	return connect.NewResponse(&responsev1.ResponseAssertListResponse{Items: rpcAssertResponses}), nil
+	resp := &responsev1.ResponseAssertListResponse{
+		Items:      rpcAssertResponses,
+		ResponseId: req.Msg.ResponseId,
+	}
+
+	return connect.NewResponse(resp), nil
 }
-
-/*
-func (c *ResultService) GetResults(ctx context.Context, req *connect.Request[apiresultv1.GetResultsRequest]) (*connect.Response[apiresultv1.GetResultsResponse], error) {
-	ulidID, err := idwrap.NewWithParse(req.Msg.GetTriggerBy())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	triggerType := mresultapi.TriggerType(req.Msg.GetTriggerType())
-	workspaceID, err := c.ras.GetWorkspaceID(ctx, ulidID, c.cs, c.ias)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	userUlid, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	_, err = c.ws.GetByIDandUserID(ctx, workspaceID, userUlid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
-	}
-
-	results, err := c.ras.GetResultsApiWithTriggerBy(ctx, ulidID, triggerType)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	resultsProto := make([]*apiresultv1.Result, len(results))
-	for i, result := range results {
-		resultsProto[i] = convertResultToProto(&result)
-	}
-	return connect.NewResponse(&apiresultv1.GetResultsResponse{Results: resultsProto}), nil
-}
-
-func convertResultToProto(result *mresultapi.MResultAPI) *apiresultv1.Result {
-	headers := make(map[string]string, len(result.HttpResp.Header))
-	for k, v := range result.HttpResp.Header {
-		headers[k] = strings.Join(v, ",")
-	}
-	return &apiresultv1.Result{
-		Id:          result.ID.String(),
-		TriggerType: apiresultv1.TriggerType(int32(result.TriggerType)),
-		TriggerBy:   result.TriggerBy.String(),
-		Name:        result.Name,
-		Time:        result.Time.Unix(),
-		Duration:    result.Duration.Milliseconds(),
-		Response: &apiresultv1.Result_HttpResponse{
-			HttpResponse: &apiresultv1.HttpResponse{
-				StatusCode: int32(result.HttpResp.StatusCode),
-				Proto:      result.HttpResp.Proto,
-				ProtoMajor: int32(result.HttpResp.ProtoMajor),
-				ProtoMinor: int32(result.HttpResp.ProtoMinor),
-				Header:     headers,
-				Body:       result.HttpResp.Body,
-			},
-		},
-	}
-}
-*/
 
 func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (bool, error) {
 	userUlid, err := mwauth.GetContextUserID(ctx)

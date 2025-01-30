@@ -739,7 +739,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			res := massertres.AssertResult{
-				ID:         idwrap.NewNow(),
+				ID:         assertion.ID,
 				ResponseID: exampleResp.ID,
 				AssertID:   assertion.ID,
 				Result:     ok,
@@ -747,11 +747,20 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 			resultArr = append(resultArr, res)
 
-			err = c.ars.CreateAssertResult(ctx, res)
+			_, err = c.ars.GetAssertResult(ctx, res.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				if err == sql.ErrNoRows {
+					err = c.ars.CreateAssertResult(ctx, res)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+				}
+			} else {
+				err = c.ars.UpdateAssertResult(ctx, res)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 			}
-
 		}
 	}
 
