@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"the-dev-tools/backend/internal/api"
@@ -17,7 +18,6 @@ import (
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafjson"
 	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
 	"the-dev-tools/backend/pkg/model/menv"
@@ -398,8 +398,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid))
-	if rpcErr != nil {
+	if rpcErr := permcheck.CheckPerm(CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleUlid)); rpcErr != nil {
 		return nil, rpcErr
 	}
 
@@ -418,8 +417,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Get workspace of of the current example
-
 	collection, err := c.cs.GetCollection(ctx, example.CollectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -431,18 +428,12 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var selectedEnv *menv.Env
-	var globalEnv *menv.Env
-	if len(env) != 0 {
-		for _, e := range env {
-			if e.Type == menv.EnvGlobal {
-				globalEnv = &e
-				continue
-			}
-			if e.Active {
-				selectedEnv = &e
-				continue
-			}
+	var selectedEnv, globalEnv *menv.Env
+	for _, e := range env {
+		if e.Type == menv.EnvGlobal {
+			globalEnv = &e
+		} else if e.Active {
+			selectedEnv = &e
 		}
 	}
 	if selectedEnv == nil {
@@ -468,7 +459,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		if err != nil {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
-
 	}
 
 	reqHeaders, err := c.hs.GetHeaderByExampleID(ctx, exampleUlid)
@@ -478,12 +468,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 	compressType := compress.CompressTypeNone
 	if varMap != nil {
-		// TODO implement var system
 		for i, query := range reqQueries {
 			if varsystem.CheckIsVar(query.Value) {
 				key := varsystem.GetVarKeyFromRaw(query.Value)
-				val, ok := varMap.Get(key)
-				if ok {
+				if val, ok := varMap.Get(key); ok {
 					reqQueries[i].Value = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
@@ -498,12 +486,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 					compressType = compress.CompressTypeGzip
 				case "zstd":
 					compressType = compress.CompressTypeZstd
-				case "deflate":
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("deflate not supported"))
-				case "br":
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("br not supported"))
-				case "identity":
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("identity not supported"))
+				case "deflate", "br", "identity":
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
 				default:
 					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
 				}
@@ -511,18 +495,17 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 			if varsystem.CheckIsVar(header.Value) {
 				key := varsystem.GetVarKeyFromRaw(header.Value)
-				val, ok := varMap.Get(key)
-				if !ok {
+				if val, ok := varMap.Get(key); !ok {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				} else {
+					reqHeaders[i].Value = val.Value
 				}
-				reqHeaders[i].Value = val.Value
 			}
 		}
 	}
 
 	bodyBytes := &bytes.Buffer{}
 	switch example.BodyType {
-	case mitemapiexample.BodyTypeNone:
 	case mitemapiexample.BodyTypeRaw:
 		bodyData, err := c.brs.GetBodyRawByExampleID(ctx, exampleUlid)
 		if err != nil {
@@ -535,14 +518,11 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			return nil, err
 		}
 		writer := multipart.NewWriter(bodyBytes)
-
 		for _, v := range forms {
-			err = writer.WriteField(v.BodyKey, v.Value)
-			if err != nil {
+			if err := writer.WriteField(v.BodyKey, v.Value); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
-
 	case mitemapiexample.BodyTypeUrlencoded:
 		urls, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleUlid)
 		if err != nil {
@@ -552,7 +532,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		for _, url := range urls {
 			urlVal.Add(url.BodyKey, url.Value)
 		}
-		// TODO: refactor url encode
 		itemApiCall.Url += urlVal.Encode()
 	}
 
@@ -572,6 +551,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Body:    bodyBytes.Bytes(),
 	}
 
+	var changes changev1.Changes
+
 	now := time.Now()
 	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), httpReq, exampleUlid)
 	lapse := time.Since(now)
@@ -590,8 +571,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			}
 			exampleResp = &exampleRespTemp
 
-			err = c.ers.CreateExampleResp(ctx, exampleRespTemp)
-			if err != nil {
+			if err := c.ers.CreateExampleResp(ctx, exampleRespTemp); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		} else {
@@ -600,9 +580,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	if len(bodyData) > 1024 {
-		// TODO: check later if it is better then %10 if it is not better change it
 		bodyDataTemp := zstdcompress.Compress(bodyData)
-		if len(bodyDataTemp) < 1024 {
+		if len(bodyDataTemp) < len(bodyData) {
 			exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeZstd
 			bodyData = bodyDataTemp
 		}
@@ -612,8 +591,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	exampleResp.Duration = int32(lapse.Milliseconds())
 	exampleResp.Status = uint16(respHttp.StatusCode)
 
-	err = c.ers.UpdateExampleResp(ctx, *exampleResp)
-	if err != nil {
+	if err := c.ers.UpdateExampleResp(ctx, *exampleResp); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -622,7 +600,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// TODO: make it more efficient
 	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
 	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
 	taskDeleteHeaders := make([]idwrap.IDWrap, 0)
@@ -652,6 +629,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		for _, respHeader := range respHttp.Headers {
 			if dbHeader.HeaderKey == respHeader.HeaderKey {
 				found = true
+				break
 			}
 		}
 		if !found {
@@ -659,7 +637,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
-	if len(fullHeaders) > 0 {
+	if len(fullHeaders) > 0 || len(taskDeleteHeaders) > 0 {
 		tx, err := c.DB.Begin()
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -669,42 +647,33 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		if len(taskCreateHeaders) > 0 {
-			err = erhsTx.CreateExampleRespHeaderBulk(ctx, taskCreateHeaders)
-			if err != nil {
+			if err := erhsTx.CreateExampleRespHeaderBulk(ctx, taskCreateHeaders); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
 		if len(taskUpdateHeaders) > 0 {
-			err = erhsTx.UpdateExampleRespHeaderBulk(ctx, taskUpdateHeaders)
-			if err != nil {
+			if err := erhsTx.UpdateExampleRespHeaderBulk(ctx, taskUpdateHeaders); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
 		if len(taskDeleteHeaders) > 0 {
-			err = erhsTx.DeleteExampleRespHeaderBulk(ctx, taskDeleteHeaders)
-			if err != nil {
+			if err := erhsTx.DeleteExampleRespHeaderBulk(ctx, taskDeleteHeaders); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
-		err = tx.Commit()
-		if err != nil {
+		if err := tx.Commit(); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
 	assertions, err := c.as.GetAssertByExampleID(ctx, example.ID)
-	if err != nil {
-		if err != sassert.ErrNoAssertFound {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		assertions = []massert.Assert{}
+	if err != nil && err != sassert.ErrNoAssertFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	var resultArr []massertres.AssertResult
-
 	for _, assertion := range assertions {
 		if assertion.Enable {
-
 			tempStruct := struct {
 				Response httpclient.ResponseVar `json:"response"`
 			}{
@@ -721,15 +690,12 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			val := assertion.Value
 			var value interface{} = val
 
-			// check if string is int or float
 			if strings.Contains(val, ".") {
-				feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64)
-				if err == nil {
+				if feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64); err == nil {
 					value = feetFloat
 				}
 			} else {
-				feetInt, err := strconv.Atoi(strings.TrimSpace(val))
-				if err == nil {
+				if feetInt, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
 					value = feetInt
 				}
 			}
@@ -747,17 +713,14 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 			resultArr = append(resultArr, res)
 
-			_, err = c.ars.GetAssertResult(ctx, res.ID)
-			if err != nil {
+			if _, err := c.ars.GetAssertResult(ctx, res.ID); err != nil {
 				if err == sql.ErrNoRows {
-					err = c.ars.CreateAssertResult(ctx, res)
-					if err != nil {
+					if err := c.ars.CreateAssertResult(ctx, res); err != nil {
 						return nil, connect.NewError(connect.CodeInternal, err)
 					}
 				}
 			} else {
-				err = c.ars.UpdateAssertResult(ctx, res)
-				if err != nil {
+				if err := c.ars.UpdateAssertResult(ctx, res); err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
 			}
@@ -765,7 +728,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	changeStatus := int32(exampleResp.Status)
-
 	changeResp := responsev1.ResponseChange{
 		ResponseId: exampleResp.ID.Bytes(),
 		Status:     &changeStatus,
@@ -775,7 +737,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
-
 	anyData, err := anypb.New(&changeResp)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -785,24 +746,25 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Kind: &kind,
 		Data: anyData,
 	}
+	changes.Changes = append(changes.Changes, &changeRoot)
 
-	responseChangeNormal := responsev1.ResponseAssertListResponse{
+	responseAssertChangeNormal := responsev1.ResponseAssertListResponse{
 		ResponseId: exampleResp.ID.Bytes(),
 		Items:      make([]*responsev1.ResponseAssertListItem, 0),
 	}
 	for i, result := range assertions {
-
 		rpcAssert, err := tassert.SerializeAssertModelToRPC(result)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		responseChangeNormal.Items = append(responseChangeNormal.Items, &responsev1.ResponseAssertListItem{
+		responseAssertChangeNormal.Items = append(responseAssertChangeNormal.Items, &responsev1.ResponseAssertListItem{
 			Assert: rpcAssert,
 			Result: resultArr[i].Result,
 		})
 	}
-	assertRespAny, err := anypb.New(&responseChangeNormal)
+
+	assertRespAny, err := anypb.New(&responseAssertChangeNormal)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -811,8 +773,38 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Kind: &kind,
 		Data: assertRespAny,
 	}
+	changes.Changes = append(changes.Changes, &assertRespChange)
 
-	changes := []*changev1.Change{&changeRoot, &assertRespChange}
+	responseHeaderChangeNormal := responsev1.ResponseHeaderListResponse{
+		ResponseId: exampleResp.ID.Bytes(),
+		Items:      make([]*responsev1.ResponseHeaderListItem, 0),
+	}
+
+	slices.SortStableFunc(respHttp.Headers, func(i, j mexamplerespheader.ExampleRespHeader) int {
+		return strings.Compare(i.HeaderKey, j.HeaderKey)
+	})
+
+	// TODO: this should be just changes later
+	for _, header := range respHttp.Headers {
+		rpcHeader := &responsev1.ResponseHeaderListItem{
+			ResponseHeaderId: header.ID.Bytes(),
+			Key:              header.HeaderKey,
+			Value:            header.Value,
+		}
+		responseHeaderChangeNormal.Items = append(responseHeaderChangeNormal.Items, rpcHeader)
+	}
+
+	headerRespAny, err := anypb.New(&responseHeaderChangeNormal)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	headerRespChange := changev1.Change{
+		Kind: &kind,
+		Data: headerRespAny,
+	}
+
+	changes.Changes = append(changes.Changes, &headerRespChange)
 
 	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -820,7 +812,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Body:       exampleResp.Body,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
-		Changes:    changes,
+		Changes:    changes.Changes,
 	})
 	rpcResponse.Header().Set("Cache-Control", "max-age=0")
 

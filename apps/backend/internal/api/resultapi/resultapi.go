@@ -126,7 +126,12 @@ func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Req
 		rpcHeaders = append(rpcHeaders, rpcHeader)
 	}
 
-	return connect.NewResponse(&responsev1.ResponseHeaderListResponse{Items: rpcHeaders}), nil
+	resp := &responsev1.ResponseHeaderListResponse{
+		ResponseId: req.Msg.ResponseId,
+		Items:      rpcHeaders,
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Request[responsev1.ResponseAssertListRequest]) (*connect.Response[responsev1.ResponseAssertListResponse], error) {
