@@ -10,20 +10,20 @@
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "~4.4.1",
     "@nx-go/nx-go": "~3.3.0",
-    "@nx/eslint": "~20.3.2",
-    "@nx/js": "~20.3.2",
+    "@nx/eslint": "~20.4.0",
+    "@nx/js": "~20.4.0",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
     "@typespec/compiler": "~0.64.0",
     "@typespec/prettier-plugin-typespec": "~0.64.0",
-    "eslint": "~9.18.0",
+    "eslint": "~9.19.0",
     "jiti": "~2.4.0",
-    "nx": "~20.3.2",
+    "nx": "~20.4.0",
     "prettier": "~3.4.2",
     "react": "~19.0.0",
     "syncpack": "~13.0.0",
     "typescript": "~5.7.3",
-    "wrangler": "~3.103.2"
+    "wrangler": "~3.107.0"
   },
   "pnpm": {
     "peerDependencyRules": {

@@ -1,4 +1,5 @@
 diff --git a/src/plugins/plugin.d.ts b/src/plugins/plugin.d.ts
+index 7161819fe23972fa07772766f3cfd8a1917760f6..f038f393a72d52d9515496de9897c1e6aa2ea593 100644
 --- a/src/plugins/plugin.d.ts
 +++ b/src/plugins/plugin.d.ts
 @@ -2,6 +2,7 @@ import { CreateNodes, CreateNodesV2 } from '@nx/devkit';
@@ -10,6 +11,7 @@ diff --git a/src/plugins/plugin.d.ts b/src/plugins/plugin.d.ts
  export declare const createNodesV2: CreateNodesV2<EslintPluginOptions>;
  export declare const createNodes: CreateNodes<EslintPluginOptions>;
 diff --git a/src/plugins/plugin.js b/src/plugins/plugin.js
+index 0711ad7b4fd24e7c7294f60e48798128d294189c..f8213f4925e9cb50e4768b7b2bb801b1dee6f5cf 100644
 --- a/src/plugins/plugin.js
 +++ b/src/plugins/plugin.js
 @@ -68,6 +68,7 @@ const internalCreateNodes = async (configFilePath, options, context, projectsCac
@@ -58,18 +60,16 @@ diff --git a/src/plugins/plugin.js b/src/plugins/plugin.js
      // Normalize user input for extensions (strip leading . characters)
      if (Array.isArray(options?.extensions)) {
 diff --git a/src/utils/flat-config.js b/src/utils/flat-config.js
+index e9916fbe4ce037208df1da6abc0067d106bb60ab..e95bb2d8e3c83b4c035711b4e644c65f23a356af 100644
 --- a/src/utils/flat-config.js
 +++ b/src/utils/flat-config.js
-@@ -6,8 +6,12 @@ exports.useFlatConfig = useFlatConfig;
- const semver_1 = require("semver");
- // todo: add support for eslint.config.mjs,
- exports.eslintFlatConfigFilenames = [
+@@ -8,6 +8,9 @@ exports.eslintFlatConfigFilenames = [
      'eslint.config.cjs',
      'eslint.config.js',
-+    'eslint.config.mjs',
+     'eslint.config.mjs',
 +    'eslint.config.ts',
 +    'eslint.config.mts',
 +    'eslint.config.cts',
  ];
- function getRootESLintFlatConfigFilename(tree) {
-     for (const file of exports.eslintFlatConfigFilenames) {
+ exports.baseEslintConfigFilenames = [
+     'eslint.base.js',
