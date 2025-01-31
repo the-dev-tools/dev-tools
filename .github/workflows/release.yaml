@@ -30,6 +30,6 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Version projects and trigger specialized release workflows
-        run: nx run scripts:release
+        run: pnpm nx run scripts:release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

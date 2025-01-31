@@ -29,12 +29,12 @@ jobs:
       - id: info
         name: Get project information
         run: |
-          nx run scripts:project-info-output
+          pnpm nx run scripts:project-info-output
           eval $(cat project-info-output)
           rm project-info-output
 
       - name: Build
-        run: nx run ${{ steps.info.outputs.NAME }}:build
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
 
       - name: Publish
         uses: cloudflare/pages-action@v1

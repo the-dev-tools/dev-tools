@@ -19,12 +19,12 @@ jobs:
         env:
           GITHUB_REF: desktop
         run: |
-          nx run scripts:project-info-output
+          pnpm nx run scripts:project-info-output
           eval $(cat project-info-output)
           rm project-info-output
 
       - name: Build
-        run: nx run ${{ steps.info.outputs.NAME }}:build
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
 
       - name: Publish
-        run: nx run ${{ steps.info.outputs.NAME }}:publish
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:publish
