@@ -41,16 +41,15 @@
                   pkg = pkgs.go;
                   name = "gox";
                 })
-                (dotenvx-wrapper {pkg = pkgs.pnpm_9;})
+                (dotenvx-wrapper {pkg = pkgs.pnpm;})
               ]
               ++ (with pkgs; [
-                go
-                nodejs_latest
-
-                # Build tools
                 dotenvx
+                gh
+                go
                 go-task
                 jq
+                nodejs_latest
                 protoc-gen-connect-go
                 protoc-gen-go
               ]);

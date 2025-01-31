@@ -6,15 +6,38 @@
   },
   "include": ["*"],
   "references": [
-    { "path": "./apps/api-recorder-extension" },
-    { "path": "./libraries/config-tailwind" },
-    { "path": "./libraries/config-eslint" },
-    { "path": "./libraries/email" },
-    { "path": "./libraries/utils" },
-    { "path": "./libraries/core" },
-    { "path": "./libraries/api" },
-    { "path": "./apps/desktop" },
-    { "path": "./libraries/ui" },
-    { "path": "./apps/web" }
+    {
+      "path": "./apps/api-recorder-extension"
+    },
+    {
+      "path": "./libraries/config-tailwind"
+    },
+    {
+      "path": "./libraries/config-eslint"
+    },
+    {
+      "path": "./libraries/email"
+    },
+    {
+      "path": "./libraries/utils"
+    },
+    {
+      "path": "./libraries/core"
+    },
+    {
+      "path": "./libraries/api"
+    },
+    {
+      "path": "./apps/desktop"
+    },
+    {
+      "path": "./libraries/ui"
+    },
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./libraries/scripts"
+    }
   ]
 }

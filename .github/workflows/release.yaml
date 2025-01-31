@@ -1,4 +1,4 @@
-name: Version
+name: Release
 
 on:
   workflow_dispatch:
@@ -10,8 +10,8 @@ env:
   DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
 
 jobs:
-  version:
-    name: Version
+  release:
+    name: Release
     runs-on: ubuntu-latest
 
     permissions:
@@ -29,7 +29,7 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
-      - name: Release using Nx
-        run: pnpm nx release
+      - name: Version projects and trigger specialized release workflows
+        run: nx run scripts:release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,13 +1,7 @@
-name: Deploy / Chrome Extension
+name: Release / Chrome Extension
 
 on:
   workflow_dispatch:
-    inputs:
-      package:
-        type: choice
-        required: true
-        options:
-          - '@the-dev-tools/api-recorder-extension'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,16 +20,20 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
-      - id: build
-        name: Build
+      - id: info
+        name: Get project information
         run: |
-          echo "PKG_ROOT=$(DOTENV_LOG_LEVEL=error pnpm --filter=${{ inputs.package }} exec pwd)" >> "$GITHUB_OUTPUT"
-          pnpm nx run ${{ inputs.package }}:build
+          nx run scripts:project-info-output
+          eval $(cat project-info-output)
+          rm project-info-output
+
+      - name: Build
+        run: nx run ${{ steps.info.outputs.NAME }}:build
 
       - uses: actions/upload-artifact@v4
         with:
           name: build
-          path: ${{ steps.build.outputs.PKG_ROOT }}/dist/*.zip
+          path: ${{ steps.info.outputs.ROOT }}/dist/*.zip
           if-no-files-found: error
 
   publish:

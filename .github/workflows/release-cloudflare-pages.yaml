@@ -1,16 +1,10 @@
-name: Deploy / Cloudflare Pages
+name: Release / Cloudflare Pages
 
 on:
   workflow_dispatch:
-    inputs:
-      package:
-        type: choice
-        required: true
-        options:
-          - '@the-dev-tools/web'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.package }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
 
 env:
   DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
@@ -18,8 +12,8 @@ env:
   NODE_ENV: development # TODO: setup production
 
 jobs:
-  deploy:
-    name: Deploy to Cloudflare Pages
+  publish:
+    name: Publish to Cloudflare Pages
     runs-on: ubuntu-latest
 
     permissions:
@@ -32,24 +26,23 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
-      - id: build
-        name: Build
+      - id: info
+        name: Get project information
         run: |
-          PKG_ROOT=$(DOTENV_LOG_LEVEL=error pnpm --filter=${{ inputs.package }} exec pwd)
-          NAME=$(cut --delimiter=/ --fields=2 <<< ${{ inputs.package }})
+          nx run scripts:project-info-output
+          eval $(cat project-info-output)
+          rm project-info-output
 
-          echo "DIST=$PKG_ROOT/dist" >> "$GITHUB_OUTPUT"
-          echo "NAME=$NAME" >> "$GITHUB_OUTPUT"
-
-          pnpm nx run ${{ inputs.package }}:build
+      - name: Build
+        run: nx run ${{ steps.info.outputs.NAME }}:build
 
       - name: Publish
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ steps.build.outputs.NAME }}
-          directory: ${{ steps.build.outputs.DIST }}
+          projectName: ${{ steps.info.outputs.NAME }}
+          directory: ${{ steps.info.outputs.ROOT }}/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.NODE_ENV }}
           wranglerVersion: '3'

@@ -1,0 +1,5 @@
+{
+  "extends": ["../../tsconfig.base.json"],
+  "files": [],
+  "references": [{ "path": "../config-eslint" }, { "path": "./tsconfig.lib.json" }]
+}
