@@ -182,7 +182,9 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		}
 	}
 	rpcResp := &flowv1.FlowListResponse{
-		Items: tgeneric.MassConvert(flows, tflow.SeralizeModelToRPCItem),
+		WorkspaceId: req.Msg.WorkspaceId,
+		TagId:       req.Msg.TagId,
+		Items:       tgeneric.MassConvert(flows, tflow.SeralizeModelToRPCItem),
 	}
 	return connect.NewResponse(rpcResp), nil
 }
@@ -228,13 +230,9 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		return nil, err
 	}
 
-	id, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
-	if err != nil {
-		return nil, err
-	}
-
+	nodeNoopID := idwrap.NewNow()
 	err = c.ns.CreateNode(ctx, mnode.MNode{
-		ID:        id,
+		ID:        nodeNoopID,
 		FlowID:    flowID,
 		NodeKind:  mnode.NODE_KIND_NO_OP,
 		PositionX: float64(0),
@@ -244,7 +242,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		return nil, err
 	}
 	err = c.sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
-		FlowNodeID: id,
+		FlowNodeID: nodeNoopID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
 		Name:       "Node1",
 	})
