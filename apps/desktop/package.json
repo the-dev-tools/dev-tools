@@ -6,9 +6,8 @@
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "build": "electron-vite build && electron-builder build --publish=never",
-    "dev": "electron-vite dev",
-    "publish": "electron-builder publish"
+    "build": "electron-vite build && electron-builder build",
+    "dev": "electron-vite dev"
   },
   "dependencies": {
     "@effect/platform": "0.75.1",

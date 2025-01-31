@@ -16,15 +16,15 @@ jobs:
       - id: info
         name: Get project information
         # TODO: remove after testing
-        env:
-          GITHUB_REF: desktop
         run: |
-          pnpm nx run scripts:project-info-output
-          eval $(cat project-info-output)
-          rm project-info-output
+          echo "NAME=desktop" >> "$GITHUB_OUTPUT"
+          echo "ROOT=apps/desktop" >> "$GITHUB_OUTPUT"
+        # run: |
+        #   pnpm nx run scripts:project-info-output
+        #   eval $(cat project-info-output)
+        #   rm project-info-output
 
       - name: Build
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
-
-      - name: Publish
-        run: pnpm nx run ${{ steps.info.outputs.NAME }}:publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

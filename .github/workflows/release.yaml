@@ -29,6 +29,13 @@ jobs:
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
+      - name: Setup Git user
+        # Use public GitHub bot user:
+        # https://api.github.com/users/github-actions[bot]
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
       - name: Version projects and trigger specialized release workflows
         run: pnpm nx run scripts:release
         env:

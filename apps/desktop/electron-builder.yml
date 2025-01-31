@@ -1,6 +1,6 @@
-appId: com.devtools.devtools
-productName: DevTools
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+extraMetadata:
+  name: dev-tools
 directories:
   buildResources: build
 files:
@@ -18,3 +18,4 @@ publish:
   provider: github
   private: true
   releaseType: release
+  vPrefixedTagName: false

@@ -5,7 +5,7 @@ import { goToRoot } from './go-to-root.ts';
 
 goToRoot();
 
-const name = process.env['GITHUB_REF']?.split('/').pop()?.split('@').shift();
+const name = process.env['GITHUB_REF_TYPE'] === 'tag' ? process.env['GITHUB_REF_NAME']?.split('@').shift() : null;
 if (!name) throw new Error('Could not determine project name');
 
 const infoJson = execSync(`nx show project ${name} --json`, { encoding: 'utf8' });

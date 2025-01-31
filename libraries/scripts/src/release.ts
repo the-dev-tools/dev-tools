@@ -44,7 +44,6 @@ for (const [project, { releaseVersion }] of Object.entries(projectChangelogs)) {
     repo,
     ref: releaseVersion.gitTag,
     workflow_id: releaseWorkflow,
-    inputs: { project },
   });
 }
 
