@@ -1,0 +1,30 @@
+name: Release / Electron Builder
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - id: info
+        name: Get project information
+        # TODO: remove after testing
+        env:
+          GITHUB_REF: desktop
+        run: |
+          nx run scripts:project-info-output
+          eval $(cat project-info-output)
+          rm project-info-output
+
+      - name: Build
+        run: nx run ${{ steps.info.outputs.NAME }}:build
+
+      - name: Publish
+        run: nx run ${{ steps.info.outputs.NAME }}:publish

@@ -12,11 +12,15 @@ if (!owner || !repo) throw new Error('Could not determine owner/repo');
 
 const octokit = new Octokit({ authStrategy: createActionAuth });
 
-type ReleaseWorkflow = 'deploy-chrome-extension.yaml' | 'deploy-cloudflare-pages.yaml';
+type ReleaseWorkflow =
+  | 'release-chrome-extension.yaml'
+  | 'release-cloudflare-pages.yaml'
+  | 'release-electron-builder.yaml';
 
 const ReleaseWorkflows: Record<string, ReleaseWorkflow> = {
-  'api-recorder-extension': 'deploy-chrome-extension.yaml',
-  web: 'deploy-cloudflare-pages.yaml',
+  'api-recorder-extension': 'release-chrome-extension.yaml',
+  desktop: 'release-electron-builder.yaml',
+  web: 'release-cloudflare-pages.yaml',
 };
 
 const options: NxReleaseArgs = { verbose: true };
