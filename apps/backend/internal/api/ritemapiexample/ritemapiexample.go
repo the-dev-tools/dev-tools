@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"the-dev-tools/backend/internal/api"
-	"the-dev-tools/backend/internal/api/collection"
+	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/internal/api/ritemapi"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafjson"
@@ -829,5 +829,5 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 		}
 		return false, err
 	}
-	return collection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
+	return rcollection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }

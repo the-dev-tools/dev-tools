@@ -9,11 +9,11 @@ import (
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcondition"
-	"the-dev-tools/backend/pkg/model/mnode"
-	"the-dev-tools/backend/pkg/model/mnode/mnfor"
-	"the-dev-tools/backend/pkg/model/mnode/mnif"
-	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
-	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -412,7 +412,7 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 	}
 
 	switch node.NodeKind {
-	case mnode.NODE_KIND_REQUEST:
+	case mnnode.NODE_KIND_REQUEST:
 		nodeReq, err := c.nrs.GetNodeRequest(ctx, node.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -447,7 +447,7 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 
 		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, []byte{}, httpclient.New())
 
-	case mnode.NODE_KIND_FOR:
+	case mnnode.NODE_KIND_FOR:
 	default:
 		return nil, connect.NewError(connect.CodeUnimplemented, nil)
 	}
@@ -464,7 +464,7 @@ func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserServ
 	return rflow.CheckOwnerFlow(ctx, fs, us, node.FlowID)
 }
 
-func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
+func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
 	nlf snodefor.NodeForService, nss snodenoop.NodeNoopService,
 ) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
@@ -475,7 +475,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 	}
 
 	switch currentNode.NodeKind {
-	case mnode.NODE_KIND_REQUEST:
+	case mnnode.NODE_KIND_REQUEST:
 		nodeReq, err := nrs.GetNodeRequest(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
@@ -503,7 +503,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 			},
 		}
 		rpcNode = nodeList
-	case mnode.NODE_KIND_FOR:
+	case mnnode.NODE_KIND_FOR:
 		nodeFor, err := nlf.GetNodeFor(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
@@ -519,7 +519,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 			},
 		}
 		rpcNode = nodeList
-	case mnode.NODE_KIND_NO_OP:
+	case mnnode.NODE_KIND_NO_OP:
 		// TODO: can be remove later no need to fetch just id
 		nodeStart, err := nss.GetNodeNoop(ctx, currentNode.ID)
 		if err != nil {
@@ -534,7 +534,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 			NoOp:     &a,
 		}
 
-	case mnode.NODE_KIND_CONDITION:
+	case mnnode.NODE_KIND_CONDITION:
 		nodeCondition, err := nis.GetNodeIf(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
@@ -558,7 +558,7 @@ func GetNodeSub(ctx context.Context, currentNode mnode.MNode, ns snode.NodeServi
 	return rpcNode, nil
 }
 
-func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
+func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap) (*mnnode.MNode, interface{}, error) {
 	id, err := idwrap.NewFromBytes(rpcNode.NodeId)
 	if err != nil {
 		return nil, nil, err
@@ -566,18 +566,18 @@ func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flow
 	return ConvertRPCNodeToModelWithoutID(ctx, rpcNode, flowID, id)
 }
 
-func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*mnode.MNode, interface{}, error) {
-	var node *mnode.MNode
+func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*mnnode.MNode, interface{}, error) {
+	var node *mnnode.MNode
 	var subNode interface{}
 
 	if rpcNode.Position == nil {
 		rpcNode.Position = &nodev1.Position{}
 	}
 
-	node = &mnode.MNode{
+	node = &mnnode.MNode{
 		ID:        nodeID,
 		FlowID:    flowID,
-		NodeKind:  mnode.NodeKind(rpcNode.Kind),
+		NodeKind:  mnnode.NodeKind(rpcNode.Kind),
 		PositionX: float64(rpcNode.Position.X),
 		PositionY: float64(rpcNode.Position.Y),
 	}

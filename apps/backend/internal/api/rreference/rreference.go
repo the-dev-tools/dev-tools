@@ -9,8 +9,8 @@ import (
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
-	"the-dev-tools/backend/pkg/model/mnode"
-	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/model/mvar"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/reference"
@@ -216,7 +216,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 
 		var reqNodeIDs []idwrap.IDWrap
 		for _, n := range nodes {
-			if n.NodeKind == mnode.NODE_KIND_REQUEST {
+			if n.NodeKind == mnnode.NODE_KIND_REQUEST {
 				reqNodeIDs = append(reqNodeIDs, n.ID)
 			}
 		}

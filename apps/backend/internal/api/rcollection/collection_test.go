@@ -1,12 +1,12 @@
-package collection_test
+package rcollection_test
 
 import (
 	"context"
 	"fmt"
 	"os"
 	"testing"
-	"the-dev-tools/backend/internal/api/collection"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcollection"
 	"the-dev-tools/backend/pkg/service/scollection"
@@ -30,7 +30,7 @@ func TestCollectionGet(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
-	serviceRPC := collection.New(db, cs, ws, us)
+	serviceRPC := rcollection.New(db, cs, ws, us)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -98,7 +98,7 @@ func TestCollectionCreate(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
-	serviceRPC := collection.New(db, cs, ws, us)
+	serviceRPC := rcollection.New(db, cs, ws, us)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -154,7 +154,7 @@ func TestCollectionUpdate(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
-	serviceRPC := collection.New(db, cs, ws, us)
+	serviceRPC := rcollection.New(db, cs, ws, us)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -216,7 +216,7 @@ func TestCollectionDelete(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
-	serviceRPC := collection.New(db, cs, ws, us)
+	serviceRPC := rcollection.New(db, cs, ws, us)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -277,7 +277,7 @@ func TestCollectionImportHar(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
-	serviceRPC := collection.New(db, cs, ws, us)
+	serviceRPC := rcollection.New(db, cs, ws, us)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()

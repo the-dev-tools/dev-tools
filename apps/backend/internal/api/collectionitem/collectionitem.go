@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"the-dev-tools/backend/internal/api"
-	"the-dev-tools/backend/internal/api/collection"
+	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/internal/api/ritemfolder"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/permcheck"
@@ -60,7 +60,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(collection.CheckOwnerCollection(ctx, c.cs, c.us, collectionID))
+	rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, collectionID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}

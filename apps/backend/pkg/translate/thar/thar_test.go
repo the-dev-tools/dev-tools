@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/translate/thar"
 )
 
@@ -21,8 +22,9 @@ func TestHarResvoledSimple(t *testing.T) {
 		},
 	}
 	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -44,8 +46,9 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 		},
 	}
 	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -86,8 +89,9 @@ func TestHarResvoledBodyForm(t *testing.T) {
 		},
 	}
 	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -132,8 +136,9 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 		},
 	}
 	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -157,5 +162,229 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 
 	if len(resolved.UrlEncodedBodies) != 4 {
 		t.Errorf("Expected 4 Form Body, got %d", len(resolved.FormBodies))
+	}
+}
+
+func TestHarEmptyLog(t *testing.T) {
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: []thar.Entry{},
+		},
+	}
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err == nil {
+		t.Errorf("Expected error converting HAR")
+	}
+
+	if len(resolved.Apis) != 0 {
+		t.Errorf("Expected 0 APIs, got %d", len(resolved.Apis))
+	}
+
+	if len(resolved.Examples) != 0 {
+		t.Errorf("Expected 0 Examples, got %d", len(resolved.Examples))
+	}
+}
+
+func TestHarUnknownMimeType(t *testing.T) {
+	entry := thar.Entry{}
+	entry.Request.Method = "POST"
+	entry.Request.URL = "http://example.com/api"
+	entry.Request.HTTPVersion = "HTTP/1.1"
+	entry.Request.Headers = []thar.Header{}
+	entry.Request.PostData = &thar.PostData{
+		MimeType: "unknown/type",
+		Params: []thar.Param{
+			{Name: "param1", Value: "test"},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: []thar.Entry{entry},
+		},
+	}
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Errorf("Error converting HAR: %v", err)
+	}
+
+	// Assuming that an unknown MIME type is treated as a raw body.
+	// Given previous tests, one entry produces 2 raw bodies.
+	if len(resolved.RawBodies) != 2 {
+		t.Errorf("Expected 2 Raw Bodies, got %d", len(resolved.RawBodies))
+	}
+
+	// Verify that the bodies are empty.
+	for _, rawBody := range resolved.RawBodies {
+		if !bytes.Equal(rawBody.Data, []byte{}) {
+			t.Errorf("Expected empty body, got %s", rawBody.Data)
+		}
+	}
+}
+
+func TestHarDiverseEntries(t *testing.T) {
+	// Entry 1: GET without post data.
+	entry1 := thar.Entry{}
+	entry1.Request.Method = "GET"
+	entry1.Request.URL = "http://example.com"
+	entry1.Request.HTTPVersion = "HTTP/1.1"
+	entry1.Request.Headers = []thar.Header{
+		{Name: "Accept", Value: "application/json"},
+	}
+
+	// Entry 2: POST with form body.
+	entry2 := thar.Entry{}
+	entry2.Request.Method = "POST"
+	entry2.Request.URL = "http://example.com/submit"
+	entry2.Request.HTTPVersion = "HTTP/1.1"
+	entry2.Request.Headers = []thar.Header{}
+	entry2.Request.PostData = &thar.PostData{
+		MimeType: thar.FormBodyCheck,
+		Params:   []thar.Param{{Name: "username", Value: "admin"}},
+	}
+
+	// Entry 3: POST with urlencoded body.
+	entry3 := thar.Entry{}
+	entry3.Request.Method = "POST"
+	entry3.Request.URL = "http://example.com/login"
+	entry3.Request.HTTPVersion = "HTTP/1.1"
+	entry3.Request.Headers = []thar.Header{}
+	entry3.Request.PostData = &thar.PostData{
+		MimeType: thar.UrlEncodedBodyCheck,
+		Params:   []thar.Param{{Name: "user", Value: "admin"}},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: []thar.Entry{entry1, entry2, entry3},
+		},
+	}
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Errorf("Error converting HAR: %v", err)
+	}
+
+	// Expect one API per entry.
+	if len(resolved.Apis) != 3 {
+		t.Errorf("Expected 3 APIs, got %d", len(resolved.Apis))
+	}
+
+	// According to previous tests each entry creates 2 raw bodies.
+	if len(resolved.RawBodies) != 6 {
+		t.Errorf("Expected 6 Raw Bodies, got %d", len(resolved.RawBodies))
+	}
+
+	// Verify that GET (entry1) did not produce form or URL encoded bodies.
+	// Adjust counts based on your conversion logic; here we assume each POST produces 2 bodies
+	// specific to their MIME type.
+	if len(resolved.FormBodies) != 2 {
+		t.Errorf("Expected 2 Form Bodies, got %d", len(resolved.FormBodies))
+	}
+
+	if len(resolved.UrlEncodedBodies) != 2 {
+		t.Errorf("Expected 2 UrlEncoded Bodies, got %d", len(resolved.UrlEncodedBodies))
+	}
+}
+
+func TestHarResolvedNewFields(t *testing.T) {
+	entry := thar.Entry{}
+	entry.Request.Method = "GET"
+	entry.Request.URL = "http://example.com/flow"
+	entry.Request.HTTPVersion = "HTTP/1.1"
+	entry.Request.Headers = []thar.Header{}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: []thar.Entry{entry},
+		},
+	}
+
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Errorf("Error converting HAR: %v", err)
+	}
+
+	// Check that the Flow field is populated.
+	// Note: change the check if mflow.Flow uses a different zero value.
+	if resolved.Flow == (mflow.Flow{}) {
+		t.Errorf("Expected Flow to be populated")
+	}
+
+	// Assuming that one entry produces one Node and one Request.
+	if len(resolved.Nodes) != 1 {
+		t.Errorf("Expected 1 Node, got %d", len(resolved.Nodes))
+	}
+
+	if len(resolved.RequestNode) != 1 {
+		t.Errorf("Expected 1 Request, got %d", len(resolved.RequestNode))
+	}
+}
+
+func TestHarResolvedDeepFields(t *testing.T) {
+	// Prepare a basic HAR entry.
+	entry := thar.Entry{}
+	entry.Request.Method = "GET"
+	entry.Request.URL = "http://example.com/flow"
+	entry.Request.HTTPVersion = "HTTP/1.1"
+	entry.Request.Headers = []thar.Header{}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: []thar.Entry{entry},
+		},
+	}
+
+	// Create IDs.
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+
+	// Convert HAR.
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Verify Flow is not zero.
+	if resolved.Flow == (mflow.Flow{}) {
+		t.Error("Expected Flow to be populated")
+	}
+
+	// Verify we have a single node and request.
+	if len(resolved.Nodes) != 1 {
+		t.Fatalf("Expected 1 Node, got %d", len(resolved.Nodes))
+	}
+	if len(resolved.RequestNode) != 1 {
+		t.Fatalf("Expected 1 Request, got %d", len(resolved.RequestNode))
+	}
+
+	apiID := resolved.Apis[0].ID
+	exampleID := resolved.Examples[0].ID
+	requestNode := resolved.RequestNode[0]
+	if requestNode.EndpointID == nil {
+		t.Fatalf("Expected Request Node to be populated")
+	}
+	if requestNode.ExampleID == nil {
+		t.Fatalf("Expected Request Node to be populated")
+	}
+
+	// Deep checks on the Request.
+	if *requestNode.EndpointID != apiID {
+		t.Errorf("Expected Request APIID to be %v, got %v", apiID, resolved.RequestNode[0].EndpointID)
+	}
+
+	if *requestNode.ExampleID != exampleID {
+		t.Errorf("Expected Request ExampleID to be %v, got %v", exampleID, resolved.RequestNode[0].ExampleID)
 	}
 }

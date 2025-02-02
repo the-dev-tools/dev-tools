@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcondition"
-	"the-dev-tools/backend/pkg/model/mnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnnode/mnif"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
 

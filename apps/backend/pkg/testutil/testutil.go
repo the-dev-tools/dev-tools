@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	"the-dev-tools/backend/internal/api/collection"
+	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcollection"
 	"the-dev-tools/backend/pkg/model/muser"
@@ -128,8 +128,8 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 	}
 }
 
-func (c BaseTestServices) CreateCollectionRPC() collection.CollectionServiceRPC {
-	return collection.New(c.DB, c.Cs, c.Ws, c.Us)
+func (c BaseTestServices) CreateCollectionRPC() rcollection.CollectionServiceRPC {
+	return rcollection.New(c.DB, c.Cs, c.Ws, c.Us)
 }
 
 func (b BaseDBQueries) Close() {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
 

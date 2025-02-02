@@ -22,11 +22,11 @@ import (
 	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
-	"the-dev-tools/backend/pkg/model/mnode"
-	"the-dev-tools/backend/pkg/model/mnode/mnfor"
-	"the-dev-tools/backend/pkg/model/mnode/mnif"
-	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
-	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
@@ -231,10 +231,10 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	}
 
 	nodeNoopID := idwrap.NewNow()
-	err = c.ns.CreateNode(ctx, mnode.MNode{
+	err = c.ns.CreateNode(ctx, mnnode.MNode{
 		ID:        nodeNoopID,
 		FlowID:    flowID,
-		NodeKind:  mnode.NODE_KIND_NO_OP,
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: float64(0),
 		PositionY: float64(0),
 	})
@@ -328,25 +328,25 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	for _, node := range nodes {
 		switch node.NodeKind {
-		case mnode.NODE_KIND_REQUEST:
+		case mnnode.NODE_KIND_REQUEST:
 			rn, err := c.rns.GetNodeRequest(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node request: %w", err))
 			}
 			requestNodes = append(requestNodes, *rn)
-		case mnode.NODE_KIND_FOR:
+		case mnnode.NODE_KIND_FOR:
 			fn, err := c.flns.GetNodeFor(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err))
 			}
 			forNodes = append(forNodes, *fn)
-		case mnode.NODE_KIND_NO_OP:
+		case mnnode.NODE_KIND_NO_OP:
 			sn, err := c.sns.GetNodeNoop(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node start: %w", err))
 			}
 			noopNodes = append(noopNodes, *sn)
-		case mnode.NODE_KIND_CONDITION:
+		case mnnode.NODE_KIND_CONDITION:
 			in, err := c.ins.GetNodeIf(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, errors.New("get node if"))

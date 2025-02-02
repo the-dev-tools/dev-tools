@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mnode"
+	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
@@ -29,7 +29,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeService, error) {
 	}, nil
 }
 
-func ConvertNodeToDB(n mnode.MNode) *gen.FlowNode {
+func ConvertNodeToDB(n mnnode.MNode) *gen.FlowNode {
 	return &gen.FlowNode{
 		ID:        n.ID,
 		FlowID:    n.FlowID,
@@ -39,17 +39,17 @@ func ConvertNodeToDB(n mnode.MNode) *gen.FlowNode {
 	}
 }
 
-func ConvertNodeToModel(n gen.FlowNode) *mnode.MNode {
-	return &mnode.MNode{
+func ConvertNodeToModel(n gen.FlowNode) *mnnode.MNode {
+	return &mnnode.MNode{
 		ID:        n.ID,
 		FlowID:    n.FlowID,
-		NodeKind:  mnode.NodeKind(n.NodeKind),
+		NodeKind:  mnnode.NodeKind(n.NodeKind),
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
 	}
 }
 
-func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnode.MNode, error) {
+func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnnode.MNode, error) {
 	node, err := ns.queries.GetFlowNode(ctx, id)
 	if err != nil {
 		return nil, err
@@ -57,18 +57,18 @@ func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnode.MNo
 	return ConvertNodeToModel(node), nil
 }
 
-func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnode.MNode, error) {
+func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnode.MNode, error) {
 	nodes, err := ns.queries.GetFlowNodesByFlowID(ctx, flowID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return []mnode.MNode{}, nil
+			return []mnnode.MNode{}, nil
 		}
 		return nil, err
 	}
 	return tgeneric.MassConvertPtr(nodes, ConvertNodeToModel), nil
 }
 
-func (ns NodeService) CreateNode(ctx context.Context, n mnode.MNode) error {
+func (ns NodeService) CreateNode(ctx context.Context, n mnnode.MNode) error {
 	node := ConvertNodeToDB(n)
 	return ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 		ID:        node.ID,
@@ -79,7 +79,7 @@ func (ns NodeService) CreateNode(ctx context.Context, n mnode.MNode) error {
 	})
 }
 
-func (ns NodeService) UpdateNode(ctx context.Context, n mnode.MNode) error {
+func (ns NodeService) UpdateNode(ctx context.Context, n mnnode.MNode) error {
 	node := ConvertNodeToDB(n)
 	return ns.queries.UpdateFlowNode(ctx, gen.UpdateFlowNodeParams{
 		ID:        node.ID,

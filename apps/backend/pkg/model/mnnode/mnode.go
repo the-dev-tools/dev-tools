@@ -1,10 +1,10 @@
-package mnode
+package mnnode
 
 import (
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mnode/mnfor"
-	"the-dev-tools/backend/pkg/model/mnode/mnif"
-	"the-dev-tools/backend/pkg/model/mnode/mnrequest"
+	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 )
 
 type NodeKind int32

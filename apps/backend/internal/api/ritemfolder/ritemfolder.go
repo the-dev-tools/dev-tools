@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"the-dev-tools/backend/internal/api"
-	"the-dev-tools/backend/internal/api/collection"
+	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/scollection"
@@ -60,7 +60,7 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	ID := idwrap.NewNow()
 	reqFolder.ID = ID
 
-	rpcErr := permcheck.CheckPerm(collection.CheckOwnerCollection(ctx, c.cs, c.us, reqFolder.CollectionID))
+	rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, reqFolder.CollectionID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -204,7 +204,7 @@ func CheckOwnerFolder(ctx context.Context, ifs sitemfolder.ItemFolderService, cs
 		return false, err
 	}
 
-	isOwner, err := collection.CheckOwnerCollection(ctx, cs, us, folder.CollectionID)
+	isOwner, err := rcollection.CheckOwnerCollection(ctx, cs, us, folder.CollectionID)
 	if err != nil {
 		return false, err
 	}

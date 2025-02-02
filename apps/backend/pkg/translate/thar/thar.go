@@ -2,6 +2,7 @@ package thar
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mbodyform"
@@ -9,11 +10,15 @@ import (
 	"the-dev-tools/backend/pkg/model/mbodyurl"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
 	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 )
 
 type HarResvoled struct {
+	// Collection Items
 	Apis             []mitemapi.ItemApi
 	Examples         []mitemapiexample.ItemApiExample
 	Queries          []mexamplequery.Query
@@ -21,6 +26,11 @@ type HarResvoled struct {
 	RawBodies        []mbodyraw.ExampleBodyRaw
 	FormBodies       []mbodyform.BodyForm
 	UrlEncodedBodies []mbodyurl.BodyURLEncoded
+
+	// Flow Items
+	Flow        mflow.Flow
+	Nodes       []mnnode.MNode
+	RequestNode []mnrequest.MNRequest
 }
 
 type HAR struct {
@@ -124,14 +134,27 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 }
 
 // TODO: refactor this function to make it more readable
-func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
+func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
+
+	if len(har.Log.Entries) == 0 {
+		return result, errors.New("HAR file is empty")
+	}
+
+	flowID := idwrap.NewNow()
+	result.Flow = mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        har.Log.Entries[0].Request.URL,
+	}
 
 	// Process each entry in the HAR file
 	for _, entry := range har.Log.Entries {
 		// creating Endpoint/api
+		//
+		apiID := idwrap.NewNow()
 		api := mitemapi.ItemApi{
-			ID:           idwrap.NewNow(),
+			ID:           apiID,
 			Name:         entry.Request.Method + " " + entry.Request.URL,
 			Url:          entry.Request.URL,
 			Method:       entry.Request.Method,
@@ -162,6 +185,26 @@ func ConvertHAR(har *HAR, collectionID idwrap.IDWrap) (HarResvoled, error) {
 			ItemApiID:    api.ID,
 			ID:           exampleID,
 		}
+
+		flowNodeID := idwrap.NewNow()
+
+		// Create Flow Nodes
+		// Create Flow Node for this HAR entry
+		node := mnnode.MNode{
+			ID:     flowNodeID,
+			FlowID: flowID,
+			// set additional fields as needed...
+		}
+		result.Nodes = append(result.Nodes, node)
+
+		request := mnrequest.MNRequest{
+			FlowNodeID: flowNodeID,
+			Name:       entry.Request.Method + " " + entry.Request.URL,
+			EndpointID: &apiID,
+			ExampleID:  &exampleID,
+		}
+
+		result.RequestNode = append(result.RequestNode, request)
 
 		// Get headers
 		headers := extractHeaders(entry.Request.Headers, exampleID)

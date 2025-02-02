@@ -1,4 +1,4 @@
-package collection
+package rcollection
 
 import (
 	"context"
@@ -336,7 +336,7 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	}
 
 	collectionID := idwrap.NewNow()
-	resolved, err := thar.ConvertHAR(harData, collectionID)
+	resolved, err := thar.ConvertHAR(harData, collectionID, wsID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

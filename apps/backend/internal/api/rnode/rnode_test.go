@@ -8,8 +8,8 @@ import (
 	"the-dev-tools/backend/internal/api/rnode"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
-	"the-dev-tools/backend/pkg/model/mnode"
-	"the-dev-tools/backend/pkg/model/mnode/mnnoop"
+	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mtag"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
@@ -80,10 +80,10 @@ func TestNodeList(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 
 	startNodeID := idwrap.NewNow()
-	err = ns.CreateNode(ctx, mnode.MNode{
+	err = ns.CreateNode(ctx, mnnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NO_OP,
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -169,10 +169,10 @@ func TestNodeGet(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 
 	startNodeID := idwrap.NewNow()
-	err = ns.CreateNode(ctx, mnode.MNode{
+	err = ns.CreateNode(ctx, mnnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NO_OP,
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -257,10 +257,10 @@ func TestNodeUpdate(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 
 	startNodeID := idwrap.NewNow()
-	err = ns.CreateNode(ctx, mnode.MNode{
+	err = ns.CreateNode(ctx, mnnode.MNode{
 		ID:        startNodeID,
 		FlowID:    testFlowID,
-		NodeKind:  mnode.NODE_KIND_NO_OP,
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})

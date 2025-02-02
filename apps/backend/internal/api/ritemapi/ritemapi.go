@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"the-dev-tools/backend/internal/api"
-	"the-dev-tools/backend/internal/api/collection"
+	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/internal/api/ritemfolder"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mexampleresp"
@@ -85,7 +85,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(collection.CheckOwnerCollection(ctx, *c.cs, *c.us, itemApiReq.CollectionID))
+	rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, *c.cs, *c.us, itemApiReq.CollectionID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -368,7 +368,7 @@ func CheckOwnerApi(ctx context.Context, ias sitemapi.ItemApiService, cs scollect
 	if err != nil {
 		return false, err
 	}
-	isOwner, err := collection.CheckOwnerCollection(ctx, cs, us, api.CollectionID)
+	isOwner, err := rcollection.CheckOwnerCollection(ctx, cs, us, api.CollectionID)
 	if err != nil {
 		return false, err
 	}
