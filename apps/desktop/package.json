@@ -2,10 +2,11 @@
   "name": "@the-dev-tools/desktop",
   "version": "0.0.0",
   "private": true,
+  "repository": "github:the-dev-tools/dev-tools",
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "build": "electron-vite build && electron-builder build",
+    "build": "electron-vite build && electron-builder build --publish=never",
     "dev": "electron-vite dev"
   },
   "dependencies": {
