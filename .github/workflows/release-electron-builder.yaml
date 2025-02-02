@@ -17,10 +17,7 @@ jobs:
 
       - id: info
         name: Get project information
-        run: |
-          pnpm nx run scripts:project-info-output
-          eval $(cat project-info-output)
-          rm project-info-output
+        run: pnpm nx run scripts:project-info-output
 
       - name: Build
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
