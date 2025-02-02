@@ -3,14 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "cli": "node src/cli.ts",
     "project-info-output": "node src/project-info-output.ts",
     "release": "node src/release.ts"
   },
   "devDependencies": {
+    "@effect/cli": "~0.54.1",
+    "@effect/platform": "~0.75.1",
+    "@effect/platform-node": "~0.71.1",
     "@octokit/auth-action": "~5.1.1",
     "@octokit/rest": "~21.1.0",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@types/node": "~22.12.0",
+    "effect": "~3.12.7",
     "nx": "~20.4.0",
     "typescript": "~5.7.3"
   }

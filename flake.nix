@@ -33,6 +33,12 @@
                   -- ${pkg.pname} "$@"
               '';
             };
+
+          scripts = pkgs.writeShellApplication {
+            name = "scripts";
+            runtimeInputs = with pkgs; [pnpm];
+            text = ''pnpm run --filter="*/scripts" cli "$@"'';
+          };
         in
           pkgs.mkShell {
             nativeBuildInputs =
@@ -52,6 +58,7 @@
                 nodejs_latest
                 protoc-gen-connect-go
                 protoc-gen-go
+                scripts
               ]);
           };
 

@@ -14,8 +14,3 @@ linux:
     - AppImage
   category: Development
 npmRebuild: false
-publish:
-  provider: github
-  private: true
-  releaseType: release
-  vPrefixedTagName: false
