@@ -293,6 +293,13 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	if req.Msg.Position == nil {
+		req.Msg.Position = &nodev1.Position{
+			X: float32(node.PositionX),
+			Y: float32(node.PositionY),
+		}
+	}
+
 	RpcNodeCreated := &nodev1.Node{
 		NodeId:    nodeID.Bytes(),
 		Kind:      nodev1.NodeKind(node.NodeKind),
