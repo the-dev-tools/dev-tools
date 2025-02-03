@@ -54,10 +54,10 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
       const fs = yield* FileSystem.FileSystem;
 
       const name = path.basename(_.path);
-      const data = yield* fs.readFileString(_.path);
+      const data: unknown = yield* fs.readFile(_.path);
 
       return yield* Effect.tryPromise(() =>
-        octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.id, name, data }),
+        octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.id, name, data: data as string }),
       );
     }, Effect.asVoid);
 
