@@ -9,10 +9,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest # x64
-          - macos-latest # arm64
-          - macos-13 # Intel
-    runs-on: ${{ matrix.os }}
+          - { name: linux-x86_64, runner: ubuntu-latest }
+          - { name: mac-arm64, runner: macos-latest }
+          - { name: mac-x64, runner: macos-13 }
+    runs-on: ${{ matrix.os.runner }}
     permissions:
       contents: write
     steps:
@@ -27,6 +27,10 @@ jobs:
 
       - name: Build
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
+
+      - name: Make update metadata file names unique
+        # https://github.com/electron-userland/electron-builder/issues/7975
+        run: mv -n ${{ steps.info.outputs.ROOT }}/dist/latest{*,-${{ matrix.os.name }}}.yml
 
       - name: Publish
         env:
