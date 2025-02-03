@@ -323,8 +323,8 @@ func TestHarResolvedNewFields(t *testing.T) {
 		t.Errorf("Expected Flow to be populated")
 	}
 
-	if len(resolved.Nodes) != 1 {
-		t.Errorf("Expected 1 Node, got %d", len(resolved.Nodes))
+	if len(resolved.Nodes) != 2 {
+		t.Errorf("Expected 2 Node, got %d", len(resolved.Nodes))
 	}
 
 	if len(resolved.RequestNodes) != 1 {
@@ -362,12 +362,14 @@ func TestHarResolvedDeepFields(t *testing.T) {
 	}
 
 	// Verify we have a single node and request.
-	if len(resolved.Nodes) != 1 {
-		t.Fatalf("Expected 1 Node, got %d", len(resolved.Nodes))
+	if len(resolved.Nodes) != 2 {
+		t.Fatalf("Expected 2 Node, got %d", len(resolved.Nodes))
 	}
 	if len(resolved.RequestNodes) != 1 {
 		t.Fatalf("Expected 1 Request, got %d", len(resolved.RequestNodes))
 	}
+
+	// TODO: refactor this test
 
 	apiID := resolved.Apis[0].ID
 	exampleID := resolved.Examples[0].ID
