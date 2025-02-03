@@ -55,13 +55,12 @@ const release = Command.make(
 
     const options: NxReleaseArgs = { projects, verbose: true };
 
-    const { projectsVersionData } = yield* Effect.tryPromise(() => releaseVersion(options));
+    const { projectsVersionData } = yield* Effect.tryPromise(() => releaseVersion({ gitCommit: false, ...options }));
 
     const { projectChangelogs = {} } = yield* Effect.tryPromise(() =>
       releaseChangelog({
         versionData: projectsVersionData,
         gitCommitMessage: 'Version projects',
-        deleteVersionPlans: true,
         ...options,
       }),
     );
