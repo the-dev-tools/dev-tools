@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/model/massert"
-	"the-dev-tools/nodes/pkg/httpclient"
 	"unicode"
 
 	"github.com/PaesslerAG/gval"

@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/node"
+	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
 	"the-dev-tools/backend/pkg/model/mnnode"
@@ -23,7 +24,6 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
 	"the-dev-tools/backend/pkg/service/sworkspace"
-	"the-dev-tools/nodes/pkg/httpclient"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 	"the-dev-tools/spec/dist/buf/go/reference/v1/referencev1connect"
 

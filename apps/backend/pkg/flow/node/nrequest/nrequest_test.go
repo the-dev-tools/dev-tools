@@ -11,14 +11,14 @@ import (
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
+	"the-dev-tools/backend/pkg/httpclient"
+	"the-dev-tools/backend/pkg/httpclient/httpmockclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
 	"the-dev-tools/backend/pkg/model/mexamplequery"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/testutil"
-	"the-dev-tools/nodes/pkg/httpclient"
-	"the-dev-tools/nodes/pkg/httpclient/httpmockclient"
 )
 
 func TestNodeRequest_Run(t *testing.T) {

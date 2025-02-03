@@ -3,11 +3,7 @@ go 1.23.3
 use (
 	./apps/backend
 	./libraries/spec
-	./services/cli
 	./services/db
 	./services/mail
-	./services/masternode
-	./services/nodes
 	./services/platform
-	./services/slave
 )
