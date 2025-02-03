@@ -53,7 +53,7 @@ const release = Command.make(
 
     process.chdir(yield* resolveMonorepoRoot);
 
-    const options: NxReleaseArgs = { projects, verbose: true, dryRun: true };
+    const options: NxReleaseArgs = { projects, verbose: true };
 
     const { projectsVersionData } = yield* Effect.tryPromise(() => releaseVersion(options));
 
