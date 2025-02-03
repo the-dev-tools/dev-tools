@@ -6,7 +6,13 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest # x64
+          - macos-latest # arm64
+          - macos-13 # Intel
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     steps:
