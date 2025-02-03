@@ -1,7 +1,13 @@
 import { FileSystem, Path } from '@effect/platform';
 import { createActionAuth } from '@octokit/auth-action';
 import { Octokit } from '@octokit/rest';
-import { Config, Console, Effect, Option, pipe, String, Tuple } from 'effect';
+import { Config, Console, DefaultServices, Effect, Layer, Option, pipe, String, Tuple } from 'effect';
+
+interface DispatchWorkflowProps {
+  ref: string;
+  workflow: string;
+  inputs?: unknown;
+}
 
 interface UploadReleaseAssetProps {
   id: number;
@@ -9,6 +15,7 @@ interface UploadReleaseAssetProps {
 }
 
 export class Repository extends Effect.Service<Repository>()('Repository', {
+  dependencies: [Layer.succeedContext(DefaultServices.liveServices)],
   effect: Effect.gen(function* () {
     const console = yield* Console.Console;
 
@@ -30,6 +37,12 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
           },
         }),
     );
+
+    const dispatchWorkflow = Effect.fn((_: DispatchWorkflowProps) => {
+      return Effect.tryPromise(() =>
+        octokit.rest.actions.createWorkflowDispatch({ owner, repo, ref: _.ref, workflow_id: _.workflow }),
+      );
+    }, Effect.asVoid);
 
     const getReleaseByTag = Effect.fn(
       (tag: string) => Effect.tryPromise(() => octokit.rest.repos.getReleaseByTag({ owner, repo, tag })),
@@ -53,6 +66,6 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
       Effect.flatMap(() => Config.string('GITHUB_REF_NAME')),
     );
 
-    return { getReleaseByTag, uploadReleaseAsset, tag };
+    return { dispatchWorkflow, getReleaseByTag, uploadReleaseAsset, tag };
   }),
 }) {}

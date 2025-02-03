@@ -37,6 +37,7 @@
           scripts = pkgs.writeShellApplication {
             name = "scripts";
             runtimeInputs = with pkgs; [pnpm];
+            runtimeEnv.NODE_OPTIONS = "--disable-warning=ExperimentalWarning";
             text = ''pnpm run --filter="*/scripts" cli "$@"'';
           };
         in
