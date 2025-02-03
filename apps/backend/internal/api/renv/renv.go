@@ -89,8 +89,13 @@ func (e *EnvRPC) EnvironmentList(ctx context.Context, req *connect.Request[envir
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := tgeneric.MassConvert(envs, tenv.SeralizeModelToRPCItem)
-	return connect.NewResponse(&environmentv1.EnvironmentListResponse{Items: resp}), nil
+	items := tgeneric.MassConvert(envs, tenv.SeralizeModelToRPCItem)
+	resp := &environmentv1.EnvironmentListResponse{
+		WorkspaceId: req.Msg.WorkspaceId,
+		Items:       items,
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func (e *EnvRPC) EnvironmentGet(ctx context.Context, req *connect.Request[environmentv1.EnvironmentGetRequest]) (*connect.Response[environmentv1.EnvironmentGetResponse], error) {
