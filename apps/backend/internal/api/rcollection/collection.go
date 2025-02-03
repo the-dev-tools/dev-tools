@@ -31,10 +31,13 @@ import (
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	"the-dev-tools/backend/pkg/translate/thar"
 	"the-dev-tools/backend/pkg/translate/tpostman"
+	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/v1/collectionv1connect"
+	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type CollectionServiceRPC struct {
@@ -491,8 +494,45 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Changes
+	flowListItem := &flowv1.FlowListItem{
+		FlowId: resolved.Flow.ID.Bytes(),
+		Name:   resolved.Flow.Name,
+	}
+
+	changeListResp := &flowv1.FlowListResponse{
+		WorkspaceId: wsID.Bytes(),
+		Items:       []*flowv1.FlowListItem{flowListItem},
+	}
+
+	changeListAny, err := anypb.New(changeListResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	listChanges := []*changev1.ListChange{
+		{
+			Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
+			Parent: changeListAny,
+		},
+	}
+
+	endpointChangeAny, err := anypb.New(flowListItem)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	change := &changev1.Change{
+		Kind: new(changev1.ChangeKind),
+		List: listChanges,
+		Data: endpointChangeAny,
+	}
+
+	changes := []*changev1.Change{change}
+
 	resp := &collectionv1.CollectionImportHarResponse{
 		CollectionId: collectionID.Bytes(),
+		Changes:      changes,
 	}
 
 	return connect.NewResponse(resp), nil
