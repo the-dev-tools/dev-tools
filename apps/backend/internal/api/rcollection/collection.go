@@ -15,11 +15,16 @@ import (
 	"the-dev-tools/backend/pkg/service/sbodyraw"
 	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/scollection"
+	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
+	"the-dev-tools/backend/pkg/service/sflow"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
+	"the-dev-tools/backend/pkg/service/snode"
+	"the-dev-tools/backend/pkg/service/snodenoop"
+	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tcollection"
@@ -425,6 +430,58 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolved.UrlEncodedBodies)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Flow Creation
+
+	// Flow
+	txFlowService, err := sflow.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txFlowService.CreateFlow(ctx, resolved.Flow)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Flow Node
+	txFlowNodeService, err := snode.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txFlowNodeService.CreateNodeBulk(ctx, resolved.Nodes)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Flow Request Nodes
+	txFlowRequestService, err := snoderequest.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txFlowRequestService.CreateNodeRequestBulk(ctx, resolved.RequestNodes)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Flow Noop Nodes
+	txFlowNoopService, err := snodenoop.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txFlowNoopService.CreateNodeNoopBulk(ctx, resolved.NoopNodes)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Edges
+	txFlowEdgeService, err := sedge.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txFlowEdgeService.CreateEdgeBulk(ctx, resolved.Edges)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

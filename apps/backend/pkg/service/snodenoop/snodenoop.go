@@ -65,6 +65,21 @@ func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNod
 	})
 }
 
+func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.NoopNode) error {
+	for _, n := range nf {
+		convertedNode := ConvertToDBNodeStart(n)
+		err := nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams{
+			FlowNodeID: convertedNode.FlowNodeID,
+			NodeType:   convertedNode.NodeType,
+			Name:       convertedNode.Name,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
 	convertedNode := ConvertToDBNodeStart(nf)
 	return nfs.queries.UpdateFlowNodeNoop(ctx, gen.UpdateFlowNodeNoopParams{

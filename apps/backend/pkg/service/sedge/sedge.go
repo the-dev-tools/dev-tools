@@ -16,6 +16,16 @@ func New(queries *gen.Queries) EdgeService {
 	return EdgeService{queries: queries}
 }
 
+func NewTX(ctx context.Context, tx gen.DBTX) (*EdgeService, error) {
+	queries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return &EdgeService{
+		queries: queries,
+	}, nil
+}
+
 func ConvertToDBEdge(e edge.Edge) gen.FlowEdge {
 	return gen.FlowEdge{
 		ID:           e.ID,
@@ -61,6 +71,16 @@ func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) error {
 		TargetID:     edge.TargetID,
 		SourceHandle: edge.SourceHandle,
 	})
+}
+
+func (es EdgeService) CreateEdgeBulk(ctx context.Context, edges []edge.Edge) error {
+	for _, e := range edges {
+		err := es.CreateEdge(ctx, e)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (es EdgeService) UpdateEdge(ctx context.Context, e edge.Edge) error {

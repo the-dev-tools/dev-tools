@@ -79,6 +79,23 @@ func (ns NodeService) CreateNode(ctx context.Context, n mnnode.MNode) error {
 	})
 }
 
+func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) error {
+	for _, n := range nodes {
+		node := ConvertNodeToDB(n)
+		err := ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
+			ID:        node.ID,
+			FlowID:    node.FlowID,
+			NodeKind:  node.NodeKind,
+			PositionX: node.PositionX,
+			PositionY: node.PositionY,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ns NodeService) UpdateNode(ctx context.Context, n mnnode.MNode) error {
 	node := ConvertNodeToDB(n)
 	return ns.queries.UpdateFlowNode(ctx, gen.UpdateFlowNodeParams{

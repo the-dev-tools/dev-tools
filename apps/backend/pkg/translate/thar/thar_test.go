@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/translate/thar"
+	"time"
 )
 
 func TestHarResvoledSimple(t *testing.T) {
@@ -317,18 +318,17 @@ func TestHarResolvedNewFields(t *testing.T) {
 	}
 
 	// Check that the Flow field is populated.
-	// Note: change the check if mflow.Flow uses a different zero value.
+	// TODO: change the check if mflow.Flow uses a different zero value.
 	if resolved.Flow == (mflow.Flow{}) {
 		t.Errorf("Expected Flow to be populated")
 	}
 
-	// Assuming that one entry produces one Node and one Request.
 	if len(resolved.Nodes) != 1 {
 		t.Errorf("Expected 1 Node, got %d", len(resolved.Nodes))
 	}
 
-	if len(resolved.RequestNode) != 1 {
-		t.Errorf("Expected 1 Request, got %d", len(resolved.RequestNode))
+	if len(resolved.RequestNodes) != 1 {
+		t.Errorf("Expected 1 Request, got %d", len(resolved.RequestNodes))
 	}
 }
 
@@ -365,13 +365,13 @@ func TestHarResolvedDeepFields(t *testing.T) {
 	if len(resolved.Nodes) != 1 {
 		t.Fatalf("Expected 1 Node, got %d", len(resolved.Nodes))
 	}
-	if len(resolved.RequestNode) != 1 {
-		t.Fatalf("Expected 1 Request, got %d", len(resolved.RequestNode))
+	if len(resolved.RequestNodes) != 1 {
+		t.Fatalf("Expected 1 Request, got %d", len(resolved.RequestNodes))
 	}
 
 	apiID := resolved.Apis[0].ID
 	exampleID := resolved.Examples[0].ID
-	requestNode := resolved.RequestNode[0]
+	requestNode := resolved.RequestNodes[0]
 	if requestNode.EndpointID == nil {
 		t.Fatalf("Expected Request Node to be populated")
 	}
@@ -381,10 +381,52 @@ func TestHarResolvedDeepFields(t *testing.T) {
 
 	// Deep checks on the Request.
 	if *requestNode.EndpointID != apiID {
-		t.Errorf("Expected Request APIID to be %v, got %v", apiID, resolved.RequestNode[0].EndpointID)
+		t.Errorf("Expected Request APIID to be %v, got %v", apiID, resolved.RequestNodes[0].EndpointID)
 	}
 
 	if *requestNode.ExampleID != exampleID {
-		t.Errorf("Expected Request ExampleID to be %v, got %v", exampleID, resolved.RequestNode[0].ExampleID)
+		t.Errorf("Expected Request ExampleID to be %v, got %v", exampleID, resolved.RequestNodes[0].ExampleID)
+	}
+}
+
+func TestHarSortEntriesByStartedTime(t *testing.T) {
+	// Create two entries with different start times.
+	// entry1 starts later.
+	entry1 := thar.Entry{
+		StartedDateTime: time.Date(2023, 10, 12, 12, 0, 0, 0, time.UTC),
+		Request: thar.Request{
+			Method:      "GET",
+			URL:         "http://example.com/second",
+			HTTPVersion: "HTTP/1.1",
+			Headers:     []thar.Header{},
+		},
+	}
+	// entry2 starts earlier.
+	entry2 := thar.Entry{
+		StartedDateTime: time.Date(2023, 10, 12, 10, 0, 0, 0, time.UTC),
+		Request: thar.Request{
+			Method:      "GET",
+			URL:         "http://example.com/first",
+			HTTPVersion: "HTTP/1.1",
+			Headers:     []thar.Header{},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: []thar.Entry{entry1, entry2},
+		},
+	}
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Errorf("Error converting HAR: %v", err)
+	}
+
+	expectedFlowName := "http://example.com/first"
+	if resolved.Flow.Name != expectedFlowName {
+		t.Errorf("Expected Flow.Name %s, got %s", expectedFlowName, resolved.Flow.Name)
 	}
 }

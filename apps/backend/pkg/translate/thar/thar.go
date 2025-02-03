@@ -3,7 +3,9 @@ package thar
 import (
 	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mbodyform"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
@@ -14,7 +16,9 @@ import (
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
+	"time"
 )
 
 type HarResvoled struct {
@@ -28,9 +32,11 @@ type HarResvoled struct {
 	UrlEncodedBodies []mbodyurl.BodyURLEncoded
 
 	// Flow Items
-	Flow        mflow.Flow
-	Nodes       []mnnode.MNode
-	RequestNode []mnrequest.MNRequest
+	Flow         mflow.Flow
+	Nodes        []mnnode.MNode
+	RequestNodes []mnrequest.MNRequest
+	Edges        []edge.Edge
+	NoopNodes    []mnnoop.NoopNode
 }
 
 type HAR struct {
@@ -42,8 +48,9 @@ type Log struct {
 }
 
 type Entry struct {
-	Request  Request  `json:"request"`
-	Response Response `json:"response"`
+	StartedDateTime time.Time `json:"startedDateTime"`
+	Request         Request   `json:"request"`
+	Response        Response  `json:"response"`
 }
 
 type Request struct {
@@ -141,12 +148,38 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		return result, errors.New("HAR file is empty")
 	}
 
+	// sort by started time
+	sort.Slice(har.Log.Entries, func(i, j int) bool {
+		return har.Log.Entries[i].StartedDateTime.Before(har.Log.Entries[j].StartedDateTime)
+	})
+
 	flowID := idwrap.NewNow()
 	result.Flow = mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: workspaceID,
 		Name:        har.Log.Entries[0].Request.URL,
 	}
+
+	var posX, posY float64
+
+	StartNodeID := idwrap.NewNow()
+	startNode := mnnode.MNode{
+		ID:        StartNodeID,
+		FlowID:    flowID,
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		PositionX: posX,
+		PositionY: posY,
+	}
+
+	result.Nodes = append(result.Nodes, startNode)
+
+	startNodeNoop := mnnoop.NoopNode{
+		FlowNodeID: StartNodeID,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Name:       "Start",
+	}
+
+	result.NoopNodes = append(result.NoopNodes, startNodeNoop)
 
 	// Process each entry in the HAR file
 	for _, entry := range har.Log.Entries {
@@ -188,11 +221,16 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 		flowNodeID := idwrap.NewNow()
 
+		posY += 200
+
 		// Create Flow Nodes
 		// Create Flow Node for this HAR entry
 		node := mnnode.MNode{
-			ID:     flowNodeID,
-			FlowID: flowID,
+			ID:        flowNodeID,
+			FlowID:    flowID,
+			NodeKind:  mnnode.NODE_KIND_REQUEST,
+			PositionX: posX,
+			PositionY: posY,
 			// set additional fields as needed...
 		}
 		result.Nodes = append(result.Nodes, node)
@@ -204,7 +242,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			ExampleID:  &exampleID,
 		}
 
-		result.RequestNode = append(result.RequestNode, request)
+		result.RequestNodes = append(result.RequestNodes, request)
 
 		// Get headers
 		headers := extractHeaders(entry.Request.Headers, exampleID)
@@ -279,6 +317,21 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			nextExample = &result.Examples[i+1]
 			result.Examples[i].Next = &nextExample.ID
 		}
+	}
+
+	for i, node := range result.Nodes {
+		if i+1 > len(result.Nodes)-1 {
+			break
+		}
+
+		currentEdge := edge.Edge{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      node.ID,
+			TargetID:      result.Nodes[i+1].ID,
+			SourceHandler: edge.HandleUnspecified,
+		}
+		result.Edges = append(result.Edges, currentEdge)
 	}
 
 	return result, nil
