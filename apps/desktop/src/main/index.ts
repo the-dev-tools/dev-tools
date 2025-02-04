@@ -33,13 +33,13 @@ const server = Effect.gen(function* () {
     (_) => `${_}/backend`.replaceAll('/app.asar/', '/app.asar.unpacked/'),
     Command.make,
     Command.env({
-      DB_PATH: './',
       DB_MODE: 'local',
+      // TODO: store the database in an appropriate location
+      DB_PATH: './',
       DB_NAME: 'dev-tools',
-      DB_ENCRYPTION_KEY: 'some_key',
+      // TODO: we probably shouldn't encrypt local database
+      DB_ENCRYPTION_KEY: 'secret',
       HMAC_SECRET: 'secret',
-      MASTER_NODE_ENDPOINT: 'h2c://localhost:8090',
-      PORT: '8080',
     }),
     Command.stdout('inherit'),
     Command.stderr('inherit'),
@@ -95,7 +95,7 @@ const program = Effect.gen(function* () {
     }),
   );
 
-  yield* server;
+  if (!import.meta.env.DEV) yield* server;
   yield* client;
 });
 

@@ -35,8 +35,7 @@ import { app } from '@the-dev-tools/core/index';
 const ConfigLive = pipe(
   {
     ...import.meta.env,
-    PUBLIC_API_URL: 'http://localhost:8080',
-    LOCAL_MODE: true,
+    PUBLIC_LOCAL_MODE: true,
   },
   ConfigProvider.fromJson,
   Layer.setConfigProvider,
