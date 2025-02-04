@@ -312,10 +312,16 @@ CREATE TABLE flow_edge (
   FOREIGN KEY (target_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
+
+-- TODO: move conditions to new condition table
 CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
   iter_count BIGINT NOT NULL,
+  error_handling INT8 NOT NULL,
+  condition_path TEXT NOT NULL,
+  condition_type INT8 NOT NULL,
+  value text NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
@@ -331,6 +337,7 @@ CREATE TABLE flow_node_request (
   FOREIGN KEY (delta_example_id) REFERENCES item_api_example (id) ON DELETE SET NULL
 );
 
+-- TODO: move conditions to new condition table
 CREATE TABLE flow_node_if (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,

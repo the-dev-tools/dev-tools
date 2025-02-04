@@ -68,7 +68,6 @@ func TestListFlow(t *testing.T) {
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
 	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
@@ -207,7 +206,6 @@ func TestGetFlow(t *testing.T) {
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
 	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
@@ -311,7 +309,6 @@ func TestCreateFlow(t *testing.T) {
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
 	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
@@ -399,7 +396,6 @@ func TestUpdateFlow(t *testing.T) {
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
 	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
@@ -488,7 +484,6 @@ func TestDeleteFlow(t *testing.T) {
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
 	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
@@ -570,7 +565,6 @@ func TestRunFlow(t *testing.T) {
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
 	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)

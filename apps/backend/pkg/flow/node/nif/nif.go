@@ -2,7 +2,6 @@ package nif
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
@@ -91,20 +90,16 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleTrue)
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleFalse)
 	var result node.FlowNodeResult
-	// TODO: will change
 	if trueID == nil || falseID == nil {
 		result.Err = node.ErrNodeNotFound
 		resultChan <- result
 		return
 	}
 
-	a := map[string]interface{}{
-		NodeVarKey: req.VarMap,
-	}
-	fmt.Println(a)
-
 	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
+		Leafs: map[string]interface{}{
+			NodeVarKey: req.VarMap,
+		},
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)

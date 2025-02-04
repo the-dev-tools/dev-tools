@@ -1577,7 +1577,11 @@ WHERE
 SELECT
   flow_node_id,
   name,
-  iter_count
+  iter_count,
+  error_handling,
+  condition_path,
+  condition_type,
+  value
 FROM
   flow_node_for
 WHERE
@@ -1586,15 +1590,19 @@ LIMIT 1;
 
 -- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (flow_node_id, name, iter_count)
+  flow_node_for (flow_node_id, name, iter_count, error_handling, condition_path, condition_type, value)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
 SET
   name = ?,
-  iter_count = ?
+  iter_count = ?,
+  error_handling = ?,
+  condition_path = ?,
+  condition_type = ?,
+  value = ?
 WHERE
   flow_node_id = ?;
 

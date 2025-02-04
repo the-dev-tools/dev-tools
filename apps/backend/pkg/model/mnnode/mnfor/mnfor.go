@@ -1,9 +1,22 @@
 package mnfor
 
-import "the-dev-tools/backend/pkg/idwrap"
+import (
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mcondition"
+)
+
+type ErrorHandling int8
+
+const (
+	ErrorHandling_ERROR_HANDLING_UNSPECIFIED ErrorHandling = 0
+	ErrorHandling_ERROR_HANDLING_IGNORE      ErrorHandling = 1
+	ErrorHandling_ERROR_HANDLING_BREAK       ErrorHandling = 2
+)
 
 type MNFor struct {
-	FlowNodeID idwrap.IDWrap
-	Name       string
-	IterCount  int64
+	FlowNodeID    idwrap.IDWrap
+	Name          string
+	IterCount     int64
+	Condition     mcondition.Condition
+	ErrorHandling ErrorHandling
 }

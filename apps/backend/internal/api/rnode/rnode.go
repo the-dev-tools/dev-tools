@@ -623,9 +623,58 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
+		var condition *mcondition.Condition
+		var path string
+
+		if rpcNode.Condition == nil {
+			condition = mcondition.Default()
+		} else if rpcNode.Condition.Condition == nil {
+			condition = mcondition.Default()
+		} else if rpcNode.Condition.Condition.Comparison == nil {
+			condition = mcondition.Default()
+		} else {
+			comp := rpcNode.Condition.Condition.Comparison
+			for i, v := range comp.Path {
+				switch v.Kind {
+				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
+					if v.Group == nil {
+						return nil, nil, fmt.Errorf("group is nil")
+					}
+					if i != 0 {
+						path += "."
+					}
+					path += *v.Group
+				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
+					if v.Key == nil {
+						return nil, nil, fmt.Errorf("key is nil")
+					}
+					if i != 0 {
+						path += "."
+					}
+					path += *v.Key
+				default:
+					// TODO: Add other types of reference keys here
+					return nil, nil, fmt.Errorf("unknown reference key kind: %v", v.Kind)
+				}
+			}
+			condition = &mcondition.Condition{
+				Comparisons: mcondition.Comparison{
+					Value: comp.Value,
+					Path:  path,
+					Kind:  mcondition.ComparisonKind(comp.Kind),
+				},
+			}
+		}
+
+		if condition == nil {
+			return nil, nil, fmt.Errorf("condition is nil")
+		}
+
 		forNode := &mnfor.MNFor{
-			FlowNodeID: nodeID,
-			IterCount:  int64(rpcNode.For.Iterations),
+			FlowNodeID:    nodeID,
+			IterCount:     int64(rpcNode.For.Iterations),
+			Condition:     *condition,
+			ErrorHandling: mnfor.ErrorHandling(rpcNode.For.ErrorHandling),
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_NO_OP:

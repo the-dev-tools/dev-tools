@@ -3,9 +3,7 @@ package resultapi
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"the-dev-tools/backend/internal/api"
-	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/permcheck"
@@ -72,19 +70,15 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	// TODO: add permission check
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerResp(ctx, ResponseID, c.ers, c.iaes, c.cs, c.us))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 
 	result, err := c.ers.GetExampleResp(ctx, ResponseID)
 	if err != nil {
-		if err != sexampleresp.ErrNoRespFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	exampleID := result.ExampleID
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
 	}
 
 	rpcResp, err := texampleresp.SeralizeModelToRPC(*result)
@@ -108,7 +102,10 @@ func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	// TODO: add permission check
+	rpcErr := permcheck.CheckPerm(CheckOwnerResp(ctx, ResponseID, c.ers, c.iaes, c.cs, c.us))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 
 	headers, err := c.erhs.GetHeaderByRespID(ctx, ResponseID)
 	if err != nil {
@@ -140,7 +137,10 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	// TODO: add permission check
+	rpcErr := permcheck.CheckPerm(CheckOwnerResp(ctx, ResponseID, c.ers, c.iaes, c.cs, c.us))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 
 	assertResponse, err := c.asrs.GetAssertResultsByResponseID(ctx, ResponseID)
 	if err != nil {
@@ -175,18 +175,13 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 	return connect.NewResponse(resp), nil
 }
 
-func (c *ResultService) CheckOwnerWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (bool, error) {
-	userUlid, err := mwauth.GetContextUserID(ctx)
+func CheckOwnerResp(ctx context.Context, respID idwrap.IDWrap, ers sexampleresp.ExampleRespService,
+	iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService,
+) (bool, error) {
+	resp, err := ers.GetExampleResp(ctx, respID)
 	if err != nil {
-		return false, connect.NewError(connect.CodeInternal, err)
+		return false, err
 	}
-	_, err = c.ws.GetByIDandUserID(ctx, workspaceID, userUlid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// INFO: this mean that workspace not belong to user
-			// So for avoid information leakage, we should return not found
-			return false, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
-		}
-	}
-	return true, nil
+
+	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, resp.ExampleID)
 }

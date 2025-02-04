@@ -21,7 +21,7 @@ const (
 	NodeStatusFailed
 )
 
-// TODO: this is workaround for expr lang
+// INFO: this is workaround for expr lang
 const NodeVarPrefix = "node"
 
 func (n NodeStatus) String() string {

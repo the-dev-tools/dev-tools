@@ -34,7 +34,6 @@ func TestWorkspaceCreate(t *testing.T) {
 	us := suser.New(queries)
 	es := senv.New(queries)
 
-	// TODO: change to correc service
 	wsIDBase := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -96,7 +95,6 @@ func TestWorkspaceGet(t *testing.T) {
 	us := suser.New(queries)
 	es := senv.New(queries)
 
-	// TODO: change to correc service
 	wsIDBase := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()

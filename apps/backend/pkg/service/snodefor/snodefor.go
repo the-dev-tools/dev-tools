@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mcondition"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
 	"the-dev-tools/db/pkg/sqlc/gen"
 )
@@ -30,17 +31,29 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForService, error) {
 
 func ConvertToDBNodeFor(nf mnfor.MNFor) gen.FlowNodeFor {
 	return gen.FlowNodeFor{
-		FlowNodeID: nf.FlowNodeID,
-		Name:       nf.Name,
-		IterCount:  nf.IterCount,
+		FlowNodeID:    nf.FlowNodeID,
+		Name:          nf.Name,
+		IterCount:     nf.IterCount,
+		ErrorHandling: int8(nf.ErrorHandling),
+		ConditionType: int8(nf.Condition.Comparisons.Kind),
+		ConditionPath: nf.Condition.Comparisons.Path,
+		Value:         nf.Condition.Comparisons.Value,
 	}
 }
 
 func ConvertToModelNodeFor(nf gen.FlowNodeFor) *mnfor.MNFor {
 	return &mnfor.MNFor{
-		FlowNodeID: nf.FlowNodeID,
-		Name:       nf.Name,
-		IterCount:  nf.IterCount,
+		FlowNodeID:    nf.FlowNodeID,
+		Name:          nf.Name,
+		IterCount:     nf.IterCount,
+		ErrorHandling: mnfor.ErrorHandling(nf.ErrorHandling),
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{
+				Kind:  mcondition.ComparisonKind(nf.ConditionType),
+				Path:  nf.ConditionPath,
+				Value: nf.Value,
+			},
+		},
 	}
 }
 
@@ -55,18 +68,24 @@ func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mn
 func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
 	nodeFor := ConvertToDBNodeFor(nf)
 	return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
-		FlowNodeID: nodeFor.FlowNodeID,
-		Name:       nodeFor.Name,
-		IterCount:  nodeFor.IterCount,
+		FlowNodeID:    nodeFor.FlowNodeID,
+		Name:          nodeFor.Name,
+		IterCount:     nodeFor.IterCount,
+		ConditionType: nodeFor.ConditionType,
+		ConditionPath: nodeFor.ConditionPath,
+		Value:         nodeFor.Value,
 	})
 }
 
 func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
 	nodeFor := ConvertToDBNodeFor(nf)
 	return nfs.queries.UpdateFlowNodeFor(ctx, gen.UpdateFlowNodeForParams{
-		FlowNodeID: nodeFor.FlowNodeID,
-		Name:       nodeFor.Name,
-		IterCount:  nodeFor.IterCount,
+		FlowNodeID:    nodeFor.FlowNodeID,
+		Name:          nodeFor.Name,
+		IterCount:     nodeFor.IterCount,
+		ConditionType: nodeFor.ConditionType,
+		ConditionPath: nodeFor.ConditionPath,
+		Value:         nodeFor.Value,
 	})
 }
 
