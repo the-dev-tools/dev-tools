@@ -16,11 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup runner environment
         uses: ./.github/actions/setup
-        env:
-          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - id: set-modules
         run: |
-          modules=$(DOTENV_LOG_LEVEL=error gox list -m -json | jq -s '.' | jq -c '[.[].Dir | select(index("node_modules") | not)]')
+          modules=$(go list -m -json | jq -s '.' | jq -c '[.[].Dir | select(index("node_modules") | not)]')
           echo "modules=$modules" >> $GITHUB_OUTPUT
   go-test:
     needs: detect-modules
@@ -32,8 +30,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup runner environment
         uses: ./.github/actions/setup
-        env:
-          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - name: Test
         uses: robherley/go-test-action@v0
         with:
@@ -48,8 +44,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup runner environment
         uses: ./.github/actions/setup
-        env:
-          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
       - name: golangci-lint ${{ matrix.module }}
         uses: golangci/golangci-lint-action@v6
         with:

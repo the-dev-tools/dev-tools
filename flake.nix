@@ -22,18 +22,6 @@
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
 
         devShells.runner = let
-          dotenvx-wrapper = args @ {pkg, ...}:
-            pkgs.writeShellApplication {
-              name = args.name or pkg.pname;
-              runtimeInputs = [pkgs.dotenvx pkg];
-              text = ''
-                dotenvx run \
-                  --log-level "''${DOTENV_LOG_LEVEL:-info}" \
-                  --convention=nextjs \
-                  -- ${pkg.pname} "$@"
-              '';
-            };
-
           scripts = pkgs.writeShellApplication {
             name = "scripts";
             runtimeInputs = with pkgs; [pnpm];
@@ -42,25 +30,17 @@
           };
         in
           pkgs.mkShell {
-            nativeBuildInputs =
-              [
-                (dotenvx-wrapper {
-                  pkg = pkgs.go;
-                  name = "gox";
-                })
-                (dotenvx-wrapper {pkg = pkgs.pnpm;})
-              ]
-              ++ (with pkgs; [
-                dotenvx
-                gh
-                go
-                go-task
-                jq
-                nodejs_latest
-                protoc-gen-connect-go
-                protoc-gen-go
-                scripts
-              ]);
+            nativeBuildInputs = with pkgs; [
+              gh
+              go
+              go-task
+              jq
+              nodejs_latest
+              pnpm
+              protoc-gen-connect-go
+              protoc-gen-go
+              scripts
+            ];
           };
 
         devShells.default = pkgs.mkShell {
@@ -73,7 +53,7 @@
 
           shellHook = ''
             # Export PNPM binaries into path for better DX
-            export PATH=$PATH:$(DOTENV_LOG_LEVEL=error pnpm bin)
+            export PATH=$PATH:$(pnpm bin)
           '';
 
           nativeBuildInputs =

@@ -31,7 +31,6 @@ The following software is needed for the development environment:
 - direnv - [Docs](https://direnv.net/) - [Install](https://direnv.net/docs/installation.html)
 - pnpm - [Docs](https://pnpm.io/motivation)
 - Nx - [Docs](https://nx.dev/getting-started/intro) - [Plugins](https://nx.dev/plugin-registry) - [API](https://nx.dev/nx-api)
-- dotenvx - [Docs](https://dotenvx.com/docs/)
 
 ### General
 

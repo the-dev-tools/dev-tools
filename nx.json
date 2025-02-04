@@ -10,7 +10,9 @@
   "targetDefaults": {
     "dev": {
       "dependsOn": ["^pre-dev", "pre-dev"],
-      "cache": false
+      "cache": false,
+      "configurations": { "development": {} },
+      "defaultConfiguration": "development"
     },
 
     "build": {
