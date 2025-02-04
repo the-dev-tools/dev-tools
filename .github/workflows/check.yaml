@@ -12,12 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint
+  check:
+    name: Check
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.head_commit.author.name != 'github-actions[bot]'
+    outputs:
+      go-test-matrix: ${{ steps.go-test-matrix.outputs.value }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,10 +26,38 @@ jobs:
       - name: Lint
         run: task lint
 
-      - name: Test
+      - id: test
+        name: Test
         run: task test
 
-      - name: Generate Go test outputs
-        uses: robherley/go-test-action@v0
+      - id: go-test-upload
+        name: Upload Go test results
+        uses: actions/upload-artifact@v4
+        if: steps.test.outcome == 'success' || steps.test.outcome == 'failure'
         with:
-          fromJSONFile: ./dist/go-test-results.json
+          name: go-test
+          path: ./*/*/dist/go-test.json
+
+      - id: go-test-matrix
+        name: Generate Go test result matrix
+        if: steps.go-test-upload.outcome == 'success'
+        run: |
+          jq --null-input --raw-output '"value=\($ARGS.positional)"' \
+            --args ./*/*/dist/go-test.json >> $GITHUB_OUTPUT
+
+  go-test-summary:
+    name: Go test summary
+    runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.go-test-matrix != ''
+    strategy:
+      matrix:
+        value: ${{ fromJSON(needs.check.outputs.go-test-matrix) }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: go-test
+
+      - uses: robherley/go-test-action@v0
+        with:
+          fromJSONFile: ${{ matrix.value }}

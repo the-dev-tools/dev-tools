@@ -6,7 +6,16 @@
 
   "targets": {
     "test": {
-      "command": "go test ./{projectRoot}/... -json >> dist/go-test-results.json"
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "parallel": false,
+        "commands": [
+          "rm --force dist/tests.json",
+          "mkdir --parents dist",
+          "go test ./... -json | tee dist/go-test.json"
+        ]
+      }
     },
     "lint": {
       "executor": "@nx-go/nx-go:lint"
