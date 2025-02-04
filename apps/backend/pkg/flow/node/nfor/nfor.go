@@ -74,15 +74,17 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				val = nr
 			}
 
-			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
-			if err != nil {
-				return node.FlowNodeResult{
-					Err: err,
+			if nr.Path != "" {
+				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
+				if err != nil {
+					return node.FlowNodeResult{
+						Err: err,
+					}
 				}
-			}
 
-			if !ok {
-				break
+				if !ok {
+					break
+				}
 			}
 
 			currentNode, ok := req.NodeMap[nextNodeID]
@@ -93,14 +95,13 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				}
 			}
 
-			_, err = flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
+			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
 				goto Exit
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 			}
-
 			// TODO: add run for subflow
 			if err != nil {
 				return node.FlowNodeResult{
@@ -109,7 +110,6 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			}
 
 		}
-		goto Exit
 	}
 
 Exit:
@@ -149,16 +149,18 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				val = nr
 			}
 
-			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
-			if err != nil {
-				resultChan <- node.FlowNodeResult{
-					Err: err,
+			if nr.Path != "" {
+				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{
+						Err: err,
+					}
+					return
 				}
-				return
-			}
 
-			if !ok {
-				break
+				if !ok {
+					break
+				}
 			}
 
 			currentNode, ok := req.NodeMap[nextNodeID]
@@ -169,7 +171,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				}
 				return
 			}
-			_, err = flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
+			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
@@ -185,7 +187,6 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				return
 			}
 		}
-		goto Exit
 	}
 
 Exit:

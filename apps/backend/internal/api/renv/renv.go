@@ -147,7 +147,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[env
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	if msg.Name == nil {
+	if msg.Name != nil {
 		env.Name = *msg.Name
 	}
 	if msg.Description != nil {
