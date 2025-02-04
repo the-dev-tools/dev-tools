@@ -131,25 +131,29 @@ func (e *EnvRPC) EnvironmentGet(ctx context.Context, req *connect.Request[enviro
 
 func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentUpdateRequest]) (*connect.Response[environmentv1.EnvironmentUpdateResponse], error) {
 	msg := req.Msg
-	if msg.Name == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
-	}
-	if msg.EnvironmentId == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment id is required"))
-	}
-	if msg.Description == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("description is required"))
-	}
-	env := &environmentv1.Environment{EnvironmentId: msg.EnvironmentId, Name: *msg.Name, Description: *msg.Description}
-	envReq, err := tenv.DeserializeRPCToModel(env)
+	envID, err := idwrap.NewFromBytes(msg.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envReq.ID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err = e.es.Update(ctx, &envReq)
+
+	if msg.EnvironmentId == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment id is required"))
+	}
+	env, err := e.es.Get(ctx, envID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if msg.Name == nil {
+		env.Name = *msg.Name
+	}
+	if msg.Description != nil {
+		env.Description = *msg.Description
+	}
+	err = e.es.Update(ctx, env)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
