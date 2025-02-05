@@ -20,6 +20,11 @@ runs:
       shell: bash
       run: pnpm install
 
+    - name: Setup Go cache
+      uses: actions/setup-go@v5
+      with:
+        cache-dependency-path: '**/*.sum'
+
     - name: Install Go tools
       shell: bash
       run: scripts go-install-tools
