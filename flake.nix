@@ -30,11 +30,21 @@
           };
         in
           pkgs.mkShell {
-            shellHook = ''
+            shellHook = let
+              export = {
+                path,
+                check ? path,
+              }: ''
+                [ -n "${check}" ] && mkdir --parent "${path}" && export PATH="${path}:$PATH"
+              '';
+            in ''
               # Export Go and PNPM paths
-              [ -n "$(go env GOBIN)" ] && export PATH="$(go env GOBIN):$PATH"
-              [ -n "$(go env GOPATH)" ] && export PATH="$(go env GOPATH)/bin:$PATH"
-              [ -n "$(pnpm bin)" ] && export PATH="$(pnpm bin):$PATH"
+              ${export {path = "$(go env GOBIN)";}}
+              ${export {
+                path = "$(go env GOPATH)/bin";
+                check = "$(go env GOPATH)";
+              }}
+              ${export {path = "$(pnpm bin)";}}
             '';
 
             nativeBuildInputs = with pkgs; [
