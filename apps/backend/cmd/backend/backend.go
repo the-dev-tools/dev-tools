@@ -51,6 +51,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemfolder"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
@@ -157,6 +158,7 @@ func main() {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	lfns := snodefor.New(queries)
+	flens := snodeforeach.New(queries)
 	ins := snodeif.New(queries)
 	sns := snodenoop.New(queries)
 
@@ -295,7 +297,8 @@ func main() {
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
-	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us, fs, *ins, rns, lfns, ns, sns,
+	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us, fs, *ins,
+		rns, lfns, flens, ns, sns,
 		ias, iaes, eqs, ehs)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 

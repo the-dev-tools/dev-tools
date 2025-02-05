@@ -328,7 +328,7 @@ CREATE TABLE flow_node_for (
 -- TODO: move conditions to new condition table
 CREATE TABLE flow_node_for_each (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  elements_path TEXT NOT NULL,
+  iter_path TEXT NOT NULL,
   error_handling INT8 NOT NULL,
   condition_path TEXT NOT NULL,
   condition_type INT8 NOT NULL,

@@ -12,10 +12,12 @@ import (
 	"the-dev-tools/backend/pkg/model/mcondition"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/backend/pkg/model/mnnode/mnif"
 	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/reference"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
@@ -23,14 +25,15 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/translate/tcondition"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
-	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 
 	"connectrpc.com/connect"
 	"github.com/pkg/errors"
@@ -44,11 +47,12 @@ type NodeServiceRPC struct {
 	us suser.UserService
 
 	// sub
-	ns   snode.NodeService
-	nis  snodeif.NodeIfService
-	nrs  snoderequest.NodeRequestService
-	nfls snodefor.NodeForService
-	nss  snodenoop.NodeNoopService
+	ns    snode.NodeService
+	nis   snodeif.NodeIfService
+	nrs   snoderequest.NodeRequestService
+	nfls  snodefor.NodeForService
+	nlfes snodeforeach.NodeForEachService
+	nss   snodenoop.NodeNoopService
 
 	// api
 	ias  sitemapi.ItemApiService
@@ -58,7 +62,7 @@ type NodeServiceRPC struct {
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
-	nlf snodefor.NodeForService, ns snode.NodeService, nss snodenoop.NodeNoopService,
+	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, ns snode.NodeService, nss snodenoop.NodeNoopService,
 	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
 	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
 ) *NodeServiceRPC {
@@ -68,11 +72,12 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, fs sflow.FlowService, n
 		us: us,
 		fs: fs,
 
-		ns:   ns,
-		nis:  nis,
-		nrs:  nrs,
-		nfls: nlf,
-		nss:  nss,
+		ns:    ns,
+		nis:   nis,
+		nrs:   nrs,
+		nfls:  nlfs,
+		nlfes: nlfes,
+		nss:   nss,
 
 		ias:  ias,
 		iaes: ieas,
@@ -256,6 +261,14 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		err = niTX.CreateNodeIf(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	case *mnforeach.MNForEach:
+		nlfeTX, err := snodeforeach.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = nlfeTX.CreateNodeForEach(ctx, *subNodeType)
+		if err != nil {
 		}
 	case *mnnoop.NoopNode:
 		noopTX, err := snodenoop.NewTX(ctx, tx)
@@ -622,43 +635,28 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
 		var condition *mcondition.Condition
-		var path string
 
-		if rpcNode.Condition == nil {
+		if rpcNode.ForEach == nil {
 			condition = mcondition.Default()
-		} else if rpcNode.Condition.Condition == nil {
+		} else if rpcNode.ForEach.Condition == nil {
 			condition = mcondition.Default()
-		} else if rpcNode.Condition.Condition.Comparison == nil {
+		} else if rpcNode.ForEach.Condition.Comparison == nil {
 			condition = mcondition.Default()
 		} else {
 			comp := rpcNode.Condition.Condition.Comparison
-			for i, v := range comp.Path {
-				switch v.Kind {
-				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
-					if v.Group == nil {
-						return nil, nil, fmt.Errorf("group is nil")
-					}
-					if i != 0 {
-						path += "."
-					}
-					path += *v.Group
-				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
-					if v.Key == nil {
-						return nil, nil, fmt.Errorf("key is nil")
-					}
-					if i != 0 {
-						path += "."
-					}
-					path += *v.Key
-				default:
-					// TODO: Add other types of reference keys here
-					return nil, nil, fmt.Errorf("unknown reference key kind: %v", v.Kind)
+			var compPath string
+			var err error
+			if comp.Path == nil {
+				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
+				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
+				if err != nil {
+					return nil, nil, err
 				}
 			}
 			condition = &mcondition.Condition{
 				Comparisons: mcondition.Comparison{
-					Value: comp.Value,
-					Path:  path,
+					Value: compPath,
+					Path:  compPath,
 					Kind:  mcondition.ComparisonKind(comp.Kind),
 				},
 			}
@@ -675,6 +673,53 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			ErrorHandling: mnfor.ErrorHandling(rpcNode.For.ErrorHandling),
 		}
 		subNode = forNode
+	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
+		var condition *mcondition.Condition
+
+		refs := tgeneric.MassConvert(rpcNode.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
+		iterpath, err := reference.ConvertRefernceKeyArrayToStringPath(refs)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if rpcNode.Condition == nil {
+			condition = mcondition.Default()
+		} else if rpcNode.Condition.Condition == nil {
+			condition = mcondition.Default()
+		} else if rpcNode.Condition.Condition.Comparison == nil {
+			condition = mcondition.Default()
+		} else {
+			comp := rpcNode.Condition.Condition.Comparison
+			var compPath string
+			var err error
+			if comp.Path == nil {
+				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
+				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+
+			condition = &mcondition.Condition{
+				Comparisons: mcondition.Comparison{
+					Value: comp.Value,
+					Path:  compPath,
+					Kind:  mcondition.ComparisonKind(comp.Kind),
+				},
+			}
+		}
+
+		if condition == nil {
+			return nil, nil, fmt.Errorf("condition is nil")
+		}
+
+		forNode := &mnforeach.MNForEach{
+			FlowNodeID:    nodeID,
+			IterPath:      iterpath,
+			Condition:     *condition,
+			ErrorHandling: mnfor.ErrorHandling(rpcNode.For.ErrorHandling),
+		}
+		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_NO_OP:
 		a := mnnoop.NoopTypes(*rpcNode.NoOp)
 		noopNode := &mnnoop.NoopNode{
@@ -685,7 +730,6 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
 
 		var condition *mcondition.Condition
-		var path string
 
 		if rpcNode.Condition == nil {
 			condition = mcondition.Default()
@@ -695,33 +739,20 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			condition = mcondition.Default()
 		} else {
 			comp := rpcNode.Condition.Condition.Comparison
-			for i, v := range comp.Path {
-				switch v.Kind {
-				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
-					if v.Group == nil {
-						return nil, nil, fmt.Errorf("group is nil")
-					}
-					if i != 0 {
-						path += "."
-					}
-					path += *v.Group
-				case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
-					if v.Key == nil {
-						return nil, nil, fmt.Errorf("key is nil")
-					}
-					if i != 0 {
-						path += "."
-					}
-					path += *v.Key
-				default:
-					// TODO: Add other types of reference keys here
-					return nil, nil, fmt.Errorf("unknown reference key kind: %v", v.Kind)
+			var compPath string
+			var err error
+			if comp.Path == nil {
+				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
+				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
+				if err != nil {
+					return nil, nil, err
 				}
 			}
+
 			condition = &mcondition.Condition{
 				Comparisons: mcondition.Comparison{
 					Value: comp.Value,
-					Path:  path,
+					Path:  compPath,
 					Kind:  mcondition.ComparisonKind(comp.Kind),
 				},
 			}

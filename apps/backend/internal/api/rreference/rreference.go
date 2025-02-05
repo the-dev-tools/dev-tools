@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -78,6 +79,13 @@ func CreateService(srv *NodeServiceRPC, options []connect.HandlerOption) (*api.S
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
+var (
+	ErrExampleNotFound   = errors.New("example not found")
+	ErrNodeNotFound      = errors.New("node not found")
+	ErrWorkspaceNotFound = errors.New("workspace not found")
+	ErrEnvNotFound       = errors.New("env not found")
+)
+
 func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[referencev1.ReferenceGetRequest]) (*connect.Response[referencev1.ReferenceGetResponse], error) {
 	var Items []*referencev1.Reference
 
@@ -113,7 +121,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		}
 		envs, err := c.es.GetByWorkspace(ctx, wsID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
 		}
 
 		present := make(map[string][]menv.Env)
@@ -123,7 +131,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		for _, env := range envs {
 			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
 			for _, v := range vars {
 				foundEnvs := present[v.VarKey]
@@ -200,7 +208,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		Items = append(Items, reference.ConvertRpc(localRef))
+		Items = append(Items, reference.ConvertPkgToRpc(localRef))
 
 	}
 	if nodeID != nil {
@@ -226,7 +234,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		for _, reqNodeID := range reqNodeIDs {
 			req, err := c.frns.GetNodeRequest(ctx, reqNodeID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connect.NewError(connect.CodeInternal, ErrNodeNotFound)
 			}
 			reqs = append(reqs, *req)
 		}
@@ -240,13 +248,13 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			}
 			resp, err := c.ers.GetExampleRespByExampleID(ctx, *req.ExampleID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connect.NewError(connect.CodeInternal, errors.New("error getting response"))
 			}
 
 			var headersSubRefs []*referencev1.Reference
 			subRespHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connect.NewError(connect.CodeInternal, errors.New("error getting headers"))
 			}
 
 			for _, header := range subRespHeaders {

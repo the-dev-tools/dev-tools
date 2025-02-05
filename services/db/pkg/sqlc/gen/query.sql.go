@@ -741,6 +741,34 @@ func (q *Queries) CreateFlowNodeFor(ctx context.Context, arg CreateFlowNodeForPa
 	return err
 }
 
+const createFlowNodeForEach = `-- name: CreateFlowNodeForEach :exec
+INSERT INTO
+  flow_node_for_each (flow_node_id, iter_path, error_handling, condition_path, condition_type, value)
+VALUES
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateFlowNodeForEachParams struct {
+	FlowNodeID    idwrap.IDWrap
+	IterPath      string
+	ErrorHandling int8
+	ConditionPath string
+	ConditionType int8
+	Value         string
+}
+
+func (q *Queries) CreateFlowNodeForEach(ctx context.Context, arg CreateFlowNodeForEachParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeForEachStmt, createFlowNodeForEach,
+		arg.FlowNodeID,
+		arg.IterPath,
+		arg.ErrorHandling,
+		arg.ConditionPath,
+		arg.ConditionType,
+		arg.Value,
+	)
+	return err
+}
+
 const createFlowNodeIf = `-- name: CreateFlowNodeIf :exec
 INSERT INTO
   flow_node_if (flow_node_id, condition_type, path, value)
@@ -2262,6 +2290,17 @@ func (q *Queries) DeleteFlowNodeFor(ctx context.Context, flowNodeID idwrap.IDWra
 	return err
 }
 
+const deleteFlowNodeForEach = `-- name: DeleteFlowNodeForEach :exec
+DELETE FROM flow_node_for_each
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeForEachStmt, deleteFlowNodeForEach, flowNodeID)
+	return err
+}
+
 const deleteFlowNodeIf = `-- name: DeleteFlowNodeIf :exec
 DELETE FROM flow_node_if
 WHERE
@@ -3312,6 +3351,35 @@ func (q *Queries) GetFlowNodeFor(ctx context.Context, flowNodeID idwrap.IDWrap) 
 	err := row.Scan(
 		&i.FlowNodeID,
 		&i.IterCount,
+		&i.ErrorHandling,
+		&i.ConditionPath,
+		&i.ConditionType,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getFlowNodeForEach = `-- name: GetFlowNodeForEach :one
+SELECT
+  flow_node_id,
+  iter_path,
+  error_handling,
+  condition_path,
+  condition_type,
+  value
+FROM
+  flow_node_for_each
+WHERE
+  flow_node_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeForEach, error) {
+	row := q.queryRow(ctx, q.getFlowNodeForEachStmt, getFlowNodeForEach, flowNodeID)
+	var i FlowNodeForEach
+	err := row.Scan(
+		&i.FlowNodeID,
+		&i.IterPath,
 		&i.ErrorHandling,
 		&i.ConditionPath,
 		&i.ConditionType,
@@ -5183,6 +5251,39 @@ type UpdateFlowNodeForParams struct {
 func (q *Queries) UpdateFlowNodeFor(ctx context.Context, arg UpdateFlowNodeForParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeForStmt, updateFlowNodeFor,
 		arg.IterCount,
+		arg.ErrorHandling,
+		arg.ConditionPath,
+		arg.ConditionType,
+		arg.Value,
+		arg.FlowNodeID,
+	)
+	return err
+}
+
+const updateFlowNodeForEach = `-- name: UpdateFlowNodeForEach :exec
+UPDATE flow_node_for_each
+SET
+  iter_path = ?,
+  error_handling = ?,
+  condition_path = ?,
+  condition_type = ?,
+  value = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeForEachParams struct {
+	IterPath      string
+	ErrorHandling int8
+	ConditionPath string
+	ConditionType int8
+	Value         string
+	FlowNodeID    idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeForEach(ctx context.Context, arg UpdateFlowNodeForEachParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeForEachStmt, updateFlowNodeForEach,
+		arg.IterPath,
 		arg.ErrorHandling,
 		arg.ConditionPath,
 		arg.ConditionType,

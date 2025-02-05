@@ -485,13 +485,15 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### loop_start_node_id
-          - column: 'flow_node_for.loop_start_node_id'
+          ## flow_node_for_each
+          ### flow_node_id
+          - column: 'flow_node_for_each.flow_node_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
           ## flow_node_request
+          ### flow_node_id
           - column: 'flow_node_request.flow_node_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'

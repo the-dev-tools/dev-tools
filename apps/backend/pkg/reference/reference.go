@@ -3,6 +3,7 @@ package reference
 import (
 	"errors"
 	"fmt"
+	"strings"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 )
 
@@ -92,7 +93,7 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 	return ref, nil
 }
 
-func ConvertRpc(ref Reference) *referencev1.Reference {
+func ConvertPkgToRpc(ref Reference) *referencev1.Reference {
 	return &referencev1.Reference{
 		Kind: referencev1.ReferenceKind(ref.Kind),
 		Key: &referencev1.ReferenceKey{
@@ -104,10 +105,136 @@ func ConvertRpc(ref Reference) *referencev1.Reference {
 	}
 }
 
+func ConvertPkgKeyToRpc(ref ReferenceKey) *referencev1.ReferenceKey {
+	return &referencev1.ReferenceKey{
+		Kind:  referencev1.ReferenceKeyKind(ref.Kind),
+		Group: &ref.Group,
+		Key:   &ref.Key,
+		Index: &ref.Index,
+	}
+}
+
+func ConvertRpcToPkg(ref *referencev1.Reference) Reference {
+	mapRefs := make([]Reference, len(ref.Map))
+	arrayRefs := make([]Reference, len(ref.Array))
+	value := ""
+
+	for i, v := range ref.Map {
+		mapRefs[i] = ConvertRpcToPkg(v)
+	}
+
+	for i, v := range ref.Array {
+		arrayRefs[i] = ConvertRpcToPkg(v)
+	}
+
+	if ref.Value != nil {
+		value = *ref.Value
+	}
+
+	return Reference{
+		Kind:     ReferenceKind(ref.Kind),
+		Key:      ConvertRpcKeyToPkgKey(ref.Key),
+		Map:      mapRefs,
+		Array:    arrayRefs,
+		Value:    value,
+		Variable: ref.Variable,
+	}
+}
+
+func ConvertRpcKeyToPkgKey(ref *referencev1.ReferenceKey) ReferenceKey {
+	group := ""
+	key := ""
+	index := int32(0)
+	if ref.Group != nil {
+		group = *ref.Group
+	}
+	if ref.Key != nil {
+		key = *ref.Key
+	}
+	if ref.Index != nil {
+		index = *ref.Index
+	}
+
+	return ReferenceKey{
+		Kind:  ReferenceKeyKind(ref.Kind),
+		Group: group,
+		Key:   key,
+		Index: index,
+	}
+}
+
 func convertReferenceMap(refs []Reference) []*referencev1.Reference {
 	var result []*referencev1.Reference
 	for _, ref := range refs {
-		result = append(result, ConvertRpc(ref))
+		result = append(result, ConvertPkgToRpc(ref))
 	}
 	return result
+}
+
+func ConvertRefernceKeyArrayToStringPath(refKey []ReferenceKey) (string, error) {
+	var path string
+
+	for i, v := range refKey {
+		switch v.Kind {
+		case ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
+			if v.Group == "" {
+				return "", fmt.Errorf("group is nil")
+			}
+			if i != 0 {
+				path += "."
+			}
+			path += v.Group
+		case ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
+			if v.Key == "" {
+				return "", fmt.Errorf("key is nil")
+			}
+			if i != 0 {
+				path += "."
+			}
+			path += v.Key
+		default:
+			// TODO: Add other types of reference keys here
+			return "", fmt.Errorf("unknown reference key kind: %v", v.Kind)
+		}
+	}
+	return path, nil
+}
+
+func ConvertStringPathToReferenceKeyArray(path string) ([]ReferenceKey, error) {
+	if path == "" {
+		return []ReferenceKey{}, nil
+	}
+
+	parts := strings.Split(path, ".")
+	var refKeys []ReferenceKey
+
+	if len(parts) == 1 {
+		if parts[0] == "" {
+			return nil, fmt.Errorf("key is empty")
+		}
+		refKeys = append(refKeys, ReferenceKey{
+			Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
+			Key:  parts[0],
+		})
+	} else {
+		// Treat the first part as a group.
+		if parts[0] == "" {
+			return nil, fmt.Errorf("group is empty")
+		}
+		refKeys = append(refKeys, ReferenceKey{
+			Kind:  ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
+			Group: parts[0],
+		})
+		// Treat subsequent parts as keys.
+		for _, p := range parts[1:] {
+			if p == "" {
+				return nil, fmt.Errorf("key is empty")
+			}
+			refKeys = append(refKeys, ReferenceKey{
+				Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
+				Key:  p,
+			})
+		}
+	}
+	return refKeys, nil
 }

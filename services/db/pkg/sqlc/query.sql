@@ -1612,6 +1612,42 @@ DELETE FROM flow_node_for
 WHERE
   flow_node_id = ?;
 
+-- name: GetFlowNodeForEach :one
+SELECT
+  flow_node_id,
+  iter_path,
+  error_handling,
+  condition_path,
+  condition_type,
+  value
+FROM
+  flow_node_for_each
+WHERE
+  flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeForEach :exec
+INSERT INTO
+  flow_node_for_each (flow_node_id, iter_path, error_handling, condition_path, condition_type, value)
+VALUES
+  (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateFlowNodeForEach :exec
+UPDATE flow_node_for_each
+SET
+  iter_path = ?,
+  error_handling = ?,
+  condition_path = ?,
+  condition_type = ?,
+  value = ?
+WHERE
+  flow_node_id = ?;
+
+-- name: DeleteFlowNodeForEach :exec
+DELETE FROM flow_node_for_each
+WHERE
+  flow_node_id = ?;
+
 -- name: GetFlowNodeRequest :one
 SELECT
   flow_node_id,

@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
@@ -43,6 +44,7 @@ func TestNodeList(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	flnes := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
@@ -52,7 +54,8 @@ func TestNodeList(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns,
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins,
+		rns, flns, flnes, ns, sns,
 		ias, iaes, eqs, ehs)
 
 	wsID := idwrap.NewNow()
@@ -131,6 +134,7 @@ func TestNodeGet(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	flnes := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
@@ -140,7 +144,8 @@ func TestNodeGet(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns,
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins,
+		rns, flns, flnes, ns, sns,
 		ias, iaes, eqs, ehs)
 
 	wsID := idwrap.NewNow()
@@ -218,6 +223,7 @@ func TestNodeUpdate(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	flnes := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	// TODO: Change this to raw struct no pointer
 	ins := snodeif.New(queries)
@@ -227,7 +233,8 @@ func TestNodeUpdate(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, flns, ns, sns,
+	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins,
+		rns, flns, flnes, ns, sns,
 		ias, iaes, eqs, ehs)
 
 	wsID := idwrap.NewNow()

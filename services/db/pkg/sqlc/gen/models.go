@@ -137,8 +137,8 @@ type FlowNodeFor struct {
 }
 
 type FlowNodeForEach struct {
-	FlowNodeID    []byte
-	ElementsPath  string
+	FlowNodeID    idwrap.IDWrap
+	IterPath      string
 	ErrorHandling int8
 	ConditionPath string
 	ConditionType int8
