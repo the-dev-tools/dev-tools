@@ -489,9 +489,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeIfStmt, err = db.PrepareContext(ctx, updateFlowNodeIf); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeIf: %w", err)
 	}
-	if q.updateFlowNodeNoopStmt, err = db.PrepareContext(ctx, updateFlowNodeNoop); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateFlowNodeNoop: %w", err)
-	}
 	if q.updateFlowNodeRequestStmt, err = db.PrepareContext(ctx, updateFlowNodeRequest); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeRequest: %w", err)
 	}
@@ -1311,11 +1308,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeIfStmt: %w", cerr)
 		}
 	}
-	if q.updateFlowNodeNoopStmt != nil {
-		if cerr := q.updateFlowNodeNoopStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateFlowNodeNoopStmt: %w", cerr)
-		}
-	}
 	if q.updateFlowNodeRequestStmt != nil {
 		if cerr := q.updateFlowNodeRequestStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeRequestStmt: %w", cerr)
@@ -1575,7 +1567,6 @@ type Queries struct {
 	updateFlowNodeStmt                         *sql.Stmt
 	updateFlowNodeForStmt                      *sql.Stmt
 	updateFlowNodeIfStmt                       *sql.Stmt
-	updateFlowNodeNoopStmt                     *sql.Stmt
 	updateFlowNodeRequestStmt                  *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateItemApiStmt                          *sql.Stmt
@@ -1750,7 +1741,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeStmt:                         q.updateFlowNodeStmt,
 		updateFlowNodeForStmt:                      q.updateFlowNodeForStmt,
 		updateFlowNodeIfStmt:                       q.updateFlowNodeIfStmt,
-		updateFlowNodeNoopStmt:                     q.updateFlowNodeNoopStmt,
 		updateFlowNodeRequestStmt:                  q.updateFlowNodeRequestStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateItemApiStmt:                          q.updateItemApiStmt,

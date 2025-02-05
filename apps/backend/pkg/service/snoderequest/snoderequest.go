@@ -29,7 +29,6 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeRequestService, error) {
 func ConvertToDBNodeRequest(nr mnrequest.MNRequest) gen.FlowNodeRequest {
 	return gen.FlowNodeRequest{
 		FlowNodeID:     nr.FlowNodeID,
-		Name:           nr.Name,
 		EndpointID:     nr.EndpointID,
 		ExampleID:      nr.ExampleID,
 		DeltaExampleID: nr.DeltaExampleID,
@@ -39,7 +38,6 @@ func ConvertToDBNodeRequest(nr mnrequest.MNRequest) gen.FlowNodeRequest {
 func ConvertToModelNodeRequest(nr gen.FlowNodeRequest) *mnrequest.MNRequest {
 	return &mnrequest.MNRequest{
 		FlowNodeID:     nr.FlowNodeID,
-		Name:           nr.Name,
 		EndpointID:     nr.EndpointID,
 		ExampleID:      nr.ExampleID,
 		DeltaExampleID: nr.DeltaExampleID,

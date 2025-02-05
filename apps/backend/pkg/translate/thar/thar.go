@@ -166,6 +166,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	startNode := mnnode.MNode{
 		ID:        StartNodeID,
 		FlowID:    flowID,
+		Name:      "Start",
 		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: posX,
 		PositionY: posY,
@@ -176,7 +177,6 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	startNodeNoop := mnnoop.NoopNode{
 		FlowNodeID: StartNodeID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
-		Name:       "Start",
 	}
 
 	result.NoopNodes = append(result.NoopNodes, startNodeNoop)
@@ -228,6 +228,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		node := mnnode.MNode{
 			ID:        flowNodeID,
 			FlowID:    flowID,
+			Name:      entry.Request.Method + " " + entry.Request.URL,
 			NodeKind:  mnnode.NODE_KIND_REQUEST,
 			PositionX: posX,
 			PositionY: posY,
@@ -237,7 +238,6 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 		request := mnrequest.MNRequest{
 			FlowNodeID: flowNodeID,
-			Name:       entry.Request.Method + " " + entry.Request.URL,
 			EndpointID: &apiID,
 			ExampleID:  &exampleID,
 		}

@@ -121,6 +121,7 @@ type FlowEdge struct {
 type FlowNode struct {
 	ID        idwrap.IDWrap
 	FlowID    idwrap.IDWrap
+	Name      string
 	NodeKind  int32
 	PositionX float64
 	PositionY float64
@@ -128,8 +129,16 @@ type FlowNode struct {
 
 type FlowNodeFor struct {
 	FlowNodeID    idwrap.IDWrap
-	Name          string
 	IterCount     int64
+	ErrorHandling int8
+	ConditionPath string
+	ConditionType int8
+	Value         string
+}
+
+type FlowNodeForEach struct {
+	FlowNodeID    []byte
+	ElementsPath  string
 	ErrorHandling int8
 	ConditionPath string
 	ConditionType int8
@@ -138,7 +147,6 @@ type FlowNodeFor struct {
 
 type FlowNodeIf struct {
 	FlowNodeID    idwrap.IDWrap
-	Name          string
 	ConditionType int8
 	Path          string
 	Value         string
@@ -147,12 +155,10 @@ type FlowNodeIf struct {
 type FlowNodeNoop struct {
 	FlowNodeID idwrap.IDWrap
 	NodeType   int16
-	Name       string
 }
 
 type FlowNodeRequest struct {
 	FlowNodeID     idwrap.IDWrap
-	Name           string
 	EndpointID     *idwrap.IDWrap
 	ExampleID      *idwrap.IDWrap
 	DeltaExampleID *idwrap.IDWrap

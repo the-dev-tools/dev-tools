@@ -16,5 +16,4 @@ const (
 type NoopNode struct {
 	FlowNodeID idwrap.IDWrap
 	Type       NoopTypes
-	Name       string
 }

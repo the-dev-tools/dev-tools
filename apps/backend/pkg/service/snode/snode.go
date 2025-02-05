@@ -33,6 +33,7 @@ func ConvertNodeToDB(n mnnode.MNode) *gen.FlowNode {
 	return &gen.FlowNode{
 		ID:        n.ID,
 		FlowID:    n.FlowID,
+		Name:      n.Name,
 		NodeKind:  int32(n.NodeKind),
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
@@ -43,6 +44,7 @@ func ConvertNodeToModel(n gen.FlowNode) *mnnode.MNode {
 	return &mnnode.MNode{
 		ID:        n.ID,
 		FlowID:    n.FlowID,
+		Name:      n.Name,
 		NodeKind:  mnnode.NodeKind(n.NodeKind),
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
@@ -73,6 +75,7 @@ func (ns NodeService) CreateNode(ctx context.Context, n mnnode.MNode) error {
 	return ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 		ID:        node.ID,
 		FlowID:    node.FlowID,
+		Name:      node.Name,
 		NodeKind:  node.NodeKind,
 		PositionX: node.PositionX,
 		PositionY: node.PositionY,
@@ -85,6 +88,7 @@ func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) 
 		err := ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 			ID:        node.ID,
 			FlowID:    node.FlowID,
+			Name:      node.Name,
 			NodeKind:  node.NodeKind,
 			PositionX: node.PositionX,
 			PositionY: node.PositionY,

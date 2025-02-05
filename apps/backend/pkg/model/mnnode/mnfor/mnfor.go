@@ -15,7 +15,6 @@ const (
 
 type MNFor struct {
 	FlowNodeID    idwrap.IDWrap
-	Name          string
 	IterCount     int64
 	Condition     mcondition.Condition
 	ErrorHandling ErrorHandling

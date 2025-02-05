@@ -295,6 +295,7 @@ CREATE TABLE flow_tag (
 CREATE TABLE flow_node (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,
+  name TEXT NOT NULL,
   node_kind INT NOT NULL,
   position_x REAL NOT NULL,
   position_y REAL NOT NULL,
@@ -316,8 +317,18 @@ CREATE TABLE flow_edge (
 -- TODO: move conditions to new condition table
 CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  name TEXT NOT NULL,
   iter_count BIGINT NOT NULL,
+  error_handling INT8 NOT NULL,
+  condition_path TEXT NOT NULL,
+  condition_type INT8 NOT NULL,
+  value text NOT NULL,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+);
+
+-- TODO: move conditions to new condition table
+CREATE TABLE flow_node_for_each (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  elements_path TEXT NOT NULL,
   error_handling INT8 NOT NULL,
   condition_path TEXT NOT NULL,
   condition_type INT8 NOT NULL,
@@ -327,7 +338,6 @@ CREATE TABLE flow_node_for (
 
 CREATE TABLE flow_node_request (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  name TEXT NOT NULL,
   endpoint_id BLOB,
   example_id BLOB,
   delta_example_id BLOB,
@@ -340,7 +350,6 @@ CREATE TABLE flow_node_request (
 -- TODO: move conditions to new condition table
 CREATE TABLE flow_node_if (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  name TEXT NOT NULL,
   condition_type INT8 NOT NULL,
   path TEXT NOT NULL,
   value text NOT NULL,
@@ -350,7 +359,6 @@ CREATE TABLE flow_node_if (
 CREATE TABLE flow_node_noop (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   node_type TINYINT NOT NULL,
-  name TEXT NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 

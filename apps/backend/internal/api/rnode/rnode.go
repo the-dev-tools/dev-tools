@@ -300,9 +300,14 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		}
 	}
 
+	if req.Msg.Name == nil {
+		req.Msg.Name = &node.Name
+	}
+
 	RpcNodeCreated := &nodev1.Node{
 		NodeId:    nodeID.Bytes(),
 		Kind:      nodev1.NodeKind(node.NodeKind),
+		Name:      *req.Msg.Name,
 		Position:  req.Msg.Position,
 		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
@@ -360,14 +365,6 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	case *mnnoop.NoopNode:
-		nssTX, err := snodenoop.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		err = nssTX.UpdateNodeNoop(ctx, *subNodeType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T, %V", subNodeType, subNode))
 	}
@@ -584,6 +581,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 	node = &mnnode.MNode{
 		ID:        nodeID,
 		FlowID:    flowID,
+		Name:      rpcNode.Name,
 		NodeKind:  mnnode.NodeKind(rpcNode.Kind),
 		PositionX: float64(rpcNode.Position.X),
 		PositionY: float64(rpcNode.Position.Y),
@@ -682,7 +680,6 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		noopNode := &mnnoop.NoopNode{
 			FlowNodeID: nodeID,
 			Type:       a,
-			Name:       "NoOp",
 		}
 		subNode = noopNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
@@ -736,7 +733,6 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 
 		ifNode := &mnif.MNIF{
 			FlowNodeID: nodeID,
-			Name:       "Condition",
 			Condition:  *condition,
 		}
 		subNode = ifNode

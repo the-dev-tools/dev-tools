@@ -30,6 +30,7 @@ const (
 type MNode struct {
 	ID        idwrap.IDWrap
 	FlowID    idwrap.IDWrap
+	Name      string
 	NodeKind  NodeKind
 	PositionX float64
 	PositionY float64

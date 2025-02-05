@@ -32,7 +32,6 @@ func ConvertToDBNodeStart(ns mnnoop.NoopNode) gen.FlowNodeNoop {
 	return gen.FlowNodeNoop{
 		FlowNodeID: ns.FlowNodeID,
 		NodeType:   int16(ns.Type),
-		Name:       ns.Name,
 	}
 }
 
@@ -40,7 +39,6 @@ func ConvertToModelNodeStart(ns gen.FlowNodeNoop) *mnnoop.NoopNode {
 	return &mnnoop.NoopNode{
 		FlowNodeID: ns.FlowNodeID,
 		Type:       mnnoop.NoopTypes(ns.NodeType),
-		Name:       ns.Name,
 	}
 }
 
@@ -61,7 +59,6 @@ func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNod
 	return nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams{
 		FlowNodeID: convertedNode.FlowNodeID,
 		NodeType:   convertedNode.NodeType,
-		Name:       convertedNode.Name,
 	})
 }
 
@@ -71,21 +68,12 @@ func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.N
 		err := nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams{
 			FlowNodeID: convertedNode.FlowNodeID,
 			NodeType:   convertedNode.NodeType,
-			Name:       convertedNode.Name,
 		})
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
-	convertedNode := ConvertToDBNodeStart(nf)
-	return nfs.queries.UpdateFlowNodeNoop(ctx, gen.UpdateFlowNodeNoopParams{
-		FlowNodeID: convertedNode.FlowNodeID,
-		Name:       convertedNode.Name,
-	})
 }
 
 func (nfs NodeNoopService) DeleteNodeNoop(ctx context.Context, id idwrap.IDWrap) error {

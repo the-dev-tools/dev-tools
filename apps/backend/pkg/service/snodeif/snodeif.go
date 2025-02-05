@@ -32,7 +32,6 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeIfService, error) {
 func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeIf {
 	return gen.FlowNodeIf{
 		FlowNodeID:    ni.FlowNodeID,
-		Name:          ni.Name,
 		ConditionType: int8(ni.Condition.Comparisons.Kind),
 		Path:          ni.Condition.Comparisons.Path,
 		Value:         ni.Condition.Comparisons.Value,
@@ -42,7 +41,6 @@ func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeIf {
 func ConvertToModelNodeIf(ni gen.FlowNodeIf) *mnif.MNIF {
 	return &mnif.MNIF{
 		FlowNodeID: ni.FlowNodeID,
-		Name:       ni.Name,
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
 				Kind:  mcondition.ComparisonKind(ni.ConditionType),
@@ -65,7 +63,6 @@ func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error 
 	nodeIf := ConvertToDBNodeIf(ni)
 	return nifs.queries.CreateFlowNodeIf(ctx, gen.CreateFlowNodeIfParams{
 		FlowNodeID:    nodeIf.FlowNodeID,
-		Name:          nodeIf.Name,
 		ConditionType: nodeIf.ConditionType,
 		Path:          nodeIf.Path,
 		Value:         nodeIf.Value,
@@ -76,7 +73,6 @@ func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error 
 	nodeIf := ConvertToDBNodeIf(ni)
 	return nifs.queries.UpdateFlowNodeIf(ctx, gen.UpdateFlowNodeIfParams{
 		FlowNodeID:    nodeIf.FlowNodeID,
-		Name:          nodeIf.Name,
 		ConditionType: nodeIf.ConditionType,
 		Path:          nodeIf.Path,
 		Value:         nodeIf.Value,

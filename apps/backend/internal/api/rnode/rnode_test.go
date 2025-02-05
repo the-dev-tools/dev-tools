@@ -92,7 +92,6 @@ func TestNodeList(t *testing.T) {
 	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
-		Name:       "test",
 	})
 
 	testutil.AssertFatal(t, nil, err)
@@ -180,7 +179,6 @@ func TestNodeGet(t *testing.T) {
 
 	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
-		Name:       "test",
 	})
 
 	testutil.AssertFatal(t, nil, err)
@@ -268,7 +266,6 @@ func TestNodeUpdate(t *testing.T) {
 
 	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
-		Name:       "test",
 	})
 
 	newPosX := 10.0

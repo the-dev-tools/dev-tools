@@ -1487,6 +1487,7 @@ WHERE
 SELECT
   id,
   flow_id,
+  name,
   node_kind,
   position_x,
   position_y
@@ -1500,6 +1501,7 @@ LIMIT 1;
 SELECT
   id,
   flow_id,
+  name,
   node_kind,
   position_x,
   position_y
@@ -1510,13 +1512,14 @@ WHERE
 
 -- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, node_kind, position_x, position_y)
+  flow_node (id, flow_id, name, node_kind, position_x, position_y)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNode :exec
 UPDATE flow_node
 SET
+  name = ?,
   position_x = ?,
   position_y = ?
 WHERE
@@ -1576,7 +1579,6 @@ WHERE
 -- name: GetFlowNodeFor :one
 SELECT
   flow_node_id,
-  name,
   iter_count,
   error_handling,
   condition_path,
@@ -1590,14 +1592,13 @@ LIMIT 1;
 
 -- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (flow_node_id, name, iter_count, error_handling, condition_path, condition_type, value)
+  flow_node_for (flow_node_id, iter_count, error_handling, condition_path, condition_type, value)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
 SET
-  name = ?,
   iter_count = ?,
   error_handling = ?,
   condition_path = ?,
@@ -1614,7 +1615,6 @@ WHERE
 -- name: GetFlowNodeRequest :one
 SELECT
   flow_node_id,
-  name,
   endpoint_id,
   example_id,
   delta_example_id
@@ -1626,14 +1626,13 @@ LIMIT 1;
 
 -- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, name, endpoint_id, example_id, delta_example_id)
+  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
-  name = ?,
   endpoint_id = ?,
   example_id = ?,
   delta_example_id = ?
@@ -1648,7 +1647,6 @@ WHERE
 -- name: GetFlowNodeIf :one
 SELECT
   flow_node_id,
-  name,
   condition_type,
   path,
   value
@@ -1660,14 +1658,13 @@ LIMIT 1;
 
 -- name: CreateFlowNodeIf :exec
 INSERT INTO
-  flow_node_if (flow_node_id, name, condition_type, path, value)
+  flow_node_if (flow_node_id, condition_type, path, value)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeIf :exec
 UPDATE flow_node_if
 SET
-  name = ?,
   condition_type = ?,
   path = ?,
   value = ?
@@ -1683,8 +1680,7 @@ WHERE
 -- name: GetFlowNodeNoop :one
 SELECT
   flow_node_id,
-  node_type,
-  name
+  node_type
 FROM
   flow_node_noop
 where
@@ -1693,16 +1689,9 @@ LIMIT 1;
 
 -- name: CreateFlowNodeNoop :exec
 INSERT INTO
-  flow_node_noop (flow_node_id, node_type, name)
+  flow_node_noop (flow_node_id, node_type)
 VALUES
-  (?, ?, ?);
-
--- name: UpdateFlowNodeNoop :exec
-UPDATE flow_node_noop
-SET
-  name = ?
-WHERE
-  flow_node_id = ?;
+  (?, ?);
 
 -- name: DeleteFlowNodeNoop :exec
 DELETE from flow_node_noop
