@@ -56,7 +56,6 @@ func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnreques
 	nodeRequest := ConvertToDBNodeRequest(nr)
 	return nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
 		FlowNodeID:     nodeRequest.FlowNodeID,
-		Name:           nodeRequest.Name,
 		EndpointID:     nodeRequest.EndpointID,
 		ExampleID:      nodeRequest.ExampleID,
 		DeltaExampleID: nodeRequest.DeltaExampleID,
@@ -67,7 +66,6 @@ func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nr []mn
 	for _, nodeRequest := range nr {
 		err := nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
 			FlowNodeID:     nodeRequest.FlowNodeID,
-			Name:           nodeRequest.Name,
 			EndpointID:     nodeRequest.EndpointID,
 			ExampleID:      nodeRequest.ExampleID,
 			DeltaExampleID: nodeRequest.DeltaExampleID,
@@ -83,7 +81,6 @@ func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnreques
 	nodeRequest := ConvertToDBNodeRequest(nr)
 	return nrs.queries.UpdateFlowNodeRequest(ctx, gen.UpdateFlowNodeRequestParams{
 		FlowNodeID:     nodeRequest.FlowNodeID,
-		Name:           nodeRequest.Name,
 		EndpointID:     nodeRequest.EndpointID,
 		ExampleID:      nodeRequest.ExampleID,
 		DeltaExampleID: nodeRequest.DeltaExampleID,

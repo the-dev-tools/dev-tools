@@ -28,10 +28,9 @@ type NodeFor struct {
 	ErrorHandling mnfor.ErrorHandling
 }
 
-func New(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration) *NodeFor {
+func New(id idwrap.IDWrap, iterCount int64, timeout time.Duration) *NodeFor {
 	return &NodeFor{
 		FlowNodeID: id,
-		Name:       name,
 		IterCount:  iterCount,
 		Timeout:    timeout,
 	}

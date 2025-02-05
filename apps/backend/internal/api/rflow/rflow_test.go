@@ -612,8 +612,6 @@ func TestRunFlow(t *testing.T) {
 	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
-
-		Name: "test",
 	})
 	testutil.AssertFatal(t, nil, err)
 
@@ -628,7 +626,6 @@ func TestRunFlow(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 	err = flns.CreateNodeFor(ctx, mnfor.MNFor{
 		FlowNodeID: forNodeID,
-		Name:       "test",
 		IterCount:  0,
 	})
 	testutil.AssertFatal(t, nil, err)

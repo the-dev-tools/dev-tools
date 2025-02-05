@@ -244,7 +244,6 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	err = c.sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: nodeNoopID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
-		Name:       "Node1",
 	})
 	if err != nil {
 		return nil, err
@@ -373,7 +372,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
-		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.Name, forNode.IterCount, time.Second)
+		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.IterCount, time.Second)
 	}
 	for _, requestNode := range requestNodes {
 		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
@@ -443,11 +442,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	for _, ifNode := range ifNodes {
 		comp := ifNode.Condition.Comparisons
-		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, ifNode.Name, comp.Kind, comp.Path, comp.Value)
+		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, comp.Kind, comp.Path, comp.Value)
 	}
 
 	for _, noopNode := range noopNodes {
-		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID, noopNode.Name)
+		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID)
 	}
 
 	edges, err := c.fes.GetEdgesByFlowID(ctx, flowID)

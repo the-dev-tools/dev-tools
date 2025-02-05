@@ -25,10 +25,9 @@ type NodeIf struct {
 	Value string
 }
 
-func New(id idwrap.IDWrap, name string, conditionType mcondition.ComparisonKind, path string, value string) *NodeIf {
+func New(id idwrap.IDWrap, conditionType mcondition.ComparisonKind, path string, value string) *NodeIf {
 	return &NodeIf{
 		FlowNodeID:    id,
-		Name:          name,
 		ConditionType: conditionType,
 		Path:          path,
 		Value:         value,
