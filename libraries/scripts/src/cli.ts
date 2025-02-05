@@ -1,7 +1,7 @@
-import { Args, Command } from '@effect/cli';
-import { FileSystem, Path } from '@effect/platform';
+import { Args, Command as CliCommand } from '@effect/cli';
+import { FileSystem, Path, Command as PlatformCommand } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Array, Boolean, Cause, Effect, Option, pipe, Record } from 'effect';
+import { Array, Boolean, Cause, Effect, Option, pipe, Record, String } from 'effect';
 import { releaseChangelog, releaseVersion } from 'nx/release/index.js';
 import { type NxReleaseArgs } from 'nx/src/command-line/release/command-object.js';
 
@@ -22,6 +22,31 @@ const resolveMonorepoRoot = Effect.gen(function* () {
   return dir;
 });
 
+const goInstallTools = CliCommand.make(
+  'go-install-tools',
+  {},
+  Effect.fn(function* () {
+    const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+    const root = yield* resolveMonorepoRoot;
+
+    const tools = yield* pipe(
+      path.resolve(root, 'tools.go'),
+      fs.readFileString,
+      Effect.flatMap(String.match(/(?<=_ ").*(?=")/g)),
+    );
+
+    for (const tool of tools) {
+      yield* pipe(
+        PlatformCommand.make('go', 'install', tool),
+        PlatformCommand.stdout('inherit'),
+        PlatformCommand.stderr('inherit'),
+        PlatformCommand.exitCode,
+      );
+    }
+  }),
+);
+
 type ReleaseWorkflow =
   | 'release-chrome-extension.yaml'
   | 'release-cloudflare-pages.yaml'
@@ -33,7 +58,7 @@ const ReleaseWorkflows: Record<string, ReleaseWorkflow> = {
   web: 'release-cloudflare-pages.yaml',
 };
 
-const release = Command.make(
+const release = CliCommand.make(
   'release',
   {
     projects: pipe(
@@ -80,10 +105,10 @@ const release = Command.make(
       ),
       Effect.all,
     );
-  }),
+  }, Effect.provide(Repository.Default)),
 );
 
-const uploadReleaseAssets = Command.make(
+const uploadReleaseAssets = CliCommand.make(
   'upload-release-assets',
   { files: pipe(Args.file({ name: 'files' }), Args.atLeast(1)) },
   Effect.fn(function* ({ files }) {
@@ -98,15 +123,14 @@ const uploadReleaseAssets = Command.make(
       files.map((_) => repo.uploadReleaseAsset({ id, path: path.resolve(root, _) })),
       Effect.all,
     );
-  }),
+  }, Effect.provide(Repository.Default)),
 );
 
 pipe(
-  Command.make('scripts'),
-  Command.withSubcommands([release, uploadReleaseAssets]),
-  Command.run({ name: 'Internal scripts', version: '' }),
+  CliCommand.make('scripts'),
+  CliCommand.withSubcommands([goInstallTools, release, uploadReleaseAssets]),
+  CliCommand.run({ name: 'Internal scripts', version: '' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),
-  Effect.provide(Repository.Default),
   NodeRuntime.runMain,
 );

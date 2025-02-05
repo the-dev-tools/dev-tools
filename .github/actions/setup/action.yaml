@@ -19,3 +19,7 @@ runs:
     - name: Install PNPM dependencies
       shell: bash
       run: pnpm install
+
+    - name: Install Go tools
+      shell: bash
+      run: scripts go-install-tools

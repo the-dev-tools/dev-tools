@@ -30,6 +30,13 @@
           };
         in
           pkgs.mkShell {
+            shellHook = ''
+              # Export Go and PNPM paths
+              [ -n "$(go env GOBIN)" ] && export PATH="$(go env GOBIN):$PATH"
+              [ -n "$(go env GOPATH)" ] && export PATH="$(go env GOPATH)/bin:$PATH"
+              [ -n "$(pnpm bin)" ] && export PATH="$(pnpm bin):$PATH"
+            '';
+
             nativeBuildInputs = with pkgs; [
               gh
               go
@@ -37,24 +44,19 @@
               jq
               nodejs_latest
               pnpm
-              protoc-gen-connect-go
-              protoc-gen-go
               scripts
             ];
           };
 
         devShells.default = pkgs.mkShell {
+          inherit (self'.devShells.runner) shellHook;
+
           # Specify Nixpkgs path for improved nixd intellisense
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
           # Use Electron binary from Nixpkgs in development for NixOS compatibility
           ELECTRON_SKIP_BINARY_DOWNLOAD = 1;
           ELECTRON_EXEC_PATH = "${pkgs.electron}/bin/electron";
-
-          shellHook = ''
-            # Export PNPM binaries into path for better DX
-            export PATH=$PATH:$(pnpm bin)
-          '';
 
           nativeBuildInputs =
             self'.devShells.runner.nativeBuildInputs
