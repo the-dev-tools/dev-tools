@@ -165,6 +165,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	}
 	resp := nodev1.NodeGetResponse{
 		NodeId:    rpcNode.NodeId,
+		Name:      rpcNode.Name,
 		Position:  rpcNode.Position,
 		Kind:      rpcNode.Kind,
 		NoOp:      rpcNode.NoOp,
@@ -512,6 +513,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			NodeId:   currentNode.ID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
 			Position: Position,
+			Name:     currentNode.Name,
 			Request: &nodev1.NodeRequest{
 				CollectionId:   rpcExampleID,
 				ExampleId:      rpcExampleID,
@@ -530,6 +532,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			NodeId:   currentNode.ID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
 			Position: Position,
+			Name:     currentNode.Name,
 			For: &nodev1.NodeFor{
 				ErrorHandling: nodev1.ErrorHandling_ERROR_HANDLING_BREAK,
 				Iterations:    int32(nodeFor.IterCount),
@@ -547,6 +550,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeStart.FlowNodeID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_NO_OP,
+			Name:     currentNode.Name,
 			Position: Position,
 			NoOp:     &a,
 		}
@@ -557,6 +561,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			return nil, err
 		}
 
+		fmt.Println("nodeCondition", nodeCondition)
 		rpcCondition, err := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
 		if err != nil {
 			return nil, err
@@ -565,6 +570,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeCondition.FlowNodeID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_CONDITION,
+			Name:     currentNode.Name,
 			Position: Position,
 			Condition: &nodev1.NodeCondition{
 				Condition: rpcCondition,
@@ -742,6 +748,8 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			var compPath string
 			var err error
 			if comp.Path == nil {
+				compPath = ""
+			} else {
 				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
 				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
 				if err != nil {
