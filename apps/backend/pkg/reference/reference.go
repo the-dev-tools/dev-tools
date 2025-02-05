@@ -142,6 +142,9 @@ func ConvertRpcToPkg(ref *referencev1.Reference) Reference {
 }
 
 func ConvertRpcKeyToPkgKey(ref *referencev1.ReferenceKey) ReferenceKey {
+	if ref == nil {
+		return ReferenceKey{}
+	}
 	group := ""
 	key := ""
 	index := int32(0)
@@ -208,33 +211,11 @@ func ConvertStringPathToReferenceKeyArray(path string) ([]ReferenceKey, error) {
 	parts := strings.Split(path, ".")
 	var refKeys []ReferenceKey
 
-	if len(parts) == 1 {
-		if parts[0] == "" {
-			return nil, fmt.Errorf("key is empty")
-		}
+	for _, part := range parts {
 		refKeys = append(refKeys, ReferenceKey{
 			Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-			Key:  parts[0],
+			Key:  part,
 		})
-	} else {
-		// Treat the first part as a group.
-		if parts[0] == "" {
-			return nil, fmt.Errorf("group is empty")
-		}
-		refKeys = append(refKeys, ReferenceKey{
-			Kind:  ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
-			Group: parts[0],
-		})
-		// Treat subsequent parts as keys.
-		for _, p := range parts[1:] {
-			if p == "" {
-				return nil, fmt.Errorf("key is empty")
-			}
-			refKeys = append(refKeys, ReferenceKey{
-				Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-				Key:  p,
-			})
-		}
 	}
 	return refKeys, nil
 }

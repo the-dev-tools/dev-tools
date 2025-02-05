@@ -104,12 +104,12 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 
 	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("any node found"))
 	}
 
 	NodeList := make([]*nodev1.NodeListItem, len(nodes))
 	for i, node := range nodes {
-		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nss)
+		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss)
 		if err != nil {
 			return nil, err
 		}
@@ -120,6 +120,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			NoOp:      rpcNode.NoOp,
 			Request:   rpcNode.Request,
 			For:       rpcNode.For,
+			ForEach:   rpcNode.ForEach,
 			Condition: rpcNode.Condition,
 		}
 		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
@@ -130,7 +131,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 				}
 				ex, err := c.iaes.GetApiExample(ctx, example)
 				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
+					return nil, connect.NewError(connect.CodeInternal, errors.New("example not found"))
 				}
 				rpcNode.Request.CollectionId = ex.CollectionID.Bytes()
 			}
@@ -159,7 +160,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("root node not found"))
 	}
-	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nss)
+	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("sub node not found"))
 	}
@@ -171,6 +172,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		NoOp:      rpcNode.NoOp,
 		Request:   rpcNode.Request,
 		For:       rpcNode.For,
+		ForEach:   rpcNode.ForEach,
 		Condition: rpcNode.Condition,
 	}
 	if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
@@ -210,6 +212,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
 		For:       req.Msg.For,
+		ForEach:   req.Msg.ForEach,
 		Condition: req.Msg.Condition,
 	}
 
@@ -326,6 +329,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
 		For:       req.Msg.For,
+		ForEach:   req.Msg.ForEach,
 		Condition: req.Msg.Condition,
 	}
 
@@ -366,6 +370,15 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		err = nlfTX.UpdateNodeFor(ctx, *subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	case *mnforeach.MNForEach:
+		nlfeTX, err := snodeforeach.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = nlfeTX.UpdateNodeForEach(ctx, *subNodeType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -483,7 +496,7 @@ func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserServ
 }
 
 func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
-	nlf snodefor.NodeForService, nss snodenoop.NodeNoopService,
+	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, nss snodenoop.NodeNoopService,
 ) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
 
@@ -523,36 +536,69 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		}
 		rpcNode = nodeList
 	case mnnode.NODE_KIND_FOR:
-		nodeFor, err := nlf.GetNodeFor(ctx, currentNode.ID)
+		nodeFor, err := nlfs.GetNodeFor(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
 		}
-		// TODO: ask which pos should be filled
+		rpcCond, err := tcondition.SeralizeConditionModelToRPC(nodeFor.Condition)
+		if err != nil {
+			return nil, err
+		}
+
 		nodeList := &nodev1.Node{
 			NodeId:   currentNode.ID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
 			Position: Position,
 			Name:     currentNode.Name,
 			For: &nodev1.NodeFor{
-				ErrorHandling: nodev1.ErrorHandling_ERROR_HANDLING_BREAK,
+				ErrorHandling: nodev1.ErrorHandling(nodeFor.ErrorHandling),
 				Iterations:    int32(nodeFor.IterCount),
+				Condition:     rpcCond,
+			},
+		}
+		rpcNode = nodeList
+	case mnnode.NODE_KIND_FOR_EACH:
+		nodeForEach, err := nlfes.GetNodeForEach(ctx, currentNode.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		rpcCond, err := tcondition.SeralizeConditionModelToRPC(nodeForEach.Condition)
+		if err != nil {
+			return nil, err
+		}
+
+		refPaths, err := reference.ConvertStringPathToReferenceKeyArray(nodeForEach.IterPath)
+		if err != nil {
+			return nil, err
+		}
+		rpcRefs := tgeneric.MassConvert(refPaths, reference.ConvertPkgKeyToRpc)
+
+		nodeList := &nodev1.Node{
+			NodeId:   currentNode.ID.Bytes(),
+			Kind:     nodev1.NodeKind_NODE_KIND_FOR_EACH,
+			Position: Position,
+			Name:     currentNode.Name,
+			ForEach: &nodev1.NodeForEach{
+				ErrorHandling: nodev1.ErrorHandling(nodeForEach.ErrorHandling),
+				Condition:     rpcCond,
+				Path:          rpcRefs,
 			},
 		}
 		rpcNode = nodeList
 	case mnnode.NODE_KIND_NO_OP:
-		// TODO: can be remove later no need to fetch just id
-		nodeStart, err := nss.GetNodeNoop(ctx, currentNode.ID)
+		nodeNoop, err := nss.GetNodeNoop(ctx, currentNode.ID)
 		if err != nil {
 			return nil, err
 		}
-		a := nodev1.NodeNoOpKind(nodeStart.Type)
+		NoOpKind := nodev1.NodeNoOpKind(nodeNoop.Type)
 
 		rpcNode = &nodev1.Node{
-			NodeId:   nodeStart.FlowNodeID.Bytes(),
+			NodeId:   nodeNoop.FlowNodeID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_NO_OP,
 			Name:     currentNode.Name,
 			Position: Position,
-			NoOp:     &a,
+			NoOp:     &NoOpKind,
 		}
 
 	case mnnode.NODE_KIND_CONDITION:
@@ -561,7 +607,6 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			return nil, err
 		}
 
-		fmt.Println("nodeCondition", nodeCondition)
 		rpcCondition, err := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
 		if err != nil {
 			return nil, err
@@ -569,9 +614,9 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeCondition.FlowNodeID.Bytes(),
+			Position: Position,
 			Kind:     nodev1.NodeKind_NODE_KIND_CONDITION,
 			Name:     currentNode.Name,
-			Position: Position,
 			Condition: &nodev1.NodeCondition{
 				Condition: rpcCondition,
 			},
@@ -641,30 +686,18 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
 		var condition *mcondition.Condition
+		var err error
 
-		if rpcNode.ForEach == nil {
+		forNode := rpcNode.For
+
+		if forNode.Condition == nil {
 			condition = mcondition.Default()
-		} else if rpcNode.ForEach.Condition == nil {
-			condition = mcondition.Default()
-		} else if rpcNode.ForEach.Condition.Comparison == nil {
+		} else if forNode.Condition.Comparison == nil {
 			condition = mcondition.Default()
 		} else {
-			comp := rpcNode.Condition.Condition.Comparison
-			var compPath string
-			var err error
-			if comp.Path == nil {
-				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
-				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
-				if err != nil {
-					return nil, nil, err
-				}
-			}
-			condition = &mcondition.Condition{
-				Comparisons: mcondition.Comparison{
-					Value: compPath,
-					Path:  compPath,
-					Kind:  mcondition.ComparisonKind(comp.Kind),
-				},
+			condition, err = tcondition.DeserializeConditionRPCToModel(forNode.Condition)
+			if err != nil {
+				return nil, nil, err
 			}
 		}
 
@@ -672,46 +705,35 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			return nil, nil, fmt.Errorf("condition is nil")
 		}
 
-		forNode := &mnfor.MNFor{
+		forNodeConverted := &mnfor.MNFor{
 			FlowNodeID:    nodeID,
-			IterCount:     int64(rpcNode.For.Iterations),
+			IterCount:     int64(forNode.Iterations),
 			Condition:     *condition,
-			ErrorHandling: mnfor.ErrorHandling(rpcNode.For.ErrorHandling),
+			ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
 		}
-		subNode = forNode
+		subNode = forNodeConverted
 	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
 		var condition *mcondition.Condition
+		var err error
+		var iterpath string
 
-		refs := tgeneric.MassConvert(rpcNode.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
-		iterpath, err := reference.ConvertRefernceKeyArrayToStringPath(refs)
-		if err != nil {
-			return nil, nil, err
+		forEach := rpcNode.ForEach
+		if forEach.Path != nil {
+			refs := tgeneric.MassConvert(rpcNode.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
+			iterpath, err = reference.ConvertRefernceKeyArrayToStringPath(refs)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 
-		if rpcNode.Condition == nil {
+		if forEach.Condition == nil {
 			condition = mcondition.Default()
-		} else if rpcNode.Condition.Condition == nil {
-			condition = mcondition.Default()
-		} else if rpcNode.Condition.Condition.Comparison == nil {
+		} else if forEach.Condition.Comparison == nil {
 			condition = mcondition.Default()
 		} else {
-			comp := rpcNode.Condition.Condition.Comparison
-			var compPath string
-			var err error
-			if comp.Path == nil {
-				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
-				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
-				if err != nil {
-					return nil, nil, err
-				}
-			}
-
-			condition = &mcondition.Condition{
-				Comparisons: mcondition.Comparison{
-					Value: comp.Value,
-					Path:  compPath,
-					Kind:  mcondition.ComparisonKind(comp.Kind),
-				},
+			condition, err = tcondition.DeserializeConditionRPCToModel(forEach.Condition)
+			if err != nil {
+				return nil, nil, err
 			}
 		}
 
@@ -723,7 +745,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			FlowNodeID:    nodeID,
 			IterPath:      iterpath,
 			Condition:     *condition,
-			ErrorHandling: mnfor.ErrorHandling(rpcNode.For.ErrorHandling),
+			ErrorHandling: mnfor.ErrorHandling(forEach.ErrorHandling),
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_NO_OP:
@@ -736,38 +758,19 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
 
 		var condition *mcondition.Condition
+		var err error
 
-		if rpcNode.Condition == nil {
+		conditionNode := rpcNode.Condition
+
+		if conditionNode.Condition == nil {
 			condition = mcondition.Default()
-		} else if rpcNode.Condition.Condition == nil {
-			condition = mcondition.Default()
-		} else if rpcNode.Condition.Condition.Comparison == nil {
+		} else if conditionNode.Condition.Comparison == nil {
 			condition = mcondition.Default()
 		} else {
-			comp := rpcNode.Condition.Condition.Comparison
-			var compPath string
-			var err error
-			if comp.Path == nil {
-				compPath = ""
-			} else {
-				compKeys := tgeneric.MassConvert(comp.Path, reference.ConvertRpcKeyToPkgKey)
-				compPath, err = reference.ConvertRefernceKeyArrayToStringPath(compKeys)
-				if err != nil {
-					return nil, nil, err
-				}
+			condition, err = tcondition.DeserializeConditionRPCToModel(conditionNode.Condition)
+			if err != nil {
+				return nil, nil, err
 			}
-
-			condition = &mcondition.Condition{
-				Comparisons: mcondition.Comparison{
-					Value: comp.Value,
-					Path:  compPath,
-					Kind:  mcondition.ComparisonKind(comp.Kind),
-				},
-			}
-		}
-
-		if condition == nil {
-			return nil, nil, fmt.Errorf("condition is nil")
 		}
 
 		ifNode := &mnif.MNIF{
