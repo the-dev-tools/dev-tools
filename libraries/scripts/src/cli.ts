@@ -31,7 +31,7 @@ const goInstallTools = CliCommand.make(
     const root = yield* resolveMonorepoRoot;
 
     const tools = yield* pipe(
-      path.resolve(root, 'tools.go'),
+      path.resolve(root, 'libraries', 'tools', 'tools.go'),
       fs.readFileString,
       Effect.flatMap(String.match(/(?<=_ ").*(?=")/g)),
     );

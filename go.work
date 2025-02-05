@@ -1,7 +1,7 @@
 go 1.23.3
 
 use (
-	./
+	./libraries/tools
 	./apps/backend
 	./libraries/spec
 	./services/db
