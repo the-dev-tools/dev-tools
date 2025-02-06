@@ -1,6 +1,6 @@
 {
   "name": "@the-dev-tools/desktop",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "repository": "github:the-dev-tools/dev-tools",
   "type": "module",
