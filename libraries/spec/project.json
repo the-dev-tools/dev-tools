@@ -19,7 +19,7 @@
         "cwd": "{projectRoot}",
         "parallel": false,
         "commands": [
-          "rm -rf dist",
+          "rimraf dist",
           "pnpm tsp compile api",
           "node lib/patch-paths.js",
           "pnpm buf generate",
