@@ -113,33 +113,116 @@ func (s AssertSystem) EvalBool(ctx context.Context, expr string, extensions ...g
 	return eval.EvalBool(ctx, s.root.Leaf)
 }
 
+var Regex *regexp.Regexp = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
+var Langs []gval.Language = []gval.Language{
+	gval.NewLanguage(
+		gval.Init(func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
+			p.SetIsIdentRuneFunc(func(r rune, pos int) bool {
+				return unicode.IsLetter(r) || r == '_' || (pos > 0 && unicode.IsDigit(r)) || (pos > 0 && r == '-')
+			})
+			return p.ParseExpression(ctx)
+		})),
+	gval.InfixOperator("notin", NotinArray),
+}
+
+func ToSliceOfAny[T any](s []T) []any {
+	result := make([]any, len(s))
+	for i, v := range s {
+		result[i] = v
+	}
+	return result
+}
+
+func (s AssertSystem) EvalArray(ctx context.Context, expr string, extensions ...gval.Language) ([]interface{}, error) {
+	ln := gval.Full(extensions...)
+	a, err := ln.EvaluateWithContext(ctx, expr, s.root.Leaf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if a is slice
+	arr, ok := a.([]interface{})
+	if !ok {
+		// Try to convert to []interface{}
+		switch v := a.(type) {
+		case []string:
+			arr = make([]interface{}, len(v))
+			for i, val := range v {
+				arr[i] = val
+			}
+		case []int:
+			arr = make([]interface{}, len(v))
+			for i, val := range v {
+				arr[i] = val
+			}
+		case []float64:
+			arr = make([]interface{}, len(v))
+			for i, val := range v {
+				arr[i] = val
+			}
+		default:
+			return nil, fmt.Errorf("expected type []interface{} but got %T", a)
+		}
+	}
+
+	return arr, nil
+}
+
+func (s AssertSystem) EvalMap(ctx context.Context, expr string, extensions ...gval.Language) (map[string]interface{}, error) {
+	ln := gval.Full(extensions...)
+	a, err := ln.EvaluateWithContext(ctx, expr, s.root.Leaf)
+	if err != nil {
+		return nil, err
+	}
+
+	arr, ok := a.(map[string]interface{})
+	if !ok {
+		// Try to convert to []interface{}
+		switch v := a.(type) {
+		case map[string]string:
+			arr = make(map[string]interface{}, len(v))
+			for k, val := range v {
+				arr[k] = val
+			}
+		case map[string]int:
+			arr = make(map[string]interface{}, len(v))
+			for k, val := range v {
+				arr[k] = val
+			}
+		case map[string]float64:
+			arr = make(map[string]interface{}, len(v))
+			for k, val := range v {
+				arr[k] = val
+			}
+		case map[string]float32:
+			arr = make(map[string]interface{}, len(v))
+			for k, val := range v {
+				arr[k] = val
+			}
+		default:
+			return nil, fmt.Errorf("expected type []interface{} but got %T", a)
+		}
+	}
+
+	return arr, nil
+}
+
 func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, path string, value interface{}) (bool, error) {
 	// Regex should not contain any special characters
 	// only dot (.) is allowed
 	// TODO: change the regex to allow only dot (.), underscore (_), and hyphen (-)
-	re := regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
-	if !re.MatchString(path) {
+	if !Regex.MatchString(path) {
 		return false, fmt.Errorf("invalid path: %s", path)
 	}
 
 	assertTypeStr := ConvertAssertTypeToExpr(assertType)
 
-	langs := []gval.Language{
-		gval.NewLanguage(
-			gval.Init(func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
-				p.SetIsIdentRuneFunc(func(r rune, pos int) bool {
-					return unicode.IsLetter(r) || r == '_' || (pos > 0 && unicode.IsDigit(r)) || (pos > 0 && r == '-')
-				})
-				return p.ParseExpression(ctx)
-			})),
-		gval.Constant("y", value),
-		gval.InfixOperator("notin", NotinArray),
-	}
+	constLang := gval.Constant("y", value)
+	tempLangs := append(Langs, constLang)
 
 	expr := fmt.Sprintf("y %s %s", assertTypeStr, path)
-	fmt.Println("expr", expr)
-	fmt.Println("value type", reflect.TypeOf(value))
-	a, err := s.EvalBool(ctx, expr, langs...)
+	a, err := s.EvalBool(ctx, expr, tempLangs...)
 
 	if assertType == AssertTypeNotContains {
 		a = !a

@@ -293,7 +293,8 @@ func main() {
 	// Flow Service
 	flowSrv := rflow.New(currentDB, ws, us, ts, fs, fts, fes, ias, iaes, eqs, ehs,
 		brs, bfs, bues,
-		ns, rns, lfns, sns, *ins, logMap)
+		ns, rns, lfns, flens,
+		sns, *ins, logMap)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service

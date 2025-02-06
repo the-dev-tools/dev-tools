@@ -27,6 +27,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
@@ -67,6 +68,7 @@ func TestListFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	fens := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 
@@ -75,7 +77,8 @@ func TestListFlow(t *testing.T) {
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
-		ns, rns, flns, sns, *ins,
+		ns, rns, flns, fens,
+		sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -205,6 +208,7 @@ func TestGetFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	fens := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 
@@ -213,7 +217,8 @@ func TestGetFlow(t *testing.T) {
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
-		ns, rns, flns, sns, *ins,
+		ns, rns, flns, fens,
+		sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -308,6 +313,7 @@ func TestCreateFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	fens := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 
@@ -316,7 +322,8 @@ func TestCreateFlow(t *testing.T) {
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
-		ns, rns, flns, sns, *ins,
+		ns, rns, flns, fens,
+		sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -395,6 +402,7 @@ func TestUpdateFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	fens := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 
@@ -403,7 +411,8 @@ func TestUpdateFlow(t *testing.T) {
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
-		ns, rns, flns, sns, *ins,
+		ns, rns, flns, fens,
+		sns, *ins,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -483,6 +492,7 @@ func TestDeleteFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	fens := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 
@@ -491,7 +501,8 @@ func TestDeleteFlow(t *testing.T) {
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
-		ns, rns, flns, sns, *ins,
+		ns, rns, flns, fens,
+		sns, *ins,
 		logChanMap)
 
 	wsID := idwrap.NewNow()
@@ -564,6 +575,7 @@ func TestRunFlow(t *testing.T) {
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
 	flns := snodefor.New(queries)
+	fens := snodeforeach.New(queries)
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 
@@ -572,7 +584,8 @@ func TestRunFlow(t *testing.T) {
 	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
-		ns, rns, flns, sns, *ins,
+		ns, rns, flns, fens,
+		sns, *ins,
 		logChanMap)
 
 	wsID := idwrap.NewNow()

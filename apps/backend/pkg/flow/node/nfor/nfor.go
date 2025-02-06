@@ -28,6 +28,7 @@ type NodeFor struct {
 	ErrorHandling mnfor.ErrorHandling
 }
 
+// TODO: check this
 func New(id idwrap.IDWrap, iterCount int64, timeout time.Duration) *NodeFor {
 	return &NodeFor{
 		FlowNodeID: id,

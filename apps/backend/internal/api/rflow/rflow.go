@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
+	"the-dev-tools/backend/pkg/flow/node/nforeach"
 	"the-dev-tools/backend/pkg/flow/node/nif"
 	"the-dev-tools/backend/pkg/flow/node/nnoop"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
@@ -25,6 +26,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
+	"the-dev-tools/backend/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/backend/pkg/model/mnnode/mnif"
 	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
@@ -41,6 +43,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/snodefor"
+	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
@@ -81,7 +84,8 @@ type FlowServiceRPC struct {
 	// sub nodes
 	ns   snode.NodeService
 	rns  snoderequest.NodeRequestService
-	flns snodefor.NodeForService
+	fns  snodefor.NodeForService
+	fens snodeforeach.NodeForEachService
 	sns  snodenoop.NodeNoopService
 	ins  snodeif.NodeIfService
 
@@ -92,7 +96,8 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
 	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
-	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, sns snodenoop.NodeNoopService, ins snodeif.NodeIfService,
+	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, fens snodeforeach.NodeForEachService,
+	sns snodenoop.NodeNoopService, ins snodeif.NodeIfService,
 	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
@@ -120,7 +125,8 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 		// sub nodes
 		ns:   ns,
 		rns:  rns,
-		flns: flns,
+		fns:  flns,
+		fens: fens,
 		sns:  sns,
 		ins:  ins,
 
@@ -319,8 +325,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, errors.New("get nodes"))
 	}
 
-	var forNodes []mnfor.MNFor
 	var requestNodes []mnrequest.MNRequest
+	var forNodes []mnfor.MNFor
+	var forEachNodes []mnforeach.MNForEach
 	var ifNodes []mnif.MNIF
 	var noopNodes []mnnoop.NoopNode
 	var startNodeID idwrap.IDWrap
@@ -334,11 +341,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 			requestNodes = append(requestNodes, *rn)
 		case mnnode.NODE_KIND_FOR:
-			fn, err := c.flns.GetNodeFor(ctx, node.ID)
+			fn, err := c.fns.GetNodeFor(ctx, node.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err))
 			}
 			forNodes = append(forNodes, *fn)
+		case mnnode.NODE_KIND_FOR_EACH:
+			fen, err := c.fens.GetNodeForEach(ctx, node.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for each: %w", err))
+			}
+			forEachNodes = append(forEachNodes, *fen)
 		case mnnode.NODE_KIND_NO_OP:
 			sn, err := c.sns.GetNodeNoop(ctx, node.ID)
 			if err != nil {
@@ -447,6 +460,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	for _, noopNode := range noopNodes {
 		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID)
+	}
+
+	for _, forEachNode := range forEachNodes {
+		// TODO: add names
+		// TODO: make timeout configurable
+		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, "", forEachNode.IterPath, time.Second,
+			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
 	edges, err := c.fes.GetEdgesByFlowID(ctx, flowID)
