@@ -1,5 +1,5 @@
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, parse, relative } from 'node:path';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipe } from 'effect';
 
@@ -16,11 +16,11 @@ for (const dirent of dirents) {
   if (!dirent.isFile()) continue;
   if (!dirent.name.endsWith('_pb.ts')) continue;
 
-  const path = join(dirent.parentPath, dirent.name);
-  const file = readFileSync(path, { encoding: 'utf-8' });
+  const file = path.join(dirent.parentPath, dirent.name);
+  const data = readFileSync(file, { encoding: 'utf-8' });
 
-  const importPath = path.replace(dir, './');
-  const exportName = file.match(/(?<=export const )file_.*(?=: GenFile)/)?.[0];
+  const importPath = file.replace(dir, './').replaceAll(path.sep, path.posix.sep);
+  const exportName = data.match(/(?<=export const )file_.*(?=: GenFile)/)?.[0];
 
   if (exportName === undefined) continue;
 
@@ -36,4 +36,4 @@ ${exports.join('\n')}
 ];
 `;
 
-writeFileSync(join(dir, 'files.ts'), content, { encoding: 'utf-8' });
+writeFileSync(path.join(dir, 'files.ts'), content, { encoding: 'utf-8' });

@@ -1,11 +1,11 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { Command } from '@effect/platform';
+import { Command, Path, Url } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Console, Effect, Exit, pipe, Scope } from 'effect';
+import { Console, Effect, Exit, pipe, Runtime, Scope, String } from 'effect';
 import { app, BrowserWindow } from 'electron';
 
-const createWindow = () => {
+const createWindow = Effect.gen(function* () {
+  const path = yield* Path.Path;
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 800,
@@ -19,24 +19,30 @@ const createWindow = () => {
   if (import.meta.env.DEV && process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    void mainWindow.loadFile(path.join(import.meta.dirname, '../renderer/index.html'));
+    void mainWindow.loadFile(path.resolve(import.meta.dirname, '../renderer/index.html'));
   }
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
-};
+});
 
 const server = Effect.gen(function* () {
-  const server = yield* pipe(
+  const path = yield* Path.Path;
+
+  const dist = yield* pipe(
     import.meta.resolve('@the-dev-tools/backend'),
-    fileURLToPath,
-    (_) => `${_}/backend`.replaceAll('/app.asar/', '/app.asar.unpacked/'),
+    Url.fromString,
+    Effect.flatMap(path.fromFileUrl),
+  );
+
+  const server = yield* pipe(
+    path.join(dist, 'backend'),
+    String.replaceAll('app.asar', 'app.asar.unpacked'),
     Command.make,
     Command.env({
       DB_MODE: 'local',
-      // TODO: store the database in an appropriate location
-      DB_PATH: './',
-      DB_NAME: 'dev-tools',
+      DB_PATH: app.getPath('userData'),
+      DB_NAME: 'state',
       // TODO: we probably shouldn't encrypt local database
       DB_ENCRYPTION_KEY: 'secret',
       HMAC_SECRET: 'secret',
@@ -56,15 +62,15 @@ const server = Effect.gen(function* () {
   return server;
 });
 
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-const client = Effect.asyncEffect<void, never, never, never, never, Scope.Scope>((callback) =>
-  Effect.gen(function* () {
+const client = pipe(
+  Effect.fn(function* (callback: (_: typeof Effect.void) => void) {
     const scope = yield* Scope.make();
+    const runtime = yield* Effect.runtime<Effect.Effect.Context<typeof createWindow>>();
 
     // This method will be called when Electron has finished
     // initialization and is ready to create browser windows.
     // Some APIs can only be used after this event occurs.
-    app.on('ready', createWindow);
+    app.on('ready', () => void Runtime.runSync(runtime)(createWindow));
 
     // Quit when all windows are closed, except on macOS. There, it's common
     // for applications and their menu bar to stay active until the user quits
@@ -78,11 +84,14 @@ const client = Effect.asyncEffect<void, never, never, never, never, Scope.Scope>
     // dock icon is clicked and there are no other windows open.
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length > 0) return;
-      createWindow();
+      Runtime.runSync(runtime)(createWindow);
     });
 
     yield* Effect.addFinalizer((exit) => Console.info(`Client exited with status "${exit._tag}"`));
+
+    return Effect.void;
   }),
+  Effect.asyncEffect,
 );
 
 // In this file you can include the rest of your app's specific main process

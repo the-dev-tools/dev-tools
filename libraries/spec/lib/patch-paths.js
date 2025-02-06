@@ -1,5 +1,5 @@
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, parse, relative } from 'node:path';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipe } from 'effect';
 
@@ -14,27 +14,27 @@ const importChanges = [];
 
 for (const dirent of dirents) {
   if (!dirent.isFile()) continue;
-  const oldPath = join(dirent.parentPath, dirent.name);
+  const oldPath = path.join(dirent.parentPath, dirent.name);
 
-  const path1 = parse(dirent.name).name;
-  const path2 = basename(dirent.parentPath) + '.proto';
-  const newPath = join(dirent.parentPath, path1, path2);
+  const version = path.parse(dirent.name).name;
+  const filename = path.basename(dirent.parentPath) + '.proto';
+  const newPath = path.join(dirent.parentPath, version, filename);
 
   newPaths.push(newPath);
 
-  const oldImport = oldPath.replace(dir, '');
-  const newImport = newPath.replace(dir, '');
+  const oldImport = oldPath.replace(dir, '').replaceAll(path.sep, path.posix.sep);
+  const newImport = newPath.replace(dir, '').replaceAll(path.sep, path.posix.sep);
 
   importChanges.push([oldImport, newImport]);
 
-  mkdirSync(dirname(newPath), { recursive: true });
+  mkdirSync(path.dirname(newPath), { recursive: true });
   renameSync(oldPath, newPath);
 }
 
-for (const path of newPaths) {
-  let file = readFileSync(path, { encoding: 'utf-8' });
+for (const filePath of newPaths) {
+  let file = readFileSync(filePath, { encoding: 'utf-8' });
   for (const [oldImport, newImport] of importChanges) {
     file = file.replace(oldImport, newImport);
   }
-  writeFileSync(path, file, { encoding: 'utf-8' });
+  writeFileSync(filePath, file, { encoding: 'utf-8' });
 }
