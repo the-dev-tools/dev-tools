@@ -368,6 +368,9 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 	case map[string]interface{}:
 		urlDataNest := urlData.(map[string]interface{})
 		queryData, ok := urlDataNest["query"].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("query %T not supported", urlDataNest["query"])
+		}
 		queryParamsArr := make([]murl.QueryParamter, 0)
 
 		raw, ok := urlDataNest["raw"].(string)
@@ -541,6 +544,6 @@ func BodyType(bodyStr string) mitemapiexample.BodyType {
 	case mbody.ModeURLEncoded:
 		return mitemapiexample.BodyTypeUrlencoded
 	default:
-		return mitemapiexample.BodyTypeUndefined
+		return mitemapiexample.BodyTypeNone
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mbodyform"
@@ -193,25 +194,23 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		key := entry.Request.Method + " " + entry.Request.URL
 
 		var api *mitemapi.ItemApi
-		var isDuplicate bool
 
 		// Check if the API endpoint already exists.
-		if existing, ok := apiMap[key]; ok {
-			api = existing
-			isDuplicate = true
-		} else {
-			// Create Endpoint/api for first occurrence.
-			apiID := idwrap.NewNow()
-			api = &mitemapi.ItemApi{
-				ID:           apiID,
-				Name:         key,
-				Url:          entry.Request.URL,
-				Method:       entry.Request.Method,
-				CollectionID: collectionID,
-			}
-			apiMap[key] = api
-			result.Apis = append(result.Apis, *api)
+		if _, ok := apiMap[key]; ok {
+			continue
 		}
+
+		// Create Endpoint/api for first occurrence.
+		apiID := idwrap.NewNow()
+		api = &mitemapi.ItemApi{
+			ID:           apiID,
+			Name:         key,
+			Url:          entry.Request.URL,
+			Method:       entry.Request.Method,
+			CollectionID: collectionID,
+		}
+		apiMap[key] = api
+		result.Apis = append(result.Apis, *api)
 
 		// Create an example for this entry.
 		exampleID := idwrap.NewNow()
@@ -224,51 +223,44 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		}
 
 		// If first occurrence, create a default example as well.
-		var defaultExampleID idwrap.IDWrap
-		if !isDuplicate {
-			defaultExampleID = idwrap.NewNow()
-			exampleDefault := mitemapiexample.ItemApiExample{
-				Name:         key,
-				BodyType:     mitemapiexample.BodyTypeNone,
-				IsDefault:    true,
-				CollectionID: collectionID,
-				ItemApiID:    api.ID,
-				ID:           defaultExampleID,
-			}
-			result.Examples = append(result.Examples, exampleDefault)
-		} else {
-			// If duplicate, use the default from the first occurrence.
-			defaultExampleID = api.ID // or however you wish to merge default examples
+		defaultExampleID := idwrap.NewNow()
+		exampleDefault := mitemapiexample.ItemApiExample{
+			Name:         key,
+			BodyType:     mitemapiexample.BodyTypeRaw,
+			IsDefault:    true,
+			CollectionID: collectionID,
+			ItemApiID:    api.ID,
+			ID:           defaultExampleID,
 		}
-
 		// Only add a flow node once per unique API.
-		if !isDuplicate {
-			posY += 200
-			flowNodeID := idwrap.NewNow()
-			node := mnnode.MNode{
-				ID:        flowNodeID,
-				FlowID:    flowID,
-				Name:      key,
-				NodeKind:  mnnode.NODE_KIND_REQUEST,
-				PositionX: posX,
-				PositionY: posY,
-			}
-			result.Nodes = append(result.Nodes, node)
-
-			request := mnrequest.MNRequest{
-				FlowNodeID: flowNodeID,
-				EndpointID: &api.ID,
-				ExampleID:  &exampleID,
-			}
-			result.RequestNodes = append(result.RequestNodes, request)
+		posY += 200
+		flowNodeID := idwrap.NewNow()
+		node := mnnode.MNode{
+			ID:        flowNodeID,
+			FlowID:    flowID,
+			Name:      key,
+			NodeKind:  mnnode.NODE_KIND_REQUEST,
+			PositionX: posX,
+			PositionY: posY,
 		}
+		result.Nodes = append(result.Nodes, node)
 
-		// Process headers and queries (you might want to merge duplicates).
+		request := mnrequest.MNRequest{
+			FlowNodeID: flowNodeID,
+			EndpointID: &api.ID,
+			ExampleID:  &exampleID,
+		}
+		result.RequestNodes = append(result.RequestNodes, request)
+
 		headers := extractHeaders(entry.Request.Headers, exampleID)
+		headersDefault := extractHeaders(entry.Request.Headers, defaultExampleID)
 		result.Headers = append(result.Headers, headers...)
+		result.Headers = append(result.Headers, headersDefault...)
 
 		queries := extractQueryParams(entry.Request.QueryString, exampleID)
+		queriesDefault := extractQueryParams(entry.Request.QueryString, defaultExampleID)
 		result.Queries = append(result.Queries, queries...)
+		result.Queries = append(result.Queries, queriesDefault...)
 
 		// Handle the request body.
 		rawBody := mbodyraw.ExampleBodyRaw{
@@ -281,24 +273,36 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 		if entry.Request.PostData != nil {
 			postData := entry.Request.PostData
-			switch {
-			case strings.Contains(postData.MimeType, RawBodyCheck):
-				rawBody.Data = []byte(postData.Text)
-				example.BodyType = mitemapiexample.BodyTypeRaw
-			case strings.Contains(postData.MimeType, FormBodyCheck):
+			if strings.Contains(postData.MimeType, FormBodyCheck) {
 				formBodies := ConvertParamToFormBodies(postData.Params, exampleID)
 				result.FormBodies = append(result.FormBodies, formBodies...)
 				formBodiesDefault := ConvertParamToFormBodies(postData.Params, defaultExampleID)
 				result.FormBodies = append(result.FormBodies, formBodiesDefault...)
 
-				example.BodyType = mitemapiexample.BodyTypeUrlencoded
-			case strings.Contains(postData.MimeType, UrlEncodedBodyCheck):
+				example.BodyType = mitemapiexample.BodyTypeForm
+			} else if strings.Contains(postData.MimeType, UrlEncodedBodyCheck) {
 				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, exampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
 				urlEncodedBodiesDefault := ConvertParamToUrlBodies(postData.Params, defaultExampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodiesDefault...)
 
-				example.BodyType = mitemapiexample.BodyTypeForm
+				example.BodyType = mitemapiexample.BodyTypeUrlencoded
+
+			} else {
+
+				rawBody.Data = []byte(postData.Text)
+				example.BodyType = mitemapiexample.BodyTypeRaw
+				if len(rawBody.Data) > 1024 {
+					compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
+					if err != nil {
+						return result, err
+					}
+					if len(compressedData) < len(rawBody.Data) {
+						rawBody.Data = compressedData
+						rawBody.CompressType = mbodyraw.CompressTypeZstd
+					}
+				}
+
 			}
 		}
 		result.RawBodies = append(result.RawBodies, rawBody)
@@ -308,6 +312,8 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		result.RawBodies = append(result.RawBodies, rawBodyDefault)
 
 		result.Examples = append(result.Examples, example)
+		exampleDefault.BodyType = example.BodyType
+		result.Examples = append(result.Examples, exampleDefault)
 	}
 
 	// Create prev and next fields for apis and examples.
@@ -368,7 +374,8 @@ func isXHRRequest(entry Entry) bool {
 	for _, header := range entry.Request.Headers {
 		if strings.EqualFold(header.Name, "Content-Type") {
 			if strings.Contains(header.Value, "application/json") ||
-				strings.Contains(header.Value, "application/xml") {
+				strings.Contains(header.Value, "application/xml") ||
+				strings.Contains(header.Value, "text/plain") {
 				return true
 			}
 		}

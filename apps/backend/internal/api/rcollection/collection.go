@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rworkspace"
@@ -331,6 +333,8 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	fmt.Println("wsID", wsID)
+
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -343,11 +347,15 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	fmt.Println("harData")
+
 	collectionID := idwrap.NewNow()
 	resolved, err := thar.ConvertHAR(harData, collectionID, wsID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	fmt.Println("resolved")
 
 	collectionData := mcollection.Collection{
 		ID:      collectionID,
@@ -361,6 +369,7 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	log.Println("trying to create Collection")
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -369,13 +378,14 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	for i := range resolved.Apis {
+		resolved.Apis[i].CollectionID = collectionID
+	}
 
+	log.Println("trying to create Api")
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	for i := range resolved.Apis {
-		resolved.Apis[i].CollectionID = collectionID
 	}
 
 	err = txItemApiService.CreateItemApiBulk(ctx, resolved.Apis)
@@ -383,14 +393,19 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	log.Println("trying to create Example")
+
 	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	log.Println("trying to create Header")
 
 	txExampleHeaderService, err := sexampleheader.NewTX(ctx, tx)
 	if err != nil {
@@ -401,6 +416,8 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	log.Println("trying to create Query")
+
 	txExampleQueryService, err := sexamplequery.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -410,14 +427,22 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	log.Println("trying to create Body Raw")
+
 	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	fmt.Println("resolved.RawBodies", len(resolved.RawBodies))
+
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolved.RawBodies)
 	if err != nil {
+		fmt.Println("err", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	log.Println("trying to create Body Form")
 
 	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
 	if err != nil {
@@ -427,6 +452,8 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	log.Println("trying to create Body URL Encoded")
 
 	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
 	if err != nil {
@@ -438,7 +465,7 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	}
 
 	// Flow Creation
-
+	//
 	// Flow
 	txFlowService, err := sflow.NewTX(ctx, tx)
 	if err != nil {
@@ -489,10 +516,13 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	log.Println("trying to commit")
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	fmt.Println("commited", resolved.Flow.ID)
 
 	// Changes
 	flowListItem := &flowv1.FlowListItem{

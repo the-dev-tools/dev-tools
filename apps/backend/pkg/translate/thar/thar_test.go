@@ -40,7 +40,9 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 	Entry.Request.Method = "GET"
 	Entry.Request.URL = "http://example.com"
 	Entry.Request.HTTPVersion = "HTTP/1.1"
-	Entry.Request.Headers = []thar.Header{}
+	Entry.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 	testHar := thar.HAR{
 		Log: thar.Log{
 			Entries: []thar.Entry{Entry, Entry},
@@ -54,11 +56,11 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 		t.Errorf("Error converting HAR: %v", err)
 	}
 
-	if len(resolved.Apis) != 2 {
+	if len(resolved.Apis) != 1 {
 		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 4 {
-		t.Errorf("Expected 1 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 2 {
+		t.Errorf("Expected 4 Raw Body, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -66,7 +68,14 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 			t.Errorf("Expected empty body, got %s", rawBody.Data)
 		}
 
-		if rawBody.ExampleID != resolved.Examples[i].ID {
+		var found bool
+		for examples := range resolved.Examples {
+			if rawBody.ExampleID != resolved.Examples[examples].ID {
+				found = true
+				break
+			}
+		}
+		if !found {
 			t.Errorf("Expected ExampleID to be %s, got %s", resolved.Examples[i].ID, rawBody.ExampleID)
 		}
 	}
@@ -77,7 +86,9 @@ func TestHarResvoledBodyForm(t *testing.T) {
 	Entry.Request.Method = "GET"
 	Entry.Request.URL = "http://example.com"
 	Entry.Request.HTTPVersion = "HTTP/1.1"
-	Entry.Request.Headers = []thar.Header{}
+	Entry.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 	Entry.Request.PostData = &thar.PostData{}
 	Entry.Request.PostData.MimeType = thar.FormBodyCheck
 	Entry.Request.PostData.Params = []thar.Param{
@@ -97,10 +108,10 @@ func TestHarResvoledBodyForm(t *testing.T) {
 		t.Errorf("Error converting HAR: %v", err)
 	}
 
-	if len(resolved.Apis) != 2 {
+	if len(resolved.Apis) != 1 {
 		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 4 {
+	if len(resolved.RawBodies) != 2 {
 		t.Errorf("Expected 1 Raw Body, got %d", len(resolved.RawBodies))
 	}
 
@@ -109,12 +120,19 @@ func TestHarResvoledBodyForm(t *testing.T) {
 			t.Errorf("Expected empty body, got %s", rawBody.Data)
 		}
 
-		if rawBody.ExampleID != resolved.Examples[i].ID {
+		var found bool
+		for examples := range resolved.Examples {
+			if rawBody.ExampleID != resolved.Examples[examples].ID {
+				found = true
+				break
+			}
+		}
+		if !found {
 			t.Errorf("Expected ExampleID to be %s, got %s", resolved.Examples[i].ID, rawBody.ExampleID)
 		}
 	}
 
-	if len(resolved.FormBodies) != 4 {
+	if len(resolved.FormBodies) != 2 {
 		t.Errorf("Expected 4 Form Body, got %d", len(resolved.FormBodies))
 	}
 }
@@ -124,7 +142,9 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 	Entry.Request.Method = "GET"
 	Entry.Request.URL = "http://example.com"
 	Entry.Request.HTTPVersion = "HTTP/1.1"
-	Entry.Request.Headers = []thar.Header{}
+	Entry.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 	Entry.Request.PostData = &thar.PostData{}
 	Entry.Request.PostData.MimeType = thar.UrlEncodedBodyCheck
 	Entry.Request.PostData.Params = []thar.Param{
@@ -144,10 +164,10 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 		t.Errorf("Error converting HAR: %v", err)
 	}
 
-	if len(resolved.Apis) != 2 {
+	if len(resolved.Apis) != 1 {
 		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 4 {
+	if len(resolved.RawBodies) != 2 {
 		t.Errorf("Expected 1 Raw Body, got %d", len(resolved.RawBodies))
 	}
 
@@ -156,12 +176,19 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 			t.Errorf("Expected empty body, got %s", rawBody.Data)
 		}
 
-		if rawBody.ExampleID != resolved.Examples[i].ID {
+		var found bool
+		for examples := range resolved.Examples {
+			if rawBody.ExampleID != resolved.Examples[examples].ID {
+				found = true
+				break
+			}
+		}
+		if !found {
 			t.Errorf("Expected ExampleID to be %s, got %s", resolved.Examples[i].ID, rawBody.ExampleID)
 		}
 	}
 
-	if len(resolved.UrlEncodedBodies) != 4 {
+	if len(resolved.UrlEncodedBodies) != 2 {
 		t.Errorf("Expected 4 Form Body, got %d", len(resolved.FormBodies))
 	}
 }
@@ -194,7 +221,9 @@ func TestHarUnknownMimeType(t *testing.T) {
 	entry.Request.Method = "POST"
 	entry.Request.URL = "http://example.com/api"
 	entry.Request.HTTPVersion = "HTTP/1.1"
-	entry.Request.Headers = []thar.Header{}
+	entry.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 	entry.Request.PostData = &thar.PostData{
 		MimeType: "unknown/type",
 		Params: []thar.Param{
@@ -222,9 +251,20 @@ func TestHarUnknownMimeType(t *testing.T) {
 	}
 
 	// Verify that the bodies are empty.
-	for _, rawBody := range resolved.RawBodies {
+	for i, rawBody := range resolved.RawBodies {
 		if !bytes.Equal(rawBody.Data, []byte{}) {
 			t.Errorf("Expected empty body, got %s", rawBody.Data)
+		}
+
+		var found bool
+		for examples := range resolved.Examples {
+			if rawBody.ExampleID != resolved.Examples[examples].ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected ExampleID to be %s, got %s", resolved.Examples[i].ID, rawBody.ExampleID)
 		}
 	}
 }
@@ -236,7 +276,7 @@ func TestHarDiverseEntries(t *testing.T) {
 	entry1.Request.URL = "http://example.com"
 	entry1.Request.HTTPVersion = "HTTP/1.1"
 	entry1.Request.Headers = []thar.Header{
-		{Name: "Accept", Value: "application/json"},
+		{Name: "Content-Type", Value: "application/json"},
 	}
 
 	// Entry 2: POST with form body.
@@ -244,7 +284,9 @@ func TestHarDiverseEntries(t *testing.T) {
 	entry2.Request.Method = "POST"
 	entry2.Request.URL = "http://example.com/submit"
 	entry2.Request.HTTPVersion = "HTTP/1.1"
-	entry2.Request.Headers = []thar.Header{}
+	entry2.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 	entry2.Request.PostData = &thar.PostData{
 		MimeType: thar.FormBodyCheck,
 		Params:   []thar.Param{{Name: "username", Value: "admin"}},
@@ -255,7 +297,9 @@ func TestHarDiverseEntries(t *testing.T) {
 	entry3.Request.Method = "POST"
 	entry3.Request.URL = "http://example.com/login"
 	entry3.Request.HTTPVersion = "HTTP/1.1"
-	entry3.Request.Headers = []thar.Header{}
+	entry3.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 	entry3.Request.PostData = &thar.PostData{
 		MimeType: thar.UrlEncodedBodyCheck,
 		Params:   []thar.Param{{Name: "user", Value: "admin"}},
@@ -301,7 +345,9 @@ func TestHarResolvedNewFields(t *testing.T) {
 	entry.Request.Method = "GET"
 	entry.Request.URL = "http://example.com/flow"
 	entry.Request.HTTPVersion = "HTTP/1.1"
-	entry.Request.Headers = []thar.Header{}
+	entry.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 
 	testHar := thar.HAR{
 		Log: thar.Log{
@@ -338,7 +384,9 @@ func TestHarResolvedDeepFields(t *testing.T) {
 	entry.Request.Method = "GET"
 	entry.Request.URL = "http://example.com/flow"
 	entry.Request.HTTPVersion = "HTTP/1.1"
-	entry.Request.Headers = []thar.Header{}
+	entry.Request.Headers = []thar.Header{
+		{Name: "Content-Type", Value: "application/json"},
+	}
 
 	testHar := thar.HAR{
 		Log: thar.Log{
@@ -372,7 +420,6 @@ func TestHarResolvedDeepFields(t *testing.T) {
 	// TODO: refactor this test
 
 	apiID := resolved.Apis[0].ID
-	exampleID := resolved.Examples[0].ID
 	requestNode := resolved.RequestNodes[0]
 	if requestNode.EndpointID == nil {
 		t.Fatalf("Expected Request Node to be populated")
@@ -386,8 +433,22 @@ func TestHarResolvedDeepFields(t *testing.T) {
 		t.Errorf("Expected Request APIID to be %v, got %v", apiID, resolved.RequestNodes[0].EndpointID)
 	}
 
-	if *requestNode.ExampleID != exampleID {
-		t.Errorf("Expected Request ExampleID to be %v, got %v", exampleID, resolved.RequestNodes[0].ExampleID)
+	// Verify that the bodies are empty.
+	for i, rawBody := range resolved.RawBodies {
+		if !bytes.Equal(rawBody.Data, []byte{}) {
+			t.Errorf("Expected empty body, got %s", rawBody.Data)
+		}
+
+		var found bool
+		for examples := range resolved.Examples {
+			if rawBody.ExampleID != resolved.Examples[examples].ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected ExampleID to be %s, got %s", resolved.Examples[i].ID, rawBody.ExampleID)
+		}
 	}
 }
 
