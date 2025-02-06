@@ -28,13 +28,7 @@ jobs:
       - name: Build
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
 
-      - name: Make update metadata file names unique
-        # https://github.com/electron-userland/electron-builder/issues/7975
-        run: mv -n ${{ steps.info.outputs.ROOT }}/dist/latest{*,-${{ matrix.os.name }}}.yml
-
       - name: Publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          scripts upload-release-assets \
-            ${{ steps.info.outputs.ROOT }}/dist/{*-${{ steps.info.outputs.VERSION }}-*,latest*.yml}
+        run: scripts upload-electron-release-assets

@@ -1,7 +1,21 @@
 import { Args, Command as CliCommand } from '@effect/cli';
 import { FileSystem, Path, Command as PlatformCommand } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Array, Boolean, Cause, Config, Effect, Option, pipe, Record, Schema, String, Struct } from 'effect';
+import {
+  Array,
+  Boolean,
+  Cause,
+  Config,
+  Effect,
+  flow,
+  Match,
+  Option,
+  pipe,
+  Record,
+  Schema,
+  String,
+  Struct,
+} from 'effect';
 import { releaseChangelog, releaseVersion } from 'nx/release/index.js';
 import { type NxReleaseArgs } from 'nx/src/command-line/release/command-object.js';
 
@@ -146,19 +160,51 @@ const release = CliCommand.make(
   }, Effect.provide(Repository.Default)),
 );
 
-const uploadReleaseAssets = CliCommand.make(
-  'upload-release-assets',
-  { files: pipe(Args.file({ name: 'files' }), Args.atLeast(1)) },
-  Effect.fn(function* ({ files }) {
-    const repo = yield* Repository;
+const uploadElectronReleaseAssets = CliCommand.make(
+  'upload-electron-release-assets',
+  {},
+  Effect.fn(function* () {
     const path = yield* Path.Path;
-    const root = yield* resolveMonorepoRoot;
+    const fs = yield* FileSystem.FileSystem;
+    const repo = yield* Repository;
 
     const tag = yield* repo.tag;
-    const { id } = yield* repo.getReleaseByTag(tag);
+    const { id: releaseId } = yield* repo.getReleaseByTag(tag);
+    const { name, version } = yield* repo.project;
+    const { root: projectRoot } = yield* getProjectInfo(name);
+
+    const dist = path.join(projectRoot, 'dist');
 
     yield* pipe(
-      files.map((_) => repo.uploadReleaseAsset({ id, path: path.resolve(root, _) })),
+      yield* fs.readDirectory(dist),
+      Array.filterMap(
+        flow(
+          Match.value,
+
+          // Auto update meta
+          Match.when(String.startsWith('latest'), (file) =>
+            Option.some(
+              repo.uploadReleaseAsset({
+                releaseId,
+                path: path.join(dist, file),
+                name: `latest-${process.platform}-${process.arch}.yml`,
+              }),
+            ),
+          ),
+
+          // Build artifacts
+          Match.when(String.includes(version), (file) =>
+            Option.some(
+              repo.uploadReleaseAsset({
+                releaseId,
+                path: path.join(dist, file),
+              }),
+            ),
+          ),
+
+          Match.orElse(() => Option.none()),
+        ),
+      ),
       Effect.all,
     );
   }, Effect.provide(Repository.Default)),
@@ -166,7 +212,7 @@ const uploadReleaseAssets = CliCommand.make(
 
 pipe(
   CliCommand.make('scripts'),
-  CliCommand.withSubcommands([exportProjectInfo, goInstallTools, release, uploadReleaseAssets]),
+  CliCommand.withSubcommands([exportProjectInfo, goInstallTools, release, uploadElectronReleaseAssets]),
   CliCommand.run({ name: 'Internal scripts', version: '' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),

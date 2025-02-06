@@ -1,4 +1,4 @@
-artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+artifactName: ${productName}-${version}-${platform}-${arch}.${ext}
 extraMetadata:
   name: dev-tools
 directories:

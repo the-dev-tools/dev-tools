@@ -10,8 +10,9 @@ interface DispatchWorkflowProps {
 }
 
 interface UploadReleaseAssetProps {
-  id: number;
+  releaseId: number;
   path: string;
+  name?: string;
 }
 
 export class Repository extends Effect.Service<Repository>()('Repository', {
@@ -53,11 +54,11 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
       const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
 
-      const name = path.basename(_.path);
+      const name = _.name ?? path.basename(_.path);
       const data: unknown = yield* fs.readFile(_.path);
 
       return yield* Effect.tryPromise(() =>
-        octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.id, name, data: data as string }),
+        octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.releaseId, name, data: data as string }),
       );
     }, Effect.asVoid);
 
