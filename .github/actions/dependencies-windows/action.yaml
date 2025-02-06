@@ -1,0 +1,36 @@
+name: Setup Windows dependencies
+description: ''
+
+runs:
+  using: composite
+  steps:
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~\scoop
+        key: scoop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.\scoop.json') }}
+
+    - uses: MinoruSekine/setup-scoop@v4.0.1
+      with:
+        install_scoop: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        scoop_update: false
+
+    - shell: powershell
+      run: scoop import .\scoop.json
+
+    # Export additional paths which the setup action does not account for
+    #
+    # Why in reverse? Appending a directory to $GITHUB_PATH causes that
+    # directory to be prepended to $PATH. Thus we preserve their order by
+    # reversing them before they are reversed again
+    - shell: powershell
+      run: |
+        scoop list |
+          %{ scoop info $_.Name --verbose } |
+          %{ $_."Path Added" -Split "`n" } |
+          Where { $_ } |
+          &{ [Collections.Stack]@($input) } |
+          Out-File -FilePath $env:GITHUB_PATH -Encoding ascii -Force
+
+    - shell: powershell
+      run: scoop shim add scripts pnpm '--' run --filter="*/scripts" cli

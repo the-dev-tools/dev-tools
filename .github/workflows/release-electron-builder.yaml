@@ -8,11 +8,12 @@ jobs:
     name: Build
     strategy:
       matrix:
-        os:
-          - { name: linux-x86_64, runner: ubuntu-latest }
-          - { name: mac-arm64, runner: macos-latest }
-          - { name: mac-x64, runner: macos-13 }
-    runs-on: ${{ matrix.os.runner }}
+        runner:
+          - macos-13 # x64
+          - macos-latest # arm64
+          - ubuntu-latest # x64
+          - windows-latest # x64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
     steps:

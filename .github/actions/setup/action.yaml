@@ -1,31 +1,31 @@
-name: Setup runner environment
-description: Load runner shell environment, setup cache, install dependencies
+name: Setup runner
+description: ''
+
+inputs:
+  shell:
+    description: INTERNAL
+    default: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
 
 runs:
   using: composite
   steps:
-    - uses: DeterminateSystems/nix-installer-action@v12
-    - uses: DeterminateSystems/magic-nix-cache-action@v7
+    - if: runner.os != 'Windows'
+      uses: ./.github/actions/dependencies-unix
 
-    - name: Load Nix runner shell environment
-      shell: bash
-      run: nix run .#gha-nix-develop -- .#runner
+    - if: runner.os == 'Windows'
+      uses: ./.github/actions/dependencies-windows
 
-    - name: Setup PNPM cache
-      uses: actions/setup-node@v4
+    - uses: actions/setup-node@v4
       with:
         cache: pnpm
 
-    - name: Install PNPM dependencies
-      shell: bash
-      run: pnpm install
-
-    - name: Setup Go cache
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v5
       with:
         go-version: '>=1.23.5'
         cache-dependency-path: '**/*.sum'
 
-    - name: Install Go tools
-      shell: bash
+    - shell: ${{ inputs.shell }}
+      run: pnpm install
+
+    - shell: ${{ inputs.shell }}
       run: scripts go-install-tools
