@@ -15,7 +15,7 @@ import (
 
 const (
 	NodeOutputKey  = "header"
-	NodeRequestKey = "request"
+	NodeRequestKey = "response"
 )
 
 type NodeRequest struct {

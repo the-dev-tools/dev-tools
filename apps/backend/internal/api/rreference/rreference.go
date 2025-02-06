@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -171,44 +172,12 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 	}
 	if exampleID != nil {
 		exID := *exampleID
-		resp, err := c.ers.GetExampleRespByExampleID(ctx, exID)
+
+		respRef, err := GetExampleRespByExampleID(ctx, c.ers, c.erhs, exID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, err
 		}
-
-		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		headerMap := make(map[string]string)
-		for _, header := range respHeaders {
-			headerVal, ok := headerMap[header.HeaderKey]
-			if ok {
-				headerMap[header.HeaderKey] = headerVal + ", " + header.Value
-			} else {
-				headerMap[header.HeaderKey] = header.Value
-			}
-		}
-
-		httpResp := httpclient.ResponseVar{
-			StatusCode: int(resp.Status),
-			Body:       resp.Body,
-			Headers:    headerMap,
-		}
-
-		var m map[string]interface{}
-		data, err := json.Marshal(httpResp)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		json.Unmarshal(data, &m)
-
-		localRef, err := reference.ConvertMapToReference(m, "response")
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		Items = append(Items, reference.ConvertPkgToRpc(localRef))
+		Items = append(Items, reference.ConvertPkgToRpc(*respRef))
 
 	}
 	if nodeID != nil {
@@ -243,51 +212,11 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 
 		var nodeRefs []*referencev1.Reference
 		for _, req := range reqs {
-			if req.ExampleID == nil {
+
+			respRef, err := GetExampleRespByExampleID(ctx, c.ers, c.erhs, *req.ExampleID)
+			if err != nil {
+				log.Println(err)
 				continue
-			}
-			resp, err := c.ers.GetExampleRespByExampleID(ctx, *req.ExampleID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("error getting response"))
-			}
-
-			var headersSubRefs []*referencev1.Reference
-			subRespHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("error getting headers"))
-			}
-
-			for _, header := range subRespHeaders {
-				headersSubRefs = append(headersSubRefs, &referencev1.Reference{
-					Key: &referencev1.ReferenceKey{
-						Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-						Key:  &header.HeaderKey,
-					},
-					Kind:  referencev1.ReferenceKind_REFERENCE_KIND_VALUE,
-					Value: &header.Value,
-				})
-			}
-
-			headerGroupKey := "headers"
-			headerGroupRef := &referencev1.Reference{
-				Key: &referencev1.ReferenceKey{
-					Group: &headerGroupKey,
-					Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
-				},
-				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-				Map:  headersSubRefs,
-			}
-			var RequestSub []*referencev1.Reference
-			RequestSub = append(RequestSub, headerGroupRef)
-
-			requestGroupKey := "request"
-			requestGroupRef := &referencev1.Reference{
-				Key: &referencev1.ReferenceKey{
-					Group: &requestGroupKey,
-					Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
-				},
-				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-				Map:  RequestSub,
 			}
 
 			flowNodeIDStr := node.NodeVarPrefix + req.FlowNodeID.String()
@@ -297,7 +226,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 					Key:  &flowNodeIDStr,
 				},
 				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-				Map:  []*referencev1.Reference{requestGroupRef},
+				Map:  []*referencev1.Reference{reference.ConvertPkgToRpc(*respRef)},
 			})
 
 		}
@@ -317,4 +246,45 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		Items: Items,
 	}
 	return connect.NewResponse(response), nil
+}
+
+func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.Reference, error) {
+	resp, err := ers.GetExampleRespByExampleID(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	respHeaders, err := erhs.GetHeaderByRespID(ctx, resp.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	headerMap := make(map[string]string)
+	for _, header := range respHeaders {
+		headerVal, ok := headerMap[header.HeaderKey]
+		if ok {
+			headerMap[header.HeaderKey] = headerVal + ", " + header.Value
+		} else {
+			headerMap[header.HeaderKey] = header.Value
+		}
+	}
+
+	httpResp := httpclient.ResponseVar{
+		StatusCode: int(resp.Status),
+		Body:       resp.Body,
+		Headers:    headerMap,
+	}
+
+	var m map[string]interface{}
+	data, err := json.Marshal(httpResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	json.Unmarshal(data, &m)
+
+	localRef, err := reference.ConvertMapToReference(m, "response")
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return &localRef, nil
 }
