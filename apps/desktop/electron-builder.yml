@@ -13,6 +13,11 @@ linux:
   target:
     - AppImage
   category: Development
+win:
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 npmRebuild: false
 publish:
   provider: github
