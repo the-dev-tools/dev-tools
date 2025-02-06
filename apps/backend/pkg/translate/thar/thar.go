@@ -162,96 +162,115 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 	var posX, posY float64
 
-	StartNodeID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
 	startNode := mnnode.MNode{
-		ID:        StartNodeID,
+		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
 		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: posX,
 		PositionY: posY,
 	}
-
 	result.Nodes = append(result.Nodes, startNode)
 
 	startNodeNoop := mnnoop.NoopNode{
-		FlowNodeID: StartNodeID,
+		FlowNodeID: startNodeID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
 	}
-
 	result.NoopNodes = append(result.NoopNodes, startNodeNoop)
+
+	// Use a map to merge equivalent XHR entries.
+	apiMap := make(map[string]*mitemapi.ItemApi)
 
 	// Process each entry in the HAR file
 	for _, entry := range har.Log.Entries {
-		// creating Endpoint/api
-		//
-		apiID := idwrap.NewNow()
-		api := mitemapi.ItemApi{
-			ID:           apiID,
-			Name:         entry.Request.Method + " " + entry.Request.URL,
-			Url:          entry.Request.URL,
-			Method:       entry.Request.Method,
-			CollectionID: collectionID,
+		// Only process XHR requests.
+		if !isXHRRequest(entry) {
+			continue
 		}
 
-		result.Apis = append(result.Apis, api)
+		// Build a key based on method + URL.
+		key := entry.Request.Method + " " + entry.Request.URL
 
-		// Default Example
-		defaultExampleID := idwrap.NewNow()
-		exampleDefault := mitemapiexample.ItemApiExample{
-			Name:      entry.Request.Method + " " + entry.Request.URL,
-			BodyType:  mitemapiexample.BodyTypeNone,
-			IsDefault: true,
+		var api *mitemapi.ItemApi
+		var isDuplicate bool
 
-			CollectionID: collectionID,
-			ItemApiID:    api.ID,
-			ID:           defaultExampleID,
+		// Check if the API endpoint already exists.
+		if existing, ok := apiMap[key]; ok {
+			api = existing
+			isDuplicate = true
+		} else {
+			// Create Endpoint/api for first occurrence.
+			apiID := idwrap.NewNow()
+			api = &mitemapi.ItemApi{
+				ID:           apiID,
+				Name:         key,
+				Url:          entry.Request.URL,
+				Method:       entry.Request.Method,
+				CollectionID: collectionID,
+			}
+			apiMap[key] = api
+			result.Apis = append(result.Apis, *api)
 		}
 
-		// Creating example
+		// Create an example for this entry.
 		exampleID := idwrap.NewNow()
 		example := mitemapiexample.ItemApiExample{
-			Name:     entry.Request.Method + " " + entry.Request.URL,
-			BodyType: mitemapiexample.BodyTypeRaw,
-
+			Name:         key,
+			BodyType:     mitemapiexample.BodyTypeRaw,
 			CollectionID: collectionID,
 			ItemApiID:    api.ID,
 			ID:           exampleID,
 		}
 
-		flowNodeID := idwrap.NewNow()
-
-		posY += 200
-
-		// Create Flow Nodes
-		// Create Flow Node for this HAR entry
-		node := mnnode.MNode{
-			ID:        flowNodeID,
-			FlowID:    flowID,
-			Name:      entry.Request.Method + " " + entry.Request.URL,
-			NodeKind:  mnnode.NODE_KIND_REQUEST,
-			PositionX: posX,
-			PositionY: posY,
-			// set additional fields as needed...
-		}
-		result.Nodes = append(result.Nodes, node)
-
-		request := mnrequest.MNRequest{
-			FlowNodeID: flowNodeID,
-			EndpointID: &apiID,
-			ExampleID:  &exampleID,
+		// If first occurrence, create a default example as well.
+		var defaultExampleID idwrap.IDWrap
+		if !isDuplicate {
+			defaultExampleID = idwrap.NewNow()
+			exampleDefault := mitemapiexample.ItemApiExample{
+				Name:         key,
+				BodyType:     mitemapiexample.BodyTypeNone,
+				IsDefault:    true,
+				CollectionID: collectionID,
+				ItemApiID:    api.ID,
+				ID:           defaultExampleID,
+			}
+			result.Examples = append(result.Examples, exampleDefault)
+		} else {
+			// If duplicate, use the default from the first occurrence.
+			defaultExampleID = api.ID // or however you wish to merge default examples
 		}
 
-		result.RequestNodes = append(result.RequestNodes, request)
+		// Only add a flow node once per unique API.
+		if !isDuplicate {
+			posY += 200
+			flowNodeID := idwrap.NewNow()
+			node := mnnode.MNode{
+				ID:        flowNodeID,
+				FlowID:    flowID,
+				Name:      key,
+				NodeKind:  mnnode.NODE_KIND_REQUEST,
+				PositionX: posX,
+				PositionY: posY,
+			}
+			result.Nodes = append(result.Nodes, node)
 
-		// Get headers
+			request := mnrequest.MNRequest{
+				FlowNodeID: flowNodeID,
+				EndpointID: &api.ID,
+				ExampleID:  &exampleID,
+			}
+			result.RequestNodes = append(result.RequestNodes, request)
+		}
+
+		// Process headers and queries (you might want to merge duplicates).
 		headers := extractHeaders(entry.Request.Headers, exampleID)
 		result.Headers = append(result.Headers, headers...)
 
-		// Get queries
 		queries := extractQueryParams(entry.Request.QueryString, exampleID)
 		result.Queries = append(result.Queries, queries...)
 
+		// Handle the request body.
 		rawBody := mbodyraw.ExampleBodyRaw{
 			ID:            idwrap.NewNow(),
 			ExampleID:     exampleID,
@@ -289,10 +308,9 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		result.RawBodies = append(result.RawBodies, rawBodyDefault)
 
 		result.Examples = append(result.Examples, example)
-		result.Examples = append(result.Examples, exampleDefault)
 	}
 
-	// create prev and next fiels for each api and example
+	// Create prev and next fields for apis and examples.
 	var prevApi *mitemapi.ItemApi
 	var prevExample *mitemapiexample.ItemApiExample
 	var nextApi *mitemapi.ItemApi
@@ -319,11 +337,11 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		}
 	}
 
+	// Create sequential edges for the flow nodes.
 	for i, node := range result.Nodes {
 		if i+1 > len(result.Nodes)-1 {
 			break
 		}
-
 		currentEdge := edge.Edge{
 			ID:            idwrap.NewNow(),
 			FlowID:        flowID,
@@ -335,6 +353,27 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	}
 
 	return result, nil
+}
+
+// Helper: returns true if the HAR entry is for an XHR request.
+func isXHRRequest(entry Entry) bool {
+	// Check the X-Requested-With header – common for XHR.
+	for _, header := range entry.Request.Headers {
+		if strings.EqualFold(header.Name, "X-Requested-With") &&
+			strings.EqualFold(header.Value, "XMLHttpRequest") {
+			return true
+		}
+	}
+	// Also check the Content-Type header for typical XHR MIME types.
+	for _, header := range entry.Request.Headers {
+		if strings.EqualFold(header.Name, "Content-Type") {
+			if strings.Contains(header.Value, "application/json") ||
+				strings.Contains(header.Value, "application/xml") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.Header {
