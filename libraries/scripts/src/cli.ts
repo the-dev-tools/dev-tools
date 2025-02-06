@@ -1,7 +1,7 @@
 import { Args, Command as CliCommand } from '@effect/cli';
 import { FileSystem, Path, Command as PlatformCommand } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { Array, Boolean, Cause, Effect, Option, pipe, Record, String } from 'effect';
+import { Array, Boolean, Cause, Config, Effect, Option, pipe, Record, Schema, String, Struct } from 'effect';
 import { releaseChangelog, releaseVersion } from 'nx/release/index.js';
 import { type NxReleaseArgs } from 'nx/src/command-line/release/command-object.js';
 
@@ -21,6 +21,44 @@ const resolveMonorepoRoot = Effect.gen(function* () {
 
   return dir;
 });
+
+class ProjectInfo extends Schema.Class<ProjectInfo>('ProjectInfo')({
+  root: Schema.String,
+}) {}
+
+const getProjectInfo = Effect.fn(function* (name: string) {
+  const path = yield* Path.Path;
+  const root = yield* resolveMonorepoRoot;
+  return yield* pipe(
+    PlatformCommand.make('pnpm', 'nx show project', name, '--json'),
+    PlatformCommand.string,
+    Effect.flatMap(Schema.decode(Schema.parseJson(ProjectInfo))),
+    Effect.map(Struct.evolve({ root: (_) => path.resolve(root, _) })),
+  );
+});
+
+const exportProjectInfo = CliCommand.make(
+  'export-project-info',
+  {},
+  Effect.fn(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const repo = yield* Repository;
+
+    const { name, version } = yield* repo.project;
+    const { root } = yield* getProjectInfo(name);
+
+    const output = yield* Config.string('GITHUB_OUTPUT');
+
+    const info = pipe(
+      { name, version, root },
+      Record.map((value, key) => String.camelToSnake(key) + '=' + value),
+      Record.values,
+      Array.join('\n'),
+    );
+
+    yield* fs.writeFileString(output, info);
+  }, Effect.provide(Repository.Default)),
+);
 
 const goInstallTools = CliCommand.make(
   'go-install-tools',
@@ -128,7 +166,7 @@ const uploadReleaseAssets = CliCommand.make(
 
 pipe(
   CliCommand.make('scripts'),
-  CliCommand.withSubcommands([goInstallTools, release, uploadReleaseAssets]),
+  CliCommand.withSubcommands([exportProjectInfo, goInstallTools, release, uploadReleaseAssets]),
   CliCommand.run({ name: 'Internal scripts', version: '' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),

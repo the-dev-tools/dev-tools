@@ -18,7 +18,7 @@ jobs:
 
       - id: info
         name: Get project information
-        run: pnpm nx run scripts:project-info-output
+        run: scripts export-project-info
 
       - name: Build
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build

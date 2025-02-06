@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { createActionAuth } from '@octokit/auth-action';
 import { Octokit } from '@octokit/rest';
-import { Config, Console, DefaultServices, Effect, Layer, Option, pipe, String, Tuple } from 'effect';
+import { Config, Console, DefaultServices, Effect, flow, Layer, Option, pipe, String, Tuple } from 'effect';
 
 interface DispatchWorkflowProps {
   ref: string;
@@ -66,6 +66,15 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
       Effect.flatMap(() => Config.string('GITHUB_REF_NAME')),
     );
 
-    return { dispatchWorkflow, getReleaseByTag, uploadReleaseAsset, tag };
+    const project = Effect.flatMap(
+      tag,
+      flow(
+        String.split('/'),
+        Option.liftPredicate(Tuple.isTupleOf(2)),
+        Option.map(([name, version]) => ({ name, version })),
+      ),
+    );
+
+    return { dispatchWorkflow, getReleaseByTag, uploadReleaseAsset, tag, project };
   }),
 }) {}

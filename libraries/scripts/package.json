@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "cli": "node src/cli.ts",
-    "project-info-output": "node src/project-info-output.ts"
+    "cli": "node src/cli.ts"
   },
   "devDependencies": {
     "@effect/cli": "~0.54.1",
