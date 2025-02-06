@@ -14,7 +14,7 @@ import {
   Record,
   Schema,
   String,
-  Struct,
+  Struct
 } from 'effect';
 import { releaseChangelog, releaseVersion } from 'nx/release/index.js';
 import { type NxReleaseArgs } from 'nx/src/command-line/release/command-object.js';
@@ -44,7 +44,7 @@ const getProjectInfo = Effect.fn(function* (name: string) {
   const path = yield* Path.Path;
   const root = yield* resolveMonorepoRoot;
   return yield* pipe(
-    PlatformCommand.make('pnpm', 'nx show project', name, '--json'),
+    PlatformCommand.make('pnpm', 'nx', 'show', 'project', name, '--json'),
     PlatformCommand.string,
     Effect.flatMap(Schema.decode(Schema.parseJson(ProjectInfo))),
     Effect.map(Struct.evolve({ root: (_) => path.resolve(root, _) })),

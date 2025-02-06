@@ -1,6 +1,6 @@
 import { FileSystem, Path } from '@effect/platform';
 import { createActionAuth } from '@octokit/auth-action';
-import { Octokit } from '@octokit/rest';
+import { Octokit as OctokitBase } from '@octokit/rest';
 import { Config, Console, DefaultServices, Effect, flow, Layer, Option, pipe, String, Tuple } from 'effect';
 
 interface DispatchWorkflowProps {
@@ -15,20 +15,13 @@ interface UploadReleaseAssetProps {
   name?: string;
 }
 
-export class Repository extends Effect.Service<Repository>()('Repository', {
+class Octokit extends Effect.Service<Octokit>()('Octokit', {
   dependencies: [Layer.succeedContext(DefaultServices.liveServices)],
   effect: Effect.gen(function* () {
     const console = yield* Console.Console;
-
-    const [owner, repo] = yield* pipe(
-      yield* Config.string('GITHUB_REPOSITORY'),
-      String.split('/'),
-      Option.liftPredicate(Tuple.isTupleOf(2)),
-    );
-
-    const octokit = yield* Effect.try(
+    return yield* Effect.try(
       () =>
-        new Octokit({
+        new OctokitBase({
           authStrategy: createActionAuth,
           log: {
             debug: () => undefined,
@@ -38,29 +31,53 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
           },
         }),
     );
+  }),
+}) {}
 
-    const dispatchWorkflow = Effect.fn((_: DispatchWorkflowProps) => {
-      return Effect.tryPromise(() =>
-        octokit.rest.actions.createWorkflowDispatch({ owner, repo, ref: _.ref, workflow_id: _.workflow }),
-      );
-    }, Effect.asVoid);
+export class Repository extends Effect.Service<Repository>()('Repository', {
+  effect: Effect.gen(function* () {
+    const [owner, repo] = yield* pipe(
+      yield* Config.string('GITHUB_REPOSITORY'),
+      String.split('/'),
+      Option.liftPredicate(Tuple.isTupleOf(2)),
+    );
+
+    const dispatchWorkflow = Effect.fn(
+      function* (_: DispatchWorkflowProps) {
+        const octokit = yield* Octokit;
+        return yield* Effect.tryPromise(() =>
+          octokit.rest.actions.createWorkflowDispatch({ owner, repo, ref: _.ref, workflow_id: _.workflow }),
+        );
+      },
+      Effect.provide(Octokit.Default),
+      Effect.asVoid,
+    );
 
     const getReleaseByTag = Effect.fn(
-      (tag: string) => Effect.tryPromise(() => octokit.rest.repos.getReleaseByTag({ owner, repo, tag })),
+      function* (tag: string) {
+        const octokit = yield* Octokit;
+        return yield* Effect.tryPromise(() => octokit.rest.repos.getReleaseByTag({ owner, repo, tag }));
+      },
+      Effect.provide(Octokit.Default),
       Effect.map((_) => _.data),
     );
 
-    const uploadReleaseAsset = Effect.fn(function* (_: UploadReleaseAssetProps) {
-      const path = yield* Path.Path;
-      const fs = yield* FileSystem.FileSystem;
+    const uploadReleaseAsset = Effect.fn(
+      function* (_: UploadReleaseAssetProps) {
+        const path = yield* Path.Path;
+        const fs = yield* FileSystem.FileSystem;
+        const octokit = yield* Octokit;
 
-      const name = _.name ?? path.basename(_.path);
-      const data: unknown = yield* fs.readFile(_.path);
+        const name = _.name ?? path.basename(_.path);
+        const data: unknown = yield* fs.readFile(_.path);
 
-      return yield* Effect.tryPromise(() =>
-        octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.releaseId, name, data: data as string }),
-      );
-    }, Effect.asVoid);
+        return yield* Effect.tryPromise(() =>
+          octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.releaseId, name, data: data as string }),
+        );
+      },
+      Effect.provide(Octokit.Default),
+      Effect.asVoid,
+    );
 
     const tag = pipe(
       Config.literal('tag')('GITHUB_REF_TYPE'),
@@ -70,7 +87,7 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
     const project = Effect.flatMap(
       tag,
       flow(
-        String.split('/'),
+        String.split('@'),
         Option.liftPredicate(Tuple.isTupleOf(2)),
         Option.map(([name, version]) => ({ name, version })),
       ),
