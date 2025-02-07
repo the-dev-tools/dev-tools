@@ -14,7 +14,7 @@ import {
   Record,
   Schema,
   String,
-  Struct
+  Struct,
 } from 'effect';
 import { releaseChangelog, releaseVersion } from 'nx/release/index.js';
 import { type NxReleaseArgs } from 'nx/src/command-line/release/command-object.js';
