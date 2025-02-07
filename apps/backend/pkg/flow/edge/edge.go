@@ -74,3 +74,68 @@ func NewEdgesMap(edges []Edge) EdgesMap {
 	}
 	return edgesMap
 }
+
+// NodePosition represents the relative position of nodes
+type NodePosition int
+
+const (
+	NodeBefore NodePosition = iota
+	NodeAfter
+	NodeUnrelated
+)
+
+// IsNodeCheckTarget determines if sourceNode is before targetNode in the flow graph
+func IsNodeCheckTarget(edgesMap EdgesMap, sourceNode, targetNode idwrap.IDWrap) NodePosition {
+	if sourceNode == targetNode {
+		return NodeUnrelated
+	}
+
+	visited := make(map[idwrap.IDWrap]bool)
+	queue := []idwrap.IDWrap{sourceNode}
+
+	// BFS to find if target node is reachable from source
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if current == targetNode {
+			return NodeBefore
+		}
+
+		// Check all possible edges from current node
+		for handle := HandleUnspecified; handle < HandleLength; handle++ {
+			nextNodes := GetNextNodeID(edgesMap, current, handle)
+			for _, next := range nextNodes {
+				if !visited[next] {
+					visited[next] = true
+					queue = append(queue, next)
+				}
+			}
+		}
+	}
+
+	// Check if source is reachable from target (reverse check)
+	visited = make(map[idwrap.IDWrap]bool)
+	queue = []idwrap.IDWrap{targetNode}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if current == sourceNode {
+			return NodeAfter
+		}
+
+		for handle := HandleUnspecified; handle < HandleLength; handle++ {
+			nextNodes := GetNextNodeID(edgesMap, current, handle)
+			for _, next := range nextNodes {
+				if !visited[next] {
+					visited[next] = true
+					queue = append(queue, next)
+				}
+			}
+		}
+	}
+
+	return NodeUnrelated
+}

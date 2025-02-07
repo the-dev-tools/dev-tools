@@ -8,6 +8,7 @@ import (
 	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -17,6 +18,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mvar"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/reference"
+	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/senv"
 	"the-dev-tools/backend/pkg/service/sexampleresp"
 	"the-dev-tools/backend/pkg/service/sexamplerespheader"
@@ -50,12 +52,15 @@ type NodeServiceRPC struct {
 	fs   sflow.FlowService
 	fns  snode.NodeService
 	frns snoderequest.NodeRequestService
+
+	edgeService sedge.EdgeService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.WorkspaceService,
 	es senv.EnvService, vs svar.VarService,
 	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
 	fs sflow.FlowService, fns snode.NodeService, frns snoderequest.NodeRequestService,
+	edgeService sedge.EdgeService,
 ) *NodeServiceRPC {
 	return &NodeServiceRPC{
 		DB: db,
@@ -72,6 +77,8 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 		fs:   fs,
 		fns:  fns,
 		frns: frns,
+
+		edgeService: edgeService,
 	}
 }
 
@@ -90,7 +97,7 @@ var (
 func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[referencev1.ReferenceGetRequest]) (*connect.Response[referencev1.ReferenceGetResponse], error) {
 	var Items []*referencev1.Reference
 
-	var workspaceID, exampleID, nodeID *idwrap.IDWrap
+	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
@@ -111,9 +118,10 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		nodeID = &tempID
+		nodeIDPtr = &tempID
 	}
 
+	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
 		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
@@ -170,6 +178,8 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			Map:  envMap,
 		})
 	}
+
+	// Example
 	if exampleID != nil {
 		exID := *exampleID
 
@@ -180,8 +190,12 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		Items = append(Items, reference.ConvertPkgToRpc(*respRef))
 
 	}
-	if nodeID != nil {
-		nodeInst, err := c.fns.GetNode(ctx, *nodeID)
+
+	// Node
+	if nodeIDPtr != nil {
+		NodeID := *nodeIDPtr
+
+		nodeInst, err := c.fns.GetNode(ctx, NodeID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -198,9 +212,24 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 			}
 		}
 
+		edges, err := c.edgeService.GetEdgesByFlowID(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		edgesMap := edge.NewEdgesMap(edges)
+
+		var beforeNodeIDs []idwrap.IDWrap
+		// Edges
+		for _, reqNodeID := range reqNodeIDs {
+			if edge.IsNodeCheckTarget(edgesMap, reqNodeID, NodeID) == edge.NodeBefore {
+				beforeNodeIDs = append(beforeNodeIDs, reqNodeID)
+			}
+		}
+
 		// Get All Request
 		var reqs []mnrequest.MNRequest
-		for _, reqNodeID := range reqNodeIDs {
+		for _, reqNodeID := range beforeNodeIDs {
 			req, err := c.frns.GetNodeRequest(ctx, reqNodeID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, ErrNodeNotFound)
