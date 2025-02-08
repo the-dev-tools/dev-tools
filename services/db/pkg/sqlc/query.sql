@@ -21,6 +21,25 @@ WHERE
 LIMIT
   1;
 
+
+-- name: GetItemApiByCollectionIDAndNextID :one
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  url,
+  method,
+  prev,
+  next
+FROM
+  item_api
+WHERE
+  next = ? AND
+  collection_id = ?
+LIMIT
+  1;
+
 -- name: GetItemsApiByCollectionID :many
 SELECT
   id,
@@ -211,7 +230,12 @@ WHERE
 
 -- name: GetItemFolder :one
 SELECT
-    *
+  id,
+  collection_id,
+  parent_id,
+  name,
+  prev,
+  next
 FROM
   item_folder
 WHERE
@@ -221,11 +245,32 @@ LIMIT
 
 -- name: GetItemFoldersByCollectionID :many
 SELECT
-    *
+  id,
+  collection_id,
+  parent_id,
+  name,
+  prev,
+  next
 FROM
   item_folder
 WHERE
   collection_id = ?;
+
+
+-- name: GetItemFolderByCollectionIDAndNext :one
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  prev,
+  next
+FROM
+  item_folder
+WHERE
+  collection_id = ? AND next = ?
+LIMIT
+  1;
 
 -- name: GetItemFolderOwnerID :one
 SELECT

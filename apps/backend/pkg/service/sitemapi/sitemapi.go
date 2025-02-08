@@ -251,6 +251,20 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 	return tgeneric.MassConvert(itemApis, ConvertToModelItemApi), nil
 }
 
+func (ias ItemApiService) GetItemApiByCollectionIDAndNext(ctx context.Context, collectionID idwrap.IDWrap, nextID *idwrap.IDWrap) (mitemapi.ItemApi, error) {
+	itemApi, err := ias.queries.GetItemApiByCollectionIDAndNextID(ctx, gen.GetItemApiByCollectionIDAndNextIDParams{
+		Next:         nextID,
+		CollectionID: collectionID,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return mitemapi.ItemApi{}, ErrNoItemApiFound
+		}
+		return mitemapi.ItemApi{}, err
+	}
+	return ConvertToModelItemApi(itemApi), nil
+}
+
 func (ias ItemApiService) GetOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	ownerUlid, err := ias.queries.GetItemApiOwnerID(ctx, id)
 	if err != nil {

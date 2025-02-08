@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/backend/internal/api/ritemfolder"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/scollection"
@@ -355,7 +356,71 @@ func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[en
 		return nil, rpcErr
 	}
 
-	err = c.ias.DeleteItemApi(ctx, id)
+	endpoint, err := c.ias.GetItemApi(ctx, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	txias, err := sitemapi.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	prev, next := endpoint.Prev, endpoint.Next
+	var prevEndPointPtr, nextEndPointPtr *mitemapi.ItemApi
+	switch {
+	case prev != nil && next != nil:
+		prevEndPointPtr, err = c.ias.GetItemApi(ctx, *prev)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		nextEndPointPtr, err = c.ias.GetItemApi(ctx, *next)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		prevEndPointPtr.Next = next
+		nextEndPointPtr.Prev = prev
+
+	case prev != nil && next == nil:
+		prevEndPointPtr, err = c.ias.GetItemApi(ctx, *prev)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		prevEndPointPtr.Next = nil
+
+	case prev == nil && next != nil:
+		nextEndPointPtr, err = c.ias.GetItemApi(ctx, *next)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		nextEndPointPtr.Prev = nil
+	}
+
+	if prevEndPointPtr != nil {
+		err = txias.UpdateItemApi(ctx, prevEndPointPtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	if nextEndPointPtr != nil {
+		err = txias.UpdateItemApi(ctx, nextEndPointPtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	err = txias.DeleteItemApi(ctx, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

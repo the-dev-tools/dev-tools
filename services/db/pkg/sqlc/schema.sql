@@ -45,7 +45,7 @@ CREATE TABLE result_api (
   http_resp BLOB
 );
 
-CREATE INDEX Idx4 ON result_api (trigger_by, trigger_type);
+CREATE INDEX result_api_idx1 ON result_api (trigger_by, trigger_type);
 
 -- COLLECTIONS
 CREATE TABLE collections (
@@ -55,7 +55,7 @@ CREATE TABLE collections (
   FOREIGN KEY (owner_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
-CREATE INDEX Idx1 ON collections (owner_id);
+CREATE INDEX collection_idx1 ON collections (owner_id);
 
 /*
  *
@@ -70,11 +70,12 @@ CREATE TABLE item_folder (
   name TEXT NOT NULL,
   prev BLOB,
   next BLOB,
+  UNIQUE (prev, next),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
 
-CREATE INDEX Idx3 ON item_folder (collection_id, parent_id);
+CREATE INDEX item_folder_idx1 ON item_folder (collection_id, parent_id);
 
 /*
  *
@@ -91,11 +92,12 @@ CREATE TABLE item_api (
   method TEXT NOT NULL,
   prev BLOB,
   next BLOB,
+  UNIQUE (prev, next),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
 
-CREATE INDEX Idx2 ON item_api (collection_id, parent_id);
+CREATE INDEX item_api_idx1 ON item_api (collection_id, parent_id);
 
 /*
  *
@@ -222,6 +224,7 @@ CREATE TABLE example_body_raw (
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
+-- TODO: env shouldn't active field it should be in workspace
 CREATE TABLE environment (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
@@ -232,7 +235,7 @@ CREATE TABLE environment (
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX unique_active_environment
+CREATE UNIQUE INDEX unique_active_environment_idx1
 ON environment (workspace_id)
 WHERE active = true;
 

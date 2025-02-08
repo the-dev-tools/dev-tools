@@ -367,10 +367,9 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 		murlData = urlData.(murl.URL)
 	case map[string]interface{}:
 		urlDataNest := urlData.(map[string]interface{})
-		queryData, ok := urlDataNest["query"].([]interface{})
-		if !ok {
-			return nil, fmt.Errorf("query %T not supported", urlDataNest["query"])
-		}
+		// TODO: seems like ok can fail check later
+		queryData, _ := urlDataNest["query"].([]interface{})
+
 		queryParamsArr := make([]murl.QueryParamter, 0)
 
 		raw, ok := urlDataNest["raw"].(string)

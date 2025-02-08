@@ -351,6 +351,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemApiStmt, err = db.PrepareContext(ctx, getItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApi: %w", err)
 	}
+	if q.getItemApiByCollectionIDAndNextIDStmt, err = db.PrepareContext(ctx, getItemApiByCollectionIDAndNextID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiByCollectionIDAndNextID: %w", err)
+	}
 	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
 	}
@@ -368,6 +371,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getItemFolderStmt, err = db.PrepareContext(ctx, getItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFolder: %w", err)
+	}
+	if q.getItemFolderByCollectionIDAndNextStmt, err = db.PrepareContext(ctx, getItemFolderByCollectionIDAndNext); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemFolderByCollectionIDAndNext: %w", err)
 	}
 	if q.getItemFolderOwnerIDStmt, err = db.PrepareContext(ctx, getItemFolderOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFolderOwnerID: %w", err)
@@ -1090,6 +1096,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemApiStmt: %w", cerr)
 		}
 	}
+	if q.getItemApiByCollectionIDAndNextIDStmt != nil {
+		if cerr := q.getItemApiByCollectionIDAndNextIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiByCollectionIDAndNextIDStmt: %w", cerr)
+		}
+	}
 	if q.getItemApiExampleStmt != nil {
 		if cerr := q.getItemApiExampleStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiExampleStmt: %w", cerr)
@@ -1118,6 +1129,11 @@ func (q *Queries) Close() error {
 	if q.getItemFolderStmt != nil {
 		if cerr := q.getItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.getItemFolderByCollectionIDAndNextStmt != nil {
+		if cerr := q.getItemFolderByCollectionIDAndNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemFolderByCollectionIDAndNextStmt: %w", cerr)
 		}
 	}
 	if q.getItemFolderOwnerIDStmt != nil {
@@ -1553,12 +1569,14 @@ type Queries struct {
 	getHeaderStmt                              *sql.Stmt
 	getHeadersByExampleIDStmt                  *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
+	getItemApiByCollectionIDAndNextIDStmt      *sql.Stmt
 	getItemApiExampleStmt                      *sql.Stmt
 	getItemApiExampleByCollectionIDStmt        *sql.Stmt
 	getItemApiExampleDefaultStmt               *sql.Stmt
 	getItemApiExamplesStmt                     *sql.Stmt
 	getItemApiOwnerIDStmt                      *sql.Stmt
 	getItemFolderStmt                          *sql.Stmt
+	getItemFolderByCollectionIDAndNextStmt     *sql.Stmt
 	getItemFolderOwnerIDStmt                   *sql.Stmt
 	getItemFoldersByCollectionIDStmt           *sql.Stmt
 	getItemsApiByCollectionIDStmt              *sql.Stmt
@@ -1731,12 +1749,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHeaderStmt:                              q.getHeaderStmt,
 		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
+		getItemApiByCollectionIDAndNextIDStmt:      q.getItemApiByCollectionIDAndNextIDStmt,
 		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
 		getItemApiExampleByCollectionIDStmt:        q.getItemApiExampleByCollectionIDStmt,
 		getItemApiExampleDefaultStmt:               q.getItemApiExampleDefaultStmt,
 		getItemApiExamplesStmt:                     q.getItemApiExamplesStmt,
 		getItemApiOwnerIDStmt:                      q.getItemApiOwnerIDStmt,
 		getItemFolderStmt:                          q.getItemFolderStmt,
+		getItemFolderByCollectionIDAndNextStmt:     q.getItemFolderByCollectionIDAndNextStmt,
 		getItemFolderOwnerIDStmt:                   q.getItemFolderOwnerIDStmt,
 		getItemFoldersByCollectionIDStmt:           q.getItemFoldersByCollectionIDStmt,
 		getItemsApiByCollectionIDStmt:              q.getItemsApiByCollectionIDStmt,

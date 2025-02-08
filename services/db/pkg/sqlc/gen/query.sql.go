@@ -3735,6 +3735,46 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 	return i, err
 }
 
+const getItemApiByCollectionIDAndNextID = `-- name: GetItemApiByCollectionIDAndNextID :one
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  url,
+  method,
+  prev,
+  next
+FROM
+  item_api
+WHERE
+  next = ? AND
+  collection_id = ?
+LIMIT
+  1
+`
+
+type GetItemApiByCollectionIDAndNextIDParams struct {
+	Next         *idwrap.IDWrap
+	CollectionID idwrap.IDWrap
+}
+
+func (q *Queries) GetItemApiByCollectionIDAndNextID(ctx context.Context, arg GetItemApiByCollectionIDAndNextIDParams) (ItemApi, error) {
+	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDStmt, getItemApiByCollectionIDAndNextID, arg.Next, arg.CollectionID)
+	var i ItemApi
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.ParentID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
 const getItemApiExample = `-- name: GetItemApiExample :one
 SELECT
     id,
@@ -3925,7 +3965,12 @@ const getItemFolder = `-- name: GetItemFolder :one
 
 
 SELECT
-    id, collection_id, parent_id, name, prev, next
+  id,
+  collection_id,
+  parent_id,
+  name,
+  prev,
+  next
 FROM
   item_folder
 WHERE
@@ -3937,6 +3982,41 @@ LIMIT
 // ItemFolder
 func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (ItemFolder, error) {
 	row := q.queryRow(ctx, q.getItemFolderStmt, getItemFolder, id)
+	var i ItemFolder
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.ParentID,
+		&i.Name,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
+const getItemFolderByCollectionIDAndNext = `-- name: GetItemFolderByCollectionIDAndNext :one
+SELECT
+  id,
+  collection_id,
+  parent_id,
+  name,
+  prev,
+  next
+FROM
+  item_folder
+WHERE
+  collection_id = ? AND next = ?
+LIMIT
+  1
+`
+
+type GetItemFolderByCollectionIDAndNextParams struct {
+	CollectionID idwrap.IDWrap
+	Next         *idwrap.IDWrap
+}
+
+func (q *Queries) GetItemFolderByCollectionIDAndNext(ctx context.Context, arg GetItemFolderByCollectionIDAndNextParams) (ItemFolder, error) {
+	row := q.queryRow(ctx, q.getItemFolderByCollectionIDAndNextStmt, getItemFolderByCollectionIDAndNext, arg.CollectionID, arg.Next)
 	var i ItemFolder
 	err := row.Scan(
 		&i.ID,
@@ -3970,7 +4050,12 @@ func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id idwrap.IDWrap) (i
 
 const getItemFoldersByCollectionID = `-- name: GetItemFoldersByCollectionID :many
 SELECT
-    id, collection_id, parent_id, name, prev, next
+  id,
+  collection_id,
+  parent_id,
+  name,
+  prev,
+  next
 FROM
   item_folder
 WHERE
