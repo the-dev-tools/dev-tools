@@ -13,6 +13,13 @@ linux:
   target:
     - AppImage
   category: Development
+mac:
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  type: distribution
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 win:
   signAndEditExecutable: false
 nsis:

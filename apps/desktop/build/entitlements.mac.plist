@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Allows Just-In-Time compilation required by V8 JavaScript engine in Electron -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- This is needed for the V8 JavaScript engine to function properly -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Allows network connections -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+  </dict>
+</plist>

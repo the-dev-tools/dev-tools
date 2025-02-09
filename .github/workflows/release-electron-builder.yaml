@@ -27,6 +27,9 @@ jobs:
         run: scripts export-project-info
 
       - name: Build
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
 
       - name: Publish
