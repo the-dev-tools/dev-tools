@@ -6,7 +6,7 @@
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "build": "electron-vite build && electron-builder build --publish=never",
+    "build": "electron-vite build && node build.ts",
     "dev": "electron-vite dev"
   },
   "dependencies": {
