@@ -28,8 +28,11 @@ jobs:
 
       - name: Build
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
 
       - name: Publish
