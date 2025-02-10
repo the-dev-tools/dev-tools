@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/internal/api/ritemfolder"
@@ -420,60 +419,43 @@ func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[en
 		}
 	}
 
-	log.Println("start tx")
-
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer tx.Rollback()
 
-	log.Println("create ias")
-
 	txias, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	log.Println("get prev and next")
-
 	// Before deletion, update the links
 	if prevEndPointPtr != nil {
 		prevEndPointPtr.Next = endpoint.Next // Point prev's next to current's next
-		log.Println("update prev")
 		err = txias.UpdateItemApiOrder(ctx, prevEndPointPtr)
 		if err != nil {
-			log.Println("update prev error")
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
 	if nextEndPointPtr != nil {
 		nextEndPointPtr.Prev = endpoint.Prev // Point next's prev to current's prev
-		log.Println("update next")
 		err = txias.UpdateItemApiOrder(ctx, nextEndPointPtr)
 		if err != nil {
-			log.Println("update next error")
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	log.Println("delete ias")
-
 	err = txias.DeleteItemApi(ctx, id)
 	if err != nil {
-		log.Println("delete ias error")
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	log.Println("commit")
 
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	log.Println("done")
 
 	return connect.NewResponse(&endpointv1.EndpointDeleteResponse{}), nil
 }
