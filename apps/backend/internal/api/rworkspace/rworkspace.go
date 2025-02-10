@@ -385,9 +385,9 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *conn
 		}
 
 		rpcUser[i] = &workspacev1.WorkspaceMemberListItem{
-			UserID: wsUser.UserID.Bytes(),
-			Email:  user.Email,
-			Role:   workspacev1.MemberRole(wsUser.Role),
+			MemberId: wsUser.UserID.Bytes(),
+			Email:    user.Email,
+			Role:     workspacev1.MemberRole(wsUser.Role),
 		}
 	}
 
@@ -482,7 +482,7 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberDelete(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.UserID)
+	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.MemberId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
@@ -521,7 +521,7 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberUpdate(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
-	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.UserID)
+	targetUserUlid, err := idwrap.NewFromBytes(req.Msg.MemberId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
