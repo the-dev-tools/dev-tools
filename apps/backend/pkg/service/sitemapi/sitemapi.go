@@ -236,6 +236,18 @@ func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.Item
 	return err
 }
 
+func (ias ItemApiService) UpdateItemApiOrder(ctx context.Context, item *mitemapi.ItemApi) error {
+	err := ias.queries.UpdateItemApiOrder(ctx, gen.UpdateItemApiOrderParams{
+		Next: item.Next,
+		Prev: item.Prev,
+		ID:   item.ID,
+	})
+	if err == sql.ErrNoRows {
+		return ErrNoItemApiFound
+	}
+	return err
+}
+
 func (ias ItemApiService) DeleteItemApi(ctx context.Context, id idwrap.IDWrap) error {
 	return ias.queries.DeleteItemApi(ctx, id)
 }
@@ -251,9 +263,10 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 	return tgeneric.MassConvert(itemApis, ConvertToModelItemApi), nil
 }
 
-func (ias ItemApiService) GetItemApiByCollectionIDAndNext(ctx context.Context, collectionID idwrap.IDWrap, nextID *idwrap.IDWrap) (mitemapi.ItemApi, error) {
-	itemApi, err := ias.queries.GetItemApiByCollectionIDAndNextID(ctx, gen.GetItemApiByCollectionIDAndNextIDParams{
+func (ias ItemApiService) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Context, collectionID idwrap.IDWrap, nextID, parentID *idwrap.IDWrap) (mitemapi.ItemApi, error) {
+	itemApi, err := ias.queries.GetItemApiByCollectionIDAndNextIDAndParentID(ctx, gen.GetItemApiByCollectionIDAndNextIDAndParentIDParams{
 		Next:         nextID,
+		ParentID:     parentID,
 		CollectionID: collectionID,
 	})
 	if err != nil {

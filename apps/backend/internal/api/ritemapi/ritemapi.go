@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/internal/api/ritemfolder"
@@ -103,13 +104,19 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	ID := idwrap.NewNow()
 	itemApiReq.ID = ID
 
-	err = c.ias.CreateItemApi(ctx, itemApiReq)
+	var nextNodeExists bool
+
+	NextItemApi, err := c.ias.GetItemApiByCollectionIDAndNextIDAndParentID(ctx, collectionID, nil, itemApiReq.ParentID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		if sql.ErrNoRows != err {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		nextNodeExists = true
+		NextItemApi.Next = &ID
+		itemApiReq.Prev = &NextItemApi.ID
 	}
 
-	// INFO: this part added with new normalisation stuff
-	// should be removed after spec api change to auto do this
 	exampleNanem := "Default"
 	example := &mitemapiexample.ItemApiExample{
 		ID:           idwrap.NewNow(),
@@ -119,10 +126,46 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		Name:         exampleNanem,
 		BodyType:     mitemapiexample.BodyTypeNone,
 	}
-	err = c.iaes.CreateApiExample(ctx, example)
+
+	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer tx.Rollback()
+
+	txIas, err := sitemapi.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txIaes, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if nextNodeExists {
+		err = txIas.UpdateItemApi(ctx, &NextItemApi)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	err = txIas.CreateItemApi(ctx, itemApiReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = txIaes.CreateApiExample(ctx, example)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// INFO: this part added with new normalisation stuff
+	// should be removed after spec api change to auto do this
 
 	a := &itemv1.CollectionItemListResponse{
 		CollectionId: collectionID.Bytes(),
@@ -361,69 +404,76 @@ func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	prev, next := endpoint.Prev, endpoint.Next
+	var prevEndPointPtr, nextEndPointPtr *mitemapi.ItemApi
+	if prev != nil {
+		prevEndPointPtr, err = c.ias.GetItemApi(ctx, *prev)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get prev"))
+		}
+	}
+
+	if next != nil {
+		nextEndPointPtr, err = c.ias.GetItemApi(ctx, *next)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get next"))
+		}
+	}
+
+	log.Println("start tx")
+
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer tx.Rollback()
 
+	log.Println("create ias")
+
 	txias, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	prev, next := endpoint.Prev, endpoint.Next
-	var prevEndPointPtr, nextEndPointPtr *mitemapi.ItemApi
-	switch {
-	case prev != nil && next != nil:
-		prevEndPointPtr, err = c.ias.GetItemApi(ctx, *prev)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		nextEndPointPtr, err = c.ias.GetItemApi(ctx, *next)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		prevEndPointPtr.Next = next
-		nextEndPointPtr.Prev = prev
+	log.Println("get prev and next")
 
-	case prev != nil && next == nil:
-		prevEndPointPtr, err = c.ias.GetItemApi(ctx, *prev)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		prevEndPointPtr.Next = nil
-
-	case prev == nil && next != nil:
-		nextEndPointPtr, err = c.ias.GetItemApi(ctx, *next)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		nextEndPointPtr.Prev = nil
-	}
-
+	// Before deletion, update the links
 	if prevEndPointPtr != nil {
-		err = txias.UpdateItemApi(ctx, prevEndPointPtr)
+		prevEndPointPtr.Next = endpoint.Next // Point prev's next to current's next
+		log.Println("update prev")
+		err = txias.UpdateItemApiOrder(ctx, prevEndPointPtr)
 		if err != nil {
+			log.Println("update prev error")
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
+
 	if nextEndPointPtr != nil {
-		err = txias.UpdateItemApi(ctx, nextEndPointPtr)
+		nextEndPointPtr.Prev = endpoint.Prev // Point next's prev to current's prev
+		log.Println("update next")
+		err = txias.UpdateItemApiOrder(ctx, nextEndPointPtr)
 		if err != nil {
+			log.Println("update next error")
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
+
+	log.Println("delete ias")
 
 	err = txias.DeleteItemApi(ctx, id)
 	if err != nil {
+		log.Println("delete ias error")
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	log.Println("commit")
 
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	log.Println("done")
 
 	return connect.NewResponse(&endpointv1.EndpointDeleteResponse{}), nil
 }

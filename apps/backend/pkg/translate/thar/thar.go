@@ -3,6 +3,7 @@ package thar
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"sort"
 	"strings"
 	"the-dev-tools/backend/pkg/compress"
@@ -316,29 +317,41 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		result.Examples = append(result.Examples, exampleDefault)
 	}
 
-	// Create prev and next fields for apis and examples.
-	var prevApi *mitemapi.ItemApi
-	var prevExample *mitemapiexample.ItemApiExample
-	var nextApi *mitemapi.ItemApi
-	var nextExample *mitemapiexample.ItemApiExample
 	for i := range result.Apis {
 		if i > 0 {
-			prevApi = &result.Apis[i-1]
+			prevApi := &result.Apis[i-1]
 			result.Apis[i].Prev = &prevApi.ID
 		}
 		if i < len(result.Apis)-1 {
-			nextApi = &result.Apis[i+1]
+			nextApi := &result.Apis[i+1]
 			result.Apis[i].Next = &nextApi.ID
+		}
+	}
+
+	// Verification loop
+	for i := range result.Apis {
+		current := &result.Apis[i]
+		if i > 0 {
+			// Verify prev link
+			if current.Prev == nil || *current.Prev != result.Apis[i-1].ID {
+				log.Fatal("invalid prev link at index %d", i)
+			}
+		}
+		if i < len(result.Apis)-1 {
+			// Verify next link
+			if current.Next == nil || *current.Next != result.Apis[i+1].ID {
+				log.Fatal("invalid next link at index %d", i)
+			}
 		}
 	}
 
 	for i := range result.Examples {
 		if i > 0 {
-			prevExample = &result.Examples[i-1]
+			prevExample := &result.Examples[i-1]
 			result.Examples[i].Prev = &prevExample.ID
 		}
 		if i < len(result.Examples)-1 {
-			nextExample = &result.Examples[i+1]
+			nextExample := &result.Examples[i+1]
 			result.Examples[i].Next = &nextExample.ID
 		}
 	}

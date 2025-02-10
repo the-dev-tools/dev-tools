@@ -22,7 +22,7 @@ LIMIT
   1;
 
 
--- name: GetItemApiByCollectionIDAndNextID :one
+-- name: GetItemApiByCollectionIDAndNextIDAndParentID :one
 SELECT
   id,
   collection_id,
@@ -36,6 +36,7 @@ FROM
   item_api
 WHERE
   next = ? AND
+  parent_id = ? AND
   collection_id = ?
 LIMIT
   1;
@@ -94,6 +95,14 @@ SET
   name = ?,
   url = ?,
   method = ?
+WHERE
+  id = ?;
+
+-- name: UpdateItemApiOrder :exec
+UPDATE item_api
+SET
+  next = ?,
+  prev = ?
 WHERE
   id = ?;
 
@@ -257,7 +266,7 @@ WHERE
   collection_id = ?;
 
 
--- name: GetItemFolderByCollectionIDAndNext :one
+-- name: GetItemFolderByCollectionIDAndNextIDAndParentID :one
 SELECT
   id,
   collection_id,
@@ -268,7 +277,9 @@ SELECT
 FROM
   item_folder
 WHERE
-  collection_id = ? AND next = ?
+  next = ? AND
+  parent_id = ? AND
+  collection_id = ?
 LIMIT
   1;
 
@@ -309,6 +320,14 @@ UPDATE item_folder
 SET
   name = ?,
   parent_id = ?
+WHERE
+  id = ?;
+
+-- name: UpdateItemFolderOrder :exec
+UPDATE item_folder
+SET
+  prev = ?,
+  next = ?
 WHERE
   id = ?;
 

@@ -3735,7 +3735,7 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 	return i, err
 }
 
-const getItemApiByCollectionIDAndNextID = `-- name: GetItemApiByCollectionIDAndNextID :one
+const getItemApiByCollectionIDAndNextIDAndParentID = `-- name: GetItemApiByCollectionIDAndNextIDAndParentID :one
 SELECT
   id,
   collection_id,
@@ -3749,18 +3749,20 @@ FROM
   item_api
 WHERE
   next = ? AND
+  parent_id = ? AND
   collection_id = ?
 LIMIT
   1
 `
 
-type GetItemApiByCollectionIDAndNextIDParams struct {
+type GetItemApiByCollectionIDAndNextIDAndParentIDParams struct {
 	Next         *idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	CollectionID idwrap.IDWrap
 }
 
-func (q *Queries) GetItemApiByCollectionIDAndNextID(ctx context.Context, arg GetItemApiByCollectionIDAndNextIDParams) (ItemApi, error) {
-	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDStmt, getItemApiByCollectionIDAndNextID, arg.Next, arg.CollectionID)
+func (q *Queries) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemApiByCollectionIDAndNextIDAndParentIDParams) (ItemApi, error) {
+	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDAndParentIDStmt, getItemApiByCollectionIDAndNextIDAndParentID, arg.Next, arg.ParentID, arg.CollectionID)
 	var i ItemApi
 	err := row.Scan(
 		&i.ID,
@@ -3994,7 +3996,7 @@ func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (ItemFold
 	return i, err
 }
 
-const getItemFolderByCollectionIDAndNext = `-- name: GetItemFolderByCollectionIDAndNext :one
+const getItemFolderByCollectionIDAndNextIDAndParentID = `-- name: GetItemFolderByCollectionIDAndNextIDAndParentID :one
 SELECT
   id,
   collection_id,
@@ -4005,18 +4007,21 @@ SELECT
 FROM
   item_folder
 WHERE
-  collection_id = ? AND next = ?
+  next = ? AND
+  parent_id = ? AND
+  collection_id = ?
 LIMIT
   1
 `
 
-type GetItemFolderByCollectionIDAndNextParams struct {
-	CollectionID idwrap.IDWrap
+type GetItemFolderByCollectionIDAndNextIDAndParentIDParams struct {
 	Next         *idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
+	CollectionID idwrap.IDWrap
 }
 
-func (q *Queries) GetItemFolderByCollectionIDAndNext(ctx context.Context, arg GetItemFolderByCollectionIDAndNextParams) (ItemFolder, error) {
-	row := q.queryRow(ctx, q.getItemFolderByCollectionIDAndNextStmt, getItemFolderByCollectionIDAndNext, arg.CollectionID, arg.Next)
+func (q *Queries) GetItemFolderByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemFolderByCollectionIDAndNextIDAndParentIDParams) (ItemFolder, error) {
+	row := q.queryRow(ctx, q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt, getItemFolderByCollectionIDAndNextIDAndParentID, arg.Next, arg.ParentID, arg.CollectionID)
 	var i ItemFolder
 	err := row.Scan(
 		&i.ID,
@@ -5512,6 +5517,26 @@ func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExa
 	return err
 }
 
+const updateItemApiOrder = `-- name: UpdateItemApiOrder :exec
+UPDATE item_api
+SET
+  next = ?,
+  prev = ?
+WHERE
+  id = ?
+`
+
+type UpdateItemApiOrderParams struct {
+	Next *idwrap.IDWrap
+	Prev *idwrap.IDWrap
+	ID   idwrap.IDWrap
+}
+
+func (q *Queries) UpdateItemApiOrder(ctx context.Context, arg UpdateItemApiOrderParams) error {
+	_, err := q.exec(ctx, q.updateItemApiOrderStmt, updateItemApiOrder, arg.Next, arg.Prev, arg.ID)
+	return err
+}
+
 const updateItemFolder = `-- name: UpdateItemFolder :exec
 UPDATE item_folder
 SET
@@ -5529,6 +5554,26 @@ type UpdateItemFolderParams struct {
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
 	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ParentID, arg.ID)
+	return err
+}
+
+const updateItemFolderOrder = `-- name: UpdateItemFolderOrder :exec
+UPDATE item_folder
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ?
+`
+
+type UpdateItemFolderOrderParams struct {
+	Prev *idwrap.IDWrap
+	Next *idwrap.IDWrap
+	ID   idwrap.IDWrap
+}
+
+func (q *Queries) UpdateItemFolderOrder(ctx context.Context, arg UpdateItemFolderOrderParams) error {
+	_, err := q.exec(ctx, q.updateItemFolderOrderStmt, updateItemFolderOrder, arg.Prev, arg.Next, arg.ID)
 	return err
 }
 
