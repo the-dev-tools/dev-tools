@@ -83,6 +83,7 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer tx.Rollback()
 
 	txIfs, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {
@@ -249,6 +250,7 @@ func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[f
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer tx.Rollback()
 
 	txIfs, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {
@@ -257,14 +259,14 @@ func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[f
 
 	if prevFolderPtr != nil {
 		prevFolderPtr.Next = next
-		err = txIfs.UpdateItemFolder(ctx, prevFolderPtr)
+		err = txIfs.UpdateOrder(ctx, prevFolderPtr)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 	if nextFolderPtr != nil {
 		nextFolderPtr.Prev = prev
-		err = txIfs.UpdateItemFolder(ctx, nextFolderPtr)
+		err = txIfs.UpdateOrder(ctx, nextFolderPtr)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

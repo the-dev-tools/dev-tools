@@ -254,6 +254,14 @@ func (iaes ItemApiExampleService) UpdateItemApiExample(ctx context.Context, item
 	})
 }
 
+func (iaes ItemApiExampleService) UpdateItemApiExampleOrder(ctx context.Context, example *mitemapiexample.ItemApiExample) error {
+	return iaes.Queries.UpdateItemApiExampleOrder(ctx, gen.UpdateItemApiExampleOrderParams{
+		ID:   example.ID,
+		Next: example.Next,
+		Prev: example.Prev,
+	})
+}
+
 func (iaes ItemApiExampleService) DeleteApiExample(ctx context.Context, id idwrap.IDWrap) error {
 	return iaes.Queries.DeleteItemApiExample(ctx, id)
 }

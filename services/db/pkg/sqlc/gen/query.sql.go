@@ -3963,6 +3963,48 @@ func (q *Queries) GetItemApiOwnerID(ctx context.Context, id idwrap.IDWrap) (idwr
 	return owner_id, err
 }
 
+const getItemExampleByCollectionIDAndNextIDAndParentID = `-- name: GetItemExampleByCollectionIDAndNextIDAndParentID :one
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  collection_id = ? AND
+  next = ? AND
+  prev = ?
+LIMIT
+  1
+`
+
+type GetItemExampleByCollectionIDAndNextIDAndParentIDParams struct {
+	CollectionID idwrap.IDWrap
+	Next         *idwrap.IDWrap
+	Prev         *idwrap.IDWrap
+}
+
+func (q *Queries) GetItemExampleByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemExampleByCollectionIDAndNextIDAndParentIDParams) (ItemApiExample, error) {
+	row := q.queryRow(ctx, q.getItemExampleByCollectionIDAndNextIDAndParentIDStmt, getItemExampleByCollectionIDAndNextIDAndParentID, arg.CollectionID, arg.Next, arg.Prev)
+	var i ItemApiExample
+	err := row.Scan(
+		&i.ID,
+		&i.ItemApiID,
+		&i.CollectionID,
+		&i.IsDefault,
+		&i.BodyType,
+		&i.Name,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
 const getItemFolder = `-- name: GetItemFolder :one
 
 
@@ -5514,6 +5556,26 @@ type UpdateItemApiExampleParams struct {
 
 func (q *Queries) UpdateItemApiExample(ctx context.Context, arg UpdateItemApiExampleParams) error {
 	_, err := q.exec(ctx, q.updateItemApiExampleStmt, updateItemApiExample, arg.Name, arg.BodyType, arg.ID)
+	return err
+}
+
+const updateItemApiExampleOrder = `-- name: UpdateItemApiExampleOrder :exec
+UPDATE item_api_example
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ?
+`
+
+type UpdateItemApiExampleOrderParams struct {
+	Prev *idwrap.IDWrap
+	Next *idwrap.IDWrap
+	ID   idwrap.IDWrap
+}
+
+func (q *Queries) UpdateItemApiExampleOrder(ctx context.Context, arg UpdateItemApiExampleOrderParams) error {
+	_, err := q.exec(ctx, q.updateItemApiExampleOrderStmt, updateItemApiExampleOrder, arg.Prev, arg.Next, arg.ID)
 	return err
 }
 

@@ -131,6 +131,25 @@ WHERE
 LIMIT
   1;
 
+-- name: GetItemExampleByCollectionIDAndNextIDAndParentID :one
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  collection_id = ? AND
+  next = ? AND
+  prev = ?
+LIMIT
+  1;
+
 -- name: GetItemApiExamples :many
 SELECT
     id,
@@ -226,6 +245,15 @@ SET
   body_type = ?
 WHERE
   id = ?;
+
+-- name: UpdateItemApiExampleOrder :exec
+UPDATE item_api_example
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ?;
+
 
 -- name: DeleteItemApiExample :exec
 DELETE FROM item_api_example

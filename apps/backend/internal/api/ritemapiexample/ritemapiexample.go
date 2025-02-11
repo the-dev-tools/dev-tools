@@ -332,7 +332,56 @@ func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
 	}
 
-	err = c.iaes.DeleteApiExample(ctx, exampleUlid)
+	example, err := c.iaes.GetApiExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	prevID, nextID := example.Prev, example.Next
+	var prevExamplePtr, nextExamplePtr *mitemapiexample.ItemApiExample
+	if prevID != nil {
+		prevExamplePtr, err = c.iaes.GetApiExample(ctx, *prevID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	if nextID != nil {
+		nextExamplePtr, err = c.iaes.GetApiExample(ctx, *nextID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	txIfs, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if prevExamplePtr != nil {
+		err = txIfs.UpdateItemApiExampleOrder(ctx, prevExamplePtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	if nextExamplePtr != nil {
+		err = txIfs.UpdateItemApiExampleOrder(ctx, nextExamplePtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	err = txIfs.DeleteApiExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

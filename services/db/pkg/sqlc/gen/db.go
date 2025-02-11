@@ -369,6 +369,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemApiOwnerIDStmt, err = db.PrepareContext(ctx, getItemApiOwnerID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiOwnerID: %w", err)
 	}
+	if q.getItemExampleByCollectionIDAndNextIDAndParentIDStmt, err = db.PrepareContext(ctx, getItemExampleByCollectionIDAndNextIDAndParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemExampleByCollectionIDAndNextIDAndParentID: %w", err)
+	}
 	if q.getItemFolderStmt, err = db.PrepareContext(ctx, getItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFolder: %w", err)
 	}
@@ -518,6 +521,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateItemApiExampleStmt, err = db.PrepareContext(ctx, updateItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApiExample: %w", err)
+	}
+	if q.updateItemApiExampleOrderStmt, err = db.PrepareContext(ctx, updateItemApiExampleOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateItemApiExampleOrder: %w", err)
 	}
 	if q.updateItemApiOrderStmt, err = db.PrepareContext(ctx, updateItemApiOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApiOrder: %w", err)
@@ -1132,6 +1138,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemApiOwnerIDStmt: %w", cerr)
 		}
 	}
+	if q.getItemExampleByCollectionIDAndNextIDAndParentIDStmt != nil {
+		if cerr := q.getItemExampleByCollectionIDAndNextIDAndParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemExampleByCollectionIDAndNextIDAndParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getItemFolderStmt != nil {
 		if cerr := q.getItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemFolderStmt: %w", cerr)
@@ -1382,6 +1393,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateItemApiExampleStmt: %w", cerr)
 		}
 	}
+	if q.updateItemApiExampleOrderStmt != nil {
+		if cerr := q.updateItemApiExampleOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateItemApiExampleOrderStmt: %w", cerr)
+		}
+	}
 	if q.updateItemApiOrderStmt != nil {
 		if cerr := q.updateItemApiOrderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemApiOrderStmt: %w", cerr)
@@ -1474,184 +1490,186 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                                  DBTX
-	tx                                                  *sql.Tx
-	checkIFWorkspaceUserExistsStmt                      *sql.Stmt
-	createAssertStmt                                    *sql.Stmt
-	createAssertResultStmt                              *sql.Stmt
-	createBodyFormStmt                                  *sql.Stmt
-	createBodyFormBulkStmt                              *sql.Stmt
-	createBodyRawStmt                                   *sql.Stmt
-	createBodyRawBulkStmt                               *sql.Stmt
-	createBodyUrlEncodedStmt                            *sql.Stmt
-	createBodyUrlEncodedBulkStmt                        *sql.Stmt
-	createCollectionStmt                                *sql.Stmt
-	createEnvironmentStmt                               *sql.Stmt
-	createExampleRespStmt                               *sql.Stmt
-	createExampleRespHeaderStmt                         *sql.Stmt
-	createFlowStmt                                      *sql.Stmt
-	createFlowEdgeStmt                                  *sql.Stmt
-	createFlowNodeStmt                                  *sql.Stmt
-	createFlowNodeForStmt                               *sql.Stmt
-	createFlowNodeForEachStmt                           *sql.Stmt
-	createFlowNodeIfStmt                                *sql.Stmt
-	createFlowNodeNoopStmt                              *sql.Stmt
-	createFlowNodeRequestStmt                           *sql.Stmt
-	createFlowTagStmt                                   *sql.Stmt
-	createHeaderStmt                                    *sql.Stmt
-	createHeaderBulkStmt                                *sql.Stmt
-	createItemApiStmt                                   *sql.Stmt
-	createItemApiBulkStmt                               *sql.Stmt
-	createItemApiExampleStmt                            *sql.Stmt
-	createItemApiExampleBulkStmt                        *sql.Stmt
-	createItemFolderStmt                                *sql.Stmt
-	createItemFolderBulkStmt                            *sql.Stmt
-	createMigrationStmt                                 *sql.Stmt
-	createQueryStmt                                     *sql.Stmt
-	createQueryBulkStmt                                 *sql.Stmt
-	createResultApiStmt                                 *sql.Stmt
-	createTagStmt                                       *sql.Stmt
-	createUserStmt                                      *sql.Stmt
-	createVariableStmt                                  *sql.Stmt
-	createVariableBulkStmt                              *sql.Stmt
-	createWorkspaceStmt                                 *sql.Stmt
-	createWorkspaceUserStmt                             *sql.Stmt
-	deleteAssertStmt                                    *sql.Stmt
-	deleteAssertResultStmt                              *sql.Stmt
-	deleteBodyFormStmt                                  *sql.Stmt
-	deleteBodyRawStmt                                   *sql.Stmt
-	deleteBodyURLEncodedStmt                            *sql.Stmt
-	deleteCollectionStmt                                *sql.Stmt
-	deleteEnvironmentStmt                               *sql.Stmt
-	deleteExampleRespStmt                               *sql.Stmt
-	deleteExampleRespHeaderStmt                         *sql.Stmt
-	deleteFlowStmt                                      *sql.Stmt
-	deleteFlowEdgeStmt                                  *sql.Stmt
-	deleteFlowNodeStmt                                  *sql.Stmt
-	deleteFlowNodeForStmt                               *sql.Stmt
-	deleteFlowNodeForEachStmt                           *sql.Stmt
-	deleteFlowNodeIfStmt                                *sql.Stmt
-	deleteFlowNodeNoopStmt                              *sql.Stmt
-	deleteFlowNodeRequestStmt                           *sql.Stmt
-	deleteFlowTagStmt                                   *sql.Stmt
-	deleteHeaderStmt                                    *sql.Stmt
-	deleteItemApiStmt                                   *sql.Stmt
-	deleteItemApiExampleStmt                            *sql.Stmt
-	deleteItemFolderStmt                                *sql.Stmt
-	deleteMigrationStmt                                 *sql.Stmt
-	deleteQueryStmt                                     *sql.Stmt
-	deleteResultApiStmt                                 *sql.Stmt
-	deleteTagStmt                                       *sql.Stmt
-	deleteUserStmt                                      *sql.Stmt
-	deleteVariableStmt                                  *sql.Stmt
-	deleteWorkspaceStmt                                 *sql.Stmt
-	deleteWorkspaceUserStmt                             *sql.Stmt
-	getActiveEnvironmentsByWorkspaceIDStmt              *sql.Stmt
-	getAssertStmt                                       *sql.Stmt
-	getAssertResultStmt                                 *sql.Stmt
-	getAssertResultsByAssertIDStmt                      *sql.Stmt
-	getAssertResultsByResponseIDStmt                    *sql.Stmt
-	getAssertsByExampleIDStmt                           *sql.Stmt
-	getBodyFormStmt                                     *sql.Stmt
-	getBodyFormsByExampleIDStmt                         *sql.Stmt
-	getBodyRawStmt                                      *sql.Stmt
-	getBodyRawsByExampleIDStmt                          *sql.Stmt
-	getBodyUrlEncodedStmt                               *sql.Stmt
-	getBodyUrlEncodedsByExampleIDStmt                   *sql.Stmt
-	getCollectionStmt                                   *sql.Stmt
-	getCollectionByOwnerIDStmt                          *sql.Stmt
-	getCollectionByPlatformIDandTypeStmt                *sql.Stmt
-	getCollectionOwnerIDStmt                            *sql.Stmt
-	getEnvironmentStmt                                  *sql.Stmt
-	getEnvironmentsByWorkspaceIDStmt                    *sql.Stmt
-	getExampleRespStmt                                  *sql.Stmt
-	getExampleRespHeaderStmt                            *sql.Stmt
-	getExampleRespHeadersByRespIDStmt                   *sql.Stmt
-	getExampleRespsByExampleIDStmt                      *sql.Stmt
-	getFlowStmt                                         *sql.Stmt
-	getFlowEdgeStmt                                     *sql.Stmt
-	getFlowEdgesByFlowIDStmt                            *sql.Stmt
-	getFlowNodeStmt                                     *sql.Stmt
-	getFlowNodeForStmt                                  *sql.Stmt
-	getFlowNodeForEachStmt                              *sql.Stmt
-	getFlowNodeIfStmt                                   *sql.Stmt
-	getFlowNodeNoopStmt                                 *sql.Stmt
-	getFlowNodeRequestStmt                              *sql.Stmt
-	getFlowNodesByFlowIDStmt                            *sql.Stmt
-	getFlowTagStmt                                      *sql.Stmt
-	getFlowTagsByFlowIDStmt                             *sql.Stmt
-	getFlowTagsByTagIDStmt                              *sql.Stmt
-	getFlowsByWorkspaceIDStmt                           *sql.Stmt
-	getHeaderStmt                                       *sql.Stmt
-	getHeadersByExampleIDStmt                           *sql.Stmt
-	getItemApiStmt                                      *sql.Stmt
-	getItemApiByCollectionIDAndNextIDAndParentIDStmt    *sql.Stmt
-	getItemApiExampleStmt                               *sql.Stmt
-	getItemApiExampleByCollectionIDStmt                 *sql.Stmt
-	getItemApiExampleDefaultStmt                        *sql.Stmt
-	getItemApiExamplesStmt                              *sql.Stmt
-	getItemApiOwnerIDStmt                               *sql.Stmt
-	getItemFolderStmt                                   *sql.Stmt
-	getItemFolderByCollectionIDAndNextIDAndParentIDStmt *sql.Stmt
-	getItemFolderOwnerIDStmt                            *sql.Stmt
-	getItemFoldersByCollectionIDStmt                    *sql.Stmt
-	getItemsApiByCollectionIDStmt                       *sql.Stmt
-	getMigrationStmt                                    *sql.Stmt
-	getMigrationsStmt                                   *sql.Stmt
-	getQueriesByExampleIDStmt                           *sql.Stmt
-	getQueryStmt                                        *sql.Stmt
-	getResultApiStmt                                    *sql.Stmt
-	getResultApiByTriggerByStmt                         *sql.Stmt
-	getResultApiByTriggerByAndTriggerTypeStmt           *sql.Stmt
-	getTagStmt                                          *sql.Stmt
-	getTagsByWorkspaceIDStmt                            *sql.Stmt
-	getUserStmt                                         *sql.Stmt
-	getUserByEmailStmt                                  *sql.Stmt
-	getUserByEmailAndProviderTypeStmt                   *sql.Stmt
-	getUserByProviderIDandTypeStmt                      *sql.Stmt
-	getVariableStmt                                     *sql.Stmt
-	getVariablesByEnvironmentIDStmt                     *sql.Stmt
-	getWorkspaceStmt                                    *sql.Stmt
-	getWorkspaceByUserIDStmt                            *sql.Stmt
-	getWorkspaceByUserIDandWorkspaceIDStmt              *sql.Stmt
-	getWorkspaceUserStmt                                *sql.Stmt
-	getWorkspaceUserByUserIDStmt                        *sql.Stmt
-	getWorkspaceUserByWorkspaceIDStmt                   *sql.Stmt
-	getWorkspaceUserByWorkspaceIDAndUserIDStmt          *sql.Stmt
-	getWorkspacesByUserIDStmt                           *sql.Stmt
-	setBodyFormEnableStmt                               *sql.Stmt
-	setHeaderEnableStmt                                 *sql.Stmt
-	setQueryEnableStmt                                  *sql.Stmt
-	updateAssertStmt                                    *sql.Stmt
-	updateAssertResultStmt                              *sql.Stmt
-	updateBodyFormStmt                                  *sql.Stmt
-	updateBodyRawDataStmt                               *sql.Stmt
-	updateBodyUrlEncodedStmt                            *sql.Stmt
-	updateCollectionStmt                                *sql.Stmt
-	updateEnvironmentStmt                               *sql.Stmt
-	updateExampleRespStmt                               *sql.Stmt
-	updateExampleRespHeaderStmt                         *sql.Stmt
-	updateFlowStmt                                      *sql.Stmt
-	updateFlowEdgeStmt                                  *sql.Stmt
-	updateFlowNodeStmt                                  *sql.Stmt
-	updateFlowNodeForStmt                               *sql.Stmt
-	updateFlowNodeForEachStmt                           *sql.Stmt
-	updateFlowNodeIfStmt                                *sql.Stmt
-	updateFlowNodeRequestStmt                           *sql.Stmt
-	updateHeaderStmt                                    *sql.Stmt
-	updateItemApiStmt                                   *sql.Stmt
-	updateItemApiExampleStmt                            *sql.Stmt
-	updateItemApiOrderStmt                              *sql.Stmt
-	updateItemFolderStmt                                *sql.Stmt
-	updateItemFolderOrderStmt                           *sql.Stmt
-	updateQueryStmt                                     *sql.Stmt
-	updateResultApiStmt                                 *sql.Stmt
-	updateTagStmt                                       *sql.Stmt
-	updateUserStmt                                      *sql.Stmt
-	updateVariableStmt                                  *sql.Stmt
-	updateVisualizeModeStmt                             *sql.Stmt
-	updateWorkspaceStmt                                 *sql.Stmt
-	updateWorkspaceUserStmt                             *sql.Stmt
+	db                                                   DBTX
+	tx                                                   *sql.Tx
+	checkIFWorkspaceUserExistsStmt                       *sql.Stmt
+	createAssertStmt                                     *sql.Stmt
+	createAssertResultStmt                               *sql.Stmt
+	createBodyFormStmt                                   *sql.Stmt
+	createBodyFormBulkStmt                               *sql.Stmt
+	createBodyRawStmt                                    *sql.Stmt
+	createBodyRawBulkStmt                                *sql.Stmt
+	createBodyUrlEncodedStmt                             *sql.Stmt
+	createBodyUrlEncodedBulkStmt                         *sql.Stmt
+	createCollectionStmt                                 *sql.Stmt
+	createEnvironmentStmt                                *sql.Stmt
+	createExampleRespStmt                                *sql.Stmt
+	createExampleRespHeaderStmt                          *sql.Stmt
+	createFlowStmt                                       *sql.Stmt
+	createFlowEdgeStmt                                   *sql.Stmt
+	createFlowNodeStmt                                   *sql.Stmt
+	createFlowNodeForStmt                                *sql.Stmt
+	createFlowNodeForEachStmt                            *sql.Stmt
+	createFlowNodeIfStmt                                 *sql.Stmt
+	createFlowNodeNoopStmt                               *sql.Stmt
+	createFlowNodeRequestStmt                            *sql.Stmt
+	createFlowTagStmt                                    *sql.Stmt
+	createHeaderStmt                                     *sql.Stmt
+	createHeaderBulkStmt                                 *sql.Stmt
+	createItemApiStmt                                    *sql.Stmt
+	createItemApiBulkStmt                                *sql.Stmt
+	createItemApiExampleStmt                             *sql.Stmt
+	createItemApiExampleBulkStmt                         *sql.Stmt
+	createItemFolderStmt                                 *sql.Stmt
+	createItemFolderBulkStmt                             *sql.Stmt
+	createMigrationStmt                                  *sql.Stmt
+	createQueryStmt                                      *sql.Stmt
+	createQueryBulkStmt                                  *sql.Stmt
+	createResultApiStmt                                  *sql.Stmt
+	createTagStmt                                        *sql.Stmt
+	createUserStmt                                       *sql.Stmt
+	createVariableStmt                                   *sql.Stmt
+	createVariableBulkStmt                               *sql.Stmt
+	createWorkspaceStmt                                  *sql.Stmt
+	createWorkspaceUserStmt                              *sql.Stmt
+	deleteAssertStmt                                     *sql.Stmt
+	deleteAssertResultStmt                               *sql.Stmt
+	deleteBodyFormStmt                                   *sql.Stmt
+	deleteBodyRawStmt                                    *sql.Stmt
+	deleteBodyURLEncodedStmt                             *sql.Stmt
+	deleteCollectionStmt                                 *sql.Stmt
+	deleteEnvironmentStmt                                *sql.Stmt
+	deleteExampleRespStmt                                *sql.Stmt
+	deleteExampleRespHeaderStmt                          *sql.Stmt
+	deleteFlowStmt                                       *sql.Stmt
+	deleteFlowEdgeStmt                                   *sql.Stmt
+	deleteFlowNodeStmt                                   *sql.Stmt
+	deleteFlowNodeForStmt                                *sql.Stmt
+	deleteFlowNodeForEachStmt                            *sql.Stmt
+	deleteFlowNodeIfStmt                                 *sql.Stmt
+	deleteFlowNodeNoopStmt                               *sql.Stmt
+	deleteFlowNodeRequestStmt                            *sql.Stmt
+	deleteFlowTagStmt                                    *sql.Stmt
+	deleteHeaderStmt                                     *sql.Stmt
+	deleteItemApiStmt                                    *sql.Stmt
+	deleteItemApiExampleStmt                             *sql.Stmt
+	deleteItemFolderStmt                                 *sql.Stmt
+	deleteMigrationStmt                                  *sql.Stmt
+	deleteQueryStmt                                      *sql.Stmt
+	deleteResultApiStmt                                  *sql.Stmt
+	deleteTagStmt                                        *sql.Stmt
+	deleteUserStmt                                       *sql.Stmt
+	deleteVariableStmt                                   *sql.Stmt
+	deleteWorkspaceStmt                                  *sql.Stmt
+	deleteWorkspaceUserStmt                              *sql.Stmt
+	getActiveEnvironmentsByWorkspaceIDStmt               *sql.Stmt
+	getAssertStmt                                        *sql.Stmt
+	getAssertResultStmt                                  *sql.Stmt
+	getAssertResultsByAssertIDStmt                       *sql.Stmt
+	getAssertResultsByResponseIDStmt                     *sql.Stmt
+	getAssertsByExampleIDStmt                            *sql.Stmt
+	getBodyFormStmt                                      *sql.Stmt
+	getBodyFormsByExampleIDStmt                          *sql.Stmt
+	getBodyRawStmt                                       *sql.Stmt
+	getBodyRawsByExampleIDStmt                           *sql.Stmt
+	getBodyUrlEncodedStmt                                *sql.Stmt
+	getBodyUrlEncodedsByExampleIDStmt                    *sql.Stmt
+	getCollectionStmt                                    *sql.Stmt
+	getCollectionByOwnerIDStmt                           *sql.Stmt
+	getCollectionByPlatformIDandTypeStmt                 *sql.Stmt
+	getCollectionOwnerIDStmt                             *sql.Stmt
+	getEnvironmentStmt                                   *sql.Stmt
+	getEnvironmentsByWorkspaceIDStmt                     *sql.Stmt
+	getExampleRespStmt                                   *sql.Stmt
+	getExampleRespHeaderStmt                             *sql.Stmt
+	getExampleRespHeadersByRespIDStmt                    *sql.Stmt
+	getExampleRespsByExampleIDStmt                       *sql.Stmt
+	getFlowStmt                                          *sql.Stmt
+	getFlowEdgeStmt                                      *sql.Stmt
+	getFlowEdgesByFlowIDStmt                             *sql.Stmt
+	getFlowNodeStmt                                      *sql.Stmt
+	getFlowNodeForStmt                                   *sql.Stmt
+	getFlowNodeForEachStmt                               *sql.Stmt
+	getFlowNodeIfStmt                                    *sql.Stmt
+	getFlowNodeNoopStmt                                  *sql.Stmt
+	getFlowNodeRequestStmt                               *sql.Stmt
+	getFlowNodesByFlowIDStmt                             *sql.Stmt
+	getFlowTagStmt                                       *sql.Stmt
+	getFlowTagsByFlowIDStmt                              *sql.Stmt
+	getFlowTagsByTagIDStmt                               *sql.Stmt
+	getFlowsByWorkspaceIDStmt                            *sql.Stmt
+	getHeaderStmt                                        *sql.Stmt
+	getHeadersByExampleIDStmt                            *sql.Stmt
+	getItemApiStmt                                       *sql.Stmt
+	getItemApiByCollectionIDAndNextIDAndParentIDStmt     *sql.Stmt
+	getItemApiExampleStmt                                *sql.Stmt
+	getItemApiExampleByCollectionIDStmt                  *sql.Stmt
+	getItemApiExampleDefaultStmt                         *sql.Stmt
+	getItemApiExamplesStmt                               *sql.Stmt
+	getItemApiOwnerIDStmt                                *sql.Stmt
+	getItemExampleByCollectionIDAndNextIDAndParentIDStmt *sql.Stmt
+	getItemFolderStmt                                    *sql.Stmt
+	getItemFolderByCollectionIDAndNextIDAndParentIDStmt  *sql.Stmt
+	getItemFolderOwnerIDStmt                             *sql.Stmt
+	getItemFoldersByCollectionIDStmt                     *sql.Stmt
+	getItemsApiByCollectionIDStmt                        *sql.Stmt
+	getMigrationStmt                                     *sql.Stmt
+	getMigrationsStmt                                    *sql.Stmt
+	getQueriesByExampleIDStmt                            *sql.Stmt
+	getQueryStmt                                         *sql.Stmt
+	getResultApiStmt                                     *sql.Stmt
+	getResultApiByTriggerByStmt                          *sql.Stmt
+	getResultApiByTriggerByAndTriggerTypeStmt            *sql.Stmt
+	getTagStmt                                           *sql.Stmt
+	getTagsByWorkspaceIDStmt                             *sql.Stmt
+	getUserStmt                                          *sql.Stmt
+	getUserByEmailStmt                                   *sql.Stmt
+	getUserByEmailAndProviderTypeStmt                    *sql.Stmt
+	getUserByProviderIDandTypeStmt                       *sql.Stmt
+	getVariableStmt                                      *sql.Stmt
+	getVariablesByEnvironmentIDStmt                      *sql.Stmt
+	getWorkspaceStmt                                     *sql.Stmt
+	getWorkspaceByUserIDStmt                             *sql.Stmt
+	getWorkspaceByUserIDandWorkspaceIDStmt               *sql.Stmt
+	getWorkspaceUserStmt                                 *sql.Stmt
+	getWorkspaceUserByUserIDStmt                         *sql.Stmt
+	getWorkspaceUserByWorkspaceIDStmt                    *sql.Stmt
+	getWorkspaceUserByWorkspaceIDAndUserIDStmt           *sql.Stmt
+	getWorkspacesByUserIDStmt                            *sql.Stmt
+	setBodyFormEnableStmt                                *sql.Stmt
+	setHeaderEnableStmt                                  *sql.Stmt
+	setQueryEnableStmt                                   *sql.Stmt
+	updateAssertStmt                                     *sql.Stmt
+	updateAssertResultStmt                               *sql.Stmt
+	updateBodyFormStmt                                   *sql.Stmt
+	updateBodyRawDataStmt                                *sql.Stmt
+	updateBodyUrlEncodedStmt                             *sql.Stmt
+	updateCollectionStmt                                 *sql.Stmt
+	updateEnvironmentStmt                                *sql.Stmt
+	updateExampleRespStmt                                *sql.Stmt
+	updateExampleRespHeaderStmt                          *sql.Stmt
+	updateFlowStmt                                       *sql.Stmt
+	updateFlowEdgeStmt                                   *sql.Stmt
+	updateFlowNodeStmt                                   *sql.Stmt
+	updateFlowNodeForStmt                                *sql.Stmt
+	updateFlowNodeForEachStmt                            *sql.Stmt
+	updateFlowNodeIfStmt                                 *sql.Stmt
+	updateFlowNodeRequestStmt                            *sql.Stmt
+	updateHeaderStmt                                     *sql.Stmt
+	updateItemApiStmt                                    *sql.Stmt
+	updateItemApiExampleStmt                             *sql.Stmt
+	updateItemApiExampleOrderStmt                        *sql.Stmt
+	updateItemApiOrderStmt                               *sql.Stmt
+	updateItemFolderStmt                                 *sql.Stmt
+	updateItemFolderOrderStmt                            *sql.Stmt
+	updateQueryStmt                                      *sql.Stmt
+	updateResultApiStmt                                  *sql.Stmt
+	updateTagStmt                                        *sql.Stmt
+	updateUserStmt                                       *sql.Stmt
+	updateVariableStmt                                   *sql.Stmt
+	updateVisualizeModeStmt                              *sql.Stmt
+	updateWorkspaceStmt                                  *sql.Stmt
+	updateWorkspaceUserStmt                              *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -1773,7 +1791,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemApiExampleDefaultStmt:                     q.getItemApiExampleDefaultStmt,
 		getItemApiExamplesStmt:                           q.getItemApiExamplesStmt,
 		getItemApiOwnerIDStmt:                            q.getItemApiOwnerIDStmt,
-		getItemFolderStmt:                                q.getItemFolderStmt,
+		getItemExampleByCollectionIDAndNextIDAndParentIDStmt: q.getItemExampleByCollectionIDAndNextIDAndParentIDStmt,
+		getItemFolderStmt: q.getItemFolderStmt,
 		getItemFolderByCollectionIDAndNextIDAndParentIDStmt: q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt,
 		getItemFolderOwnerIDStmt:                            q.getItemFolderOwnerIDStmt,
 		getItemFoldersByCollectionIDStmt:                    q.getItemFoldersByCollectionIDStmt,
@@ -1823,6 +1842,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateHeaderStmt:                                    q.updateHeaderStmt,
 		updateItemApiStmt:                                   q.updateItemApiStmt,
 		updateItemApiExampleStmt:                            q.updateItemApiExampleStmt,
+		updateItemApiExampleOrderStmt:                       q.updateItemApiExampleOrderStmt,
 		updateItemApiOrderStmt:                              q.updateItemApiOrderStmt,
 		updateItemFolderStmt:                                q.updateItemFolderStmt,
 		updateItemFolderOrderStmt:                           q.updateItemFolderOrderStmt,
