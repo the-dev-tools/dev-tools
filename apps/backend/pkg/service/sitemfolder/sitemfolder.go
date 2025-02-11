@@ -72,7 +72,7 @@ func (ifs ItemFolderService) GetFoldersWithCollectionID(ctx context.Context, col
 	return tgeneric.MassConvert(rawFolders, ConvertToModelItemFolder), nil
 }
 
-func (ifs ItemFolderService) GetFolderByCollectionIDAndNextID(ctx context.Context, collectionID idwrap.IDWrap, nextID, parentID *idwrap.IDWrap) (mitemfolder.ItemFolder, error) {
+func (ifs ItemFolderService) GetFolderByCollectionIDAndNextID(ctx context.Context, collectionID idwrap.IDWrap, nextID, parentID *idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
 	rawFolder, err := ifs.queries.GetItemFolderByCollectionIDAndNextIDAndParentID(ctx, gen.GetItemFolderByCollectionIDAndNextIDAndParentIDParams{
 		CollectionID: collectionID,
 		ParentID:     parentID,
@@ -80,11 +80,12 @@ func (ifs ItemFolderService) GetFolderByCollectionIDAndNextID(ctx context.Contex
 	})
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return mitemfolder.ItemFolder{}, ErrNoItemFolderFound
+			return nil, ErrNoItemFolderFound
 		}
-		return mitemfolder.ItemFolder{}, err
+		return nil, err
 	}
-	return ConvertToModelItemFolder(rawFolder), nil
+	a := ConvertToModelItemFolder(rawFolder)
+	return &a, nil
 }
 
 func (ifs ItemFolderService) UpdateOrder(ctx context.Context, folder *mitemfolder.ItemFolder) error {

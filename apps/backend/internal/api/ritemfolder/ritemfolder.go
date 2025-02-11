@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mitemfolder"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/scollection"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
@@ -71,7 +72,38 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		}
 	}
 
-	err = c.ifs.CreateItemFolder(ctx, reqFolder)
+	lastFolder, err := c.ifs.GetFolderByCollectionIDAndNextID(ctx, reqFolder.CollectionID, nil, reqFolder.ParentID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txIfs, err := sitemfolder.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if lastFolder != nil {
+		lastFolder.Next = &ID
+
+		err = txIfs.UpdateItemFolder(ctx, lastFolder)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	err = txIfs.CreateItemFolder(ctx, reqFolder)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -190,7 +222,60 @@ func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[f
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	err = c.ifs.DeleteItemFolder(ctx, ulidID)
+	reqFolder, err := c.ifs.GetFolder(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	prev, next := reqFolder.Prev, reqFolder.Next
+	var prevFolderPtr, nextFolderPtr *mitemfolder.ItemFolder
+
+	if prev != nil {
+		prevFolder, err := c.ifs.GetFolder(ctx, *prev)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		prevFolderPtr = prevFolder
+	}
+	if next != nil {
+		nextFolder, err := c.ifs.GetFolder(ctx, *next)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		nextFolderPtr = nextFolder
+	}
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txIfs, err := sitemfolder.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if prevFolderPtr != nil {
+		prevFolderPtr.Next = next
+		err = txIfs.UpdateItemFolder(ctx, prevFolderPtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	if nextFolderPtr != nil {
+		nextFolderPtr.Prev = prev
+		err = txIfs.UpdateItemFolder(ctx, nextFolderPtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	err = txIfs.DeleteItemFolder(ctx, ulidID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
