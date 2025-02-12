@@ -17,7 +17,7 @@ var (
 	ErrDBPathNotFound   = fmt.Errorf("db path not found")
 )
 
-func NewTursoLocal(dbName, path, encryptionKey string) (*sql.DB, func(), error) {
+func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sql.DB, func(), error) {
 	if dbName == "" {
 		return nil, nil, ErrDBNameNotFound
 	}
@@ -53,8 +53,6 @@ func NewTursoLocal(dbName, path, encryptionKey string) (*sql.DB, func(), error) 
 	a := func() {
 		db.Close()
 	}
-	// TODO: Add context to the function
-	ctx := context.Background()
 	if firstTime {
 		fmt.Println("Creating tables")
 		err = sqlc.CreateLocalTables(ctx, db)

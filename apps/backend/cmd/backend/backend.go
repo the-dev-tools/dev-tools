@@ -110,7 +110,7 @@ func main() {
 	case devtoolsdb.EMBEDDED:
 		currentDB, dbCloseFunc, err = GetDBEmbedded()
 	case devtoolsdb.LOCAL:
-		currentDB, dbCloseFunc, err = GetDBLocal()
+		currentDB, dbCloseFunc, err = GetDBLocal(ctx)
 	case devtoolsdb.REMOTE:
 		err = errors.New("remote db mode is not supported")
 	default:
@@ -382,7 +382,7 @@ func GetDBEmbedded() (*sql.DB, func(), error) {
 	return db, a, nil
 }
 
-func GetDBLocal() (*sql.DB, func(), error) {
+func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		return nil, nil, errors.New("DB_NAME env var is required")
@@ -395,7 +395,7 @@ func GetDBLocal() (*sql.DB, func(), error) {
 	if encryptKey == "" {
 		return nil, nil, errors.New("DB_ENCRYPT_KEY env var is required")
 	}
-	db, a, err := tursolocal.NewTursoLocal(dbName, dbPath, encryptKey)
+	db, a, err := tursolocal.NewTursoLocal(ctx, dbName, dbPath, encryptKey)
 	if err != nil {
 		return nil, nil, err
 	}

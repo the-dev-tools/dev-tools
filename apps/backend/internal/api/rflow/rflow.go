@@ -387,6 +387,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	for _, forNode := range forNodes {
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.IterCount, time.Second)
 	}
+
 	for _, requestNode := range requestNodes {
 		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID))

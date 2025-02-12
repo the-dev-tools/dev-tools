@@ -185,9 +185,12 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 
 		respRef, err := GetExampleRespByExampleID(ctx, c.ers, c.erhs, exID)
 		if err != nil {
-			return nil, err
+			if err != sql.ErrNoRows {
+				return nil, err
+			}
+		} else {
+			Items = append(Items, reference.ConvertPkgToRpc(*respRef))
 		}
-		Items = append(Items, reference.ConvertPkgToRpc(*respRef))
 
 	}
 
@@ -280,12 +283,12 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.Reference, error) {
 	resp, err := ers.GetExampleRespByExampleID(ctx, exID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
 	respHeaders, err := erhs.GetHeaderByRespID(ctx, resp.ID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
 	headerMap := make(map[string]string)
@@ -307,13 +310,13 @@ func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleResp
 	var m map[string]interface{}
 	data, err := json.Marshal(httpResp)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 	json.Unmarshal(data, &m)
 
 	localRef, err := reference.ConvertMapToReference(m, "response")
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 	return &localRef, nil
 }
