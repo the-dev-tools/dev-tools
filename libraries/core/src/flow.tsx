@@ -1,32 +1,34 @@
-import { create, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { createClient } from '@connectrpc/connect';
-import { createQueryOptions } from '@connectrpc/connect-query';
-import { useSuspenseQueries } from '@tanstack/react-query';
+import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
+import { createClient, Transport } from '@connectrpc/connect';
+import { callUnaryMethod, createConnectQueryKey, createQueryOptions } from '@connectrpc/connect-query';
+import { queryOptions, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi, redirect, ToOptions } from '@tanstack/react-router';
 import {
+  applyEdgeChanges,
+  applyNodeChanges,
   Background,
   BackgroundVariant,
   ConnectionLineComponentProps,
+  EdgeProps,
   getConnectedEdges,
   getSmoothStepPath,
+  Handle as HandleCore,
+  HandleProps,
+  Node as NodeCore,
+  NodeProps as NodePropsCore,
+  NodeTypes as NodeTypesCore,
+  OnEdgesChange,
+  OnNodesChange,
   Position,
   ReactFlow,
   ReactFlowProps,
   ReactFlowProvider,
-  Handle as RFBaseHandle,
-  NodeProps as RFBaseNodeProps,
-  Edge as RFEdge,
-  EdgeProps as RFEdgeProps,
-  HandleProps as RFHandleProps,
-  Node as RFNode,
-  NodeTypes as RFNodeTypes,
   Panel as RFPanel,
-  useEdgesState,
-  useNodesState,
   useReactFlow,
   useViewport,
+  type Edge,
 } from '@xyflow/react';
-import { Array, Match, pipe, Schema, Struct } from 'effect';
+import { Array, HashMap, Match, Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ComponentProps, ReactNode, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Header, ListBoxSection, MenuTrigger } from 'react-aria-components';
@@ -43,18 +45,33 @@ import {
   exampleGet,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
-import { Edge, EdgeListItem, EdgeSchema, Handle } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { edgeCreate, edgeDelete, edgeList } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
+import {
+  Edge as EdgeDTO,
+  EdgeSchema as EdgeDTOSchema,
+  EdgeListRequestSchema,
+  Handle as HandleKind,
+  HandleJson as HandleKindJson,
+  HandleSchema as HandleKindSchema,
+} from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
+import {
+  edgeCreate,
+  edgeDelete,
+  edgeList,
+  edgeUpdate,
+} from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import {
   ErrorHandling,
-  Node,
+  Node as NodeDTO,
+  NodeSchema as NodeDTOSchema,
   NodeGetResponse,
   NodeKind,
-  NodeListItem,
+  NodeKindJson,
+  NodeKindSchema,
+  NodeListRequestSchema,
   NodeNoOpKind,
   NodeRequest,
   NodeRequestSchema,
-  NodeSchema,
+  PositionSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   nodeCreate,
@@ -112,8 +129,8 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
     try {
       await Promise.all([
         queryClient.ensureQueryData(createQueryOptions(flowGet, { flowId }, { transport })),
-        queryClient.ensureQueryData(createQueryOptions(nodeList, { flowId }, { transport })),
-        queryClient.ensureQueryData(createQueryOptions(edgeList, { flowId }, { transport })),
+        queryClient.ensureQueryData(edgesQueryOptions({ transport, flowId })),
+        queryClient.ensureQueryData(nodesQueryOptions({ transport, flowId })),
       ]);
     } catch {
       redirect({
@@ -129,52 +146,97 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
+const edgesQueryOptions = ({
+  transport,
+  ...input
+}: MessageInitShape<typeof EdgeListRequestSchema> & { transport: Transport }) =>
+  queryOptions({
+    queryKey: pipe(
+      createConnectQueryKey({ schema: edgeList, cardinality: 'finite', transport, input }),
+      Array.append('react-flow'),
+    ),
+    queryFn: async () => pipe(await callUnaryMethod(transport, edgeList, input), (_) => _.items.map(Edge.fromDTO)),
+  });
+
+const nodesQueryOptions = ({
+  transport,
+  ...input
+}: MessageInitShape<typeof NodeListRequestSchema> & { transport: Transport }) =>
+  queryOptions({
+    queryKey: pipe(
+      createConnectQueryKey({ schema: nodeList, cardinality: 'finite', transport, input }),
+      Array.append('react-flow'),
+    ),
+    queryFn: async () => pipe(await callUnaryMethod(transport, nodeList, input), (_) => _.items.map(Node.fromDTO)),
+  });
+
 function RouteComponent() {
   const { flowId } = Route.useLoaderData();
   const { selectedNodeIdCan } = Route.useSearch();
   const { transport } = Route.useRouteContext();
 
-  const [flowQuery, edgeListQuery, nodeListQuery] = useSuspenseQueries({
+  const [flowQuery, edgesQuery, nodesQuery] = useSuspenseQueries({
     queries: [
       createQueryOptions(flowGet, { flowId }, { transport }),
-      createQueryOptions(edgeList, { flowId }, { transport }),
-      createQueryOptions(nodeList, { flowId }, { transport }),
+      edgesQueryOptions({ transport, flowId }),
+      nodesQueryOptions({ transport, flowId }),
     ],
   });
 
   return (
     <ReactFlowProvider>
       <Panel id='request' order={1} className='flex h-full flex-col'>
-        <FlowView flow={flowQuery.data} edges={edgeListQuery.data.items} nodes={nodeListQuery.data.items} />
+        <FlowView flow={flowQuery.data} edges={edgesQuery.data} nodes={nodesQuery.data} />
       </Panel>
       <Suspense>{selectedNodeIdCan !== undefined && <EditPanel nodeIdCan={selectedNodeIdCan} />}</Suspense>
     </ReactFlowProvider>
   );
 }
 
-const mapEdgeToClient = (edge: Omit<EdgeListItem, keyof Message>) =>
-  ({
+const Edge = {
+  fromDTO: (edge: Omit<EdgeDTO, keyof Message> & Message): Edge => ({
     id: Ulid.construct(edge.edgeId).toCanonical(),
     source: Ulid.construct(edge.sourceId).toCanonical(),
-    sourceHandle: edge.sourceHandle === Handle.UNSPECIFIED ? null : edge.sourceHandle.toString(),
+    sourceHandle: edge.sourceHandle === HandleKind.UNSPECIFIED ? null : enumToJson(HandleKindSchema, edge.sourceHandle),
     target: Ulid.construct(edge.targetId).toCanonical(),
-  }) satisfies RFEdge;
+  }),
 
-const mapNodeToClient = (node: Omit<NodeListItem, keyof Message>) =>
-  ({
-    id: Ulid.construct(node.nodeId).toCanonical(),
-    position: Struct.pick(node.position!, 'x', 'y'),
+  toDTO: (_: Edge): Omit<EdgeDTO, keyof Message> => ({
+    edgeId: Ulid.fromCanonical(_.id).bytes,
+    sourceId: Ulid.fromCanonical(_.source).bytes,
+    sourceHandle: isEnumJson(HandleKindSchema, _.sourceHandle)
+      ? enumFromJson(HandleKindSchema, _.sourceHandle)
+      : HandleKind.UNSPECIFIED,
+    targetId: Ulid.fromCanonical(_.target).bytes,
+  }),
+};
+
+interface NodeData extends Omit<NodeDTO, keyof Message | 'nodeId' | 'kind' | 'position'> {}
+interface Node extends NodeCore<NodeData> {}
+
+const Node = {
+  fromDTO: ({ nodeId, kind, position, ...data }: Omit<NodeDTO, keyof Message> & Message): Node => ({
+    id: Ulid.construct(nodeId).toCanonical(),
+    position: Struct.pick(position!, 'x', 'y'),
     origin: [0.5, 0],
-    type: node.kind.toString(),
-    data: node,
-  }) satisfies Partial<RFNode>;
+    type: enumToJson(NodeKindSchema, kind),
+    data: Struct.omit(data, '$typeName', '$unknown'),
+  }),
 
-interface RFNodeProps extends RFBaseNodeProps<RFNode<Node>> {}
+  toDTO: (_: Node): Omit<NodeDTO, keyof Message> => ({
+    ..._.data,
+    nodeId: Ulid.fromCanonical(_.id).bytes,
+    kind: isEnumJson(NodeKindSchema, _.type) ? enumFromJson(NodeKindSchema, _.type) : NodeKind.UNSPECIFIED,
+    position: create(PositionSchema, _.position),
+  }),
+};
 
-const NoOpNodeView = (props: RFNodeProps) => {
+interface NodeProps extends NodePropsCore<Node> {}
+
+const NoOpNode = (props: NodeProps) => {
   const kind = props.data.noOp;
 
-  if (kind === NodeNoOpKind.CREATE) return <CreateNodeView {...props} />;
+  if (kind === NodeNoOpKind.CREATE) return <CreateNode {...props} />;
 
   return (
     <>
@@ -198,8 +260,8 @@ const NoOpNodeView = (props: RFNodeProps) => {
         </span>
       </div>
 
-      {kind !== NodeNoOpKind.START && <RFHandle type='target' position={Position.Top} isConnectable={false} />}
-      <RFHandle type='source' position={Position.Bottom} />
+      {kind !== NodeNoOpKind.START && <Handle type='target' position={Position.Top} isConnectable={false} />}
+      <Handle type='source' position={Position.Bottom} />
     </>
   );
 };
@@ -228,9 +290,9 @@ const useMakeNode = () => {
   const { flowId } = Route.useLoaderData();
   const nodeCreateMutation = useConnectMutation(nodeCreate);
   return useCallback(
-    async (data: Omit<MessageInitShape<typeof NodeSchema>, keyof Message>) => {
+    async (data: Omit<MessageInitShape<typeof NodeDTOSchema>, keyof Message>) => {
       const { nodeId } = await nodeCreateMutation.mutateAsync({ flowId, ...data });
-      return create(NodeSchema, { nodeId, ...data });
+      return create(NodeDTOSchema, { nodeId, ...data });
     },
     [flowId, nodeCreateMutation],
   );
@@ -240,26 +302,26 @@ const useMakeEdge = () => {
   const { flowId } = Route.useLoaderData();
   const edgeCreateMutation = useConnectMutation(edgeCreate);
   return useCallback(
-    async (data: Omit<MessageInitShape<typeof EdgeSchema>, keyof Message>) => {
+    async (data: Omit<MessageInitShape<typeof EdgeDTOSchema>, keyof Message>) => {
       const { edgeId } = await edgeCreateMutation.mutateAsync({ flowId, ...data });
-      return create(EdgeSchema, { edgeId, ...data });
+      return create(EdgeDTOSchema, { edgeId, ...data });
     },
     [edgeCreateMutation, flowId],
   );
 };
 
-const CreateNodeView = ({ id }: RFNodeProps) => {
+const CreateNode = ({ id }: NodeProps) => {
   const { getNode, getEdges, addNodes, addEdges, deleteElements } = useReactFlow();
 
   const edge = useMemo(() => getEdges().find((_) => _.target === id)!, [getEdges, id]);
   const sourceId = useMemo(() => Ulid.fromCanonical(edge.source).bytes, [edge.source]);
 
   const add = useCallback(
-    async (nodes: Node[], edges: Edge[]) => {
+    async (nodes: NodeDTO[], edges: EdgeDTO[]) => {
       await deleteElements({ nodes: [{ id }], edges: [edge] });
 
-      addNodes(nodes.map(mapNodeToClient));
-      addEdges(edges.map(mapEdgeToClient));
+      pipe(nodes.map(Node.fromDTO), addNodes);
+      pipe(edges.map(Edge.fromDTO), addEdges);
     },
     [addEdges, addNodes, deleteElements, edge, id],
   );
@@ -333,12 +395,12 @@ const CreateNodeView = ({ id }: RFNodeProps) => {
                 makeEdge({ sourceId, targetId: node.nodeId }),
                 makeEdge({
                   sourceId: node.nodeId,
-                  sourceHandle: Handle.THEN,
+                  sourceHandle: HandleKind.THEN,
                   targetId: nodeThen.nodeId,
                 }),
                 makeEdge({
                   sourceId: node.nodeId,
-                  sourceHandle: Handle.ELSE,
+                  sourceHandle: HandleKind.ELSE,
                   targetId: nodeElse.nodeId,
                 }),
               ]);
@@ -377,12 +439,12 @@ const CreateNodeView = ({ id }: RFNodeProps) => {
                 makeEdge({ sourceId, targetId: node.nodeId }),
                 makeEdge({
                   sourceId: node.nodeId,
-                  sourceHandle: Handle.LOOP,
+                  sourceHandle: HandleKind.LOOP,
                   targetId: nodeLoop.nodeId,
                 }),
                 makeEdge({
                   sourceId: node.nodeId,
-                  sourceHandle: Handle.THEN,
+                  sourceHandle: HandleKind.THEN,
                   targetId: nodeThen.nodeId,
                 }),
               ]);
@@ -415,12 +477,12 @@ const CreateNodeView = ({ id }: RFNodeProps) => {
                 makeEdge({ sourceId, targetId: node.nodeId }),
                 makeEdge({
                   sourceId: node.nodeId,
-                  sourceHandle: Handle.LOOP,
+                  sourceHandle: HandleKind.LOOP,
                   targetId: nodeLoop.nodeId,
                 }),
                 makeEdge({
                   sourceId: node.nodeId,
-                  sourceHandle: Handle.THEN,
+                  sourceHandle: HandleKind.THEN,
                   targetId: nodeThen.nodeId,
                 }),
               ]);
@@ -431,27 +493,21 @@ const CreateNodeView = ({ id }: RFNodeProps) => {
         </ListBoxSection>
       </ListBox>
 
-      <RFHandle type='target' position={Position.Top} isConnectable={false} />
+      <Handle type='target' position={Position.Top} isConnectable={false} />
     </>
   );
 };
 
-interface BaseNodeViewProps {
+interface NodeBaseProps {
   id: string;
-  nodeId: Uint8Array;
   Icon: IconType;
   title: string;
   children: ReactNode;
 }
 
 // TODO: add node name
-const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) => {
-  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
-
+const NodeBase = ({ id, Icon, title, children }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements } = useReactFlow();
-
-  const nodeDeleteMutation = useConnectMutation(nodeDelete);
-  const edgeDeleteMutation = useConnectMutation(edgeDelete);
 
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -481,7 +537,7 @@ const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) 
             <MenuItem
               href={{
                 to: '.',
-                search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
+                search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
               }}
             >
               Edit
@@ -497,16 +553,6 @@ const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) 
                 const { createEdges = [], edges = [] } = pipe(
                   getConnectedEdges([node!], getEdges()),
                   Array.groupBy((_) => (_.id.startsWith('create-') ? 'createEdges' : 'edges')),
-                );
-
-                await nodeDeleteMutation.mutateAsync({ nodeId });
-
-                await Promise.allSettled(
-                  edges.map(({ id }) =>
-                    edgeDeleteMutation.mutateAsync({
-                      edgeId: Ulid.fromCanonicalTrusted(id).bytes,
-                    }),
-                  ),
                 );
 
                 await deleteElements({
@@ -526,19 +572,17 @@ const BaseNodeView = ({ id, nodeId, Icon, title, children }: BaseNodeViewProps) 
   );
 };
 
-const RequestNodeView = ({ id, data }: RFNodeProps) => {
-  const { nodeId } = data;
+const RequestNode = ({ id, data }: NodeProps) => {
   const { updateNodeData } = useReactFlow();
 
   const exampleCreateMutation = useConnectMutation(exampleCreate);
-  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
 
   return (
     <>
-      <BaseNodeView id={id} nodeId={nodeId} Icon={SendRequestIcon} title='Send Request'>
+      <NodeBase id={id} Icon={SendRequestIcon} title='Send Request'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           {data.request?.exampleId.length !== 0 ? (
-            <RequestNodeFullView request={data.request!} />
+            <RequestNodeSelected request={data.request!} />
           ) : (
             <CollectionListTree
               onAction={async ({ collectionId, endpointId, exampleId }) => {
@@ -551,25 +595,24 @@ const RequestNodeView = ({ id, data }: RFNodeProps) => {
                   exampleId,
                   deltaExampleId,
                 });
-                await nodeUpdateMutation.mutateAsync({ nodeId, request });
                 updateNodeData(id, { ...data, request });
               }}
             />
           )}
         </div>
-      </BaseNodeView>
+      </NodeBase>
 
-      <RFHandle type='target' position={Position.Top} />
-      <RFHandle type='source' position={Position.Bottom} />
+      <Handle type='target' position={Position.Top} />
+      <Handle type='source' position={Position.Bottom} />
     </>
   );
 };
 
-interface RequestNodeFullViewProps {
+interface RequestNodeSelectedProps {
   request: NodeRequest;
 }
 
-const RequestNodeFullView = ({ request: { collectionId, endpointId, exampleId } }: RequestNodeFullViewProps) => {
+const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } }: RequestNodeSelectedProps) => {
   const { transport } = Route.useRouteContext();
 
   const [
@@ -615,15 +658,12 @@ const RequestNodeFullView = ({ request: { collectionId, endpointId, exampleId } 
   );
 };
 
-const ConditionNodeView = ({ id, data }: RFNodeProps) => {
-  const { nodeId } = data;
+const ConditionNode = ({ id, data }: NodeProps) => {
   const { condition } = data.condition!;
-
-  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
   return (
     <>
-      <BaseNodeView id={id} nodeId={nodeId} Icon={IfIcon} title='If'>
+      <NodeBase id={id} Icon={IfIcon} title='If'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           {condition ? (
             <div
@@ -637,7 +677,7 @@ const ConditionNodeView = ({ id, data }: RFNodeProps) => {
               className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600 shadow-sm`}
               href={{
                 to: '.',
-                search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
+                search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
               }}
             >
               <FiPlus className={tw`size-4`} />
@@ -645,78 +685,101 @@ const ConditionNodeView = ({ id, data }: RFNodeProps) => {
             </ButtonAsLink>
           )}
         </div>
-      </BaseNodeView>
+      </NodeBase>
 
-      <RFHandle type='target' position={Position.Top} />
-      <RFHandle type='source' position={Position.Bottom} id={Handle.THEN.toString()} isConnectable={false} />
-      <RFHandle type='source' position={Position.Bottom} id={Handle.ELSE.toString()} isConnectable={false} />
+      <Handle type='target' position={Position.Top} />
+      <Handle
+        type='source'
+        position={Position.Bottom}
+        id={'HANDLE_THEN' satisfies HandleKindJson}
+        isConnectable={false}
+      />
+      <Handle
+        type='source'
+        position={Position.Bottom}
+        id={'HANDLE_ELSE' satisfies HandleKindJson}
+        isConnectable={false}
+      />
     </>
   );
 };
 
-const ForNodeView = ({ id, data: { nodeId } }: RFNodeProps) => {
-  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+const ForNode = ({ id }: NodeProps) => (
+  <>
+    <NodeBase id={id} Icon={ForIcon} title='For Loop'>
+      <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+        <ButtonAsLink
+          className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
+          href={{
+            to: '.',
+            search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
+          }}
+        >
+          <CheckListAltIcon className={tw`size-5 text-slate-500`} />
+          <span>Edit Loop</span>
+        </ButtonAsLink>
+      </div>
+    </NodeBase>
 
-  return (
-    <>
-      <BaseNodeView id={id} nodeId={nodeId} Icon={ForIcon} title='For Loop'>
-        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
-          <ButtonAsLink
-            className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
-            href={{
-              to: '.',
-              search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
-            }}
-          >
-            <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-            <span>Edit Loop</span>
-          </ButtonAsLink>
-        </div>
-      </BaseNodeView>
+    <Handle type='target' position={Position.Top} />
+    <Handle
+      type='source'
+      position={Position.Bottom}
+      id={'HANDLE_LOOP' satisfies HandleKindJson}
+      isConnectable={false}
+    />
+    <Handle
+      type='source'
+      position={Position.Bottom}
+      id={'HANDLE_THEN' satisfies HandleKindJson}
+      isConnectable={false}
+    />
+  </>
+);
 
-      <RFHandle type='target' position={Position.Top} />
-      <RFHandle type='source' position={Position.Bottom} id={Handle.LOOP.toString()} isConnectable={false} />
-      <RFHandle type='source' position={Position.Bottom} id={Handle.THEN.toString()} isConnectable={false} />
-    </>
-  );
+const ForEachNode = ({ id }: NodeProps) => (
+  <>
+    <NodeBase id={id} Icon={ForIcon} title='For Each Loop'>
+      <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+        <ButtonAsLink
+          className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
+          href={{
+            to: '.',
+            search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
+          }}
+        >
+          <CheckListAltIcon className={tw`size-5 text-slate-500`} />
+          <span>Edit Loop</span>
+        </ButtonAsLink>
+      </div>
+    </NodeBase>
+
+    <Handle type='target' position={Position.Top} />
+    <Handle
+      type='source'
+      position={Position.Bottom}
+      id={'HANDLE_LOOP' satisfies HandleKindJson}
+      isConnectable={false}
+    />
+    <Handle
+      type='source'
+      position={Position.Bottom}
+      id={'HANDLE_THEN' satisfies HandleKindJson}
+      isConnectable={false}
+    />
+  </>
+);
+
+const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
+  NODE_KIND_UNSPECIFIED: () => null,
+  NODE_KIND_NO_OP: NoOpNode,
+  NODE_KIND_REQUEST: RequestNode,
+  NODE_KIND_CONDITION: ConditionNode,
+  NODE_KIND_FOR: ForNode,
+  NODE_KIND_FOR_EACH: ForEachNode,
 };
 
-const ForEachNodeView = ({ id, data: { nodeId } }: RFNodeProps) => {
-  const nodeIdCan = Ulid.construct(nodeId).toCanonical();
-
-  return (
-    <>
-      <BaseNodeView id={id} nodeId={nodeId} Icon={ForIcon} title='For Each Loop'>
-        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
-          <ButtonAsLink
-            className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
-            href={{
-              to: '.',
-              search: { selectedNodeIdCan: nodeIdCan } satisfies ToOptions['search'],
-            }}
-          >
-            <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-            <span>Edit Loop</span>
-          </ButtonAsLink>
-        </div>
-      </BaseNodeView>
-
-      <RFHandle type='target' position={Position.Top} />
-      <RFHandle type='source' position={Position.Bottom} id={Handle.LOOP.toString()} isConnectable={false} />
-      <RFHandle type='source' position={Position.Bottom} id={Handle.THEN.toString()} isConnectable={false} />
-    </>
-  );
-};
-
-const nodeTypes: RFNodeTypes = {
-  [NodeKind.NO_OP.toString()]: NoOpNodeView,
-  [NodeKind.REQUEST.toString()]: RequestNodeView,
-  [NodeKind.CONDITION.toString()]: ConditionNodeView,
-  [NodeKind.FOR.toString()]: ForNodeView,
-  [NodeKind.FOR_EACH.toString()]: ForEachNodeView,
-};
-
-const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: RFEdgeProps) => (
+const DefaultEdge = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: EdgeProps) => (
   <ConnectionLine
     fromX={sourceX}
     fromY={sourceY}
@@ -729,7 +792,7 @@ const EdgeView = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPo
 );
 
 const edgeTypes = {
-  default: EdgeView,
+  default: DefaultEdge,
 };
 
 interface ConnectionLineProps
@@ -766,13 +829,13 @@ const ConnectionLine = ({
   );
 };
 
-const RFHandle = (props: RFHandleProps) => (
-  <RFBaseHandle
+const Handle = (props: HandleProps) => (
+  <HandleCore
     className={tw`-z-10 flex size-5 items-center justify-center rounded-full border border-slate-300 bg-slate-200 shadow-sm`}
     {...props}
   >
     <div className={tw`pointer-events-none size-2 rounded-full bg-slate-800`} />
-  </RFBaseHandle>
+  </HandleCore>
 );
 
 const minZoom = 0.5;
@@ -886,15 +949,162 @@ const ActionBar = () => {
 
 interface FlowViewProps {
   flow: FlowGetResponse;
-  edges: EdgeListItem[];
-  nodes: NodeListItem[];
+  edges: Edge[];
+  nodes: Node[];
 }
 
-const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProps) => {
+const FlowView = ({ flow, edges, nodes }: FlowViewProps) => {
+  const { transport } = Route.useRouteContext();
+
   const { addNodes, addEdges, screenToFlowPosition } = useReactFlow();
 
-  const [edges, _setEdges, onEdgesChange] = pipe(serverEdges, Array.map(mapEdgeToClient), useEdgesState);
-  const [nodes, _setNodes, onNodesChange] = pipe(serverNodes, Array.map(mapNodeToClient), useNodesState);
+  const queryClient = useQueryClient();
+
+  const edgeCreateMutation = useConnectMutation(edgeCreate);
+  const edgeDeleteMutation = useConnectMutation(edgeDelete);
+  const edgeUpdateMutation = useConnectMutation(edgeUpdate);
+
+  const oldEdges = useRef<Edge[]>(undefined);
+  const saveEdges = useDebouncedCallback(async (newEdges: Edge[]) => {
+    const oldEdgeMap = pipe(
+      oldEdges.current ?? [],
+      Array.map((_) => [_.id, Edge.toDTO(_)] as const),
+      HashMap.fromIterable,
+    );
+
+    const newEdgeMap = pipe(
+      newEdges.map((_) => [_.id, Edge.toDTO(_)] as const),
+      HashMap.fromIterable,
+    );
+
+    const edges: Record<string, [string, ReturnType<typeof Edge.toDTO>][]> = pipe(
+      HashMap.union(oldEdgeMap, newEdgeMap),
+      HashMap.entries,
+      Array.groupBy(([id]) => {
+        const oldEdge = HashMap.get(oldEdgeMap, id);
+        const newEdge = HashMap.get(newEdgeMap, id);
+
+        if (Option.isNone(oldEdge)) return 'create';
+        if (Option.isNone(newEdge)) return 'delete';
+
+        return equals(EdgeDTOSchema, create(EdgeDTOSchema, oldEdge.value), create(EdgeDTOSchema, newEdge.value))
+          ? 'ignore'
+          : 'update';
+      }),
+    );
+
+    await pipe(
+      edges['create'] ?? [],
+      Array.filterMap(([_id, edge]) =>
+        pipe(
+          Option.liftPredicate(edge, (_) => !_.edgeId.length),
+          Option.map(edgeCreateMutation.mutateAsync),
+        ),
+      ),
+      (_) => Promise.allSettled(_),
+    );
+
+    await pipe(
+      edges['delete'] ?? [],
+      Array.map(([_id, edge]) => edgeDeleteMutation.mutateAsync(edge)),
+      (_) => Promise.allSettled(_),
+    );
+
+    await pipe(
+      edges['update'] ?? [],
+      Array.map(([_id, edge]) => edgeUpdateMutation.mutateAsync(edge)),
+      (_) => Promise.allSettled(_),
+    );
+
+    oldEdges.current = undefined;
+  }, 500);
+
+  const edgesQueryKey = edgesQueryOptions({ transport, flowId: flow.flowId }).queryKey;
+  const onEdgesChange = useCallback<OnEdgesChange>(
+    async (changes) => {
+      const newEdges = queryClient.setQueryData<Edge[]>(edgesQueryKey, (edges) => {
+        if (edges === undefined) return undefined;
+        if (oldEdges.current === undefined) oldEdges.current = edges;
+        return applyEdgeChanges(changes, edges);
+      });
+
+      if (newEdges) await saveEdges(newEdges);
+    },
+    [edgesQueryKey, queryClient, saveEdges],
+  );
+
+  const nodeCreateMutation = useConnectMutation(nodeCreate);
+  const nodeDeleteMutation = useConnectMutation(nodeDelete);
+  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+
+  const oldNodes = useRef<Node[]>(undefined);
+  const saveNodes = useDebouncedCallback(async (newNodes: Node[]) => {
+    const oldNodeMap = pipe(
+      oldNodes.current ?? [],
+      Array.map((_) => [_.id, Node.toDTO(_)] as const),
+      HashMap.fromIterable,
+    );
+
+    const newNodeMap = pipe(
+      newNodes.map((_) => [_.id, Node.toDTO(_)] as const),
+      HashMap.fromIterable,
+    );
+
+    const nodes: Record<string, [string, ReturnType<typeof Node.toDTO>][]> = pipe(
+      HashMap.union(oldNodeMap, newNodeMap),
+      HashMap.entries,
+      Array.groupBy(([id]) => {
+        const oldNode = HashMap.get(oldNodeMap, id);
+        const newNode = HashMap.get(newNodeMap, id);
+
+        if (Option.isNone(oldNode)) return 'create';
+        if (Option.isNone(newNode)) return 'delete';
+
+        return equals(NodeDTOSchema, create(NodeDTOSchema, oldNode.value), create(NodeDTOSchema, newNode.value))
+          ? 'ignore'
+          : 'update';
+      }),
+    );
+
+    await pipe(
+      nodes['create'] ?? [],
+      Array.filterMap(([_id, node]) =>
+        pipe(
+          Option.liftPredicate(node, (_) => !_.nodeId.length),
+          Option.map(nodeCreateMutation.mutateAsync),
+        ),
+      ),
+      (_) => Promise.allSettled(_),
+    );
+
+    await pipe(
+      nodes['delete'] ?? [],
+      Array.map(([_id, node]) => nodeDeleteMutation.mutateAsync(node)),
+      (_) => Promise.allSettled(_),
+    );
+
+    await pipe(
+      nodes['update'] ?? [],
+      Array.map(([_id, node]) => nodeUpdateMutation.mutateAsync(node)),
+      (_) => Promise.allSettled(_),
+    );
+
+    oldNodes.current = undefined;
+  }, 500);
+
+  const nodesQueryKey = nodesQueryOptions({ transport, flowId: flow.flowId }).queryKey;
+  const onNodesChange = useCallback<OnNodesChange<Node>>(
+    async (changes) => {
+      const newNodes = queryClient.setQueryData<Node[]>(nodesQueryKey, (nodes) => {
+        if (nodes === undefined) return undefined;
+        if (oldNodes.current === undefined) oldNodes.current = nodes;
+        return applyNodeChanges(changes, nodes);
+      });
+
+      if (newNodes) await saveNodes(newNodes);
+    },
+    [nodesQueryKey, queryClient, saveNodes],
+  );
 
   const makeNode = useMakeNode();
   const makeEdge = useMakeEdge();
@@ -916,8 +1126,8 @@ const FlowView = ({ flow, edges: serverEdges, nodes: serverNodes }: FlowViewProp
         targetId: node.nodeId,
       });
 
-      addNodes(mapNodeToClient(node));
-      addEdges(mapEdgeToClient(edge));
+      pipe(Node.fromDTO(node), addNodes);
+      pipe(Edge.fromDTO(edge), addEdges);
     },
     [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition],
   );
@@ -968,10 +1178,10 @@ const EditPanel = ({ nodeIdCan }: EditPanelProps) => {
 
   const view = pipe(
     Match.value(node.kind),
-    Match.when(NodeKind.REQUEST, () => <EditRequestNodeView node={node} />),
-    Match.when(NodeKind.CONDITION, () => <EditConditionNodeView node={node} />),
-    Match.when(NodeKind.FOR, () => <EditForNodeView node={node} />),
-    Match.when(NodeKind.FOR_EACH, () => <EditForEachNodeView node={node} />),
+    Match.when(NodeKind.REQUEST, () => <RequestPanel node={node} />),
+    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={node} />),
+    Match.when(NodeKind.FOR, () => <ForPanel node={node} />),
+    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={node} />),
     Match.orElseAbsurd,
   );
 
@@ -985,11 +1195,11 @@ const EditPanel = ({ nodeIdCan }: EditPanelProps) => {
   );
 };
 
-interface EditNodeViewProps {
+interface NodePanelProps {
   node: NodeGetResponse;
 }
 
-const EditRequestNodeView = ({ node: { nodeId, request } }: EditNodeViewProps) => {
+const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
 
   const { requestTab, responseTab } = Route.useSearch();
@@ -1080,7 +1290,7 @@ const EditRequestNodeView = ({ node: { nodeId, request } }: EditNodeViewProps) =
   );
 };
 
-const EditConditionNodeView = ({ node: { nodeId, condition } }: EditNodeViewProps) => {
+const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: condition! });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
@@ -1118,7 +1328,7 @@ const EditConditionNodeView = ({ node: { nodeId, condition } }: EditNodeViewProp
   );
 };
 
-const EditForNodeView = ({ node: { nodeId, for: data } }: EditNodeViewProps) => {
+const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: data! });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
@@ -1176,7 +1386,7 @@ const EditForNodeView = ({ node: { nodeId, for: data } }: EditNodeViewProps) => 
   );
 };
 
-const EditForEachNodeView = ({ node: { nodeId, forEach } }: EditNodeViewProps) => {
+const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
