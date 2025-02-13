@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -39,8 +40,9 @@ type Response struct {
 
 type ResponseVar struct {
 	StatusCode int               `json:"status"`
-	Body       []byte            `json:"body"`
+	Body       interface{}       `json:"body"`
 	Headers    map[string]string `json:"headers"`
+	Duration   int32             `json:"duration"`
 }
 
 func ConvertResponseToVar(r Response) ResponseVar {
@@ -49,9 +51,23 @@ func ConvertResponseToVar(r Response) ResponseVar {
 		headersMaps[header.HeaderKey] = header.Value
 	}
 
+	// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
+	var body interface{}
+	if json.Valid(r.Body) {
+		var jsonBody map[string]interface{}
+		// If unmarshaling works, use the decoded JSON.
+		if err := json.Unmarshal(r.Body, &jsonBody); err == nil {
+			body = jsonBody
+		} else {
+			body = string(r.Body)
+		}
+	} else {
+		body = string(r.Body)
+	}
+
 	return ResponseVar{
 		StatusCode: r.StatusCode,
-		Body:       r.Body,
+		Body:       body,
 		Headers:    headersMaps,
 	}
 }

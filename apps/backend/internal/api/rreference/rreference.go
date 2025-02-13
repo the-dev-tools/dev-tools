@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/model/mvar"
@@ -28,6 +29,7 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
 	"the-dev-tools/backend/pkg/service/sworkspace"
+	"the-dev-tools/backend/pkg/zstdcompress"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 	"the-dev-tools/spec/dist/buf/go/reference/v1/referencev1connect"
 
@@ -301,10 +303,37 @@ func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleResp
 		}
 	}
 
+	if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
+		if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
+			data, err := zstdcompress.Decompress(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = data
+		}
+	}
+
+	// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
+	var body interface{}
+	if json.Valid(resp.Body) {
+		var jsonBody map[string]interface{}
+		// If unmarshaling works, use the decoded JSON.
+		if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
+			body = jsonBody
+		} else {
+			body = string(resp.Body)
+		}
+	} else {
+		body = string(resp.Body)
+	}
+
+	// check if body seems like json
+
 	httpResp := httpclient.ResponseVar{
 		StatusCode: int(resp.Status),
-		Body:       resp.Body,
+		Body:       body,
 		Headers:    headerMap,
+		Duration:   resp.Duration,
 	}
 
 	var m map[string]interface{}

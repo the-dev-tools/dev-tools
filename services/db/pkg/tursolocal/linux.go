@@ -40,7 +40,7 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sq
 	if os.IsNotExist(err) {
 		firstTime = true
 	}
-	dbFilePath = fmt.Sprintf("file:%s", dbFilePath)
+	dbFilePath = fmt.Sprintf("file:%s?mode=rwc&_journal_mode=WAL", dbFilePath)
 	db, err := sql.Open("libsql", dbFilePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)

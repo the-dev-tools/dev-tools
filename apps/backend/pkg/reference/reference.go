@@ -1,6 +1,7 @@
 package reference
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -91,6 +92,19 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 	}
 
 	return ref, nil
+}
+
+func ConvertAnyToRefViaJSON(m interface{}, key string) (Reference, error) {
+	var mapRef map[string]interface{}
+	data, err := json.Marshal(m)
+	if err != nil {
+		return Reference{}, err
+	}
+	if err := json.Unmarshal(data, &mapRef); err != nil {
+		return Reference{}, err
+	}
+
+	return ConvertMapToReference(mapRef, key)
 }
 
 func ConvertPkgToRpc(ref Reference) *referencev1.Reference {

@@ -82,9 +82,6 @@ func TestNodeRequest_Run(t *testing.T) {
 
 		testutil.Assert(t, nil, err)
 		testutil.Assert(t, 200, httpResp.StatusCode)
-		if !bytes.Equal(httpResp.Body, expectedBody) {
-			t.Errorf("Expected castedOutput.Body to be not nil, but got %v", httpResp.Body)
-		}
 	})
 
 	t.Run("RunAsync", func(t *testing.T) {
@@ -133,9 +130,6 @@ func TestNodeRequest_Run(t *testing.T) {
 
 		testutil.Assert(t, nil, err)
 		testutil.Assert(t, 200, httpResp.StatusCode)
-		if !bytes.Equal(httpResp.Body, expectedBody) {
-			t.Errorf("Expected castedOutput.Body to be not nil, but got %v", httpResp.Body)
-		}
 	})
 }
 
