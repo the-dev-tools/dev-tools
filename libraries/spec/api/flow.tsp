@@ -70,9 +70,17 @@ model Result {
   error?: string;
 }
 
+enum NodeState {
+  NODE_STATE_UNSPECIFIED: 0,
+  NODE_STATE_RUNNING: 1,
+  NODE_STATE_SUCCESS: 2,
+  NODE_STATE_FAILURE: 3,
+}
+
 @autoFields
 model FlowRunResponse {
-  currentNodeId?: Resource.Id;
+  ...KeyOf<FlowItem.Node.Node>;
+  state: NodeState;
 }
 
 @Protobuf.service
