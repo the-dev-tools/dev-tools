@@ -7,7 +7,7 @@ export const routes = rootRoute('root.tsx', [
     route('workspace/$workspaceIdCan', 'workspace-layout.tsx', [
       route('members', 'workspace-members.tsx'),
       route('endpoint/$endpointIdCan/example/$exampleIdCan', 'endpoint.tsx'),
-      route('flow/$flowIdCan', 'flow.tsx'),
+      route('flow/$flowIdCan', 'flow/flow.tsx'),
     ]),
   ]),
 ]);
