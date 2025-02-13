@@ -506,7 +506,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					return
 				}
 				resp := &flowv1.FlowRunResponse{
-					CurrentNodeId: nodeBytes,
+					NodeId: nodeBytes,
+					State:  flowv1.NodeState(a.NodeStatus),
 				}
 
 				localErr = stream.Send(resp)

@@ -15,7 +15,6 @@ type NodeStatus int8
 
 const (
 	NodeNone NodeStatus = iota
-	NodeStarting
 	NodeStatusRunning
 	NodeStatusSuccess
 	NodeStatusFailed
