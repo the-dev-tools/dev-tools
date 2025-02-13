@@ -25,6 +25,8 @@ namespace API.CollectionItem.Example;
 @parentResource(Endpoint.Endpoint)
 model Example {
   @key exampleId: Resource.Id;
+  @visibility("query") @normalKey exampleVersionId?: Resource.Id;
+  @visibility("list") endpointVersionId?: Resource.Id;
   lastResponseId?: Resource.Id;
   name: string;
   @visibility("get") breadcrumbs: string[];
@@ -33,9 +35,13 @@ model Example {
 
 model ExampleChange is Resource.Change<Example>;
 model ExampleListItem is Resource.List.Item<Example>;
-model ExampleListRequest is Resource.List.Request<Example>;
+model ExampleListRequest is Resource.List.Request<Example> {
+  @autoField @normalKey exampleParentId?: Resource.Id;
+}
 model ExampleListResponse is Resource.List.Response<Example, ExampleListItem>;
-model ExampleGetRequest is Resource.Get.Request<Example>;
+model ExampleGetRequest is Resource.Get.Request<Example> {
+  @autoField @normalKey exampleVersionId?: Resource.Id;
+}
 model ExampleGetResponse is Resource.Get.Response<Example>;
 model ExampleCreateRequest is Resource.Create.Request<Example>;
 model ExampleCreateResponse is Resource.Create.Response<Example, ExampleListResponse>;
