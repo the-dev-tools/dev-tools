@@ -6,13 +6,14 @@ import {
   applyEdgeChanges,
   ConnectionLineComponentProps,
   Edge as EdgeCore,
-  EdgeProps,
+  EdgeProps as EdgePropsCore,
   getSmoothStepPath,
   OnEdgesChange,
 } from '@xyflow/react';
 import { Array, HashMap, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useCallback, useRef } from 'react';
+import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useConnectMutation } from '@the-dev-tools/api/connect-query';
@@ -29,13 +30,20 @@ import {
   edgeList,
   edgeUpdate,
 } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
+import { NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { flowRoute } from './internal';
 
 export { EdgeDTOSchema, type EdgeDTO };
 
-export interface Edge extends EdgeCore {}
+export interface EdgeData extends Record<string, unknown> {
+  state: NodeState;
+}
+export interface Edge extends EdgeCore<EdgeData> {}
+export interface EdgeProps extends EdgePropsCore<Edge> {}
+
+// const a: EdgeProps = {data: {}}
 
 export const Edge = {
   fromDTO: (edge: Omit<EdgeDTO, keyof Message> & Message): Edge => ({
@@ -43,6 +51,7 @@ export const Edge = {
     source: Ulid.construct(edge.sourceId).toCanonical(),
     sourceHandle: edge.sourceHandle === HandleKind.UNSPECIFIED ? null : enumToJson(HandleKindSchema, edge.sourceHandle),
     target: Ulid.construct(edge.targetId).toCanonical(),
+    data: { state: NodeState.UNSPECIFIED },
   }),
 
   toDTO: (_: Edge): Omit<EdgeDTO, keyof Message> => ({
@@ -79,7 +88,7 @@ export const edgesQueryOptions = ({
     queryFn: async () => pipe(await callUnaryMethod(transport, edgeList, input), (_) => _.items.map(Edge.fromDTO)),
   });
 
-const DefaultEdge = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }: EdgeProps) => (
+const DefaultEdge = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data }: EdgeProps) => (
   <ConnectionLine
     fromX={sourceX}
     fromY={sourceY}
@@ -88,6 +97,7 @@ const DefaultEdge = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targe
     toY={targetY}
     toPosition={targetPosition}
     connected
+    state={data?.state}
   />
 );
 
@@ -95,9 +105,22 @@ export const edgeTypes = {
   default: DefaultEdge,
 };
 
+const connectionLineStyles = tv({
+  base: tw`fill-none stroke-1 transition-colors`,
+  variants: {
+    state: {
+      [NodeState.UNSPECIFIED]: tw`stroke-slate-800`,
+      [NodeState.RUNNING]: tw`stroke-violet-600`,
+      [NodeState.SUCCESS]: tw`stroke-green-600`,
+      [NodeState.FAILURE]: tw`stroke-red-600`,
+    } satisfies Record<NodeState, string>,
+  },
+});
+
 interface ConnectionLineProps
   extends Pick<ConnectionLineComponentProps, 'fromX' | 'fromY' | 'fromPosition' | 'toX' | 'toY' | 'toPosition'> {
   connected?: boolean;
+  state?: NodeState | undefined;
 }
 
 export const ConnectionLine = ({
@@ -108,6 +131,7 @@ export const ConnectionLine = ({
   toY,
   toPosition,
   connected = false,
+  state = NodeState.UNSPECIFIED,
 }: ConnectionLineProps) => {
   const [edgePath] = getSmoothStepPath({
     sourceX: fromX,
@@ -120,13 +144,7 @@ export const ConnectionLine = ({
     offset: 8,
   });
 
-  return (
-    <path
-      className={tw`fill-none stroke-slate-800 stroke-1`}
-      d={edgePath}
-      strokeDasharray={connected ? undefined : 4}
-    />
-  );
+  return <path className={connectionLineStyles({ state })} d={edgePath} strokeDasharray={connected ? undefined : 4} />;
 };
 
 export const useOnEdgesChange = () => {
@@ -195,7 +213,7 @@ export const useOnEdgesChange = () => {
   }, 500);
 
   const edgesQueryKey = edgesQueryOptions({ transport, flowId }).queryKey;
-  return useCallback<OnEdgesChange>(
+  return useCallback<OnEdgesChange<Edge>>(
     async (changes) => {
       const newEdges = queryClient.setQueryData<Edge[]>(edgesQueryKey, (edges) => {
         if (edges === undefined) return undefined;

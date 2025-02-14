@@ -24,14 +24,15 @@ import { ReferenceContext } from '../../reference';
 import { flowRoute, Handle, workspaceRoute } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
-export const RequestNode = ({ id, data }: NodeProps) => {
+export const RequestNode = (props: NodeProps) => {
+  const { id, data } = props;
   const { updateNodeData } = useReactFlow();
 
   const exampleCreateMutation = useConnectMutation(exampleCreate);
 
   return (
     <>
-      <NodeBase id={id} Icon={SendRequestIcon} title='Send Request'>
+      <NodeBase {...props} Icon={SendRequestIcon} title='Send Request'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           {data.request?.exampleId.length !== 0 ? (
             <RequestNodeSelected request={data.request!} />

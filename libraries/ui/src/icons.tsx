@@ -347,3 +347,15 @@ export const Spinner = ({ className, ...props }: SVGProps<SVGSVGElement>) => (
     </foreignObject>
   </svg>
 );
+
+export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M4.667 8.333 7 10.667l5-5.334'
+    />
+  </svg>
+);

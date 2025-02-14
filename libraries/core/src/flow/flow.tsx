@@ -13,7 +13,7 @@ import {
   useReactFlow,
   useViewport,
 } from '@xyflow/react';
-import { Match, pipe, Schema } from 'effect';
+import { Array, HashMap, Match, pipe, Record, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
@@ -23,7 +23,7 @@ import { Panel } from 'react-resizable-panels';
 import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { NodeKind, NodeKindJson, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { FlowGetResponse, FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { FlowGetResponse, FlowService, NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
@@ -262,6 +262,7 @@ const ActionBar = () => {
   const { flowId } = Route.useLoaderData();
   const { transport } = Route.useRouteContext();
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
+  const flow = useReactFlow<Node, Edge>();
 
   return (
     <RFPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
@@ -281,7 +282,33 @@ const ActionBar = () => {
         Add Node
       </Button>
 
-      <Button variant='primary' onPress={() => void flowRun({ flowId })}>
+      <Button
+        variant='primary'
+        onPress={async () => {
+          flow.getNodes().forEach((_) => void flow.updateNodeData(_.id, { ..._, state: NodeState.UNSPECIFIED }));
+          flow.getEdges().forEach((_) => void flow.updateEdgeData(_.id, { ..._, state: NodeState.UNSPECIFIED }));
+
+          const sourceEdges = pipe(
+            flow.getEdges(),
+            Array.groupBy((_) => _.source),
+            Record.toEntries,
+            HashMap.fromIterable,
+          );
+
+          for await (const { nodeId, state } of flowRun({ flowId })) {
+            const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+            flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
+
+            pipe(
+              HashMap.get(sourceEdges, nodeIdCan),
+              Array.fromOption,
+              Array.flatten,
+              Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
+            );
+          }
+        }}
+      >
         <PlayCircleIcon className={tw`size-4`} />
         Run
       </Button>

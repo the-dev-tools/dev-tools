@@ -15,12 +15,13 @@ import { ConditionField } from '../../condition';
 import { Handle, HandleKindJson } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
-export const ConditionNode = ({ id, data }: NodeProps) => {
+export const ConditionNode = (props: NodeProps) => {
+  const { id, data } = props;
   const { condition } = data.condition!;
 
   return (
     <>
-      <NodeBase id={id} Icon={IfIcon} title='If'>
+      <NodeBase {...props} Icon={IfIcon} title='If'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           {condition ? (
             <div

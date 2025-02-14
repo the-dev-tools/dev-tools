@@ -11,12 +11,14 @@ import {
   OnNodesChange,
   useReactFlow,
 } from '@xyflow/react';
-import { Array, HashMap, Option, pipe, Struct } from 'effect';
+import { Array, HashMap, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, useCallback, useRef } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
+import { TbAlertTriangle, TbRefresh } from 'react-icons/tb';
+import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useConnectMutation } from '@the-dev-tools/api/connect-query';
@@ -35,7 +37,9 @@ import {
   nodeList,
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import { NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { Button } from '@the-dev-tools/ui/button';
+import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
@@ -43,7 +47,11 @@ import { flowRoute } from './internal';
 
 export { NodeDTOSchema, type NodeDTO };
 
-export interface NodeData extends Omit<NodeDTO, keyof Message | 'nodeId' | 'kind' | 'position'> {}
+export interface NodeData
+  extends Record<string, unknown>,
+    Omit<NodeDTO, keyof Message | 'nodeId' | 'kind' | 'position'> {
+  state: NodeState;
+}
 export interface Node extends NodeCore<NodeData> {}
 export interface NodeProps extends NodePropsCore<Node> {}
 
@@ -57,7 +65,7 @@ export const Node = {
     position: Struct.pick(position!, 'x', 'y'),
     origin: [0.5, 0],
     type: enumToJson(NodeKindSchema, kind),
-    data: Struct.omit(data, '$typeName', '$unknown'),
+    data: { ...Struct.omit(data, '$typeName', '$unknown'), state: NodeState.UNSPECIFIED },
   }),
 
   toDTO: (_: Node): Omit<NodeDTO, keyof Message> => ({
@@ -68,22 +76,33 @@ export const Node = {
   }),
 };
 
-interface NodeBaseProps {
-  id: string;
+const nodeBaseStyles = tv({
+  base: tw`w-80 rounded-lg border bg-slate-200 p-1 shadow-sm transition-colors`,
+  variants: {
+    state: {
+      [NodeState.UNSPECIFIED]: tw`border-slate-200`,
+      [NodeState.RUNNING]: tw`border-violet-600`,
+      [NodeState.SUCCESS]: tw`border-green-600`,
+      [NodeState.FAILURE]: tw`border-red-600`,
+    } satisfies Record<NodeState, string>,
+  },
+});
+
+interface NodeBaseProps extends NodeProps {
   Icon: IconType;
   title: string;
   children: ReactNode;
 }
 
 // TODO: add node name
-export const NodeBase = ({ id, Icon, title, children }: NodeBaseProps) => {
+export const NodeBase = ({ id, data: { state }, Icon, title, children }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements } = useReactFlow();
 
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   return (
-    <div ref={ref} className={tw`w-80 rounded-lg border border-slate-400 bg-slate-200 p-1 shadow-sm`}>
+    <div ref={ref} className={nodeBaseStyles({ state })}>
       <div
         className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}
         onContextMenu={(event) => {
@@ -97,6 +116,16 @@ export const NodeBase = ({ id, Icon, title, children }: NodeBaseProps) => {
         <div className={tw`h-4 w-px bg-slate-300`} />
 
         <span className={tw`flex-1 text-xs font-medium leading-5 tracking-tight`}>{title}</span>
+
+        {pipe(
+          Match.value(state),
+          Match.when(NodeState.RUNNING, () => (
+            <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
+          )),
+          Match.when(NodeState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
+          Match.when(NodeState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
+          Match.orElse(() => null),
+        )}
 
         <MenuTrigger {...menuTriggerProps}>
           <Button variant='ghost' className={tw`p-0.5`}>

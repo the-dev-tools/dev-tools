@@ -20,38 +20,41 @@ import { ReferenceField } from '../../reference';
 import { Handle, HandleKindJson } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
-export const ForEachNode = ({ id }: NodeProps) => (
-  <>
-    <NodeBase id={id} Icon={ForIcon} title='For Each Loop'>
-      <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
-        <ButtonAsLink
-          className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
-          href={{
-            to: '.',
-            search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
-          }}
-        >
-          <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-          <span>Edit Loop</span>
-        </ButtonAsLink>
-      </div>
-    </NodeBase>
+export const ForEachNode = (props: NodeProps) => {
+  const { id } = props;
+  return (
+    <>
+      <NodeBase {...props} Icon={ForIcon} title='For Each Loop'>
+        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+          <ButtonAsLink
+            className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
+            href={{
+              to: '.',
+              search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
+            }}
+          >
+            <CheckListAltIcon className={tw`size-5 text-slate-500`} />
+            <span>Edit Loop</span>
+          </ButtonAsLink>
+        </div>
+      </NodeBase>
 
-    <Handle type='target' position={Position.Top} />
-    <Handle
-      type='source'
-      position={Position.Bottom}
-      id={'HANDLE_LOOP' satisfies HandleKindJson}
-      isConnectable={false}
-    />
-    <Handle
-      type='source'
-      position={Position.Bottom}
-      id={'HANDLE_THEN' satisfies HandleKindJson}
-      isConnectable={false}
-    />
-  </>
-);
+      <Handle type='target' position={Position.Top} />
+      <Handle
+        type='source'
+        position={Position.Bottom}
+        id={'HANDLE_LOOP' satisfies HandleKindJson}
+        isConnectable={false}
+      />
+      <Handle
+        type='source'
+        position={Position.Bottom}
+        id={'HANDLE_THEN' satisfies HandleKindJson}
+        isConnectable={false}
+      />
+    </>
+  );
+};
 
 export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
