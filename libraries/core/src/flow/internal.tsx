@@ -1,23 +1,66 @@
 import { getRouteApi } from '@tanstack/react-router';
-import { Handle as HandleCore, HandleProps } from '@xyflow/react';
+import { Handle as HandleCore, HandleProps, ReactFlowState, useNodeConnections, useStore } from '@xyflow/react';
+import { Option, pipe } from 'effect';
+import { tv } from 'tailwind-variants';
 
 import {
   Handle as HandleKind,
   HandleJson as HandleKindJson,
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
+import { NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+
+import { Edge } from './edge';
+import { Node } from './node';
 
 export { HandleKind, HandleKindSchema, type HandleKindJson };
 
-export const Handle = (props: HandleProps) => (
-  <HandleCore
-    className={tw`-z-10 flex size-5 items-center justify-center rounded-full border border-slate-300 bg-slate-200 shadow-sm`}
-    {...props}
-  >
-    <div className={tw`pointer-events-none size-2 rounded-full bg-slate-800`} />
-  </HandleCore>
-);
+const handleInnerStyles = tv({
+  base: tw`pointer-events-none`,
+  variants: {
+    state: {
+      [NodeState.UNSPECIFIED]: tw`text-slate-800`,
+      [NodeState.RUNNING]: tw`text-violet-600`,
+      [NodeState.SUCCESS]: tw`text-green-600`,
+      [NodeState.FAILURE]: tw`text-red-600`,
+    } satisfies Record<NodeState, string>,
+  },
+});
+
+export const Handle = (props: HandleProps) => {
+  const { id, type } = props;
+
+  const connection = useNodeConnections({
+    ...(id ? { handleId: id } : {}),
+    handleType: type,
+  })[0];
+
+  const state = useStore((storeCore) => {
+    // https://github.com/xyflow/xyflow/issues/4468
+    const store = storeCore as unknown as ReactFlowState<Node, Edge>;
+
+    return pipe(
+      Option.fromNullable(connection),
+      Option.flatMapNullable((_) => store.edgeLookup.get(_.edgeId)?.data?.state),
+      Option.getOrElse(() => NodeState.UNSPECIFIED),
+    );
+  });
+
+  return (
+    <HandleCore
+      className={tw`-z-10 size-5 overflow-visible rounded-full border-none bg-transparent shadow-sm`}
+      {...props}
+    >
+      <svg viewBox='-10 -10 20 20' className={handleInnerStyles({ state })}>
+        <circle className={tw`fill-slate-300`} r={10} />
+        <circle className={tw`fill-slate-200`} r={9} />
+        <circle className={tw`fill-current`} r={4} />
+        {connection && <path className={tw`stroke-current stroke-1`} d='M 0 -10 L 0 10' />}
+      </svg>
+    </HandleCore>
+  );
+};
 
 export const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 export const flowRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan');
