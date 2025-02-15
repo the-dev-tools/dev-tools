@@ -31,17 +31,17 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowTagService, error) {
 
 func ConvertDBToModel(item gen.FlowTag) mflowtag.FlowTag {
 	return mflowtag.FlowTag{
-		ID:     item.ID,
-		FlowID: item.FlowID,
-		TagID:  item.TagID,
+		ID:         item.ID,
+		FlowRootID: item.FlowRootID,
+		TagID:      item.TagID,
 	}
 }
 
 func ConvertModelToDB(item mflowtag.FlowTag) gen.FlowTag {
 	return gen.FlowTag{
-		ID:     item.ID,
-		FlowID: item.FlowID,
-		TagID:  item.TagID,
+		ID:         item.ID,
+		FlowRootID: item.FlowRootID,
+		TagID:      item.TagID,
 	}
 }
 
@@ -64,9 +64,9 @@ func (s *FlowTagService) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.ID
 func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mflowtag.FlowTag) error {
 	arg := ConvertModelToDB(ftag)
 	err := s.queries.CreateFlowTag(ctx, gen.CreateFlowTagParams{
-		ID:     arg.ID,
-		FlowID: arg.FlowID,
-		TagID:  arg.TagID,
+		ID:         arg.ID,
+		FlowRootID: arg.FlowRootID,
+		TagID:      arg.TagID,
 	})
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowTag, err)
 }

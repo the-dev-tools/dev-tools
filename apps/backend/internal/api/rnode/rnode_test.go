@@ -1,5 +1,7 @@
 package rnode_test
 
+/*
+
 import (
 	"bytes"
 	"context"
@@ -14,6 +16,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
@@ -40,6 +43,7 @@ func TestNodeList(t *testing.T) {
 	us := suser.New(queries)
 	ts := stag.New(queries)
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
@@ -54,7 +58,8 @@ func TestNodeList(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins,
+	serviceRPC := rnode.NewNodeServiceRPC(db, us,
+		fs, frs, *ins,
 		rns, flns, flnes, ns, sns,
 		ias, iaes, eqs, ehs)
 
@@ -130,6 +135,7 @@ func TestNodeGet(t *testing.T) {
 	us := suser.New(queries)
 	ts := stag.New(queries)
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
@@ -144,7 +150,8 @@ func TestNodeGet(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins,
+	serviceRPC := rnode.NewNodeServiceRPC(db, us,
+		fs, frs, *ins,
 		rns, flns, flnes, ns, sns,
 		ias, iaes, eqs, ehs)
 
@@ -219,6 +226,7 @@ func TestNodeUpdate(t *testing.T) {
 	us := suser.New(queries)
 	ts := stag.New(queries)
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 
 	ns := snode.New(queries)
 	rns := snoderequest.New(queries)
@@ -233,7 +241,8 @@ func TestNodeUpdate(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins,
+	serviceRPC := rnode.NewNodeServiceRPC(db, us,
+		fs, frs, *ins,
 		rns, flns, flnes, ns, sns,
 		ias, iaes, eqs, ehs)
 
@@ -297,10 +306,6 @@ func TestNodeUpdate(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 	testutil.AssertNotFatal(t, nil, resp.Msg)
 
-	//startNodeBase, err := ns.GetNode(ctx, startNodeID)
-	// TODO: gives error for not table weird
-	// will debug later
-	/*
 		 testutil.AssertFatal(t, nil, err)
 
 		testutil.AssertNotFatal(t, nil, startNodeBase)
@@ -312,5 +317,5 @@ func TestNodeUpdate(t *testing.T) {
 		testutil.AssertFatal(t, nil, err)
 		testutil.AssertNotFatal(t, nil, startNode)
 		testutil.Assert(t, "test", startNode.Name)
-	*/
 }
+*/

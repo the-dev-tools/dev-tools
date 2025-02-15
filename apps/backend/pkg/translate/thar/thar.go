@@ -143,7 +143,7 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 }
 
 // TODO: refactor this function to make it more readable
-func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
+func ConvertHAR(har *HAR, collectionID, workspaceID, rootFlowID idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
 
 	if len(har.Log.Entries) == 0 {
@@ -157,9 +157,9 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 	flowID := idwrap.NewNow()
 	result.Flow = mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        har.Log.Entries[0].Request.URL,
+		ID:         flowID,
+		FlowRootID: rootFlowID,
+		Name:       har.Log.Entries[0].Request.URL,
 	}
 
 	var posX, posY float64

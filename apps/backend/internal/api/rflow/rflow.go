@@ -23,6 +23,7 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
+	"the-dev-tools/backend/pkg/model/mflowroot"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
@@ -38,6 +39,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/sflowtag"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
@@ -51,7 +53,6 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tflow"
-	"the-dev-tools/backend/pkg/translate/tgeneric"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"time"
@@ -60,14 +61,15 @@ import (
 )
 
 type FlowServiceRPC struct {
-	DB  *sql.DB
-	fs  sflow.FlowService
-	ws  sworkspace.WorkspaceService
-	us  suser.UserService
-	ts  stag.TagService
-	fts sflowtag.FlowTagService
+	DB *sql.DB
+	ws sworkspace.WorkspaceService
+	us suser.UserService
+	ts stag.TagService
 
 	// flow
+	fs  sflow.FlowService
+	frs sflowroot.FlowRootService
+	fts sflowtag.FlowTagService
 	fes sedge.EdgeService
 
 	// request
@@ -93,7 +95,8 @@ type FlowServiceRPC struct {
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService,
-	us suser.UserService, ts stag.TagService, fs sflow.FlowService, fts sflowtag.FlowTagService,
+	us suser.UserService, ts stag.TagService,
+	fs sflow.FlowService, frs sflowroot.FlowRootService, fts sflowtag.FlowTagService,
 	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
 	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, fens snodeforeach.NodeForEachService,
@@ -101,15 +104,16 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
-		DB:  db,
-		fs:  fs,
-		ws:  ws,
-		us:  us,
-		ts:  ts,
-		fts: fts,
+		DB: db,
+		ws: ws,
+		us: us,
+		ts: ts,
 
 		// flow
+		fs:  fs,
+		frs: frs,
 		fes: fes,
+		fts: fts,
 
 		// body
 		brs:  brs,
@@ -144,74 +148,98 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	var tagIDPtr *idwrap.IDWrap = nil
-	if req.Msg.TagId != nil {
-		tagID, err := idwrap.NewFromBytes(req.Msg.TagId)
+	// TODO: add tag listing again
+
+	var parentIDPtr *idwrap.IDWrap = nil
+	if req.Msg.FlowParentId != nil {
+		parentID, err := idwrap.NewFromBytes(req.Msg.FlowParentId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		tagIDPtr = &tagID
+		parentIDPtr = &parentID
 	}
 
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	var flows []mflow.Flow
 
-	if tagIDPtr == nil {
-		flows, err = c.fs.GetFlowsByWorkspace(ctx, workspaceID)
+	var rpcFlows []*flowv1.FlowListItem
+
+	if parentIDPtr != nil {
+		flowRoot, err := c.frs.GetFlowRoot(ctx, *parentIDPtr)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		flows, err := c.fs.GetFlowsByFlowRootID(ctx, *parentIDPtr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, flow := range flows {
+			rpcFlow := tflow.SeralizeModelToRPCItem(flow, flowRoot)
+			rpcFlows = append(rpcFlows, rpcFlow)
 		}
 	} else {
-		// TODO: can be better with sql query for now it's a workaround
-		tag, err := c.ts.GetTag(ctx, *tagIDPtr)
+		flowRoots, err := c.frs.GetFlowRootsByWorkspace(ctx, workspaceID)
 		if err != nil {
-			if err == stag.ErrNoTag {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		flowTags, err := c.fts.GetFlowTagsByTagID(ctx, tag.ID)
-		if err != nil {
-			return nil, err
-		}
-		flows = make([]mflow.Flow, len(flowTags))
-		for i, flowTag := range flowTags {
-			flow, err := c.fs.GetFlow(ctx, flowTag.FlowID)
-			if err != nil {
-				return nil, err
-			}
 
-			flows[i] = flow
+		for _, flowRoot := range flowRoots {
+			latestFlow, err := c.frs.GetLatestFlow(ctx, flowRoot.ID, c.fs)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			rpcFlow := tflow.SeralizeModelToRPCItem(latestFlow, flowRoot)
+			rpcFlows = append(rpcFlows, rpcFlow)
 		}
+
 	}
+
 	rpcResp := &flowv1.FlowListResponse{
 		WorkspaceId: req.Msg.WorkspaceId,
 		TagId:       req.Msg.TagId,
-		Items:       tgeneric.MassConvert(flows, tflow.SeralizeModelToRPCItem),
+		Items:       rpcFlows,
 	}
 	return connect.NewResponse(rpcResp), nil
 }
 
 func (c *FlowServiceRPC) FlowGet(ctx context.Context, req *connect.Request[flowv1.FlowGetRequest]) (*connect.Response[flowv1.FlowGetResponse], error) {
+	if len(req.Msg.FlowId) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+	}
+	if len(req.Msg.FlowVersionId) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow version id is required"))
+	}
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	flowVersionID, err := idwrap.NewFromBytes(req.Msg.FlowVersionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	flow, err := c.fs.GetFlow(ctx, flowID)
+
+	flowRoot, err := c.frs.GetFlowRoot(ctx, flowID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcFlow := tflow.SeralizeModelToRPC(flow)
+
+	flow, err := c.fs.GetFlow(ctx, flowVersionID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rpcFlow := tflow.SeralizeModelToRPC(flow, flowRoot)
 	rpcResp := &flowv1.FlowGetResponse{
-		FlowId: rpcFlow.FlowId,
-		Name:   rpcFlow.Name,
+		FlowId:        rpcFlow.FlowId,
+		FlowVersionId: rpcFlow.FlowVersionId,
+		Name:          rpcFlow.Name,
 	}
 	return connect.NewResponse(rpcResp), nil
 }
@@ -225,19 +253,62 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	rpcFlow := flowv1.Flow{
-		Name: req.Msg.Name,
-	}
-	flow := tflow.SeralizeRpcToModelWithoutID(&rpcFlow, workspaceID)
+
+	name := req.Msg.Name
+
+	flowRootID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	flow.ID = flowID
-	err = c.fs.CreateFlow(ctx, *flow)
+	flowRoot := mflowroot.FlowRoot{
+		ID:          flowRootID,
+		WorkspaceID: workspaceID,
+		Name:        name,
+	}
+
+	flow := mflow.Flow{
+		ID:         flowID,
+		FlowRootID: flowRootID,
+		Name:       name,
+	}
+
+	nodeNoopID := idwrap.NewNow()
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	txFlowRoot, err := sflowroot.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txFlow, err := sflow.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txNode, err := snode.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txNoopNode, err := snodenoop.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = txFlowRoot.CreateFlowRoot(ctx, flowRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeNoopID := idwrap.NewNow()
-	err = c.ns.CreateNode(ctx, mnnode.MNode{
+	err = txFlow.CreateFlow(ctx, flow)
+	if err != nil {
+		return nil, err
+	}
+
+	err = txNode.CreateNode(ctx, mnnode.MNode{
 		ID:        nodeNoopID,
 		FlowID:    flowID,
 		NodeKind:  mnnode.NODE_KIND_NO_OP,
@@ -247,12 +318,23 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	if err != nil {
 		return nil, err
 	}
-	err = c.sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
+	err = txNoopNode.CreateNodeNoop(ctx, mnnoop.NoopNode{
 		FlowNodeID: nodeNoopID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	flowRoot.LatestVersionID = &flowID
+	err = txFlowRoot.UpdateFlowRoot(ctx, flowRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&flowv1.FlowCreateResponse{
@@ -269,20 +351,24 @@ func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[fl
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	rpcFlow := flowv1.Flow{
-		FlowId: req.Msg.FlowId,
-		Name:   *req.Msg.Name,
-	}
-	flow, err := tflow.SeralizeRpcToModel(&rpcFlow, idwrap.IDWrap{})
+	flowID, err := idwrap.NewFromBytes(msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flow.ID))
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	err = c.fs.UpdateFlow(ctx, *flow)
+	flow, err := c.frs.GetFlowRoot(ctx, flowID)
+	if err != nil {
+		return nil, err
+	}
+
+	flow.Name = *msg.Name
+
+	err = c.frs.UpdateFlowRoot(ctx, flow)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +381,7 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -315,7 +401,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return rpcErr
 	}
@@ -538,9 +624,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	return nil
 }
 
-func CheckOwnerFlow(ctx context.Context, fs sflow.FlowService, us suser.UserService, flowID idwrap.IDWrap) (bool, error) {
+func CheckOwnerFlow(ctx context.Context, fs sflow.FlowService, frs sflowroot.FlowRootService, us suser.UserService, flowID idwrap.IDWrap) (bool, error) {
 	// TODO: add sql query to make it faster
 	flow, err := fs.GetFlow(ctx, flowID)
+	if err != nil {
+		return false, err
+	}
+	return CheckOwnerFlowRoot(ctx, frs, us, flow.FlowRootID)
+}
+
+func CheckOwnerFlowRoot(ctx context.Context, frs sflowroot.FlowRootService, us suser.UserService, flowRootID idwrap.IDWrap) (bool, error) {
+	// TODO: add sql query to make it faster
+	flow, err := frs.GetFlowRoot(ctx, flowRootID)
 	if err != nil {
 		return false, err
 	}

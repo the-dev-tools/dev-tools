@@ -105,9 +105,9 @@ type ExampleRespHeader struct {
 }
 
 type Flow struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
+	ID         idwrap.IDWrap
+	FlowRootID idwrap.IDWrap
+	Name       string
 }
 
 type FlowEdge struct {
@@ -164,10 +164,17 @@ type FlowNodeRequest struct {
 	DeltaExampleID *idwrap.IDWrap
 }
 
+type FlowRoot struct {
+	ID              idwrap.IDWrap
+	WorkspaceID     idwrap.IDWrap
+	Name            string
+	LatestVersionID *idwrap.IDWrap
+}
+
 type FlowTag struct {
-	ID     idwrap.IDWrap
-	FlowID idwrap.IDWrap
-	TagID  idwrap.IDWrap
+	ID         idwrap.IDWrap
+	FlowRootID idwrap.IDWrap
+	TagID      idwrap.IDWrap
 }
 
 type ItemApi struct {

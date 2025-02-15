@@ -1454,10 +1454,52 @@ DELETE FROM assertion_result
 WHERE
   id = ?;
 
--- name: GetFlow :one
+-- name: GetFlowRoot :one
 SELECT
   id,
   workspace_id,
+  name,
+  latest_version_id
+FROM
+  flow_root
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetFlowRootsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  name,
+  latest_version_id
+FROM
+  flow_root
+WHERE
+  workspace_id = ?;
+
+-- name: CreateFlowRoot :exec
+INSERT INTO
+  flow_root (id, workspace_id, name, latest_version_id)
+VALUES
+  (?, ?, ?, ?);
+
+-- name: UpdateFlowRoot :exec
+UPDATE flow_root
+SET
+  name = ?,
+  latest_version_id = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowRoot :exec
+DELETE FROM flow_root
+WHERE
+  id = ?;
+
+-- name: GetFlow :one
+SELECT
+  id,
+  flow_root_id,
   name
 FROM
   flow
@@ -1465,19 +1507,20 @@ WHERE
   id = ?
 LIMIT 1;
 
--- name: GetFlowsByWorkspaceID :many
+-- name: GetFlowsByFlowRootID :many
 SELECT
   id,
-  workspace_id,
+  flow_root_id,
   name
 FROM
   flow
 WHERE
-  workspace_id = ?;
+  flow_root_id = ?;
+
 
 -- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, name)
+  flow (id, flow_root_id, name)
 VALUES
   (?, ?, ?);
 
@@ -1538,7 +1581,7 @@ WHERE
 -- name: GetFlowTag :one
 SELECT
   id,
-  flow_id,
+  flow_root_id,
   tag_id
 FROM flow_tag
 WHERE id = ?
@@ -1547,17 +1590,17 @@ LIMIT 1;
 -- name: GetFlowTagsByFlowID :many
 SELECT
   id,
-  flow_id,
+  flow_root_id,
   tag_id
 FROM
   flow_tag
 WHERE
-  flow_id = ?;
+  flow_root_id = ?;
 
 -- name: GetFlowTagsByTagID :many
 SELECT
   id,
-  flow_id,
+  flow_root_id,
   tag_id
 FROM
   flow_tag
@@ -1566,7 +1609,7 @@ WHERE
 
 -- name: CreateFlowTag :exec
 INSERT INTO
-  flow_tag (id, flow_id, tag_id)
+  flow_tag (id, flow_root_id, tag_id)
 VALUES
   (?, ?, ?);
 

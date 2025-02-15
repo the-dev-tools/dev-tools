@@ -272,11 +272,20 @@ CREATE TABLE assertion_result (
   FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
 );
 
-CREATE TABLE flow (
+CREATE TABLE flow_root (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
   name TEXT NOT NULL,
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
+  latest_version_id BLOB,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
+  FOREIGN KEY (latest_version_id) REFERENCES flow (id) ON DELETE SET NULL
+);
+
+CREATE TABLE flow (
+  id BLOB NOT NULL PRIMARY KEY,
+  flow_root_id BLOB NOT NULL,
+  name TEXT NOT NULL,
+  FOREIGN KEY (flow_root_id) REFERENCES flow_root (id) ON DELETE CASCADE
 );
 
 CREATE TABLE tag (
@@ -289,9 +298,9 @@ CREATE TABLE tag (
 
 CREATE TABLE flow_tag (
   id BLOB NOT NULL PRIMARY KEY,
-  flow_id BLOB NOT NULL,
+  flow_root_id BLOB NOT NULL,
   tag_id BLOB NOT NULL,
-  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
+  FOREIGN KEY (flow_root_id) REFERENCES flow_root (id) ON DELETE CASCADE,
   FOREIGN KEY (tag_id) REFERENCES flow_tag (id) ON DELETE CASCADE
 );
 

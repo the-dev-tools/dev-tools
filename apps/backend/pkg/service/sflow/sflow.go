@@ -31,17 +31,17 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowService, error) {
 
 func ConvertModelToDB(item mflow.Flow) gen.Flow {
 	return gen.Flow{
-		ID:          item.ID,
-		WorkspaceID: item.WorkspaceID,
-		Name:        item.Name,
+		ID:         item.ID,
+		FlowRootID: item.FlowRootID,
+		Name:       item.Name,
 	}
 }
 
 func ConvertDBToModel(item gen.Flow) mflow.Flow {
 	return mflow.Flow{
-		ID:          item.ID,
-		WorkspaceID: item.WorkspaceID,
-		Name:        item.Name,
+		ID:         item.ID,
+		FlowRootID: item.FlowRootID,
+		Name:       item.Name,
 	}
 }
 
@@ -53,8 +53,8 @@ func (s *FlowService) GetFlow(ctx context.Context, id idwrap.IDWrap) (mflow.Flow
 	return ConvertDBToModel(item), nil
 }
 
-func (s *FlowService) GetFlowsByWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) ([]mflow.Flow, error) {
-	items, err := s.queries.GetFlowsByWorkspaceID(ctx, workspaceID)
+func (s *FlowService) GetFlowsByFlowRootID(ctx context.Context, flowRootID idwrap.IDWrap) ([]mflow.Flow, error) {
+	items, err := s.queries.GetFlowsByFlowRootID(ctx, flowRootID)
 	if err != nil {
 		return nil, err
 	}
@@ -68,9 +68,9 @@ func (s *FlowService) GetFlowsByWorkspace(ctx context.Context, workspaceID idwra
 func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 	arg := ConvertModelToDB(item)
 	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{
-		ID:          arg.ID,
-		WorkspaceID: arg.WorkspaceID,
-		Name:        arg.Name,
+		ID:         arg.ID,
+		FlowRootID: item.FlowRootID,
+		Name:       arg.Name,
 	})
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 }

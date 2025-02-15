@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/snode"
 	"the-dev-tools/backend/pkg/service/suser"
 	edgev1 "the-dev-tools/spec/dist/buf/go/flow/edge/v1"
@@ -23,20 +24,22 @@ type EdgeServiceRPC struct {
 	DB *sql.DB
 
 	// parent
-	fs sflow.FlowService
-	us suser.UserService
+	fs  sflow.FlowService
+	frs sflowroot.FlowRootService
+	us  suser.UserService
 
 	es sedge.EdgeService
 	ns snode.NodeService
 }
 
-func NewEdgeServiceRPC(db *sql.DB, fs sflow.FlowService, us suser.UserService, es sedge.EdgeService, ns snode.NodeService) *EdgeServiceRPC {
+func NewEdgeServiceRPC(db *sql.DB, fs sflow.FlowService, frs sflowroot.FlowRootService, us suser.UserService, es sedge.EdgeService, ns snode.NodeService) *EdgeServiceRPC {
 	return &EdgeServiceRPC{
-		DB: db,
-		fs: fs,
-		us: us,
-		es: es,
-		ns: ns,
+		DB:  db,
+		fs:  fs,
+		frs: frs,
+		us:  us,
+		es:  es,
+		ns:  ns,
 	}
 }
 
@@ -50,7 +53,7 @@ func (c *EdgeServiceRPC) EdgeList(ctx context.Context, req *connect.Request[edge
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -82,7 +85,7 @@ func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.us, c.es, EdgeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.frs, c.us, c.es, EdgeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -94,7 +97,7 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	a, b := rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID)
+	a, b := rflow.CheckOwnerFlow(ctx, c.fs, c.frs, c.us, flowID)
 	rpcErr := permcheck.CheckPerm(a, b)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -146,7 +149,7 @@ func (c *EdgeServiceRPC) EdgeUpdate(ctx context.Context, req *connect.Request[ed
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.us, c.es, EdgeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.frs, c.us, c.es, EdgeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -195,7 +198,7 @@ func (c *EdgeServiceRPC) EdgeDelete(ctx context.Context, req *connect.Request[ed
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.us, c.es, EdgeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerEdge(ctx, c.fs, c.frs, c.us, c.es, EdgeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -207,11 +210,11 @@ func (c *EdgeServiceRPC) EdgeDelete(ctx context.Context, req *connect.Request[ed
 	return connect.NewResponse(&edgev1.EdgeDeleteResponse{}), nil
 }
 
-func CheckOwnerEdge(ctx context.Context, fs sflow.FlowService, us suser.UserService, es sedge.EdgeService, edgeID idwrap.IDWrap) (bool, error) {
+func CheckOwnerEdge(ctx context.Context, fs sflow.FlowService, frs sflowroot.FlowRootService, us suser.UserService, es sedge.EdgeService, edgeID idwrap.IDWrap) (bool, error) {
 	edge, err := es.GetEdge(ctx, edgeID)
 	if err != nil {
 		return false, err
 	}
 
-	return rflow.CheckOwnerFlow(ctx, fs, us, edge.FlowID)
+	return rflow.CheckOwnerFlow(ctx, fs, frs, us, edge.FlowID)
 }

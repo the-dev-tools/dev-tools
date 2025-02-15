@@ -643,19 +643,19 @@ func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExample
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, name)
+  flow (id, flow_root_id, name)
 VALUES
   (?, ?, ?)
 `
 
 type CreateFlowParams struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
+	ID         idwrap.IDWrap
+	FlowRootID idwrap.IDWrap
+	Name       string
 }
 
 func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
-	_, err := q.exec(ctx, q.createFlowStmt, createFlow, arg.ID, arg.WorkspaceID, arg.Name)
+	_, err := q.exec(ctx, q.createFlowStmt, createFlow, arg.ID, arg.FlowRootID, arg.Name)
 	return err
 }
 
@@ -834,21 +834,45 @@ func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeR
 	return err
 }
 
+const createFlowRoot = `-- name: CreateFlowRoot :exec
+INSERT INTO
+  flow_root (id, workspace_id, name, latest_version_id)
+VALUES
+  (?, ?, ?, ?)
+`
+
+type CreateFlowRootParams struct {
+	ID              idwrap.IDWrap
+	WorkspaceID     idwrap.IDWrap
+	Name            string
+	LatestVersionID *idwrap.IDWrap
+}
+
+func (q *Queries) CreateFlowRoot(ctx context.Context, arg CreateFlowRootParams) error {
+	_, err := q.exec(ctx, q.createFlowRootStmt, createFlowRoot,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.Name,
+		arg.LatestVersionID,
+	)
+	return err
+}
+
 const createFlowTag = `-- name: CreateFlowTag :exec
 INSERT INTO
-  flow_tag (id, flow_id, tag_id)
+  flow_tag (id, flow_root_id, tag_id)
 VALUES
   (?, ?, ?)
 `
 
 type CreateFlowTagParams struct {
-	ID     idwrap.IDWrap
-	FlowID idwrap.IDWrap
-	TagID  idwrap.IDWrap
+	ID         idwrap.IDWrap
+	FlowRootID idwrap.IDWrap
+	TagID      idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowTag(ctx context.Context, arg CreateFlowTagParams) error {
-	_, err := q.exec(ctx, q.createFlowTagStmt, createFlowTag, arg.ID, arg.FlowID, arg.TagID)
+	_, err := q.exec(ctx, q.createFlowTagStmt, createFlowTag, arg.ID, arg.FlowRootID, arg.TagID)
 	return err
 }
 
@@ -2334,6 +2358,17 @@ func (q *Queries) DeleteFlowNodeRequest(ctx context.Context, flowNodeID idwrap.I
 	return err
 }
 
+const deleteFlowRoot = `-- name: DeleteFlowRoot :exec
+DELETE FROM flow_root
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteFlowRoot(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowRootStmt, deleteFlowRoot, id)
+	return err
+}
+
 const deleteFlowTag = `-- name: DeleteFlowTag :exec
 DELETE FROM flow_tag
 WHERE
@@ -3216,7 +3251,7 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 const getFlow = `-- name: GetFlow :one
 SELECT
   id,
-  workspace_id,
+  flow_root_id,
   name
 FROM
   flow
@@ -3228,7 +3263,7 @@ LIMIT 1
 func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 	row := q.queryRow(ctx, q.getFlowStmt, getFlow, id)
 	var i Flow
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
+	err := row.Scan(&i.ID, &i.FlowRootID, &i.Name)
 	return i, err
 }
 
@@ -3500,10 +3535,75 @@ func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 	return items, nil
 }
 
+const getFlowRoot = `-- name: GetFlowRoot :one
+SELECT
+  id,
+  workspace_id,
+  name,
+  latest_version_id
+FROM
+  flow_root
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowRoot(ctx context.Context, id idwrap.IDWrap) (FlowRoot, error) {
+	row := q.queryRow(ctx, q.getFlowRootStmt, getFlowRoot, id)
+	var i FlowRoot
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.LatestVersionID,
+	)
+	return i, err
+}
+
+const getFlowRootsByWorkspaceID = `-- name: GetFlowRootsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  name,
+  latest_version_id
+FROM
+  flow_root
+WHERE
+  workspace_id = ?
+`
+
+func (q *Queries) GetFlowRootsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]FlowRoot, error) {
+	rows, err := q.query(ctx, q.getFlowRootsByWorkspaceIDStmt, getFlowRootsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowRoot{}
+	for rows.Next() {
+		var i FlowRoot
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.LatestVersionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlowTag = `-- name: GetFlowTag :one
 SELECT
   id,
-  flow_id,
+  flow_root_id,
   tag_id
 FROM flow_tag
 WHERE id = ?
@@ -3513,23 +3613,23 @@ LIMIT 1
 func (q *Queries) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (FlowTag, error) {
 	row := q.queryRow(ctx, q.getFlowTagStmt, getFlowTag, id)
 	var i FlowTag
-	err := row.Scan(&i.ID, &i.FlowID, &i.TagID)
+	err := row.Scan(&i.ID, &i.FlowRootID, &i.TagID)
 	return i, err
 }
 
 const getFlowTagsByFlowID = `-- name: GetFlowTagsByFlowID :many
 SELECT
   id,
-  flow_id,
+  flow_root_id,
   tag_id
 FROM
   flow_tag
 WHERE
-  flow_id = ?
+  flow_root_id = ?
 `
 
-func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowTag, error) {
-	rows, err := q.query(ctx, q.getFlowTagsByFlowIDStmt, getFlowTagsByFlowID, flowID)
+func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowRootID idwrap.IDWrap) ([]FlowTag, error) {
+	rows, err := q.query(ctx, q.getFlowTagsByFlowIDStmt, getFlowTagsByFlowID, flowRootID)
 	if err != nil {
 		return nil, err
 	}
@@ -3537,7 +3637,7 @@ func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowID idwrap.IDWrap)
 	items := []FlowTag{}
 	for rows.Next() {
 		var i FlowTag
-		if err := rows.Scan(&i.ID, &i.FlowID, &i.TagID); err != nil {
+		if err := rows.Scan(&i.ID, &i.FlowRootID, &i.TagID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3554,7 +3654,7 @@ func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowID idwrap.IDWrap)
 const getFlowTagsByTagID = `-- name: GetFlowTagsByTagID :many
 SELECT
   id,
-  flow_id,
+  flow_root_id,
   tag_id
 FROM
   flow_tag
@@ -3571,7 +3671,7 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 	items := []FlowTag{}
 	for rows.Next() {
 		var i FlowTag
-		if err := rows.Scan(&i.ID, &i.FlowID, &i.TagID); err != nil {
+		if err := rows.Scan(&i.ID, &i.FlowRootID, &i.TagID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3585,19 +3685,19 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 	return items, nil
 }
 
-const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
+const getFlowsByFlowRootID = `-- name: GetFlowsByFlowRootID :many
 SELECT
   id,
-  workspace_id,
+  flow_root_id,
   name
 FROM
   flow
 WHERE
-  workspace_id = ?
+  flow_root_id = ?
 `
 
-func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Flow, error) {
-	rows, err := q.query(ctx, q.getFlowsByWorkspaceIDStmt, getFlowsByWorkspaceID, workspaceID)
+func (q *Queries) GetFlowsByFlowRootID(ctx context.Context, flowRootID idwrap.IDWrap) ([]Flow, error) {
+	rows, err := q.query(ctx, q.getFlowsByFlowRootIDStmt, getFlowsByFlowRootID, flowRootID)
 	if err != nil {
 		return nil, err
 	}
@@ -3605,7 +3705,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 	items := []Flow{}
 	for rows.Next() {
 		var i Flow
-		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
+		if err := rows.Scan(&i.ID, &i.FlowRootID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -5476,6 +5576,26 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 		arg.DeltaExampleID,
 		arg.FlowNodeID,
 	)
+	return err
+}
+
+const updateFlowRoot = `-- name: UpdateFlowRoot :exec
+UPDATE flow_root
+SET
+  name = ?,
+  latest_version_id = ?
+WHERE
+  id = ?
+`
+
+type UpdateFlowRootParams struct {
+	Name            string
+	LatestVersionID *idwrap.IDWrap
+	ID              idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowRoot(ctx context.Context, arg UpdateFlowRootParams) error {
+	_, err := q.exec(ctx, q.updateFlowRootStmt, updateFlowRoot, arg.Name, arg.LatestVersionID, arg.ID)
 	return err
 }
 

@@ -369,6 +369,26 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ## flow_root
+          ### id
+          - column: 'flow_root.id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### workspace_id
+          - column: 'flow_root.workspace_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### latest_version_id
+          - column: 'flow_root.latest_version_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## flow
           ### id
           - column: 'flow.id'
@@ -376,8 +396,8 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### workspace_id
-          - column: 'flow.workspace_id'
+          ### flow_root_id
+          - column: 'flow.flow_root_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
@@ -389,8 +409,8 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### workspace_id
-          - column: 'flow_tag.workspace_id'
+          ### flow_root_id
+          - column: 'flow_tag.flow_root_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'

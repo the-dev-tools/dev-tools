@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/backend/pkg/dbtime"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcollection"
+	"the-dev-tools/backend/pkg/model/mflowroot"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
@@ -21,6 +22,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
+	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/sitemfolder"
@@ -349,8 +351,9 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 
 	fmt.Println("harData")
 
+	rootFlowID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
-	resolved, err := thar.ConvertHAR(harData, collectionID, wsID)
+	resolved, err := thar.ConvertHAR(harData, collectionID, wsID, rootFlowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -361,6 +364,13 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		ID:      collectionID,
 		Name:    req.Msg.GetName(),
 		OwnerID: wsID,
+	}
+
+	rootFlow := mflowroot.FlowRoot{
+		ID:              rootFlowID,
+		WorkspaceID:     wsID,
+		LatestVersionID: nil,
+		Name:            req.Msg.GetName(),
 	}
 
 	tx, err := c.DB.Begin()
@@ -466,6 +476,17 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 
 	// Flow Creation
 	//
+	// Flow Root
+
+	txFlowRootService, err := sflowroot.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txFlowRootService.CreateFlowRoot(ctx, rootFlow)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Flow
 	txFlowService, err := sflow.NewTX(ctx, tx)
 	if err != nil {
