@@ -93,7 +93,7 @@ export const EnvironmentsWidget = () => {
           <GlobalEnvironmentIcon className={tw`size-4 text-slate-500`} />
         </Button>
 
-        <Modal modalClassName={tw`size-full`}>
+        <Modal>
           <Dialog className={tw`h-full outline-none`}>
             {({ close }) => (
               <Tabs className={tw`flex h-full`} orientation='vertical'>

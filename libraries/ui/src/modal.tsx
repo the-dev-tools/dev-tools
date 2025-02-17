@@ -3,10 +3,12 @@ import {
   ModalOverlay as AriaModalOverlay,
   ModalOverlayProps as AriaModalOverlayProps,
 } from 'react-aria-components';
-import { tv } from 'tailwind-variants';
+import { tv, VariantProps } from 'tailwind-variants';
+
+import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
+import { composeRenderPropsTV } from './utils';
 
 const overlayStyles = tv({
   base: tw`fixed inset-0 z-20 flex h-[--visual-viewport-height] items-center justify-center bg-slate-800/50`,
@@ -16,16 +18,35 @@ const overlayStyles = tv({
   },
 });
 
-export interface ModalProps extends Omit<AriaModalOverlayProps, 'className'> {
+const modalStyles = tv({
+  base: tw`size-full overflow-auto rounded-lg bg-white`,
+  variants: {
+    size: {
+      md: tw`max-h-[50vh] max-w-[70vw]`,
+      lg: tw`max-h-[75vh] max-w-[80vw]`,
+    },
+  },
+  defaultVariants: {
+    size: 'md',
+  },
+});
+
+export interface ModalProps
+  extends Omit<AriaModalOverlayProps, 'className'>,
+    MixinProps<'modal', VariantProps<typeof modalStyles>> {
   overlayClassName?: AriaModalOverlayProps['className'];
   modalClassName?: AriaModalOverlayProps['className'];
 }
 
-export const Modal = ({ overlayClassName, modalClassName, ...props }: ModalProps) => (
-  <AriaModalOverlay {...props} className={composeRenderPropsTV(overlayClassName, overlayStyles)}>
-    <AriaModal
-      {...props}
-      className={composeRenderPropsTW(modalClassName, tw`max-h-[50vh] max-w-[70vw] overflow-auto rounded-lg bg-white`)}
-    />
-  </AriaModalOverlay>
-);
+export const Modal = ({ overlayClassName, modalClassName, ...props }: ModalProps) => {
+  const forwardedProps = splitProps(props, 'modal');
+
+  return (
+    <AriaModalOverlay {...forwardedProps.rest} className={composeRenderPropsTV(overlayClassName, overlayStyles)}>
+      <AriaModal
+        {...forwardedProps.rest}
+        className={composeRenderPropsTV(modalClassName, modalStyles, forwardedProps.modal)}
+      />
+    </AriaModalOverlay>
+  );
+};
