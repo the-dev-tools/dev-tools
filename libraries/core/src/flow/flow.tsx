@@ -33,7 +33,6 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
-import { EndpointRouteSearch } from '../endpoint';
 import { ReferenceContext } from '../reference';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
 import { workspaceRoute } from './internal';
@@ -44,7 +43,7 @@ import { ForEachNode, ForEachPanel } from './nodes/for-each';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 
-class Search extends EndpointRouteSearch.extend<Search>('FlowRouteSearch')({
+class Search extends Schema.Class<Search>('FlowRouteSearch')({
   selectedNodeIdCan: pipe(Schema.String, Schema.optional),
 }) {}
 

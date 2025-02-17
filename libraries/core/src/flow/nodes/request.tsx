@@ -113,7 +113,6 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
 export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
 
-  const { requestTab, responseTab } = flowRoute.useSearch();
   const { transport } = flowRoute.useRouteContext();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
@@ -176,12 +175,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         </div>
 
         <ReferenceContext value={{ nodeId, exampleId, workspaceId }}>
-          <EndpointRequestView
-            className={tw`p-5 pt-3`}
-            exampleId={exampleId}
-            deltaExampleId={deltaExampleId}
-            requestTab={requestTab}
-          />
+          <EndpointRequestView className={tw`p-5 pt-3`} exampleId={exampleId} deltaExampleId={deltaExampleId} />
         </ReferenceContext>
       </div>
 
@@ -193,7 +187,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
             Response
           </div>
 
-          <ResponsePanel className={tw`p-5 pt-3`} responseId={lastResponseId} responseTab={responseTab} />
+          <ResponsePanel className={tw`p-5 pt-3`} responseId={lastResponseId} />
         </div>
       )}
     </>
