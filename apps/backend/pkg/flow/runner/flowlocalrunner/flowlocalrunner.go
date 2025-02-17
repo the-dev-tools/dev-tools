@@ -36,7 +36,7 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	var err error
 
 	logWorkaround := func(a node.NodeStatus, id idwrap.IDWrap) {
-		status <- runner.NewFlowStatus(runner.FlowStatusRunning, node.NodeStatusRunning, &id)
+		status <- runner.NewFlowStatus(runner.FlowStatusRunning, a, &id)
 	}
 
 	req := &node.FlowNodeRequest{
@@ -90,10 +90,12 @@ func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNod
 		nextNodeLen := len(res.NextNodeID)
 		if nextNodeLen == 0 {
 			if res.Err != nil {
+				statusLogFunc(node.NodeStatusFailed, id)
 				return nil, res.Err
 			}
 			continue
 		}
+		statusLogFunc(node.NodeStatusSuccess, id)
 
 		if nextNodeLen == 1 {
 			nextNode, ok := req.NodeMap[res.NextNodeID[0]]
@@ -111,10 +113,20 @@ func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNod
 			if !ok {
 				return nil, fmt.Errorf("node not found: %v", v)
 			}
+
 			wg.Add(1)
 			go func(nextNode node.FlowNode) {
 				defer wg.Done()
+
+				statusLogFunc(node.NodeStatusRunning, v)
+
 				res := nextNode.RunSync(ctx, req)
+				if res.Err != nil {
+					statusLogFunc(node.NodeStatusFailed, v)
+				} else {
+					statusLogFunc(node.NodeStatusSuccess, v)
+				}
+
 				parallel <- node.FlowNodeResult{
 					NextNodeID: res.NextNodeID,
 					Err:        res.Err,
@@ -127,6 +139,7 @@ func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNod
 
 		mergedNextNodeIDs := make(map[idwrap.IDWrap]bool)
 		for a := range parallel {
+
 			if a.Err != nil {
 				return nil, a.Err
 			}
@@ -182,10 +195,13 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		case <-timedCtx.Done():
 			return nil, fmt.Errorf("timeout")
 		}
+		statusLogFunc(node.NodeStatusSuccess, id)
 
 		nextNodeLen := len(res.NextNodeID)
 		if nextNodeLen == 0 {
 			if res.Err != nil {
+
+				statusLogFunc(node.NodeStatusFailed, id)
 				return nil, res.Err
 			}
 			continue
@@ -210,7 +226,14 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 			wg.Add(1)
 			go func(nextNode node.FlowNode) {
 				defer wg.Done()
+
+				statusLogFunc(node.NodeStatusRunning, v)
 				res := nextNode.RunSync(ctx, req)
+				if res.Err != nil {
+					statusLogFunc(node.NodeStatusFailed, v)
+				} else {
+					statusLogFunc(node.NodeStatusSuccess, v)
+				}
 				parallel <- node.FlowNodeResult{
 					NextNodeID: res.NextNodeID,
 					Err:        res.Err,

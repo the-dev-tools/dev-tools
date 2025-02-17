@@ -36,7 +36,13 @@ model Edge {
 
 model EdgeChange is Resource.Change<Edge>;
 model EdgeListItem is Resource.List.Item<Edge>;
-model EdgeListRequest is Resource.List.Request<Edge>;
+
+@autoFields
+model EdgeListRequest {
+  ...Resource.List.Request<Edge>;
+  versionId?: Resource.Id;
+}
+
 model EdgeListResponse is Resource.List.Response<Edge, EdgeListItem>;
 model EdgeGetRequest is Resource.Get.Request<Edge>;
 model EdgeGetResponse is Resource.Get.Response<Edge>;

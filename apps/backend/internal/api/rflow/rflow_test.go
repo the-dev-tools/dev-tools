@@ -1,21 +1,14 @@
 package rflow_test
 
-/*
-
 import (
 	"context"
-	"fmt"
 	"testing"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rflow"
-	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
-	"the-dev-tools/backend/pkg/model/mflowtag"
-	"the-dev-tools/backend/pkg/model/mnnode"
-	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
-	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/backend/pkg/model/mflowroot"
 	"the-dev-tools/backend/pkg/model/mtag"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
@@ -43,6 +36,7 @@ import (
 	"connectrpc.com/connect"
 )
 
+/*
 func TestListFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
@@ -54,7 +48,9 @@ func TestListFlow(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
+
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 
 	fes := sedge.New(queries)
@@ -77,7 +73,8 @@ func TestListFlow(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+	serviceRPC := rflow.New(db, ws, us, ts,
+		fs, frs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
 		ns, rns, flns, fens,
@@ -108,6 +105,10 @@ func TestListFlow(t *testing.T) {
 		WorkspaceID: wsID,
 		Name:        "test",
 	}
+
+  mflowroot.FlowRoot{
+  }
+
 	err = fs.CreateFlow(ctx, taggedFlowData)
 	testutil.AssertFatal(t, nil, err)
 	nonTaggedFlowData := mflow.Flow{
@@ -469,6 +470,7 @@ func TestUpdateFlow(t *testing.T) {
 
 	testutil.Assert(t, UpdatedName, flow.Name)
 }
+*/
 
 func TestDeleteFlow(t *testing.T) {
 	ctx := context.Background()
@@ -480,7 +482,9 @@ func TestDeleteFlow(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
+
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 
 	fes := sedge.New(queries)
@@ -503,7 +507,8 @@ func TestDeleteFlow(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+	serviceRPC := rflow.New(db, ws, us, ts,
+		fs, frs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
 		ns, rns, flns, fens,
@@ -525,25 +530,42 @@ func TestDeleteFlow(t *testing.T) {
 	}
 	err := ts.CreateTag(ctx, tagData)
 	testutil.AssertFatal(t, nil, err)
+
+	testRootFlowID := idwrap.NewNow()
 	testFlowID := idwrap.NewNow()
-	flowData := mflow.Flow{
-		ID:          testFlowID,
-		WorkspaceID: wsID,
-		Name:        "test",
+
+	flowRootData := mflowroot.FlowRoot{
+		ID:              testRootFlowID,
+		WorkspaceID:     wsID,
+		LatestVersionID: &testFlowID,
+		Name:            "test",
 	}
+
+	flowData := mflow.Flow{
+		ID:         testFlowID,
+		FlowRootID: testRootFlowID,
+		Name:       "test",
+	}
+
+	err = frs.CreateFlowRoot(ctx, flowRootData)
+	testutil.AssertFatal(t, nil, err)
 	err = fs.CreateFlow(ctx, flowData)
 	testutil.AssertFatal(t, nil, err)
 	req := connect.NewRequest(
 		&flowv1.FlowDeleteRequest{
-			FlowId: testFlowID.Bytes(),
+			FlowId: testRootFlowID.Bytes(),
 		},
 	)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 	resp, err := serviceRPC.FlowDelete(authedCtx, req)
 	testutil.AssertFatal(t, nil, err)
 	testutil.AssertNotFatal(t, nil, resp.Msg)
+
+	_, err = frs.GetFlowRoot(ctx, testRootFlowID)
+	testutil.AssertFatal(t, sflowroot.ErrNoFlowRootFound, err)
 }
 
+/*
 type ServerStreamingHandlerMock[I any] struct {
 	SendStream func(*I)
 }
@@ -552,6 +574,7 @@ func (s ServerStreamingHandlerMock[I]) Send(a *I) error {
 	s.SendStream(a)
 	return nil
 }
+
 
 func TestRunFlow(t *testing.T) {
 	ctx := context.Background()
@@ -563,7 +586,9 @@ func TestRunFlow(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
+
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 
 	fes := sedge.New(queries)
@@ -586,7 +611,8 @@ func TestRunFlow(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+	serviceRPC := rflow.New(db, ws, us, ts,
+		fs, frs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
 		ns, rns, flns, fens,
@@ -611,7 +637,7 @@ func TestRunFlow(t *testing.T) {
 	testFlowID := idwrap.NewNow()
 	flowData := mflow.Flow{
 		ID:          testFlowID,
-		WorkspaceID: wsID,
+		: wsID,
 		Name:        "test",
 	}
 	err = fs.CreateFlow(ctx, flowData)

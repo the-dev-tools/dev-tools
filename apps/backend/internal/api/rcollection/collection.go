@@ -335,8 +335,6 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	fmt.Println("wsID", wsID)
-
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -349,16 +347,12 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	fmt.Println("harData")
-
 	rootFlowID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
 	resolved, err := thar.ConvertHAR(harData, collectionID, wsID, rootFlowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-
-	fmt.Println("resolved")
 
 	collectionData := mcollection.Collection{
 		ID:      collectionID,
@@ -477,7 +471,6 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	// Flow Creation
 	//
 	// Flow Root
-
 	txFlowRootService, err := sflowroot.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

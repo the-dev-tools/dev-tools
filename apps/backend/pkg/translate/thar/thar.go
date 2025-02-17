@@ -334,13 +334,13 @@ func ConvertHAR(har *HAR, collectionID, workspaceID, rootFlowID idwrap.IDWrap) (
 		if i > 0 {
 			// Verify prev link
 			if current.Prev == nil || *current.Prev != result.Apis[i-1].ID {
-				log.Fatal("invalid prev link at index %d", i)
+				log.Fatalf("invalid prev link at index %d", i)
 			}
 		}
 		if i < len(result.Apis)-1 {
 			// Verify next link
 			if current.Next == nil || *current.Next != result.Apis[i+1].ID {
-				log.Fatal("invalid next link at index %d", i)
+				log.Fatalf("invalid next link at index %d", i)
 			}
 		}
 	}

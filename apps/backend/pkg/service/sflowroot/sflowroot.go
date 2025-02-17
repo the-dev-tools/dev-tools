@@ -118,6 +118,6 @@ func (s *FlowRootService) UpdateFlowRoot(ctx context.Context, flow mflowroot.Flo
 }
 
 func (s *FlowRootService) DeleteFlowRoot(ctx context.Context, id idwrap.IDWrap) error {
-	err := s.queries.DeleteFlow(ctx, id)
+	err := s.queries.DeleteFlowRoot(ctx, id)
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowRootFound, err)
 }

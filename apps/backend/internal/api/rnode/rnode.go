@@ -101,12 +101,27 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.frs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
+	var versionIDPtr *idwrap.IDWrap
+	if len(req.Msg.VersionId) > 0 {
+		versionID, err := idwrap.NewFromBytes(req.Msg.VersionId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		versionIDPtr = &versionID
+	} else {
+		flow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		versionIDPtr = &flow.ID
+	}
+
+	nodes, err := c.ns.GetNodesByFlowID(ctx, *versionIDPtr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("any node found"))
 	}
@@ -202,9 +217,14 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 	}
 
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.frs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, fmt.Errorf("invalid flow owner: %w", rpcErr)
+	}
+
+	latestFlow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	NodeID := idwrap.NewNow()
@@ -220,7 +240,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flowID, NodeID)
+	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, latestFlow.ID, NodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node: %w", err))
 	}

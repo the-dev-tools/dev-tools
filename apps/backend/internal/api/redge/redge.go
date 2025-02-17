@@ -53,12 +53,27 @@ func (c *EdgeServiceRPC) EdgeList(ctx context.Context, req *connect.Request[edge
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.frs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	edges, err := c.es.GetEdgesByFlowID(ctx, flowID)
+	var versionIDPtr *idwrap.IDWrap
+	if len(req.Msg.VersionId) > 0 {
+		versionID, err := idwrap.NewFromBytes(req.Msg.VersionId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		versionIDPtr = &versionID
+	} else {
+		flow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get latest flow"))
+		}
+		versionIDPtr = &flow.ID
+	}
+
+	edges, err := c.es.GetEdgesByFlowID(ctx, *versionIDPtr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -97,11 +112,17 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	a, b := rflow.CheckOwnerFlow(ctx, c.fs, c.frs, c.us, flowID)
+	a, b := rflow.CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID)
 	rpcErr := permcheck.CheckPerm(a, b)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
+	latestFlow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	latestFlowID := latestFlow.ID
 
 	sourceID, err := idwrap.NewFromBytes(req.Msg.SourceId)
 	if err != nil {
@@ -120,14 +141,14 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if sourceNode.FlowID != flowID || targetNode.FlowID != flowID {
+	if sourceNode.FlowID != latestFlowID || targetNode.FlowID != latestFlowID {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source and target nodes must be in the same flow"))
 	}
 
 	edgeID := idwrap.NewNow()
 	modelEdge := &edge.Edge{
 		ID:            edgeID,
-		FlowID:        flowID,
+		FlowID:        latestFlowID,
 		SourceID:      sourceID,
 		TargetID:      targetID,
 		SourceHandler: edge.EdgeHandle(req.Msg.SourceHandle),

@@ -151,7 +151,7 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 	// TODO: add tag listing again
 
 	var parentIDPtr *idwrap.IDWrap = nil
-	if req.Msg.FlowParentId != nil {
+	if len(req.Msg.FlowParentId) > 0 {
 		parentID, err := idwrap.NewFromBytes(req.Msg.FlowParentId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -198,9 +198,10 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 	}
 
 	rpcResp := &flowv1.FlowListResponse{
-		WorkspaceId: req.Msg.WorkspaceId,
-		TagId:       req.Msg.TagId,
-		Items:       rpcFlows,
+		WorkspaceId:  req.Msg.WorkspaceId,
+		TagId:        req.Msg.TagId,
+		FlowParentId: req.Msg.FlowParentId,
+		Items:        rpcFlows,
 	}
 	return connect.NewResponse(rpcResp), nil
 }
@@ -209,14 +210,7 @@ func (c *FlowServiceRPC) FlowGet(ctx context.Context, req *connect.Request[flowv
 	if len(req.Msg.FlowId) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
 	}
-	if len(req.Msg.FlowVersionId) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow version id is required"))
-	}
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	flowVersionID, err := idwrap.NewFromBytes(req.Msg.FlowVersionId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -226,12 +220,29 @@ func (c *FlowServiceRPC) FlowGet(ctx context.Context, req *connect.Request[flowv
 		return nil, rpcErr
 	}
 
+	var flowVersionIDPtr *idwrap.IDWrap
+	if len(req.Msg.FlowVersionId) > 0 {
+		flowVersionID, err := idwrap.NewFromBytes(req.Msg.FlowVersionId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		flowVersionIDPtr = &flowVersionID
+	}
+
+	if flowVersionIDPtr == nil {
+		flow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		flowVersionIDPtr = &flow.ID
+	}
+
 	flowRoot, err := c.frs.GetFlowRoot(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	flow, err := c.fs.GetFlow(ctx, flowVersionID)
+	flow, err := c.fs.GetFlow(ctx, *flowVersionIDPtr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -311,6 +322,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	err = txNode.CreateNode(ctx, mnnode.MNode{
 		ID:        nodeNoopID,
 		FlowID:    flowID,
+		Name:      "Default Start Node",
 		NodeKind:  mnnode.NODE_KIND_NO_OP,
 		PositionX: float64(0),
 		PositionY: float64(0),
@@ -338,7 +350,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	}
 
 	return connect.NewResponse(&flowv1.FlowCreateResponse{
-		FlowId: flowID.Bytes(),
+		FlowId: flowRootID.Bytes(),
 	}), nil
 }
 
@@ -385,7 +397,7 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err = c.fs.DeleteFlow(ctx, flowID)
+	err = c.frs.DeleteFlowRoot(ctx, flowID)
 	if err != nil {
 		return nil, err
 	}
@@ -406,10 +418,23 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return rpcErr
 	}
 
-	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
+	latestFlow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	latestFlowID := latestFlow.ID
+
+	nodes, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, errors.New("get nodes"))
 	}
+
+	edges, err := c.fes.GetEdgesByFlowID(ctx, latestFlowID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
+	}
+	edgeMap := edge.NewEdgesMap(edges)
 
 	var requestNodes []mnrequest.MNRequest
 	var forNodes []mnfor.MNFor
@@ -556,14 +581,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
-	edges, err := c.fes.GetEdgesByFlowID(ctx, flowID)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
-	}
-	edgeMap := edge.NewEdgesMap(edges)
-
 	// TODO: get timeout from flow config
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
 
 	status := make(chan runner.FlowStatusResp, 10)
 	subCtx, cancel := context.WithCancel(ctx)
