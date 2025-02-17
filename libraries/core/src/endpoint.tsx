@@ -10,10 +10,10 @@ import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, 
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
-import { MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
-import { FiMoreHorizontal, FiSave } from 'react-icons/fi';
-import { Panel } from 'react-resizable-panels';
+import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
+import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
 import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
@@ -21,12 +21,14 @@ import {
   endpointGet,
   endpointUpdate,
 } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
+import { ExampleVersionsItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
   exampleCreate,
   exampleDelete,
   exampleGet,
   exampleRun,
   exampleUpdate,
+  exampleVersions,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   QueryCreateRequest,
@@ -54,6 +56,7 @@ import { Spinner } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
@@ -427,13 +430,13 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           )}
         </div>
 
-        {/* <DialogTrigger>
+        <DialogTrigger>
           <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
             <FiClock className={tw`size-4 text-slate-500`} /> Response History
           </Button>
 
           <HistoryModal exampleId={exampleId} />
-        </DialogTrigger> */}
+        </DialogTrigger>
 
         {/* TODO: implement copy link */}
         {/* <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
@@ -514,6 +517,131 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
         </Button>
       </div>
     </form>
+  );
+};
+
+class HistoryTabId extends Schema.Class<HistoryTabId>('HistoryTabId')({
+  endpointId: Schema.Uint8Array,
+  exampleId: Schema.Uint8Array,
+}) {}
+
+interface HistoryModalProps {
+  exampleId: Uint8Array;
+}
+
+const HistoryModal = ({ exampleId }: HistoryModalProps) => {
+  const {
+    data: { items: versions },
+  } = useConnectSuspenseQuery(exampleVersions, { exampleId });
+
+  return (
+    <Modal modalSize='lg' isDismissable>
+      <Dialog className={tw`size-full outline-none`}>
+        <Tabs className={tw`flex h-full`} orientation='vertical'>
+          <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
+            <div className={tw`mb-4`}>
+              <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Response History</div>
+              <div className={tw`text-xs leading-4 text-slate-500`}>History of your API response</div>
+            </div>
+            <div className={tw`grid grid-cols-[auto_1fr] gap-x-0.5`}>
+              <div className={tw`flex flex-col items-center gap-0.5`}>
+                <div className={tw`flex-1`} />
+                <div className={tw`size-2 rounded-full border border-violet-700 p-px`}>
+                  <div className={tw`size-full rounded-full border border-inherit`} />
+                </div>
+                <div className={tw`w-px flex-1 bg-slate-200`} />
+              </div>
+
+              <div className={tw`p-2 text-md font-semibold leading-5 tracking-tight text-violet-700`}>
+                Current Version
+              </div>
+
+              <div className={tw`flex flex-col items-center gap-0.5`}>
+                <div className={tw`w-px flex-1 bg-slate-200`} />
+                <div className={tw`size-2 rounded-full bg-slate-300`} />
+                <div className={tw`w-px flex-1 bg-slate-200`} />
+              </div>
+
+              <div className={tw`p-2 text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+                {versions.length} previous responses
+              </div>
+
+              <div className={tw`mb-2 w-px flex-1 justify-self-center bg-slate-200`} />
+
+              <TabList items={versions}>
+                {(item) => (
+                  <Tab
+                    id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
+                    className={({ isSelected }) =>
+                      twJoin(
+                        tw`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md font-semibold leading-5 text-slate-800`,
+                        isSelected && tw`bg-slate-200`,
+                      )
+                    }
+                  >
+                    {Ulid.construct(exampleId).time.toLocaleString()}
+                  </Tab>
+                )}
+              </TabList>
+            </div>
+          </div>
+
+          <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
+            <Collection items={versions}>
+              {(item) => (
+                <TabPanel
+                  id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
+                  className={tw`h-full`}
+                >
+                  <Suspense
+                    fallback={
+                      <div className={tw`flex h-full items-center justify-center`}>
+                        <Spinner className={tw`size-12`} />
+                      </div>
+                    }
+                  >
+                    <ExampleVersionsView item={item} />
+                  </Suspense>
+                </TabPanel>
+              )}
+            </Collection>
+          </div>
+        </Tabs>
+      </Dialog>
+    </Modal>
+  );
+};
+
+interface ExampleVersionsViewProps {
+  item: ExampleVersionsItem;
+}
+
+const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }: ExampleVersionsViewProps) => {
+  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
+
+  const url = useEndpointUrl({ endpointId, exampleId });
+
+  return (
+    <PanelGroup direction='vertical'>
+      <Panel className={tw`flex flex-col`}>
+        <div className='m-5 mb-2 flex items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+          <MethodBadge method={endpoint.method} size='lg' />
+          <div className={tw`h-7 w-px bg-slate-200`} />
+          <div className={tw`truncate font-medium leading-5 tracking-tight text-slate-800`}>{url}</div>
+        </div>
+
+        <EndpointRequestView exampleId={exampleId} isReadOnly />
+      </Panel>
+
+      {lastResponseId && (
+        <>
+          <PanelResizeHandle direction='vertical' />
+          <Panel>
+            <ResponsePanel responseId={lastResponseId} fullWidth />
+          </Panel>
+        </>
+      )}
+    </PanelGroup>
   );
 };
 
