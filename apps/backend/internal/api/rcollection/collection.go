@@ -354,6 +354,10 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	if len(resolved.Apis) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no apis found to create in har"))
+	}
+
 	collectionData := mcollection.Collection{
 		ID:      collectionID,
 		Name:    req.Msg.GetName(),
@@ -490,6 +494,14 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	rootFlow.LatestVersionID = &resolved.Flow.ID
+
+	// Flow Root Update
+	err = txFlowRootService.UpdateFlowRoot(ctx, rootFlow)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Flow Node
 	txFlowNodeService, err := snode.NewTX(ctx, tx)
 	if err != nil {
@@ -540,8 +552,8 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 
 	// Changes
 	flowListItem := &flowv1.FlowListItem{
-		FlowId: resolved.Flow.ID.Bytes(),
-		Name:   resolved.Flow.Name,
+		FlowId: rootFlowID.Bytes(),
+		Name:   rootFlow.Name,
 	}
 
 	changeListResp := &flowv1.FlowListResponse{
