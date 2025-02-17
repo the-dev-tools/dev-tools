@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mflowroot"
+	"the-dev-tools/backend/pkg/model/mflowtag"
 	"the-dev-tools/backend/pkg/model/mtag"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
@@ -36,7 +37,6 @@ import (
 	"connectrpc.com/connect"
 )
 
-/*
 func TestListFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
@@ -99,31 +99,32 @@ func TestListFlow(t *testing.T) {
 	err := ts.CreateTag(ctx, tagData)
 	testutil.AssertFatal(t, nil, err)
 
-	taggedTestFlowID := idwrap.NewNow()
-	taggedFlowData := mflow.Flow{
-		ID:          taggedTestFlowID,
+	taggedTestFlowRootID := idwrap.NewNow()
+	nonTaggedTestFlowRootID := idwrap.NewNow()
+
+	taggedFlowRootData := mflowroot.FlowRoot{
+		ID:          taggedTestFlowRootID,
 		WorkspaceID: wsID,
-		Name:        "test",
+		Name:        tagData.Name,
 	}
 
-  mflowroot.FlowRoot{
-  }
+	nonTaggedFlowRootData := mflowroot.FlowRoot{
+		ID:          nonTaggedTestFlowRootID,
+		WorkspaceID: wsID,
+		Name:        tagData.Name,
+	}
 
-	err = fs.CreateFlow(ctx, taggedFlowData)
+	err = frs.CreateFlowRoot(ctx, taggedFlowRootData)
 	testutil.AssertFatal(t, nil, err)
-	nonTaggedFlowData := mflow.Flow{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: wsID,
-		Name:        "test",
-	}
-	err = fs.CreateFlow(ctx, nonTaggedFlowData)
+
+	err = frs.CreateFlowRoot(ctx, nonTaggedFlowRootData)
 	testutil.AssertFatal(t, nil, err)
 
 	flowTagID := idwrap.NewNow()
 	flowTagData := mflowtag.FlowTag{
-		ID:     flowTagID,
-		FlowID: taggedTestFlowID,
-		TagID:  testTagID,
+		ID:         flowTagID,
+		FlowRootID: taggedTestFlowRootID,
+		TagID:      testTagID,
 	}
 
 	err = fts.CreateFlowTag(ctx, flowTagData)
@@ -148,7 +149,7 @@ func TestListFlow(t *testing.T) {
 	flow1 := flows[0]
 	flowID, err := idwrap.NewFromBytes(flow1.FlowId)
 	testutil.AssertFatal(t, nil, err)
-	if taggedTestFlowID.Compare(flowID) != 0 {
+	if taggedTestFlowRootID.Compare(flowID) != 0 {
 		t.Fatalf("failed: id mismatch")
 	}
 	testutil.Assert(t, "test", flow1.Name)
@@ -173,13 +174,13 @@ func TestListFlow(t *testing.T) {
 
 	flowID, err = idwrap.NewFromBytes(flow1.FlowId)
 	testutil.AssertFatal(t, nil, err)
-	if taggedTestFlowID.Compare(flowID) != 0 {
+	if taggedTestFlowRootID.Compare(flowID) != 0 {
 		t.Fatalf("failed: id mismatch")
 	}
 	testutil.Assert(t, "test", flow1.Name)
 	flowID, err = idwrap.NewFromBytes(flow2.FlowId)
 	testutil.AssertFatal(t, nil, err)
-	if nonTaggedFlowData.ID.Compare(flowID) != 0 {
+	if nonTaggedTestFlowRootID.Compare(flowID) != 0 {
 		t.Fatalf("failed: id mismatch")
 	}
 	testutil.Assert(t, "test", flow2.Name)
@@ -195,7 +196,9 @@ func TestGetFlow(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
+
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 
 	fes := sedge.New(queries)
@@ -218,7 +221,8 @@ func TestGetFlow(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+	serviceRPC := rflow.New(db, ws, us, ts,
+		fs, frs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
 		ns, rns, flns, fens,
@@ -243,20 +247,36 @@ func TestGetFlow(t *testing.T) {
 	err := ts.CreateTag(ctx, tagData)
 	testutil.AssertFatal(t, nil, err)
 
+	testFlowRootID := idwrap.NewNow()
 	testFlowID := idwrap.NewNow()
-	flowData := mflow.Flow{
-		ID:          testFlowID,
+
+	flowRootData := mflowroot.FlowRoot{
+		ID:          testFlowRootID,
 		WorkspaceID: wsID,
 		Name:        "test",
 	}
+
+	flowData := mflow.Flow{
+		ID:         testFlowID,
+		FlowRootID: testFlowRootID,
+		Name:       "test",
+	}
+
+	err = frs.CreateFlowRoot(ctx, flowRootData)
+	testutil.AssertFatal(t, nil, err)
+
 	err = fs.CreateFlow(ctx, flowData)
+	testutil.AssertFatal(t, nil, err)
+
+	flowRootData.LatestVersionID = &testFlowID
+	err = frs.UpdateFlowRoot(ctx, flowRootData)
 	testutil.AssertFatal(t, nil, err)
 
 	flowTagID := idwrap.NewNow()
 	flowTagData := mflowtag.FlowTag{
-		ID:     flowTagID,
-		FlowID: testFlowID,
-		TagID:  testTagID,
+		ID:         flowTagID,
+		FlowRootID: testFlowRootID,
+		TagID:      testTagID,
 	}
 
 	err = fts.CreateFlowTag(ctx, flowTagData)
@@ -264,7 +284,7 @@ func TestGetFlow(t *testing.T) {
 
 	req := connect.NewRequest(
 		&flowv1.FlowGetRequest{
-			FlowId: testFlowID.Bytes(),
+			FlowId: testFlowRootID.Bytes(),
 		},
 	)
 
@@ -282,12 +302,8 @@ func TestGetFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if testFlowID.Compare(respFlowID) != 0 {
-		t.Fatalf("failed: id mismatch")
-	}
-
 	testutil.Assert(t, flowData.Name, msg.Name)
-	testutil.Assert(t, testFlowID, respFlowID)
+	testutil.Assert(t, testFlowRootID, respFlowID)
 }
 
 func TestCreateFlow(t *testing.T) {
@@ -300,8 +316,9 @@ func TestCreateFlow(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
-	frs := sflowroot.New(queries)
+
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 
 	fes := sedge.New(queries)
@@ -373,7 +390,7 @@ func TestCreateFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	flow, err := fs.GetFlow(ctx, respFlowID)
+	flow, err := frs.GetFlowRoot(ctx, respFlowID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,7 +408,9 @@ func TestUpdateFlow(t *testing.T) {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
+
 	fs := sflow.New(queries)
+	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 
 	fes := sedge.New(queries)
@@ -414,7 +433,8 @@ func TestUpdateFlow(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	serviceRPC := rflow.New(db, ws, us, ts, fs, fts,
+	serviceRPC := rflow.New(db, ws, us, ts,
+		fs, frs, fts,
 		fes, as, es, qs, hs,
 		brs, bfs, bues,
 		ns, rns, flns, fens,
@@ -439,20 +459,35 @@ func TestUpdateFlow(t *testing.T) {
 	err := ts.CreateTag(ctx, tagData)
 	testutil.AssertFatal(t, nil, err)
 
+	testFlowRootID := idwrap.NewNow()
+	flowRootData := mflowroot.FlowRoot{
+		ID:              testFlowRootID,
+		WorkspaceID:     wsID,
+		LatestVersionID: nil,
+		Name:            "test",
+	}
+
+	err = frs.CreateFlowRoot(ctx, flowRootData)
+	testutil.AssertFatal(t, nil, err)
+
 	testFlowID := idwrap.NewNow()
 	flowData := mflow.Flow{
-		ID:          testFlowID,
-		WorkspaceID: wsID,
-		Name:        "test",
+		ID:         testFlowID,
+		FlowRootID: testFlowRootID,
+		Name:       "test",
 	}
 	err = fs.CreateFlow(ctx, flowData)
+	testutil.AssertFatal(t, nil, err)
+
+	flowRootData.LatestVersionID = &testFlowID
+	err = frs.UpdateFlowRoot(ctx, flowRootData)
 	testutil.AssertFatal(t, nil, err)
 
 	UpdatedName := "test2"
 
 	req := connect.NewRequest(
 		&flowv1.FlowUpdateRequest{
-			FlowId: testFlowID.Bytes(),
+			FlowId: testFlowRootID.Bytes(),
 			Name:   &UpdatedName,
 		},
 	)
@@ -463,14 +498,13 @@ func TestUpdateFlow(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 	testutil.AssertNotFatal(t, nil, resp.Msg)
 
-	flow, err := fs.GetFlow(ctx, testFlowID)
+	flow, err := frs.GetFlowRoot(ctx, testFlowRootID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	testutil.Assert(t, UpdatedName, flow.Name)
 }
-*/
 
 func TestDeleteFlow(t *testing.T) {
 	ctx := context.Background()

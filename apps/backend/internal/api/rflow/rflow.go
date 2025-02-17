@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/url"
 	"the-dev-tools/backend/internal/api"
+	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -150,13 +151,22 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 	}
 	// TODO: add tag listing again
 
-	var parentIDPtr *idwrap.IDWrap = nil
+	var parentIDPtr *idwrap.IDWrap
 	if len(req.Msg.FlowParentId) > 0 {
 		parentID, err := idwrap.NewFromBytes(req.Msg.FlowParentId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 		parentIDPtr = &parentID
+	}
+
+	var tagIDPtr *idwrap.IDWrap
+	if len(req.Msg.TagId) > 0 {
+		tagID, err := idwrap.NewFromBytes(req.Msg.TagId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		tagIDPtr = &tagID
 	}
 
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
@@ -186,13 +196,44 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		for _, flowRoot := range flowRoots {
-			latestFlow, err := c.frs.GetLatestFlow(ctx, flowRoot.ID, c.fs)
+		if tagIDPtr != nil {
+			rpcErr := permcheck.CheckPerm(rtag.CheckOwnerTag(ctx, c.ts, c.us, *tagIDPtr))
+			if rpcErr != nil {
+				return nil, rpcErr
+			}
+			fmt.Println("tagIDPtr", tagIDPtr)
+			tagFlows, err := c.fts.GetFlowTagsByTagID(ctx, *tagIDPtr)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			rpcFlow := tflow.SeralizeModelToRPCItem(latestFlow, flowRoot)
-			rpcFlows = append(rpcFlows, rpcFlow)
+
+			for _, tagFlow := range tagFlows {
+				fmt.Println("tagFlow", tagFlow)
+				flowRoot, err := c.frs.GetFlowRoot(ctx, tagFlow.FlowRootID)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				fmt.Println("flowRoot", flowRoot)
+
+				latestFlow, err := c.frs.GetLatestFlow(ctx, flowRoot.ID, c.fs)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+
+				fmt.Println("latestFlow", latestFlow)
+				rpcFlow := tflow.SeralizeModelToRPCItem(latestFlow, flowRoot)
+				rpcFlows = append(rpcFlows, rpcFlow)
+			}
+
+		} else {
+			for _, flowRoot := range flowRoots {
+				latestFlow, err := c.frs.GetLatestFlow(ctx, flowRoot.ID, c.fs)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				rpcFlow := tflow.SeralizeModelToRPCItem(latestFlow, flowRoot)
+				rpcFlows = append(rpcFlows, rpcFlow)
+			}
 		}
 
 	}
