@@ -2,6 +2,7 @@ import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
 import { useMemo, useState } from 'react';
@@ -33,6 +34,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import {
   makeGenericDeltaFormTableColumns,
+  makeGenericDisplayTableColumns,
   makeGenericFormTableColumns,
   useDeltaFormTable,
   useFormTable,
@@ -41,9 +43,10 @@ import {
 interface BodyViewProps {
   exampleId: Uint8Array;
   deltaExampleId?: Uint8Array | undefined;
+  isReadOnly?: boolean | undefined;
 }
 
-export const BodyView = ({ exampleId, deltaExampleId }: BodyViewProps) => {
+export const BodyView = ({ exampleId, deltaExampleId, isReadOnly }: BodyViewProps) => {
   const query = useConnectSuspenseQuery(exampleGet, { exampleId });
   const updateMutation = useConnectMutation(exampleUpdate);
 
@@ -58,6 +61,7 @@ export const BodyView = ({ exampleId, deltaExampleId }: BodyViewProps) => {
         orientation='horizontal'
         value={bodyKind.toString()}
         onChange={(key) => void updateMutation.mutate({ exampleId, bodyKind: parseInt(key) })}
+        isReadOnly={isReadOnly ?? false}
       >
         <Radio value={BodyKind.UNSPECIFIED.toString()}>none</Radio>
         <Radio value={BodyKind.FORM_ARRAY.toString()}>form-data</Radio>
@@ -67,25 +71,39 @@ export const BodyView = ({ exampleId, deltaExampleId }: BodyViewProps) => {
 
       {pipe(
         Match.value(bodyKind),
-        Match.when(BodyKind.FORM_ARRAY, () =>
-          deltaExampleId ? (
-            <FormDeltaDataTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
-          ) : (
-            <FormDataTable exampleId={exampleId} />
-          ),
-        ),
-        Match.when(BodyKind.URL_ENCODED_ARRAY, () =>
-          deltaExampleId ? (
-            <UrlEncodedDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
-          ) : (
-            <UrlEncodedTable exampleId={exampleId} />
-          ),
-        ),
-        Match.when(BodyKind.RAW, () => <RawForm exampleId={exampleId} />),
+        Match.when(BodyKind.FORM_ARRAY, () => {
+          if (isReadOnly) return <FormDisplayTable exampleId={exampleId} />;
+          if (deltaExampleId) return <FormDeltaDataTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+          return <FormDataTable exampleId={exampleId} />;
+        }),
+        Match.when(BodyKind.URL_ENCODED_ARRAY, () => {
+          if (isReadOnly) return <UrlEncodedDisplayTable exampleId={exampleId} />;
+          if (deltaExampleId) return <UrlEncodedDeltaFormTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+          return <UrlEncodedFormTable exampleId={exampleId} />;
+        }),
+        Match.when(BodyKind.RAW, () => <RawForm exampleId={exampleId} isReadOnly={isReadOnly} />),
         Match.orElse(() => null),
       )}
     </div>
   );
+};
+
+interface FormDisplayTableProps {
+  exampleId: Uint8Array;
+}
+
+const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
+
+  const table = useReactTable({
+    columns: makeGenericDisplayTableColumns<BodyFormItemListItem>(),
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 interface FormDataTableProps {
@@ -113,7 +131,8 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
-interface FormDeltaDataTableProps extends FormDataTableProps {
+interface FormDeltaDataTableProps {
+  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
 }
 
@@ -149,11 +168,29 @@ const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTablePro
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
-interface UrlEncodedTableProps {
+interface UrlEncodedDisplayTableProps {
   exampleId: Uint8Array;
 }
 
-const UrlEncodedTable = ({ exampleId }: UrlEncodedTableProps) => {
+const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
+
+  const table = useReactTable({
+    columns: makeGenericDisplayTableColumns<BodyUrlEncodedItemListItem>(),
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+};
+
+interface UrlEncodedFormTableProps {
+  exampleId: Uint8Array;
+}
+
+const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
@@ -174,11 +211,12 @@ const UrlEncodedTable = ({ exampleId }: UrlEncodedTableProps) => {
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
-interface UrlEncodedDeltaTableProps extends UrlEncodedTableProps {
+interface UrlEncodedDeltaFormTableProps {
+  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
 }
 
-const UrlEncodedDeltaTable = ({ exampleId, deltaExampleId }: UrlEncodedDeltaTableProps) => {
+const UrlEncodedDeltaFormTable = ({ exampleId, deltaExampleId }: UrlEncodedDeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
@@ -214,9 +252,10 @@ const languages = ['text', 'json', 'html', 'xml'] as const;
 
 interface RawFormProps {
   exampleId: Uint8Array;
+  isReadOnly?: boolean | undefined;
 }
 
-const RawForm = ({ exampleId }: RawFormProps) => {
+const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
   const {
     data: { data },
   } = useConnectSuspenseQuery(bodyRawGet, { exampleId });
@@ -266,6 +305,7 @@ const RawForm = ({ exampleId }: RawFormProps) => {
         height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}
+        readOnly={isReadOnly ?? false}
       />
     </>
   );

@@ -63,8 +63,8 @@ import { formatSize } from '@the-dev-tools/utils/helpers';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
-import { HeaderDeltaTable, HeaderTable } from './headers';
-import { QueryDeltaTable, QueryTable } from './query';
+import { HeaderTable } from './headers';
+import { QueryTable } from './query';
 import { ReferenceContext } from './reference';
 
 export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
@@ -147,10 +147,11 @@ const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 interface EndpointRequestViewProps {
   exampleId: Uint8Array;
   deltaExampleId?: Uint8Array;
+  isReadOnly?: boolean;
   className?: string;
 }
 
-export const EndpointRequestView = ({ exampleId, deltaExampleId, requestTab, className }: EndpointRequestViewProps) => (
+export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, className }: EndpointRequestViewProps) => (
   <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
     <TabList className={tw`flex gap-3 border-b border-slate-200`}>
       <Tab
@@ -210,27 +211,19 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, requestTab, cla
       }
     >
       <TabPanel id='params'>
-        {deltaExampleId ? (
-          <QueryDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
-        ) : (
-          <QueryTable exampleId={exampleId} />
-        )}
+        <QueryTable exampleId={exampleId} deltaExampleId={deltaExampleId} isReadOnly={isReadOnly} />
       </TabPanel>
 
       <TabPanel id='headers'>
-        {deltaExampleId ? (
-          <HeaderDeltaTable exampleId={exampleId} deltaExampleId={deltaExampleId} />
-        ) : (
-          <HeaderTable exampleId={exampleId} />
-        )}
+        <HeaderTable exampleId={exampleId} deltaExampleId={deltaExampleId} isReadOnly={isReadOnly} />
       </TabPanel>
 
       <TabPanel id='body'>
-        <BodyView exampleId={exampleId} deltaExampleId={deltaExampleId} />
+        <BodyView exampleId={exampleId} deltaExampleId={deltaExampleId} isReadOnly={isReadOnly} />
       </TabPanel>
 
       <TabPanel id='assertions'>
-        <AssertionView exampleId={exampleId} />
+        <AssertionView exampleId={exampleId} isReadOnly={isReadOnly} />
       </TabPanel>
     </Suspense>
   </Tabs>
@@ -434,10 +427,13 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           )}
         </div>
 
-        {/* TODO: implement response history */}
-        {/* <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
-          <FiClock className={tw`size-4 text-slate-500`} /> Response History
-        </Button> */}
+        {/* <DialogTrigger>
+          <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+            <FiClock className={tw`size-4 text-slate-500`} /> Response History
+          </Button>
+
+          <HistoryModal exampleId={exampleId} />
+        </DialogTrigger> */}
 
         {/* TODO: implement copy link */}
         {/* <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>

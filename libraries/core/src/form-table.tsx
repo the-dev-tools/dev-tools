@@ -32,10 +32,10 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { getMessageId, setMessageId } from '@the-dev-tools/api/meta';
 import { Button } from '@the-dev-tools/ui/button';
-import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { Checkbox, CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { inputStyles, TextFieldRHF } from '@the-dev-tools/ui/text-field';
 
 import { RHFDevTools } from './dev-tools';
 import { TextFieldWithReference } from './reference';
@@ -204,6 +204,37 @@ interface GenericFormTableItem extends Message {
   value: string;
   description: string;
 }
+
+const genericDisplayTableColumnHelper = createColumnHelper<GenericFormTableItem>();
+
+const genericDisplayTableColumns = [
+  genericDisplayTableColumnHelper.accessor('enabled', {
+    header: () => null,
+    size: 0,
+    cell: ({ getValue }) => (
+      <div className={tw`flex justify-center`}>
+        {' '}
+        <Checkbox isSelected={getValue()} variant='table-cell' isReadOnly />
+      </div>
+    ),
+  }),
+  genericDisplayTableColumnHelper.accessor('key', {
+    header: 'Key',
+    meta: { divider: false },
+    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
+  }),
+  genericDisplayTableColumnHelper.accessor('value', {
+    header: 'Value',
+    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
+  }),
+  genericDisplayTableColumnHelper.accessor('description', {
+    header: 'Description',
+    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
+  }),
+];
+
+export const makeGenericDisplayTableColumns = <T extends GenericFormTableItem>() =>
+  genericDisplayTableColumns as AccessorKeyColumnDef<T>[];
 
 const genericFormTableColumnHelper = createColumnHelper<FormTableItem<GenericFormTableItem>>();
 

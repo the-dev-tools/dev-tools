@@ -21,6 +21,7 @@ interface ConditionFieldProps<
   control: Control<TFieldValues>;
   path: TPath extends `${infer Path}.$typeName` ? Path : never;
   label?: FieldLabelProps['children'];
+  isReadOnly?: boolean | undefined;
 }
 
 export const ConditionField = <
@@ -31,6 +32,7 @@ export const ConditionField = <
   path,
   label,
   groupClassName,
+  isReadOnly,
   ...mixProps
 }: ConditionFieldProps<TFieldValues, TPath>) => {
   const props = splitProps(mixProps, 'label', 'group');
@@ -48,7 +50,12 @@ export const ConditionField = <
           name={`${resolvedPath}.comparison.path`}
           defaultValue={[]}
           render={({ field }) => (
-            <ReferenceField path={field.value} onSelect={field.onChange} buttonClassName={tw`flex-[2]`} />
+            <ReferenceField
+              path={field.value}
+              onSelect={field.onChange}
+              buttonClassName={tw`flex-[2]`}
+              isReadOnly={isReadOnly}
+            />
           )}
         />
 
@@ -58,6 +65,7 @@ export const ConditionField = <
           className={tw`h-full flex-1`}
           triggerClassName={tw`h-full justify-between`}
           aria-label='Comparison Method'
+          isDisabled={isReadOnly ?? false}
         >
           <ListBoxItem id={ComparisonKind.EQUAL}>is equal to</ListBoxItem>
           <ListBoxItem id={ComparisonKind.NOT_EQUAL}>is not equal to</ListBoxItem>
@@ -75,6 +83,7 @@ export const ConditionField = <
           className={tw`h-full flex-[2]`}
           inputClassName={tw`h-full`}
           inputPlaceholder='Enter comparison value'
+          isReadOnly={isReadOnly ?? false}
         />
       </div>
     </div>

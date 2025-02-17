@@ -262,14 +262,19 @@ const ReferenceTreePopover = ({ onSelect, ...mixProps }: ReferenceTreePopoverPro
 
 interface ReferenceFieldProps extends ReferenceTreeProps, MixinProps<'button', ButtonProps> {
   path: ReferenceKey[];
+  isReadOnly?: boolean | undefined;
 }
 
-export const ReferenceField = ({ path, buttonClassName, ...mixProps }: ReferenceFieldProps) => {
+export const ReferenceField = ({ path, buttonClassName, isReadOnly, ...mixProps }: ReferenceFieldProps) => {
   const props = splitProps(mixProps, 'button');
 
   return (
     <DialogTrigger>
-      <Button {...props.button} className={composeRenderPropsTW(buttonClassName, tw`justify-start`)}>
+      <Button
+        {...props.button}
+        className={composeRenderPropsTW(buttonClassName, tw`justify-start`)}
+        isDisabled={isReadOnly ?? false}
+      >
         {path.length > 0 ? <ReferencePath path={path} /> : <span className={tw`p-1`}>Select reference</span>}
       </Button>
       <ReferenceTreePopover dropdownPlacement='bottom left' {...props.rest} />

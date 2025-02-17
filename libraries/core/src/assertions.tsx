@@ -16,9 +16,10 @@ import { ConditionField } from './condition';
 
 interface AssertionViewProps {
   exampleId: Uint8Array;
+  isReadOnly?: boolean | undefined;
 }
 
-export const AssertionView = ({ exampleId }: AssertionViewProps) => {
+export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => {
   const {
     data: { items },
   } = useConnectSuspenseQuery(assertList, { exampleId });
@@ -45,10 +46,15 @@ export const AssertionView = ({ exampleId }: AssertionViewProps) => {
   return (
     <div className={tw`flex flex-col gap-2`}>
       {fieldArray.fields.map((item, index) => (
-        <ConditionField key={item.id} control={form.control} path={`items.${index}.condition`} />
+        <ConditionField
+          key={item.id}
+          control={form.control}
+          path={`items.${index}.condition`}
+          isReadOnly={isReadOnly}
+        />
       ))}
 
-      <Button onPress={() => void assertCreateMutation.mutate({ exampleId })}>New Assertion</Button>
+      {!isReadOnly && <Button onPress={() => void assertCreateMutation.mutate({ exampleId })}>New Assertion</Button>}
     </div>
   );
 };

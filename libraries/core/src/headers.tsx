@@ -2,6 +2,7 @@ import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Struct } from 'effect';
 import { useMemo } from 'react';
 
@@ -16,6 +17,7 @@ import { DataTable } from '@the-dev-tools/ui/data-table';
 
 import {
   makeGenericDeltaFormTableColumns,
+  makeGenericDisplayTableColumns,
   makeGenericFormTableColumns,
   useDeltaFormTable,
   useFormTable,
@@ -23,9 +25,39 @@ import {
 
 interface HeaderTableProps {
   exampleId: Uint8Array;
+  deltaExampleId?: Uint8Array | undefined;
+  isReadOnly?: boolean | undefined;
 }
 
-export const HeaderTable = ({ exampleId }: HeaderTableProps) => {
+export const HeaderTable = ({ exampleId, deltaExampleId, isReadOnly }: HeaderTableProps) => {
+  if (isReadOnly) return <DisplayTable exampleId={exampleId} />;
+  if (deltaExampleId) return <DeltaFormTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+  return <FormTable exampleId={exampleId} />;
+};
+
+interface DisplayTableProps {
+  exampleId: Uint8Array;
+}
+
+const DisplayTable = ({ exampleId }: DisplayTableProps) => {
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(headerList, { exampleId });
+
+  const table = useReactTable({
+    columns: makeGenericDisplayTableColumns<HeaderListItem>(),
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return <DataTable table={table} />;
+};
+
+interface FormTableProps {
+  exampleId: Uint8Array;
+}
+
+const FormTable = ({ exampleId }: FormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
@@ -45,11 +77,12 @@ export const HeaderTable = ({ exampleId }: HeaderTableProps) => {
   return <DataTable table={table} />;
 };
 
-interface HeaderDeltaTableProps extends HeaderTableProps {
+interface DeltaFormTableProps {
+  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
 }
 
-export const HeaderDeltaTable = ({ exampleId, deltaExampleId }: HeaderDeltaTableProps) => {
+const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
