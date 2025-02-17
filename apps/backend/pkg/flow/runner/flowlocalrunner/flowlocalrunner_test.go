@@ -172,7 +172,7 @@ func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, timeout)
-	statusChan := make(chan runner.FlowStatusResp, 10)
+	statusChan := make(chan runner.FlowStatusResp, 100)
 	err := runnerLocal.Run(context.Background(), statusChan)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
@@ -235,7 +235,7 @@ func TestLocalFlowRunner_Run_SplitAndMerge(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
-	statusChan := make(chan runner.FlowStatusResp, 10)
+	statusChan := make(chan runner.FlowStatusResp, 100)
 	err := runnerLocal.Run(context.Background(), statusChan)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
@@ -301,7 +301,7 @@ func TestLocalFlowRunner_Run_SplitAndMergeWithSubNodes(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
-	statusChan := make(chan runner.FlowStatusResp, 10)
+	statusChan := make(chan runner.FlowStatusResp, 1000)
 	err := runnerLocal.Run(context.Background(), statusChan)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
