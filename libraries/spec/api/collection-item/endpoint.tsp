@@ -24,7 +24,6 @@ namespace API.CollectionItem.Endpoint;
 @parentResource(Collection.Collection)
 model Endpoint {
   @key endpointId: Resource.Id;
-  @visibility("query") @normalKey endpointVersionId?: Resource.Id;
   @visibility("list", "mutate") parentFolderId?: Resource.Id;
   name: string;
   method: string;
@@ -33,9 +32,7 @@ model Endpoint {
 
 model EndpointChange is Resource.Change<Endpoint>;
 model EndpointListItem is Resource.List.Item<Endpoint>;
-model EndpointGetRequest is Resource.Get.Request<Endpoint> {
-  @autoField @normalKey endpointVersionId?: Resource.Id;
-}
+model EndpointGetRequest is Resource.Get.Request<Endpoint>;
 model EndpointGetResponse is Resource.Get.Response<Endpoint>;
 model EndpointCreateRequest is Resource.Create.Request<Endpoint>;
 model EndpointCreateResponse is Resource.Create.Response<Endpoint> {
