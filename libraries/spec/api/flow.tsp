@@ -23,7 +23,6 @@ namespace API.Flow;
 @parentResource(Workspace.Workspace)
 model Flow {
   @key flowId: Resource.Id;
-  @visibility("query") @normalKey flowVersionId?: Resource.Id;
   name: string;
 }
 
@@ -33,7 +32,6 @@ model FlowListItem is Resource.List.Item<Flow>;
 @autoFields
 model FlowListRequest {
   ...Resource.List.Request<Flow>;
-  @normalKey flowParentId?: Resource.Id;
   @normalKey tagId?: Resource.Id;
 }
 
@@ -41,9 +39,10 @@ model FlowListResponse is Resource.List.Response<{}, FlowListItem> {
   ...FlowListRequest;
 }
 
-model FlowGetRequest is Resource.Get.Request<Flow> {
-  @autoField @normalKey flowVersionId?: Resource.Id;
-}
+model FlowVersionsItem is Resource.List.Item<Flow>;
+model FlowVersionsRequest is KeyOf<Flow>;
+model FlowVersionsResponse is Resource.List.Response<Flow, FlowVersionsItem>;
+model FlowGetRequest is Resource.Get.Request<Flow>;
 model FlowGetResponse is Resource.Get.Response<Flow>;
 model FlowCreateRequest is Resource.Create.Request<Flow>;
 model FlowCreateResponse is Resource.Create.Response<Flow, FlowListResponse>;
@@ -86,6 +85,7 @@ model FlowRunResponse {
 @Protobuf.service
 interface FlowService {
   FlowList(...FlowListRequest): FlowListResponse;
+  FlowVersions(...FlowVersionsRequest): FlowVersionsResponse;
   FlowGet(...FlowGetRequest): FlowGetResponse;
   FlowCreate(...FlowCreateRequest): FlowCreateResponse;
   FlowUpdate(...FlowUpdateRequest): FlowUpdateResponse;
