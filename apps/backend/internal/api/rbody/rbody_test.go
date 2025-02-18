@@ -55,7 +55,7 @@ func TestGetBodyRaw(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -144,7 +144,7 @@ func TestGetBodyForm(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -251,7 +251,7 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)

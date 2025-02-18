@@ -66,8 +66,15 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### parent_id
-          - column: 'item_api.parent_id'
+          ### folder_id
+          - column: 'item_api.folder_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### version_parent_id
+          - column: 'item_api.version_parent_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
@@ -106,25 +113,13 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### parent_example_id
-          - column: 'item_api_example.parent_example_id'
+          ### version_parent_id
+          - column: 'item_api_example.version_parent_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               pointer: true
               package: 'idwrap'
               type: 'IDWrap'
-          ### headers
-          - column: 'item_api_example.headers'
-            go_type:
-              import: 'the-dev-tools/backend/pkg/model/mitemapiexample'
-              package: 'mitemapiexample'
-              type: 'Headers'
-          ### query
-          - column: 'item_api_example.query'
-            go_type:
-              import: 'the-dev-tools/backend/pkg/model/mitemapiexample'
-              package: 'mitemapiexample'
-              type: 'Query'
           ## item_folder
           ### id
           - column: 'item_folder.id'
@@ -382,8 +377,8 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### parent_version_id
-          - column: 'flow.parent_version_id'
+          ### version_parent_id
+          - column: 'flow.version_parent_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'

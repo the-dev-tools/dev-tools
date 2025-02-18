@@ -376,9 +376,6 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	for i := range resolved.Apis {
-		resolved.Apis[i].CollectionID = collectionID
-	}
 
 	log.Println("trying to create Api")
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
@@ -400,6 +397,7 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
 	if err != nil {
+		fmt.Println("err", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

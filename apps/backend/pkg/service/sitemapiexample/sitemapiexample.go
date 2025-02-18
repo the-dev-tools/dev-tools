@@ -3,6 +3,7 @@ package sitemapiexample
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"slices"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
@@ -46,8 +47,10 @@ func ConvertToDBItem(item mitemapiexample.ItemApiExample) gen.ItemApiExample {
 		IsDefault:    item.IsDefault,
 		BodyType:     int8(item.BodyType),
 		Name:         item.Name,
-		Prev:         item.Prev,
-		Next:         item.Next,
+
+		VersionParentID: item.VersionParentID,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	}
 }
 
@@ -59,8 +62,10 @@ func ConvertToModelItem(item gen.ItemApiExample) *mitemapiexample.ItemApiExample
 		IsDefault:    item.IsDefault,
 		BodyType:     mitemapiexample.BodyType(item.BodyType),
 		Name:         item.Name,
-		Prev:         item.Prev,
-		Next:         item.Next,
+
+		VersionParentID: item.VersionParentID,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	}
 }
 
@@ -110,15 +115,17 @@ func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context,
 }
 
 func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mitemapiexample.ItemApiExample) error {
+	arg := ConvertToDBItem(*item)
 	return iaes.Queries.CreateItemApiExample(ctx, gen.CreateItemApiExampleParams{
-		ID:           item.ID,
-		ItemApiID:    item.ItemApiID,
-		CollectionID: item.CollectionID,
-		IsDefault:    item.IsDefault,
-		BodyType:     int8(item.BodyType),
-		Name:         item.Name,
-		Prev:         item.Prev,
-		Next:         item.Next,
+		ID:              arg.ID,
+		ItemApiID:       arg.ItemApiID,
+		CollectionID:    arg.CollectionID,
+		IsDefault:       arg.IsDefault,
+		BodyType:        arg.BodyType,
+		Name:            arg.Name,
+		VersionParentID: arg.VersionParentID,
+		Prev:            arg.Prev,
+		Next:            arg.Next,
 	})
 }
 
@@ -135,111 +142,117 @@ func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, item
 			}
 			continue
 		}
-		item1 := chunk[0]
-		item2 := chunk[1]
-		item3 := chunk[2]
-		item4 := chunk[3]
-		item5 := chunk[4]
-		item6 := chunk[5]
-		item7 := chunk[6]
-		item8 := chunk[7]
-		item9 := chunk[8]
-		item10 := chunk[9]
 
-		err := iaes.Queries.CreateItemApiExampleBulk(ctx, gen.CreateItemApiExampleBulkParams{
-			// Item 1
-			ID:           item1.ID,
-			ItemApiID:    item1.ItemApiID,
-			CollectionID: item1.CollectionID,
-			IsDefault:    item1.IsDefault,
-			BodyType:     int8(item1.BodyType),
-			Name:         item1.Name,
-			Prev:         item1.Prev,
-			Next:         item1.Next,
-			// Item 2
-			ID_2:           item2.ID,
-			ItemApiID_2:    item2.ItemApiID,
-			CollectionID_2: item2.CollectionID,
-			IsDefault_2:    item2.IsDefault,
-			BodyType_2:     int8(item2.BodyType),
-			Name_2:         item2.Name,
-			Prev_2:         item2.Prev,
-			Next_2:         item2.Next,
-			// Item 3
-			ID_3:           item3.ID,
-			ItemApiID_3:    item3.ItemApiID,
-			CollectionID_3: item3.CollectionID,
-			IsDefault_3:    item3.IsDefault,
-			BodyType_3:     int8(item3.BodyType),
-			Name_3:         item3.Name,
-			Prev_3:         item3.Prev,
-			Next_3:         item3.Next,
-			// Item 4
-			ID_4:           item4.ID,
-			ItemApiID_4:    item4.ItemApiID,
-			CollectionID_4: item4.CollectionID,
-			IsDefault_4:    item4.IsDefault,
-			BodyType_4:     int8(item4.BodyType),
-			Name_4:         item4.Name,
-			Prev_4:         item4.Prev,
-			Next_4:         item4.Next,
-			// Item 5
-			ID_5:           item5.ID,
-			ItemApiID_5:    item5.ItemApiID,
-			CollectionID_5: item5.CollectionID,
-			IsDefault_5:    item5.IsDefault,
-			BodyType_5:     int8(item5.BodyType),
-			Name_5:         item5.Name,
-			Prev_5:         item5.Prev,
-			Next_5:         item5.Next,
-			// Item 6
-			ID_6:           item6.ID,
-			ItemApiID_6:    item6.ItemApiID,
-			CollectionID_6: item6.CollectionID,
-			IsDefault_6:    item6.IsDefault,
-			BodyType_6:     int8(item6.BodyType),
-			Name_6:         item6.Name,
-			Prev_6:         item6.Prev,
-			Next_6:         item6.Next,
-			// Item 7
-			ID_7:           item7.ID,
-			ItemApiID_7:    item7.ItemApiID,
-			CollectionID_7: item7.CollectionID,
-			IsDefault_7:    item7.IsDefault,
-			BodyType_7:     int8(item7.BodyType),
-			Name_7:         item7.Name,
-			Prev_7:         item7.Prev,
-			Next_7:         item7.Next,
-			// Item 8
-			ID_8:           item8.ID,
-			ItemApiID_8:    item8.ItemApiID,
-			CollectionID_8: item8.CollectionID,
-			IsDefault_8:    item8.IsDefault,
-			BodyType_8:     int8(item8.BodyType),
-			Name_8:         item8.Name,
-			Prev_8:         item8.Prev,
-			Next_8:         item8.Next,
-			// Item 9
-			ID_9:           item9.ID,
-			ItemApiID_9:    item9.ItemApiID,
-			CollectionID_9: item9.CollectionID,
-			IsDefault_9:    item9.IsDefault,
-			BodyType_9:     int8(item9.BodyType),
-			Name_9:         item9.Name,
-			Prev_9:         item9.Prev,
-			Next_9:         item9.Next,
-			// Item 10
-			ID_10:           item10.ID,
-			ItemApiID_10:    item10.ItemApiID,
-			CollectionID_10: item10.CollectionID,
-			IsDefault_10:    item10.IsDefault,
-			BodyType_10:     int8(item10.BodyType),
-			Name_10:         item10.Name,
-			Prev_10:         item10.Prev,
-			Next_10:         item10.Next,
-		})
-		if err != nil {
-			return err
+		// Convert all items in the chunk using ConvertToDBItem
+		dbItems := make([]gen.ItemApiExample, len(chunk))
+		for i, item := range chunk {
+			dbItems[i] = ConvertToDBItem(item)
+		}
+
+		params := gen.CreateItemApiExampleBulkParams{
+			ID:              dbItems[0].ID,
+			ItemApiID:       dbItems[0].ItemApiID,
+			CollectionID:    dbItems[0].CollectionID,
+			IsDefault:       dbItems[0].IsDefault,
+			BodyType:        dbItems[0].BodyType,
+			Name:            dbItems[0].Name,
+			VersionParentID: dbItems[0].VersionParentID,
+			Prev:            dbItems[0].Prev,
+			Next:            dbItems[0].Next,
+
+			ID_2:              dbItems[1].ID,
+			ItemApiID_2:       dbItems[1].ItemApiID,
+			CollectionID_2:    dbItems[1].CollectionID,
+			IsDefault_2:       dbItems[1].IsDefault,
+			BodyType_2:        dbItems[1].BodyType,
+			Name_2:            dbItems[1].Name,
+			VersionParentID_2: dbItems[1].VersionParentID,
+			Prev_2:            dbItems[1].Prev,
+			Next_2:            dbItems[1].Next,
+
+			ID_3:              dbItems[2].ID,
+			ItemApiID_3:       dbItems[2].ItemApiID,
+			CollectionID_3:    dbItems[2].CollectionID,
+			IsDefault_3:       dbItems[2].IsDefault,
+			BodyType_3:        dbItems[2].BodyType,
+			Name_3:            dbItems[2].Name,
+			VersionParentID_3: dbItems[2].VersionParentID,
+			Prev_3:            dbItems[2].Prev,
+			Next_3:            dbItems[2].Next,
+
+			ID_4:              dbItems[3].ID,
+			ItemApiID_4:       dbItems[3].ItemApiID,
+			CollectionID_4:    dbItems[3].CollectionID,
+			IsDefault_4:       dbItems[3].IsDefault,
+			BodyType_4:        dbItems[3].BodyType,
+			Name_4:            dbItems[3].Name,
+			VersionParentID_4: dbItems[3].VersionParentID,
+			Prev_4:            dbItems[3].Prev,
+			Next_4:            dbItems[3].Next,
+
+			ID_5:              dbItems[4].ID,
+			ItemApiID_5:       dbItems[4].ItemApiID,
+			CollectionID_5:    dbItems[4].CollectionID,
+			IsDefault_5:       dbItems[4].IsDefault,
+			BodyType_5:        dbItems[4].BodyType,
+			Name_5:            dbItems[4].Name,
+			VersionParentID_5: dbItems[4].VersionParentID,
+			Prev_5:            dbItems[4].Prev,
+			Next_5:            dbItems[4].Next,
+
+			ID_6:              dbItems[5].ID,
+			ItemApiID_6:       dbItems[5].ItemApiID,
+			CollectionID_6:    dbItems[5].CollectionID,
+			IsDefault_6:       dbItems[5].IsDefault,
+			BodyType_6:        dbItems[5].BodyType,
+			Name_6:            dbItems[5].Name,
+			VersionParentID_6: dbItems[5].VersionParentID,
+			Prev_6:            dbItems[5].Prev,
+			Next_6:            dbItems[5].Next,
+
+			ID_7:              dbItems[6].ID,
+			ItemApiID_7:       dbItems[6].ItemApiID,
+			CollectionID_7:    dbItems[6].CollectionID,
+			IsDefault_7:       dbItems[6].IsDefault,
+			BodyType_7:        dbItems[6].BodyType,
+			Name_7:            dbItems[6].Name,
+			VersionParentID_7: dbItems[6].VersionParentID,
+			Prev_7:            dbItems[6].Prev,
+			Next_7:            dbItems[6].Next,
+
+			ID_8:              dbItems[7].ID,
+			ItemApiID_8:       dbItems[7].ItemApiID,
+			CollectionID_8:    dbItems[7].CollectionID,
+			IsDefault_8:       dbItems[7].IsDefault,
+			BodyType_8:        dbItems[7].BodyType,
+			Name_8:            dbItems[7].Name,
+			VersionParentID_8: dbItems[7].VersionParentID,
+			Prev_8:            dbItems[7].Prev,
+			Next_8:            dbItems[7].Next,
+
+			ID_9:              dbItems[8].ID,
+			ItemApiID_9:       dbItems[8].ItemApiID,
+			CollectionID_9:    dbItems[8].CollectionID,
+			IsDefault_9:       dbItems[8].IsDefault,
+			BodyType_9:        dbItems[8].BodyType,
+			Name_9:            dbItems[8].Name,
+			VersionParentID_9: dbItems[8].VersionParentID,
+			Prev_9:            dbItems[8].Prev,
+			Next_9:            dbItems[8].Next,
+
+			ID_10:              dbItems[9].ID,
+			ItemApiID_10:       dbItems[9].ItemApiID,
+			CollectionID_10:    dbItems[9].CollectionID,
+			IsDefault_10:       dbItems[9].IsDefault,
+			BodyType_10:        dbItems[9].BodyType,
+			Name_10:            dbItems[9].Name,
+			VersionParentID_10: dbItems[9].VersionParentID,
+			Prev_10:            dbItems[9].Prev,
+			Next_10:            dbItems[9].Next,
+		}
+
+		if err := iaes.Queries.CreateItemApiExampleBulk(ctx, params); err != nil {
+			return fmt.Errorf("failed to create bulk examples: %w", err)
 		}
 	}
 

@@ -91,8 +91,8 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, rpcErr
 	}
 
-	if itemApiReq.ParentID != nil {
-		rpcErr := permcheck.CheckPerm(ritemfolder.CheckOwnerFolder(ctx, *c.ifs, *c.cs, *c.us, *itemApiReq.ParentID))
+	if itemApiReq.FolderID != nil {
+		rpcErr := permcheck.CheckPerm(ritemfolder.CheckOwnerFolder(ctx, *c.ifs, *c.cs, *c.us, *itemApiReq.FolderID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -105,7 +105,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 
 	var nextNodeExists bool
 
-	NextItemApi, err := c.ias.GetItemApiByCollectionIDAndNextIDAndParentID(ctx, collectionID, nil, itemApiReq.ParentID)
+	NextItemApi, err := c.ias.GetItemApiByCollectionIDAndNextIDAndParentID(ctx, collectionID, nil, itemApiReq.FolderID)
 	if err != nil {
 		if sql.ErrNoRows != err {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -369,8 +369,8 @@ func (c *ItemApiRPC) EndpointUpdate(ctx context.Context, req *connect.Request[en
 		return nil, rpcErr
 	}
 
-	if apiCall.ParentID != nil {
-		checkfolder, err := c.ifs.GetFolder(ctx, *apiCall.ParentID)
+	if apiCall.FolderID != nil {
+		checkfolder, err := c.ifs.GetFolder(ctx, *apiCall.FolderID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

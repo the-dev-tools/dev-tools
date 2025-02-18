@@ -105,17 +105,15 @@ func TestListFlow(t *testing.T) {
 	nonTaggedTestFlowID := idwrap.NewNow()
 
 	taggedFlowData := mflow.Flow{
-		ID:              taggedTestFlowID,
-		WorkspaceID:     wsID,
-		ParentVersionID: nil,
-		Name:            tagData.Name,
+		ID:          taggedTestFlowID,
+		WorkspaceID: wsID,
+		Name:        tagData.Name,
 	}
 
 	nonTaggedFlowData := mflow.Flow{
-		ID:              nonTaggedTestFlowID,
-		WorkspaceID:     wsID,
-		ParentVersionID: nil,
-		Name:            tagData.Name,
+		ID:          nonTaggedTestFlowID,
+		WorkspaceID: wsID,
+		Name:        tagData.Name,
 	}
 
 	err = fs.CreateFlow(ctx, taggedFlowData)

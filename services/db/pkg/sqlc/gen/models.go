@@ -107,7 +107,7 @@ type ExampleRespHeader struct {
 type Flow struct {
 	ID              idwrap.IDWrap
 	WorkspaceID     idwrap.IDWrap
-	ParentVersionID *idwrap.IDWrap
+	VersionParentID *idwrap.IDWrap
 	Name            string
 }
 
@@ -174,11 +174,11 @@ type FlowTag struct {
 type ItemApi struct {
 	ID              idwrap.IDWrap
 	CollectionID    idwrap.IDWrap
-	ParentID        *idwrap.IDWrap
+	FolderID        *idwrap.IDWrap
 	Name            string
 	Url             string
 	Method          string
-	VersionParentID []byte
+	VersionParentID *idwrap.IDWrap
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }
@@ -190,7 +190,7 @@ type ItemApiExample struct {
 	IsDefault       bool
 	BodyType        int8
 	Name            string
-	VersionParentID []byte
+	VersionParentID *idwrap.IDWrap
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }

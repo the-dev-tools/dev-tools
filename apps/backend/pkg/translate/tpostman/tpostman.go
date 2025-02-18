@@ -198,7 +198,7 @@ func GetRequest(items []*mitem.Items, parentID *idwrap.IDWrap, collectionID idwr
 		api := &mitemapi.ItemApi{
 			ID:           ApiID,
 			CollectionID: collectionID,
-			ParentID:     parentID,
+			FolderID:     parentID,
 			Name:         item.Name,
 			Url:          URL.Raw,
 			Method:       item.Request.Method,

@@ -33,7 +33,7 @@ func ConvertModelToDB(item mflow.Flow) gen.Flow {
 	return gen.Flow{
 		ID:              item.ID,
 		WorkspaceID:     item.WorkspaceID,
-		ParentVersionID: item.ParentVersionID,
+		VersionParentID: item.VersionParentID,
 		Name:            item.Name,
 	}
 }
@@ -42,7 +42,7 @@ func ConvertDBToModel(item gen.Flow) mflow.Flow {
 	return mflow.Flow{
 		ID:              item.ID,
 		WorkspaceID:     item.WorkspaceID,
-		ParentVersionID: item.ParentVersionID,
+		VersionParentID: item.VersionParentID,
 		Name:            item.Name,
 	}
 }
@@ -68,7 +68,7 @@ func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{
 		ID:              arg.ID,
 		WorkspaceID:     arg.WorkspaceID,
-		ParentVersionID: arg.ParentVersionID,
+		VersionParentID: arg.VersionParentID,
 		Name:            arg.Name,
 	})
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)

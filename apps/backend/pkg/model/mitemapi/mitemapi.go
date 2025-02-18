@@ -6,14 +6,15 @@ import (
 )
 
 type ItemApi struct {
-	ParentID     *idwrap.IDWrap
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
-	Name         string
-	Url          string
-	Method       string
-	ID           idwrap.IDWrap
-	CollectionID idwrap.IDWrap
+	FolderID        *idwrap.IDWrap
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
+	VersionParentID *idwrap.IDWrap
+	Name            string
+	Url             string
+	Method          string
+	ID              idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
 }
 
 type ItemApiWithExamples struct {

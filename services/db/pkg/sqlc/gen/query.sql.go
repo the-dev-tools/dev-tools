@@ -643,7 +643,7 @@ func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExample
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, parent_version_id, name)
+  flow (id, workspace_id, version_parent_id, name)
 VALUES
   (?, ?, ?, ?)
 `
@@ -651,7 +651,7 @@ VALUES
 type CreateFlowParams struct {
 	ID              idwrap.IDWrap
 	WorkspaceID     idwrap.IDWrap
-	ParentVersionID *idwrap.IDWrap
+	VersionParentID *idwrap.IDWrap
 	Name            string
 }
 
@@ -659,7 +659,7 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 	_, err := q.exec(ctx, q.createFlowStmt, createFlow,
 		arg.ID,
 		arg.WorkspaceID,
-		arg.ParentVersionID,
+		arg.VersionParentID,
 		arg.Name,
 	)
 	return err
@@ -1098,7 +1098,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 
 const createItemApi = `-- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
+  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, prev, next)
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
@@ -1106,11 +1106,11 @@ VALUES
 type CreateItemApiParams struct {
 	ID              idwrap.IDWrap
 	CollectionID    idwrap.IDWrap
-	ParentID        *idwrap.IDWrap
+	FolderID        *idwrap.IDWrap
 	Name            string
 	Url             string
 	Method          string
-	VersionParentID []byte
+	VersionParentID *idwrap.IDWrap
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }
@@ -1119,7 +1119,7 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 	_, err := q.exec(ctx, q.createItemApiStmt, createItemApi,
 		arg.ID,
 		arg.CollectionID,
-		arg.ParentID,
+		arg.FolderID,
 		arg.Name,
 		arg.Url,
 		arg.Method,
@@ -1132,7 +1132,7 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 
 const createItemApiBulk = `-- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
+  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, prev, next)
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -1149,92 +1149,92 @@ VALUES
 type CreateItemApiBulkParams struct {
 	ID                 idwrap.IDWrap
 	CollectionID       idwrap.IDWrap
-	ParentID           *idwrap.IDWrap
+	FolderID           *idwrap.IDWrap
 	Name               string
 	Url                string
 	Method             string
-	VersionParentID    []byte
+	VersionParentID    *idwrap.IDWrap
 	Prev               *idwrap.IDWrap
 	Next               *idwrap.IDWrap
 	ID_2               idwrap.IDWrap
 	CollectionID_2     idwrap.IDWrap
-	ParentID_2         *idwrap.IDWrap
+	FolderID_2         *idwrap.IDWrap
 	Name_2             string
 	Url_2              string
 	Method_2           string
-	VersionParentID_2  []byte
+	VersionParentID_2  *idwrap.IDWrap
 	Prev_2             *idwrap.IDWrap
 	Next_2             *idwrap.IDWrap
 	ID_3               idwrap.IDWrap
 	CollectionID_3     idwrap.IDWrap
-	ParentID_3         *idwrap.IDWrap
+	FolderID_3         *idwrap.IDWrap
 	Name_3             string
 	Url_3              string
 	Method_3           string
-	VersionParentID_3  []byte
+	VersionParentID_3  *idwrap.IDWrap
 	Prev_3             *idwrap.IDWrap
 	Next_3             *idwrap.IDWrap
 	ID_4               idwrap.IDWrap
 	CollectionID_4     idwrap.IDWrap
-	ParentID_4         *idwrap.IDWrap
+	FolderID_4         *idwrap.IDWrap
 	Name_4             string
 	Url_4              string
 	Method_4           string
-	VersionParentID_4  []byte
+	VersionParentID_4  *idwrap.IDWrap
 	Prev_4             *idwrap.IDWrap
 	Next_4             *idwrap.IDWrap
 	ID_5               idwrap.IDWrap
 	CollectionID_5     idwrap.IDWrap
-	ParentID_5         *idwrap.IDWrap
+	FolderID_5         *idwrap.IDWrap
 	Name_5             string
 	Url_5              string
 	Method_5           string
-	VersionParentID_5  []byte
+	VersionParentID_5  *idwrap.IDWrap
 	Prev_5             *idwrap.IDWrap
 	Next_5             *idwrap.IDWrap
 	ID_6               idwrap.IDWrap
 	CollectionID_6     idwrap.IDWrap
-	ParentID_6         *idwrap.IDWrap
+	FolderID_6         *idwrap.IDWrap
 	Name_6             string
 	Url_6              string
 	Method_6           string
-	VersionParentID_6  []byte
+	VersionParentID_6  *idwrap.IDWrap
 	Prev_6             *idwrap.IDWrap
 	Next_6             *idwrap.IDWrap
 	ID_7               idwrap.IDWrap
 	CollectionID_7     idwrap.IDWrap
-	ParentID_7         *idwrap.IDWrap
+	FolderID_7         *idwrap.IDWrap
 	Name_7             string
 	Url_7              string
 	Method_7           string
-	VersionParentID_7  []byte
+	VersionParentID_7  *idwrap.IDWrap
 	Prev_7             *idwrap.IDWrap
 	Next_7             *idwrap.IDWrap
 	ID_8               idwrap.IDWrap
 	CollectionID_8     idwrap.IDWrap
-	ParentID_8         *idwrap.IDWrap
+	FolderID_8         *idwrap.IDWrap
 	Name_8             string
 	Url_8              string
 	Method_8           string
-	VersionParentID_8  []byte
+	VersionParentID_8  *idwrap.IDWrap
 	Prev_8             *idwrap.IDWrap
 	Next_8             *idwrap.IDWrap
 	ID_9               idwrap.IDWrap
 	CollectionID_9     idwrap.IDWrap
-	ParentID_9         *idwrap.IDWrap
+	FolderID_9         *idwrap.IDWrap
 	Name_9             string
 	Url_9              string
 	Method_9           string
-	VersionParentID_9  []byte
+	VersionParentID_9  *idwrap.IDWrap
 	Prev_9             *idwrap.IDWrap
 	Next_9             *idwrap.IDWrap
 	ID_10              idwrap.IDWrap
 	CollectionID_10    idwrap.IDWrap
-	ParentID_10        *idwrap.IDWrap
+	FolderID_10        *idwrap.IDWrap
 	Name_10            string
 	Url_10             string
 	Method_10          string
-	VersionParentID_10 []byte
+	VersionParentID_10 *idwrap.IDWrap
 	Prev_10            *idwrap.IDWrap
 	Next_10            *idwrap.IDWrap
 }
@@ -1243,7 +1243,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 	_, err := q.exec(ctx, q.createItemApiBulkStmt, createItemApiBulk,
 		arg.ID,
 		arg.CollectionID,
-		arg.ParentID,
+		arg.FolderID,
 		arg.Name,
 		arg.Url,
 		arg.Method,
@@ -1252,7 +1252,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next,
 		arg.ID_2,
 		arg.CollectionID_2,
-		arg.ParentID_2,
+		arg.FolderID_2,
 		arg.Name_2,
 		arg.Url_2,
 		arg.Method_2,
@@ -1261,7 +1261,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_2,
 		arg.ID_3,
 		arg.CollectionID_3,
-		arg.ParentID_3,
+		arg.FolderID_3,
 		arg.Name_3,
 		arg.Url_3,
 		arg.Method_3,
@@ -1270,7 +1270,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_3,
 		arg.ID_4,
 		arg.CollectionID_4,
-		arg.ParentID_4,
+		arg.FolderID_4,
 		arg.Name_4,
 		arg.Url_4,
 		arg.Method_4,
@@ -1279,7 +1279,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_4,
 		arg.ID_5,
 		arg.CollectionID_5,
-		arg.ParentID_5,
+		arg.FolderID_5,
 		arg.Name_5,
 		arg.Url_5,
 		arg.Method_5,
@@ -1288,7 +1288,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_5,
 		arg.ID_6,
 		arg.CollectionID_6,
-		arg.ParentID_6,
+		arg.FolderID_6,
 		arg.Name_6,
 		arg.Url_6,
 		arg.Method_6,
@@ -1297,7 +1297,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_6,
 		arg.ID_7,
 		arg.CollectionID_7,
-		arg.ParentID_7,
+		arg.FolderID_7,
 		arg.Name_7,
 		arg.Url_7,
 		arg.Method_7,
@@ -1306,7 +1306,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_7,
 		arg.ID_8,
 		arg.CollectionID_8,
-		arg.ParentID_8,
+		arg.FolderID_8,
 		arg.Name_8,
 		arg.Url_8,
 		arg.Method_8,
@@ -1315,7 +1315,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_8,
 		arg.ID_9,
 		arg.CollectionID_9,
-		arg.ParentID_9,
+		arg.FolderID_9,
 		arg.Name_9,
 		arg.Url_9,
 		arg.Method_9,
@@ -1324,7 +1324,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Next_9,
 		arg.ID_10,
 		arg.CollectionID_10,
-		arg.ParentID_10,
+		arg.FolderID_10,
 		arg.Name_10,
 		arg.Url_10,
 		arg.Method_10,
@@ -1359,7 +1359,7 @@ type CreateItemApiExampleParams struct {
 	IsDefault       bool
 	BodyType        int8
 	Name            string
-	VersionParentID []byte
+	VersionParentID *idwrap.IDWrap
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }
@@ -1402,7 +1402,6 @@ VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
@@ -1413,7 +1412,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault          bool
 	BodyType           int8
 	Name               string
-	VersionParentID    []byte
+	VersionParentID    *idwrap.IDWrap
 	Prev               *idwrap.IDWrap
 	Next               *idwrap.IDWrap
 	ID_2               idwrap.IDWrap
@@ -1422,7 +1421,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_2        bool
 	BodyType_2         int8
 	Name_2             string
-	VersionParentID_2  []byte
+	VersionParentID_2  *idwrap.IDWrap
 	Prev_2             *idwrap.IDWrap
 	Next_2             *idwrap.IDWrap
 	ID_3               idwrap.IDWrap
@@ -1431,7 +1430,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_3        bool
 	BodyType_3         int8
 	Name_3             string
-	VersionParentID_3  []byte
+	VersionParentID_3  *idwrap.IDWrap
 	Prev_3             *idwrap.IDWrap
 	Next_3             *idwrap.IDWrap
 	ID_4               idwrap.IDWrap
@@ -1440,7 +1439,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_4        bool
 	BodyType_4         int8
 	Name_4             string
-	VersionParentID_4  []byte
+	VersionParentID_4  *idwrap.IDWrap
 	Prev_4             *idwrap.IDWrap
 	Next_4             *idwrap.IDWrap
 	ID_5               idwrap.IDWrap
@@ -1449,7 +1448,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_5        bool
 	BodyType_5         int8
 	Name_5             string
-	VersionParentID_5  []byte
+	VersionParentID_5  *idwrap.IDWrap
 	Prev_5             *idwrap.IDWrap
 	Next_5             *idwrap.IDWrap
 	ID_6               idwrap.IDWrap
@@ -1458,7 +1457,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_6        bool
 	BodyType_6         int8
 	Name_6             string
-	VersionParentID_6  []byte
+	VersionParentID_6  *idwrap.IDWrap
 	Prev_6             *idwrap.IDWrap
 	Next_6             *idwrap.IDWrap
 	ID_7               idwrap.IDWrap
@@ -1467,7 +1466,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_7        bool
 	BodyType_7         int8
 	Name_7             string
-	VersionParentID_7  []byte
+	VersionParentID_7  *idwrap.IDWrap
 	Prev_7             *idwrap.IDWrap
 	Next_7             *idwrap.IDWrap
 	ID_8               idwrap.IDWrap
@@ -1476,7 +1475,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_8        bool
 	BodyType_8         int8
 	Name_8             string
-	VersionParentID_8  []byte
+	VersionParentID_8  *idwrap.IDWrap
 	Prev_8             *idwrap.IDWrap
 	Next_8             *idwrap.IDWrap
 	ID_9               idwrap.IDWrap
@@ -1485,7 +1484,7 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_9        bool
 	BodyType_9         int8
 	Name_9             string
-	VersionParentID_9  []byte
+	VersionParentID_9  *idwrap.IDWrap
 	Prev_9             *idwrap.IDWrap
 	Next_9             *idwrap.IDWrap
 	ID_10              idwrap.IDWrap
@@ -1494,18 +1493,9 @@ type CreateItemApiExampleBulkParams struct {
 	IsDefault_10       bool
 	BodyType_10        int8
 	Name_10            string
-	VersionParentID_10 []byte
+	VersionParentID_10 *idwrap.IDWrap
 	Prev_10            *idwrap.IDWrap
 	Next_10            *idwrap.IDWrap
-	ID_11              idwrap.IDWrap
-	ItemApiID_11       idwrap.IDWrap
-	CollectionID_11    idwrap.IDWrap
-	IsDefault_11       bool
-	BodyType_11        int8
-	Name_11            string
-	VersionParentID_11 []byte
-	Prev_11            *idwrap.IDWrap
-	Next_11            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -1600,15 +1590,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.VersionParentID_10,
 		arg.Prev_10,
 		arg.Next_10,
-		arg.ID_11,
-		arg.ItemApiID_11,
-		arg.CollectionID_11,
-		arg.IsDefault_11,
-		arg.BodyType_11,
-		arg.Name_11,
-		arg.VersionParentID_11,
-		arg.Prev_11,
-		arg.Next_11,
 	)
 	return err
 }
@@ -3288,7 +3269,7 @@ const getFlow = `-- name: GetFlow :one
 SELECT
   id,
   workspace_id,
-  parent_version_id,
+  version_parent_id,
   name
 FROM
   flow
@@ -3303,7 +3284,7 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.WorkspaceID,
-		&i.ParentVersionID,
+		&i.VersionParentID,
 		&i.Name,
 	)
 	return i, err
@@ -3666,13 +3647,13 @@ const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
 SELECT
   id,
   workspace_id,
-  parent_version_id,
+  version_parent_id,
   name
 FROM
   flow
 WHERE
   workspace_id = ? AND
-  parent_version_id is NULL
+  version_parent_id is NULL
 `
 
 func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Flow, error) {
@@ -3687,7 +3668,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.ParentVersionID,
+			&i.VersionParentID,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -3786,7 +3767,7 @@ const getItemApi = `-- name: GetItemApi :one
 SELECT
   id,
   collection_id,
-  parent_id,
+  folder_id,
   name,
   url,
   method,
@@ -3801,7 +3782,7 @@ LIMIT
   1
 `
 
-// This file is the source of truth for saas application's schema
+// This file is the source of truth for application's db schema
 //
 // ItemApi
 func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, error) {
@@ -3810,7 +3791,7 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 	err := row.Scan(
 		&i.ID,
 		&i.CollectionID,
-		&i.ParentID,
+		&i.FolderID,
 		&i.Name,
 		&i.Url,
 		&i.Method,
@@ -3825,7 +3806,7 @@ const getItemApiByCollectionIDAndNextIDAndParentID = `-- name: GetItemApiByColle
 SELECT
   id,
   collection_id,
-  parent_id,
+  folder_id,
   name,
   url,
   method,
@@ -3836,7 +3817,7 @@ FROM
   item_api
 WHERE
   next = ? AND
-  parent_id = ? AND
+  folder_id = ? AND
   collection_id = ?
 LIMIT
   1
@@ -3844,17 +3825,17 @@ LIMIT
 
 type GetItemApiByCollectionIDAndNextIDAndParentIDParams struct {
 	Next         *idwrap.IDWrap
-	ParentID     *idwrap.IDWrap
+	FolderID     *idwrap.IDWrap
 	CollectionID idwrap.IDWrap
 }
 
 func (q *Queries) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemApiByCollectionIDAndNextIDAndParentIDParams) (ItemApi, error) {
-	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDAndParentIDStmt, getItemApiByCollectionIDAndNextIDAndParentID, arg.Next, arg.ParentID, arg.CollectionID)
+	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDAndParentIDStmt, getItemApiByCollectionIDAndNextIDAndParentID, arg.Next, arg.FolderID, arg.CollectionID)
 	var i ItemApi
 	err := row.Scan(
 		&i.ID,
 		&i.CollectionID,
-		&i.ParentID,
+		&i.FolderID,
 		&i.Name,
 		&i.Url,
 		&i.Method,
@@ -3970,7 +3951,7 @@ WHERE
   version_parent_id = ?
 `
 
-func (q *Queries) GetItemApiExampleByVersionParentID(ctx context.Context, versionParentID []byte) ([]ItemApiExample, error) {
+func (q *Queries) GetItemApiExampleByVersionParentID(ctx context.Context, versionParentID *idwrap.IDWrap) ([]ItemApiExample, error) {
 	rows, err := q.query(ctx, q.getItemApiExampleByVersionParentIDStmt, getItemApiExampleByVersionParentID, versionParentID)
 	if err != nil {
 		return nil, err
@@ -4292,7 +4273,7 @@ const getItemsApiByCollectionID = `-- name: GetItemsApiByCollectionID :many
 SELECT
   id,
   collection_id,
-  parent_id,
+  folder_id,
   name,
   url,
   method,
@@ -4317,7 +4298,7 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 		if err := rows.Scan(
 			&i.ID,
 			&i.CollectionID,
-			&i.ParentID,
+			&i.FolderID,
 			&i.Name,
 			&i.Url,
 			&i.Method,
@@ -5663,7 +5644,7 @@ func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) erro
 const updateItemApi = `-- name: UpdateItemApi :exec
 UPDATE item_api
 SET
-  parent_id = ?,
+  folder_id = ?,
   name = ?,
   url = ?,
   method = ?
@@ -5672,7 +5653,7 @@ WHERE
 `
 
 type UpdateItemApiParams struct {
-	ParentID *idwrap.IDWrap
+	FolderID *idwrap.IDWrap
 	Name     string
 	Url      string
 	Method   string
@@ -5681,7 +5662,7 @@ type UpdateItemApiParams struct {
 
 func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) error {
 	_, err := q.exec(ctx, q.updateItemApiStmt, updateItemApi,
-		arg.ParentID,
+		arg.FolderID,
 		arg.Name,
 		arg.Url,
 		arg.Method,

@@ -36,7 +36,7 @@ func SeralizeRPCToModelWithoutID(item *endpointv1.Endpoint, collectionID idwrap.
 
 	return &mitemapi.ItemApi{
 		CollectionID: collectionID,
-		ParentID:     parentID,
+		FolderID:     parentID,
 		Url:          item.GetUrl(),
 		Name:         item.GetName(),
 		Method:       item.GetMethod(),
@@ -45,8 +45,8 @@ func SeralizeRPCToModelWithoutID(item *endpointv1.Endpoint, collectionID idwrap.
 
 func DeseralizeModelToRPC(item *mitemapi.ItemApi) *endpointv1.Endpoint {
 	var parentID []byte = nil
-	if item.ParentID != nil {
-		parentID = item.ParentID.Bytes()
+	if item.FolderID != nil {
+		parentID = item.FolderID.Bytes()
 	}
 	return &endpointv1.Endpoint{
 		EndpointId:     item.ID.Bytes(),
@@ -59,8 +59,8 @@ func DeseralizeModelToRPC(item *mitemapi.ItemApi) *endpointv1.Endpoint {
 
 func SeralizeModelToRPCItem(item *mitemapi.ItemApi) *endpointv1.EndpointListItem {
 	var parentID []byte = nil
-	if item.ParentID != nil {
-		parentID = item.ParentID.Bytes()
+	if item.FolderID != nil {
+		parentID = item.FolderID.Bytes()
 	}
 	return &endpointv1.EndpointListItem{
 		EndpointId:     item.ID.Bytes(),

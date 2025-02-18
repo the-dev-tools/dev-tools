@@ -168,7 +168,6 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		fmt.Println("flow", flow)
 
 		rpcFlows = append(rpcFlows, tgeneric.MassConvert(flow, tflow.SeralizeModelToRPCItem)...)
 
@@ -177,7 +176,6 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		fmt.Println("tagIDPtr", tagIDPtr)
 		tagFlows, err := c.fts.GetFlowTagsByTagID(ctx, *tagIDPtr)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)

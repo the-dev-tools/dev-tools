@@ -86,7 +86,7 @@ CREATE INDEX item_folder_idx1 ON item_folder (collection_id, parent_id);
 CREATE TABLE item_api (
   id BLOB NOT NULL PRIMARY KEY,
   collection_id BLOB NOT NULL,
-  parent_id BLOB,
+  folder_id BLOB,
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   method TEXT NOT NULL,
@@ -99,11 +99,11 @@ CREATE TABLE item_api (
   next BLOB,
   UNIQUE (prev, next),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE,
+  FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
   FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_api_idx1 ON item_api (collection_id, parent_id);
+CREATE INDEX item_api_idx1 ON item_api (collection_id, folder_id, version_parent_id);
 
 /*
  *
@@ -133,7 +133,8 @@ CREATE TABLE item_api_example (
 CREATE INDEX item_api_example_idx1 ON item_api_example (
   item_api_id,
   collection_id,
-  is_default
+  is_default,
+  version_parent_id
 );
 
 CREATE TABLE example_resp (
@@ -285,11 +286,13 @@ CREATE TABLE assertion_result (
 CREATE TABLE flow (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
-  parent_version_id BLOB DEFAULT NULL,
+  version_parent_id BLOB DEFAULT NULL,
   name TEXT NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_version_id) REFERENCES flow (id) ON DELETE CASCADE
+  FOREIGN KEY (version_parent_id) REFERENCES flow (id) ON DELETE CASCADE
 );
+
+CREATE index flow_idx1 ON flow (workspace_id, workspace_id, version_parent_id);
 
 CREATE TABLE tag (
   id BLOB NOT NULL PRIMARY KEY,

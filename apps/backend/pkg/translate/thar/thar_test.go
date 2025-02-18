@@ -5,6 +5,7 @@ import (
 	"testing"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
+	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/translate/thar"
 	"time"
 )
@@ -491,5 +492,217 @@ func TestHarSortEntriesByStartedTime(t *testing.T) {
 	expectedFlowName := "http://example.com/first"
 	if resolved.Flow.Name != expectedFlowName {
 		t.Errorf("Expected Flow.Name %s, got %s", expectedFlowName, resolved.Flow.Name)
+	}
+}
+
+func TestHarItemApiExampleRelationship(t *testing.T) {
+	// Create a test HAR with multiple entries
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/api1",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://example.com/api2",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Create a map of API IDs to APIs for easy lookup
+	apiMap := make(map[string]mitemapi.ItemApi)
+	for _, api := range resolved.Apis {
+		key := api.Method + " " + api.Url
+		apiMap[key] = api
+	}
+
+	// Verify each example has correct API ID
+	for _, example := range resolved.Examples {
+		// Find the corresponding API
+		var foundAPI *mitemapi.ItemApi
+		for _, api := range resolved.Apis {
+			if api.ID == example.ItemApiID {
+				foundAPI = &api
+				break
+			}
+		}
+
+		// Check if we found a matching API
+		if foundAPI == nil {
+			t.Errorf("Example %s has ItemApiID %s which doesn't match any API",
+				example.Name, example.ItemApiID)
+			continue
+		}
+
+		// Verify the relationship is correct
+		if foundAPI.Name != example.Name {
+			t.Errorf("Example name mismatch: expected %s, got %s",
+				foundAPI.Name, example.Name)
+		}
+
+		// Verify that each API has exactly two examples (default and non-default)
+		examplesForAPI := 0
+		var hasDefault, hasNonDefault bool
+		for _, ex := range resolved.Examples {
+			if ex.ItemApiID == foundAPI.ID {
+				examplesForAPI++
+				if ex.IsDefault {
+					hasDefault = true
+				} else {
+					hasNonDefault = true
+				}
+			}
+		}
+
+		if examplesForAPI != 2 {
+			t.Errorf("API %s should have exactly 2 examples, got %d",
+				foundAPI.Name, examplesForAPI)
+		}
+
+		if !hasDefault {
+			t.Errorf("API %s is missing default example", foundAPI.Name)
+		}
+
+		if !hasNonDefault {
+			t.Errorf("API %s is missing non-default example", foundAPI.Name)
+		}
+	}
+
+	// Verify the total number of examples is twice the number of APIs
+	expectedExampleCount := len(resolved.Apis) * 2 // Each API has default and non-default example
+	if len(resolved.Examples) != expectedExampleCount {
+		t.Errorf("Expected %d total examples, got %d",
+			expectedExampleCount, len(resolved.Examples))
+	}
+}
+
+func TestHarUniqueIDs(t *testing.T) {
+	// Create test HAR entries
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/api1",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://example.com/api2",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Create maps to track unique IDs
+	apiIDs := make(map[string]bool)
+	exampleIDs := make(map[string]bool)
+
+	// Check for unique API IDs
+	for _, api := range resolved.Apis {
+		// Check if API ID already exists
+		if apiIDs[api.ID.String()] {
+			t.Errorf("Duplicate API ID found: %s", api.ID)
+		}
+		apiIDs[api.ID.String()] = true
+
+		// Verify API ID is not used in any example
+		for _, example := range resolved.Examples {
+			if api.ID == example.ID {
+				t.Errorf("API ID %s is also used as Example ID", api.ID)
+			}
+		}
+	}
+
+	// Check for unique Example IDs
+	for _, example := range resolved.Examples {
+		// Check if Example ID already exists
+		if exampleIDs[example.ID.String()] {
+			t.Errorf("Duplicate Example ID found: %s", example.ID)
+		}
+		exampleIDs[example.ID.String()] = true
+
+		// Verify Example ID is not used in any API
+		for _, api := range resolved.Apis {
+			if example.ID == api.ID {
+				t.Errorf("Example ID %s is also used as API ID", example.ID)
+			}
+		}
+
+		// Verify Example's ItemApiID exists in APIs
+		var found bool
+		for _, api := range resolved.Apis {
+			if example.ItemApiID == api.ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Example %s references non-existent API ID %s",
+				example.ID, example.ItemApiID)
+		}
+	}
+
+	// Print all IDs for debugging
+	if t.Failed() {
+		t.Log("API IDs:")
+		for _, api := range resolved.Apis {
+			t.Logf("API: %s - %s", api.ID, api.Name)
+		}
+		t.Log("Example IDs:")
+		for _, example := range resolved.Examples {
+			t.Logf("Example: %s - %s (API: %s)",
+				example.ID, example.Name, example.ItemApiID)
+		}
 	}
 }

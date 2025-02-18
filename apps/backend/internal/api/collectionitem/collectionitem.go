@@ -109,7 +109,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		}
 
 		for _, endpoint := range endpoints {
-			if endpoint.ParentID != nil && *endpoint.ParentID == *folderidPtr {
+			if endpoint.FolderID != nil && *endpoint.FolderID == *folderidPtr {
 				ex, err := c.iaes.GetDefaultApiExample(ctx, endpoint.ID)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
@@ -144,7 +144,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		}
 
 		for _, endpoint := range endpoints {
-			if endpoint.ParentID == nil {
+			if endpoint.FolderID == nil {
 				ex, err := c.iaes.GetDefaultApiExample(ctx, endpoint.ID)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)

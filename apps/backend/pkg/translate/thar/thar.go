@@ -3,7 +3,6 @@ package thar
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"sort"
 	"strings"
 	"the-dev-tools/backend/pkg/compress"
@@ -216,22 +215,22 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		// Create an example for this entry.
 		exampleID := idwrap.NewNow()
 		example := mitemapiexample.ItemApiExample{
+			ID:           exampleID,
+			CollectionID: collectionID,
 			Name:         key,
 			BodyType:     mitemapiexample.BodyTypeRaw,
-			CollectionID: collectionID,
-			ItemApiID:    api.ID,
-			ID:           exampleID,
+			ItemApiID:    apiID,
 		}
 
 		// If first occurrence, create a default example as well.
 		defaultExampleID := idwrap.NewNow()
 		exampleDefault := mitemapiexample.ItemApiExample{
+			ID:           defaultExampleID,
+			CollectionID: collectionID,
 			Name:         key,
 			BodyType:     mitemapiexample.BodyTypeRaw,
 			IsDefault:    true,
-			CollectionID: collectionID,
-			ItemApiID:    api.ID,
-			ID:           defaultExampleID,
+			ItemApiID:    apiID,
 		}
 		// Only add a flow node once per unique API.
 		posY += 200
@@ -325,23 +324,6 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		if i < len(result.Apis)-1 {
 			nextApi := &result.Apis[i+1]
 			result.Apis[i].Next = &nextApi.ID
-		}
-	}
-
-	// Verification loop
-	for i := range result.Apis {
-		current := &result.Apis[i]
-		if i > 0 {
-			// Verify prev link
-			if current.Prev == nil || *current.Prev != result.Apis[i-1].ID {
-				log.Fatalf("invalid prev link at index %d", i)
-			}
-		}
-		if i < len(result.Apis)-1 {
-			// Verify next link
-			if current.Next == nil || *current.Next != result.Apis[i+1].ID {
-				log.Fatalf("invalid next link at index %d", i)
-			}
 		}
 	}
 

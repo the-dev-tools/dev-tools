@@ -58,7 +58,7 @@ func TestCreateResultApi(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)

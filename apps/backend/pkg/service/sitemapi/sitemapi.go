@@ -18,7 +18,7 @@ func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
 	return gen.ItemApi{
 		ID:           item.ID,
 		CollectionID: item.CollectionID,
-		ParentID:     item.ParentID,
+		FolderID:     item.FolderID,
 		Name:         item.Name,
 		Url:          item.Url,
 		Method:       item.Method,
@@ -29,14 +29,15 @@ func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
 
 func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 	return mitemapi.ItemApi{
-		ID:           item.ID,
-		CollectionID: item.CollectionID,
-		ParentID:     item.ParentID,
-		Name:         item.Name,
-		Url:          item.Url,
-		Method:       item.Method,
-		Prev:         item.Prev,
-		Next:         item.Next,
+		ID:              item.ID,
+		CollectionID:    item.CollectionID,
+		FolderID:        item.FolderID,
+		Name:            item.Name,
+		Url:             item.Url,
+		Method:          item.Method,
+		VersionParentID: item.VersionParentID,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	}
 }
 
@@ -72,27 +73,29 @@ func (ias ItemApiService) GetItemApi(ctx context.Context, id idwrap.IDWrap) (*mi
 func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
 	itemConverted := ConvertToDBItemApi(*item)
 	return ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{
-		ID:           itemConverted.ID,
-		CollectionID: itemConverted.CollectionID,
-		ParentID:     itemConverted.ParentID,
-		Name:         itemConverted.Name,
-		Url:          itemConverted.Url,
-		Method:       itemConverted.Method,
-		Prev:         itemConverted.Prev,
-		Next:         itemConverted.Next,
+		ID:              itemConverted.ID,
+		CollectionID:    itemConverted.CollectionID,
+		FolderID:        itemConverted.FolderID,
+		Name:            itemConverted.Name,
+		Url:             itemConverted.Url,
+		Method:          itemConverted.Method,
+		Prev:            itemConverted.Prev,
+		Next:            itemConverted.Next,
+		VersionParentID: itemConverted.VersionParentID,
 	})
 }
 
 func (ias ItemApiService) CreateItemGenApi(ctx context.Context, item *gen.ItemApi) error {
 	return ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{
-		ID:           item.ID,
-		CollectionID: item.CollectionID,
-		ParentID:     item.ParentID,
-		Name:         item.Name,
-		Url:          item.Url,
-		Method:       item.Method,
-		Prev:         item.Prev,
-		Next:         item.Next,
+		ID:              item.ID,
+		CollectionID:    item.CollectionID,
+		FolderID:        item.FolderID,
+		Name:            item.Name,
+		Url:             item.Url,
+		Method:          item.Method,
+		Prev:            item.Prev,
+		Next:            item.Next,
+		VersionParentID: item.VersionParentID,
 	})
 }
 
@@ -125,7 +128,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 1
 			ID:           item1.ID,
 			CollectionID: item1.CollectionID,
-			ParentID:     item1.ParentID,
+			FolderID:     item1.FolderID,
 			Name:         item1.Name,
 			Url:          item1.Url,
 			Method:       item1.Method,
@@ -134,7 +137,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 2
 			ID_2:           item2.ID,
 			CollectionID_2: item2.CollectionID,
-			ParentID_2:     item2.ParentID,
+			FolderID_2:     item2.FolderID,
 			Name_2:         item2.Name,
 			Url_2:          item2.Url,
 			Method_2:       item2.Method,
@@ -143,7 +146,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 3
 			ID_3:           item3.ID,
 			CollectionID_3: item3.CollectionID,
-			ParentID_3:     item3.ParentID,
+			FolderID_3:     item3.FolderID,
 			Name_3:         item3.Name,
 			Url_3:          item3.Url,
 			Method_3:       item3.Method,
@@ -152,7 +155,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 4
 			ID_4:           item4.ID,
 			CollectionID_4: item4.CollectionID,
-			ParentID_4:     item4.ParentID,
+			FolderID_4:     item4.FolderID,
 			Name_4:         item4.Name,
 			Url_4:          item4.Url,
 			Method_4:       item4.Method,
@@ -161,7 +164,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 5
 			ID_5:           item5.ID,
 			CollectionID_5: item5.CollectionID,
-			ParentID_5:     item5.ParentID,
+			FolderID_5:     item5.FolderID,
 			Name_5:         item5.Name,
 			Url_5:          item5.Url,
 			Method_5:       item5.Method,
@@ -170,7 +173,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 6
 			ID_6:           item6.ID,
 			CollectionID_6: item6.CollectionID,
-			ParentID_6:     item6.ParentID,
+			FolderID_6:     item6.FolderID,
 			Name_6:         item6.Name,
 			Url_6:          item6.Url,
 			Method_6:       item6.Method,
@@ -179,7 +182,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 7
 			ID_7:           item7.ID,
 			CollectionID_7: item7.CollectionID,
-			ParentID_7:     item7.ParentID,
+			FolderID_7:     item7.FolderID,
 			Name_7:         item7.Name,
 			Url_7:          item7.Url,
 			Method_7:       item7.Method,
@@ -188,7 +191,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 8
 			ID_8:           item8.ID,
 			CollectionID_8: item8.CollectionID,
-			ParentID_8:     item8.ParentID,
+			FolderID_8:     item8.FolderID,
 			Name_8:         item8.Name,
 			Url_8:          item8.Url,
 			Method_8:       item8.Method,
@@ -197,7 +200,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 9
 			ID_9:           item9.ID,
 			CollectionID_9: item9.CollectionID,
-			ParentID_9:     item9.ParentID,
+			FolderID_9:     item9.FolderID,
 			Name_9:         item9.Name,
 			Url_9:          item9.Url,
 			Method_9:       item9.Method,
@@ -206,7 +209,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			// 10
 			ID_10:           item10.ID,
 			CollectionID_10: item10.CollectionID,
-			ParentID_10:     item10.ParentID,
+			FolderID_10:     item10.FolderID,
 			Name_10:         item10.Name,
 			Url_10:          item10.Url,
 			Method_10:       item10.Method,
@@ -225,7 +228,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
 	err := ias.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
 		ID:       item.ID,
-		ParentID: item.ParentID,
+		FolderID: item.FolderID,
 		Name:     item.Name,
 		Url:      item.Url,
 		Method:   item.Method,
@@ -266,7 +269,7 @@ func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectio
 func (ias ItemApiService) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Context, collectionID idwrap.IDWrap, nextID, parentID *idwrap.IDWrap) (mitemapi.ItemApi, error) {
 	itemApi, err := ias.queries.GetItemApiByCollectionIDAndNextIDAndParentID(ctx, gen.GetItemApiByCollectionIDAndNextIDAndParentIDParams{
 		Next:         nextID,
-		ParentID:     parentID,
+		FolderID:     parentID,
 		CollectionID: collectionID,
 	})
 	if err != nil {

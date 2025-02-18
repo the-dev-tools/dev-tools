@@ -96,8 +96,8 @@ func TestCreateItemApi(t *testing.T) {
 		t.Errorf("expected collection id %s, got %s", CollectionID, item.CollectionID)
 	}
 
-	if item.ParentID != nil {
-		t.Errorf("expected parent id %v, got %v", nil, item.ParentID)
+	if item.FolderID != nil {
+		t.Errorf("expected parent id %v, got %v", nil, item.FolderID)
 	}
 }
 
@@ -133,7 +133,7 @@ func TestGetItemApi(t *testing.T) {
 		Url:          expectedUrl,
 		Method:       expectedMethod,
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -206,7 +206,7 @@ func TestUpdateItemApi(t *testing.T) {
 		Url:          expectedUrl,
 		Method:       expectedMethod,
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -291,7 +291,7 @@ func TestDeleteItemApi(t *testing.T) {
 		Url:          expectedUrl,
 		Method:       expectedMethod,
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)

@@ -1,5 +1,5 @@
 --
--- This file is the source of truth for saas application's schema
+-- This file is the source of truth for application's db schema
 --
 --
 -- ItemApi
@@ -8,7 +8,7 @@
 SELECT
   id,
   collection_id,
-  parent_id,
+  folder_id,
   name,
   url,
   method,
@@ -27,7 +27,7 @@ LIMIT
 SELECT
   id,
   collection_id,
-  parent_id,
+  folder_id,
   name,
   url,
   method,
@@ -38,7 +38,7 @@ FROM
   item_api
 WHERE
   next = ? AND
-  parent_id = ? AND
+  folder_id = ? AND
   collection_id = ?
 LIMIT
   1;
@@ -47,7 +47,7 @@ LIMIT
 SELECT
   id,
   collection_id,
-  parent_id,
+  folder_id,
   name,
   url,
   method,
@@ -72,13 +72,13 @@ LIMIT
 
 -- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
+  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, prev, next)
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
+  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, prev, next)
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?),
   (?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -94,7 +94,7 @@ VALUES
 -- name: UpdateItemApi :exec
 UPDATE item_api
 SET
-  parent_id = ?,
+  folder_id = ?,
   name = ?,
   url = ?,
   method = ?
@@ -254,7 +254,6 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -1486,7 +1485,7 @@ WHERE
 SELECT
   id,
   workspace_id,
-  parent_version_id,
+  version_parent_id,
   name
 FROM
   flow
@@ -1498,18 +1497,18 @@ LIMIT 1;
 SELECT
   id,
   workspace_id,
-  parent_version_id,
+  version_parent_id,
   name
 FROM
   flow
 WHERE
   workspace_id = ? AND
-  parent_version_id is NULL;
+  version_parent_id is NULL;
 
 
 -- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, parent_version_id, name)
+  flow (id, workspace_id, version_parent_id, name)
 VALUES
   (?, ?, ?, ?);
 

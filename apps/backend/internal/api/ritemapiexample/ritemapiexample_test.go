@@ -71,7 +71,7 @@ func TestGetExampleApi(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -173,7 +173,7 @@ func TestCreateExampleApi(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -268,7 +268,7 @@ func TestUpdateExampleApi(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -373,7 +373,7 @@ func TestDeleteExampleApi(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
+		FolderID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
