@@ -24,7 +24,7 @@ const (
 const NodeVarPrefix = "node"
 
 func (n NodeStatus) String() string {
-	return [...]string{"None", "Starting", "Running", "Success", "Failed"}[n]
+	return [...]string{"None", "Running", "Success", "Failed"}[n]
 }
 
 type FlowNode interface {

@@ -153,6 +153,11 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(resp), nil
 }
 
+// ExampleVersions calls collection.item.example.v1.ExampleService.ExampleVersions.
+func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
 func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request[examplev1.ExampleGetRequest]) (*connect.Response[examplev1.ExampleGetResponse], error) {
 	exampleIdWrap, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
