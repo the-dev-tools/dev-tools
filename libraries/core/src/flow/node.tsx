@@ -79,11 +79,12 @@ const nodeBaseStyles = tv({
   base: tw`w-80 rounded-lg border bg-slate-200 p-1 shadow-sm transition-colors`,
   variants: {
     state: {
-      [NodeState.UNSPECIFIED]: tw`border-slate-200`,
+      [NodeState.UNSPECIFIED]: tw`border-slate-300`,
       [NodeState.RUNNING]: tw`border-violet-600`,
       [NodeState.SUCCESS]: tw`border-green-600`,
       [NodeState.FAILURE]: tw`border-red-600`,
     } satisfies Record<NodeState, string>,
+    isSelected: { true: tw`bg-slate-300` },
   },
 });
 
@@ -94,7 +95,7 @@ interface NodeBaseProps extends NodeProps {
 }
 
 // TODO: add node name
-export const NodeBase = ({ id, data: { state }, Icon, title, children }: NodeBaseProps) => {
+export const NodeBase = ({ id, data: { state }, Icon, title, children, selected }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements } = useReactFlow();
 
   const setSelectedNodes = useSetSelectedNodes();
@@ -103,7 +104,7 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children }: NodeBas
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   return (
-    <div ref={ref} className={nodeBaseStyles({ state })}>
+    <div ref={ref} className={nodeBaseStyles({ state, isSelected: selected })}>
       <div
         className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}
         onContextMenu={(event) => {
