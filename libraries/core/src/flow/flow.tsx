@@ -13,14 +13,14 @@ import {
   useReactFlow,
   useViewport,
 } from '@xyflow/react';
-import { Array, HashMap, Match, pipe, Record, Schema } from 'effect';
+import { Array, HashMap, Match, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import { NodeKind, NodeKindJson, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowGetResponse, FlowService, NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
@@ -35,7 +35,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
 import { ReferenceContext } from '../reference';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
-import { workspaceRoute } from './internal';
+import { useSelectedNodeId, workspaceRoute } from './internal';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -43,13 +43,8 @@ import { ForEachNode, ForEachPanel } from './nodes/for-each';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 
-class Search extends Schema.Class<Search>('FlowRouteSearch')({
-  selectedNodeIdCan: pipe(Schema.String, Schema.optional),
-}) {}
-
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
   component: RouteComponent,
-  validateSearch: (_) => Schema.decodeSync(Search)(_),
   pendingComponent: () => (
     <div className={tw`flex h-full items-center justify-center`}>
       <Spinner className={tw`size-16`} />
@@ -87,7 +82,6 @@ export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
 
 function RouteComponent() {
   const { flowId } = Route.useLoaderData();
-  const { selectedNodeIdCan } = Route.useSearch();
   const { transport } = Route.useRouteContext();
 
   const [flowQuery, edgesQuery, nodesQuery] = useSuspenseQueries({
@@ -103,7 +97,7 @@ function RouteComponent() {
       <Panel id='request' order={1} className='flex h-full flex-col'>
         <FlowView flow={flowQuery.data} edges={edgesQuery.data} nodes={nodesQuery.data} />
       </Panel>
-      <Suspense>{selectedNodeIdCan !== undefined && <EditPanel nodeIdCan={selectedNodeIdCan} />}</Suspense>
+      <EditPanel />
     </ReactFlowProvider>
   );
 }
@@ -315,31 +309,39 @@ const ActionBar = () => {
   );
 };
 
-interface EditPanelProps {
-  nodeIdCan: string;
-}
-
-const EditPanel = ({ nodeIdCan }: EditPanelProps) => {
+const EditPanel = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const nodeId = Ulid.fromCanonical(nodeIdCan).bytes;
+  const selectedNodeId = useSelectedNodeId();
 
-  const { data: node } = useConnectSuspenseQuery(nodeGet, { nodeId });
+  const nodeQuery = useConnectQuery(nodeGet, { nodeId: selectedNodeId! }, { enabled: selectedNodeId !== undefined });
+
+  if (!selectedNodeId || !nodeQuery.data) return null;
 
   const view = pipe(
-    Match.value(node.kind),
-    Match.when(NodeKind.REQUEST, () => <RequestPanel node={node} />),
-    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={node} />),
-    Match.when(NodeKind.FOR, () => <ForPanel node={node} />),
-    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={node} />),
-    Match.orElseAbsurd,
+    Match.value(nodeQuery.data.kind),
+    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} />),
+    Match.orElse(() => null),
   );
 
+  if (!view) return null;
+
   return (
-    <ReferenceContext value={{ nodeId, workspaceId }}>
+    <ReferenceContext value={{ nodeId: selectedNodeId, workspaceId }}>
       <PanelResizeHandle direction='vertical' />
       <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
-        {view}
+        <Suspense
+          fallback={
+            <div className={tw`flex h-full items-center justify-center`}>
+              <Spinner className={tw`size-12`} />
+            </div>
+          }
+        >
+          {view}
+        </Suspense>
       </Panel>
     </ReferenceContext>
   );

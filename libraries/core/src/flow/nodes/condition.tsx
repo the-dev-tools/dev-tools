@@ -1,4 +1,3 @@
-import { ToOptions } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -7,17 +6,19 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { ConditionField } from '../../condition';
-import { Handle, HandleKindJson } from '../internal';
+import { Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const ConditionNode = (props: NodeProps) => {
   const { id, data } = props;
   const { condition } = data.condition!;
+
+  const setSelectedNodes = useSetSelectedNodes();
 
   return (
     <>
@@ -31,16 +32,13 @@ export const ConditionNode = (props: NodeProps) => {
               <span>Edit Condition</span>
             </div>
           ) : (
-            <ButtonAsLink
+            <Button
               className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600 shadow-sm`}
-              href={{
-                to: '.',
-                search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
-              }}
+              onPress={() => void setSelectedNodes([id])}
             >
               <FiPlus className={tw`size-4`} />
               <span>Setup Condition</span>
-            </ButtonAsLink>
+            </Button>
           )}
         </div>
       </NodeBase>
@@ -65,6 +63,8 @@ export const ConditionNode = (props: NodeProps) => {
 export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: condition! });
 
+  const setSelectedNodes = useSetSelectedNodes();
+
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
 
   const update = useDebouncedCallback(async () => {
@@ -88,9 +88,9 @@ export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) 
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink variant='ghost' className={tw`p-1`} href={{ to: '.' }}>
+        <Button variant='ghost' className={tw`p-1`} onPress={() => void setSelectedNodes()}>
           <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
+        </Button>
       </div>
 
       <div className={tw`m-5`}>

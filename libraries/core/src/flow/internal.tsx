@@ -1,6 +1,16 @@
 import { getRouteApi } from '@tanstack/react-router';
-import { Handle as HandleCore, HandleProps, ReactFlowState, useNodeConnections, useStore } from '@xyflow/react';
+import {
+  Handle as HandleCore,
+  HandleProps,
+  ReactFlowState,
+  useNodeConnections,
+  useOnSelectionChange,
+  useStore,
+  useStoreApi,
+} from '@xyflow/react';
 import { Option, pipe } from 'effect';
+import { Ulid } from 'id128';
+import { useState } from 'react';
 import { tv } from 'tailwind-variants';
 
 import {
@@ -60,6 +70,28 @@ export const Handle = (props: HandleProps) => {
       </svg>
     </HandleCore>
   );
+};
+
+export const useSelectedNodeId = () => {
+  const [selectedNodeId, setSelectedNodeId] = useState<Uint8Array | undefined>(undefined);
+
+  useOnSelectionChange({
+    onChange: ({ nodes }) => {
+      if (nodes.length !== 1) return void setSelectedNodeId(undefined);
+      const id = Ulid.fromCanonical(nodes[0]!.id).bytes;
+      setSelectedNodeId(id);
+    },
+  });
+
+  return selectedNodeId;
+};
+
+export const useSetSelectedNodes = () => {
+  const { getState } = useStoreApi();
+  return (nodeIds?: string[]) => {
+    getState().resetSelectedElements();
+    if (nodeIds?.length) getState().addSelectedNodes(nodeIds);
+  };
 };
 
 export const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');

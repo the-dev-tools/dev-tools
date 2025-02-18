@@ -13,7 +13,7 @@ import {
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { NodeRequest, NodeRequestSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -21,7 +21,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponsePanel, useEndpointUrl } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
-import { flowRoute, Handle, workspaceRoute } from '../internal';
+import { flowRoute, Handle, useSetSelectedNodes, workspaceRoute } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => {
@@ -113,6 +113,8 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
 export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
 
+  const setSelectedNodes = useSetSelectedNodes();
+
   const { transport } = flowRoute.useRouteContext();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
@@ -156,9 +158,9 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
         <div className={tw`ml-2 mr-3 h-5 w-px bg-slate-300`} />
 
-        <ButtonAsLink variant='ghost' className={tw`p-1`} href={{ to: '.' }}>
+        <Button variant='ghost' className={tw`p-1`} onPress={() => void setSelectedNodes()}>
           <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
+        </Button>
       </div>
 
       <div className='m-5 mb-4 flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>

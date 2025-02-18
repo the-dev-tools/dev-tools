@@ -2,7 +2,6 @@ import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageI
 import { Transport } from '@connectrpc/connect';
 import { callUnaryMethod, createConnectQueryKey } from '@connectrpc/connect-query';
 import { queryOptions, useQueryClient } from '@tanstack/react-query';
-import { ToOptions } from '@tanstack/react-router';
 import {
   applyNodeChanges,
   getConnectedEdges,
@@ -43,7 +42,7 @@ import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import { flowRoute } from './internal';
+import { flowRoute, useSetSelectedNodes } from './internal';
 
 export { NodeDTOSchema, type NodeDTO };
 
@@ -98,6 +97,8 @@ interface NodeBaseProps extends NodeProps {
 export const NodeBase = ({ id, data: { state }, Icon, title, children }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements } = useReactFlow();
 
+  const setSelectedNodes = useSetSelectedNodes();
+
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -133,14 +134,7 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children }: NodeBas
           </Button>
 
           <Menu {...menuProps}>
-            <MenuItem
-              href={{
-                to: '.',
-                search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
-              }}
-            >
-              Edit
-            </MenuItem>
+            <MenuItem onAction={() => void setSelectedNodes([id])}>Edit</MenuItem>
 
             <MenuItem>Rename</MenuItem>
 

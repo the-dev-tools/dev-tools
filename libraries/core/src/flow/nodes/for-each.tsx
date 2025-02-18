@@ -1,4 +1,3 @@
-import { ToOptions } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -8,7 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
@@ -17,25 +16,25 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { ConditionField } from '../../condition';
 import { ReferenceField } from '../../reference';
-import { Handle, HandleKindJson } from '../internal';
+import { Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const ForEachNode = (props: NodeProps) => {
   const { id } = props;
+
+  const setSelectedNodes = useSetSelectedNodes();
+
   return (
     <>
       <NodeBase {...props} Icon={ForIcon} title='For Each Loop'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
-          <ButtonAsLink
+          <Button
             className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
-            href={{
-              to: '.',
-              search: { selectedNodeIdCan: id } satisfies ToOptions['search'],
-            }}
+            onPress={() => void setSelectedNodes([id])}
           >
             <CheckListAltIcon className={tw`size-5 text-slate-500`} />
             <span>Edit Loop</span>
-          </ButtonAsLink>
+          </Button>
         </div>
       </NodeBase>
 
@@ -58,6 +57,8 @@ export const ForEachNode = (props: NodeProps) => {
 
 export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
+
+  const setSelectedNodes = useSetSelectedNodes();
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
 
@@ -82,9 +83,9 @@ export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink variant='ghost' className={tw`p-1`} href={{ to: '.' }}>
+        <Button variant='ghost' className={tw`p-1`} onPress={() => void setSelectedNodes()}>
           <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
+        </Button>
       </div>
 
       <div className={tw`m-5 grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
