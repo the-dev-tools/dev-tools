@@ -105,9 +105,10 @@ type ExampleRespHeader struct {
 }
 
 type Flow struct {
-	ID         idwrap.IDWrap
-	FlowRootID idwrap.IDWrap
-	Name       string
+	ID              idwrap.IDWrap
+	WorkspaceID     idwrap.IDWrap
+	ParentVersionID *idwrap.IDWrap
+	Name            string
 }
 
 type FlowEdge struct {
@@ -164,39 +165,34 @@ type FlowNodeRequest struct {
 	DeltaExampleID *idwrap.IDWrap
 }
 
-type FlowRoot struct {
-	ID              idwrap.IDWrap
-	WorkspaceID     idwrap.IDWrap
-	Name            string
-	LatestVersionID *idwrap.IDWrap
-}
-
 type FlowTag struct {
-	ID         idwrap.IDWrap
-	FlowRootID idwrap.IDWrap
-	TagID      idwrap.IDWrap
+	ID     idwrap.IDWrap
+	FlowID idwrap.IDWrap
+	TagID  idwrap.IDWrap
 }
 
 type ItemApi struct {
-	ID           idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-	ParentID     *idwrap.IDWrap
-	Name         string
-	Url          string
-	Method       string
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID              idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	ParentID        *idwrap.IDWrap
+	Name            string
+	Url             string
+	Method          string
+	VersionParentID []byte
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 type ItemApiExample struct {
-	ID           idwrap.IDWrap
-	ItemApiID    idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-	IsDefault    bool
-	BodyType     int8
-	Name         string
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID              idwrap.IDWrap
+	ItemApiID       idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	IsDefault       bool
+	BodyType        int8
+	Name            string
+	VersionParentID []byte
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 type ItemFolder struct {

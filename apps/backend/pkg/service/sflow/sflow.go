@@ -31,17 +31,19 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowService, error) {
 
 func ConvertModelToDB(item mflow.Flow) gen.Flow {
 	return gen.Flow{
-		ID:         item.ID,
-		FlowRootID: item.FlowRootID,
-		Name:       item.Name,
+		ID:              item.ID,
+		WorkspaceID:     item.WorkspaceID,
+		ParentVersionID: item.ParentVersionID,
+		Name:            item.Name,
 	}
 }
 
 func ConvertDBToModel(item gen.Flow) mflow.Flow {
 	return mflow.Flow{
-		ID:         item.ID,
-		FlowRootID: item.FlowRootID,
-		Name:       item.Name,
+		ID:              item.ID,
+		WorkspaceID:     item.WorkspaceID,
+		ParentVersionID: item.ParentVersionID,
+		Name:            item.Name,
 	}
 }
 
@@ -53,24 +55,21 @@ func (s *FlowService) GetFlow(ctx context.Context, id idwrap.IDWrap) (mflow.Flow
 	return ConvertDBToModel(item), nil
 }
 
-func (s *FlowService) GetFlowsByFlowRootID(ctx context.Context, flowRootID idwrap.IDWrap) ([]mflow.Flow, error) {
-	items, err := s.queries.GetFlowsByFlowRootID(ctx, flowRootID)
+func (s *FlowService) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mflow.Flow, error) {
+	item, err := s.queries.GetFlowsByWorkspaceID(ctx, workspaceID)
 	if err != nil {
-		return nil, err
+		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 	}
-	var results []mflow.Flow
-	for _, item := range items {
-		results = append(results, ConvertDBToModel(item))
-	}
-	return results, nil
+	return tgeneric.MassConvert(item, ConvertDBToModel), nil
 }
 
 func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 	arg := ConvertModelToDB(item)
 	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{
-		ID:         arg.ID,
-		FlowRootID: item.FlowRootID,
-		Name:       arg.Name,
+		ID:              arg.ID,
+		WorkspaceID:     arg.WorkspaceID,
+		ParentVersionID: arg.ParentVersionID,
+		Name:            arg.Name,
 	})
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 }

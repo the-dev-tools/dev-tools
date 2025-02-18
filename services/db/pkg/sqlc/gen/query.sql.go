@@ -643,19 +643,25 @@ func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExample
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, flow_root_id, name)
+  flow (id, workspace_id, parent_version_id, name)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateFlowParams struct {
-	ID         idwrap.IDWrap
-	FlowRootID idwrap.IDWrap
-	Name       string
+	ID              idwrap.IDWrap
+	WorkspaceID     idwrap.IDWrap
+	ParentVersionID *idwrap.IDWrap
+	Name            string
 }
 
 func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
-	_, err := q.exec(ctx, q.createFlowStmt, createFlow, arg.ID, arg.FlowRootID, arg.Name)
+	_, err := q.exec(ctx, q.createFlowStmt, createFlow,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.ParentVersionID,
+		arg.Name,
+	)
 	return err
 }
 
@@ -834,45 +840,21 @@ func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeR
 	return err
 }
 
-const createFlowRoot = `-- name: CreateFlowRoot :exec
-INSERT INTO
-  flow_root (id, workspace_id, name, latest_version_id)
-VALUES
-  (?, ?, ?, ?)
-`
-
-type CreateFlowRootParams struct {
-	ID              idwrap.IDWrap
-	WorkspaceID     idwrap.IDWrap
-	Name            string
-	LatestVersionID *idwrap.IDWrap
-}
-
-func (q *Queries) CreateFlowRoot(ctx context.Context, arg CreateFlowRootParams) error {
-	_, err := q.exec(ctx, q.createFlowRootStmt, createFlowRoot,
-		arg.ID,
-		arg.WorkspaceID,
-		arg.Name,
-		arg.LatestVersionID,
-	)
-	return err
-}
-
 const createFlowTag = `-- name: CreateFlowTag :exec
 INSERT INTO
-  flow_tag (id, flow_root_id, tag_id)
+  flow_tag (id, flow_id, tag_id)
 VALUES
   (?, ?, ?)
 `
 
 type CreateFlowTagParams struct {
-	ID         idwrap.IDWrap
-	FlowRootID idwrap.IDWrap
-	TagID      idwrap.IDWrap
+	ID     idwrap.IDWrap
+	FlowID idwrap.IDWrap
+	TagID  idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowTag(ctx context.Context, arg CreateFlowTagParams) error {
-	_, err := q.exec(ctx, q.createFlowTagStmt, createFlowTag, arg.ID, arg.FlowRootID, arg.TagID)
+	_, err := q.exec(ctx, q.createFlowTagStmt, createFlowTag, arg.ID, arg.FlowID, arg.TagID)
 	return err
 }
 
@@ -1116,20 +1098,21 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 
 const createItemApi = `-- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, prev, next)
+  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiParams struct {
-	ID           idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-	ParentID     *idwrap.IDWrap
-	Name         string
-	Url          string
-	Method       string
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID              idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	ParentID        *idwrap.IDWrap
+	Name            string
+	Url             string
+	Method          string
+	VersionParentID []byte
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) error {
@@ -1140,6 +1123,7 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.VersionParentID,
 		arg.Prev,
 		arg.Next,
 	)
@@ -1148,101 +1132,111 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 
 const createItemApiBulk = `-- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, prev, next)
+  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiBulkParams struct {
-	ID              idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
-	ParentID        *idwrap.IDWrap
-	Name            string
-	Url             string
-	Method          string
-	Prev            *idwrap.IDWrap
-	Next            *idwrap.IDWrap
-	ID_2            idwrap.IDWrap
-	CollectionID_2  idwrap.IDWrap
-	ParentID_2      *idwrap.IDWrap
-	Name_2          string
-	Url_2           string
-	Method_2        string
-	Prev_2          *idwrap.IDWrap
-	Next_2          *idwrap.IDWrap
-	ID_3            idwrap.IDWrap
-	CollectionID_3  idwrap.IDWrap
-	ParentID_3      *idwrap.IDWrap
-	Name_3          string
-	Url_3           string
-	Method_3        string
-	Prev_3          *idwrap.IDWrap
-	Next_3          *idwrap.IDWrap
-	ID_4            idwrap.IDWrap
-	CollectionID_4  idwrap.IDWrap
-	ParentID_4      *idwrap.IDWrap
-	Name_4          string
-	Url_4           string
-	Method_4        string
-	Prev_4          *idwrap.IDWrap
-	Next_4          *idwrap.IDWrap
-	ID_5            idwrap.IDWrap
-	CollectionID_5  idwrap.IDWrap
-	ParentID_5      *idwrap.IDWrap
-	Name_5          string
-	Url_5           string
-	Method_5        string
-	Prev_5          *idwrap.IDWrap
-	Next_5          *idwrap.IDWrap
-	ID_6            idwrap.IDWrap
-	CollectionID_6  idwrap.IDWrap
-	ParentID_6      *idwrap.IDWrap
-	Name_6          string
-	Url_6           string
-	Method_6        string
-	Prev_6          *idwrap.IDWrap
-	Next_6          *idwrap.IDWrap
-	ID_7            idwrap.IDWrap
-	CollectionID_7  idwrap.IDWrap
-	ParentID_7      *idwrap.IDWrap
-	Name_7          string
-	Url_7           string
-	Method_7        string
-	Prev_7          *idwrap.IDWrap
-	Next_7          *idwrap.IDWrap
-	ID_8            idwrap.IDWrap
-	CollectionID_8  idwrap.IDWrap
-	ParentID_8      *idwrap.IDWrap
-	Name_8          string
-	Url_8           string
-	Method_8        string
-	Prev_8          *idwrap.IDWrap
-	Next_8          *idwrap.IDWrap
-	ID_9            idwrap.IDWrap
-	CollectionID_9  idwrap.IDWrap
-	ParentID_9      *idwrap.IDWrap
-	Name_9          string
-	Url_9           string
-	Method_9        string
-	Prev_9          *idwrap.IDWrap
-	Next_9          *idwrap.IDWrap
-	ID_10           idwrap.IDWrap
-	CollectionID_10 idwrap.IDWrap
-	ParentID_10     *idwrap.IDWrap
-	Name_10         string
-	Url_10          string
-	Method_10       string
-	Prev_10         *idwrap.IDWrap
-	Next_10         *idwrap.IDWrap
+	ID                 idwrap.IDWrap
+	CollectionID       idwrap.IDWrap
+	ParentID           *idwrap.IDWrap
+	Name               string
+	Url                string
+	Method             string
+	VersionParentID    []byte
+	Prev               *idwrap.IDWrap
+	Next               *idwrap.IDWrap
+	ID_2               idwrap.IDWrap
+	CollectionID_2     idwrap.IDWrap
+	ParentID_2         *idwrap.IDWrap
+	Name_2             string
+	Url_2              string
+	Method_2           string
+	VersionParentID_2  []byte
+	Prev_2             *idwrap.IDWrap
+	Next_2             *idwrap.IDWrap
+	ID_3               idwrap.IDWrap
+	CollectionID_3     idwrap.IDWrap
+	ParentID_3         *idwrap.IDWrap
+	Name_3             string
+	Url_3              string
+	Method_3           string
+	VersionParentID_3  []byte
+	Prev_3             *idwrap.IDWrap
+	Next_3             *idwrap.IDWrap
+	ID_4               idwrap.IDWrap
+	CollectionID_4     idwrap.IDWrap
+	ParentID_4         *idwrap.IDWrap
+	Name_4             string
+	Url_4              string
+	Method_4           string
+	VersionParentID_4  []byte
+	Prev_4             *idwrap.IDWrap
+	Next_4             *idwrap.IDWrap
+	ID_5               idwrap.IDWrap
+	CollectionID_5     idwrap.IDWrap
+	ParentID_5         *idwrap.IDWrap
+	Name_5             string
+	Url_5              string
+	Method_5           string
+	VersionParentID_5  []byte
+	Prev_5             *idwrap.IDWrap
+	Next_5             *idwrap.IDWrap
+	ID_6               idwrap.IDWrap
+	CollectionID_6     idwrap.IDWrap
+	ParentID_6         *idwrap.IDWrap
+	Name_6             string
+	Url_6              string
+	Method_6           string
+	VersionParentID_6  []byte
+	Prev_6             *idwrap.IDWrap
+	Next_6             *idwrap.IDWrap
+	ID_7               idwrap.IDWrap
+	CollectionID_7     idwrap.IDWrap
+	ParentID_7         *idwrap.IDWrap
+	Name_7             string
+	Url_7              string
+	Method_7           string
+	VersionParentID_7  []byte
+	Prev_7             *idwrap.IDWrap
+	Next_7             *idwrap.IDWrap
+	ID_8               idwrap.IDWrap
+	CollectionID_8     idwrap.IDWrap
+	ParentID_8         *idwrap.IDWrap
+	Name_8             string
+	Url_8              string
+	Method_8           string
+	VersionParentID_8  []byte
+	Prev_8             *idwrap.IDWrap
+	Next_8             *idwrap.IDWrap
+	ID_9               idwrap.IDWrap
+	CollectionID_9     idwrap.IDWrap
+	ParentID_9         *idwrap.IDWrap
+	Name_9             string
+	Url_9              string
+	Method_9           string
+	VersionParentID_9  []byte
+	Prev_9             *idwrap.IDWrap
+	Next_9             *idwrap.IDWrap
+	ID_10              idwrap.IDWrap
+	CollectionID_10    idwrap.IDWrap
+	ParentID_10        *idwrap.IDWrap
+	Name_10            string
+	Url_10             string
+	Method_10          string
+	VersionParentID_10 []byte
+	Prev_10            *idwrap.IDWrap
+	Next_10            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
@@ -1253,6 +1247,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.VersionParentID,
 		arg.Prev,
 		arg.Next,
 		arg.ID_2,
@@ -1261,6 +1256,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_2,
 		arg.Url_2,
 		arg.Method_2,
+		arg.VersionParentID_2,
 		arg.Prev_2,
 		arg.Next_2,
 		arg.ID_3,
@@ -1269,6 +1265,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_3,
 		arg.Url_3,
 		arg.Method_3,
+		arg.VersionParentID_3,
 		arg.Prev_3,
 		arg.Next_3,
 		arg.ID_4,
@@ -1277,6 +1274,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_4,
 		arg.Url_4,
 		arg.Method_4,
+		arg.VersionParentID_4,
 		arg.Prev_4,
 		arg.Next_4,
 		arg.ID_5,
@@ -1285,6 +1283,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_5,
 		arg.Url_5,
 		arg.Method_5,
+		arg.VersionParentID_5,
 		arg.Prev_5,
 		arg.Next_5,
 		arg.ID_6,
@@ -1293,6 +1292,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_6,
 		arg.Url_6,
 		arg.Method_6,
+		arg.VersionParentID_6,
 		arg.Prev_6,
 		arg.Next_6,
 		arg.ID_7,
@@ -1301,6 +1301,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_7,
 		arg.Url_7,
 		arg.Method_7,
+		arg.VersionParentID_7,
 		arg.Prev_7,
 		arg.Next_7,
 		arg.ID_8,
@@ -1309,6 +1310,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_8,
 		arg.Url_8,
 		arg.Method_8,
+		arg.VersionParentID_8,
 		arg.Prev_8,
 		arg.Next_8,
 		arg.ID_9,
@@ -1317,6 +1319,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_9,
 		arg.Url_9,
 		arg.Method_9,
+		arg.VersionParentID_9,
 		arg.Prev_9,
 		arg.Next_9,
 		arg.ID_10,
@@ -1325,6 +1328,7 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Name_10,
 		arg.Url_10,
 		arg.Method_10,
+		arg.VersionParentID_10,
 		arg.Prev_10,
 		arg.Next_10,
 	)
@@ -1340,22 +1344,24 @@ INSERT INTO
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
-	ID           idwrap.IDWrap
-	ItemApiID    idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-	IsDefault    bool
-	BodyType     int8
-	Name         string
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID              idwrap.IDWrap
+	ItemApiID       idwrap.IDWrap
+	CollectionID    idwrap.IDWrap
+	IsDefault       bool
+	BodyType        int8
+	Name            string
+	VersionParentID []byte
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExampleParams) error {
@@ -1366,6 +1372,7 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 		arg.IsDefault,
 		arg.BodyType,
 		arg.Name,
+		arg.VersionParentID,
 		arg.Prev,
 		arg.Next,
 	)
@@ -1381,103 +1388,124 @@ INSERT INTO
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
-	ID              idwrap.IDWrap
-	ItemApiID       idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
-	IsDefault       bool
-	BodyType        int8
-	Name            string
-	Prev            *idwrap.IDWrap
-	Next            *idwrap.IDWrap
-	ID_2            idwrap.IDWrap
-	ItemApiID_2     idwrap.IDWrap
-	CollectionID_2  idwrap.IDWrap
-	IsDefault_2     bool
-	BodyType_2      int8
-	Name_2          string
-	Prev_2          *idwrap.IDWrap
-	Next_2          *idwrap.IDWrap
-	ID_3            idwrap.IDWrap
-	ItemApiID_3     idwrap.IDWrap
-	CollectionID_3  idwrap.IDWrap
-	IsDefault_3     bool
-	BodyType_3      int8
-	Name_3          string
-	Prev_3          *idwrap.IDWrap
-	Next_3          *idwrap.IDWrap
-	ID_4            idwrap.IDWrap
-	ItemApiID_4     idwrap.IDWrap
-	CollectionID_4  idwrap.IDWrap
-	IsDefault_4     bool
-	BodyType_4      int8
-	Name_4          string
-	Prev_4          *idwrap.IDWrap
-	Next_4          *idwrap.IDWrap
-	ID_5            idwrap.IDWrap
-	ItemApiID_5     idwrap.IDWrap
-	CollectionID_5  idwrap.IDWrap
-	IsDefault_5     bool
-	BodyType_5      int8
-	Name_5          string
-	Prev_5          *idwrap.IDWrap
-	Next_5          *idwrap.IDWrap
-	ID_6            idwrap.IDWrap
-	ItemApiID_6     idwrap.IDWrap
-	CollectionID_6  idwrap.IDWrap
-	IsDefault_6     bool
-	BodyType_6      int8
-	Name_6          string
-	Prev_6          *idwrap.IDWrap
-	Next_6          *idwrap.IDWrap
-	ID_7            idwrap.IDWrap
-	ItemApiID_7     idwrap.IDWrap
-	CollectionID_7  idwrap.IDWrap
-	IsDefault_7     bool
-	BodyType_7      int8
-	Name_7          string
-	Prev_7          *idwrap.IDWrap
-	Next_7          *idwrap.IDWrap
-	ID_8            idwrap.IDWrap
-	ItemApiID_8     idwrap.IDWrap
-	CollectionID_8  idwrap.IDWrap
-	IsDefault_8     bool
-	BodyType_8      int8
-	Name_8          string
-	Prev_8          *idwrap.IDWrap
-	Next_8          *idwrap.IDWrap
-	ID_9            idwrap.IDWrap
-	ItemApiID_9     idwrap.IDWrap
-	CollectionID_9  idwrap.IDWrap
-	IsDefault_9     bool
-	BodyType_9      int8
-	Name_9          string
-	Prev_9          *idwrap.IDWrap
-	Next_9          *idwrap.IDWrap
-	ID_10           idwrap.IDWrap
-	ItemApiID_10    idwrap.IDWrap
-	CollectionID_10 idwrap.IDWrap
-	IsDefault_10    bool
-	BodyType_10     int8
-	Name_10         string
-	Prev_10         *idwrap.IDWrap
-	Next_10         *idwrap.IDWrap
+	ID                 idwrap.IDWrap
+	ItemApiID          idwrap.IDWrap
+	CollectionID       idwrap.IDWrap
+	IsDefault          bool
+	BodyType           int8
+	Name               string
+	VersionParentID    []byte
+	Prev               *idwrap.IDWrap
+	Next               *idwrap.IDWrap
+	ID_2               idwrap.IDWrap
+	ItemApiID_2        idwrap.IDWrap
+	CollectionID_2     idwrap.IDWrap
+	IsDefault_2        bool
+	BodyType_2         int8
+	Name_2             string
+	VersionParentID_2  []byte
+	Prev_2             *idwrap.IDWrap
+	Next_2             *idwrap.IDWrap
+	ID_3               idwrap.IDWrap
+	ItemApiID_3        idwrap.IDWrap
+	CollectionID_3     idwrap.IDWrap
+	IsDefault_3        bool
+	BodyType_3         int8
+	Name_3             string
+	VersionParentID_3  []byte
+	Prev_3             *idwrap.IDWrap
+	Next_3             *idwrap.IDWrap
+	ID_4               idwrap.IDWrap
+	ItemApiID_4        idwrap.IDWrap
+	CollectionID_4     idwrap.IDWrap
+	IsDefault_4        bool
+	BodyType_4         int8
+	Name_4             string
+	VersionParentID_4  []byte
+	Prev_4             *idwrap.IDWrap
+	Next_4             *idwrap.IDWrap
+	ID_5               idwrap.IDWrap
+	ItemApiID_5        idwrap.IDWrap
+	CollectionID_5     idwrap.IDWrap
+	IsDefault_5        bool
+	BodyType_5         int8
+	Name_5             string
+	VersionParentID_5  []byte
+	Prev_5             *idwrap.IDWrap
+	Next_5             *idwrap.IDWrap
+	ID_6               idwrap.IDWrap
+	ItemApiID_6        idwrap.IDWrap
+	CollectionID_6     idwrap.IDWrap
+	IsDefault_6        bool
+	BodyType_6         int8
+	Name_6             string
+	VersionParentID_6  []byte
+	Prev_6             *idwrap.IDWrap
+	Next_6             *idwrap.IDWrap
+	ID_7               idwrap.IDWrap
+	ItemApiID_7        idwrap.IDWrap
+	CollectionID_7     idwrap.IDWrap
+	IsDefault_7        bool
+	BodyType_7         int8
+	Name_7             string
+	VersionParentID_7  []byte
+	Prev_7             *idwrap.IDWrap
+	Next_7             *idwrap.IDWrap
+	ID_8               idwrap.IDWrap
+	ItemApiID_8        idwrap.IDWrap
+	CollectionID_8     idwrap.IDWrap
+	IsDefault_8        bool
+	BodyType_8         int8
+	Name_8             string
+	VersionParentID_8  []byte
+	Prev_8             *idwrap.IDWrap
+	Next_8             *idwrap.IDWrap
+	ID_9               idwrap.IDWrap
+	ItemApiID_9        idwrap.IDWrap
+	CollectionID_9     idwrap.IDWrap
+	IsDefault_9        bool
+	BodyType_9         int8
+	Name_9             string
+	VersionParentID_9  []byte
+	Prev_9             *idwrap.IDWrap
+	Next_9             *idwrap.IDWrap
+	ID_10              idwrap.IDWrap
+	ItemApiID_10       idwrap.IDWrap
+	CollectionID_10    idwrap.IDWrap
+	IsDefault_10       bool
+	BodyType_10        int8
+	Name_10            string
+	VersionParentID_10 []byte
+	Prev_10            *idwrap.IDWrap
+	Next_10            *idwrap.IDWrap
+	ID_11              idwrap.IDWrap
+	ItemApiID_11       idwrap.IDWrap
+	CollectionID_11    idwrap.IDWrap
+	IsDefault_11       bool
+	BodyType_11        int8
+	Name_11            string
+	VersionParentID_11 []byte
+	Prev_11            *idwrap.IDWrap
+	Next_11            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemApiExampleBulkParams) error {
@@ -1488,6 +1516,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault,
 		arg.BodyType,
 		arg.Name,
+		arg.VersionParentID,
 		arg.Prev,
 		arg.Next,
 		arg.ID_2,
@@ -1496,6 +1525,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_2,
 		arg.BodyType_2,
 		arg.Name_2,
+		arg.VersionParentID_2,
 		arg.Prev_2,
 		arg.Next_2,
 		arg.ID_3,
@@ -1504,6 +1534,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_3,
 		arg.BodyType_3,
 		arg.Name_3,
+		arg.VersionParentID_3,
 		arg.Prev_3,
 		arg.Next_3,
 		arg.ID_4,
@@ -1512,6 +1543,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_4,
 		arg.BodyType_4,
 		arg.Name_4,
+		arg.VersionParentID_4,
 		arg.Prev_4,
 		arg.Next_4,
 		arg.ID_5,
@@ -1520,6 +1552,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_5,
 		arg.BodyType_5,
 		arg.Name_5,
+		arg.VersionParentID_5,
 		arg.Prev_5,
 		arg.Next_5,
 		arg.ID_6,
@@ -1528,6 +1561,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_6,
 		arg.BodyType_6,
 		arg.Name_6,
+		arg.VersionParentID_6,
 		arg.Prev_6,
 		arg.Next_6,
 		arg.ID_7,
@@ -1536,6 +1570,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_7,
 		arg.BodyType_7,
 		arg.Name_7,
+		arg.VersionParentID_7,
 		arg.Prev_7,
 		arg.Next_7,
 		arg.ID_8,
@@ -1544,6 +1579,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_8,
 		arg.BodyType_8,
 		arg.Name_8,
+		arg.VersionParentID_8,
 		arg.Prev_8,
 		arg.Next_8,
 		arg.ID_9,
@@ -1552,6 +1588,7 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_9,
 		arg.BodyType_9,
 		arg.Name_9,
+		arg.VersionParentID_9,
 		arg.Prev_9,
 		arg.Next_9,
 		arg.ID_10,
@@ -1560,8 +1597,18 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.IsDefault_10,
 		arg.BodyType_10,
 		arg.Name_10,
+		arg.VersionParentID_10,
 		arg.Prev_10,
 		arg.Next_10,
+		arg.ID_11,
+		arg.ItemApiID_11,
+		arg.CollectionID_11,
+		arg.IsDefault_11,
+		arg.BodyType_11,
+		arg.Name_11,
+		arg.VersionParentID_11,
+		arg.Prev_11,
+		arg.Next_11,
 	)
 	return err
 }
@@ -2355,17 +2402,6 @@ WHERE
 
 func (q *Queries) DeleteFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeRequestStmt, deleteFlowNodeRequest, flowNodeID)
-	return err
-}
-
-const deleteFlowRoot = `-- name: DeleteFlowRoot :exec
-DELETE FROM flow_root
-WHERE
-  id = ?
-`
-
-func (q *Queries) DeleteFlowRoot(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteFlowRootStmt, deleteFlowRoot, id)
 	return err
 }
 
@@ -3251,7 +3287,8 @@ func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwr
 const getFlow = `-- name: GetFlow :one
 SELECT
   id,
-  flow_root_id,
+  workspace_id,
+  parent_version_id,
   name
 FROM
   flow
@@ -3263,7 +3300,12 @@ LIMIT 1
 func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 	row := q.queryRow(ctx, q.getFlowStmt, getFlow, id)
 	var i Flow
-	err := row.Scan(&i.ID, &i.FlowRootID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ParentVersionID,
+		&i.Name,
+	)
 	return i, err
 }
 
@@ -3535,75 +3577,10 @@ func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 	return items, nil
 }
 
-const getFlowRoot = `-- name: GetFlowRoot :one
-SELECT
-  id,
-  workspace_id,
-  name,
-  latest_version_id
-FROM
-  flow_root
-WHERE
-  id = ?
-LIMIT 1
-`
-
-func (q *Queries) GetFlowRoot(ctx context.Context, id idwrap.IDWrap) (FlowRoot, error) {
-	row := q.queryRow(ctx, q.getFlowRootStmt, getFlowRoot, id)
-	var i FlowRoot
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.Name,
-		&i.LatestVersionID,
-	)
-	return i, err
-}
-
-const getFlowRootsByWorkspaceID = `-- name: GetFlowRootsByWorkspaceID :many
-SELECT
-  id,
-  workspace_id,
-  name,
-  latest_version_id
-FROM
-  flow_root
-WHERE
-  workspace_id = ?
-`
-
-func (q *Queries) GetFlowRootsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]FlowRoot, error) {
-	rows, err := q.query(ctx, q.getFlowRootsByWorkspaceIDStmt, getFlowRootsByWorkspaceID, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FlowRoot{}
-	for rows.Next() {
-		var i FlowRoot
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Name,
-			&i.LatestVersionID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getFlowTag = `-- name: GetFlowTag :one
 SELECT
   id,
-  flow_root_id,
+  flow_id,
   tag_id
 FROM flow_tag
 WHERE id = ?
@@ -3613,23 +3590,23 @@ LIMIT 1
 func (q *Queries) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (FlowTag, error) {
 	row := q.queryRow(ctx, q.getFlowTagStmt, getFlowTag, id)
 	var i FlowTag
-	err := row.Scan(&i.ID, &i.FlowRootID, &i.TagID)
+	err := row.Scan(&i.ID, &i.FlowID, &i.TagID)
 	return i, err
 }
 
 const getFlowTagsByFlowID = `-- name: GetFlowTagsByFlowID :many
 SELECT
   id,
-  flow_root_id,
+  flow_id,
   tag_id
 FROM
   flow_tag
 WHERE
-  flow_root_id = ?
+  flow_id = ?
 `
 
-func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowRootID idwrap.IDWrap) ([]FlowTag, error) {
-	rows, err := q.query(ctx, q.getFlowTagsByFlowIDStmt, getFlowTagsByFlowID, flowRootID)
+func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowTag, error) {
+	rows, err := q.query(ctx, q.getFlowTagsByFlowIDStmt, getFlowTagsByFlowID, flowID)
 	if err != nil {
 		return nil, err
 	}
@@ -3637,7 +3614,7 @@ func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowRootID idwrap.IDW
 	items := []FlowTag{}
 	for rows.Next() {
 		var i FlowTag
-		if err := rows.Scan(&i.ID, &i.FlowRootID, &i.TagID); err != nil {
+		if err := rows.Scan(&i.ID, &i.FlowID, &i.TagID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3654,7 +3631,7 @@ func (q *Queries) GetFlowTagsByFlowID(ctx context.Context, flowRootID idwrap.IDW
 const getFlowTagsByTagID = `-- name: GetFlowTagsByTagID :many
 SELECT
   id,
-  flow_root_id,
+  flow_id,
   tag_id
 FROM
   flow_tag
@@ -3671,7 +3648,7 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 	items := []FlowTag{}
 	for rows.Next() {
 		var i FlowTag
-		if err := rows.Scan(&i.ID, &i.FlowRootID, &i.TagID); err != nil {
+		if err := rows.Scan(&i.ID, &i.FlowID, &i.TagID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3685,19 +3662,21 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 	return items, nil
 }
 
-const getFlowsByFlowRootID = `-- name: GetFlowsByFlowRootID :many
+const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
 SELECT
   id,
-  flow_root_id,
+  workspace_id,
+  parent_version_id,
   name
 FROM
   flow
 WHERE
-  flow_root_id = ?
+  workspace_id = ? AND
+  parent_version_id = NULL
 `
 
-func (q *Queries) GetFlowsByFlowRootID(ctx context.Context, flowRootID idwrap.IDWrap) ([]Flow, error) {
-	rows, err := q.query(ctx, q.getFlowsByFlowRootIDStmt, getFlowsByFlowRootID, flowRootID)
+func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Flow, error) {
+	rows, err := q.query(ctx, q.getFlowsByWorkspaceIDStmt, getFlowsByWorkspaceID, workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -3705,7 +3684,12 @@ func (q *Queries) GetFlowsByFlowRootID(ctx context.Context, flowRootID idwrap.ID
 	items := []Flow{}
 	for rows.Next() {
 		var i Flow
-		if err := rows.Scan(&i.ID, &i.FlowRootID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ParentVersionID,
+			&i.Name,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3806,6 +3790,7 @@ SELECT
   name,
   url,
   method,
+  version_parent_id,
   prev,
   next
 FROM
@@ -3829,6 +3814,7 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 		&i.Name,
 		&i.Url,
 		&i.Method,
+		&i.VersionParentID,
 		&i.Prev,
 		&i.Next,
 	)
@@ -3843,6 +3829,7 @@ SELECT
   name,
   url,
   method,
+  version_parent_id,
   prev,
   next
 FROM
@@ -3871,6 +3858,7 @@ func (q *Queries) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Conte
 		&i.Name,
 		&i.Url,
 		&i.Method,
+		&i.VersionParentID,
 		&i.Prev,
 		&i.Next,
 	)
@@ -3885,6 +3873,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -3906,6 +3895,7 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (Item
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
+		&i.VersionParentID,
 		&i.Prev,
 		&i.Next,
 	)
@@ -3920,12 +3910,14 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
   item_api_example
 WHERE
-  collection_id = ?
+  collection_id = ? AND
+  version_parent_id = NULL
 `
 
 func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApiExample, error) {
@@ -3944,6 +3936,57 @@ func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectio
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
+			&i.VersionParentID,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getItemApiExampleByVersionParentID = `-- name: GetItemApiExampleByVersionParentID :many
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    version_parent_id,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  version_parent_id = ?
+`
+
+func (q *Queries) GetItemApiExampleByVersionParentID(ctx context.Context, versionParentID []byte) ([]ItemApiExample, error) {
+	rows, err := q.query(ctx, q.getItemApiExampleByVersionParentIDStmt, getItemApiExampleByVersionParentID, versionParentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ItemApiExample{}
+	for rows.Next() {
+		var i ItemApiExample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.IsDefault,
+			&i.BodyType,
+			&i.Name,
+			&i.VersionParentID,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -3968,6 +4011,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -3989,6 +4033,7 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID idwrap
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
+		&i.VersionParentID,
 		&i.Prev,
 		&i.Next,
 	)
@@ -4003,6 +4048,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -4028,6 +4074,7 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
+			&i.VersionParentID,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -4063,7 +4110,7 @@ func (q *Queries) GetItemApiOwnerID(ctx context.Context, id idwrap.IDWrap) (idwr
 	return owner_id, err
 }
 
-const getItemExampleByCollectionIDAndNextIDAndParentID = `-- name: GetItemExampleByCollectionIDAndNextIDAndParentID :one
+const getItemExampleByCollectionIDAndNextIDAndItemApiID = `-- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
 SELECT
     id,
     item_api_id,
@@ -4071,6 +4118,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -4083,14 +4131,14 @@ LIMIT
   1
 `
 
-type GetItemExampleByCollectionIDAndNextIDAndParentIDParams struct {
+type GetItemExampleByCollectionIDAndNextIDAndItemApiIDParams struct {
 	CollectionID idwrap.IDWrap
 	Next         *idwrap.IDWrap
 	Prev         *idwrap.IDWrap
 }
 
-func (q *Queries) GetItemExampleByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemExampleByCollectionIDAndNextIDAndParentIDParams) (ItemApiExample, error) {
-	row := q.queryRow(ctx, q.getItemExampleByCollectionIDAndNextIDAndParentIDStmt, getItemExampleByCollectionIDAndNextIDAndParentID, arg.CollectionID, arg.Next, arg.Prev)
+func (q *Queries) GetItemExampleByCollectionIDAndNextIDAndItemApiID(ctx context.Context, arg GetItemExampleByCollectionIDAndNextIDAndItemApiIDParams) (ItemApiExample, error) {
+	row := q.queryRow(ctx, q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt, getItemExampleByCollectionIDAndNextIDAndItemApiID, arg.CollectionID, arg.Next, arg.Prev)
 	var i ItemApiExample
 	err := row.Scan(
 		&i.ID,
@@ -4099,6 +4147,7 @@ func (q *Queries) GetItemExampleByCollectionIDAndNextIDAndParentID(ctx context.C
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
+		&i.VersionParentID,
 		&i.Prev,
 		&i.Next,
 	)
@@ -4247,6 +4296,7 @@ SELECT
   name,
   url,
   method,
+  version_parent_id,
   prev,
   next
 FROM
@@ -4271,6 +4321,7 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.VersionParentID,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -5576,26 +5627,6 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 		arg.DeltaExampleID,
 		arg.FlowNodeID,
 	)
-	return err
-}
-
-const updateFlowRoot = `-- name: UpdateFlowRoot :exec
-UPDATE flow_root
-SET
-  name = ?,
-  latest_version_id = ?
-WHERE
-  id = ?
-`
-
-type UpdateFlowRootParams struct {
-	Name            string
-	LatestVersionID *idwrap.IDWrap
-	ID              idwrap.IDWrap
-}
-
-func (q *Queries) UpdateFlowRoot(ctx context.Context, arg UpdateFlowRootParams) error {
-	_, err := q.exec(ctx, q.updateFlowRootStmt, updateFlowRoot, arg.Name, arg.LatestVersionID, arg.ID)
 	return err
 }
 

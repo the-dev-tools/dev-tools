@@ -12,6 +12,7 @@ SELECT
   name,
   url,
   method,
+  version_parent_id,
   prev,
   next
 FROM
@@ -30,6 +31,7 @@ SELECT
   name,
   url,
   method,
+  version_parent_id,
   prev,
   next
 FROM
@@ -49,6 +51,7 @@ SELECT
   name,
   url,
   method,
+  version_parent_id,
   prev,
   next
 FROM
@@ -69,24 +72,24 @@ LIMIT
 
 -- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, prev, next)
+  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, parent_id, name, url, method, prev, next)
+  item_api (id, collection_id, parent_id, name, url, method, version_parent_id, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApi :exec
 UPDATE item_api
@@ -122,6 +125,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -131,7 +135,7 @@ WHERE
 LIMIT
   1;
 
--- name: GetItemExampleByCollectionIDAndNextIDAndParentID :one
+-- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
 SELECT
     id,
     item_api_id,
@@ -139,6 +143,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -158,6 +163,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -174,6 +180,7 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
@@ -192,12 +199,30 @@ SELECT
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
 FROM
   item_api_example
 WHERE
-  collection_id = ?;
+  collection_id = ? AND
+  version_parent_id = NULL;
+
+-- name: GetItemApiExampleByVersionParentID :many
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    version_parent_id,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  version_parent_id = ?;
 
 -- name: CreateItemApiExample :exec
 INSERT INTO
@@ -208,11 +233,12 @@ INSERT INTO
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
 INSERT INTO
@@ -223,20 +249,22 @@ INSERT INTO
     is_default,
     body_type,
     name,
+    version_parent_id,
     prev,
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
@@ -1454,52 +1482,11 @@ DELETE FROM assertion_result
 WHERE
   id = ?;
 
--- name: GetFlowRoot :one
-SELECT
-  id,
-  workspace_id,
-  name,
-  latest_version_id
-FROM
-  flow_root
-WHERE
-  id = ?
-LIMIT 1;
-
--- name: GetFlowRootsByWorkspaceID :many
-SELECT
-  id,
-  workspace_id,
-  name,
-  latest_version_id
-FROM
-  flow_root
-WHERE
-  workspace_id = ?;
-
--- name: CreateFlowRoot :exec
-INSERT INTO
-  flow_root (id, workspace_id, name, latest_version_id)
-VALUES
-  (?, ?, ?, ?);
-
--- name: UpdateFlowRoot :exec
-UPDATE flow_root
-SET
-  name = ?,
-  latest_version_id = ?
-WHERE
-  id = ?;
-
--- name: DeleteFlowRoot :exec
-DELETE FROM flow_root
-WHERE
-  id = ?;
-
 -- name: GetFlow :one
 SELECT
   id,
-  flow_root_id,
+  workspace_id,
+  parent_version_id,
   name
 FROM
   flow
@@ -1507,22 +1494,24 @@ WHERE
   id = ?
 LIMIT 1;
 
--- name: GetFlowsByFlowRootID :many
+-- name: GetFlowsByWorkspaceID :many
 SELECT
   id,
-  flow_root_id,
+  workspace_id,
+  parent_version_id,
   name
 FROM
   flow
 WHERE
-  flow_root_id = ?;
+  workspace_id = ? AND
+  parent_version_id = NULL;
 
 
 -- name: CreateFlow :exec
 INSERT INTO
-  flow (id, flow_root_id, name)
+  flow (id, workspace_id, parent_version_id, name)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlow :exec
 UPDATE flow
@@ -1581,7 +1570,7 @@ WHERE
 -- name: GetFlowTag :one
 SELECT
   id,
-  flow_root_id,
+  flow_id,
   tag_id
 FROM flow_tag
 WHERE id = ?
@@ -1590,17 +1579,17 @@ LIMIT 1;
 -- name: GetFlowTagsByFlowID :many
 SELECT
   id,
-  flow_root_id,
+  flow_id,
   tag_id
 FROM
   flow_tag
 WHERE
-  flow_root_id = ?;
+  flow_id = ?;
 
 -- name: GetFlowTagsByTagID :many
 SELECT
   id,
-  flow_root_id,
+  flow_id,
   tag_id
 FROM
   flow_tag
@@ -1609,7 +1598,7 @@ WHERE
 
 -- name: CreateFlowTag :exec
 INSERT INTO
-  flow_tag (id, flow_root_id, tag_id)
+  flow_tag (id, flow_id, tag_id)
 VALUES
   (?, ?, ?);
 

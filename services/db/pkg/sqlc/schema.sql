@@ -90,11 +90,17 @@ CREATE TABLE item_api (
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   method TEXT NOT NULL,
+
+  -- versioning
+  version_parent_id BLOB,
+
+  -- ordering
   prev BLOB,
   next BLOB,
   UNIQUE (prev, next),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
+  FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE,
+  FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
 );
 
 CREATE INDEX item_api_idx1 ON item_api (collection_id, parent_id);
@@ -112,12 +118,16 @@ CREATE TABLE item_api_example (
   body_type INT8 NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
 
-  -- Odering
+  -- versioning
+  version_parent_id BLOB,
+
+  -- ordering
   prev BLOB,
   next BLOB,
   UNIQUE (prev, next),
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
-  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE
+  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
+  FOREIGN KEY (version_parent_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
 CREATE INDEX item_api_example_idx1 ON item_api_example (
@@ -272,20 +282,13 @@ CREATE TABLE assertion_result (
   FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
 );
 
-CREATE TABLE flow_root (
-  id BLOB NOT NULL PRIMARY KEY,
-  workspace_id BLOB NOT NULL,
-  name TEXT NOT NULL,
-  latest_version_id BLOB,
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
-  FOREIGN KEY (latest_version_id) REFERENCES flow (id) ON DELETE SET NULL
-);
-
 CREATE TABLE flow (
   id BLOB NOT NULL PRIMARY KEY,
-  flow_root_id BLOB NOT NULL,
+  workspace_id BLOB NOT NULL,
+  parent_version_id BLOB,
   name TEXT NOT NULL,
-  FOREIGN KEY (flow_root_id) REFERENCES flow_root (id) ON DELETE CASCADE
+  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_version_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
 CREATE TABLE tag (
@@ -298,10 +301,10 @@ CREATE TABLE tag (
 
 CREATE TABLE flow_tag (
   id BLOB NOT NULL PRIMARY KEY,
-  flow_root_id BLOB NOT NULL,
+  flow_id BLOB NOT NULL,
   tag_id BLOB NOT NULL,
-  FOREIGN KEY (flow_root_id) REFERENCES flow_root (id) ON DELETE CASCADE,
-  FOREIGN KEY (tag_id) REFERENCES flow_tag (id) ON DELETE CASCADE
+  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tag (id) ON DELETE CASCADE
 );
 
 CREATE TABLE flow_node (

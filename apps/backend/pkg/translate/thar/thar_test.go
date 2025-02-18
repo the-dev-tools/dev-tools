@@ -24,9 +24,8 @@ func TestHarResvoledSimple(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -51,9 +50,8 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -104,9 +102,8 @@ func TestHarResvoledBodyForm(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -161,9 +158,8 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -205,9 +201,8 @@ func TestHarEmptyLog(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err == nil {
 		t.Errorf("Expected error converting HAR")
 	}
@@ -243,9 +238,8 @@ func TestHarUnknownMimeType(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -318,9 +312,8 @@ func TestHarDiverseEntries(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -364,9 +357,8 @@ func TestHarResolvedNewFields(t *testing.T) {
 
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}
@@ -405,10 +397,9 @@ func TestHarResolvedDeepFields(t *testing.T) {
 	// Create IDs.
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
 	// Convert HAR.
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Fatalf("Error converting HAR: %v", err)
 	}
@@ -491,9 +482,8 @@ func TestHarSortEntriesByStartedTime(t *testing.T) {
 	}
 	id := idwrap.NewNow()
 	workSpaceID := idwrap.NewNow()
-	rootFlowID := idwrap.NewNow()
 
-	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID, rootFlowID)
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
 	if err != nil {
 		t.Errorf("Error converting HAR: %v", err)
 	}

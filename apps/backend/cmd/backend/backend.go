@@ -45,7 +45,6 @@ import (
 	"the-dev-tools/backend/pkg/service/sexampleresp"
 	"the-dev-tools/backend/pkg/service/sexamplerespheader"
 	"the-dev-tools/backend/pkg/service/sflow"
-	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/sflowtag"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
@@ -154,7 +153,6 @@ func main() {
 
 	// Flow
 	fs := sflow.New(queries)
-	frs := sflowroot.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
 
@@ -296,7 +294,7 @@ func main() {
 
 	// Flow Service
 	flowSrv := rflow.New(currentDB, ws, us, ts,
-		fs, frs, fts, fes, ias, iaes, eqs, ehs,
+		fs, fts, fes, ias, iaes, eqs, ehs,
 		brs, bfs, bues,
 		ns, rns, lfns, flens,
 		sns, *ins, logMap)
@@ -304,13 +302,13 @@ func main() {
 
 	// Node Service
 	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us,
-		fs, frs, *ins,
+		fs, *ins,
 		rns, lfns, flens, ns, sns,
 		ias, iaes, eqs, ehs)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// Edge Service
-	edgeSrv := redge.NewEdgeServiceRPC(currentDB, fs, frs, us, fes, ns)
+	edgeSrv := redge.NewEdgeServiceRPC(currentDB, fs, us, fes, ns)
 	newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
 
 	// Log Service

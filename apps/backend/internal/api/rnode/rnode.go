@@ -21,7 +21,6 @@ import (
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
-	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
@@ -44,9 +43,8 @@ type NodeServiceRPC struct {
 	DB *sql.DB
 
 	// parent
-	fs  sflow.FlowService
-	frs sflowroot.FlowRootService
-	us  suser.UserService
+	fs sflow.FlowService
+	us suser.UserService
 
 	// sub
 	ns    snode.NodeService
@@ -64,7 +62,7 @@ type NodeServiceRPC struct {
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
-	fs sflow.FlowService, frs sflowroot.FlowRootService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
+	fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
 	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, ns snode.NodeService, nss snodenoop.NodeNoopService,
 	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
 	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
@@ -72,9 +70,8 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 	return &NodeServiceRPC{
 		DB: db,
 
-		us:  us,
-		fs:  fs,
-		frs: frs,
+		us: us,
+		fs: fs,
 
 		ns:    ns,
 		nis:   nis,
@@ -101,27 +98,12 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var versionIDPtr *idwrap.IDWrap
-	if len(req.Msg.VersionId) > 0 {
-		versionID, err := idwrap.NewFromBytes(req.Msg.VersionId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		versionIDPtr = &versionID
-	} else {
-		flow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		versionIDPtr = &flow.ID
-	}
-
-	nodes, err := c.ns.GetNodesByFlowID(ctx, *versionIDPtr)
+	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("any node found"))
 	}
@@ -170,7 +152,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.frs, c.us, c.ns, nodeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.us, c.ns, nodeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -217,12 +199,12 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 	}
 
-	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlowRoot(ctx, c.frs, c.us, flowID))
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
 	if rpcErr != nil {
 		return nil, fmt.Errorf("invalid flow owner: %w", rpcErr)
 	}
 
-	latestFlow, err := c.frs.GetLatestFlow(ctx, flowID, c.fs)
+	flow, err := c.fs.GetFlow(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -240,7 +222,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, latestFlow.ID, NodeID)
+	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flow.ID, NodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node: %w", err))
 	}
@@ -324,7 +306,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.frs, c.us, c.ns, nodeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.us, c.ns, nodeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -433,7 +415,7 @@ func (c *NodeServiceRPC) NodeDelete(ctx context.Context, req *connect.Request[no
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.frs, c.us, c.ns, nodeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.us, c.ns, nodeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -456,7 +438,7 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.frs, c.us, c.ns, nodeID))
+	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.us, c.ns, nodeID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -510,13 +492,13 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 	return nil, connect.NewError(connect.CodeUnimplemented, nil)
 }
 
-func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, frs sflowroot.FlowRootService, us suser.UserService, ns snode.NodeService, nodeID idwrap.IDWrap) (bool, error) {
+func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserService, ns snode.NodeService, nodeID idwrap.IDWrap) (bool, error) {
 	node, err := ns.GetNode(ctx, nodeID)
 	if err != nil {
 		return false, err
 	}
 
-	return rflow.CheckOwnerFlow(ctx, fs, frs, us, node.FlowID)
+	return rflow.CheckOwnerFlow(ctx, fs, us, node.FlowID)
 }
 
 func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,

@@ -18,6 +18,8 @@ func New(queries *gen.Queries) BodyURLEncodedService {
 	return BodyURLEncodedService{queries: queries}
 }
 
+var ErrNoBodyUrlEncodedFound = sql.ErrNoRows
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

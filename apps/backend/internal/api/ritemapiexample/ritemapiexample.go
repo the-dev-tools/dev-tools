@@ -153,11 +153,6 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(resp), nil
 }
 
-// ExampleVersions calls collection.item.example.v1.ExampleService.ExampleVersions.
-func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
-}
-
 func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request[examplev1.ExampleGetRequest]) (*connect.Response[examplev1.ExampleGetResponse], error) {
 	exampleIdWrap, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
@@ -445,6 +440,118 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	}
 
 	return connect.NewResponse(&examplev1.ExampleDuplicateResponse{}), nil
+}
+
+func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwrap.IDWrap) (idwrap.IDWrap, error) {
+	// Get original example
+	example, err := c.iaes.GetApiExample(ctx, exampleIDWrap)
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+
+	// Create new example ID
+	exampleIDWrapNew := idwrap.NewNow()
+	example.Name = fmt.Sprintf("%s - Copy", example.Name)
+	example.ID = exampleIDWrapNew
+
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+	defer tx.Rollback()
+
+	// Copy example
+	err = c.iaes.CreateApiExample(ctx, example)
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+
+	// Copy headers
+	headers, err := c.hs.GetHeaderByExampleID(ctx, exampleIDWrap)
+	if err != nil && err != sexampleheader.ErrNoHeaderFound {
+		return idwrap.IDWrap{}, err
+	}
+	for _, header := range headers {
+		header.ID = idwrap.NewNow()
+		header.ExampleID = exampleIDWrapNew
+		if err := c.hs.CreateHeader(ctx, header); err != nil {
+			return idwrap.IDWrap{}, err
+		}
+	}
+
+	// Copy queries
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleIDWrap)
+	if err != nil && err != sexamplequery.ErrNoQueryFound {
+		return idwrap.IDWrap{}, err
+	}
+	for _, query := range queries {
+		query.ID = idwrap.NewNow()
+		query.ExampleID = exampleIDWrapNew
+		if err := c.qs.CreateExampleQuery(ctx, query); err != nil {
+			return idwrap.IDWrap{}, err
+		}
+	}
+
+	// Copy body based on type
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		bodyRaw, err := c.brs.GetBodyRawByExampleID(ctx, exampleIDWrap)
+		if err != nil && err != sbodyraw.ErrNoBodyRawFound {
+			return idwrap.IDWrap{}, err
+		}
+		if bodyRaw != nil {
+			bodyRaw.ID = idwrap.NewNow()
+			bodyRaw.ExampleID = exampleIDWrapNew
+			if err := c.brs.CreateBodyRaw(ctx, *bodyRaw); err != nil {
+				return idwrap.IDWrap{}, err
+			}
+		}
+
+	case mitemapiexample.BodyTypeForm:
+		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleIDWrap)
+		if err != nil && err != sbodyform.ErrNoBodyFormFound {
+			return idwrap.IDWrap{}, err
+		}
+		for _, form := range forms {
+			form.ID = idwrap.NewNow()
+			form.ExampleID = exampleIDWrapNew
+			if err := c.bfs.CreateBodyForm(ctx, &form); err != nil {
+				return idwrap.IDWrap{}, err
+			}
+		}
+
+	case mitemapiexample.BodyTypeUrlencoded:
+		urlEncoded, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleIDWrap)
+		if err != nil && err != sbodyurl.ErrNoBodyUrlEncodedFound {
+			return idwrap.IDWrap{}, err
+		}
+		for _, encoded := range urlEncoded {
+			encoded.ID = idwrap.NewNow()
+			encoded.ExampleID = exampleIDWrapNew
+			if err := c.bues.CreateBodyURLEncoded(ctx, &encoded); err != nil {
+				return idwrap.IDWrap{}, err
+			}
+		}
+	}
+
+	// Copy assertions
+	assertions, err := c.as.GetAssertByExampleID(ctx, exampleIDWrap)
+	if err != nil && err != sassert.ErrNoAssertFound {
+		return idwrap.IDWrap{}, err
+	}
+	for _, assertion := range assertions {
+		assertion.ID = idwrap.NewNow()
+		assertion.ExampleID = exampleIDWrapNew
+		if err := c.as.CreateAssert(ctx, assertion); err != nil {
+			return idwrap.IDWrap{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return idwrap.IDWrap{}, err
+	}
+
+	return exampleIDWrapNew, nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request[examplev1.ExampleRunRequest]) (*connect.Response[examplev1.ExampleRunResponse], error) {
@@ -818,6 +925,11 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		})
 	}
 
+	_, err = c.CopyExample(ctx, exampleUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to copy example"))
+	}
+
 	assertRespAny, err := anypb.New(&responseAssertChangeNormal)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -871,6 +983,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	rpcResponse.Header().Set("Cache-Control", "max-age=0")
 
 	return rpcResponse, nil
+}
+
+func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
 func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {
