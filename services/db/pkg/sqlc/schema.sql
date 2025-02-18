@@ -92,7 +92,7 @@ CREATE TABLE item_api (
   method TEXT NOT NULL,
 
   -- versioning
-  version_parent_id BLOB,
+  version_parent_id BLOB DEFAULT NULL,
 
   -- ordering
   prev BLOB,
@@ -119,7 +119,7 @@ CREATE TABLE item_api_example (
   name TEXT NOT NULL,
 
   -- versioning
-  version_parent_id BLOB,
+  version_parent_id BLOB DEFAULT NULL,
 
   -- ordering
   prev BLOB,
@@ -285,7 +285,7 @@ CREATE TABLE assertion_result (
 CREATE TABLE flow (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
-  parent_version_id BLOB,
+  parent_version_id BLOB DEFAULT NULL,
   name TEXT NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_version_id) REFERENCES flow (id) ON DELETE CASCADE

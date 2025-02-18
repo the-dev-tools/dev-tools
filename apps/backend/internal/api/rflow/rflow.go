@@ -146,7 +146,6 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	// TODO: add tag listing again
 
 	var tagIDPtr *idwrap.IDWrap
 	if len(req.Msg.TagId) > 0 {
@@ -164,7 +163,16 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 
 	var rpcFlows []*flowv1.FlowListItem
 
-	if tagIDPtr != nil {
+	if tagIDPtr == nil {
+		flow, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		fmt.Println("flow", flow)
+
+		rpcFlows = append(rpcFlows, tgeneric.MassConvert(flow, tflow.SeralizeModelToRPCItem)...)
+
+	} else {
 		rpcErr := permcheck.CheckPerm(rtag.CheckOwnerTag(ctx, c.ts, c.us, *tagIDPtr))
 		if rpcErr != nil {
 			return nil, rpcErr
@@ -185,14 +193,6 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 			rpcFlow := tflow.SeralizeModelToRPCItem(latestFlow)
 			rpcFlows = append(rpcFlows, rpcFlow)
 		}
-
-	} else {
-		flow, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		rpcFlows = append(rpcFlows, tgeneric.MassConvert(flow, tflow.SeralizeModelToRPCItem)...)
 	}
 
 	rpcResp := &flowv1.FlowListResponse{

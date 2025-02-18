@@ -3672,7 +3672,7 @@ FROM
   flow
 WHERE
   workspace_id = ? AND
-  parent_version_id = NULL
+  parent_version_id is NULL
 `
 
 func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Flow, error) {
