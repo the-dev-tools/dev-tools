@@ -63,6 +63,9 @@ func (bues BodyURLEncodedService) GetBodyURLEncoded(ctx context.Context, id idwr
 func (bues BodyURLEncodedService) GetBodyURLEncodedByExampleID(ctx context.Context, id idwrap.IDWrap) ([]mbodyurl.BodyURLEncoded, error) {
 	bodyURLEncoded, err := bues.queries.GetBodyUrlEncodedsByExampleID(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoBodyUrlEncodedFound
+		}
 		return nil, err
 	}
 	return tgeneric.MassConvert(bodyURLEncoded, DeserializeGenToModel), nil

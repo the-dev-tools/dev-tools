@@ -4035,8 +4035,9 @@ SELECT
 FROM
   item_api_example
 WHERE
-  item_api_id = ?
-  AND is_default = false
+  item_api_id = ? AND
+  is_default is false AND
+  version_parent_id is false
 `
 
 func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWrap) ([]ItemApiExample, error) {
@@ -4283,7 +4284,8 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ?
+  collection_id = ? AND
+  version_parent_id is NULL
 `
 
 func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApi, error) {

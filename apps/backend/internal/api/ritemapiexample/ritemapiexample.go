@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"mime/multipart"
 	"net/url"
 	"slices"
@@ -442,32 +443,28 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	return connect.NewResponse(&examplev1.ExampleDuplicateResponse{}), nil
 }
 
-func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwrap.IDWrap) (idwrap.IDWrap, error) {
+func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, newItemApi idwrap.IDWrap, example mitemapiexample.ItemApiExample) (idwrap.IDWrap, error) {
 	// Get original example
-	example, err := c.iaes.GetApiExample(ctx, exampleIDWrap)
-	if err != nil {
-		return idwrap.IDWrap{}, err
-	}
+
+	slog.Info("CopyExample", "example", example)
 
 	// Create new example ID
+	oldExampleID := example.ID
 	exampleIDWrapNew := idwrap.NewNow()
 	example.Name = fmt.Sprintf("%s - Copy", example.Name)
 	example.ID = exampleIDWrapNew
-
-	tx, err := c.DB.Begin()
-	if err != nil {
-		return idwrap.IDWrap{}, err
-	}
-	defer tx.Rollback()
+	example.ItemApiID = newItemApi
 
 	// Copy example
-	err = c.iaes.CreateApiExample(ctx, example)
+	err := c.iaes.CreateApiExample(ctx, &example)
 	if err != nil {
 		return idwrap.IDWrap{}, err
 	}
 
+	slog.Info("CopyExample", "example", example.ID)
+
 	// Copy headers
-	headers, err := c.hs.GetHeaderByExampleID(ctx, exampleIDWrap)
+	headers, err := c.hs.GetHeaderByExampleID(ctx, oldExampleID)
 	if err != nil && err != sexampleheader.ErrNoHeaderFound {
 		return idwrap.IDWrap{}, err
 	}
@@ -479,8 +476,10 @@ func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwra
 		}
 	}
 
+	slog.Info("CopyExample", "headers", headers)
+
 	// Copy queries
-	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, exampleIDWrap)
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, oldExampleID)
 	if err != nil && err != sexamplequery.ErrNoQueryFound {
 		return idwrap.IDWrap{}, err
 	}
@@ -492,10 +491,12 @@ func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwra
 		}
 	}
 
+	slog.Info("CopyExample", "queries", queries)
+
 	// Copy body based on type
 	switch example.BodyType {
 	case mitemapiexample.BodyTypeRaw:
-		bodyRaw, err := c.brs.GetBodyRawByExampleID(ctx, exampleIDWrap)
+		bodyRaw, err := c.brs.GetBodyRawByExampleID(ctx, oldExampleID)
 		if err != nil && err != sbodyraw.ErrNoBodyRawFound {
 			return idwrap.IDWrap{}, err
 		}
@@ -508,7 +509,7 @@ func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwra
 		}
 
 	case mitemapiexample.BodyTypeForm:
-		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleIDWrap)
+		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, oldExampleID)
 		if err != nil && err != sbodyform.ErrNoBodyFormFound {
 			return idwrap.IDWrap{}, err
 		}
@@ -521,7 +522,7 @@ func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwra
 		}
 
 	case mitemapiexample.BodyTypeUrlencoded:
-		urlEncoded, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleIDWrap)
+		urlEncoded, err := c.bues.GetBodyURLEncodedByExampleID(ctx, oldExampleID)
 		if err != nil && err != sbodyurl.ErrNoBodyUrlEncodedFound {
 			return idwrap.IDWrap{}, err
 		}
@@ -534,8 +535,10 @@ func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwra
 		}
 	}
 
+	slog.Info("CopyExample", "body", example.BodyType)
+
 	// Copy assertions
-	assertions, err := c.as.GetAssertByExampleID(ctx, exampleIDWrap)
+	assertions, err := c.as.GetAssertByExampleID(ctx, oldExampleID)
 	if err != nil && err != sassert.ErrNoAssertFound {
 		return idwrap.IDWrap{}, err
 	}
@@ -545,10 +548,6 @@ func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, exampleIDWrap idwra
 		if err := c.as.CreateAssert(ctx, assertion); err != nil {
 			return idwrap.IDWrap{}, err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return idwrap.IDWrap{}, err
 	}
 
 	return exampleIDWrapNew, nil
@@ -925,9 +924,27 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		})
 	}
 
-	_, err = c.CopyExample(ctx, exampleUlid)
+	// Copy Full Item Api/Endpoint
+	// TODO: make this transaction
+	endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to copy example"))
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	endpoint.VersionParentID = &endpoint.ID
+	endpointNewID := idwrap.NewNow()
+	endpoint.ID = endpointNewID
+
+	err = c.ias.CreateItemApi(ctx, endpoint)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to copy endpoint"))
+	}
+
+	example.VersionParentID = &example.ID
+
+	_, err = c.CopyExample(ctx, endpointNewID, *example)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 	}
 
 	assertRespAny, err := anypb.New(&responseAssertChangeNormal)
@@ -986,7 +1003,38 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 }
 
 func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	versionParentID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
+	}
+
+	examples, err := c.iaes.GetApiExampleByVersionParentID(ctx, versionParentID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	exampleLen := len(examples)
+
+	items := make([]*examplev1.ExampleVersionsItem, exampleLen)
+
+	for i, example := range examples {
+		a := &examplev1.ExampleVersionsItem{}
+		items[i] = a
+
+		a.EndpointId = example.ItemApiID.Bytes()
+		a.ExampleId = example.ID.Bytes()
+		resp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		if err != nil {
+			continue
+		}
+		a.LastResponseId = resp.ID.Bytes()
+	}
+
+	resp := &examplev1.ExampleVersionsResponse{
+		Items: items,
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {

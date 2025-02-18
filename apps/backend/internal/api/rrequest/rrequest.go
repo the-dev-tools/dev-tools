@@ -87,6 +87,11 @@ func (c RequestRPC) QueryList(ctx context.Context, req *connect.Request[requestv
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	rpcErr := permcheck.CheckPerm(
+		ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 	queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

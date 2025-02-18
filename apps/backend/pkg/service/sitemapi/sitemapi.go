@@ -16,14 +16,15 @@ type ItemApiService struct {
 
 func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
 	return gen.ItemApi{
-		ID:           item.ID,
-		CollectionID: item.CollectionID,
-		FolderID:     item.FolderID,
-		Name:         item.Name,
-		Url:          item.Url,
-		Method:       item.Method,
-		Prev:         item.Prev,
-		Next:         item.Next,
+		ID:              item.ID,
+		CollectionID:    item.CollectionID,
+		FolderID:        item.FolderID,
+		Name:            item.Name,
+		Url:             item.Url,
+		Method:          item.Method,
+		VersionParentID: item.VersionParentID,
+		Prev:            item.Prev,
+		Next:            item.Next,
 	}
 }
 

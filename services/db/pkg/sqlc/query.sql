@@ -57,7 +57,8 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ?;
+  collection_id = ? AND
+  version_parent_id is NULL;
 
 -- name: GetItemApiOwnerID :one
 SELECT
@@ -169,8 +170,9 @@ SELECT
 FROM
   item_api_example
 WHERE
-  item_api_id = ?
-  AND is_default = false;
+  item_api_id = ? AND
+  is_default is false AND
+  version_parent_id is false;
 
 -- name: GetItemApiExampleDefault :one
 SELECT

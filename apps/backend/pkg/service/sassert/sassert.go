@@ -62,6 +62,9 @@ func (as AssertService) GetAssert(ctx context.Context, id idwrap.IDWrap) (*masse
 func (as AssertService) GetAssertByExampleID(ctx context.Context, id idwrap.IDWrap) ([]massert.Assert, error) {
 	asserts, err := as.queries.GetAssertsByExampleID(ctx, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoAssertFound
+		}
 		return nil, err
 	}
 	return tgeneric.MassConvert(asserts, ConvertAssertDBToModel), nil
