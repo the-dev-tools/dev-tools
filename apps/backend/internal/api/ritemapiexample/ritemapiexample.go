@@ -1113,6 +1113,11 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
+	rpcErr := permcheck.CheckPerm(CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, versionParentID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
 	examples, err := c.iaes.GetApiExampleByVersionParentID(ctx, versionParentID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

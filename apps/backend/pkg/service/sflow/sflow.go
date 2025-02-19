@@ -63,6 +63,14 @@ func (s *FlowService) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idw
 	return tgeneric.MassConvert(item, ConvertDBToModel), nil
 }
 
+func (s *FlowService) GetFlowsByVersionParentID(ctx context.Context, versionParentID idwrap.IDWrap) ([]mflow.Flow, error) {
+	item, err := s.queries.GetFlowsByVersionParentID(ctx, &versionParentID)
+	if err != nil {
+		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
+	}
+	return tgeneric.MassConvert(item, ConvertDBToModel), nil
+}
+
 func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 	arg := ConvertModelToDB(item)
 	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{

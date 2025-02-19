@@ -339,6 +339,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowTagsByTagIDStmt, err = db.PrepareContext(ctx, getFlowTagsByTagID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowTagsByTagID: %w", err)
 	}
+	if q.getFlowsByVersionParentIDStmt, err = db.PrepareContext(ctx, getFlowsByVersionParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowsByVersionParentID: %w", err)
+	}
 	if q.getFlowsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFlowsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByWorkspaceID: %w", err)
 	}
@@ -1091,6 +1094,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowTagsByTagIDStmt: %w", cerr)
 		}
 	}
+	if q.getFlowsByVersionParentIDStmt != nil {
+		if cerr := q.getFlowsByVersionParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowsByVersionParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getFlowsByWorkspaceIDStmt != nil {
 		if cerr := q.getFlowsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowsByWorkspaceIDStmt: %w", cerr)
@@ -1605,6 +1613,7 @@ type Queries struct {
 	getFlowTagStmt                                        *sql.Stmt
 	getFlowTagsByFlowIDStmt                               *sql.Stmt
 	getFlowTagsByTagIDStmt                                *sql.Stmt
+	getFlowsByVersionParentIDStmt                         *sql.Stmt
 	getFlowsByWorkspaceIDStmt                             *sql.Stmt
 	getHeaderStmt                                         *sql.Stmt
 	getHeadersByExampleIDStmt                             *sql.Stmt
@@ -1790,6 +1799,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowTagStmt:                                   q.getFlowTagStmt,
 		getFlowTagsByFlowIDStmt:                          q.getFlowTagsByFlowIDStmt,
 		getFlowTagsByTagIDStmt:                           q.getFlowTagsByTagIDStmt,
+		getFlowsByVersionParentIDStmt:                    q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                        q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                                    q.getHeaderStmt,
 		getHeadersByExampleIDStmt:                        q.getHeadersByExampleIDStmt,

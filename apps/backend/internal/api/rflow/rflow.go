@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"sort"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rworkspace"
@@ -590,11 +591,266 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
+	flow.VersionParentID = &flow.ID
+
+	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	res.Flow.Name = flow.Name + " - Run"
+	err = c.CopyFlow(ctx, res)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	return nil
+}
+
+type CopyFlowResult struct {
+	Flow  mflow.Flow
+	Nodes []mnnode.MNode
+	Edges []edge.Edge
+
+	// Specific node types
+	RequestNodes []mnrequest.MNRequest
+	ForNodes     []mnfor.MNFor
+	ForEachNodes []mnforeach.MNForEach
+	IfNodes      []mnif.MNIF
+	NoopNodes    []mnnoop.NoopNode
+}
+
+func (c *FlowServiceRPC) PrepareCopyFlow(ctx context.Context, workspaceID idwrap.IDWrap, originalFlow mflow.Flow) (CopyFlowResult, error) {
+	result := CopyFlowResult{}
+
+	newFlowID := idwrap.NewNow()
+	result.Flow = mflow.Flow{
+		ID:          newFlowID,
+		WorkspaceID: workspaceID,
+		Name:        originalFlow.Name + " - Copy",
+	}
+
+	nodes, err := c.ns.GetNodesByFlowID(ctx, originalFlow.ID)
+	if err != nil {
+		return result, fmt.Errorf("get nodes: %w", err)
+	}
+
+	edges, err := c.fes.GetEdgesByFlowID(ctx, originalFlow.ID)
+	if err != nil {
+		return result, fmt.Errorf("get edges: %w", err)
+	}
+
+	oldToNewIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+
+	for _, node := range nodes {
+		newNodeID := idwrap.NewNow()
+		oldToNewIDMap[node.ID] = newNodeID
+
+		newNode := node
+		newNode.ID = newNodeID
+		newNode.FlowID = newFlowID
+		result.Nodes = append(result.Nodes, newNode)
+
+		// Get and copy specific node data based on type
+		switch node.NodeKind {
+		case mnnode.NODE_KIND_REQUEST:
+			rn, err := c.rns.GetNodeRequest(ctx, node.ID)
+			if err != nil {
+				return result, fmt.Errorf("get request node: %w", err)
+			}
+			newRN := *rn
+			newRN.FlowNodeID = newNodeID
+			result.RequestNodes = append(result.RequestNodes, newRN)
+
+		case mnnode.NODE_KIND_FOR:
+			fn, err := c.fns.GetNodeFor(ctx, node.ID)
+			if err != nil {
+				return result, fmt.Errorf("get for node: %w", err)
+			}
+			newFN := *fn
+			newFN.FlowNodeID = newNodeID
+			result.ForNodes = append(result.ForNodes, newFN)
+
+		case mnnode.NODE_KIND_FOR_EACH:
+			fen, err := c.fens.GetNodeForEach(ctx, node.ID)
+			if err != nil {
+				return result, fmt.Errorf("get foreach node: %w", err)
+			}
+			newFEN := *fen
+			newFEN.FlowNodeID = newNodeID
+			result.ForEachNodes = append(result.ForEachNodes, newFEN)
+
+		case mnnode.NODE_KIND_CONDITION:
+			ifn, err := c.ins.GetNodeIf(ctx, node.ID)
+			if err != nil {
+				return result, fmt.Errorf("get if node: %w", err)
+			}
+			newIFN := *ifn
+			newIFN.FlowNodeID = newNodeID
+			result.IfNodes = append(result.IfNodes, newIFN)
+
+		case mnnode.NODE_KIND_NO_OP:
+			nn, err := c.sns.GetNodeNoop(ctx, node.ID)
+			if err != nil {
+				return result, fmt.Errorf("get noop node: %w", err)
+			}
+			newNN := *nn
+			newNN.FlowNodeID = newNodeID
+			result.NoopNodes = append(result.NoopNodes, newNN)
+		}
+	}
+
+	// Copy edges with new node IDs
+	for _, edge := range edges {
+		newEdge := edge
+		newEdge.ID = idwrap.NewNow()
+		newEdge.FlowID = newFlowID
+		newEdge.SourceID = oldToNewIDMap[edge.SourceID]
+		newEdge.TargetID = oldToNewIDMap[edge.TargetID]
+		result.Edges = append(result.Edges, newEdge)
+	}
+
+	return result, nil
+}
+
+func (c *FlowServiceRPC) CopyFlow(ctx context.Context, copyData CopyFlowResult) error {
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Create flow
+	txFlow, err := sflow.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create flow service: %w", err)
+	}
+	err = txFlow.CreateFlow(ctx, copyData.Flow)
+	if err != nil {
+		return fmt.Errorf("create flow: %w", err)
+	}
+
+	// Create nodes
+	txNode, err := snode.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create node service: %w", err)
+	}
+	for _, node := range copyData.Nodes {
+		err = txNode.CreateNode(ctx, node)
+		if err != nil {
+			return fmt.Errorf("create node: %w", err)
+		}
+	}
+
+	// Create specific node data
+	txRequestNode, err := snoderequest.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create request node service: %w", err)
+	}
+	for _, rn := range copyData.RequestNodes {
+		err = txRequestNode.CreateNodeRequest(ctx, rn)
+		if err != nil {
+			return fmt.Errorf("create request node: %w", err)
+		}
+	}
+
+	// Similar for other node types...
+	txForNode, err := snodefor.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create for node service: %w", err)
+	}
+	for _, fn := range copyData.ForNodes {
+		err = txForNode.CreateNodeFor(ctx, fn)
+		if err != nil {
+			return fmt.Errorf("create for node: %w", err)
+		}
+	}
+
+	txForEachNode, err := snodeforeach.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create foreach node service: %w", err)
+	}
+	for _, fen := range copyData.ForEachNodes {
+		err = txForEachNode.CreateNodeForEach(ctx, fen)
+		if err != nil {
+			return fmt.Errorf("create foreach node: %w", err)
+		}
+	}
+
+	txIfNode, err := snodeif.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create if node service: %w", err)
+	}
+	for _, ifn := range copyData.IfNodes {
+		err = txIfNode.CreateNodeIf(ctx, ifn)
+		if err != nil {
+			return fmt.Errorf("create if node: %w", err)
+		}
+	}
+
+	txNoopNode, err := snodenoop.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create noop node service: %w", err)
+	}
+	for _, nn := range copyData.NoopNodes {
+		err = txNoopNode.CreateNodeNoop(ctx, nn)
+		if err != nil {
+			return fmt.Errorf("create noop node: %w", err)
+		}
+	}
+
+	// Create edges
+	txEdge, err := sedge.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create edge service: %w", err)
+	}
+	for _, edge := range copyData.Edges {
+		err = txEdge.CreateEdge(ctx, edge)
+		if err != nil {
+			return fmt.Errorf("create edge: %w", err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
 	return nil
 }
 
 func (c *FlowServiceRPC) FlowVersions(ctx context.Context, req *connect.Request[flowv1.FlowVersionsRequest]) (*connect.Response[flowv1.FlowVersionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	flows, err := c.fs.GetFlowsByVersionParentID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	translateFunc := func(flow mflow.Flow) *flowv1.FlowVersionsItem {
+		return &flowv1.FlowVersionsItem{
+			FlowId: flow.ID.Bytes(),
+			Name:   flow.Name,
+		}
+	}
+	translatedFlows := tgeneric.MassConvert(flows, translateFunc)
+	resp := &flowv1.FlowVersionsResponse{
+		Items: translatedFlows,
+	}
+
+	sort.Slice(translatedFlows, func(i, j int) bool {
+		return bytes.Compare(translatedFlows[i].FlowId, translatedFlows[j].FlowId) > 0
+	})
+
+	return connect.NewResponse(resp), nil
 }
 
 func CheckOwnerFlow(ctx context.Context, fs sflow.FlowService, us suser.UserService, flowID idwrap.IDWrap) (bool, error) {

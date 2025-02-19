@@ -3643,6 +3643,46 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 	return items, nil
 }
 
+const getFlowsByVersionParentID = `-- name: GetFlowsByVersionParentID :many
+SELECT
+  id,
+  workspace_id,
+  version_parent_id,
+  name
+FROM
+  flow
+WHERE
+  version_parent_id is ?
+`
+
+func (q *Queries) GetFlowsByVersionParentID(ctx context.Context, versionParentID *idwrap.IDWrap) ([]Flow, error) {
+	rows, err := q.query(ctx, q.getFlowsByVersionParentIDStmt, getFlowsByVersionParentID, versionParentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Flow{}
+	for rows.Next() {
+		var i Flow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.VersionParentID,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlowsByWorkspaceID = `-- name: GetFlowsByWorkspaceID :many
 SELECT
   id,

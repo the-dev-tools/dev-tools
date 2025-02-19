@@ -1507,6 +1507,16 @@ WHERE
   workspace_id = ? AND
   version_parent_id is NULL;
 
+-- name: GetFlowsByVersionParentID :many
+SELECT
+  id,
+  workspace_id,
+  version_parent_id,
+  name
+FROM
+  flow
+WHERE
+  version_parent_id is ?;
 
 -- name: CreateFlow :exec
 INSERT INTO
