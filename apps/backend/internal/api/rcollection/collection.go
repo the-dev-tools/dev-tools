@@ -430,8 +430,6 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	fmt.Println("resolved.RawBodies", len(resolved.RawBodies))
-
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolved.RawBodies)
 	if err != nil {
 		fmt.Println("err", err)

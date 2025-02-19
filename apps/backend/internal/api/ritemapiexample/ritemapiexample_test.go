@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/pkg/dbtime"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/service/sassert"
@@ -432,5 +433,156 @@ func TestDeleteExampleApi(t *testing.T) {
 	}
 	if example != nil {
 		t.Errorf("expected nil, got %v", example)
+	}
+}
+
+func TestPrepareCopyExample(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	ras := sresultapi.New(queries)
+	cs := scollection.New(queries)
+	us := suser.New(queries)
+	hs := sexampleheader.New(queries)
+	qs := sexamplequery.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+	brs := sbodyraw.New(queries)
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	es := senv.New(queries)
+	vs := svar.New(queries)
+	as := sassert.New(queries)
+	ars := sassertres.New(queries)
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	CollectionID := idwrap.NewNow()
+	UserID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, UserID, CollectionID)
+
+	item := &mitemapi.ItemApi{
+		ID:           idwrap.NewNow(),
+		Name:         "test",
+		Url:          "test",
+		Method:       "GET",
+		CollectionID: CollectionID,
+		FolderID:     nil,
+	}
+
+	err := ias.CreateItemApi(ctx, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create original example
+	originalExample := &mitemapiexample.ItemApiExample{
+		ID:           idwrap.NewNow(),
+		ItemApiID:    item.ID,
+		CollectionID: CollectionID,
+		Name:         "Original Example",
+		Updated:      dbtime.DBNow(),
+		IsDefault:    true,
+		BodyType:     mitemapiexample.BodyTypeRaw,
+	}
+
+	err = iaes.CreateApiExample(ctx, originalExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add a header to original example
+	header := mexampleheader.Header{
+		ID:        idwrap.NewNow(),
+		ExampleID: originalExample.ID,
+		HeaderKey: "TestHeader",
+		Value:     "TestValue",
+	}
+	err = hs.CreateHeader(ctx, header)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
+		cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+
+	// Create new item for copy
+	newItem := &mitemapi.ItemApi{
+		ID:           idwrap.NewNow(),
+		Name:         "new test",
+		Url:          "test",
+		Method:       "GET",
+		CollectionID: CollectionID,
+		FolderID:     nil,
+	}
+
+	err = ias.CreateItemApi(ctx, newItem)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test PrepareCopyExample
+	result, err := rpcExample.PrepareCopyExample(ctx, newItem.ID, *originalExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify copied example
+	if result.Example.Name != originalExample.Name+" - Copy" {
+		t.Errorf("expected name %s, got %s", originalExample.Name+" - Copy", result.Example.Name)
+	}
+
+	if result.Example.ItemApiID != newItem.ID {
+		t.Error("ItemApiID not properly set")
+	}
+
+	if result.Example.CollectionID != CollectionID {
+		t.Error("CollectionID not properly set")
+	}
+
+	if result.Example.BodyType != originalExample.BodyType {
+		t.Error("BodyType not properly copied")
+	}
+
+	// Verify copied headers
+	if len(result.Headers) != 1 {
+		t.Fatalf("expected 1 header, got %d", len(result.Headers))
+	}
+
+	copiedHeader := result.Headers[0]
+	if copiedHeader.HeaderKey != header.HeaderKey {
+		t.Errorf("expected header key %s, got %s", header.HeaderKey, copiedHeader.HeaderKey)
+	}
+
+	if copiedHeader.Value != header.Value {
+		t.Errorf("expected header value %s, got %s", header.Value, copiedHeader.Value)
+	}
+
+	if copiedHeader.ID == header.ID {
+		t.Error("header ID should be different")
+	}
+
+	// Verify header has correct ExampleID
+	if copiedHeader.ExampleID != result.Example.ID {
+		t.Errorf("header ExampleID %s does not match new example ID %s",
+			copiedHeader.ExampleID, result.Example.ID)
+	}
+
+	// Verify old header's ExampleID still points to original example
+	if header.ExampleID != originalExample.ID {
+		t.Error("original header's ExampleID was modified")
+	}
+
+	// Verify new header's ExampleID matches the new example's ID
+	if copiedHeader.ExampleID != result.Example.ID {
+		t.Errorf("new header's ExampleID %s does not match new example ID %s",
+			copiedHeader.ExampleID, result.Example.ID)
 	}
 }

@@ -84,7 +84,6 @@ func CheckStringHasAnyVarKey(raw string) bool {
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
-		fmt.Println("raw", raw)
 		startIndex := strings.Index(raw, mvar.Prefix)
 		if startIndex == -1 {
 			result += raw

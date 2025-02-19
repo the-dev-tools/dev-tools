@@ -71,6 +71,18 @@ func (ars AssertResultService) CreateAssertResult(ctx context.Context, assertRes
 	})
 }
 
+// TODO: make it a query
+func (ars AssertResultService) CreateAssertResultBulk(ctx context.Context, assertResult []massertres.AssertResult) error {
+	var err error
+	for _, assertResult := range assertResult {
+		err = ars.CreateAssertResult(ctx, assertResult)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ars AssertResultService) UpdateAssertResult(ctx context.Context, assertResult massertres.AssertResult) error {
 	assertResultDB := ConvertAssertResultModelToDB(assertResult)
 	return ars.queries.UpdateAssertResult(ctx, gen.UpdateAssertResultParams{

@@ -2,7 +2,6 @@ package collectionitem_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"the-dev-tools/backend/internal/api/collectionitem"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
@@ -82,7 +81,6 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 			CollectionId: CollectionID.Bytes(),
 			FolderId:     nil,
 		}
-		fmt.Println(reqData)
 		req := connect.NewRequest(reqData)
 
 		resp, err := serviceRPC.CollectionItemList(authedCtx, req)

@@ -13,6 +13,8 @@ type ExampleRespHeaderService struct {
 	queries *gen.Queries
 }
 
+var ErrNoRespHeaderFound error = sql.ErrNoRows
+
 func New(queries *gen.Queries) ExampleRespHeaderService {
 	return ExampleRespHeaderService{queries: queries}
 }

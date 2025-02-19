@@ -6,10 +6,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"mime/multipart"
 	"net/url"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"the-dev-tools/backend/internal/api"
@@ -20,9 +20,14 @@ import (
 	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
+	"the-dev-tools/backend/pkg/model/mbodyform"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
+	"the-dev-tools/backend/pkg/model/mbodyurl"
 	"the-dev-tools/backend/pkg/model/menv"
+	"the-dev-tools/backend/pkg/model/mexampleheader"
+	"the-dev-tools/backend/pkg/model/mexamplequery"
 	"the-dev-tools/backend/pkg/model/mexampleresp"
 	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
@@ -432,125 +437,16 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	exampleIDWrapNew := idwrap.NewNow()
-	example.Name = fmt.Sprintf("%s - Copy", example.Name)
-	example.ID = exampleIDWrapNew
-	err = c.iaes.CreateApiExample(ctx, example)
+	res, err := c.PrepareCopyExample(ctx, example.ItemApiID, *example)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = c.CreateCopyExample(ctx, res)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&examplev1.ExampleDuplicateResponse{}), nil
-}
-
-func (c *ItemAPIExampleRPC) CopyExample(ctx context.Context, newItemApi idwrap.IDWrap, example mitemapiexample.ItemApiExample) (idwrap.IDWrap, error) {
-	// Get original example
-
-	slog.Info("CopyExample", "example", example)
-
-	// Create new example ID
-	oldExampleID := example.ID
-	exampleIDWrapNew := idwrap.NewNow()
-	example.Name = fmt.Sprintf("%s - Copy", example.Name)
-	example.ID = exampleIDWrapNew
-	example.ItemApiID = newItemApi
-
-	// Copy example
-	err := c.iaes.CreateApiExample(ctx, &example)
-	if err != nil {
-		return idwrap.IDWrap{}, err
-	}
-
-	slog.Info("CopyExample", "example", example.ID)
-
-	// Copy headers
-	headers, err := c.hs.GetHeaderByExampleID(ctx, oldExampleID)
-	if err != nil && err != sexampleheader.ErrNoHeaderFound {
-		return idwrap.IDWrap{}, err
-	}
-	for _, header := range headers {
-		header.ID = idwrap.NewNow()
-		header.ExampleID = exampleIDWrapNew
-		if err := c.hs.CreateHeader(ctx, header); err != nil {
-			return idwrap.IDWrap{}, err
-		}
-	}
-
-	slog.Info("CopyExample", "headers", headers)
-
-	// Copy queries
-	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, oldExampleID)
-	if err != nil && err != sexamplequery.ErrNoQueryFound {
-		return idwrap.IDWrap{}, err
-	}
-	for _, query := range queries {
-		query.ID = idwrap.NewNow()
-		query.ExampleID = exampleIDWrapNew
-		if err := c.qs.CreateExampleQuery(ctx, query); err != nil {
-			return idwrap.IDWrap{}, err
-		}
-	}
-
-	slog.Info("CopyExample", "queries", queries)
-
-	// Copy body based on type
-	switch example.BodyType {
-	case mitemapiexample.BodyTypeRaw:
-		bodyRaw, err := c.brs.GetBodyRawByExampleID(ctx, oldExampleID)
-		if err != nil && err != sbodyraw.ErrNoBodyRawFound {
-			return idwrap.IDWrap{}, err
-		}
-		if bodyRaw != nil {
-			bodyRaw.ID = idwrap.NewNow()
-			bodyRaw.ExampleID = exampleIDWrapNew
-			if err := c.brs.CreateBodyRaw(ctx, *bodyRaw); err != nil {
-				return idwrap.IDWrap{}, err
-			}
-		}
-
-	case mitemapiexample.BodyTypeForm:
-		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, oldExampleID)
-		if err != nil && err != sbodyform.ErrNoBodyFormFound {
-			return idwrap.IDWrap{}, err
-		}
-		for _, form := range forms {
-			form.ID = idwrap.NewNow()
-			form.ExampleID = exampleIDWrapNew
-			if err := c.bfs.CreateBodyForm(ctx, &form); err != nil {
-				return idwrap.IDWrap{}, err
-			}
-		}
-
-	case mitemapiexample.BodyTypeUrlencoded:
-		urlEncoded, err := c.bues.GetBodyURLEncodedByExampleID(ctx, oldExampleID)
-		if err != nil && err != sbodyurl.ErrNoBodyUrlEncodedFound {
-			return idwrap.IDWrap{}, err
-		}
-		for _, encoded := range urlEncoded {
-			encoded.ID = idwrap.NewNow()
-			encoded.ExampleID = exampleIDWrapNew
-			if err := c.bues.CreateBodyURLEncoded(ctx, &encoded); err != nil {
-				return idwrap.IDWrap{}, err
-			}
-		}
-	}
-
-	slog.Info("CopyExample", "body", example.BodyType)
-
-	// Copy assertions
-	assertions, err := c.as.GetAssertByExampleID(ctx, oldExampleID)
-	if err != nil && err != sassert.ErrNoAssertFound {
-		return idwrap.IDWrap{}, err
-	}
-	for _, assertion := range assertions {
-		assertion.ID = idwrap.NewNow()
-		assertion.ExampleID = exampleIDWrapNew
-		if err := c.as.CreateAssert(ctx, assertion); err != nil {
-			return idwrap.IDWrap{}, err
-		}
-	}
-
-	return exampleIDWrapNew, nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request[examplev1.ExampleRunRequest]) (*connect.Response[examplev1.ExampleRunResponse], error) {
@@ -942,7 +838,12 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 	example.VersionParentID = &example.ID
 
-	_, err = c.CopyExample(ctx, endpointNewID, *example)
+	res, err := c.PrepareCopyExample(ctx, endpointNewID, *example)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
+	}
+
+	err = c.CreateCopyExample(ctx, res)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 	}
@@ -1002,6 +903,210 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	return rpcResponse, nil
 }
 
+type CopyExampleResult struct {
+	Example        mitemapiexample.ItemApiExample
+	Headers        []mexampleheader.Header
+	Queries        []mexamplequery.Query
+	BodyRaw        *mbodyraw.ExampleBodyRaw
+	BodyForms      []mbodyform.BodyForm
+	BodyURLEncoded []mbodyurl.BodyURLEncoded
+	Assertions     []massert.Assert
+
+	// Resp
+	Resp        mexampleresp.ExampleResp
+	RespHeaders []mexamplerespheader.ExampleRespHeader
+	RespAsserts []massertres.AssertResult
+}
+
+func (c *ItemAPIExampleRPC) PrepareCopyExample(ctx context.Context, itemApi idwrap.IDWrap, example mitemapiexample.ItemApiExample) (CopyExampleResult, error) {
+	result := CopyExampleResult{}
+	example.IsDefault = false
+
+	// Prepare new example
+	exampleIDWrapNew := idwrap.NewNow()
+	newExample := example
+	newExample.Name = fmt.Sprintf("%s - Copy", example.Name)
+	newExample.ID = exampleIDWrapNew
+	newExample.ItemApiID = itemApi
+	result.Example = newExample
+
+	// Prepare headers copy
+	headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
+	if err != nil && err != sexampleheader.ErrNoHeaderFound {
+		return result, err
+	}
+	for _, header := range headers {
+		newHeader := header
+		newHeader.ID = idwrap.NewNow()
+		newHeader.ExampleID = exampleIDWrapNew
+		result.Headers = append(result.Headers, newHeader)
+	}
+
+	// Prepare queries copy
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
+	if err != nil && err != sexamplequery.ErrNoQueryFound {
+		return result, err
+	}
+	for _, query := range queries {
+		newQuery := query
+		newQuery.ID = idwrap.NewNow()
+		newQuery.ExampleID = exampleIDWrapNew
+		result.Queries = append(result.Queries, newQuery)
+	}
+
+	// Prepare body copy based on type
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		bodyRaw, err := c.brs.GetBodyRawByExampleID(ctx, example.ID)
+		if err != nil && err != sbodyraw.ErrNoBodyRawFound {
+			return result, err
+		}
+		if bodyRaw != nil {
+			newBodyRaw := *bodyRaw
+			newBodyRaw.ID = idwrap.NewNow()
+			newBodyRaw.ExampleID = exampleIDWrapNew
+			result.BodyRaw = &newBodyRaw
+		}
+
+	case mitemapiexample.BodyTypeForm:
+		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, example.ID)
+		if err != nil && err != sbodyform.ErrNoBodyFormFound {
+			return result, err
+		}
+		for _, form := range forms {
+			newForm := form
+			newForm.ID = idwrap.NewNow()
+			newForm.ExampleID = exampleIDWrapNew
+			result.BodyForms = append(result.BodyForms, newForm)
+		}
+
+	case mitemapiexample.BodyTypeUrlencoded:
+		urlEncoded, err := c.bues.GetBodyURLEncodedByExampleID(ctx, example.ID)
+		if err != nil && err != sbodyurl.ErrNoBodyUrlEncodedFound {
+			return result, err
+		}
+		for _, encoded := range urlEncoded {
+			newEncoded := encoded
+			newEncoded.ID = idwrap.NewNow()
+			newEncoded.ExampleID = exampleIDWrapNew
+			result.BodyURLEncoded = append(result.BodyURLEncoded, newEncoded)
+		}
+	}
+
+	// Prepare assertions copy
+	assertions, err := c.as.GetAssertByExampleID(ctx, example.ID)
+	if err != nil && err != sassert.ErrNoAssertFound {
+		return result, err
+	}
+	for i := range assertions {
+		assertions[i].ID = idwrap.NewNow()
+		assertions[i].ExampleID = exampleIDWrapNew
+	}
+	result.Assertions = assertions
+
+	resp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+	if err != nil && err != sexampleresp.ErrNoRespFound {
+		return result, err
+	}
+	resp.ExampleID = exampleIDWrapNew
+	oldRespID := resp.ID
+	resp.ID = idwrap.NewNow()
+	result.Resp = *resp
+
+	respHeaders, err := c.erhs.GetHeaderByRespID(ctx, oldRespID)
+	if err != nil && err != sexamplerespheader.ErrNoRespHeaderFound {
+		return result, err
+	}
+	for i := range respHeaders {
+		respHeaders[i].ID = idwrap.NewNow()
+		respHeaders[i].ExampleRespID = resp.ID
+	}
+
+	result.RespHeaders = respHeaders
+
+	assertResp, err := c.ars.GetAssertResultsByResponseID(ctx, oldRespID)
+	if err != nil {
+		return result, err
+	}
+
+	for i := range assertResp {
+		assertResp[i].ID = idwrap.NewNow()
+		assertResp[i].ResponseID = resp.ID
+	}
+
+	result.RespAsserts = assertResp
+
+	return result, nil
+}
+
+func (c *ItemAPIExampleRPC) CreateCopyExample(ctx context.Context, result CopyExampleResult) error {
+	// Create the main example
+	err := c.iaes.CreateApiExample(ctx, &result.Example)
+	if err != nil {
+		return fmt.Errorf("failed to create example: %w", err)
+	}
+
+	// Create headers
+	err = c.hs.CreateBulkHeader(ctx, result.Headers)
+	if err != nil {
+		return fmt.Errorf("failed to create header: %w", err)
+	}
+
+	// Create queries
+	err = c.qs.CreateBulkQuery(ctx, result.Queries)
+	if err != nil {
+		return fmt.Errorf("failed to create query: %w", err)
+	}
+
+	// Create body based on type
+	switch result.Example.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		if result.BodyRaw != nil {
+			err = c.brs.CreateBodyRaw(ctx, *result.BodyRaw)
+			if err != nil {
+				return fmt.Errorf("failed to create body raw: %w", err)
+			}
+		}
+
+	case mitemapiexample.BodyTypeForm:
+		err = c.bfs.CreateBulkBodyForm(ctx, result.BodyForms)
+		if err != nil {
+			return fmt.Errorf("failed to create body form: %w", err)
+		}
+
+	case mitemapiexample.BodyTypeUrlencoded:
+		err = c.bues.CreateBulkBodyURLEncoded(ctx, result.BodyURLEncoded)
+		if err != nil {
+			return fmt.Errorf("failed to create body url encoded: %w", err)
+		}
+	}
+
+	// Create assertions
+	for _, assertion := range result.Assertions {
+		err = c.as.CreateAssert(ctx, assertion)
+		if err != nil {
+			return fmt.Errorf("failed to create assertion: %w", err)
+		}
+	}
+
+	err = c.ers.CreateExampleResp(ctx, result.Resp)
+	if err != nil {
+		return fmt.Errorf("failed to create example response: %w", err)
+	}
+
+	err = c.erhs.CreateExampleRespHeaderBulk(ctx, result.RespHeaders)
+	if err != nil {
+		return fmt.Errorf("failed to create example response header: %w", err)
+	}
+
+	err = c.ars.CreateAssertResultBulk(ctx, result.RespAsserts)
+	if err != nil {
+		return fmt.Errorf("failed to create assert result: %w", err)
+	}
+
+	return nil
+}
+
 func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {
 	versionParentID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
@@ -1017,11 +1122,16 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 
 	items := make([]*examplev1.ExampleVersionsItem, exampleLen)
 
+	var EndpointIDBytes []byte
+
 	for i, example := range examples {
 		a := &examplev1.ExampleVersionsItem{}
 		items[i] = a
 
 		a.EndpointId = example.ItemApiID.Bytes()
+		if i == 0 {
+			EndpointIDBytes = a.EndpointId
+		}
 		a.ExampleId = example.ID.Bytes()
 		resp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
 		if err != nil {
@@ -1030,8 +1140,14 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 		a.LastResponseId = resp.ID.Bytes()
 	}
 
+	// sort by created at
+	sort.Slice(items, func(i, j int) bool {
+		return bytes.Compare(items[i].ExampleId, items[j].ExampleId) > 0
+	})
+
 	resp := &examplev1.ExampleVersionsResponse{
-		Items: items,
+		EndpointId: EndpointIDBytes,
+		Items:      items,
 	}
 
 	return connect.NewResponse(resp), nil

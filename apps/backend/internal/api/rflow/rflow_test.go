@@ -672,10 +672,6 @@ func TestRunFlow(t *testing.T) {
 		testutil.AssertFatal(t, nil, err)
 	}
 
-	fmt.Println("testFlowID", testFlowID)
-	fmt.Println("startNodeID", startNodeID)
-	fmt.Println("forNodeID", forNodeID)
-
 	req := connect.NewRequest(&flowv1.FlowRunRequest{
 		FlowId:        testFlowID.Bytes(),
 		EnvironmentId: idwrap.NewNow().Bytes(),

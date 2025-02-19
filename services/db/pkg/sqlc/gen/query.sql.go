@@ -4037,7 +4037,7 @@ FROM
 WHERE
   item_api_id = ? AND
   is_default is false AND
-  version_parent_id is false
+  version_parent_id is NULL
 `
 
 func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWrap) ([]ItemApiExample, error) {
