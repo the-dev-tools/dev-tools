@@ -10,6 +10,7 @@ import {
   ReactFlowProps,
   ReactFlowProvider,
   Panel as RFPanel,
+  SelectionMode,
   useReactFlow,
   useViewport,
 } from '@xyflow/react';
@@ -181,6 +182,12 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
       onEdgesChange={isReadOnly ? undefined! : onEdgesChange}
       onConnectEnd={isReadOnly ? undefined! : onConnectEnd}
       nodesConnectable={!isReadOnly}
+      elementsSelectable={!isReadOnly}
+      selectNodesOnDrag={false}
+      panOnScroll
+      selectionOnDrag
+      panOnDrag={[1, 2]}
+      selectionMode={SelectionMode.Partial}
     >
       <Background
         variant={BackgroundVariant.Dots}
