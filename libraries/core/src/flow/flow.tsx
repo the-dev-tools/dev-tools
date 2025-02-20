@@ -18,7 +18,7 @@ import { Ulid } from 'id128';
 import { Suspense, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
-import { Panel } from 'react-resizable-panels';
+import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
 import { NodeKind, NodeKindJson, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
@@ -34,6 +34,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
 import { ReferenceContext } from '../reference';
+import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
 import { useSelectedNodeId, workspaceRoute } from './internal';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
@@ -93,12 +94,17 @@ function RouteComponent() {
   });
 
   return (
-    <ReactFlowProvider>
-      <Panel id='request' order={1} className='flex h-full flex-col'>
-        <FlowView flow={flowQuery.data} edges={edgesQuery.data} nodes={nodesQuery.data} />
-      </Panel>
-      <EditPanel />
-    </ReactFlowProvider>
+    <Panel id='main' order={2}>
+      <PanelGroup direction='vertical'>
+        <ReactFlowProvider>
+          <Panel id='request' order={1} className='flex h-full flex-col'>
+            <FlowView flow={flowQuery.data} edges={edgesQuery.data} nodes={nodesQuery.data} />
+          </Panel>
+          <EditPanel />
+        </ReactFlowProvider>
+        <StatusBar />
+      </PanelGroup>
+    </Panel>
   );
 }
 

@@ -69,6 +69,7 @@ import { BodyView } from './body';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
 import { ReferenceContext } from './reference';
+import { StatusBar } from './status-bar';
 
 export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
   responseIdCan: pipe(Schema.String, Schema.optional),
@@ -125,23 +126,26 @@ function Page() {
   const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
 
   return (
-    <>
-      <Panel id='request' order={1} className='flex h-full flex-col'>
-        <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+    <Panel id='main' order={2}>
+      <PanelGroup direction='vertical'>
+        <Panel id='request' order={1} className='flex h-full flex-col'>
+          <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
-        <ReferenceContext value={{ exampleId, workspaceId }}>
-          <EndpointRequestView exampleId={exampleId} />
-        </ReferenceContext>
-      </Panel>
-      {example.lastResponseId && (
-        <>
-          <PanelResizeHandle direction='vertical' />
-          <Panel id='response' order={2} defaultSize={40}>
-            <ResponsePanel responseId={example.lastResponseId} fullWidth />
-          </Panel>
-        </>
-      )}
-    </>
+          <ReferenceContext value={{ exampleId, workspaceId }}>
+            <EndpointRequestView exampleId={exampleId} />
+          </ReferenceContext>
+        </Panel>
+        {example.lastResponseId && (
+          <>
+            <PanelResizeHandle direction='vertical' />
+            <Panel id='response' order={2} defaultSize={40}>
+              <ResponsePanel responseId={example.lastResponseId} fullWidth />
+            </Panel>
+          </>
+        )}
+        <StatusBar />
+      </PanelGroup>
+    </Panel>
   );
 }
 
