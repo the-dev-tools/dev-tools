@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"the-dev-tools/backend/pkg/assertv2"
 )
 
@@ -23,8 +22,6 @@ func NewWithStruct(a interface{}) (*LeafJSON, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println(m)
 
 	return New(m), nil
 }

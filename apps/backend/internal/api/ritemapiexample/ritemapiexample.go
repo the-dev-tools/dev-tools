@@ -729,6 +729,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	var resultArr []massertres.AssertResult
+	// TODO: move to proper package
 	tempStruct := struct {
 		Response httpclient.ResponseVar `json:"response"`
 	}{
@@ -740,20 +741,18 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 	for _, assertion := range assertions {
 		if assertion.Enable {
-
 			root := assertv2.NewAssertRoot(rootLeaf)
 			assertSys := assertv2.NewAssertSystem(root)
 			val := assertion.Value
-			var value interface{} = val
-
+			var value interface{}
 			if strings.Contains(val, ".") {
 				if feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64); err == nil {
 					value = feetFloat
 				}
+			} else if feetInt, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
+				value = feetInt
 			} else {
-				if feetInt, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
-					value = feetInt
-				}
+				value = val
 			}
 
 			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(assertion.Type), assertion.Path, value)
