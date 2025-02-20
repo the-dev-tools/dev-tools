@@ -504,9 +504,11 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
             const { responseId } = await exampleRunMutation.mutateAsync({
               exampleId,
             });
+            // TODO: remove manual update once optional field normalization is fixed
             queryClient.setQueryData(
               createConnectQueryKey({
                 schema: exampleGet,
+                transport,
                 cardinality: 'finite',
                 input: { exampleId },
               }),
