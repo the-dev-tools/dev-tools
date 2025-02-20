@@ -1,7 +1,7 @@
 import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect, useMatchRoute, useRouteContext } from '@tanstack/react-router';
 import {
   Background,
   BackgroundVariant,
@@ -15,17 +15,17 @@ import {
 } from '@xyflow/react';
 import { Array, HashMap, Match, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
-import { Suspense, useCallback, useMemo } from 'react';
+import { ReactNode, Suspense, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
-import { FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
+import { FiClock, FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
-import { useConnectMutation, useConnectQuery } from '@the-dev-tools/api/connect-query';
+import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { NodeKind, NodeKindJson, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { FlowGetResponse, FlowService, NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { FlowService, NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
-import { Button } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -36,7 +36,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
-import { useSelectedNodeId, workspaceRoute } from './internal';
+import { flowRoute, useSelectedNodeId, workspaceRoute } from './internal';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -44,15 +44,17 @@ import { ForEachNode, ForEachPanel } from './nodes/for-each';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/')({
   component: RouteComponent,
   pendingComponent: () => (
     <div className={tw`flex h-full items-center justify-center`}>
       <Spinner className={tw`size-16`} />
     </div>
   ),
-  loader: async ({ params: { flowIdCan }, context: { transport, queryClient } }) => {
-    const flowId = Ulid.fromCanonical(flowIdCan).bytes;
+  loader: async ({ context: { transport, queryClient }, parentMatchPromise }) => {
+    const { loaderData } = await parentMatchPromise;
+    if (!loaderData) return;
+    const { flowId } = loaderData;
 
     try {
       await Promise.all([
@@ -63,12 +65,10 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
     } catch {
       redirect({
         from: Route.fullPath,
-        to: '../..',
+        to: '/workspace/$workspaceIdCan',
         throw: true,
       });
     }
-
-    return { flowId };
   },
 });
 
@@ -82,23 +82,17 @@ export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
 };
 
 function RouteComponent() {
-  const { flowId } = Route.useLoaderData();
-  const { transport } = Route.useRouteContext();
-
-  const [flowQuery, edgesQuery, nodesQuery] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(flowGet, { flowId }, { transport }),
-      edgesQueryOptions({ transport, flowId }),
-      nodesQueryOptions({ transport, flowId }),
-    ],
-  });
+  const { flowId } = flowRoute.useLoaderData();
 
   return (
     <Panel id='main' order={2}>
       <PanelGroup direction='vertical'>
         <ReactFlowProvider>
-          <Panel id='request' order={1} className='flex h-full flex-col'>
-            <FlowView flow={flowQuery.data} edges={edgesQuery.data} nodes={nodesQuery.data} />
+          <TopBar />
+          <Panel id='flow' order={1} className='flex h-full flex-col'>
+            <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId}>
+              <ActionBar />
+            </Flow>
           </Panel>
           <EditPanel />
         </ReactFlowProvider>
@@ -108,16 +102,37 @@ function RouteComponent() {
   );
 }
 
+interface FlowProps {
+  flowId: Uint8Array;
+  children?: ReactNode;
+  isReadOnly?: boolean;
+}
+
+export const Flow = ({ flowId, children, isReadOnly }: FlowProps) => {
+  const { transport } = useRouteContext({ from: '__root__' });
+
+  const [edgesQuery, nodesQuery] = useSuspenseQueries({
+    queries: [edgesQueryOptions({ transport, flowId }), nodesQueryOptions({ transport, flowId })],
+  });
+
+  return (
+    <FlowView edges={edgesQuery.data} nodes={nodesQuery.data} isReadOnly={isReadOnly ?? false}>
+      {children}
+    </FlowView>
+  );
+};
+
 interface FlowViewProps {
-  flow: FlowGetResponse;
   edges: Edge[];
   nodes: Node[];
+  children?: ReactNode;
+  isReadOnly?: boolean;
 }
 
 const minZoom = 0.5;
 const maxZoom = 2;
 
-const FlowView = ({ flow, edges, nodes }: FlowViewProps) => {
+const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
   const { addNodes, addEdges, screenToFlowPosition } = useReactFlow();
 
   const onEdgesChange = useOnEdgesChange();
@@ -155,18 +170,17 @@ const FlowView = ({ flow, edges, nodes }: FlowViewProps) => {
       colorMode='light'
       minZoom={minZoom}
       maxZoom={maxZoom}
-      onInit={(reactFlow) => {
-        void reactFlow.fitView();
-      }}
+      fitView
       connectionLineComponent={ConnectionLine}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       defaultEdgeOptions={{ type: 'default' }}
       nodes={nodes}
       edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnectEnd={onConnectEnd}
+      onNodesChange={isReadOnly ? undefined! : onNodesChange}
+      onEdgesChange={isReadOnly ? undefined! : onEdgesChange}
+      onConnectEnd={isReadOnly ? undefined! : onConnectEnd}
+      nodesConnectable={!isReadOnly}
     >
       <Background
         variant={BackgroundVariant.Dots}
@@ -175,20 +189,22 @@ const FlowView = ({ flow, edges, nodes }: FlowViewProps) => {
         color='currentColor'
         className={tw`text-slate-300`}
       />
-
-      <TopBar flow={flow} />
-      <ActionBar />
+      {children}
     </ReactFlow>
   );
 };
 
-interface TopBarProps {
-  flow: FlowGetResponse;
-}
+export const TopBar = () => {
+  const { flowId } = flowRoute.useLoaderData();
 
-const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
+  const {
+    data: { name },
+  } = useConnectSuspenseQuery(flowGet, { flowId });
+
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
+
+  const matchRoute = useMatchRoute();
 
   const flowUpdateMutation = useConnectMutation(flowUpdate);
   const flowDeleteMutation = useConnectMutation(flowDelete);
@@ -201,7 +217,7 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
   });
 
   return (
-    <RFPanel className={tw`m-0 flex w-full items-center gap-2 border-b border-slate-200 bg-white px-3 py-3.5`}>
+    <div className={tw`flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5`}>
       {isEditing ? (
         <TextField
           inputClassName={tw`-my-1 py-1 text-md font-medium leading-none tracking-tight text-slate-800`}
@@ -238,6 +254,21 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
         <FiPlus className={tw`size-4 text-slate-500`} />
       </Button>
 
+      <div className={tw`h-4 w-px bg-slate-200`} />
+
+      <ButtonAsLink
+        variant='ghost'
+        className={tw`px-2 py-1 text-slate-800`}
+        href={{
+          from: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+          to: matchRoute({ to: '/workspace/$workspaceIdCan/flow/$flowIdCan/history' })
+            ? '/workspace/$workspaceIdCan/flow/$flowIdCan'
+            : '/workspace/$workspaceIdCan/flow/$flowIdCan/history',
+        }}
+      >
+        <FiClock className={tw`size-4 text-slate-500`} /> Flows History
+      </ButtonAsLink>
+
       <MenuTrigger {...menuTriggerProps}>
         <Button variant='ghost' className={tw`bg-slate-200 p-0.5`}>
           <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
@@ -253,13 +284,13 @@ const TopBar = ({ flow: { flowId, name } }: TopBarProps) => {
           </MenuItem>
         </Menu>
       </MenuTrigger>
-    </RFPanel>
+    </div>
   );
 };
 
 const ActionBar = () => {
-  const { flowId } = Route.useLoaderData();
-  const { transport } = Route.useRouteContext();
+  const { flowId } = flowRoute.useLoaderData();
+  const { transport } = useRouteContext({ from: '__root__' });
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
 
@@ -284,8 +315,20 @@ const ActionBar = () => {
       <Button
         variant='primary'
         onPress={async () => {
-          flow.getNodes().forEach((_) => void flow.updateNodeData(_.id, { ..._, state: NodeState.UNSPECIFIED }));
-          flow.getEdges().forEach((_) => void flow.updateEdgeData(_.id, { ..._, state: NodeState.UNSPECIFIED }));
+          flow.getNodes().forEach(
+            (_) =>
+              void flow.updateNodeData(_.id, {
+                ..._,
+                state: NodeState.UNSPECIFIED,
+              }),
+          );
+          flow.getEdges().forEach(
+            (_) =>
+              void flow.updateEdgeData(_.id, {
+                ..._,
+                state: NodeState.UNSPECIFIED,
+              }),
+          );
 
           const sourceEdges = pipe(
             flow.getEdges(),
@@ -338,7 +381,7 @@ const EditPanel = () => {
   return (
     <ReferenceContext value={{ nodeId: selectedNodeId, workspaceId }}>
       <PanelResizeHandle direction='vertical' />
-      <Panel id='response' order={2} defaultSize={40} className={tw`!overflow-auto`}>
+      <Panel id='node' order={2} defaultSize={40} className={tw`!overflow-auto`}>
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
