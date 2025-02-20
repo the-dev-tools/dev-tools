@@ -595,12 +595,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
 	if err != nil {
+		fmt.Println("Error in PrepareCopyFlow")
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	res.Flow.Name = flow.Name + " - Run"
 	err = c.CopyFlow(ctx, res)
 	if err != nil {
+		fmt.Println("Error in CopyFlow")
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -624,18 +625,16 @@ func (c *FlowServiceRPC) PrepareCopyFlow(ctx context.Context, workspaceID idwrap
 	result := CopyFlowResult{}
 
 	newFlowID := idwrap.NewNow()
-	result.Flow = mflow.Flow{
-		ID:          newFlowID,
-		WorkspaceID: workspaceID,
-		Name:        originalFlow.Name + " - Copy",
-	}
+	oldFlowID := originalFlow.ID
+	originalFlow.ID = newFlowID
+	result.Flow = originalFlow
 
-	nodes, err := c.ns.GetNodesByFlowID(ctx, originalFlow.ID)
+	nodes, err := c.ns.GetNodesByFlowID(ctx, oldFlowID)
 	if err != nil {
 		return result, fmt.Errorf("get nodes: %w", err)
 	}
 
-	edges, err := c.fes.GetEdgesByFlowID(ctx, originalFlow.ID)
+	edges, err := c.fes.GetEdgesByFlowID(ctx, oldFlowID)
 	if err != nil {
 		return result, fmt.Errorf("get edges: %w", err)
 	}
