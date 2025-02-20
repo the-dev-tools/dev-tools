@@ -798,6 +798,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to copy endpoint"))
 	}
 
+	exampleVersionID := example.ID
 	example.VersionParentID = &example.ID
 
 	res, err := c.PrepareCopyExample(ctx, endpointNewID, *example)
@@ -810,6 +811,11 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 	}
 
+	items, err := c.GetVersion(ctx, exampleVersionID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	var changes []*changev1.Change
 	if isExampleRespExists {
 		changes, err = handleResponseUpdate(exampleResp, assertions, resultArr, respHttp.Headers)
@@ -819,6 +825,19 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	exampleVersionRequest, err := anypb.New(&examplev1.ExampleVersionsResponse{
+		EndpointId: endpoint.ID.Bytes(),
+		Items:      items,
+	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_UPDATE
+	changes = append(changes, &changev1.Change{
+		Kind: &exampleVersionChangeKind,
+		Data: exampleVersionRequest,
+	})
 
 	return connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -1198,25 +1217,41 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 		return nil, rpcErr
 	}
 
+	example, err := c.iaes.GetApiExample(ctx, versionParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	exampleVersionItems, err := c.GetVersion(ctx, versionParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &examplev1.ExampleVersionsResponse{
+		EndpointId: example.ItemApiID.Bytes(),
+		Items:      exampleVersionItems,
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
+func (c *ItemAPIExampleRPC) GetVersion(ctx context.Context, versionParentID idwrap.IDWrap) ([]*examplev1.ExampleVersionsItem, error) {
 	examples, err := c.iaes.GetApiExampleByVersionParentID(ctx, versionParentID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	exampleLen := len(examples)
-
-	items := make([]*examplev1.ExampleVersionsItem, exampleLen)
-
-	var EndpointIDBytes []byte
+	// sort by created at
+	sort.Slice(examples, func(i, j int) bool {
+		return examples[i].ID.Compare(examples[j].ID) > 0
+	})
+	items := make([]*examplev1.ExampleVersionsItem, len(examples))
 
 	for i, example := range examples {
 		a := &examplev1.ExampleVersionsItem{}
 		items[i] = a
 
 		a.EndpointId = example.ItemApiID.Bytes()
-		if i == 0 {
-			EndpointIDBytes = a.EndpointId
-		}
 		a.ExampleId = example.ID.Bytes()
 		resp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
 		if err != nil {
@@ -1225,17 +1260,7 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 		a.LastResponseId = resp.ID.Bytes()
 	}
 
-	// sort by created at
-	sort.Slice(items, func(i, j int) bool {
-		return bytes.Compare(items[i].ExampleId, items[j].ExampleId) > 0
-	})
-
-	resp := &examplev1.ExampleVersionsResponse{
-		EndpointId: EndpointIDBytes,
-		Items:      items,
-	}
-
-	return connect.NewResponse(resp), nil
+	return items, nil
 }
 
 func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, exampleUlid idwrap.IDWrap) (bool, error) {
