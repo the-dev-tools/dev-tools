@@ -93,6 +93,18 @@ func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert)
 	})
 }
 
+// TODO: create bulk query
+func (as AssertService) CreateAssertBulk(ctx context.Context, asserts []massert.Assert) error {
+	var err error
+	for _, a := range asserts {
+		err = as.CreateAssert(ctx, a)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (as AssertService) DeleteAssert(ctx context.Context, id idwrap.IDWrap) error {
 	return as.queries.DeleteAssert(ctx, id)
 }

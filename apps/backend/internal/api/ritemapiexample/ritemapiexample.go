@@ -61,6 +61,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -607,8 +608,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Body:    bodyBytes.Bytes(),
 	}
 
-	var changes changev1.Changes
-
 	now := time.Now()
 	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), httpReq, exampleUlid)
 	lapse := time.Since(now)
@@ -618,9 +617,11 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 	bodyData := respHttp.Body
 
+	isExampleRespExists := true
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
 	if err != nil {
 		if err == sexampleresp.ErrNoRespFound {
+			isExampleRespExists = false
 			exampleRespTemp := mexampleresp.ExampleResp{
 				ID:        idwrap.NewNow(),
 				ExampleID: exampleUlid,
@@ -728,18 +729,17 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	var resultArr []massertres.AssertResult
+	tempStruct := struct {
+		Response httpclient.ResponseVar `json:"response"`
+	}{
+		Response: httpclient.ConvertResponseToVar(respHttp),
+	}
+	rootLeaf, err := leafjson.NewWithStruct(tempStruct)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	for _, assertion := range assertions {
 		if assertion.Enable {
-			tempStruct := struct {
-				Response httpclient.ResponseVar `json:"response"`
-			}{
-				Response: httpclient.ConvertResponseToVar(respHttp),
-			}
-
-			rootLeaf, err := leafjson.NewWithStruct(tempStruct)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
 
 			root := assertv2.NewAssertRoot(rootLeaf)
 			assertSys := assertv2.NewAssertSystem(root)
@@ -783,43 +783,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
-	changeStatus := int32(exampleResp.Status)
-	changeResp := responsev1.ResponseChange{
-		ResponseId: exampleResp.ID.Bytes(),
-		Status:     &changeStatus,
-		Body:       exampleResp.Body,
-		Time:       timestamppb.New(time.Now()),
-		Duration:   &exampleResp.Duration,
-	}
-
-	kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
-	anyData, err := anypb.New(&changeResp)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	changeRoot := changev1.Change{
-		Kind: &kind,
-		Data: anyData,
-	}
-	changes.Changes = append(changes.Changes, &changeRoot)
-
-	responseAssertChangeNormal := responsev1.ResponseAssertListResponse{
-		ResponseId: exampleResp.ID.Bytes(),
-		Items:      make([]*responsev1.ResponseAssertListItem, 0),
-	}
-	for i, result := range assertions {
-		rpcAssert, err := tassert.SerializeAssertModelToRPC(result)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		responseAssertChangeNormal.Items = append(responseAssertChangeNormal.Items, &responsev1.ResponseAssertListItem{
-			Assert: rpcAssert,
-			Result: resultArr[i].Result,
-		})
-	}
-
 	// Copy Full Item Api/Endpoint
 	// TODO: make this transaction
 	endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
@@ -848,59 +811,24 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 	}
 
-	assertRespAny, err := anypb.New(&responseAssertChangeNormal)
+	var changes []*changev1.Change
+	if isExampleRespExists {
+		changes, err = handleResponseUpdate(exampleResp, assertions, resultArr, respHttp.Headers)
+	} else {
+		changes, err = handleResponseCreate(example.ID, exampleResp.ID)
+	}
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	assertRespChange := changev1.Change{
-		Kind: &kind,
-		Data: assertRespAny,
-	}
-	changes.Changes = append(changes.Changes, &assertRespChange)
-
-	responseHeaderChangeNormal := responsev1.ResponseHeaderListResponse{
-		ResponseId: exampleResp.ID.Bytes(),
-		Items:      make([]*responsev1.ResponseHeaderListItem, 0),
-	}
-
-	slices.SortStableFunc(respHttp.Headers, func(i, j mexamplerespheader.ExampleRespHeader) int {
-		return strings.Compare(i.HeaderKey, j.HeaderKey)
-	})
-
-	// TODO: this should be just changes later
-	for _, header := range respHttp.Headers {
-		rpcHeader := &responsev1.ResponseHeaderListItem{
-			ResponseHeaderId: header.ID.Bytes(),
-			Key:              header.HeaderKey,
-			Value:            header.Value,
-		}
-		responseHeaderChangeNormal.Items = append(responseHeaderChangeNormal.Items, rpcHeader)
-	}
-
-	headerRespAny, err := anypb.New(&responseHeaderChangeNormal)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	headerRespChange := changev1.Change{
-		Kind: &kind,
-		Data: headerRespAny,
-	}
-
-	changes.Changes = append(changes.Changes, &headerRespChange)
-
-	rpcResponse := connect.NewResponse(&examplev1.ExampleRunResponse{
+	return connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
 		Status:     int32(exampleResp.Status),
 		Body:       exampleResp.Body,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
-		Changes:    changes.Changes,
-	})
-	rpcResponse.Header().Set("Cache-Control", "max-age=0")
-
-	return rpcResponse, nil
+		Changes:    changes,
+	}), nil
 }
 
 type CopyExampleResult struct {
@@ -1039,6 +967,114 @@ func (c *ItemAPIExampleRPC) PrepareCopyExample(ctx context.Context, itemApi idwr
 	return result, nil
 }
 
+// Changes
+func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.ResponseChange, error) {
+	changeStatus := int32(exampleResp.Status)
+	return &responsev1.ResponseChange{
+		ResponseId: exampleResp.ID.Bytes(),
+		Status:     &changeStatus,
+		Body:       exampleResp.Body,
+		Time:       timestamppb.New(time.Now()),
+		Duration:   &exampleResp.Duration,
+	}, nil
+}
+
+func createAssertResponse(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult) (*responsev1.ResponseAssertListResponse, error) {
+	response := &responsev1.ResponseAssertListResponse{
+		ResponseId: exampleResp.ID.Bytes(),
+		Items:      make([]*responsev1.ResponseAssertListItem, len(assertions)),
+	}
+
+	for i := range assertions {
+		rpcAssert, err := tassert.SerializeAssertModelToRPC(assertions[i])
+		if err != nil {
+			return nil, err
+		}
+		response.Items[i] = &responsev1.ResponseAssertListItem{
+			Assert: rpcAssert,
+			Result: resultArr[i].Result,
+		}
+	}
+	return response, nil
+}
+
+func createHeaderResponse(exampleResp *mexampleresp.ExampleResp, headers []mexamplerespheader.ExampleRespHeader) *responsev1.ResponseHeaderListResponse {
+	response := &responsev1.ResponseHeaderListResponse{
+		ResponseId: exampleResp.ID.Bytes(),
+		Items:      make([]*responsev1.ResponseHeaderListItem, 0),
+	}
+
+	slices.SortStableFunc(headers, func(i, j mexamplerespheader.ExampleRespHeader) int {
+		return strings.Compare(i.HeaderKey, j.HeaderKey)
+	})
+
+	for _, header := range headers {
+		response.Items = append(response.Items, &responsev1.ResponseHeaderListItem{
+			ResponseHeaderId: header.ID.Bytes(),
+			Key:              header.HeaderKey,
+			Value:            header.Value,
+		})
+	}
+	return response
+}
+
+func createChange(data proto.Message, kind changev1.ChangeKind) (*changev1.Change, error) {
+	anyData, err := anypb.New(data)
+	if err != nil {
+		return nil, err
+	}
+	return &changev1.Change{
+		Kind: &kind,
+		Data: anyData,
+	}, nil
+}
+
+func handleResponseUpdate(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult, headers []mexamplerespheader.ExampleRespHeader) ([]*changev1.Change, error) {
+	// Create and add change response
+	changeResp, err := createChangeResponse(exampleResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	change, err := createChange(changeResp, changev1.ChangeKind_CHANGE_KIND_UPDATE)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create and add assert response
+	assertResp, err := createAssertResponse(exampleResp, assertions, resultArr)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	assertChange, err := createChange(assertResp, changev1.ChangeKind_CHANGE_KIND_UPDATE)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create and add header response
+	headerResp := createHeaderResponse(exampleResp, headers)
+	headerChange, err := createChange(headerResp, changev1.ChangeKind_CHANGE_KIND_UPDATE)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return []*changev1.Change{change, assertChange, headerChange}, nil
+}
+
+func handleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.Change, error) {
+	exampleChange := &examplev1.ExampleChange{
+		ExampleId:      exampleID.Bytes(),
+		LastResponseId: exampleRespID.Bytes(),
+	}
+
+	createExampleChange, err := createChange(exampleChange, changev1.ChangeKind_CHANGE_KIND_UPDATE)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return []*changev1.Change{createExampleChange}, nil
+}
+
+// TODO: make this transaction
 func (c *ItemAPIExampleRPC) CreateCopyExample(ctx context.Context, result CopyExampleResult) error {
 	// Create the main example
 	err := c.iaes.CreateApiExample(ctx, &result.Example)
@@ -1082,11 +1118,9 @@ func (c *ItemAPIExampleRPC) CreateCopyExample(ctx context.Context, result CopyEx
 	}
 
 	// Create assertions
-	for _, assertion := range result.Assertions {
-		err = c.as.CreateAssert(ctx, assertion)
-		if err != nil {
-			return fmt.Errorf("failed to create assertion: %w", err)
-		}
+	err = c.as.CreateAssertBulk(ctx, result.Assertions)
+	if err != nil {
+		return fmt.Errorf("failed to create assertion: %w", err)
 	}
 
 	err = c.ers.CreateExampleResp(ctx, result.Resp)
