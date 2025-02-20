@@ -1077,68 +1077,115 @@ func handleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.C
 // TODO: make this transaction
 func (c *ItemAPIExampleRPC) CreateCopyExample(ctx context.Context, result CopyExampleResult) error {
 	// Create the main example
-	err := c.iaes.CreateApiExample(ctx, &result.Example)
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return err
+	}
+	txIaes, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to create example: %w", err)
+	}
+	err = txIaes.CreateApiExample(ctx, &result.Example)
 	if err != nil {
 		return fmt.Errorf("failed to create example: %w", err)
 	}
 
 	// Create headers
-	err = c.hs.CreateBulkHeader(ctx, result.Headers)
+	txehs, err := sexampleheader.NewTX(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	err = txehs.CreateBulkHeader(ctx, result.Headers)
 	if err != nil {
 		return fmt.Errorf("failed to create header: %w", err)
 	}
 
-	// Create queries
-	err = c.qs.CreateBulkQuery(ctx, result.Queries)
-	if err != nil {
-		return fmt.Errorf("failed to create query: %w", err)
+	if len(result.Queries) > 0 {
+		txQs, err := sexamplequery.NewTX(ctx, tx)
+		if err != nil {
+			return err
+		}
+		err = txQs.CreateBulkQuery(ctx, result.Queries)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Create body based on type
 	switch result.Example.BodyType {
 	case mitemapiexample.BodyTypeRaw:
 		if result.BodyRaw != nil {
-			err = c.brs.CreateBodyRaw(ctx, *result.BodyRaw)
+			txBrs, err := sbodyraw.NewTX(ctx, tx)
+			if err != nil {
+				return fmt.Errorf("failed to create body raw: %w", err)
+			}
+			err = txBrs.CreateBodyRaw(ctx, *result.BodyRaw)
 			if err != nil {
 				return fmt.Errorf("failed to create body raw: %w", err)
 			}
 		}
-
 	case mitemapiexample.BodyTypeForm:
-		err = c.bfs.CreateBulkBodyForm(ctx, result.BodyForms)
+		txBfs, err := sbodyform.NewTX(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("failed to create body form: %w", err)
+		}
+		err = txBfs.CreateBulkBodyForm(ctx, result.BodyForms)
 		if err != nil {
 			return fmt.Errorf("failed to create body form: %w", err)
 		}
 
 	case mitemapiexample.BodyTypeUrlencoded:
-		err = c.bues.CreateBulkBodyURLEncoded(ctx, result.BodyURLEncoded)
+		txBues, err := sbodyurl.NewTX(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("failed to create body url encoded: %w", err)
+		}
+		err = txBues.CreateBulkBodyURLEncoded(ctx, result.BodyURLEncoded)
 		if err != nil {
 			return fmt.Errorf("failed to create body url encoded: %w", err)
 		}
 	}
 
 	// Create assertions
-	err = c.as.CreateAssertBulk(ctx, result.Assertions)
+	txAs, err := sassert.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to create assertion: %w", err)
+	}
+	err = txAs.CreateAssertBulk(ctx, result.Assertions)
 	if err != nil {
 		return fmt.Errorf("failed to create assertion: %w", err)
 	}
 
-	err = c.ers.CreateExampleResp(ctx, result.Resp)
+	txErs, err := sexampleresp.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to create example response: %w", err)
+	}
+	err = txErs.CreateExampleResp(ctx, result.Resp)
 	if err != nil {
 		return fmt.Errorf("failed to create example response: %w", err)
 	}
 
-	err = c.erhs.CreateExampleRespHeaderBulk(ctx, result.RespHeaders)
+	txErhs, err := sexamplerespheader.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to create example response header: %w", err)
+	}
+	err = txErhs.CreateExampleRespHeaderBulk(ctx, result.RespHeaders)
 	if err != nil {
 		return fmt.Errorf("failed to create example response header: %w", err)
 	}
 
-	err = c.ars.CreateAssertResultBulk(ctx, result.RespAsserts)
+	txArs, err := sassertres.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to create assert result: %w", err)
+	}
+	err = txArs.CreateAssertResultBulk(ctx, result.RespAsserts)
 	if err != nil {
 		return fmt.Errorf("failed to create assert result: %w", err)
 	}
 
-	return nil
+	err = tx.Commit()
+
+	return err
 }
 
 func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {

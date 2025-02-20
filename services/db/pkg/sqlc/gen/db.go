@@ -30,6 +30,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createAssertStmt, err = db.PrepareContext(ctx, createAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAssert: %w", err)
 	}
+	if q.createAssertBulkStmt, err = db.PrepareContext(ctx, createAssertBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateAssertBulk: %w", err)
+	}
 	if q.createAssertResultStmt, err = db.PrepareContext(ctx, createAssertResult); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAssertResult: %w", err)
 	}
@@ -62,6 +65,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createExampleRespHeaderStmt, err = db.PrepareContext(ctx, createExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateExampleRespHeader: %w", err)
+	}
+	if q.createExampleRespHeaderBulkStmt, err = db.PrepareContext(ctx, createExampleRespHeaderBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateExampleRespHeaderBulk: %w", err)
 	}
 	if q.createFlowStmt, err = db.PrepareContext(ctx, createFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlow: %w", err)
@@ -579,6 +585,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createAssertStmt: %w", cerr)
 		}
 	}
+	if q.createAssertBulkStmt != nil {
+		if cerr := q.createAssertBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createAssertBulkStmt: %w", cerr)
+		}
+	}
 	if q.createAssertResultStmt != nil {
 		if cerr := q.createAssertResultStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAssertResultStmt: %w", cerr)
@@ -632,6 +643,11 @@ func (q *Queries) Close() error {
 	if q.createExampleRespHeaderStmt != nil {
 		if cerr := q.createExampleRespHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createExampleRespHeaderStmt: %w", cerr)
+		}
+	}
+	if q.createExampleRespHeaderBulkStmt != nil {
+		if cerr := q.createExampleRespHeaderBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createExampleRespHeaderBulkStmt: %w", cerr)
 		}
 	}
 	if q.createFlowStmt != nil {
@@ -1510,6 +1526,7 @@ type Queries struct {
 	tx                                                    *sql.Tx
 	checkIFWorkspaceUserExistsStmt                        *sql.Stmt
 	createAssertStmt                                      *sql.Stmt
+	createAssertBulkStmt                                  *sql.Stmt
 	createAssertResultStmt                                *sql.Stmt
 	createBodyFormStmt                                    *sql.Stmt
 	createBodyFormBulkStmt                                *sql.Stmt
@@ -1521,6 +1538,7 @@ type Queries struct {
 	createEnvironmentStmt                                 *sql.Stmt
 	createExampleRespStmt                                 *sql.Stmt
 	createExampleRespHeaderStmt                           *sql.Stmt
+	createExampleRespHeaderBulkStmt                       *sql.Stmt
 	createFlowStmt                                        *sql.Stmt
 	createFlowEdgeStmt                                    *sql.Stmt
 	createFlowNodeStmt                                    *sql.Stmt
@@ -1696,6 +1714,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		tx:                                               tx,
 		checkIFWorkspaceUserExistsStmt:                   q.checkIFWorkspaceUserExistsStmt,
 		createAssertStmt:                                 q.createAssertStmt,
+		createAssertBulkStmt:                             q.createAssertBulkStmt,
 		createAssertResultStmt:                           q.createAssertResultStmt,
 		createBodyFormStmt:                               q.createBodyFormStmt,
 		createBodyFormBulkStmt:                           q.createBodyFormBulkStmt,
@@ -1707,6 +1726,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createEnvironmentStmt:                            q.createEnvironmentStmt,
 		createExampleRespStmt:                            q.createExampleRespStmt,
 		createExampleRespHeaderStmt:                      q.createExampleRespHeaderStmt,
+		createExampleRespHeaderBulkStmt:                  q.createExampleRespHeaderBulkStmt,
 		createFlowStmt:                                   q.createFlowStmt,
 		createFlowEdgeStmt:                               q.createFlowEdgeStmt,
 		createFlowNodeStmt:                               q.createFlowNodeStmt,

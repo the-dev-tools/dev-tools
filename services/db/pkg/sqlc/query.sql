@@ -1357,6 +1357,16 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?);
 
+-- name: CreateExampleRespHeaderBulk :exec
+INSERT INTO
+  example_resp_header (id, example_resp_id, header_key, value)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?);
+
 -- name: UpdateExampleRespHeader :exec
 UPDATE example_resp_header
 SET
@@ -1469,6 +1479,16 @@ WHERE
 INSERT INTO
   assertion_result (id, response_id, assertion_id, result)
 VALUES
+  (?, ?, ?, ?);
+
+-- name: CreateAssertBulk :exec
+INSERT INTO
+  assertion_result (id, response_id, assertion_id, result)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
   (?, ?, ?, ?);
 
 -- name: UpdateAssertResult :exec

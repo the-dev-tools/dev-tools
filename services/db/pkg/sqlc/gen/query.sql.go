@@ -75,6 +75,66 @@ func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) erro
 	return err
 }
 
+const createAssertBulk = `-- name: CreateAssertBulk :exec
+INSERT INTO
+  assertion_result (id, response_id, assertion_id, result)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?)
+`
+
+type CreateAssertBulkParams struct {
+	ID            idwrap.IDWrap
+	ResponseID    idwrap.IDWrap
+	AssertionID   idwrap.IDWrap
+	Result        bool
+	ID_2          idwrap.IDWrap
+	ResponseID_2  idwrap.IDWrap
+	AssertionID_2 idwrap.IDWrap
+	Result_2      bool
+	ID_3          idwrap.IDWrap
+	ResponseID_3  idwrap.IDWrap
+	AssertionID_3 idwrap.IDWrap
+	Result_3      bool
+	ID_4          idwrap.IDWrap
+	ResponseID_4  idwrap.IDWrap
+	AssertionID_4 idwrap.IDWrap
+	Result_4      bool
+	ID_5          idwrap.IDWrap
+	ResponseID_5  idwrap.IDWrap
+	AssertionID_5 idwrap.IDWrap
+	Result_5      bool
+}
+
+func (q *Queries) CreateAssertBulk(ctx context.Context, arg CreateAssertBulkParams) error {
+	_, err := q.exec(ctx, q.createAssertBulkStmt, createAssertBulk,
+		arg.ID,
+		arg.ResponseID,
+		arg.AssertionID,
+		arg.Result,
+		arg.ID_2,
+		arg.ResponseID_2,
+		arg.AssertionID_2,
+		arg.Result_2,
+		arg.ID_3,
+		arg.ResponseID_3,
+		arg.AssertionID_3,
+		arg.Result_3,
+		arg.ID_4,
+		arg.ResponseID_4,
+		arg.AssertionID_4,
+		arg.Result_4,
+		arg.ID_5,
+		arg.ResponseID_5,
+		arg.AssertionID_5,
+		arg.Result_5,
+	)
+	return err
+}
+
 const createAssertResult = `-- name: CreateAssertResult :exec
 INSERT INTO
   assertion_result (id, response_id, assertion_id, result)
@@ -637,6 +697,66 @@ func (q *Queries) CreateExampleRespHeader(ctx context.Context, arg CreateExample
 		arg.ExampleRespID,
 		arg.HeaderKey,
 		arg.Value,
+	)
+	return err
+}
+
+const createExampleRespHeaderBulk = `-- name: CreateExampleRespHeaderBulk :exec
+INSERT INTO
+  example_resp_header (id, example_resp_id, header_key, value)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?)
+`
+
+type CreateExampleRespHeaderBulkParams struct {
+	ID              idwrap.IDWrap
+	ExampleRespID   idwrap.IDWrap
+	HeaderKey       string
+	Value           string
+	ID_2            idwrap.IDWrap
+	ExampleRespID_2 idwrap.IDWrap
+	HeaderKey_2     string
+	Value_2         string
+	ID_3            idwrap.IDWrap
+	ExampleRespID_3 idwrap.IDWrap
+	HeaderKey_3     string
+	Value_3         string
+	ID_4            idwrap.IDWrap
+	ExampleRespID_4 idwrap.IDWrap
+	HeaderKey_4     string
+	Value_4         string
+	ID_5            idwrap.IDWrap
+	ExampleRespID_5 idwrap.IDWrap
+	HeaderKey_5     string
+	Value_5         string
+}
+
+func (q *Queries) CreateExampleRespHeaderBulk(ctx context.Context, arg CreateExampleRespHeaderBulkParams) error {
+	_, err := q.exec(ctx, q.createExampleRespHeaderBulkStmt, createExampleRespHeaderBulk,
+		arg.ID,
+		arg.ExampleRespID,
+		arg.HeaderKey,
+		arg.Value,
+		arg.ID_2,
+		arg.ExampleRespID_2,
+		arg.HeaderKey_2,
+		arg.Value_2,
+		arg.ID_3,
+		arg.ExampleRespID_3,
+		arg.HeaderKey_3,
+		arg.Value_3,
+		arg.ID_4,
+		arg.ExampleRespID_4,
+		arg.HeaderKey_4,
+		arg.Value_4,
+		arg.ID_5,
+		arg.ExampleRespID_5,
+		arg.HeaderKey_5,
+		arg.Value_5,
 	)
 	return err
 }

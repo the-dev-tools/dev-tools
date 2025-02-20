@@ -3,6 +3,7 @@ package sexamplerespheader
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
@@ -57,15 +58,66 @@ func (s *ExampleRespHeaderService) CreateExampleRespHeader(ctx context.Context, 
 	})
 }
 
-func (s *ExampleRespHeaderService) CreateExampleRespHeaderBulk(ctx context.Context, items []mexamplerespheader.ExampleRespHeader) error {
-	// TODO: Implement bulk insert
-	var err error
-	for _, item := range items {
-		err = s.CreateExampleRespHeader(ctx, item)
-		if err != nil {
+func (s *ExampleRespHeaderService) CreateExampleRespHeaderRaw(ctx context.Context, arg gen.ExampleRespHeader) error {
+	return s.queries.CreateExampleRespHeader(ctx, gen.CreateExampleRespHeaderParams{
+		ID:            arg.ID,
+		ExampleRespID: arg.ExampleRespID,
+		HeaderKey:     arg.HeaderKey,
+		Value:         arg.Value,
+	})
+}
+
+func (s *ExampleRespHeaderService) CreateExampleRespHeaderBulk(ctx context.Context, headers []mexamplerespheader.ExampleRespHeader) error {
+	const sizeOfChunks = 5
+	convertedItems := tgeneric.MassConvert(headers, ConvertToDBExampleRespHeader)
+	for headerChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
+		if len(headerChunk) < sizeOfChunks {
+			for _, header := range headerChunk {
+				err := s.CreateExampleRespHeaderRaw(ctx, header)
+				if err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		item1 := headerChunk[0]
+		item2 := headerChunk[1]
+		item3 := headerChunk[2]
+		item4 := headerChunk[3]
+		item5 := headerChunk[4]
+
+		params := gen.CreateExampleRespHeaderBulkParams{
+			// 1
+			ID:            item1.ID,
+			ExampleRespID: item1.ExampleRespID,
+			HeaderKey:     item1.HeaderKey,
+			Value:         item1.Value,
+			// 2
+			ID_2:            item2.ID,
+			ExampleRespID_2: item2.ExampleRespID,
+			HeaderKey_2:     item2.HeaderKey,
+			Value_2:         item2.Value,
+			// 3
+			ID_3:            item3.ID,
+			ExampleRespID_3: item3.ExampleRespID,
+			HeaderKey_3:     item3.HeaderKey,
+			Value_3:         item3.Value,
+			// 4
+			ID_4:            item4.ID,
+			ExampleRespID_4: item4.ExampleRespID,
+			HeaderKey_4:     item4.HeaderKey,
+			Value_4:         item4.Value,
+			// 5
+			ID_5:            item5.ID,
+			ExampleRespID_5: item5.ExampleRespID,
+			HeaderKey_5:     item5.HeaderKey,
+			Value_5:         item5.Value,
+		}
+		if err := s.queries.CreateExampleRespHeaderBulk(ctx, params); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
