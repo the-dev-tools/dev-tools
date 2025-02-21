@@ -93,6 +93,7 @@ func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNod
 				statusLogFunc(node.NodeStatusFailed, id)
 				return nil, res.Err
 			}
+			statusLogFunc(node.NodeStatusSuccess, id)
 			continue
 		}
 		statusLogFunc(node.NodeStatusSuccess, id)
