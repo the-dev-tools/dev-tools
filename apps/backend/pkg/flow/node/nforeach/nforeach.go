@@ -49,7 +49,7 @@ func (nr *NodeForEach) SetID(id idwrap.IDWrap) {
 
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
 	a := map[string]interface{}{
 		NodeVarKey: req.VarMap,
@@ -146,7 +146,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
 	a := map[string]interface{}{
 		NodeVarKey: req.VarMap,
@@ -210,7 +210,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 			}
 
-			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
+			_, err := flowlocalrunner.RunNodeASync(ctx, currentNode, req, req.LogPushFunc)
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,

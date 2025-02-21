@@ -2,6 +2,8 @@ package flowlocalrunner_test
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"sync/atomic"
 	"testing"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -10,6 +12,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/testutil"
 	"time"
 )
 
@@ -309,5 +312,101 @@ func TestLocalFlowRunner_Run_SplitAndMergeWithSubNodes(t *testing.T) {
 	a := runCounter.Load()
 	if a != CountShouldRun {
 		t.Errorf("Expected runCounter to be %d, but got %d", CountShouldRun, a)
+	}
+}
+
+func TestRunNodeASync_IncompleteExecution(t *testing.T) {
+	nodeRunMapCounter := make(map[idwrap.IDWrap]*atomic.Int32)
+
+	onRun := func(id idwrap.IDWrap) {
+		a, ok := nodeRunMapCounter[id]
+		if !ok {
+			a = &atomic.Int32{}
+		}
+		a.Add(1)
+	}
+
+	node1ID := idwrap.NewNow()
+	node2ID := idwrap.NewNow()
+	node3ID := idwrap.NewNow()
+	node4ID := idwrap.NewNow()
+
+	log.Println("node1ID", node1ID)
+
+	// mockNode1 starts, sets runningNode, then yields
+	mockNode1 := mocknode.NewMockNode(node1ID, []idwrap.IDWrap{node2ID}, func() {
+		onRun(node1ID)
+	})
+
+	// mockNode2 starts, sets runningNode, then yields
+	mockNode2 := mocknode.NewMockNode(node2ID, []idwrap.IDWrap{node3ID}, func() {
+		onRun(node2ID)
+	})
+
+	// mockNode3 starts, sets runningNode, then yields
+	mockNode3 := mocknode.NewMockNode(node3ID, []idwrap.IDWrap{node4ID}, func() {
+		onRun(node3ID)
+	})
+
+	// mockNode4 starts, sets runningNode, then yields
+	mockNode4 := mocknode.NewMockNode(node4ID, nil, func() {
+		onRun(node4ID)
+	})
+
+	flowNodeMap := map[idwrap.IDWrap]node.FlowNode{
+		node1ID: mockNode1,
+		node2ID: mockNode2,
+		node3ID: mockNode3,
+		node4ID: mockNode4,
+	}
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1, edge2, edge3}
+	edgesMap := edge.NewEdgesMap(edges)
+
+	flowID := idwrap.NewNow()
+	timeout := 50 * time.Millisecond
+	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, node1ID, flowNodeMap, edgesMap, timeout)
+	statusChan := make(chan runner.FlowStatusResp, 1000)
+
+	err := runnerLocal.Run(context.Background(), statusChan)
+	testutil.Assert(t, nil, err)
+	close(statusChan)
+
+	type nodeRunCounter struct {
+		runCounter     int32
+		successCounter int32
+	}
+
+	testMapCounter := make(map[idwrap.IDWrap]*nodeRunCounter)
+	for status := range statusChan {
+		fmt.Println("status", status)
+		if status.CurrentNodeID != nil {
+			s, ok := testMapCounter[*status.CurrentNodeID]
+			if !ok {
+				s = &nodeRunCounter{}
+			}
+			switch status.NodeStatus {
+			case node.NodeStatusRunning:
+				s.runCounter++
+			case node.NodeStatusSuccess:
+				s.successCounter++
+			default:
+				t.Errorf("Expected status to be either NodeStatusRunning or NodeStatusSuccess, but got %v", status.NodeStatus)
+			}
+		}
+	}
+
+	for k, v := range nodeRunMapCounter {
+		a, ok := testMapCounter[k]
+		if !ok {
+			t.Errorf("Expected key %v to be in testMapCounter", k)
+		}
+
+		testutil.Assert(t, v.Load(), a.runCounter)
+		testutil.Assert(t, v.Load(), a.successCounter)
+
 	}
 }

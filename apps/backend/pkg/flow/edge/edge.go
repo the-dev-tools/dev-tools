@@ -5,19 +5,19 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 )
 
-type EdgeHandle int
+type EdgeHandle = int32
 
 /*
   HANDLE_UNSPECIFIED: 0,
-  HANDLE_TRUE: 1,
-  HANDLE_FALSE: 2,
+  HANDLE_THEN: 1,
+  HANDLE_ELSE: 2,
   HANDLE_LOOP: 3,
 */
 
 const (
 	HandleUnspecified EdgeHandle = iota
-	HandleTrue
-	HandleFalse
+	HandleThen
+	HandleElse
 	HandleLoop
 	HandleLength
 )

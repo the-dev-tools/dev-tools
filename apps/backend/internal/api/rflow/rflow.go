@@ -535,7 +535,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// TODO: get timeout from flow config
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
 
-	status := make(chan runner.FlowStatusResp, 10)
+	status := make(chan runner.FlowStatusResp, 1000)
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

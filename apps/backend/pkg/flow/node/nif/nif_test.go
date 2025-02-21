@@ -34,8 +34,8 @@ func TestForNode_RunSync_true(t *testing.T) {
 	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "1", "1")
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleTrue)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleFalse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -74,8 +74,8 @@ func TestForNode_RunSync_false(t *testing.T) {
 	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "2", "1")
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleTrue)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleFalse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -114,8 +114,8 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "var.a", "1")
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleTrue)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleFalse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -156,8 +156,8 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "var.a", "1")
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleTrue)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleFalse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 

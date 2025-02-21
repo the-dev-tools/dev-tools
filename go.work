@@ -1,9 +1,9 @@
-go 1.23.3
+go 1.23.5
 
 use (
-	./libraries/tools
 	./apps/backend
 	./libraries/spec
+	./libraries/tools
 	./services/db
 	./services/mail
 )

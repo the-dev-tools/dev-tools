@@ -2,6 +2,7 @@ package nfor
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
@@ -47,7 +48,7 @@ func (nr *NodeFor) SetID(id idwrap.IDWrap) {
 
 func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
 	a := map[string]interface{}{
 		NodeVarKey: req.VarMap,
@@ -122,7 +123,7 @@ Exit:
 
 func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
 	a := map[string]interface{}{
 		NodeVarKey: req.VarMap,
@@ -149,6 +150,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				val = nr
 			}
 
+			fmt.Println("nr.Path: ", nr.Path)
 			if nr.Path != "" {
 				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
 				if err != nil {
@@ -163,6 +165,8 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				}
 			}
 
+			fmt.Println("nextNodeID: ", nextNodeID)
+
 			currentNode, ok := req.NodeMap[nextNodeID]
 			if !ok {
 				resultChan <- node.FlowNodeResult{
@@ -171,6 +175,8 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				}
 				return
 			}
+
+			fmt.Println("currentNode: ", currentNode)
 			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
