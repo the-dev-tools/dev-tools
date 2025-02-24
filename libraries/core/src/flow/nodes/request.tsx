@@ -88,10 +88,10 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
 
   return (
     <div className={tw`space-y-1.5 p-2`}>
-      <div className={tw`text-xs leading-4 tracking-tight text-slate-400`}>{collectionName}</div>
+      <div className={tw`truncate text-xs leading-4 tracking-tight text-slate-400`}>{collectionName}</div>
       <div className={tw`flex items-center gap-1.5`}>
         <MethodBadge method={method} />
-        <div className={tw`flex-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
+        <div className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
         <ButtonAsLink
           variant='ghost'
           className={tw`p-0.5`}
