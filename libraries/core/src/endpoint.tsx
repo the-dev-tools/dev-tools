@@ -585,7 +585,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
                       )
                     }
                   >
-                    {Ulid.construct(exampleId).time.toLocaleString()}
+                    {Ulid.construct(item.exampleId).time.toLocaleString()}
                   </Tab>
                 )}
               </TabList>
