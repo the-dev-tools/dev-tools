@@ -97,7 +97,7 @@ interface NodeBaseProps extends NodeProps {
 
 // TODO: add node name
 export const NodeBase = ({ id, data: { state }, Icon, title, children, selected }: NodeBaseProps) => {
-  const { getEdges, getNode, deleteElements } = useReactFlow();
+  const { getEdges, getNode, deleteElements, getZoom } = useReactFlow();
 
   const setSelectedNodes = useSetSelectedNodes();
 
@@ -111,7 +111,7 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children, selected 
         onContextMenu={(event) => {
           const offset = ref.current?.getBoundingClientRect();
           if (!offset) return;
-          onContextMenu(event, offset);
+          onContextMenu(event, offset, getZoom());
         }}
       >
         <Icon className={tw`size-5 text-slate-500`} />
