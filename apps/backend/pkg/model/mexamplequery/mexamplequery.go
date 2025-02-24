@@ -5,10 +5,11 @@ import (
 )
 
 type Query struct {
-	QueryKey    string
-	Description string
-	Value       string
-	Enable      bool
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
+	QueryKey      string
+	Description   string
+	Value         string
+	Enable        bool
+	DeltaParentID *idwrap.IDWrap
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
 }

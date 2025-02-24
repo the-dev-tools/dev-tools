@@ -17,17 +17,26 @@ func SerializeQueryModelToRPC(query mexamplequery.Query) *requestv1.Query {
 }
 
 func SerializeQueryModelToRPCItem(query mexamplequery.Query) *requestv1.QueryListItem {
+	var parentDeltaIDBytes []byte
+	if query.DeltaParentID != nil {
+		parentDeltaIDBytes = query.DeltaParentID.Bytes()
+	}
+
 	return &requestv1.QueryListItem{
-		QueryId:     query.ID.Bytes(),
-		Key:         query.QueryKey,
-		Enabled:     query.Enable,
-		Description: query.Description,
-		Value:       query.Value,
+		QueryId:       query.ID.Bytes(),
+		Key:           query.QueryKey,
+		Enabled:       query.Enable,
+		Description:   query.Description,
+		ParentQueryId: parentDeltaIDBytes,
+		Value:         query.Value,
 	}
 }
 
 func SerlializeQueryRPCtoModel(query *requestv1.Query, exID idwrap.IDWrap) (mexamplequery.Query, error) {
-	q := SerlializeQueryRPCtoModelNoID(query, exID)
+	q, err := SerlializeQueryRPCtoModelNoID(query, exID)
+	if err != nil {
+		return mexamplequery.Query{}, err
+	}
 	queryId, err := idwrap.NewFromBytes(query.GetQueryId())
 	if err != nil {
 		return mexamplequery.Query{}, err
@@ -36,12 +45,22 @@ func SerlializeQueryRPCtoModel(query *requestv1.Query, exID idwrap.IDWrap) (mexa
 	return q, nil
 }
 
-func SerlializeQueryRPCtoModelNoID(query *requestv1.Query, exID idwrap.IDWrap) mexamplequery.Query {
-	return mexamplequery.Query{
-		QueryKey:    query.GetKey(),
-		ExampleID:   exID,
-		Enable:      query.GetEnabled(),
-		Description: query.GetDescription(),
-		Value:       query.GetValue(),
+func SerlializeQueryRPCtoModelNoID(query *requestv1.Query, exID idwrap.IDWrap) (mexamplequery.Query, error) {
+	var parentDeltaIDPtr *idwrap.IDWrap
+	if len(query.ParentQueryId) > 0 {
+		parentDeltaID, err := idwrap.NewFromBytes(query.ParentQueryId)
+		if err != nil {
+			return mexamplequery.Query{}, err
+		}
+		parentDeltaIDPtr = &parentDeltaID
 	}
+
+	return mexamplequery.Query{
+		QueryKey:      query.GetKey(),
+		ExampleID:     exID,
+		Enable:        query.GetEnabled(),
+		Description:   query.GetDescription(),
+		DeltaParentID: parentDeltaIDPtr,
+		Value:         query.GetValue(),
+	}, nil
 }

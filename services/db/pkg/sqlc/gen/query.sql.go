@@ -1913,24 +1913,26 @@ func (q *Queries) CreateMigration(ctx context.Context, arg CreateMigrationParams
 
 const createQuery = `-- name: CreateQuery :exec
 INSERT INTO
-  example_query (id, example_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateQueryParams struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	QueryKey    string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	QueryKey      string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error {
 	_, err := q.exec(ctx, q.createQueryStmt, createQuery,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.QueryKey,
 		arg.Enable,
 		arg.Description,
@@ -1941,141 +1943,161 @@ func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error 
 
 const createQueryBulk = `-- name: CreateQueryBulk :exec
 INSERT INTO
-  example_query (id, example_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateQueryBulkParams struct {
-	ID             idwrap.IDWrap
-	ExampleID      idwrap.IDWrap
-	QueryKey       string
-	Enable         bool
-	Description    string
-	Value          string
-	ID_2           idwrap.IDWrap
-	ExampleID_2    idwrap.IDWrap
-	QueryKey_2     string
-	Enable_2       bool
-	Description_2  string
-	Value_2        string
-	ID_3           idwrap.IDWrap
-	ExampleID_3    idwrap.IDWrap
-	QueryKey_3     string
-	Enable_3       bool
-	Description_3  string
-	Value_3        string
-	ID_4           idwrap.IDWrap
-	ExampleID_4    idwrap.IDWrap
-	QueryKey_4     string
-	Enable_4       bool
-	Description_4  string
-	Value_4        string
-	ID_5           idwrap.IDWrap
-	ExampleID_5    idwrap.IDWrap
-	QueryKey_5     string
-	Enable_5       bool
-	Description_5  string
-	Value_5        string
-	ID_6           idwrap.IDWrap
-	ExampleID_6    idwrap.IDWrap
-	QueryKey_6     string
-	Enable_6       bool
-	Description_6  string
-	Value_6        string
-	ID_7           idwrap.IDWrap
-	ExampleID_7    idwrap.IDWrap
-	QueryKey_7     string
-	Enable_7       bool
-	Description_7  string
-	Value_7        string
-	ID_8           idwrap.IDWrap
-	ExampleID_8    idwrap.IDWrap
-	QueryKey_8     string
-	Enable_8       bool
-	Description_8  string
-	Value_8        string
-	ID_9           idwrap.IDWrap
-	ExampleID_9    idwrap.IDWrap
-	QueryKey_9     string
-	Enable_9       bool
-	Description_9  string
-	Value_9        string
-	ID_10          idwrap.IDWrap
-	ExampleID_10   idwrap.IDWrap
-	QueryKey_10    string
-	Enable_10      bool
-	Description_10 string
-	Value_10       string
+	ID               idwrap.IDWrap
+	ExampleID        idwrap.IDWrap
+	DeltaParentID    *idwrap.IDWrap
+	QueryKey         string
+	Enable           bool
+	Description      string
+	Value            string
+	ID_2             idwrap.IDWrap
+	ExampleID_2      idwrap.IDWrap
+	DeltaParentID_2  *idwrap.IDWrap
+	QueryKey_2       string
+	Enable_2         bool
+	Description_2    string
+	Value_2          string
+	ID_3             idwrap.IDWrap
+	ExampleID_3      idwrap.IDWrap
+	DeltaParentID_3  *idwrap.IDWrap
+	QueryKey_3       string
+	Enable_3         bool
+	Description_3    string
+	Value_3          string
+	ID_4             idwrap.IDWrap
+	ExampleID_4      idwrap.IDWrap
+	DeltaParentID_4  *idwrap.IDWrap
+	QueryKey_4       string
+	Enable_4         bool
+	Description_4    string
+	Value_4          string
+	ID_5             idwrap.IDWrap
+	ExampleID_5      idwrap.IDWrap
+	DeltaParentID_5  *idwrap.IDWrap
+	QueryKey_5       string
+	Enable_5         bool
+	Description_5    string
+	Value_5          string
+	ID_6             idwrap.IDWrap
+	ExampleID_6      idwrap.IDWrap
+	DeltaParentID_6  *idwrap.IDWrap
+	QueryKey_6       string
+	Enable_6         bool
+	Description_6    string
+	Value_6          string
+	ID_7             idwrap.IDWrap
+	ExampleID_7      idwrap.IDWrap
+	DeltaParentID_7  *idwrap.IDWrap
+	QueryKey_7       string
+	Enable_7         bool
+	Description_7    string
+	Value_7          string
+	ID_8             idwrap.IDWrap
+	ExampleID_8      idwrap.IDWrap
+	DeltaParentID_8  *idwrap.IDWrap
+	QueryKey_8       string
+	Enable_8         bool
+	Description_8    string
+	Value_8          string
+	ID_9             idwrap.IDWrap
+	ExampleID_9      idwrap.IDWrap
+	DeltaParentID_9  *idwrap.IDWrap
+	QueryKey_9       string
+	Enable_9         bool
+	Description_9    string
+	Value_9          string
+	ID_10            idwrap.IDWrap
+	ExampleID_10     idwrap.IDWrap
+	DeltaParentID_10 *idwrap.IDWrap
+	QueryKey_10      string
+	Enable_10        bool
+	Description_10   string
+	Value_10         string
 }
 
 func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams) error {
 	_, err := q.exec(ctx, q.createQueryBulkStmt, createQueryBulk,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.QueryKey,
 		arg.Enable,
 		arg.Description,
 		arg.Value,
 		arg.ID_2,
 		arg.ExampleID_2,
+		arg.DeltaParentID_2,
 		arg.QueryKey_2,
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
 		arg.ID_3,
 		arg.ExampleID_3,
+		arg.DeltaParentID_3,
 		arg.QueryKey_3,
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
 		arg.ID_4,
 		arg.ExampleID_4,
+		arg.DeltaParentID_4,
 		arg.QueryKey_4,
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
 		arg.ID_5,
 		arg.ExampleID_5,
+		arg.DeltaParentID_5,
 		arg.QueryKey_5,
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
 		arg.ID_6,
 		arg.ExampleID_6,
+		arg.DeltaParentID_6,
 		arg.QueryKey_6,
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
 		arg.ID_7,
 		arg.ExampleID_7,
+		arg.DeltaParentID_7,
 		arg.QueryKey_7,
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
 		arg.ID_8,
 		arg.ExampleID_8,
+		arg.DeltaParentID_8,
 		arg.QueryKey_8,
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
 		arg.ID_9,
 		arg.ExampleID_9,
+		arg.DeltaParentID_9,
 		arg.QueryKey_9,
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
 		arg.ID_10,
 		arg.ExampleID_10,
+		arg.DeltaParentID_10,
 		arg.QueryKey_10,
 		arg.Enable_10,
 		arg.Description_10,
@@ -4556,6 +4578,7 @@ const getQueriesByExampleID = `-- name: GetQueriesByExampleID :many
 SELECT
   id,
   example_id,
+  delta_parent_id,
   query_key,
   enable,
   description,
@@ -4578,6 +4601,7 @@ func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID idwrap.ID
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
+			&i.DeltaParentID,
 			&i.QueryKey,
 			&i.Enable,
 			&i.Description,
@@ -4606,6 +4630,7 @@ const getQuery = `-- name: GetQuery :one
 SELECT
   id,
   example_id,
+  delta_parent_id,
   query_key,
   enable,
   description,
@@ -4623,6 +4648,38 @@ func (q *Queries) GetQuery(ctx context.Context, id idwrap.IDWrap) (ExampleQuery,
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
+		&i.DeltaParentID,
+		&i.QueryKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+	)
+	return i, err
+}
+
+const getQueryByDeltaParentID = `-- name: GetQueryByDeltaParentID :one
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM
+  example_query
+WHERE
+  delta_parent_id = ?
+lIMIT 1
+`
+
+func (q *Queries) GetQueryByDeltaParentID(ctx context.Context, deltaParentID *idwrap.IDWrap) (ExampleQuery, error) {
+	row := q.queryRow(ctx, q.getQueryByDeltaParentIDStmt, getQueryByDeltaParentID, deltaParentID)
+	var i ExampleQuery
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.DeltaParentID,
 		&i.QueryKey,
 		&i.Enable,
 		&i.Description,

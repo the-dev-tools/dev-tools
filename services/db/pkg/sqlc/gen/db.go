@@ -411,6 +411,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getQueryStmt, err = db.PrepareContext(ctx, getQuery); err != nil {
 		return nil, fmt.Errorf("error preparing query GetQuery: %w", err)
 	}
+	if q.getQueryByDeltaParentIDStmt, err = db.PrepareContext(ctx, getQueryByDeltaParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetQueryByDeltaParentID: %w", err)
+	}
 	if q.getResultApiStmt, err = db.PrepareContext(ctx, getResultApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetResultApi: %w", err)
 	}
@@ -1223,6 +1226,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getQueryStmt: %w", cerr)
 		}
 	}
+	if q.getQueryByDeltaParentIDStmt != nil {
+		if cerr := q.getQueryByDeltaParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getQueryByDeltaParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getResultApiStmt != nil {
 		if cerr := q.getResultApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getResultApiStmt: %w", cerr)
@@ -1661,6 +1669,7 @@ type Queries struct {
 	getMigrationsStmt                                     *sql.Stmt
 	getQueriesByExampleIDStmt                             *sql.Stmt
 	getQueryStmt                                          *sql.Stmt
+	getQueryByDeltaParentIDStmt                           *sql.Stmt
 	getResultApiStmt                                      *sql.Stmt
 	getResultApiByTriggerByStmt                           *sql.Stmt
 	getResultApiByTriggerByAndTriggerTypeStmt             *sql.Stmt
@@ -1850,6 +1859,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getMigrationsStmt:                                   q.getMigrationsStmt,
 		getQueriesByExampleIDStmt:                           q.getQueriesByExampleIDStmt,
 		getQueryStmt:                                        q.getQueryStmt,
+		getQueryByDeltaParentIDStmt:                         q.getQueryByDeltaParentIDStmt,
 		getResultApiStmt:                                    q.getResultApiStmt,
 		getResultApiByTriggerByStmt:                         q.getResultApiByTriggerByStmt,
 		getResultApiByTriggerByAndTriggerTypeStmt:           q.getResultApiByTriggerByAndTriggerTypeStmt,

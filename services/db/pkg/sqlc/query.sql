@@ -895,6 +895,7 @@ WHERE
 SELECT
   id,
   example_id,
+  delta_parent_id,
   query_key,
   enable,
   description,
@@ -909,6 +910,7 @@ LIMIT 1;
 SELECT
   id,
   example_id,
+  delta_parent_id,
   query_key,
   enable,
   description,
@@ -918,26 +920,41 @@ FROM
 WHERE
   example_id = ?;
 
+-- name: GetQueryByDeltaParentID :one
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM
+  example_query
+WHERE
+  delta_parent_id = ?
+lIMIT 1;
+
 -- name: CreateQuery :exec
 INSERT INTO
-  example_query (id, example_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateQueryBulk :exec
 INSERT INTO
-  example_query (id, example_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: SetQueryEnable :exec
 UPDATE example_query

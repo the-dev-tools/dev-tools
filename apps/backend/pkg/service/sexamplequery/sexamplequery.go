@@ -74,6 +74,14 @@ func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, e
 	return tgeneric.MassConvert(queries, SerializeQueryDBToModel), nil
 }
 
+func (h ExampleQueryService) GetExampleQueryByDeltaParentID(ctx context.Context, deltaParentID *idwrap.IDWrap) (mexamplequery.Query, error) {
+	query, err := h.queries.GetQueryByDeltaParentID(ctx, deltaParentID)
+	if err != nil {
+		return mexamplequery.Query{}, err
+	}
+	return SerializeQueryDBToModel(query), nil
+}
+
 func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexamplequery.Query) error {
 	return h.queries.CreateQuery(ctx, gen.CreateQueryParams{
 		ID:          query.ID,

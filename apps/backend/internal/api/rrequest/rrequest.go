@@ -116,13 +116,17 @@ func (c RequestRPC) QueryCreate(ctx context.Context, req *connect.Request[reques
 		return nil, rpcErr
 	}
 	reqQuery := requestv1.Query{
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
+		Key:           req.Msg.GetKey(),
+		Enabled:       req.Msg.GetEnabled(),
+		Value:         req.Msg.GetValue(),
+		Description:   req.Msg.GetDescription(),
+		ParentQueryId: req.Msg.GetParentQueryId(),
 	}
 	queryID := idwrap.NewNow()
-	query := tquery.SerlializeQueryRPCtoModelNoID(&reqQuery, exID)
+	query, err := tquery.SerlializeQueryRPCtoModelNoID(&reqQuery, exID)
+	if err != nil {
+		return nil, err
+	}
 	query.ID = queryID
 
 	err = c.eqs.CreateExampleQuery(ctx, query)

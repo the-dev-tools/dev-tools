@@ -80,12 +80,13 @@ type ExampleHeader struct {
 }
 
 type ExampleQuery struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	QueryKey    string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	QueryKey      string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 type ExampleResp struct {
