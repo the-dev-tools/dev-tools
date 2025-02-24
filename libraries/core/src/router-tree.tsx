@@ -14,9 +14,10 @@ import { Route as rootRoute } from './root';
 import { Route as loginImport } from './login';
 import { Route as authorizedImport } from './authorized';
 import { Route as dashboardImport } from './dashboard';
-import { Route as workspaceLayoutImport } from './workspace-layout';
-import { Route as workspaceListImport } from './workspace-list';
-import { Route as workspaceMembersImport } from './workspace-members';
+import { Route as workspaceLayoutImport } from './workspace/layout';
+import { Route as workspaceListImport } from './workspace/list';
+import { Route as workspaceMembersImport } from './workspace/members';
+import { Route as workspaceOverviewImport } from './workspace/overview';
 import { Route as flowLayoutImport } from './flow/layout';
 import { Route as flowHistoryImport } from './flow/history';
 import { Route as flowFlowImport } from './flow/flow';
@@ -55,6 +56,12 @@ const workspaceListRoute = workspaceListImport.update({
 const workspaceMembersRoute = workspaceMembersImport.update({
   id: '/members',
   path: '/members',
+  getParentRoute: () => workspaceLayoutRoute,
+} as any);
+
+const workspaceOverviewRoute = workspaceOverviewImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
 
@@ -120,6 +127,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspace/$workspaceIdCan';
       preLoaderRoute: typeof workspaceLayoutImport;
       parentRoute: typeof authorizedImport;
+    };
+    '/_authorized/workspace/$workspaceIdCan/': {
+      id: '/_authorized/workspace/$workspaceIdCan/';
+      path: '/';
+      fullPath: '/workspace/$workspaceIdCan/';
+      preLoaderRoute: typeof workspaceOverviewImport;
+      parentRoute: typeof workspaceLayoutImport;
     };
     '/_authorized/workspace/$workspaceIdCan/members': {
       id: '/_authorized/workspace/$workspaceIdCan/members';
@@ -188,12 +202,14 @@ const flowLayoutRouteWithChildren = flowLayoutRoute._addFileChildren(
 );
 
 interface workspaceLayoutRouteChildren {
+  workspaceOverviewRoute: typeof workspaceOverviewRoute;
   workspaceMembersRoute: typeof workspaceMembersRoute;
   flowLayoutRoute: typeof flowLayoutRouteWithChildren;
   endpointRoute: typeof endpointRoute;
 }
 
 const workspaceLayoutRouteChildren: workspaceLayoutRouteChildren = {
+  workspaceOverviewRoute: workspaceOverviewRoute,
   workspaceMembersRoute: workspaceMembersRoute,
   flowLayoutRoute: flowLayoutRouteWithChildren,
   endpointRoute: endpointRoute,
@@ -222,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof loginRoute;
   '/': typeof workspaceListRoute;
   '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/workspace/$workspaceIdCan/': typeof workspaceOverviewRoute;
   '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren;
   '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowFlowRoute;
@@ -233,7 +250,7 @@ export interface FileRoutesByTo {
   '': typeof authorizedRouteWithChildren;
   '/login': typeof loginRoute;
   '/': typeof workspaceListRoute;
-  '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/workspace/$workspaceIdCan': typeof workspaceOverviewRoute;
   '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowFlowRoute;
   '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
@@ -247,6 +264,7 @@ export interface FileRoutesById {
   '/_authorized/_dashboard': typeof dashboardRouteWithChildren;
   '/_authorized/_dashboard/': typeof workspaceListRoute;
   '/_authorized/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/_authorized/workspace/$workspaceIdCan/': typeof workspaceOverviewRoute;
   '/_authorized/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
   '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren;
   '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowFlowRoute;
@@ -261,6 +279,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/'
     | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/'
     | '/workspace/$workspaceIdCan/members'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
@@ -283,6 +302,7 @@ export interface FileRouteTypes {
     | '/_authorized/_dashboard'
     | '/_authorized/_dashboard/'
     | '/_authorized/workspace/$workspaceIdCan'
+    | '/_authorized/workspace/$workspaceIdCan/'
     | '/_authorized/workspace/$workspaceIdCan/members'
     | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/'
@@ -333,20 +353,25 @@ export const routeTree = rootRoute
       ]
     },
     "/_authorized/_dashboard/": {
-      "filePath": "workspace-list.tsx",
+      "filePath": "workspace/list.tsx",
       "parent": "/_authorized/_dashboard"
     },
     "/_authorized/workspace/$workspaceIdCan": {
-      "filePath": "workspace-layout.tsx",
+      "filePath": "workspace/layout.tsx",
       "parent": "/_authorized",
       "children": [
+        "/_authorized/workspace/$workspaceIdCan/",
         "/_authorized/workspace/$workspaceIdCan/members",
         "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan",
         "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
       ]
     },
+    "/_authorized/workspace/$workspaceIdCan/": {
+      "filePath": "workspace/overview.tsx",
+      "parent": "/_authorized/workspace/$workspaceIdCan"
+    },
     "/_authorized/workspace/$workspaceIdCan/members": {
-      "filePath": "workspace-members.tsx",
+      "filePath": "workspace/members.tsx",
       "parent": "/_authorized/workspace/$workspaceIdCan"
     },
     "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan": {

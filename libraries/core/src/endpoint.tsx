@@ -127,24 +127,32 @@ function Page() {
 
   return (
     <Panel id='main' order={2}>
-      <PanelGroup direction='vertical'>
-        <Panel id='request' order={1} className='flex h-full flex-col'>
-          <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+      <Suspense
+        fallback={
+          <div className={tw`flex h-full items-center justify-center`}>
+            <Spinner className={tw`size-16`} />
+          </div>
+        }
+      >
+        <PanelGroup direction='vertical'>
+          <Panel id='request' order={1} className='flex h-full flex-col'>
+            <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
-          <ReferenceContext value={{ exampleId, workspaceId }}>
-            <EndpointRequestView exampleId={exampleId} />
-          </ReferenceContext>
-        </Panel>
-        {example.lastResponseId && (
-          <>
-            <PanelResizeHandle direction='vertical' />
-            <Panel id='response' order={2} defaultSize={40}>
-              <ResponsePanel responseId={example.lastResponseId} fullWidth />
-            </Panel>
-          </>
-        )}
-        <StatusBar />
-      </PanelGroup>
+            <ReferenceContext value={{ exampleId, workspaceId }}>
+              <EndpointRequestView exampleId={exampleId} />
+            </ReferenceContext>
+          </Panel>
+          {example.lastResponseId && (
+            <>
+              <PanelResizeHandle direction='vertical' />
+              <Panel id='response' order={2} defaultSize={40}>
+                <ResponsePanel responseId={example.lastResponseId} fullWidth />
+              </Panel>
+            </>
+          )}
+          <StatusBar />
+        </PanelGroup>
+      </Suspense>
     </Panel>
   );
 }

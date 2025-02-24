@@ -87,18 +87,26 @@ function RouteComponent() {
 
   return (
     <Panel id='main' order={2}>
-      <PanelGroup direction='vertical'>
-        <ReactFlowProvider>
-          <TopBar />
-          <Panel id='flow' order={1} className='flex h-full flex-col'>
-            <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId}>
-              <ActionBar />
-            </Flow>
-          </Panel>
-          <EditPanel />
-        </ReactFlowProvider>
-        <StatusBar />
-      </PanelGroup>
+      <Suspense
+        fallback={
+          <div className={tw`flex h-full items-center justify-center`}>
+            <Spinner className={tw`size-16`} />
+          </div>
+        }
+      >
+        <PanelGroup direction='vertical'>
+          <ReactFlowProvider>
+            <TopBar />
+            <Panel id='flow' order={1} className='flex h-full flex-col'>
+              <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId}>
+                <ActionBar />
+              </Flow>
+            </Panel>
+            <EditPanel />
+          </ReactFlowProvider>
+          <StatusBar />
+        </PanelGroup>
+      </Suspense>
     </Panel>
   );
 }

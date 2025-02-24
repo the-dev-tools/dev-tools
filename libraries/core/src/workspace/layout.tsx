@@ -32,10 +32,10 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 
-import { DashboardLayout } from './authorized';
-import { CollectionListTree } from './collection';
-import { EnvironmentsWidget } from './environment';
-import { useLogsQuery } from './status-bar';
+import { DashboardLayout } from '../authorized';
+import { CollectionListTree } from '../collection';
+import { EnvironmentsWidget } from '../environment';
+import { useLogsQuery } from '../status-bar';
 
 export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('WorkspaceRouteSearch')({
   showLogs: pipe(Schema.Boolean, Schema.optional),
@@ -121,11 +121,14 @@ function Layout() {
           <EnvironmentsWidget />
 
           <div className={tw`flex flex-col gap-2 p-1.5`}>
-            {/* TODO: implement overview */}
-            <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
+            <ButtonAsLink
+              className={tw`flex items-center justify-start gap-2 px-2.5 py-1.5`}
+              href={{ from: Route.fullPath, to: '/workspace/$workspaceIdCan' }}
+              variant='ghost'
+            >
               <OverviewIcon className={tw`size-5 text-slate-500`} />
               <h2 className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>Overview</h2>
-            </div>
+            </ButtonAsLink>
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-slate-500`} />

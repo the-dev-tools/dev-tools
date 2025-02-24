@@ -15,7 +15,7 @@ import { ArrowToLeftIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import type { WorkspaceRouteSearch } from './workspace-layout';
+import type { WorkspaceRouteSearch } from './workspace/layout';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
