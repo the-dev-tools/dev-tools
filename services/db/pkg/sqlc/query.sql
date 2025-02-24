@@ -550,7 +550,9 @@ WHERE
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -562,7 +564,9 @@ LIMIT
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -583,7 +587,9 @@ LIMIT
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -600,7 +606,9 @@ WHERE
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -620,14 +628,24 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated)
+  workspaces (id, name, updated, collection_count, flow_count)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
 SET
-  name = ?
+  name = ?,
+  collection_count = ?,
+  flow_count = ?,
+  updated = ?
+WHERE
+  id = ?;
+
+-- name: UpdateWorkspaceUpdatedTime :exec
+UPDATE workspaces
+SET
+  updated = ?
 WHERE
   id = ?;
 

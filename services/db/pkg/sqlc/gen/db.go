@@ -567,6 +567,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
 	}
+	if q.updateWorkspaceUpdatedTimeStmt, err = db.PrepareContext(ctx, updateWorkspaceUpdatedTime); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUpdatedTime: %w", err)
+	}
 	if q.updateWorkspaceUserStmt, err = db.PrepareContext(ctx, updateWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUser: %w", err)
 	}
@@ -1480,6 +1483,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateWorkspaceStmt: %w", cerr)
 		}
 	}
+	if q.updateWorkspaceUpdatedTimeStmt != nil {
+		if cerr := q.updateWorkspaceUpdatedTimeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWorkspaceUpdatedTimeStmt: %w", cerr)
+		}
+	}
 	if q.updateWorkspaceUserStmt != nil {
 		if cerr := q.updateWorkspaceUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateWorkspaceUserStmt: %w", cerr)
@@ -1705,6 +1713,7 @@ type Queries struct {
 	updateVariableStmt                                    *sql.Stmt
 	updateVisualizeModeStmt                               *sql.Stmt
 	updateWorkspaceStmt                                   *sql.Stmt
+	updateWorkspaceUpdatedTimeStmt                        *sql.Stmt
 	updateWorkspaceUserStmt                               *sql.Stmt
 }
 
@@ -1893,6 +1902,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateVariableStmt:                                  q.updateVariableStmt,
 		updateVisualizeModeStmt:                             q.updateVisualizeModeStmt,
 		updateWorkspaceStmt:                                 q.updateWorkspaceStmt,
+		updateWorkspaceUpdatedTimeStmt:                      q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                             q.updateWorkspaceUserStmt,
 	}
 }

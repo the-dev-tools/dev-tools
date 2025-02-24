@@ -19,17 +19,21 @@ type WorkspaceService struct {
 
 func ConvertToDBWorkspace(workspace mworkspace.Workspace) gen.Workspace {
 	return gen.Workspace{
-		ID:      workspace.ID,
-		Name:    workspace.Name,
-		Updated: workspace.Updated.Unix(),
+		ID:              workspace.ID,
+		Name:            workspace.Name,
+		Updated:         workspace.Updated.Unix(),
+		CollectionCount: workspace.CollectionCount,
+		FlowCount:       workspace.FlowCount,
 	}
 }
 
 func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 	return mworkspace.Workspace{
-		ID:      workspace.ID,
-		Name:    workspace.Name,
-		Updated: dbtime.DBTime(time.Unix(workspace.Updated, 0)),
+		ID:              workspace.ID,
+		Name:            workspace.Name,
+		Updated:         dbtime.DBTime(time.Unix(workspace.Updated, 0)),
+		CollectionCount: workspace.CollectionCount,
+		FlowCount:       workspace.FlowCount,
 	}
 }
 
@@ -53,9 +57,11 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) error {
 	dbWorkspace := ConvertToDBWorkspace(*w)
 	return ws.queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams{
-		ID:      dbWorkspace.ID,
-		Name:    dbWorkspace.Name,
-		Updated: dbWorkspace.Updated,
+		ID:              dbWorkspace.ID,
+		Name:            dbWorkspace.Name,
+		Updated:         dbWorkspace.Updated,
+		CollectionCount: dbWorkspace.CollectionCount,
+		FlowCount:       dbWorkspace.FlowCount,
 	})
 }
 
@@ -74,8 +80,22 @@ func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspa
 
 func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace) error {
 	err := ws.queries.UpdateWorkspace(ctx, gen.UpdateWorkspaceParams{
-		ID:   org.ID,
-		Name: org.Name,
+		ID:              org.ID,
+		Name:            org.Name,
+		FlowCount:       org.FlowCount,
+		CollectionCount: org.CollectionCount,
+		Updated:         org.Updated.Unix(),
+	})
+	if err == sql.ErrNoRows {
+		return ErrNoWorkspaceFound
+	}
+	return err
+}
+
+func (ws WorkspaceService) UpdateUpdatedTime(ctx context.Context, org *mworkspace.Workspace) error {
+	err := ws.queries.UpdateWorkspaceUpdatedTime(ctx, gen.UpdateWorkspaceUpdatedTimeParams{
+		ID:      org.ID,
+		Updated: org.Updated.Unix(),
 	})
 	if err == sql.ErrNoRows {
 		return ErrNoWorkspaceFound

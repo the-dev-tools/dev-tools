@@ -20,6 +20,8 @@ func SeralizeWorkspace(ws mworkspace.Workspace, env *menv.Env) *workspacev1.Work
 		Name:                  ws.Name,
 		Updated:               timestamppb.New(ws.Updated),
 		SelectedEnvironmentId: selectedEnvID,
+		CollectionCount:       ws.CollectionCount,
+		FlowCount:             ws.FlowCount,
 	}
 }
 
@@ -34,6 +36,8 @@ func SeralizeWorkspaceItem(ws mworkspace.Workspace, env *menv.Env) *workspacev1.
 		SelectedEnvironmentId: selectedEnvID,
 		Name:                  ws.Name,
 		Updated:               timestamppb.New(ws.Updated),
+		CollectionCount:       ws.CollectionCount,
+		FlowCount:             ws.FlowCount,
 	}
 }
 

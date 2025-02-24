@@ -248,9 +248,11 @@ type Variable struct {
 }
 
 type Workspace struct {
-	ID      idwrap.IDWrap
-	Name    string
-	Updated int64
+	ID              idwrap.IDWrap
+	Name            string
+	Updated         int64
+	CollectionCount int32
+	FlowCount       int32
 }
 
 type WorkspacesUser struct {

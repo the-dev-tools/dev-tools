@@ -2278,19 +2278,27 @@ func (q *Queries) CreateVariableBulk(ctx context.Context, arg CreateVariableBulk
 
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated)
+  workspaces (id, name, updated, collection_count, flow_count)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
-	ID      idwrap.IDWrap
-	Name    string
-	Updated int64
+	ID              idwrap.IDWrap
+	Name            string
+	Updated         int64
+	CollectionCount int32
+	FlowCount       int32
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
-	_, err := q.exec(ctx, q.createWorkspaceStmt, createWorkspace, arg.ID, arg.Name, arg.Updated)
+	_, err := q.exec(ctx, q.createWorkspaceStmt, createWorkspace,
+		arg.ID,
+		arg.Name,
+		arg.Updated,
+		arg.CollectionCount,
+		arg.FlowCount,
+	)
 	return err
 }
 
@@ -5042,7 +5050,9 @@ const getWorkspace = `-- name: GetWorkspace :one
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -5055,7 +5065,13 @@ LIMIT
 func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceStmt, getWorkspace, id)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name, &i.Updated)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Updated,
+		&i.CollectionCount,
+		&i.FlowCount,
+	)
 	return i, err
 }
 
@@ -5063,7 +5079,9 @@ const getWorkspaceByUserID = `-- name: GetWorkspaceByUserID :one
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -5084,7 +5102,13 @@ LIMIT
 func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDStmt, getWorkspaceByUserID, userID)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name, &i.Updated)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Updated,
+		&i.CollectionCount,
+		&i.FlowCount,
+	)
 	return i, err
 }
 
@@ -5092,7 +5116,9 @@ const getWorkspaceByUserIDandWorkspaceID = `-- name: GetWorkspaceByUserIDandWork
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -5119,7 +5145,13 @@ type GetWorkspaceByUserIDandWorkspaceIDParams struct {
 func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg GetWorkspaceByUserIDandWorkspaceIDParams) (Workspace, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDandWorkspaceIDStmt, getWorkspaceByUserIDandWorkspaceID, arg.WorkspaceID, arg.UserID)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name, &i.Updated)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Updated,
+		&i.CollectionCount,
+		&i.FlowCount,
+	)
 	return i, err
 }
 
@@ -5265,7 +5297,9 @@ const getWorkspacesByUserID = `-- name: GetWorkspacesByUserID :many
 SELECT
   id,
   name,
-  updated
+  updated,
+  collection_count,
+  flow_count
 FROM
   workspaces
 WHERE
@@ -5288,7 +5322,13 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 	items := []Workspace{}
 	for rows.Next() {
 		var i Workspace
-		if err := rows.Scan(&i.ID, &i.Name, &i.Updated); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Updated,
+			&i.CollectionCount,
+			&i.FlowCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -6086,18 +6126,48 @@ func (q *Queries) UpdateVisualizeMode(ctx context.Context, arg UpdateVisualizeMo
 const updateWorkspace = `-- name: UpdateWorkspace :exec
 UPDATE workspaces
 SET
-  name = ?
+  name = ?,
+  collection_count = ?,
+  flow_count = ?,
+  updated = ?
 WHERE
   id = ?
 `
 
 type UpdateWorkspaceParams struct {
-	Name string
-	ID   idwrap.IDWrap
+	Name            string
+	CollectionCount int32
+	FlowCount       int32
+	Updated         int64
+	ID              idwrap.IDWrap
 }
 
 func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) error {
-	_, err := q.exec(ctx, q.updateWorkspaceStmt, updateWorkspace, arg.Name, arg.ID)
+	_, err := q.exec(ctx, q.updateWorkspaceStmt, updateWorkspace,
+		arg.Name,
+		arg.CollectionCount,
+		arg.FlowCount,
+		arg.Updated,
+		arg.ID,
+	)
+	return err
+}
+
+const updateWorkspaceUpdatedTime = `-- name: UpdateWorkspaceUpdatedTime :exec
+UPDATE workspaces
+SET
+  updated = ?
+WHERE
+  id = ?
+`
+
+type UpdateWorkspaceUpdatedTimeParams struct {
+	Updated int64
+	ID      idwrap.IDWrap
+}
+
+func (q *Queries) UpdateWorkspaceUpdatedTime(ctx context.Context, arg UpdateWorkspaceUpdatedTimeParams) error {
+	_, err := q.exec(ctx, q.updateWorkspaceUpdatedTimeStmt, updateWorkspaceUpdatedTime, arg.Updated, arg.ID)
 	return err
 }
 

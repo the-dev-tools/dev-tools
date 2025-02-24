@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/dbtime"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
@@ -238,6 +239,11 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		return nil, rpcErr
 	}
 
+	ws, err := c.ws.Get(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	name := req.Msg.Name
 
 	flowID := idwrap.NewNow()
@@ -300,6 +306,13 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	ws.FlowCount++
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&flowv1.FlowCreateResponse{
 		FlowId: flowID.Bytes(),
 	}), nil
@@ -348,6 +361,24 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
+	flow, err := c.fs.GetFlow(ctx, flowID)
+	if err != nil {
+		return nil, err
+	}
+
+	ws, err := c.ws.Get(ctx, flow.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	ws.FlowCount--
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	err = c.fs.DeleteFlow(ctx, flowID)
 	if err != nil {
 		return nil, err

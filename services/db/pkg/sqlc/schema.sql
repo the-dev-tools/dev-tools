@@ -17,6 +17,8 @@ CREATE TABLE workspaces (
   id BLOB NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
   updated BIGINT NOT NULL DEFAULT (unixepoch()),
+  collection_count INT NOT NULL DEFAULT 0,
+  flow_count INT NOT NULL DEFAULT 0,
   CHECK (length(id) == 16)
 );
 

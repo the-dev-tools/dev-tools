@@ -104,6 +104,11 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 		return nil, rpcErr
 	}
 
+	ws, err := c.ws.Get(ctx, workspaceUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	name := req.Msg.GetName()
 	if name == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is empty"))
@@ -116,6 +121,13 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 		Updated: dbtime.DBNow(),
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	ws.CollectionCount++
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -185,6 +197,23 @@ func (c *CollectionServiceRPC) CollectionDelete(ctx context.Context, req *connec
 	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, idWrap))
 	if rpcErr != nil {
 		return nil, rpcErr
+	}
+
+	cs, err := c.cs.GetCollection(ctx, idWrap)
+	if err != nil {
+		return nil, err
+	}
+
+	ws, err := c.ws.Get(ctx, cs.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+
+	ws.CollectionCount--
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	err = c.cs.DeleteCollection(ctx, idWrap)
@@ -316,6 +345,14 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 	}
 
 	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	ws, err := c.ws.Get(ctx, wsUlid)
+	ws.CollectionCount++
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

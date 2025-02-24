@@ -168,6 +168,8 @@ func (c *WorkspaceServiceRPC) WorkspaceGet(ctx context.Context, req *connect.Req
 		Name:                  rpcWs.Name,
 		Updated:               rpcWs.Updated,
 		SelectedEnvironmentId: rpcWs.SelectedEnvironmentId,
+		CollectionCount:       rpcWs.CollectionCount,
+		FlowCount:             rpcWs.FlowCount,
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -394,8 +396,6 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *conn
 	return connect.NewResponse(&workspacev1.WorkspaceMemberListResponse{Items: rpcUser}), nil
 }
 
-// TODO: I'm not sure this is the correct implementation of this function
-// Will talk with the team about this on the next meeting
 func (c *WorkspaceServiceRPC) WorkspaceMemberCreate(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberCreateRequest]) (*connect.Response[workspacev1.WorkspaceMemberCreateResponse], error) {
 	wid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
