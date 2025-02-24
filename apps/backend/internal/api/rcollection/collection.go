@@ -589,6 +589,15 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		Data: endpointChangeAny,
 	}
 
+	ws, err := c.ws.Get(ctx, wsID)
+	ws.CollectionCount++
+	ws.FlowCount++
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	changes := []*changev1.Change{change}
 
 	resp := &collectionv1.CollectionImportHarResponse{
