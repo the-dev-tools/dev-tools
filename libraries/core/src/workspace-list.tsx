@@ -1,8 +1,10 @@
+import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { DateTime, Duration, pipe } from 'effect';
+import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
+import TimeAgo from 'react-timeago';
 
 import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
@@ -18,7 +20,6 @@ import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { durationHumanFormat } from '@the-dev-tools/utils/helpers';
 
 export const Route = createFileRoute('/_authorized/_dashboard/')({
   component: Page,
@@ -107,11 +108,15 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
           </span> */}
           {/* <div className={tw`size-0.5 rounded-full bg-slate-400`} /> */}
           <span>
-            Created {pipe(Date.now() - workspaceUlid.time.getMilliseconds(), Duration.decode, durationHumanFormat)} ago
+            Created <TimeAgo date={workspaceUlid.time} minPeriod={60}/>
           </span>
-          <div className={tw`size-0.5 rounded-full bg-slate-400`} />
           {workspace.updated && (
-            <span>Updated {pipe(Date.now() - workspace.updated.nanos, Duration.decode, durationHumanFormat)} ago</span>
+            <>
+              <div className={tw`size-0.5 rounded-full bg-slate-400`} />
+              <span>
+                Updated <TimeAgo date={timestampDate(workspace.updated)} minPeriod={60}/>
+              </span>
+            </>
           )}
         </div>
         <span>Collection</span>
