@@ -554,7 +554,7 @@ importers:
         specifier: 3.35.0
         version: 3.35.0(react@19.0.0)
       react-timeago:
-        specifier: ^7.2.0
+        specifier: 7.2.0
         version: 7.2.0(react@19.0.0)
       tailwind-merge:
         specifier: 2.6.0
@@ -591,7 +591,7 @@ importers:
         specifier: ~19.0.3
         version: 19.0.3(@types/react@19.0.8)
       '@types/react-timeago':
-        specifier: ^4.1.7
+        specifier: ~4.1.7
         version: 4.1.7
       '@vitejs/plugin-react':
         specifier: ~4.3.4

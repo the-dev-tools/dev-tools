@@ -108,13 +108,13 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
           </span> */}
           {/* <div className={tw`size-0.5 rounded-full bg-slate-400`} /> */}
           <span>
-            Created <TimeAgo date={workspaceUlid.time} minPeriod={60}/>
+            Created <TimeAgo date={workspaceUlid.time} minPeriod={60} />
           </span>
           {workspace.updated && (
             <>
               <div className={tw`size-0.5 rounded-full bg-slate-400`} />
               <span>
-                Updated <TimeAgo date={timestampDate(workspace.updated)} minPeriod={60}/>
+                Updated <TimeAgo date={timestampDate(workspace.updated)} minPeriod={60} />
               </span>
             </>
           )}
