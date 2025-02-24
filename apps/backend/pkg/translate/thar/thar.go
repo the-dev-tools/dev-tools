@@ -3,6 +3,7 @@ package thar
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"the-dev-tools/backend/pkg/compress"
@@ -232,6 +233,13 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			IsDefault:    true,
 			ItemApiID:    apiID,
 		}
+		deltaExampleID := idwrap.NewNow()
+		deltaExample := mitemapiexample.ItemApiExample{
+			ID:           deltaExampleID,
+			Name:         fmt.Sprintf("%s (Delta)", key),
+			CollectionID: collectionID,
+			ItemApiID:    apiID,
+		}
 		// Only add a flow node once per unique API.
 		posY += 200
 		flowNodeID := idwrap.NewNow()
@@ -246,9 +254,10 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		result.Nodes = append(result.Nodes, node)
 
 		request := mnrequest.MNRequest{
-			FlowNodeID: flowNodeID,
-			EndpointID: &api.ID,
-			ExampleID:  &exampleID,
+			FlowNodeID:     flowNodeID,
+			EndpointID:     &api.ID,
+			ExampleID:      &exampleID,
+			DeltaExampleID: &deltaExampleID,
 		}
 		result.RequestNodes = append(result.RequestNodes, request)
 
@@ -314,6 +323,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		result.Examples = append(result.Examples, example)
 		exampleDefault.BodyType = example.BodyType
 		result.Examples = append(result.Examples, exampleDefault)
+		result.Examples = append(result.Examples, deltaExample)
 	}
 
 	for i := range result.Apis {
