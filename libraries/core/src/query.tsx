@@ -105,7 +105,14 @@ const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
     deltaItems,
     columns: makeGenericDeltaFormTableColumns<QueryListItem>(),
     getParentId: (_) => _.parentQueryId!,
-    onCreate: (_) => requestService.queryCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.queryId),
+    onCreate: (_) =>
+      requestService
+        .queryCreate({
+          ...Struct.omit(_, '$typeName'),
+          exampleId: deltaExampleId,
+          parentQueryId: _.queryId,
+        })
+        .then((_) => _.queryId),
     onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.queryDelete(Struct.omit(_, '$typeName')),
   });

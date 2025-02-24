@@ -160,7 +160,13 @@ const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTablePro
     columns: makeGenericDeltaFormTableColumns<BodyFormItemListItem>(),
     getParentId: (_) => _.parentBodyId!,
     onCreate: (_) =>
-      requestService.bodyFormItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
+      requestService
+        .bodyFormItemCreate({
+          ...Struct.omit(_, '$typeName'),
+          exampleId: deltaExampleId,
+          parentBodyId: _.bodyId,
+        })
+        .then((_) => _.bodyId),
     onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.bodyFormItemDelete(Struct.omit(_, '$typeName')),
   });
@@ -240,7 +246,13 @@ const UrlEncodedDeltaFormTable = ({ exampleId, deltaExampleId }: UrlEncodedDelta
     columns: makeGenericDeltaFormTableColumns<BodyUrlEncodedItemListItem>(),
     getParentId: (_) => _.parentBodyId!,
     onCreate: (_) =>
-      requestService.bodyUrlEncodedItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
+      requestService
+        .bodyUrlEncodedItemCreate({
+          ...Struct.omit(_, '$typeName'),
+          exampleId: deltaExampleId,
+          parentBodyId: _.bodyId,
+        })
+        .then((_) => _.bodyId),
     onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.bodyUrlEncodedItemDelete(Struct.omit(_, '$typeName')),
   });
