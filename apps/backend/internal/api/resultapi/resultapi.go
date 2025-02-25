@@ -85,6 +85,7 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	resp := &responsev1.ResponseGetResponse{
 		ResponseId: rpcResp.ResponseId,
 		Status:     rpcResp.Status,

@@ -30,21 +30,23 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespService, error) {
 
 func ConvertToDBExampleResp(item mexampleresp.ExampleResp) gen.ExampleResp {
 	return gen.ExampleResp{
-		ID:        item.ID,
-		ExampleID: item.ExampleID,
-		Status:    item.Status,
-		Body:      item.Body,
-		Duration:  item.Duration,
+		ID:               item.ID,
+		ExampleID:        item.ExampleID,
+		Status:           item.Status,
+		Body:             item.Body,
+		Duration:         item.Duration,
+		BodyCompressType: int8(item.BodyCompressType),
 	}
 }
 
 func ConvertToModelExampleResp(item gen.ExampleResp) mexampleresp.ExampleResp {
 	return mexampleresp.ExampleResp{
-		ID:        item.ID,
-		ExampleID: item.ExampleID,
-		Status:    item.Status,
-		Body:      item.Body,
-		Duration:  item.Duration,
+		ID:               item.ID,
+		ExampleID:        item.ExampleID,
+		Status:           item.Status,
+		Body:             item.Body,
+		Duration:         item.Duration,
+		BodyCompressType: mexampleresp.BodyCompressType(item.BodyCompressType),
 	}
 }
 

@@ -616,6 +616,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	bodyData := respHttp.Body
+	rawBody := bodyData
 
 	isExampleRespExists := true
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
@@ -651,6 +652,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err := c.ers.UpdateExampleResp(ctx, *exampleResp); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	exampleResp.Body = rawBody
 
 	dbHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
 	if err != nil {
@@ -842,7 +845,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
 		Status:     int32(exampleResp.Status),
-		Body:       exampleResp.Body,
+		Body:       rawBody,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
 		Changes:    changes,
@@ -988,12 +991,14 @@ func (c *ItemAPIExampleRPC) PrepareCopyExample(ctx context.Context, itemApi idwr
 // Changes
 func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.ResponseChange, error) {
 	changeStatus := int32(exampleResp.Status)
+
 	return &responsev1.ResponseChange{
 		ResponseId: exampleResp.ID.Bytes(),
 		Status:     &changeStatus,
 		Body:       exampleResp.Body,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   &exampleResp.Duration,
+		Size:       &exampleResp.Size,
 	}, nil
 }
 

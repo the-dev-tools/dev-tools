@@ -4,11 +4,11 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 )
 
-type BodyCompressType uint8
+type BodyCompressType = uint8
 
 const (
-	BodyCompressTypeNone BodyCompressType = 0
-	BodyCompressTypeZstd BodyCompressType = 1
+	BodyCompressTypeNone BodyCompressType = iota
+	BodyCompressTypeZstd
 )
 
 type ExampleResp struct {
@@ -18,4 +18,5 @@ type ExampleResp struct {
 	Body             []byte
 	BodyCompressType BodyCompressType
 	Duration         int32
+	Size             int32
 }
