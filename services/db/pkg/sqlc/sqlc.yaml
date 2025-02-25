@@ -218,6 +218,13 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### example_id
+          - column: 'example_header.delta_parent_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## example_query
           ### id
           - column: 'example_query.id'

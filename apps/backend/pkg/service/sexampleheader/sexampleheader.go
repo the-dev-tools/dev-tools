@@ -32,23 +32,25 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*HeaderService, error) {
 
 func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
 	return mexampleheader.Header{
-		ID:          header.ID,
-		ExampleID:   header.ExampleID,
-		HeaderKey:   header.HeaderKey,
-		Enable:      header.Enable,
-		Description: header.Description,
-		Value:       header.Value,
+		ID:            header.ID,
+		ExampleID:     header.ExampleID,
+		DeltaParentID: header.DeltaParentID,
+		HeaderKey:     header.HeaderKey,
+		Enable:        header.Enable,
+		Description:   header.Description,
+		Value:         header.Value,
 	}
 }
 
 func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
 	return gen.ExampleHeader{
-		ID:          header.ID,
-		ExampleID:   header.ExampleID,
-		HeaderKey:   header.HeaderKey,
-		Enable:      header.Enable,
-		Description: header.Description,
-		Value:       header.Value,
+		ID:            header.ID,
+		ExampleID:     header.ExampleID,
+		DeltaParentID: header.DeltaParentID,
+		HeaderKey:     header.HeaderKey,
+		Enable:        header.Enable,
+		Description:   header.Description,
+		Value:         header.Value,
 	}
 }
 
@@ -77,23 +79,25 @@ func (h HeaderService) GetHeaderByID(ctx context.Context, headerID idwrap.IDWrap
 
 func (h HeaderService) CreateHeader(ctx context.Context, header mexampleheader.Header) error {
 	return h.queries.CreateHeader(ctx, gen.CreateHeaderParams{
-		ID:          header.ID,
-		ExampleID:   header.ExampleID,
-		HeaderKey:   header.HeaderKey,
-		Enable:      header.Enable,
-		Description: header.Description,
-		Value:       header.Value,
+		ID:            header.ID,
+		ExampleID:     header.ExampleID,
+		DeltaParentID: header.DeltaParentID,
+		HeaderKey:     header.HeaderKey,
+		Enable:        header.Enable,
+		Description:   header.Description,
+		Value:         header.Value,
 	})
 }
 
 func (h HeaderService) CreateHeaderModel(ctx context.Context, header gen.ExampleHeader) error {
 	return h.queries.CreateHeader(ctx, gen.CreateHeaderParams{
-		ID:          header.ID,
-		ExampleID:   header.ExampleID,
-		HeaderKey:   header.HeaderKey,
-		Enable:      header.Enable,
-		Description: header.Description,
-		Value:       header.Value,
+		ID:            header.ID,
+		ExampleID:     header.ExampleID,
+		DeltaParentID: header.DeltaParentID,
+		HeaderKey:     header.HeaderKey,
+		Enable:        header.Enable,
+		Description:   header.Description,
+		Value:         header.Value,
 	})
 }
 

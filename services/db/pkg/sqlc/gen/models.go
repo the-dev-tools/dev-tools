@@ -71,12 +71,13 @@ type ExampleBodyUrlencoded struct {
 }
 
 type ExampleHeader struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	HeaderKey   string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	HeaderKey     string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 type ExampleQuery struct {

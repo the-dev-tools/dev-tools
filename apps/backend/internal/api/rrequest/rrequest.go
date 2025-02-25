@@ -214,13 +214,23 @@ func (c RequestRPC) HeaderCreate(ctx context.Context, req *connect.Request[reque
 	}
 
 	rpcHeader := requestv1.Header{
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
+		Key:            req.Msg.GetKey(),
+		Enabled:        req.Msg.GetEnabled(),
+		Value:          req.Msg.GetValue(),
+		Description:    req.Msg.GetDescription(),
+		ParentHeaderId: req.Msg.GetParentHeaderId(),
 	}
 	headerID := idwrap.NewNow()
-	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID)
+	var deltaParentIDPtr *idwrap.IDWrap
+	if len(rpcHeader.ParentHeaderId) > 0 {
+		deltaParentID, err := idwrap.NewFromBytes(rpcHeader.GetParentHeaderId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		deltaParentIDPtr = &deltaParentID
+	}
+
+	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID, deltaParentIDPtr)
 	header.ID = headerID
 	err = c.ehs.CreateHeader(ctx, header)
 	if err != nil {

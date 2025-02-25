@@ -980,24 +980,26 @@ func (q *Queries) CreateFlowTag(ctx context.Context, arg CreateFlowTagParams) er
 
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderParams struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	HeaderKey   string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	HeaderKey     string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) error {
 	_, err := q.exec(ctx, q.createHeaderStmt, createHeader,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.HeaderKey,
 		arg.Enable,
 		arg.Description,
@@ -1008,206 +1010,236 @@ func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) erro
 
 const createHeaderBulk = `-- name: CreateHeaderBulk :exec
 INSERT INTO
-  example_header (id, example_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderBulkParams struct {
-	ID             idwrap.IDWrap
-	ExampleID      idwrap.IDWrap
-	HeaderKey      string
-	Enable         bool
-	Description    string
-	Value          string
-	ID_2           idwrap.IDWrap
-	ExampleID_2    idwrap.IDWrap
-	HeaderKey_2    string
-	Enable_2       bool
-	Description_2  string
-	Value_2        string
-	ID_3           idwrap.IDWrap
-	ExampleID_3    idwrap.IDWrap
-	HeaderKey_3    string
-	Enable_3       bool
-	Description_3  string
-	Value_3        string
-	ID_4           idwrap.IDWrap
-	ExampleID_4    idwrap.IDWrap
-	HeaderKey_4    string
-	Enable_4       bool
-	Description_4  string
-	Value_4        string
-	ID_5           idwrap.IDWrap
-	ExampleID_5    idwrap.IDWrap
-	HeaderKey_5    string
-	Enable_5       bool
-	Description_5  string
-	Value_5        string
-	ID_6           idwrap.IDWrap
-	ExampleID_6    idwrap.IDWrap
-	HeaderKey_6    string
-	Enable_6       bool
-	Description_6  string
-	Value_6        string
-	ID_7           idwrap.IDWrap
-	ExampleID_7    idwrap.IDWrap
-	HeaderKey_7    string
-	Enable_7       bool
-	Description_7  string
-	Value_7        string
-	ID_8           idwrap.IDWrap
-	ExampleID_8    idwrap.IDWrap
-	HeaderKey_8    string
-	Enable_8       bool
-	Description_8  string
-	Value_8        string
-	ID_9           idwrap.IDWrap
-	ExampleID_9    idwrap.IDWrap
-	HeaderKey_9    string
-	Enable_9       bool
-	Description_9  string
-	Value_9        string
-	ID_10          idwrap.IDWrap
-	ExampleID_10   idwrap.IDWrap
-	HeaderKey_10   string
-	Enable_10      bool
-	Description_10 string
-	Value_10       string
-	ID_11          idwrap.IDWrap
-	ExampleID_11   idwrap.IDWrap
-	HeaderKey_11   string
-	Enable_11      bool
-	Description_11 string
-	Value_11       string
-	ID_12          idwrap.IDWrap
-	ExampleID_12   idwrap.IDWrap
-	HeaderKey_12   string
-	Enable_12      bool
-	Description_12 string
-	Value_12       string
-	ID_13          idwrap.IDWrap
-	ExampleID_13   idwrap.IDWrap
-	HeaderKey_13   string
-	Enable_13      bool
-	Description_13 string
-	Value_13       string
-	ID_14          idwrap.IDWrap
-	ExampleID_14   idwrap.IDWrap
-	HeaderKey_14   string
-	Enable_14      bool
-	Description_14 string
-	Value_14       string
-	ID_15          idwrap.IDWrap
-	ExampleID_15   idwrap.IDWrap
-	HeaderKey_15   string
-	Enable_15      bool
-	Description_15 string
-	Value_15       string
+	ID               idwrap.IDWrap
+	ExampleID        idwrap.IDWrap
+	DeltaParentID    *idwrap.IDWrap
+	HeaderKey        string
+	Enable           bool
+	Description      string
+	Value            string
+	ID_2             idwrap.IDWrap
+	ExampleID_2      idwrap.IDWrap
+	DeltaParentID_2  *idwrap.IDWrap
+	HeaderKey_2      string
+	Enable_2         bool
+	Description_2    string
+	Value_2          string
+	ID_3             idwrap.IDWrap
+	ExampleID_3      idwrap.IDWrap
+	DeltaParentID_3  *idwrap.IDWrap
+	HeaderKey_3      string
+	Enable_3         bool
+	Description_3    string
+	Value_3          string
+	ID_4             idwrap.IDWrap
+	ExampleID_4      idwrap.IDWrap
+	DeltaParentID_4  *idwrap.IDWrap
+	HeaderKey_4      string
+	Enable_4         bool
+	Description_4    string
+	Value_4          string
+	ID_5             idwrap.IDWrap
+	ExampleID_5      idwrap.IDWrap
+	DeltaParentID_5  *idwrap.IDWrap
+	HeaderKey_5      string
+	Enable_5         bool
+	Description_5    string
+	Value_5          string
+	ID_6             idwrap.IDWrap
+	ExampleID_6      idwrap.IDWrap
+	DeltaParentID_6  *idwrap.IDWrap
+	HeaderKey_6      string
+	Enable_6         bool
+	Description_6    string
+	Value_6          string
+	ID_7             idwrap.IDWrap
+	ExampleID_7      idwrap.IDWrap
+	DeltaParentID_7  *idwrap.IDWrap
+	HeaderKey_7      string
+	Enable_7         bool
+	Description_7    string
+	Value_7          string
+	ID_8             idwrap.IDWrap
+	ExampleID_8      idwrap.IDWrap
+	DeltaParentID_8  *idwrap.IDWrap
+	HeaderKey_8      string
+	Enable_8         bool
+	Description_8    string
+	Value_8          string
+	ID_9             idwrap.IDWrap
+	ExampleID_9      idwrap.IDWrap
+	DeltaParentID_9  *idwrap.IDWrap
+	HeaderKey_9      string
+	Enable_9         bool
+	Description_9    string
+	Value_9          string
+	ID_10            idwrap.IDWrap
+	ExampleID_10     idwrap.IDWrap
+	DeltaParentID_10 *idwrap.IDWrap
+	HeaderKey_10     string
+	Enable_10        bool
+	Description_10   string
+	Value_10         string
+	ID_11            idwrap.IDWrap
+	ExampleID_11     idwrap.IDWrap
+	DeltaParentID_11 *idwrap.IDWrap
+	HeaderKey_11     string
+	Enable_11        bool
+	Description_11   string
+	Value_11         string
+	ID_12            idwrap.IDWrap
+	ExampleID_12     idwrap.IDWrap
+	DeltaParentID_12 *idwrap.IDWrap
+	HeaderKey_12     string
+	Enable_12        bool
+	Description_12   string
+	Value_12         string
+	ID_13            idwrap.IDWrap
+	ExampleID_13     idwrap.IDWrap
+	DeltaParentID_13 *idwrap.IDWrap
+	HeaderKey_13     string
+	Enable_13        bool
+	Description_13   string
+	Value_13         string
+	ID_14            idwrap.IDWrap
+	ExampleID_14     idwrap.IDWrap
+	DeltaParentID_14 *idwrap.IDWrap
+	HeaderKey_14     string
+	Enable_14        bool
+	Description_14   string
+	Value_14         string
+	ID_15            idwrap.IDWrap
+	ExampleID_15     idwrap.IDWrap
+	DeltaParentID_15 *idwrap.IDWrap
+	HeaderKey_15     string
+	Enable_15        bool
+	Description_15   string
+	Value_15         string
 }
 
 func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkParams) error {
 	_, err := q.exec(ctx, q.createHeaderBulkStmt, createHeaderBulk,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.HeaderKey,
 		arg.Enable,
 		arg.Description,
 		arg.Value,
 		arg.ID_2,
 		arg.ExampleID_2,
+		arg.DeltaParentID_2,
 		arg.HeaderKey_2,
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
 		arg.ID_3,
 		arg.ExampleID_3,
+		arg.DeltaParentID_3,
 		arg.HeaderKey_3,
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
 		arg.ID_4,
 		arg.ExampleID_4,
+		arg.DeltaParentID_4,
 		arg.HeaderKey_4,
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
 		arg.ID_5,
 		arg.ExampleID_5,
+		arg.DeltaParentID_5,
 		arg.HeaderKey_5,
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
 		arg.ID_6,
 		arg.ExampleID_6,
+		arg.DeltaParentID_6,
 		arg.HeaderKey_6,
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
 		arg.ID_7,
 		arg.ExampleID_7,
+		arg.DeltaParentID_7,
 		arg.HeaderKey_7,
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
 		arg.ID_8,
 		arg.ExampleID_8,
+		arg.DeltaParentID_8,
 		arg.HeaderKey_8,
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
 		arg.ID_9,
 		arg.ExampleID_9,
+		arg.DeltaParentID_9,
 		arg.HeaderKey_9,
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
 		arg.ID_10,
 		arg.ExampleID_10,
+		arg.DeltaParentID_10,
 		arg.HeaderKey_10,
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
 		arg.ID_11,
 		arg.ExampleID_11,
+		arg.DeltaParentID_11,
 		arg.HeaderKey_11,
 		arg.Enable_11,
 		arg.Description_11,
 		arg.Value_11,
 		arg.ID_12,
 		arg.ExampleID_12,
+		arg.DeltaParentID_12,
 		arg.HeaderKey_12,
 		arg.Enable_12,
 		arg.Description_12,
 		arg.Value_12,
 		arg.ID_13,
 		arg.ExampleID_13,
+		arg.DeltaParentID_13,
 		arg.HeaderKey_13,
 		arg.Enable_13,
 		arg.Description_13,
 		arg.Value_13,
 		arg.ID_14,
 		arg.ExampleID_14,
+		arg.DeltaParentID_14,
 		arg.HeaderKey_14,
 		arg.Enable_14,
 		arg.Description_14,
 		arg.Value_14,
 		arg.ID_15,
 		arg.ExampleID_15,
+		arg.DeltaParentID_15,
 		arg.HeaderKey_15,
 		arg.Enable_15,
 		arg.Description_15,
@@ -3884,6 +3916,7 @@ const getHeader = `-- name: GetHeader :one
 SELECT
   id,
   example_id,
+  delta_parent_id,
   header_key,
   enable,
   description,
@@ -3901,6 +3934,7 @@ func (q *Queries) GetHeader(ctx context.Context, id idwrap.IDWrap) (ExampleHeade
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
+		&i.DeltaParentID,
 		&i.HeaderKey,
 		&i.Enable,
 		&i.Description,
@@ -3913,6 +3947,7 @@ const getHeadersByExampleID = `-- name: GetHeadersByExampleID :many
 SELECT
   id,
   example_id,
+  delta_parent_id,
   header_key,
   enable,
   description,
@@ -3935,6 +3970,7 @@ func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID idwrap.ID
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
+			&i.DeltaParentID,
 			&i.HeaderKey,
 			&i.Enable,
 			&i.Description,

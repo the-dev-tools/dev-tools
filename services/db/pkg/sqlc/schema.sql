@@ -157,11 +157,13 @@ CREATE INDEX item_api_example_resp_idx1 ON example_resp (
 CREATE TABLE example_header (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
+  delta_parent_id BLOB DEFAULT NULL,
   header_key TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_parent_id) REFERENCES example_header (id) ON DELETE CASCADE
 );
 
 CREATE INDEX example_header_idx1 ON example_header (
