@@ -456,7 +456,7 @@ export const useDeltaFormTable = <T extends Message>({
 }: UseDeltaFormTableProps<T>) => {
   const values = useMemo((): FormTableData<DeltaFormTableItem<Message>> => {
     const deltaItemMap = pipe(
-      deltaItems.map((_) => [getParentId(_), _] as const),
+      deltaItems.map((_) => [getParentId(_).toString(), _] as const),
       HashMap.fromIterable,
     );
 
@@ -465,7 +465,7 @@ export const useDeltaFormTable = <T extends Message>({
         parentData: _,
         data: pipe(
           getMessageId(_),
-          Option.flatMap((id) => HashMap.get(deltaItemMap, id)),
+          Option.flatMap((id) => HashMap.get(deltaItemMap, id.toString())),
           Option.getOrElse(() => _),
         ),
       }),
