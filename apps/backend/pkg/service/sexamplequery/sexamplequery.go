@@ -15,23 +15,25 @@ var ErrNoQueryFound = sql.ErrNoRows
 
 func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
 	return gen.ExampleQuery{
-		ID:          query.ID,
-		ExampleID:   query.ExampleID,
-		QueryKey:    query.QueryKey,
-		Enable:      query.Enable,
-		Description: query.Description,
-		Value:       query.Value,
+		ID:            query.ID,
+		ExampleID:     query.ExampleID,
+		DeltaParentID: query.DeltaParentID,
+		QueryKey:      query.QueryKey,
+		Enable:        query.Enable,
+		Description:   query.Description,
+		Value:         query.Value,
 	}
 }
 
 func SerializeQueryDBToModel(query gen.ExampleQuery) mexamplequery.Query {
 	return mexamplequery.Query{
-		ID:          query.ID,
-		ExampleID:   query.ExampleID,
-		QueryKey:    query.QueryKey,
-		Enable:      query.Enable,
-		Description: query.Description,
-		Value:       query.Value,
+		ID:            query.ID,
+		ExampleID:     query.ExampleID,
+		DeltaParentID: query.DeltaParentID,
+		QueryKey:      query.QueryKey,
+		Enable:        query.Enable,
+		Description:   query.Description,
+		Value:         query.Value,
 	}
 }
 
@@ -84,23 +86,25 @@ func (h ExampleQueryService) GetExampleQueryByDeltaParentID(ctx context.Context,
 
 func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexamplequery.Query) error {
 	return h.queries.CreateQuery(ctx, gen.CreateQueryParams{
-		ID:          query.ID,
-		ExampleID:   query.ExampleID,
-		QueryKey:    query.QueryKey,
-		Enable:      query.Enable,
-		Description: query.Description,
-		Value:       query.Value,
+		ID:            query.ID,
+		ExampleID:     query.ExampleID,
+		QueryKey:      query.QueryKey,
+		Enable:        query.Enable,
+		Description:   query.Description,
+		Value:         query.Value,
+		DeltaParentID: query.DeltaParentID,
 	})
 }
 
 func (h ExampleQueryService) CreateExampleQueryDB(ctx context.Context, query gen.ExampleQuery) error {
 	return h.queries.CreateQuery(ctx, gen.CreateQueryParams{
-		ID:          query.ID,
-		ExampleID:   query.ExampleID,
-		QueryKey:    query.QueryKey,
-		Enable:      query.Enable,
-		Description: query.Description,
-		Value:       query.Value,
+		ID:            query.ID,
+		ExampleID:     query.ExampleID,
+		QueryKey:      query.QueryKey,
+		Enable:        query.Enable,
+		Description:   query.Description,
+		Value:         query.Value,
+		DeltaParentID: query.DeltaParentID,
 	})
 }
 

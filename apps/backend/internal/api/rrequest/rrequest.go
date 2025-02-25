@@ -122,11 +122,11 @@ func (c RequestRPC) QueryCreate(ctx context.Context, req *connect.Request[reques
 		Description:   req.Msg.GetDescription(),
 		ParentQueryId: req.Msg.GetParentQueryId(),
 	}
-	queryID := idwrap.NewNow()
 	query, err := tquery.SerlializeQueryRPCtoModelNoID(&reqQuery, exID)
 	if err != nil {
 		return nil, err
 	}
+	queryID := idwrap.NewNow()
 	query.ID = queryID
 
 	err = c.eqs.CreateExampleQuery(ctx, query)
