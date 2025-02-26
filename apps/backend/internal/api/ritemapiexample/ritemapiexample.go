@@ -842,6 +842,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Data: exampleVersionRequest,
 	})
 
+	size := int32(len(bodyData))
+
 	return connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
 		Status:     int32(exampleResp.Status),
@@ -849,6 +851,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
 		Changes:    changes,
+		Size:       size,
 	}), nil
 }
 
@@ -991,6 +994,7 @@ func (c *ItemAPIExampleRPC) PrepareCopyExample(ctx context.Context, itemApi idwr
 // Changes
 func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.ResponseChange, error) {
 	changeStatus := int32(exampleResp.Status)
+	size := int32(len(exampleResp.Body))
 
 	return &responsev1.ResponseChange{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -998,7 +1002,7 @@ func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.Re
 		Body:       exampleResp.Body,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   &exampleResp.Duration,
-		Size:       &exampleResp.Size,
+		Size:       &size,
 	}, nil
 }
 

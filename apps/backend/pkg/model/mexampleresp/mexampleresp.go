@@ -18,5 +18,4 @@ type ExampleResp struct {
 	Body             []byte
 	BodyCompressType BodyCompressType
 	Duration         int32
-	Size             int32
 }

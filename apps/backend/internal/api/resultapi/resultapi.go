@@ -86,12 +86,15 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	size := int32(len(rpcResp.Body))
+
 	resp := &responsev1.ResponseGetResponse{
 		ResponseId: rpcResp.ResponseId,
 		Status:     rpcResp.Status,
 		Body:       rpcResp.Body,
 		Time:       rpcResp.Time,
 		Duration:   rpcResp.Duration,
+		Size:       size,
 	}
 
 	return connect.NewResponse(resp), nil
