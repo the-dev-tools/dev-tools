@@ -46,12 +46,13 @@ type Environment struct {
 }
 
 type ExampleBodyForm struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	BodyKey     string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	BodyKey       string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 type ExampleBodyRaw struct {
@@ -63,12 +64,13 @@ type ExampleBodyRaw struct {
 }
 
 type ExampleBodyUrlencoded struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	BodyKey     string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	BodyKey       string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 type ExampleHeader struct {

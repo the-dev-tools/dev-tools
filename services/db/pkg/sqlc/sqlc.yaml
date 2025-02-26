@@ -258,7 +258,14 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ## example_body_url
+          ### delta_parent_id
+          - column: 'example_body_form.delta_parent_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ## example_body_urlencoded
           ### id
           - column: 'example_body_urlencoded.id'
             go_type:
@@ -271,6 +278,13 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### delta_parent_id
+          - column: 'example_body_urlencoded.delta_parent_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## example_body_raw
           ### id
           - column: 'example_body_raw.id'

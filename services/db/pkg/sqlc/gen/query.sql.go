@@ -164,18 +164,19 @@ func (q *Queries) CreateAssertResult(ctx context.Context, arg CreateAssertResult
 const createBodyForm = `-- name: CreateBodyForm :exec
 
 INSERT INTO
-  example_body_form (id, example_id, body_key, enable, description, value)
+  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyFormParams struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	BodyKey     string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	BodyKey       string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 // BodyForm
@@ -183,6 +184,7 @@ func (q *Queries) CreateBodyForm(ctx context.Context, arg CreateBodyFormParams) 
 	_, err := q.exec(ctx, q.createBodyFormStmt, createBodyForm,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.BodyKey,
 		arg.Enable,
 		arg.Description,
@@ -193,141 +195,161 @@ func (q *Queries) CreateBodyForm(ctx context.Context, arg CreateBodyFormParams) 
 
 const createBodyFormBulk = `-- name: CreateBodyFormBulk :exec
 INSERT INTO
-  example_body_form (id, example_id, body_key, enable, description, value)
+  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyFormBulkParams struct {
-	ID             idwrap.IDWrap
-	ExampleID      idwrap.IDWrap
-	BodyKey        string
-	Enable         bool
-	Description    string
-	Value          string
-	ID_2           idwrap.IDWrap
-	ExampleID_2    idwrap.IDWrap
-	BodyKey_2      string
-	Enable_2       bool
-	Description_2  string
-	Value_2        string
-	ID_3           idwrap.IDWrap
-	ExampleID_3    idwrap.IDWrap
-	BodyKey_3      string
-	Enable_3       bool
-	Description_3  string
-	Value_3        string
-	ID_4           idwrap.IDWrap
-	ExampleID_4    idwrap.IDWrap
-	BodyKey_4      string
-	Enable_4       bool
-	Description_4  string
-	Value_4        string
-	ID_5           idwrap.IDWrap
-	ExampleID_5    idwrap.IDWrap
-	BodyKey_5      string
-	Enable_5       bool
-	Description_5  string
-	Value_5        string
-	ID_6           idwrap.IDWrap
-	ExampleID_6    idwrap.IDWrap
-	BodyKey_6      string
-	Enable_6       bool
-	Description_6  string
-	Value_6        string
-	ID_7           idwrap.IDWrap
-	ExampleID_7    idwrap.IDWrap
-	BodyKey_7      string
-	Enable_7       bool
-	Description_7  string
-	Value_7        string
-	ID_8           idwrap.IDWrap
-	ExampleID_8    idwrap.IDWrap
-	BodyKey_8      string
-	Enable_8       bool
-	Description_8  string
-	Value_8        string
-	ID_9           idwrap.IDWrap
-	ExampleID_9    idwrap.IDWrap
-	BodyKey_9      string
-	Enable_9       bool
-	Description_9  string
-	Value_9        string
-	ID_10          idwrap.IDWrap
-	ExampleID_10   idwrap.IDWrap
-	BodyKey_10     string
-	Enable_10      bool
-	Description_10 string
-	Value_10       string
+	ID               idwrap.IDWrap
+	ExampleID        idwrap.IDWrap
+	DeltaParentID    *idwrap.IDWrap
+	BodyKey          string
+	Enable           bool
+	Description      string
+	Value            string
+	ID_2             idwrap.IDWrap
+	ExampleID_2      idwrap.IDWrap
+	DeltaParentID_2  *idwrap.IDWrap
+	BodyKey_2        string
+	Enable_2         bool
+	Description_2    string
+	Value_2          string
+	ID_3             idwrap.IDWrap
+	ExampleID_3      idwrap.IDWrap
+	DeltaParentID_3  *idwrap.IDWrap
+	BodyKey_3        string
+	Enable_3         bool
+	Description_3    string
+	Value_3          string
+	ID_4             idwrap.IDWrap
+	ExampleID_4      idwrap.IDWrap
+	DeltaParentID_4  *idwrap.IDWrap
+	BodyKey_4        string
+	Enable_4         bool
+	Description_4    string
+	Value_4          string
+	ID_5             idwrap.IDWrap
+	ExampleID_5      idwrap.IDWrap
+	DeltaParentID_5  *idwrap.IDWrap
+	BodyKey_5        string
+	Enable_5         bool
+	Description_5    string
+	Value_5          string
+	ID_6             idwrap.IDWrap
+	ExampleID_6      idwrap.IDWrap
+	DeltaParentID_6  *idwrap.IDWrap
+	BodyKey_6        string
+	Enable_6         bool
+	Description_6    string
+	Value_6          string
+	ID_7             idwrap.IDWrap
+	ExampleID_7      idwrap.IDWrap
+	DeltaParentID_7  *idwrap.IDWrap
+	BodyKey_7        string
+	Enable_7         bool
+	Description_7    string
+	Value_7          string
+	ID_8             idwrap.IDWrap
+	ExampleID_8      idwrap.IDWrap
+	DeltaParentID_8  *idwrap.IDWrap
+	BodyKey_8        string
+	Enable_8         bool
+	Description_8    string
+	Value_8          string
+	ID_9             idwrap.IDWrap
+	ExampleID_9      idwrap.IDWrap
+	DeltaParentID_9  *idwrap.IDWrap
+	BodyKey_9        string
+	Enable_9         bool
+	Description_9    string
+	Value_9          string
+	ID_10            idwrap.IDWrap
+	ExampleID_10     idwrap.IDWrap
+	DeltaParentID_10 *idwrap.IDWrap
+	BodyKey_10       string
+	Enable_10        bool
+	Description_10   string
+	Value_10         string
 }
 
 func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulkParams) error {
 	_, err := q.exec(ctx, q.createBodyFormBulkStmt, createBodyFormBulk,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.BodyKey,
 		arg.Enable,
 		arg.Description,
 		arg.Value,
 		arg.ID_2,
 		arg.ExampleID_2,
+		arg.DeltaParentID_2,
 		arg.BodyKey_2,
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
 		arg.ID_3,
 		arg.ExampleID_3,
+		arg.DeltaParentID_3,
 		arg.BodyKey_3,
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
 		arg.ID_4,
 		arg.ExampleID_4,
+		arg.DeltaParentID_4,
 		arg.BodyKey_4,
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
 		arg.ID_5,
 		arg.ExampleID_5,
+		arg.DeltaParentID_5,
 		arg.BodyKey_5,
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
 		arg.ID_6,
 		arg.ExampleID_6,
+		arg.DeltaParentID_6,
 		arg.BodyKey_6,
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
 		arg.ID_7,
 		arg.ExampleID_7,
+		arg.DeltaParentID_7,
 		arg.BodyKey_7,
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
 		arg.ID_8,
 		arg.ExampleID_8,
+		arg.DeltaParentID_8,
 		arg.BodyKey_8,
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
 		arg.ID_9,
 		arg.ExampleID_9,
+		arg.DeltaParentID_9,
 		arg.BodyKey_9,
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
 		arg.ID_10,
 		arg.ExampleID_10,
+		arg.DeltaParentID_10,
 		arg.BodyKey_10,
 		arg.Enable_10,
 		arg.Description_10,
@@ -434,24 +456,26 @@ func (q *Queries) CreateBodyRawBulk(ctx context.Context, arg CreateBodyRawBulkPa
 
 const createBodyUrlEncoded = `-- name: CreateBodyUrlEncoded :exec
 INSERT INTO
-  example_body_urlencoded (id, example_id, body_key, enable, description, value)
+  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-    (?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyUrlEncodedParams struct {
-	ID          idwrap.IDWrap
-	ExampleID   idwrap.IDWrap
-	BodyKey     string
-	Enable      bool
-	Description string
-	Value       string
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	BodyKey       string
+	Enable        bool
+	Description   string
+	Value         string
 }
 
 func (q *Queries) CreateBodyUrlEncoded(ctx context.Context, arg CreateBodyUrlEncodedParams) error {
 	_, err := q.exec(ctx, q.createBodyUrlEncodedStmt, createBodyUrlEncoded,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.BodyKey,
 		arg.Enable,
 		arg.Description,
@@ -462,141 +486,161 @@ func (q *Queries) CreateBodyUrlEncoded(ctx context.Context, arg CreateBodyUrlEnc
 
 const createBodyUrlEncodedBulk = `-- name: CreateBodyUrlEncodedBulk :exec
 INSERT INTO
-  example_body_urlencoded (id, example_id, body_key, enable, description, value)
+  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyUrlEncodedBulkParams struct {
-	ID             idwrap.IDWrap
-	ExampleID      idwrap.IDWrap
-	BodyKey        string
-	Enable         bool
-	Description    string
-	Value          string
-	ID_2           idwrap.IDWrap
-	ExampleID_2    idwrap.IDWrap
-	BodyKey_2      string
-	Enable_2       bool
-	Description_2  string
-	Value_2        string
-	ID_3           idwrap.IDWrap
-	ExampleID_3    idwrap.IDWrap
-	BodyKey_3      string
-	Enable_3       bool
-	Description_3  string
-	Value_3        string
-	ID_4           idwrap.IDWrap
-	ExampleID_4    idwrap.IDWrap
-	BodyKey_4      string
-	Enable_4       bool
-	Description_4  string
-	Value_4        string
-	ID_5           idwrap.IDWrap
-	ExampleID_5    idwrap.IDWrap
-	BodyKey_5      string
-	Enable_5       bool
-	Description_5  string
-	Value_5        string
-	ID_6           idwrap.IDWrap
-	ExampleID_6    idwrap.IDWrap
-	BodyKey_6      string
-	Enable_6       bool
-	Description_6  string
-	Value_6        string
-	ID_7           idwrap.IDWrap
-	ExampleID_7    idwrap.IDWrap
-	BodyKey_7      string
-	Enable_7       bool
-	Description_7  string
-	Value_7        string
-	ID_8           idwrap.IDWrap
-	ExampleID_8    idwrap.IDWrap
-	BodyKey_8      string
-	Enable_8       bool
-	Description_8  string
-	Value_8        string
-	ID_9           idwrap.IDWrap
-	ExampleID_9    idwrap.IDWrap
-	BodyKey_9      string
-	Enable_9       bool
-	Description_9  string
-	Value_9        string
-	ID_10          idwrap.IDWrap
-	ExampleID_10   idwrap.IDWrap
-	BodyKey_10     string
-	Enable_10      bool
-	Description_10 string
-	Value_10       string
+	ID               idwrap.IDWrap
+	ExampleID        idwrap.IDWrap
+	DeltaParentID    *idwrap.IDWrap
+	BodyKey          string
+	Enable           bool
+	Description      string
+	Value            string
+	ID_2             idwrap.IDWrap
+	ExampleID_2      idwrap.IDWrap
+	DeltaParentID_2  *idwrap.IDWrap
+	BodyKey_2        string
+	Enable_2         bool
+	Description_2    string
+	Value_2          string
+	ID_3             idwrap.IDWrap
+	ExampleID_3      idwrap.IDWrap
+	DeltaParentID_3  *idwrap.IDWrap
+	BodyKey_3        string
+	Enable_3         bool
+	Description_3    string
+	Value_3          string
+	ID_4             idwrap.IDWrap
+	ExampleID_4      idwrap.IDWrap
+	DeltaParentID_4  *idwrap.IDWrap
+	BodyKey_4        string
+	Enable_4         bool
+	Description_4    string
+	Value_4          string
+	ID_5             idwrap.IDWrap
+	ExampleID_5      idwrap.IDWrap
+	DeltaParentID_5  *idwrap.IDWrap
+	BodyKey_5        string
+	Enable_5         bool
+	Description_5    string
+	Value_5          string
+	ID_6             idwrap.IDWrap
+	ExampleID_6      idwrap.IDWrap
+	DeltaParentID_6  *idwrap.IDWrap
+	BodyKey_6        string
+	Enable_6         bool
+	Description_6    string
+	Value_6          string
+	ID_7             idwrap.IDWrap
+	ExampleID_7      idwrap.IDWrap
+	DeltaParentID_7  *idwrap.IDWrap
+	BodyKey_7        string
+	Enable_7         bool
+	Description_7    string
+	Value_7          string
+	ID_8             idwrap.IDWrap
+	ExampleID_8      idwrap.IDWrap
+	DeltaParentID_8  *idwrap.IDWrap
+	BodyKey_8        string
+	Enable_8         bool
+	Description_8    string
+	Value_8          string
+	ID_9             idwrap.IDWrap
+	ExampleID_9      idwrap.IDWrap
+	DeltaParentID_9  *idwrap.IDWrap
+	BodyKey_9        string
+	Enable_9         bool
+	Description_9    string
+	Value_9          string
+	ID_10            idwrap.IDWrap
+	ExampleID_10     idwrap.IDWrap
+	DeltaParentID_10 *idwrap.IDWrap
+	BodyKey_10       string
+	Enable_10        bool
+	Description_10   string
+	Value_10         string
 }
 
 func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUrlEncodedBulkParams) error {
 	_, err := q.exec(ctx, q.createBodyUrlEncodedBulkStmt, createBodyUrlEncodedBulk,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.BodyKey,
 		arg.Enable,
 		arg.Description,
 		arg.Value,
 		arg.ID_2,
 		arg.ExampleID_2,
+		arg.DeltaParentID_2,
 		arg.BodyKey_2,
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
 		arg.ID_3,
 		arg.ExampleID_3,
+		arg.DeltaParentID_3,
 		arg.BodyKey_3,
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
 		arg.ID_4,
 		arg.ExampleID_4,
+		arg.DeltaParentID_4,
 		arg.BodyKey_4,
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
 		arg.ID_5,
 		arg.ExampleID_5,
+		arg.DeltaParentID_5,
 		arg.BodyKey_5,
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
 		arg.ID_6,
 		arg.ExampleID_6,
+		arg.DeltaParentID_6,
 		arg.BodyKey_6,
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
 		arg.ID_7,
 		arg.ExampleID_7,
+		arg.DeltaParentID_7,
 		arg.BodyKey_7,
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
 		arg.ID_8,
 		arg.ExampleID_8,
+		arg.DeltaParentID_8,
 		arg.BodyKey_8,
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
 		arg.ID_9,
 		arg.ExampleID_9,
+		arg.DeltaParentID_9,
 		arg.BodyKey_9,
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
 		arg.ID_10,
 		arg.ExampleID_10,
+		arg.DeltaParentID_10,
 		arg.BodyKey_10,
 		arg.Enable_10,
 		arg.Description_10,
@@ -2950,6 +2994,7 @@ const getBodyForm = `-- name: GetBodyForm :one
 SELECT
   id,
   example_id,
+  delta_parent_id,
   body_key,
   enable,
   description,
@@ -2967,6 +3012,7 @@ func (q *Queries) GetBodyForm(ctx context.Context, id idwrap.IDWrap) (ExampleBod
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
+		&i.DeltaParentID,
 		&i.BodyKey,
 		&i.Enable,
 		&i.Description,
@@ -2979,6 +3025,7 @@ const getBodyFormsByExampleID = `-- name: GetBodyFormsByExampleID :many
 SELECT
   id,
   example_id,
+  delta_parent_id,
   body_key,
   enable,
   description,
@@ -3001,6 +3048,7 @@ func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID idwrap.
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
+			&i.DeltaParentID,
 			&i.BodyKey,
 			&i.Enable,
 			&i.Description,
@@ -3082,6 +3130,7 @@ const getBodyUrlEncoded = `-- name: GetBodyUrlEncoded :one
 SELECT
   id,
   example_id,
+  delta_parent_id,
   body_key,
   enable,
   description,
@@ -3100,6 +3149,7 @@ func (q *Queries) GetBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (Exam
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
+		&i.DeltaParentID,
 		&i.BodyKey,
 		&i.Enable,
 		&i.Description,
@@ -3112,6 +3162,7 @@ const getBodyUrlEncodedsByExampleID = `-- name: GetBodyUrlEncodedsByExampleID :m
 SELECT
   id,
   example_id,
+  delta_parent_id,
   body_key,
   enable,
   description,
@@ -3134,6 +3185,7 @@ func (q *Queries) GetBodyUrlEncodedsByExampleID(ctx context.Context, exampleID i
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
+			&i.DeltaParentID,
 			&i.BodyKey,
 			&i.Enable,
 			&i.Description,

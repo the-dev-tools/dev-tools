@@ -81,13 +81,23 @@ func (c BodyRPC) BodyFormItemCreate(ctx context.Context, req *connect.Request[bo
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	rpcBody := &bodyv1.BodyFormItem{
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
+		ParentBodyId: req.Msg.GetParentBodyId(),
+		Key:          req.Msg.GetKey(),
+		Enabled:      req.Msg.GetEnabled(),
+		Value:        req.Msg.GetValue(),
+		Description:  req.Msg.GetDescription(),
 	}
 
-	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(rpcBody, ExampleID)
+	var deltaParentIDPtr *idwrap.IDWrap
+	if len(rpcBody.ParentBodyId) > 0 {
+		deltaParentID, err := idwrap.NewFromBytes(rpcBody.ParentBodyId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		deltaParentIDPtr = &deltaParentID
+	}
+
+	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(rpcBody, ExampleID, deltaParentIDPtr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -186,7 +196,16 @@ func (c BodyRPC) BodyUrlEncodedItemCreate(ctx context.Context, req *connect.Requ
 		Value:       req.Msg.GetValue(),
 		Description: req.Msg.GetDescription(),
 	}
-	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(bodyData, exampleID)
+	var deltaParentIDPtr *idwrap.IDWrap
+	if len(req.Msg.GetParentBodyId()) > 0 {
+		deltaParentID, err := idwrap.NewFromBytes(req.Msg.GetParentBodyId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		deltaParentIDPtr = &deltaParentID
+	}
+
+	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(bodyData, exampleID, deltaParentIDPtr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

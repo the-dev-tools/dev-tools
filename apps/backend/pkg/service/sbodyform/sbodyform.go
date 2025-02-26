@@ -18,23 +18,25 @@ var ErrNoBodyFormFound = sql.ErrNoRows
 
 func SeralizeModeltoGen(body mbodyform.BodyForm) gen.ExampleBodyForm {
 	return gen.ExampleBodyForm{
-		ID:          body.ID,
-		ExampleID:   body.ExampleID,
-		BodyKey:     body.BodyKey,
-		Description: body.Description,
-		Enable:      body.Enable,
-		Value:       body.Value,
+		ID:            body.ID,
+		ExampleID:     body.ExampleID,
+		DeltaParentID: body.DeltaParentID,
+		BodyKey:       body.BodyKey,
+		Description:   body.Description,
+		Enable:        body.Enable,
+		Value:         body.Value,
 	}
 }
 
 func DeserializeGenToModel(body gen.ExampleBodyForm) mbodyform.BodyForm {
 	return mbodyform.BodyForm{
-		ID:          body.ID,
-		ExampleID:   body.ExampleID,
-		BodyKey:     body.BodyKey,
-		Description: body.Description,
-		Enable:      body.Enable,
-		Value:       body.Value,
+		ID:            body.ID,
+		ExampleID:     body.ExampleID,
+		DeltaParentID: body.DeltaParentID,
+		BodyKey:       body.BodyKey,
+		Description:   body.Description,
+		Enable:        body.Enable,
+		Value:         body.Value,
 	}
 }
 
@@ -181,23 +183,25 @@ func (bfs BodyFormService) GetBodyFormsByExampleID(ctx context.Context, exampleI
 func (bfs BodyFormService) CreateBodyForm(ctx context.Context, body *mbodyform.BodyForm) error {
 	bf := SeralizeModeltoGen(*body)
 	return bfs.queries.CreateBodyForm(ctx, gen.CreateBodyFormParams{
-		ID:          bf.ID,
-		ExampleID:   bf.ExampleID,
-		BodyKey:     bf.BodyKey,
-		Description: bf.Description,
-		Enable:      bf.Enable,
-		Value:       bf.Value,
+		ID:            bf.ID,
+		ExampleID:     bf.ExampleID,
+		DeltaParentID: bf.DeltaParentID,
+		BodyKey:       bf.BodyKey,
+		Description:   bf.Description,
+		Enable:        bf.Enable,
+		Value:         bf.Value,
 	})
 }
 
 func (bfs BodyFormService) CreateBodyFormRaw(ctx context.Context, bf gen.ExampleBodyForm) error {
 	return bfs.queries.CreateBodyForm(ctx, gen.CreateBodyFormParams{
-		ID:          bf.ID,
-		ExampleID:   bf.ExampleID,
-		BodyKey:     bf.BodyKey,
-		Description: bf.Description,
-		Enable:      bf.Enable,
-		Value:       bf.Value,
+		ID:            bf.ID,
+		ExampleID:     bf.ExampleID,
+		DeltaParentID: bf.DeltaParentID,
+		BodyKey:       bf.BodyKey,
+		Description:   bf.Description,
+		Enable:        bf.Enable,
+		Value:         bf.Value,
 	})
 }
 

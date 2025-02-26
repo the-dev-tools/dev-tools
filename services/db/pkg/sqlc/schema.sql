@@ -204,11 +204,13 @@ CREATE INDEX example_query_idx1 ON example_query (
 CREATE TABLE example_body_form (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
+  delta_parent_id BLOB DEFAULT NULL,
   body_key TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_parent_id) REFERENCES example_body_form (id) ON DELETE CASCADE
 );
 
 CREATE INDEX example_body_form_idx1 ON example_body_form (
@@ -219,11 +221,13 @@ CREATE INDEX example_body_form_idx1 ON example_body_form (
 CREATE TABLE example_body_urlencoded (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
+  delta_parent_id BLOB DEFAULT NULL,
   body_key TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_parent_id) REFERENCES example_body_urlencoded (id) ON DELETE CASCADE
 );
 
 CREATE INDEX example_body_urlencoded_idx1 ON example_body_urlencoded (

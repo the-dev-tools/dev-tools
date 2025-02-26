@@ -31,23 +31,25 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {
 
 func SeralizeModeltoGen(body mbodyurl.BodyURLEncoded) gen.ExampleBodyUrlencoded {
 	return gen.ExampleBodyUrlencoded{
-		ID:          body.ID,
-		ExampleID:   body.ExampleID,
-		BodyKey:     body.BodyKey,
-		Description: body.Description,
-		Enable:      body.Enable,
-		Value:       body.Value,
+		ID:            body.ID,
+		ExampleID:     body.ExampleID,
+		DeltaParentID: body.DeltaParentID,
+		BodyKey:       body.BodyKey,
+		Description:   body.Description,
+		Enable:        body.Enable,
+		Value:         body.Value,
 	}
 }
 
 func DeserializeGenToModel(body gen.ExampleBodyUrlencoded) mbodyurl.BodyURLEncoded {
 	return mbodyurl.BodyURLEncoded{
-		ID:          body.ID,
-		ExampleID:   body.ExampleID,
-		BodyKey:     body.BodyKey,
-		Description: body.Description,
-		Enable:      body.Enable,
-		Value:       body.Value,
+		ID:            body.ID,
+		ExampleID:     body.ExampleID,
+		DeltaParentID: body.DeltaParentID,
+		BodyKey:       body.BodyKey,
+		Description:   body.Description,
+		Enable:        body.Enable,
+		Value:         body.Value,
 	}
 }
 
@@ -85,12 +87,13 @@ func (bues BodyURLEncodedService) CreateBodyURLEncoded(ctx context.Context, body
 
 func (bues BodyURLEncodedService) CreateBodyFormRaw(ctx context.Context, bodyForm gen.ExampleBodyUrlencoded) error {
 	return bues.queries.CreateBodyUrlEncoded(ctx, gen.CreateBodyUrlEncodedParams{
-		ID:          bodyForm.ID,
-		ExampleID:   bodyForm.ExampleID,
-		BodyKey:     bodyForm.BodyKey,
-		Description: bodyForm.Description,
-		Enable:      bodyForm.Enable,
-		Value:       bodyForm.Value,
+		ID:            bodyForm.ID,
+		ExampleID:     bodyForm.ExampleID,
+		DeltaParentID: bodyForm.DeltaParentID,
+		BodyKey:       bodyForm.BodyKey,
+		Description:   bodyForm.Description,
+		Enable:        bodyForm.Enable,
+		Value:         bodyForm.Value,
 	})
 }
 
