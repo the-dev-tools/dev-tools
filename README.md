@@ -4,7 +4,7 @@
   </a>
 </p>
 
-<h3 align="center">The Dev Tools</h3>
+<h3 align="center">DevTools</h3>
 
 <div align="center">
 
