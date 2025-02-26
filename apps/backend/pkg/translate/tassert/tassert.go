@@ -37,9 +37,14 @@ func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 		pathKeys = append(pathKeys, &pathKey)
 	}
 
+	var deltaParentIDBytes []byte
+	if a.DeltaParentID != nil {
+		deltaParentIDBytes = a.DeltaParentID.Bytes()
+	}
+
 	return &requestv1.Assert{
 		AssertId:       a.ID.Bytes(),
-		ParentAssertId: nil,
+		ParentAssertId: deltaParentIDBytes,
 		Condition: &conditionv1.Condition{
 			Comparison: &conditionv1.Comparison{
 				Kind:  conditionv1.ComparisonKind(a.Type),
@@ -68,12 +73,22 @@ func SerializeAssertRPCToModel(assert *requestv1.Assert, exampleID idwrap.IDWrap
 	if err != nil {
 		return massert.Assert{}, err
 	}
-	a := SerializeAssertRPCToModelWithoutID(assert, exampleID)
+
+	var deltaParentIDPtr *idwrap.IDWrap
+	if len(assert.GetParentAssertId()) > 0 {
+		deltaParentID, err := idwrap.NewFromBytes(assert.GetParentAssertId())
+		if err != nil {
+			return massert.Assert{}, err
+		}
+		deltaParentIDPtr = &deltaParentID
+	}
+
+	a := SerializeAssertRPCToModelWithoutID(assert, exampleID, deltaParentIDPtr)
 	a.ID = id
 	return a, nil
 }
 
-func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.IDWrap) massert.Assert {
+func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.IDWrap, deltaParentIDPtr *idwrap.IDWrap) massert.Assert {
 	var path, value string
 	massertType := massert.AssertTypeUndefined
 	if a.Condition != nil {
@@ -100,9 +115,10 @@ func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.ID
 	}
 
 	return massert.Assert{
-		ExampleID: exampleID,
-		Path:      path,
-		Value:     value,
-		Type:      massertType,
+		ExampleID:     exampleID,
+		Path:          path,
+		Value:         value,
+		Type:          massertType,
+		DeltaParentID: deltaParentIDPtr,
 	}
 }

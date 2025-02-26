@@ -17,23 +17,25 @@ var ErrNoAssertFound = sql.ErrNoRows
 
 func ConvertAssertDBToModel(assert gen.Assertion) massert.Assert {
 	return massert.Assert{
-		ID:        assert.ID,
-		ExampleID: assert.ExampleID,
-		Path:      assert.Path,
-		Value:     assert.Value,
-		Enable:    assert.Enable,
-		Type:      massert.AssertType(assert.Type),
+		ID:            assert.ID,
+		ExampleID:     assert.ExampleID,
+		DeltaParentID: assert.DeltaParentID,
+		Path:          assert.Path,
+		Value:         assert.Value,
+		Enable:        assert.Enable,
+		Type:          massert.AssertType(assert.Type),
 	}
 }
 
 func ConvertAssertModelToDB(assert massert.Assert) gen.Assertion {
 	return gen.Assertion{
-		ID:        assert.ID,
-		ExampleID: assert.ExampleID,
-		Path:      assert.Path,
-		Value:     assert.Value,
-		Type:      int8(assert.Type),
-		Enable:    assert.Enable,
+		ID:            assert.ID,
+		ExampleID:     assert.ExampleID,
+		DeltaParentID: assert.DeltaParentID,
+		Path:          assert.Path,
+		Value:         assert.Value,
+		Type:          int8(assert.Type),
+		Enable:        assert.Enable,
 	}
 }
 
@@ -84,12 +86,13 @@ func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert)
 func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
 	return as.queries.CreateAssert(ctx, gen.CreateAssertParams{
-		ID:        arg.ID,
-		ExampleID: arg.ExampleID,
-		Enable:    arg.Enable,
-		Value:     arg.Value,
-		Path:      arg.Path,
-		Type:      int8(arg.Type),
+		ID:            arg.ID,
+		ExampleID:     arg.ExampleID,
+		DeltaParentID: arg.DeltaParentID,
+		Enable:        arg.Enable,
+		Value:         arg.Value,
+		Path:          arg.Path,
+		Type:          int8(arg.Type),
 	})
 }
 

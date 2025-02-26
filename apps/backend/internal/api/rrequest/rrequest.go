@@ -321,7 +321,17 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 	rpcAssert := requestv1.Assert{
 		Condition: req.Msg.GetCondition(),
 	}
-	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID)
+
+	var deltaParentIDPtr *idwrap.IDWrap
+	if len(rpcAssert.ParentAssertId) > 0 {
+		deltaParentID, err := idwrap.NewFromBytes(rpcAssert.GetParentAssertId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		deltaParentIDPtr = &deltaParentID
+	}
+
+	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID, deltaParentIDPtr)
 	assert.Enable = true
 	assert.ID = idwrap.NewNow()
 	err = c.as.CreateAssert(ctx, assert)

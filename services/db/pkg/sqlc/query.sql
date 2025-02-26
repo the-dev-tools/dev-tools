@@ -1426,6 +1426,7 @@ WHERE
 SELECT
   id,
   example_id,
+  delta_parent_id,
   type,
   path,
   value,
@@ -1442,6 +1443,7 @@ LIMIT 1;
 SELECT
   id,
   example_id,
+  delta_parent_id,
   type,
   path,
   value,
@@ -1455,9 +1457,9 @@ WHERE
 
 -- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, example_id, type, path, value, enable, prev, next)
+  assertion (id, example_id, delta_parent_id, type, path, value, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateAssert :exec
 UPDATE assertion

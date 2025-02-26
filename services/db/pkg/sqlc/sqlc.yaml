@@ -359,6 +359,13 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### delta_parent_id
+          - column: 'assertion.delta_parent_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## assertion_result
           ### id
           - column: 'assertion_result.id'

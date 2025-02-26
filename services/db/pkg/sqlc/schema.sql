@@ -271,13 +271,15 @@ CREATE TABLE variable (
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
+  delta_parent_id BLOB DEFAULT NULL,
   type INT8 NOT NULL,
   path TEXT NOT NULL,
   value TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   prev BLOB,
   next BLOB,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_parent_id) REFERENCES assertion (id) ON DELETE CASCADE
 );
 
 CREATE TABLE assertion_result (

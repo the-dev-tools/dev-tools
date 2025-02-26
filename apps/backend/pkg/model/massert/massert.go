@@ -45,10 +45,11 @@ const (
 )
 
 type Assert struct {
-	ID        idwrap.IDWrap
-	ExampleID idwrap.IDWrap
-	Path      string
-	Value     string
-	Type      AssertType
-	Enable    bool
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	Path          string
+	Value         string
+	Type          AssertType
+	Enable        bool
 }

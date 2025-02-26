@@ -45,26 +45,28 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 
 const createAssert = `-- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, example_id, type, path, value, enable, prev, next)
+  assertion (id, example_id, delta_parent_id, type, path, value, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateAssertParams struct {
-	ID        idwrap.IDWrap
-	ExampleID idwrap.IDWrap
-	Type      int8
-	Path      string
-	Value     string
-	Enable    bool
-	Prev      []byte
-	Next      []byte
+	ID            idwrap.IDWrap
+	ExampleID     idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	Type          int8
+	Path          string
+	Value         string
+	Enable        bool
+	Prev          []byte
+	Next          []byte
 }
 
 func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) error {
 	_, err := q.exec(ctx, q.createAssertStmt, createAssert,
 		arg.ID,
 		arg.ExampleID,
+		arg.DeltaParentID,
 		arg.Type,
 		arg.Path,
 		arg.Value,
@@ -2748,6 +2750,7 @@ const getAssert = `-- name: GetAssert :one
 SELECT
   id,
   example_id,
+  delta_parent_id,
   type,
   path,
   value,
@@ -2767,6 +2770,7 @@ func (q *Queries) GetAssert(ctx context.Context, id idwrap.IDWrap) (Assertion, e
 	err := row.Scan(
 		&i.ID,
 		&i.ExampleID,
+		&i.DeltaParentID,
 		&i.Type,
 		&i.Path,
 		&i.Value,
@@ -2890,6 +2894,7 @@ const getAssertsByExampleID = `-- name: GetAssertsByExampleID :many
 SELECT
   id,
   example_id,
+  delta_parent_id,
   type,
   path,
   value,
@@ -2914,6 +2919,7 @@ func (q *Queries) GetAssertsByExampleID(ctx context.Context, exampleID idwrap.ID
 		if err := rows.Scan(
 			&i.ID,
 			&i.ExampleID,
+			&i.DeltaParentID,
 			&i.Type,
 			&i.Path,
 			&i.Value,
