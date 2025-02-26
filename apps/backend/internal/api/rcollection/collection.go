@@ -350,6 +350,9 @@ func (c *CollectionServiceRPC) CollectionImportPostman(ctx context.Context, req 
 	}
 
 	ws, err := c.ws.Get(ctx, wsUlid)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	ws.CollectionCount++
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
@@ -553,7 +556,7 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	fmt.Println("commited", resolved.Flow.ID)
+	log.Println("commited", resolved.Flow.ID)
 
 	// Changes
 	flowListItem := &flowv1.FlowListItem{
@@ -590,6 +593,9 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 	}
 
 	ws, err := c.ws.Get(ctx, wsID)
+	if err != nil {
+		return nil, err
+	}
 	ws.CollectionCount++
 	ws.FlowCount++
 	ws.Updated = dbtime.DBNow()
