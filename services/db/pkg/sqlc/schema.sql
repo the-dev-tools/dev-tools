@@ -72,7 +72,7 @@ CREATE TABLE item_folder (
   name TEXT NOT NULL,
   prev BLOB,
   next BLOB,
-  UNIQUE (prev, next),
+  UNIQUE (prev, next, parent_id),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
@@ -99,7 +99,6 @@ CREATE TABLE item_api (
   -- ordering
   prev BLOB,
   next BLOB,
-  UNIQUE (prev, next),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
   FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
@@ -126,7 +125,6 @@ CREATE TABLE item_api_example (
   -- ordering
   prev BLOB,
   next BLOB,
-  UNIQUE (prev, next),
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (version_parent_id) REFERENCES item_api_example (id) ON DELETE CASCADE

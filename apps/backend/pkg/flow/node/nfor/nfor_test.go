@@ -106,6 +106,7 @@ func TestForNode_RunAsync(t *testing.T) {
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		LogPushFunc:   logMockFunc,
+		Timeout:       time.Second,
 	}
 
 	resultChan := make(chan node.FlowNodeResult, 1)

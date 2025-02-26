@@ -960,33 +960,36 @@ func (c *ItemAPIExampleRPC) PrepareCopyExample(ctx context.Context, itemApi idwr
 	if err != nil && err != sexampleresp.ErrNoRespFound {
 		return result, err
 	}
-	resp.ExampleID = exampleIDWrapNew
-	oldRespID := resp.ID
-	resp.ID = idwrap.NewNow()
-	result.Resp = *resp
 
-	respHeaders, err := c.erhs.GetHeaderByRespID(ctx, oldRespID)
-	if err != nil && err != sexamplerespheader.ErrNoRespHeaderFound {
-		return result, err
+	if resp != nil {
+		resp.ExampleID = exampleIDWrapNew
+		oldRespID := resp.ID
+		resp.ID = idwrap.NewNow()
+		result.Resp = *resp
+
+		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, oldRespID)
+		if err != nil && err != sexamplerespheader.ErrNoRespHeaderFound {
+			return result, err
+		}
+		for i := range respHeaders {
+			respHeaders[i].ID = idwrap.NewNow()
+			respHeaders[i].ExampleRespID = resp.ID
+		}
+
+		result.RespHeaders = respHeaders
+
+		assertResp, err := c.ars.GetAssertResultsByResponseID(ctx, oldRespID)
+		if err != nil {
+			return result, err
+		}
+
+		for i := range assertResp {
+			assertResp[i].ID = idwrap.NewNow()
+			assertResp[i].ResponseID = resp.ID
+		}
+
+		result.RespAsserts = assertResp
 	}
-	for i := range respHeaders {
-		respHeaders[i].ID = idwrap.NewNow()
-		respHeaders[i].ExampleRespID = resp.ID
-	}
-
-	result.RespHeaders = respHeaders
-
-	assertResp, err := c.ars.GetAssertResultsByResponseID(ctx, oldRespID)
-	if err != nil {
-		return result, err
-	}
-
-	for i := range assertResp {
-		assertResp[i].ID = idwrap.NewNow()
-		assertResp[i].ResponseID = resp.ID
-	}
-
-	result.RespAsserts = assertResp
 
 	return result, nil
 }

@@ -275,6 +275,7 @@ func TestForEachNode_RunAsync_Map(t *testing.T) {
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		LogPushFunc:   logMockFunc,
+		Timeout:       time.Second,
 	}
 
 	wg.Add(9) // Expect 3 iterations since the hashmap has three keys

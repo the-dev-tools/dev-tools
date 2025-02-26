@@ -24,7 +24,7 @@ func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
 
 func SerializeFormModelToRPCItem(form mbodyform.BodyForm) *bodyv1.BodyFormItemListItem {
 	var deltaParentIDBytes []byte
-	if form.DeltaParentID == nil {
+	if form.DeltaParentID != nil {
 		deltaParentIDBytes = form.DeltaParentID.Bytes()
 	}
 
