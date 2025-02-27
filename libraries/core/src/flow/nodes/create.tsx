@@ -63,9 +63,8 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
   const makeNode = useMakeNode();
   const makeEdge = useMakeEdge();
 
-  const position = useMemo(() => getNode(id)!.position, [getNode, id]);
+  const getPosition = useCallback(() => getNode(id)!.position, [getNode, id]);
 
-  const { x, y } = position;
   const offset = 200;
 
   return (
@@ -84,7 +83,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             title='Send Request'
             description='Send request from your collection'
             onAction={async () => {
-              const node = await makeNode({ kind: NodeKind.REQUEST, request: {}, position });
+              const node = await makeNode({ kind: NodeKind.REQUEST, request: {}, position: getPosition() });
               const edges = Option.isNone(sourceId)
                 ? []
                 : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
@@ -113,6 +112,8 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             title='If'
             description='Add true/false'
             onAction={async () => {
+              const position = getPosition();
+              const { x, y } = position;
               const [node, nodeThen, nodeElse] = await Promise.all([
                 makeNode({ kind: NodeKind.CONDITION, condition: {}, position }),
                 makeNode({
@@ -159,6 +160,8 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             title='For Loop'
             description='Loop'
             onAction={async () => {
+              const position = getPosition();
+              const { x, y } = position;
               const [node, nodeLoop, nodeThen] = await Promise.all([
                 makeNode({ kind: NodeKind.FOR, for: {}, position }),
                 makeNode({
@@ -199,6 +202,8 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             title='For Each Loop'
             description='Loop'
             onAction={async () => {
+              const position = getPosition();
+              const { x, y } = position;
               const [node, nodeLoop, nodeThen] = await Promise.all([
                 makeNode({ kind: NodeKind.FOR_EACH, forEach: {}, position }),
                 makeNode({
