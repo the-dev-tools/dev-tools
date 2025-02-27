@@ -12,6 +12,7 @@ import {
   Panel as RFPanel,
   SelectionMode,
   useReactFlow,
+  useStoreApi,
   useViewport,
 } from '@xyflow/react';
 import { Array, HashMap, Match, pipe, Record } from 'effect';
@@ -308,6 +309,9 @@ const ActionBar = () => {
   const { transport } = useRouteContext({ from: '__root__' });
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
+  const storeApi = useStoreApi<Node, Edge>();
+
+  const makeNode = useMakeNode();
 
   return (
     <RFPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
@@ -321,8 +325,18 @@ const ActionBar = () => {
 
       {/* <div className={tw`mx-2 h-5 w-px bg-white/20`} /> */}
 
-      {/* TODO: implement add node action */}
-      <Button variant='ghost dark' className={tw`px-1.5 py-1`}>
+      <Button
+        variant='ghost dark'
+        className={tw`px-1.5 py-1`}
+        onPress={async () => {
+          const { domNode } = storeApi.getState();
+          if (!domNode) return;
+          const box = domNode.getBoundingClientRect();
+          const position = flow.screenToFlowPosition({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+          const node = await makeNode({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.CREATE, position });
+          pipe(node, Node.fromDTO, flow.addNodes);
+        }}
+      >
         <FiPlus className={tw`size-5 text-slate-300`} />
         Add Node
       </Button>
