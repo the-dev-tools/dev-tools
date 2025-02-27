@@ -5,6 +5,7 @@ import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
+import { twJoin } from 'tailwind-merge';
 
 import { NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { CollectIcon, DataSourceIcon, DelayIcon, ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
@@ -27,7 +28,7 @@ interface CreateNodeItemProps extends Omit<ListBoxItemProps, 'children' | 'class
 
 const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemProps) => (
   <ListBoxItem {...props} className={tw`grid grid-cols-[auto_1fr] gap-x-2 gap-y-0 px-3 py-2`} textValue={title}>
-    <div className={tw`row-span-2 rounded-md border border-slate-200 p-1.5`}>
+    <div className={tw`row-span-2 rounded-md border border-slate-200 bg-white p-1.5`}>
       <Icon className={tw`size-5 text-slate-500`} />
     </div>
     <span className={tw`text-md font-semibold leading-5 tracking-tight`}>{title}</span>
@@ -35,7 +36,7 @@ const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemPr
   </ListBoxItem>
 );
 
-export const CreateNode = ({ id }: NodeProps) => {
+export const CreateNode = ({ id, selected }: NodeProps) => {
   const { getNode, getEdges, addNodes, addEdges, deleteElements } = useReactFlow();
 
   const edge = useMemo(() => getEdges().find((_) => _.target === id)!, [getEdges, id]);
@@ -64,7 +65,7 @@ export const CreateNode = ({ id }: NodeProps) => {
       <ListBox
         aria-label='Create node type'
         onAction={() => void {}}
-        className={tw`w-80 divide-y divide-slate-200 pt-0`}
+        className={twJoin(tw`w-80 divide-y divide-slate-200 pt-0 transition-colors`, selected && tw`bg-slate-100`)}
       >
         <ListBoxSection>
           <CreateNodeHeader>Task</CreateNodeHeader>

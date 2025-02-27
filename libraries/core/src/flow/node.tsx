@@ -28,6 +28,7 @@ import {
   NodeKind,
   NodeKindSchema,
   NodeListRequestSchema,
+  NodeNoOpKind,
   PositionSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
@@ -64,7 +65,7 @@ export const Node = {
     position: Struct.pick(position!, 'x', 'y'),
     origin: [0.5, 0],
     type: enumToJson(NodeKindSchema, kind),
-    selectable: ![NodeKind.UNSPECIFIED, NodeKind.NO_OP].includes(kind),
+    selectable: ![NodeKind.UNSPECIFIED, NodeKind.NO_OP].includes(kind) || data.noOp === NodeNoOpKind.CREATE,
     data: { ...Struct.omit(data, '$typeName', '$unknown'), state: NodeState.UNSPECIFIED },
   }),
 
