@@ -30,7 +30,7 @@ import {
   edgeList,
   edgeUpdate,
 } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
-import { NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { flowRoute } from './internal';

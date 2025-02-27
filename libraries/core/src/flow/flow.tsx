@@ -22,9 +22,9 @@ import { FiClock, FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
-import { NodeKind, NodeKindJson, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { FlowService, NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';

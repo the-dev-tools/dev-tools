@@ -29,6 +29,7 @@ import {
   NodeKindSchema,
   NodeListRequestSchema,
   NodeNoOpKind,
+  NodeState,
   PositionSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
@@ -37,7 +38,6 @@ import {
   nodeList,
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';

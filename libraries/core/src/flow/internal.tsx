@@ -18,7 +18,7 @@ import {
   HandleJson as HandleKindJson,
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { NodeState } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { Edge } from './edge';
