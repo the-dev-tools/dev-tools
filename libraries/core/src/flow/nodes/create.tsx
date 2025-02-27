@@ -1,5 +1,5 @@
 import { Position, useReactFlow } from '@xyflow/react';
-import { pipe } from 'effect';
+import { Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { ComponentProps, useCallback, useMemo } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
@@ -39,12 +39,20 @@ const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemPr
 export const CreateNode = ({ id, selected }: NodeProps) => {
   const { getNode, getEdges, addNodes, addEdges, deleteElements } = useReactFlow();
 
-  const edge = useMemo(() => getEdges().find((_) => _.target === id)!, [getEdges, id]);
-  const sourceId = useMemo(() => Ulid.fromCanonical(edge.source).bytes, [edge.source]);
+  const edge = useMemo(
+    () =>
+      pipe(
+        getEdges().find((_) => _.target === id),
+        Option.fromNullable,
+      ),
+    [getEdges, id],
+  );
+
+  const sourceId = useMemo(() => Option.map(edge, (_) => Ulid.fromCanonical(_.source).bytes), [edge]);
 
   const add = useCallback(
     async (nodes: NodeDTO[], edges: EdgeDTO[]) => {
-      await deleteElements({ nodes: [{ id }], edges: [edge] });
+      await deleteElements({ nodes: [{ id }], edges: Option.toArray(edge) });
 
       pipe(nodes.map(Node.fromDTO), addNodes);
       pipe(edges.map(Edge.fromDTO), addEdges);
@@ -77,8 +85,10 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             description='Send request from your collection'
             onAction={async () => {
               const node = await makeNode({ kind: NodeKind.REQUEST, request: {}, position });
-              const edge = await makeEdge({ sourceId, targetId: node.nodeId });
-              await add([node], [edge]);
+              const edges = Option.isNone(sourceId)
+                ? []
+                : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
+              await add([node], edges);
             }}
           />
 
@@ -118,7 +128,9 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               ]);
 
               const edges = await Promise.all([
-                makeEdge({ sourceId, targetId: node.nodeId }),
+                ...(Option.isNone(sourceId)
+                  ? []
+                  : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
                   sourceId: node.nodeId,
                   sourceHandle: HandleKind.THEN,
@@ -162,7 +174,9 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               ]);
 
               const edges = await Promise.all([
-                makeEdge({ sourceId, targetId: node.nodeId }),
+                ...(Option.isNone(sourceId)
+                  ? []
+                  : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
                   sourceId: node.nodeId,
                   sourceHandle: HandleKind.LOOP,
@@ -200,7 +214,9 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               ]);
 
               const edges = await Promise.all([
-                makeEdge({ sourceId, targetId: node.nodeId }),
+                ...(Option.isNone(sourceId)
+                  ? []
+                  : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
                   sourceId: node.nodeId,
                   sourceHandle: HandleKind.LOOP,
