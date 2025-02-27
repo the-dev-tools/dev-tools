@@ -47,11 +47,7 @@ import { flowRoute, useSetSelectedNodes } from './internal';
 
 export { NodeDTOSchema, type NodeDTO };
 
-export interface NodeData
-  extends Record<string, unknown>,
-    Omit<NodeDTO, keyof Message | 'nodeId' | 'kind' | 'position'> {
-  state: NodeState;
-}
+export interface NodeData extends Omit<NodeDTO, keyof Message | 'nodeId' | 'kind' | 'position'> {}
 export interface Node extends NodeCore<NodeData> {}
 export interface NodeProps extends NodePropsCore<Node> {}
 
@@ -66,11 +62,11 @@ export const Node = {
     origin: [0.5, 0],
     type: enumToJson(NodeKindSchema, kind),
     selectable: ![NodeKind.UNSPECIFIED, NodeKind.NO_OP].includes(kind) || data.noOp === NodeNoOpKind.CREATE,
-    data: { ...Struct.omit(data, '$typeName', '$unknown'), state: NodeState.UNSPECIFIED },
+    data: Struct.omit(data, '$typeName', '$unknown'),
   }),
 
-  toDTO: (_: Node): Omit<NodeDTO, keyof Message> => ({
-    ..._.data,
+  toDTO: (_: Node): Omit<NodeDTO, keyof Message | 'state'> => ({
+    ...Struct.omit(_.data, 'state'),
     nodeId: Ulid.fromCanonical(_.id).bytes,
     kind: isEnumJson(NodeKindSchema, _.type) ? enumFromJson(NodeKindSchema, _.type) : NodeKind.UNSPECIFIED,
     position: create(PositionSchema, _.position),

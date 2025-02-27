@@ -41,6 +41,7 @@ model Node {
   @key nodeId: Resource.Id;
   position: Position;
   name: string;
+  @visibility("query") state: NodeState;
   kind: NodeKind;
   noOp?: NodeNoOpKind;
   request?: NodeRequest;
@@ -110,16 +111,17 @@ model NodeRunRequest {
   environmentId: Resource.Id;
 }
 
-enum ResultKind {
-  RESULT_KIND_UNSPECIFIED: 0,
-  RESULT_KIND_SUCCESS: 1,
-  RESULT_KIND_FAILURE: 2,
+enum NodeState {
+  NODE_STATE_UNSPECIFIED: 0,
+  NODE_STATE_RUNNING: 1,
+  NODE_STATE_SUCCESS: 2,
+  NODE_STATE_FAILURE: 3,
 }
 
 @autoFields
 model NodeRunResponse {
   varMap: bytes; // json map cannot be represented in typespec
-  resultKind: ResultKind;
+  state: NodeState;
 }
 
 @Protobuf.service

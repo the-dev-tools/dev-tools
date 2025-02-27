@@ -57,29 +57,10 @@ model FlowRunRequest {
   environmentId: Resource.Id;
 }
 
-enum ResultKind {
-  RESULT_KIND_UNSPECIFIED: 0,
-  RESULT_KIND_SUCCESS: 1,
-  RESULT_KIND_FAILURE: 2,
-  RESULT_KIND_ONGOING: 3,
-}
-
-model Result {
-  kind: ResultKind;
-  error?: string;
-}
-
-enum NodeState {
-  NODE_STATE_UNSPECIFIED: 0,
-  NODE_STATE_RUNNING: 1,
-  NODE_STATE_SUCCESS: 2,
-  NODE_STATE_FAILURE: 3,
-}
-
 @autoFields
 model FlowRunResponse {
   ...KeyOf<FlowItem.Node.Node>;
-  state: NodeState;
+  state: FlowItem.Node.NodeState;
 }
 
 @Protobuf.service
