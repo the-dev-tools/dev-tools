@@ -37,7 +37,7 @@ function Page() {
         <span className={tw`mb-1 text-sm leading-5 tracking-tight text-slate-500`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
         </span>
-        <h1 className={tw`text-2xl font-medium leading-8 tracking-tight text-slate-800`}>Welcome to Dev Tools 👋</h1>
+        <h1 className={tw`text-2xl font-medium leading-8 tracking-tight text-slate-800`}>Welcome to DevTools 👋</h1>
       </div>
 
       <div className={tw`divide-y divide-slate-200 rounded-lg border border-slate-200`}>

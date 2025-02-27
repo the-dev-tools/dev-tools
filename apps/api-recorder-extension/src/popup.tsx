@@ -64,7 +64,7 @@ const LoginPage = () => {
         }
       >
         <Logo className='mb-2 h-16 w-auto' />
-        <h1 className='mb-1 text-center text-4xl font-semibold uppercase leading-tight'>Dev Tools</h1>
+        <h1 className='mb-1 text-center text-4xl font-semibold uppercase leading-tight'>DevTools</h1>
         <h2 className='mb-10 w-64 text-center text-sm leading-snug'>
           Create your account and get your APIs call in seconds
         </h2>
@@ -101,7 +101,7 @@ const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
   <Layout innerClassName='flex flex-col divide-y divide-slate-300'>
     <div className='flex items-center gap-2 p-4'>
       <Logo className='h-6 w-auto' />
-      <h1 className='text-xl font-medium uppercase leading-tight'>Dev Tools</h1>
+      <h1 className='text-xl font-medium uppercase leading-tight'>DevTools</h1>
       <div className='h-9 flex-1' />
       {headerSlot}
     </div>
