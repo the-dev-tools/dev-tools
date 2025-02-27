@@ -421,7 +421,9 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   return (
     <form onSubmit={onSubmit}>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
-        <div className={tw`flex flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}>
+        <div
+          className={tw`flex min-w-0 flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}
+        >
           {example.breadcrumbs.map((_, index) => (
             <Fragment key={`${index} ${_}`}>
               <span>{_}</span>
@@ -436,7 +438,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
               {...textFieldProps}
             />
           ) : (
-            <h2 className={tw`cursor-pointer text-slate-800`} onContextMenu={onContextMenu}>
+            <h2 className={tw`max-w-full cursor-pointer truncate text-slate-800`} onContextMenu={onContextMenu}>
               {example.name}
             </h2>
           )}
