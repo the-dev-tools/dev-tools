@@ -222,7 +222,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flow.ID, NodeID)
+	nodeData, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flow.ID, NodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node: %w", err))
 	}
@@ -236,16 +236,16 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = nsTX.CreateNode(ctx, *node)
+	err = nsTX.CreateNode(ctx, *nodeData.Base)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// INFO: this is using reflection to check the type of subNode
 	// in future, this should be refactored to use a more explicit way to check the type
-	switch subNodeType := subNode.(type) {
+	switch subNodeType := nodeData.SubNode.(type) {
 	case *mnrequest.MNRequest:
-		subNodeType.FlowNodeID = node.ID
+		subNodeType.FlowNodeID = nodeData.Base.ID
 		nrsTX, err := snoderequest.NewTX(ctx, tx)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -290,7 +290,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	default:
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", subNode))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", nodeData.SubNode))
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -339,7 +339,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		Condition: req.Msg.Condition,
 	}
 
-	node, subNode, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, node.FlowID)
+	nodeData, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, node.FlowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -360,7 +360,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 
 	// INFO: this is using reflection to check the type of subNode
 	// in future, this should be refactored to use a more explicit way to check the type
-	switch subNodeType := subNode.(type) {
+	switch subNodeType := nodeData.SubNode.(type) {
 	case *mnrequest.MNRequest:
 		nrsTX, err := snoderequest.NewTX(ctx, tx)
 		if err != nil {
@@ -399,7 +399,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		}
 	case *mnnoop.NoopNode:
 	default:
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T, %V", subNodeType, subNode))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T, %V", subNodeType, nodeData.SubNode))
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -428,35 +428,35 @@ func (c *NodeServiceRPC) NodeDelete(ctx context.Context, req *connect.Request[no
 	return connect.NewResponse(&nodev1.NodeDeleteResponse{}), nil
 }
 
-func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev1.NodeRunRequest]) (*connect.Response[nodev1.NodeRunResponse], error) {
+func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev1.NodeRunRequest], stream *connect.ServerStream[nodev1.NodeRunResponse]) error {
 	nodeID, err := idwrap.NewFromBytes(req.Msg.NodeId)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	_, err = idwrap.NewFromBytes(req.Msg.EnvironmentId)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	rpcErr := permcheck.CheckPerm(CheckOwnerNode(ctx, c.fs, c.us, c.ns, nodeID))
 	if rpcErr != nil {
-		return nil, rpcErr
+		return rpcErr
 	}
 
 	node, err := c.ns.GetNode(ctx, nodeID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	switch node.NodeKind {
 	case mnnode.NODE_KIND_REQUEST:
 		nodeReq, err := c.nrs.GetNodeRequest(ctx, node.ID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, err)
 		}
 
 		if nodeReq.EndpointID == nil || nodeReq.ExampleID == nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", nodeReq.FlowNodeID))
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", nodeReq.FlowNodeID))
 		}
 
 		endpointID := *nodeReq.EndpointID
@@ -464,32 +464,32 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 
 		itemApi, err := c.ias.GetItemApi(ctx, endpointID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, err)
 		}
 
 		example, err := c.iaes.GetApiExample(ctx, exampleID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, err)
 		}
 
 		queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exampleID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, err)
 		}
 
 		headers, err := c.ehs.GetHeaderByExampleID(ctx, exampleID)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, err)
 		}
 
 		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, []byte{}, httpclient.New())
 
 	case mnnode.NODE_KIND_FOR:
 	default:
-		return nil, connect.NewError(connect.CodeUnimplemented, nil)
+		return connect.NewError(connect.CodeUnimplemented, nil)
 	}
 
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	return connect.NewError(connect.CodeUnimplemented, nil)
 }
 
 func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserService, ns snode.NodeService, nodeID idwrap.IDWrap) (bool, error) {
@@ -632,17 +632,22 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 	return rpcNode, nil
 }
 
-func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap) (*mnnode.MNode, interface{}, error) {
+func ConvertRPCNodeToModelWithID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap) (*NodeData, error) {
 	id, err := idwrap.NewFromBytes(rpcNode.NodeId)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	return ConvertRPCNodeToModelWithoutID(ctx, rpcNode, flowID, id)
 }
 
-func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*mnnode.MNode, interface{}, error) {
+type NodeData struct {
+	Base    *mnnode.MNode
+	SubNode any
+}
+
+func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*NodeData, error) {
 	var node *mnnode.MNode
-	var subNode interface{}
+	var subNode any
 
 	if rpcNode.Position == nil {
 		rpcNode.Position = &nodev1.Position{}
@@ -663,21 +668,21 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		if rpcNode.Request.EndpointId != nil {
 			endpointID, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			endpointIDPtr = &endpointID
 		}
 		if rpcNode.Request.ExampleId != nil {
 			exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			exampleIDPtr = &exampleID
 		}
 		if rpcNode.Request.DeltaExampleId != nil {
 			deltaExampleID, err := idwrap.NewFromBytes(rpcNode.Request.DeltaExampleId)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			deltaExampleIDPtr = &deltaExampleID
 		}
@@ -703,12 +708,12 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		} else {
 			condition, err = tcondition.DeserializeConditionRPCToModel(forNode.Condition)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 
 		if condition == nil {
-			return nil, nil, fmt.Errorf("condition is nil")
+			return nil, fmt.Errorf("condition is nil")
 		}
 
 		forNodeConverted := &mnfor.MNFor{
@@ -728,7 +733,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			refs := tgeneric.MassConvert(rpcNode.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
 			iterpath, err = reference.ConvertRefernceKeyArrayToStringPath(refs)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 
@@ -739,12 +744,12 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		} else {
 			condition, err = tcondition.DeserializeConditionRPCToModel(forEach.Condition)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 
 		if condition == nil {
-			return nil, nil, fmt.Errorf("condition is nil")
+			return nil, fmt.Errorf("condition is nil")
 		}
 
 		forNode := &mnforeach.MNForEach{
@@ -775,7 +780,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		} else {
 			condition, err = tcondition.DeserializeConditionRPCToModel(conditionNode.Condition)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 
@@ -785,8 +790,8 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		}
 		subNode = ifNode
 	default:
-		return nil, nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
+		return nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
 	}
 
-	return node, subNode, nil
+	return &NodeData{Base: node, SubNode: subNode}, nil
 }

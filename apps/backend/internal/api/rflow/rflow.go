@@ -55,6 +55,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"time"
@@ -594,7 +595,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				resp := &flowv1.FlowRunResponse{
 					NodeId: nodeBytes,
-					State:  flowv1.NodeState(a.NodeStatus),
+					State:  nodev1.NodeState(a.NodeStatus),
 				}
 
 				localErr = stream.Send(resp)
