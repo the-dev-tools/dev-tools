@@ -48,7 +48,6 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 		LogPushFunc:   node.LogPushFunc(logWorkaround),
 		Timeout:       r.Timeout,
 	}
-	fmt.Println("FlowLocalRunner.Run")
 	status <- runner.NewFlowStatus(runner.FlowStatusStarting, mnnode.NODE_STATE_UNSPECIFIED, nil)
 	currentNode, ok := r.FlowNodeMap[*nextNodeID]
 	if !ok {
@@ -70,200 +69,253 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	return nil
 }
 
-func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc) ([]idwrap.IDWrap, error) {
-	var nextNodeID []idwrap.IDWrap
-	queue := []node.FlowNode{startNode}
-	processedNodes := make(map[idwrap.IDWrap]bool)
+// Common node processing result
+type processResult struct {
+	nextNodes []node.FlowNode
+	err       error
+}
 
-	for len(queue) > 0 {
-		currentNode := queue[0]
-		queue = queue[1:]
+// Helper function to handle a single node execution
+func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc,
+) ([]idwrap.IDWrap, error) {
+	id := n.GetID()
+	statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
 
-		id := currentNode.GetID()
-		if processedNodes[id] {
-			continue
+	res := n.RunSync(ctx, req)
+
+	if res.Err != nil {
+		statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
+		return nil, res.Err
+	}
+
+	statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
+	return res.NextNodeID, nil
+}
+
+// Helper function to process parallel nodes
+func processParallelNodes(ctx context.Context, nodeIDs []idwrap.IDWrap,
+	req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc,
+) ([]idwrap.IDWrap, error) {
+	var wg sync.WaitGroup
+	// Using buffered channel with enough capacity for all goroutines to send without blocking
+	results := make(chan node.FlowNodeResult, len(nodeIDs))
+	errCh := make(chan error, len(nodeIDs)) // Channel for potential errors
+
+	for _, id := range nodeIDs {
+		nextNode, ok := req.NodeMap[id]
+		if !ok {
+			return nil, fmt.Errorf("node not found: %v", id)
 		}
-		processedNodes[id] = true
 
-		statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
-		res := currentNode.RunSync(ctx, req)
+		wg.Add(1)
+		go func(n node.FlowNode, nodeID idwrap.IDWrap) {
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("panic in node %v: %v", nodeID, r)
+				}
+				wg.Done()
+			}()
 
-		nextNodeLen := len(res.NextNodeID)
-		if nextNodeLen == 0 {
+			statusLogFunc(mnnode.NODE_STATE_RUNNING, nodeID)
+			res := n.RunSync(ctx, req)
+
 			if res.Err != nil {
-				statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
-				return nil, res.Err
+				statusLogFunc(mnnode.NODE_STATE_FAILURE, nodeID)
+				errCh <- res.Err
+			} else {
+				statusLogFunc(mnnode.NODE_STATE_SUCCESS, nodeID)
+				results <- res
 			}
-			statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
-			continue
-		}
-		statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
+		}(nextNode, id)
+	}
 
-		if nextNodeLen == 1 {
-			nextNode, ok := req.NodeMap[res.NextNodeID[0]]
-			if !ok {
-				return nil, fmt.Errorf("node not found: %v", res.NextNodeID[0])
-			}
-			queue = append(queue, nextNode)
-			continue
-		}
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(results)
+	close(errCh)
 
-		var wg sync.WaitGroup
-		parallel := make(chan node.FlowNodeResult, nextNodeLen)
-		for _, v := range res.NextNodeID {
-			nextNode, ok := req.NodeMap[v]
-			if !ok {
-				return nil, fmt.Errorf("node not found: %v", v)
-			}
-
-			wg.Add(1)
-			go func(nextNode node.FlowNode) {
-				defer wg.Done()
-
-				statusLogFunc(mnnode.NODE_STATE_RUNNING, v)
-
-				res := nextNode.RunSync(ctx, req)
-				if res.Err != nil {
-					statusLogFunc(mnnode.NODE_STATE_FAILURE, v)
-				} else {
-					statusLogFunc(mnnode.NODE_STATE_SUCCESS, v)
-				}
-
-				parallel <- node.FlowNodeResult{
-					NextNodeID: res.NextNodeID,
-					Err:        res.Err,
-				}
-			}(nextNode)
-		}
-
-		wg.Wait()
-		close(parallel)
-
-		mergedNextNodeIDs := make(map[idwrap.IDWrap]bool)
-		for a := range parallel {
-
-			if a.Err != nil {
-				return nil, a.Err
-			}
-			for _, nextID := range a.NextNodeID {
-				mergedNextNodeIDs[nextID] = true
-			}
-		}
-
-		for nextID := range mergedNextNodeIDs {
-			nextNode, ok := req.NodeMap[nextID]
-			if !ok {
-				return nil, fmt.Errorf("node not found: %v", nextID)
-			}
-			queue = append(queue, nextNode)
+	// Check for errors first
+	for err := range errCh {
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return nextNodeID, nil
+	// Collect all next node IDs
+	mergedNextNodeIDs := make(map[idwrap.IDWrap]bool)
+	for res := range results {
+		for _, nextID := range res.NextNodeID {
+			mergedNextNodeIDs[nextID] = true
+		}
+	}
+
+	// Convert map keys to slice
+	nextNodeIDs := make([]idwrap.IDWrap, 0, len(mergedNextNodeIDs))
+	for id := range mergedNextNodeIDs {
+		nextNodeIDs = append(nextNodeIDs, id)
+	}
+
+	return nextNodeIDs, nil
 }
 
-func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc) ([]idwrap.IDWrap, error) {
-	var nextNodeID []idwrap.IDWrap
+// RunNodeSync runs nodes in synchronous mode
+func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc,
+) ([]idwrap.IDWrap, error) {
 	queue := []node.FlowNode{startNode}
 	processedNodes := make(map[idwrap.IDWrap]bool)
+	var finalNextNodeIDs []idwrap.IDWrap
 
 	for len(queue) > 0 {
+		// Pop the first node
 		currentNode := queue[0]
 		queue = queue[1:]
 
+		// Skip if already processed
 		id := currentNode.GetID()
 		if processedNodes[id] {
 			continue
 		}
 		processedNodes[id] = true
 
+		// Process the current node
+		nextNodeIDs, err := processNode(ctx, currentNode, req, statusLogFunc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Store the last set of next nodes for return value
+		if len(nextNodeIDs) == 0 {
+			continue
+		} else if len(nextNodeIDs) == 1 {
+			// Handle single next node case
+			nextNode, ok := req.NodeMap[nextNodeIDs[0]]
+			if !ok {
+				return nil, fmt.Errorf("node not found: %v", nextNodeIDs[0])
+			}
+			queue = append(queue, nextNode)
+		} else {
+			// Handle multiple next nodes case
+			parallelNextIDs, err := processParallelNodes(ctx, nextNodeIDs, req, statusLogFunc)
+			if err != nil {
+				return nil, err
+			}
+
+			// Add all next nodes to the queue
+			for _, nextID := range parallelNextIDs {
+				nextNode, ok := req.NodeMap[nextID]
+				if !ok {
+					return nil, fmt.Errorf("node not found: %v", nextID)
+				}
+				queue = append(queue, nextNode)
+			}
+		}
+
+		// Update final result
+		finalNextNodeIDs = nextNodeIDs
+	}
+
+	return finalNextNodeIDs, nil
+}
+
+// RunNodeASync runs nodes with timeout handling
+func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc,
+) ([]idwrap.IDWrap, error) {
+	queue := []node.FlowNode{startNode}
+	processedNodes := make(map[idwrap.IDWrap]bool)
+	var finalNextNodeIDs []idwrap.IDWrap
+
+	for len(queue) > 0 {
+		// Pop the first node
+		currentNode := queue[0]
+		queue = queue[1:]
+
+		// Skip if already processed
+		id := currentNode.GetID()
+		if processedNodes[id] {
+			continue
+		}
+		processedNodes[id] = true
+
+		// Run with timeout
 		statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
 
-		resChan := make(chan node.FlowNodeResult, 1)
+		// Create a context that will be cancelled when we're done with this operation
+		execCtx, execCancel := context.WithCancel(ctx)
+		resultChan := make(chan node.FlowNodeResult, 1)
+
 		go func() {
-			res := currentNode.RunSync(ctx, req)
-			resChan <- res
+			result := currentNode.RunSync(execCtx, req)
+			select {
+			case <-execCtx.Done():
+				return
+			case resultChan <- result:
+				// Successfully sent result
+			}
 		}()
 
-		var res *node.FlowNodeResult
-		timedCtx, cancel := context.WithTimeout(ctx, req.Timeout)
-		defer cancel()
+		// Wait for result with timeout
+		timedCtx, timeoutCancel := context.WithTimeout(ctx, req.Timeout)
+		var result node.FlowNodeResult
+		var err error
 
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context done")
-		case resLocal := <-resChan:
-			res = &resLocal
+			err = fmt.Errorf("context done")
+		case result = <-resultChan:
+			// Success - continue processing
 		case <-timedCtx.Done():
-			return nil, fmt.Errorf("timeout")
+			err = fmt.Errorf("timeout")
+		}
+
+		// Clean up the contexts
+		timeoutCancel()
+		execCancel() // Cancel the execution context to prevent goroutine leaks
+
+		if err != nil {
+			statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
+			return nil, err
+		}
+
+		// Handle result
+		if result.Err != nil {
+			statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
+			return nil, result.Err
 		}
 		statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
 
-		nextNodeLen := len(res.NextNodeID)
-		if nextNodeLen == 0 {
-			if res.Err != nil {
+		// Store the last set of next nodes for return value
+		nextNodeIDs := result.NextNodeID
+		finalNextNodeIDs = nextNodeIDs
 
-				statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
-				return nil, res.Err
-			}
+		if len(nextNodeIDs) == 0 {
 			continue
-		}
-
-		if nextNodeLen == 1 {
-			nextNode, ok := req.NodeMap[res.NextNodeID[0]]
+		} else if len(nextNodeIDs) == 1 {
+			// Handle single next node case
+			nextNode, ok := req.NodeMap[nextNodeIDs[0]]
 			if !ok {
-				return nil, fmt.Errorf("node not found: %v", res.NextNodeID[0])
+				return nil, fmt.Errorf("node not found: %v", nextNodeIDs[0])
 			}
 			queue = append(queue, nextNode)
-			continue
-		}
-
-		var wg sync.WaitGroup
-		parallel := make(chan node.FlowNodeResult, nextNodeLen)
-		for _, v := range res.NextNodeID {
-			nextNode, ok := req.NodeMap[v]
-			if !ok {
-				return nil, fmt.Errorf("node not found: %v", v)
+		} else {
+			// Handle multiple next nodes case
+			parallelNextIDs, err := processParallelNodes(ctx, nextNodeIDs, req, statusLogFunc)
+			if err != nil {
+				return nil, err
 			}
-			wg.Add(1)
-			go func(nextNode node.FlowNode) {
-				defer wg.Done()
 
-				statusLogFunc(mnnode.NODE_STATE_RUNNING, v)
-				res := nextNode.RunSync(ctx, req)
-				if res.Err != nil {
-					statusLogFunc(mnnode.NODE_STATE_FAILURE, v)
-				} else {
-					statusLogFunc(mnnode.NODE_STATE_SUCCESS, v)
+			// Add all next nodes to the queue
+			for _, nextID := range parallelNextIDs {
+				nextNode, ok := req.NodeMap[nextID]
+				if !ok {
+					return nil, fmt.Errorf("node not found: %v", nextID)
 				}
-				parallel <- node.FlowNodeResult{
-					NextNodeID: res.NextNodeID,
-					Err:        res.Err,
-				}
-			}(nextNode)
-		}
-
-		wg.Wait()
-		close(parallel)
-
-		mergedNextNodeIDs := make(map[idwrap.IDWrap]bool)
-		for a := range parallel {
-			if a.Err != nil {
-				return nil, a.Err
+				queue = append(queue, nextNode)
 			}
-			for _, nextID := range a.NextNodeID {
-				mergedNextNodeIDs[nextID] = true
-			}
-		}
-
-		for nextID := range mergedNextNodeIDs {
-			nextNode, ok := req.NodeMap[nextID]
-			if !ok {
-				return nil, fmt.Errorf("node not found: %v", nextID)
-			}
-			queue = append(queue, nextNode)
 		}
 	}
 
-	return nextNodeID, nil
+	return finalNextNodeIDs, nil
 }

@@ -627,17 +627,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	err = runnerInst.Run(ctx, status)
+	flowRunErr := runnerInst.Run(ctx, status)
 	flowErr := <-done
-	if err != nil {
-		err = fmt.Errorf("run flow: %w", err)
-		return connect.NewError(connect.CodeInternal, err)
-	}
-	if flowErr != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	flow.VersionParentID = &flow.ID
+	close(updateNodeChan)
 
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
 	if err != nil {
@@ -645,16 +637,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = c.CopyFlow(ctx, res)
-	if err != nil {
-		fmt.Println("Error in CopyFlow")
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
+	defer tx.Rollback()
 
 	txNode, err := snode.NewTX(ctx, tx)
 	if err != nil {
@@ -668,12 +655,26 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}
 
+	if flowRunErr != nil {
+		err = fmt.Errorf("run flow: %w", err)
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	if flowErr != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	flow.VersionParentID = &flow.ID
+
+	err = c.CopyFlow(ctx, tx, res)
+	if err != nil {
+		fmt.Println("Error in CopyFlow")
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
-
-	fmt.Println("Flow run completed")
 
 	return nil
 }
@@ -782,13 +783,7 @@ func (c *FlowServiceRPC) PrepareCopyFlow(ctx context.Context, workspaceID idwrap
 	return result, nil
 }
 
-func (c *FlowServiceRPC) CopyFlow(ctx context.Context, copyData CopyFlowResult) error {
-	tx, err := c.DB.Begin()
-	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
+func (c *FlowServiceRPC) CopyFlow(ctx context.Context, tx *sql.Tx, copyData CopyFlowResult) error {
 	// Create flow
 	txFlow, err := sflow.NewTX(ctx, tx)
 	if err != nil {
@@ -878,11 +873,6 @@ func (c *FlowServiceRPC) CopyFlow(ctx context.Context, copyData CopyFlowResult) 
 		if err != nil {
 			return fmt.Errorf("create edge: %w", err)
 		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	return nil
