@@ -59,7 +59,7 @@ export const Node = {
   fromDTO: ({ nodeId, kind, position, ...data }: Omit<NodeDTO, keyof Message> & Message): Node => ({
     id: Ulid.construct(nodeId).toCanonical(),
     position: Struct.pick(position!, 'x', 'y'),
-    origin: [0.5, 0.5],
+    origin: [0.5, 0],
     type: enumToJson(NodeKindSchema, kind),
     selectable: ![NodeKind.UNSPECIFIED, NodeKind.NO_OP].includes(kind) || data.noOp === NodeNoOpKind.CREATE,
     data: Struct.omit(data, '$typeName', '$unknown'),

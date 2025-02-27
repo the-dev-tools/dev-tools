@@ -341,7 +341,7 @@ const ActionBar = () => {
           const { domNode } = storeApi.getState();
           if (!domNode) return;
           const box = domNode.getBoundingClientRect();
-          const position = flow.screenToFlowPosition({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+          const position = flow.screenToFlowPosition({ x: box.x + box.width / 2, y: box.y + box.height * 0.1 });
           const node = await makeNode({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.CREATE, position });
           pipe(node, Node.fromDTO, flow.addNodes);
         }}
