@@ -235,7 +235,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
         </ListBoxSection>
       </ListBox>
 
-      <Handle type='target' position={Position.Top} isConnectable={false} />
+      <Handle type='target' position={Position.Top} isConnectableStart={false} />
     </>
   );
 };

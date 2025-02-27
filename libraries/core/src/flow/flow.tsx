@@ -143,13 +143,21 @@ const minZoom = 0.5;
 const maxZoom = 2;
 
 const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
-  const { addNodes, addEdges, screenToFlowPosition } = useReactFlow();
+  const { addNodes, addEdges, screenToFlowPosition } = useReactFlow<Node, Edge>();
 
   const onEdgesChange = useOnEdgesChange();
   const onNodesChange = useOnNodesChange();
 
   const makeNode = useMakeNode();
   const makeEdge = useMakeEdge();
+
+  const onConnect = useCallback<NonNullable<ReactFlowProps['onConnect']>>(
+    async (connection) => {
+      const edge = await pipe(connection, Edge.toDTO, makeEdge);
+      pipe(edge, Edge.fromDTO, addEdges);
+    },
+    [addEdges, makeEdge],
+  );
 
   const onConnectEnd = useCallback<NonNullable<ReactFlowProps['onConnectEnd']>>(
     async (event, { isValid, fromNode }) => {
@@ -189,6 +197,7 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
       edges={edges}
       onNodesChange={isReadOnly ? undefined! : onNodesChange}
       onEdgesChange={isReadOnly ? undefined! : onEdgesChange}
+      onConnect={isReadOnly ? undefined! : onConnect}
       onConnectEnd={isReadOnly ? undefined! : onConnectEnd}
       nodesConnectable={!isReadOnly}
       elementsSelectable={!isReadOnly}

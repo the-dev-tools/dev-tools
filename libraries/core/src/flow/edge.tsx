@@ -10,7 +10,7 @@ import {
   getSmoothStepPath,
   OnEdgesChange,
 } from '@xyflow/react';
-import { Array, HashMap, Option, pipe } from 'effect';
+import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { useCallback, useRef } from 'react';
 import { tv } from 'tailwind-variants';
@@ -43,8 +43,6 @@ export interface EdgeData extends Record<string, unknown> {
 export interface Edge extends EdgeCore<EdgeData> {}
 export interface EdgeProps extends EdgePropsCore<Edge> {}
 
-// const a: EdgeProps = {data: {}}
-
 export const Edge = {
   fromDTO: (edge: Omit<EdgeDTO, keyof Message> & Message): Edge => ({
     id: Ulid.construct(edge.edgeId).toCanonical(),
@@ -54,14 +52,30 @@ export const Edge = {
     data: { state: NodeState.UNSPECIFIED },
   }),
 
-  toDTO: (_: Edge): Omit<EdgeDTO, keyof Message> => ({
-    edgeId: Ulid.fromCanonical(_.id).bytes,
-    sourceId: Ulid.fromCanonical(_.source).bytes,
-    sourceHandle: isEnumJson(HandleKindSchema, _.sourceHandle)
-      ? enumFromJson(HandleKindSchema, _.sourceHandle)
-      : HandleKind.UNSPECIFIED,
-    targetId: Ulid.fromCanonical(_.target).bytes,
-  }),
+  toDTO: (_: Partial<Edge>): Omit<EdgeDTO, keyof Message> =>
+    pipe(
+      create(EdgeDTOSchema, {
+        edgeId: pipe(
+          Option.fromNullable(_.id),
+          Option.map((_) => Ulid.fromCanonical(_).bytes),
+          Option.getOrUndefined,
+        )!,
+        sourceId: pipe(
+          Option.fromNullable(_.source),
+          Option.map((_) => Ulid.fromCanonical(_).bytes),
+          Option.getOrUndefined,
+        )!,
+        sourceHandle: isEnumJson(HandleKindSchema, _.sourceHandle)
+          ? enumFromJson(HandleKindSchema, _.sourceHandle)
+          : HandleKind.UNSPECIFIED,
+        targetId: pipe(
+          Option.fromNullable(_.target),
+          Option.map((_) => Ulid.fromCanonical(_).bytes),
+          Option.getOrUndefined,
+        )!,
+      }),
+      Struct.omit('$typeName', '$unknown'),
+    ),
 };
 
 export const useMakeEdge = () => {
