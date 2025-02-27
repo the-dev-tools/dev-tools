@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/testutil"
 	"time"
 )
@@ -189,9 +190,9 @@ func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
 			return
 		}
 		switch status.NodeStatus {
-		case node.NodeStatusRunning:
+		case mnnode.NODE_STATE_RUNNING:
 			startTimes[*status.CurrentNodeID] = time.Now()
-		case node.NodeStatusSuccess:
+		case mnnode.NODE_STATE_SUCCESS:
 			endTimes[*status.CurrentNodeID] = time.Now()
 		}
 	}
@@ -389,9 +390,9 @@ func TestRunNodeASync_IncompleteExecution(t *testing.T) {
 				s = &nodeRunCounter{}
 			}
 			switch status.NodeStatus {
-			case node.NodeStatusRunning:
+			case mnnode.NODE_STATE_RUNNING:
 				s.runCounter++
-			case node.NodeStatusSuccess:
+			case mnnode.NODE_STATE_SUCCESS:
 				s.successCounter++
 			default:
 				t.Errorf("Expected status to be either NodeStatusRunning or NodeStatusSuccess, but got %v", status.NodeStatus)

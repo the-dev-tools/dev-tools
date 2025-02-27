@@ -31,23 +31,29 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeService, error) {
 
 func ConvertNodeToDB(n mnnode.MNode) *gen.FlowNode {
 	return &gen.FlowNode{
-		ID:        n.ID,
-		FlowID:    n.FlowID,
-		Name:      n.Name,
-		NodeKind:  int32(n.NodeKind),
-		PositionX: n.PositionX,
-		PositionY: n.PositionY,
+		ID:                    n.ID,
+		FlowID:                n.FlowID,
+		Name:                  n.Name,
+		NodeKind:              int32(n.NodeKind),
+		State:                 n.State,
+		StateData:             n.StateData,
+		StateDataCompressType: n.StateDataCompressType,
+		PositionX:             n.PositionX,
+		PositionY:             n.PositionY,
 	}
 }
 
 func ConvertNodeToModel(n gen.FlowNode) *mnnode.MNode {
 	return &mnnode.MNode{
-		ID:        n.ID,
-		FlowID:    n.FlowID,
-		Name:      n.Name,
-		NodeKind:  mnnode.NodeKind(n.NodeKind),
-		PositionX: n.PositionX,
-		PositionY: n.PositionY,
+		ID:                    n.ID,
+		FlowID:                n.FlowID,
+		Name:                  n.Name,
+		NodeKind:              mnnode.NodeKind(n.NodeKind),
+		State:                 n.State,
+		StateData:             n.StateData,
+		StateDataCompressType: n.StateDataCompressType,
+		PositionX:             n.PositionX,
+		PositionY:             n.PositionY,
 	}
 }
 
@@ -73,12 +79,15 @@ func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 func (ns NodeService) CreateNode(ctx context.Context, n mnnode.MNode) error {
 	node := ConvertNodeToDB(n)
 	return ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
-		ID:        node.ID,
-		FlowID:    node.FlowID,
-		Name:      node.Name,
-		NodeKind:  node.NodeKind,
-		PositionX: node.PositionX,
-		PositionY: node.PositionY,
+		ID:                    node.ID,
+		FlowID:                node.FlowID,
+		Name:                  node.Name,
+		NodeKind:              node.NodeKind,
+		State:                 n.State,
+		StateData:             n.StateData,
+		StateDataCompressType: n.StateDataCompressType,
+		PositionX:             node.PositionX,
+		PositionY:             node.PositionY,
 	})
 }
 
@@ -86,12 +95,15 @@ func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) 
 	for _, n := range nodes {
 		node := ConvertNodeToDB(n)
 		err := ns.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
-			ID:        node.ID,
-			FlowID:    node.FlowID,
-			Name:      node.Name,
-			NodeKind:  node.NodeKind,
-			PositionX: node.PositionX,
-			PositionY: node.PositionY,
+			ID:                    node.ID,
+			FlowID:                node.FlowID,
+			Name:                  node.Name,
+			NodeKind:              node.NodeKind,
+			State:                 n.State,
+			StateData:             n.StateData,
+			StateDataCompressType: n.StateDataCompressType,
+			PositionX:             node.PositionX,
+			PositionY:             node.PositionY,
 		})
 		if err != nil {
 			return err
@@ -103,9 +115,13 @@ func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) 
 func (ns NodeService) UpdateNode(ctx context.Context, n mnnode.MNode) error {
 	node := ConvertNodeToDB(n)
 	return ns.queries.UpdateFlowNode(ctx, gen.UpdateFlowNodeParams{
-		ID:        node.ID,
-		PositionX: node.PositionX,
-		PositionY: node.PositionY,
+		ID:                    node.ID,
+		Name:                  node.Name,
+		State:                 n.State,
+		StateData:             n.StateData,
+		StateDataCompressType: n.StateDataCompressType,
+		PositionX:             node.PositionX,
+		PositionY:             node.PositionY,
 	})
 }
 

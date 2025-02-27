@@ -125,12 +125,15 @@ type FlowEdge struct {
 }
 
 type FlowNode struct {
-	ID        idwrap.IDWrap
-	FlowID    idwrap.IDWrap
-	Name      string
-	NodeKind  int32
-	PositionX float64
-	PositionY float64
+	ID                    idwrap.IDWrap
+	FlowID                idwrap.IDWrap
+	Name                  string
+	State                 int8
+	StateData             []byte
+	StateDataCompressType int8
+	NodeKind              int32
+	PositionX             float64
+	PositionY             float64
 }
 
 type FlowNodeFor struct {

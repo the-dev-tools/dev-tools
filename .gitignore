@@ -9,6 +9,7 @@
 .task
 .vite
 *.db
+*.db-journal
 data
 dist
 next-env.d.ts

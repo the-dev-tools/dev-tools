@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mnnode"
 	"time"
 )
 
@@ -35,7 +36,7 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	nextNodeID := &r.StartNodeID
 	var err error
 
-	logWorkaround := func(a node.NodeStatus, id idwrap.IDWrap) {
+	logWorkaround := func(a mnnode.NodeState, id idwrap.IDWrap) {
 		status <- runner.NewFlowStatus(runner.FlowStatusRunning, a, &id)
 	}
 
@@ -48,7 +49,7 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 		Timeout:       r.Timeout,
 	}
 	fmt.Println("FlowLocalRunner.Run")
-	status <- runner.NewFlowStatus(runner.FlowStatusStarting, node.NodeNone, nil)
+	status <- runner.NewFlowStatus(runner.FlowStatusStarting, mnnode.NODE_STATE_UNSPECIFIED, nil)
 	currentNode, ok := r.FlowNodeMap[*nextNodeID]
 	if !ok {
 		return fmt.Errorf("node not found: %v", nextNodeID)
@@ -62,10 +63,10 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	if err != nil {
 		fmt.Println(err)
 
-		status <- runner.NewFlowStatus(runner.FlowStatusFailed, node.NodeStatusFailed, nextNodeID)
+		status <- runner.NewFlowStatus(runner.FlowStatusFailed, mnnode.NODE_STATE_FAILURE, nextNodeID)
 		return err
 	}
-	status <- runner.NewFlowStatus(runner.FlowStatusSuccess, node.NodeStatusSuccess, nil)
+	status <- runner.NewFlowStatus(runner.FlowStatusSuccess, mnnode.NODE_STATE_SUCCESS, nil)
 	return nil
 }
 
@@ -84,19 +85,19 @@ func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNod
 		}
 		processedNodes[id] = true
 
-		statusLogFunc(node.NodeStatusRunning, id)
+		statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
 		res := currentNode.RunSync(ctx, req)
 
 		nextNodeLen := len(res.NextNodeID)
 		if nextNodeLen == 0 {
 			if res.Err != nil {
-				statusLogFunc(node.NodeStatusFailed, id)
+				statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
 				return nil, res.Err
 			}
-			statusLogFunc(node.NodeStatusSuccess, id)
+			statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
 			continue
 		}
-		statusLogFunc(node.NodeStatusSuccess, id)
+		statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
 
 		if nextNodeLen == 1 {
 			nextNode, ok := req.NodeMap[res.NextNodeID[0]]
@@ -119,13 +120,13 @@ func RunNodeSync(ctx context.Context, startNode node.FlowNode, req *node.FlowNod
 			go func(nextNode node.FlowNode) {
 				defer wg.Done()
 
-				statusLogFunc(node.NodeStatusRunning, v)
+				statusLogFunc(mnnode.NODE_STATE_RUNNING, v)
 
 				res := nextNode.RunSync(ctx, req)
 				if res.Err != nil {
-					statusLogFunc(node.NodeStatusFailed, v)
+					statusLogFunc(mnnode.NODE_STATE_FAILURE, v)
 				} else {
-					statusLogFunc(node.NodeStatusSuccess, v)
+					statusLogFunc(mnnode.NODE_STATE_SUCCESS, v)
 				}
 
 				parallel <- node.FlowNodeResult{
@@ -176,7 +177,7 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		}
 		processedNodes[id] = true
 
-		statusLogFunc(node.NodeStatusRunning, id)
+		statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
 
 		resChan := make(chan node.FlowNodeResult, 1)
 		go func() {
@@ -196,13 +197,13 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		case <-timedCtx.Done():
 			return nil, fmt.Errorf("timeout")
 		}
-		statusLogFunc(node.NodeStatusSuccess, id)
+		statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
 
 		nextNodeLen := len(res.NextNodeID)
 		if nextNodeLen == 0 {
 			if res.Err != nil {
 
-				statusLogFunc(node.NodeStatusFailed, id)
+				statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
 				return nil, res.Err
 			}
 			continue
@@ -228,12 +229,12 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 			go func(nextNode node.FlowNode) {
 				defer wg.Done()
 
-				statusLogFunc(node.NodeStatusRunning, v)
+				statusLogFunc(mnnode.NODE_STATE_RUNNING, v)
 				res := nextNode.RunSync(ctx, req)
 				if res.Err != nil {
-					statusLogFunc(node.NodeStatusFailed, v)
+					statusLogFunc(mnnode.NODE_STATE_FAILURE, v)
 				} else {
-					statusLogFunc(node.NodeStatusSuccess, v)
+					statusLogFunc(mnnode.NODE_STATE_SUCCESS, v)
 				}
 				parallel <- node.FlowNodeResult{
 					NextNodeID: res.NextNodeID,

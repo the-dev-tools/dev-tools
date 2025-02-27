@@ -3,9 +3,8 @@ package runner
 import (
 	"context"
 	"errors"
-	"fmt"
-	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mnnode"
 )
 
 var (
@@ -33,26 +32,16 @@ func (f FlowStatus) String() string {
 
 type FlowStatusResp struct {
 	FlowStatus    FlowStatus
-	NodeStatus    node.NodeStatus
+	NodeStatus    mnnode.NodeState
 	CurrentNodeID *idwrap.IDWrap
 }
 
-func NewFlowStatus(flowStatus FlowStatus, nodeStatus node.NodeStatus, currentNodeID *idwrap.IDWrap) FlowStatusResp {
+func NewFlowStatus(flowStatus FlowStatus, nodeStatus mnnode.NodeState, currentNodeID *idwrap.IDWrap) FlowStatusResp {
 	return FlowStatusResp{
 		FlowStatus:    flowStatus,
 		NodeStatus:    nodeStatus,
 		CurrentNodeID: currentNodeID,
 	}
-}
-
-func (f FlowStatusResp) Log() string {
-	var flowStatus string
-	if f.FlowStatus == FlowStatusRunning {
-		flowStatus = fmt.Sprintf("FlowStatus: %v, NodeStatus: %v, CurrentNodeID: %v", f.FlowStatus.String(), f.NodeStatus.String(), f.CurrentNodeID.String())
-	} else {
-		flowStatus = fmt.Sprintf("FlowStatus: %v", f.FlowStatus.String())
-	}
-	return flowStatus
 }
 
 func (f FlowStatusResp) Done() bool {

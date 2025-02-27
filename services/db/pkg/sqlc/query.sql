@@ -1686,6 +1686,9 @@ SELECT
   id,
   flow_id,
   name,
+  state,
+  state_data,
+  state_data_compress_type,
   node_kind,
   position_x,
   position_y
@@ -1700,6 +1703,9 @@ SELECT
   id,
   flow_id,
   name,
+  state,
+  state_data,
+  state_data_compress_type,
   node_kind,
   position_x,
   position_y
@@ -1710,14 +1716,17 @@ WHERE
 
 -- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, name, node_kind, position_x, position_y)
+  flow_node (id, flow_id, name, state, state_data, state_data_compress_type, node_kind, position_x, position_y)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNode :exec
 UPDATE flow_node
 SET
   name = ?,
+  state = ?,
+  state_data = ?,
+  state_data_compress_type = ?,
   position_x = ?,
   position_y = ?
 WHERE

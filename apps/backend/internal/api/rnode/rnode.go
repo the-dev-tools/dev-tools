@@ -116,6 +116,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 		}
 		convertedItem := &nodev1.NodeListItem{
 			NodeId:    rpcNode.NodeId,
+			State:     rpcNode.State,
 			Position:  rpcNode.Position,
 			Kind:      rpcNode.Kind,
 			NoOp:      rpcNode.NoOp,
@@ -168,6 +169,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	resp := nodev1.NodeGetResponse{
 		NodeId:    rpcNode.NodeId,
 		Name:      rpcNode.Name,
+		State:     rpcNode.State,
 		Position:  rpcNode.Position,
 		Kind:      rpcNode.Kind,
 		NoOp:      rpcNode.NoOp,
@@ -628,6 +630,8 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			},
 		}
 	}
+
+	rpcNode.State = nodev1.NodeState(currentNode.State)
 
 	return rpcNode, nil
 }

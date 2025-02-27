@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/node/nforeach"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mcondition"
+	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
 	"time"
 )
@@ -61,7 +62,7 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	logMockFunc := func(node.NodeStatus, idwrap.IDWrap) {
+	logMockFunc := func(mnnode.NodeState, idwrap.IDWrap) {
 	}
 
 	varMap := map[string]interface{}{
@@ -133,7 +134,7 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 
 	ctx := context.Background()
 
-	logMockFunc := func(node.NodeStatus, idwrap.IDWrap) {
+	logMockFunc := func(mnnode.NodeState, idwrap.IDWrap) {
 	}
 
 	varMap := map[string]interface{}{
@@ -202,7 +203,7 @@ func TestForEachNode_RunSync_Map(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	logMockFunc := func(node.NodeStatus, idwrap.IDWrap) {}
+	logMockFunc := func(mnnode.NodeState, idwrap.IDWrap) {}
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]interface{}{
@@ -262,7 +263,7 @@ func TestForEachNode_RunAsync_Map(t *testing.T) {
 
 	ctx := context.Background()
 
-	logMockFunc := func(node.NodeStatus, idwrap.IDWrap) {}
+	logMockFunc := func(mnnode.NodeState, idwrap.IDWrap) {}
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]interface{}{

@@ -7,16 +7,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 )
 
-type NodeKind int32
-
-/* RPC
-NODE_KIND_UNSPECIFIED: 0,
-NODE_KIND_NO_OP: 1,
-NODE_KIND_REQUEST: 2,
-NODE_KIND_CONDITION: 3,
-NODE_KIND_FOR: 4,
-NODE_KIND_FOR_EACH: 5,
-*/
+type NodeKind = int32
 
 const (
 	NODE_KIND_UNSPECIFIED NodeKind = 0
@@ -27,13 +18,29 @@ const (
 	NODE_KIND_FOR_EACH    NodeKind = 5
 )
 
+type NodeState = int8
+
+const (
+	NODE_STATE_UNSPECIFIED NodeState = 0
+	NODE_STATE_RUNNING     NodeState = 1
+	NODE_STATE_SUCCESS     NodeState = 2
+	NODE_STATE_FAILURE     NodeState = 3
+)
+
+func StringNodeState(a NodeState) string {
+	return [...]string{"Unspecified", "Running", "Success", "Failure"}[a]
+}
+
 type MNode struct {
-	ID        idwrap.IDWrap
-	FlowID    idwrap.IDWrap
-	Name      string
-	NodeKind  NodeKind
-	PositionX float64
-	PositionY float64
+	ID                    idwrap.IDWrap
+	FlowID                idwrap.IDWrap
+	Name                  string
+	State                 NodeState
+	StateData             []byte
+	StateDataCompressType int8
+	NodeKind              NodeKind
+	PositionX             float64
+	PositionY             float64
 }
 
 type NodeInterface interface {

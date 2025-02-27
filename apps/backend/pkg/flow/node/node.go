@@ -6,26 +6,14 @@ import (
 	"sync"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/mnnode"
 	"time"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
 
-type NodeStatus int8
-
-const (
-	NodeNone NodeStatus = iota
-	NodeStatusRunning
-	NodeStatusSuccess
-	NodeStatusFailed
-)
-
 // INFO: this is workaround for expr lang
 const NodeVarPrefix = "node"
-
-func (n NodeStatus) String() string {
-	return [...]string{"None", "Running", "Success", "Failed"}[n]
-}
 
 type FlowNode interface {
 	GetID() idwrap.IDWrap
@@ -44,7 +32,7 @@ type FlowNodeRequest struct {
 	LogPushFunc   LogPushFunc
 }
 
-type LogPushFunc func(status NodeStatus, id idwrap.IDWrap)
+type LogPushFunc func(status mnnode.NodeState, id idwrap.IDWrap)
 
 type FlowNodeResult struct {
 	NextNodeID []idwrap.IDWrap

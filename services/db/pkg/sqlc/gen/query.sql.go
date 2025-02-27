@@ -859,18 +859,21 @@ func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) 
 
 const createFlowNode = `-- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, name, node_kind, position_x, position_y)
+  flow_node (id, flow_id, name, state, state_data, state_data_compress_type, node_kind, position_x, position_y)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeParams struct {
-	ID        idwrap.IDWrap
-	FlowID    idwrap.IDWrap
-	Name      string
-	NodeKind  int32
-	PositionX float64
-	PositionY float64
+	ID                    idwrap.IDWrap
+	FlowID                idwrap.IDWrap
+	Name                  string
+	State                 int8
+	StateData             []byte
+	StateDataCompressType int8
+	NodeKind              int32
+	PositionX             float64
+	PositionY             float64
 }
 
 func (q *Queries) CreateFlowNode(ctx context.Context, arg CreateFlowNodeParams) error {
@@ -878,6 +881,9 @@ func (q *Queries) CreateFlowNode(ctx context.Context, arg CreateFlowNodeParams) 
 		arg.ID,
 		arg.FlowID,
 		arg.Name,
+		arg.State,
+		arg.StateData,
+		arg.StateDataCompressType,
 		arg.NodeKind,
 		arg.PositionX,
 		arg.PositionY,
@@ -3604,6 +3610,9 @@ SELECT
   id,
   flow_id,
   name,
+  state,
+  state_data,
+  state_data_compress_type,
   node_kind,
   position_x,
   position_y
@@ -3621,6 +3630,9 @@ func (q *Queries) GetFlowNode(ctx context.Context, id idwrap.IDWrap) (FlowNode, 
 		&i.ID,
 		&i.FlowID,
 		&i.Name,
+		&i.State,
+		&i.StateData,
+		&i.StateDataCompressType,
 		&i.NodeKind,
 		&i.PositionX,
 		&i.PositionY,
@@ -3759,6 +3771,9 @@ SELECT
   id,
   flow_id,
   name,
+  state,
+  state_data,
+  state_data_compress_type,
   node_kind,
   position_x,
   position_y
@@ -3781,6 +3796,9 @@ func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 			&i.ID,
 			&i.FlowID,
 			&i.Name,
+			&i.State,
+			&i.StateData,
+			&i.StateDataCompressType,
 			&i.NodeKind,
 			&i.PositionX,
 			&i.PositionY,
@@ -5821,6 +5839,9 @@ const updateFlowNode = `-- name: UpdateFlowNode :exec
 UPDATE flow_node
 SET
   name = ?,
+  state = ?,
+  state_data = ?,
+  state_data_compress_type = ?,
   position_x = ?,
   position_y = ?
 WHERE
@@ -5828,15 +5849,21 @@ WHERE
 `
 
 type UpdateFlowNodeParams struct {
-	Name      string
-	PositionX float64
-	PositionY float64
-	ID        idwrap.IDWrap
+	Name                  string
+	State                 int8
+	StateData             []byte
+	StateDataCompressType int8
+	PositionX             float64
+	PositionY             float64
+	ID                    idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNode(ctx context.Context, arg UpdateFlowNodeParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeStmt, updateFlowNode,
 		arg.Name,
+		arg.State,
+		arg.StateData,
+		arg.StateDataCompressType,
 		arg.PositionX,
 		arg.PositionY,
 		arg.ID,
