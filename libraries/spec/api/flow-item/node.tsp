@@ -120,7 +120,6 @@ enum NodeState {
 
 @autoFields
 model NodeRunResponse {
-  varMap: bytes; // json map cannot be represented in typespec
   state: NodeState;
 }
 
@@ -131,5 +130,7 @@ interface NodeService {
   NodeCreate(...NodeCreateRequest): NodeCreateResponse;
   NodeUpdate(...NodeUpdateRequest): NodeUpdateResponse;
   NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
+
+  @stream(StreamMode.Out)
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }
