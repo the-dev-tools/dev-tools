@@ -134,16 +134,16 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   return (
     <>
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div>
+        <div className='min-w-0'>
           <div className={tw`text-md leading-5 text-slate-400`}>{collection.name}</div>
-          <div className={tw`text-sm font-medium leading-5 text-slate-800`}>{example.name}</div>
+          <div className={tw`truncate text-sm font-medium leading-5 text-slate-800`}>{example.name}</div>
         </div>
 
         <div className={tw`flex-1`} />
 
         <ButtonAsLink
           variant='ghost'
-          className={tw`px-2`}
+          className={tw`shrink-0 px-2`}
           href={{
             to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
             params: {
@@ -156,7 +156,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
           Open API
         </ButtonAsLink>
 
-        <div className={tw`ml-2 mr-3 h-5 w-px bg-slate-300`} />
+        <div className={tw`ml-2 mr-3 h-5 w-px shrink-0 bg-slate-300`} />
 
         <Button variant='ghost' className={tw`p-1`} onPress={() => void setSelectedNodes()}>
           <FiX className={tw`size-5 text-slate-500`} />
