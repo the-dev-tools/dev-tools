@@ -1732,6 +1732,15 @@ SET
 WHERE
   id = ?;
 
+-- name: UpdateFlowState :exec
+UPDATE flow_node
+SET
+  state = ?,
+  state_data = ?,
+  state_data_compress_type = ?
+WHERE
+  id = ?;
+
 -- name: DeleteFlowNode :exec
 DELETE FROM flow_node
 WHERE

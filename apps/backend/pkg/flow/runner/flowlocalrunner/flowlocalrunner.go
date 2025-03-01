@@ -2,6 +2,7 @@ package flowlocalrunner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -32,12 +33,12 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 	}
 }
 
-func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusResp) error {
+func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus) error {
 	nextNodeID := &r.StartNodeID
 	var err error
 
-	logWorkaround := func(a mnnode.NodeState, id idwrap.IDWrap) {
-		status <- runner.NewFlowStatus(runner.FlowStatusRunning, a, &id)
+	logWorkaround := func(status runner.FlowNodeStatus) {
+		flowNodeStatusChan <- status
 	}
 
 	req := &node.FlowNodeRequest{
@@ -48,9 +49,10 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 		LogPushFunc:   node.LogPushFunc(logWorkaround),
 		Timeout:       r.Timeout,
 	}
-	status <- runner.NewFlowStatus(runner.FlowStatusStarting, mnnode.NODE_STATE_UNSPECIFIED, nil)
+	flowStatusChan <- runner.FlowStatusStarting
 	currentNode, ok := r.FlowNodeMap[*nextNodeID]
 	if !ok {
+		flowStatusChan <- runner.FlowStatusFailed
 		return fmt.Errorf("node not found: %v", nextNodeID)
 	}
 	if r.Timeout == 0 {
@@ -60,12 +62,14 @@ func (r FlowLocalRunner) Run(ctx context.Context, status chan runner.FlowStatusR
 	}
 
 	if err != nil {
-		fmt.Println(err)
-
-		status <- runner.NewFlowStatus(runner.FlowStatusFailed, mnnode.NODE_STATE_FAILURE, nextNodeID)
+		flowStatusChan <- runner.FlowStatusFailed
 		return err
 	}
-	status <- runner.NewFlowStatus(runner.FlowStatusSuccess, mnnode.NODE_STATE_SUCCESS, nil)
+	fmt.Println("FlowLocalRunner.Run: flowStatusChan <- runner.FlowStatusSuccess")
+	flowStatusChan <- runner.FlowStatusSuccess
+	fmt.Println("FlowLocalRunner.Run: return nil")
+	close(flowNodeStatusChan)
+	close(flowStatusChan)
 	return nil
 }
 
@@ -80,16 +84,22 @@ func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest
 	statusLogFunc node.LogPushFunc,
 ) ([]idwrap.IDWrap, error) {
 	id := n.GetID()
-	statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
+	status := runner.FlowNodeStatus{
+		NodeID: id,
+		State:  mnnode.NODE_STATE_RUNNING,
+	}
+	statusLogFunc(status)
 
 	res := n.RunSync(ctx, req)
 
 	if res.Err != nil {
-		statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
+		status.State = mnnode.NODE_STATE_FAILURE
+		statusLogFunc(status)
 		return nil, res.Err
 	}
 
-	statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
+	status.State = mnnode.NODE_STATE_SUCCESS
+	statusLogFunc(status)
 	return res.NextNodeID, nil
 }
 
@@ -117,14 +127,20 @@ func processParallelNodes(ctx context.Context, nodeIDs []idwrap.IDWrap,
 				wg.Done()
 			}()
 
-			statusLogFunc(mnnode.NODE_STATE_RUNNING, nodeID)
+			status := runner.FlowNodeStatus{
+				NodeID: id,
+				State:  mnnode.NODE_STATE_RUNNING,
+			}
+			statusLogFunc(status)
 			res := n.RunSync(ctx, req)
 
 			if res.Err != nil {
-				statusLogFunc(mnnode.NODE_STATE_FAILURE, nodeID)
+				status.State = mnnode.NODE_STATE_FAILURE
+				statusLogFunc(status)
 				errCh <- res.Err
 			} else {
-				statusLogFunc(mnnode.NODE_STATE_SUCCESS, nodeID)
+				status.State = mnnode.NODE_STATE_SUCCESS
+				statusLogFunc(status)
 				results <- res
 			}
 		}(nextNode, id)
@@ -240,51 +256,52 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		processedNodes[id] = true
 
 		// Run with timeout
-		statusLogFunc(mnnode.NODE_STATE_RUNNING, id)
+		status := runner.FlowNodeStatus{
+			NodeID: id,
+			State:  mnnode.NODE_STATE_RUNNING,
+		}
+		statusLogFunc(status)
 
 		// Create a context that will be cancelled when we're done with this operation
-		execCtx, execCancel := context.WithCancel(ctx)
 		resultChan := make(chan node.FlowNodeResult, 1)
-
-		go func() {
-			result := currentNode.RunSync(execCtx, req)
-			select {
-			case <-execCtx.Done():
-				return
-			case resultChan <- result:
-				// Successfully sent result
-			}
-		}()
 
 		// Wait for result with timeout
 		timedCtx, timeoutCancel := context.WithTimeout(ctx, req.Timeout)
-		var result node.FlowNodeResult
+		defer timeoutCancel()
 		var err error
 
+		currentNode.RunAsync(timedCtx, req, resultChan)
+
+		var result node.FlowNodeResult
 		select {
-		case <-ctx.Done():
-			err = fmt.Errorf("context done")
-		case result = <-resultChan:
+		case resultTemp := <-resultChan:
+			result = resultTemp
+			if result.Err != nil {
+				status.State = mnnode.NODE_STATE_FAILURE
+				statusLogFunc(status)
+				return nil, result.Err
+			}
 			// Success - continue processing
 		case <-timedCtx.Done():
 			err = fmt.Errorf("timeout")
-		}
-
-		// Clean up the contexts
-		timeoutCancel()
-		execCancel() // Cancel the execution context to prevent goroutine leaks
-
-		if err != nil {
-			statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
 			return nil, err
 		}
 
+		timeoutCancel()
+
 		// Handle result
-		if result.Err != nil {
-			statusLogFunc(mnnode.NODE_STATE_FAILURE, id)
-			return nil, result.Err
+		outputData, ok := req.VarMap[node.NodeVarPrefix+id.String()]
+		if ok {
+			// TODO: change json.Marshal to faster json implementation
+			outputDataBytes, err := json.Marshal(outputData)
+			if err != nil {
+				return nil, err
+			}
+			status.OutputData = outputDataBytes
 		}
-		statusLogFunc(mnnode.NODE_STATE_SUCCESS, id)
+
+		status.State = mnnode.NODE_STATE_SUCCESS
+		statusLogFunc(status)
 
 		// Store the last set of next nodes for return value
 		nextNodeIDs := result.NextNodeID

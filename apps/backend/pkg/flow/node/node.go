@@ -5,8 +5,8 @@ import (
 	"errors"
 	"sync"
 	"the-dev-tools/backend/pkg/flow/edge"
+	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mnnode"
 	"time"
 )
 
@@ -24,7 +24,7 @@ type FlowNode interface {
 }
 
 type FlowNodeRequest struct {
-	VarMap        map[string]interface{}
+	VarMap        map[string]any
 	ReadWriteLock *sync.RWMutex
 	NodeMap       map[idwrap.IDWrap]FlowNode
 	EdgeSourceMap edge.EdgesMap
@@ -32,7 +32,7 @@ type FlowNodeRequest struct {
 	LogPushFunc   LogPushFunc
 }
 
-type LogPushFunc func(status mnnode.NodeState, id idwrap.IDWrap)
+type LogPushFunc func(status runner.FlowNodeStatus)
 
 type FlowNodeResult struct {
 	NextNodeID []idwrap.IDWrap

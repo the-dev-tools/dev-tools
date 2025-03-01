@@ -8,8 +8,8 @@ import (
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/mocknode"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
+	"the-dev-tools/backend/pkg/flow/runner"
 	"the-dev-tools/backend/pkg/idwrap"
-	"the-dev-tools/backend/pkg/model/mnnode"
 	"time"
 )
 
@@ -47,7 +47,7 @@ func TestForNode_RunSync(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	logMockFunc := func(mnnode.NodeState, idwrap.IDWrap) {
+	logMockFunc := func(runner.FlowNodeStatus) {
 	}
 
 	req := &node.FlowNodeRequest{
@@ -99,7 +99,7 @@ func TestForNode_RunAsync(t *testing.T) {
 
 	ctx := context.Background()
 
-	logMockFunc := func(mnnode.NodeState, idwrap.IDWrap) {
+	logMockFunc := func(runner.FlowNodeStatus) {
 	}
 
 	req := &node.FlowNodeRequest{

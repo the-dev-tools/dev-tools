@@ -125,6 +125,16 @@ func (ns NodeService) UpdateNode(ctx context.Context, n mnnode.MNode) error {
 	})
 }
 
+func (ns NodeService) UpdateNodeState(ctx context.Context, n mnnode.MNode) error {
+	node := ConvertNodeToDB(n)
+	return ns.queries.UpdateFlowState(ctx, gen.UpdateFlowStateParams{
+		ID:                    node.ID,
+		State:                 n.State,
+		StateData:             n.StateData,
+		StateDataCompressType: n.StateDataCompressType,
+	})
+}
+
 func (ns NodeService) DeleteNode(ctx context.Context, id idwrap.IDWrap) error {
 	return ns.queries.DeleteFlowNode(ctx, id)
 }

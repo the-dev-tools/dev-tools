@@ -567,59 +567,60 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// TODO: get timeout from flow config
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
 
-	status := make(chan runner.FlowStatusResp, 1000)
+	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
+	flowStatusChan := make(chan runner.FlowStatus, 10)
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	done := make(chan error, 1)
 	updateNodeChan := make(chan mnnode.MNode, 1000)
 	go func() {
+		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
+			id := flowNodeStatus.NodeID
+			idStr := id.String()
+			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
+
+			localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr))
+			if localErr != nil {
+				done <- localErr
+				return
+			}
+			resp := &flowv1.FlowRunResponse{
+				NodeId: flowNodeStatus.NodeID.Bytes(),
+				State:  nodev1.NodeState(flowNodeStatus.State),
+			}
+			nodeStateData := mnnode.MNode{
+				ID:        id,
+				State:     flowNodeStatus.State,
+				StateData: flowNodeStatus.OutputData,
+			}
+			updateNodeChan <- nodeStateData
+			localErr = stream.Send(resp)
+			if localErr != nil {
+				done <- localErr
+				fmt.Println("Error in sending response")
+				return
+			}
+		}
+
 		defer close(done)
 		for {
 			select {
 			case <-subCtx.Done():
+				close(flowNodeStatusChan)
+				close(flowStatusChan)
+				done <- errors.New("context done")
 				return
-			case a := <-status:
-				if a.CurrentNodeID != nil {
-					id := *a.CurrentNodeID
-					idStr := id.String()
-					stateStr := mnnode.StringNodeState(a.NodeStatus)
-
-					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr))
-					if localErr != nil {
-						done <- localErr
-						return
-					}
-					var nodeBytes []byte
-					if a.CurrentNodeID != nil {
-						nodeBytes = a.CurrentNodeID.Bytes()
-					}
-					localErr = ctx.Err()
-					if localErr != nil {
-						done <- localErr
-						return
-					}
-					resp := &flowv1.FlowRunResponse{
-						NodeId: nodeBytes,
-						State:  nodev1.NodeState(a.NodeStatus),
-					}
-
-					nodeStateData := mnnode.MNode{
-						ID:    id,
-						State: a.NodeStatus,
-					}
-
-					updateNodeChan <- nodeStateData
-
-					localErr = stream.Send(resp)
-					if localErr != nil {
-						done <- localErr
-						fmt.Println("Error in sending response")
-						return
+			case flowNodeStatus := <-flowNodeStatusChan:
+				nodeStatusFunc(flowNodeStatus)
+			case flowStatus := <-flowStatusChan:
+				if len(flowNodeStatusChan) > 0 {
+					for flowNodeStatus := range flowNodeStatusChan {
+						nodeStatusFunc(flowNodeStatus)
 					}
 				}
-				if a.Done() {
-					fmt.Println("Done")
+				fmt.Println("FlowStatus: ", runner.FlowStatusString(flowStatus))
+				if runner.IsFlowStatusDone(flowStatus) {
 					done <- nil
 					return
 				}
@@ -627,8 +628,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	flowRunErr := runnerInst.Run(ctx, status)
+	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan)
+
+	// wait for the flow to finish
 	flowErr := <-done
+
+	if flowRunErr != nil {
+		return connect.NewError(connect.CodeInternal, flowRunErr)
+	}
 	close(updateNodeChan)
 
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
@@ -649,7 +656,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	for node := range updateNodeChan {
-		err = txNode.UpdateNode(ctx, node)
+		err = txNode.UpdateNodeState(ctx, node)
 		if err != nil {
 			return fmt.Errorf("update node: %w", err)
 		}

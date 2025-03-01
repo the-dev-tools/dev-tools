@@ -13,7 +13,7 @@ var (
 )
 
 type FlowRunner interface {
-	Run(context.Context, chan FlowStatusResp) error
+	Run(context.Context, chan FlowNodeStatus, chan FlowStatus) error
 }
 
 type FlowStatus int8
@@ -26,24 +26,24 @@ const (
 	FlowStatusTimeout
 )
 
-func (f FlowStatus) String() string {
+func FlowStatusString(f FlowStatus) string {
 	return [...]string{"Starting", "Running", "Success", "Failed", "Timeout"}[f]
 }
 
-type FlowStatusResp struct {
-	FlowStatus    FlowStatus
-	NodeStatus    mnnode.NodeState
-	CurrentNodeID *idwrap.IDWrap
+func IsFlowStatusDone(f FlowStatus) bool {
+	return f == FlowStatusSuccess || f == FlowStatusFailed || f == FlowStatusTimeout
 }
 
-func NewFlowStatus(flowStatus FlowStatus, nodeStatus mnnode.NodeState, currentNodeID *idwrap.IDWrap) FlowStatusResp {
-	return FlowStatusResp{
-		FlowStatus:    flowStatus,
-		NodeStatus:    nodeStatus,
-		CurrentNodeID: currentNodeID,
+type FlowNodeStatus struct {
+	NodeID     idwrap.IDWrap
+	State      mnnode.NodeState
+	OutputData []byte
+}
+
+func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {
+	return FlowNodeStatus{
+		NodeID:     nodeID,
+		State:      status,
+		OutputData: output,
 	}
-}
-
-func (f FlowStatusResp) Done() bool {
-	return f.FlowStatus == FlowStatusSuccess || f.FlowStatus == FlowStatusFailed || f.FlowStatus == FlowStatusTimeout
 }

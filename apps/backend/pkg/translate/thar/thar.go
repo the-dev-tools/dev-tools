@@ -391,14 +391,20 @@ func isXHRRequest(entry Entry) bool {
 func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.Header {
 	var result []mexampleheader.Header
 	for _, header := range headers {
-		h := mexampleheader.Header{
-			ID:        idwrap.NewNow(),
-			ExampleID: exampleID,
-			HeaderKey: header.Name,
-			Value:     header.Value,
-			Enable:    true,
+		if len(header.Name) > 0 {
+			// don't support pseudo-header atm
+			if header.Name[0] == ':' {
+				continue
+			}
+			h := mexampleheader.Header{
+				ID:        idwrap.NewNow(),
+				ExampleID: exampleID,
+				HeaderKey: header.Name,
+				Value:     header.Value,
+				Enable:    true,
+			}
+			result = append(result, h)
 		}
-		result = append(result, h)
 	}
 	return result
 }

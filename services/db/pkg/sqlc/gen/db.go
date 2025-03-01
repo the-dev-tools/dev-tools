@@ -528,6 +528,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeRequestStmt, err = db.PrepareContext(ctx, updateFlowNodeRequest); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeRequest: %w", err)
 	}
+	if q.updateFlowStateStmt, err = db.PrepareContext(ctx, updateFlowState); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowState: %w", err)
+	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
@@ -1421,6 +1424,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeRequestStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowStateStmt != nil {
+		if cerr := q.updateFlowStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowStateStmt: %w", cerr)
+		}
+	}
 	if q.updateHeaderStmt != nil {
 		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
@@ -1708,6 +1716,7 @@ type Queries struct {
 	updateFlowNodeForEachStmt                             *sql.Stmt
 	updateFlowNodeIfStmt                                  *sql.Stmt
 	updateFlowNodeRequestStmt                             *sql.Stmt
+	updateFlowStateStmt                                   *sql.Stmt
 	updateHeaderStmt                                      *sql.Stmt
 	updateItemApiStmt                                     *sql.Stmt
 	updateItemApiExampleStmt                              *sql.Stmt
@@ -1898,6 +1907,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeForEachStmt:                           q.updateFlowNodeForEachStmt,
 		updateFlowNodeIfStmt:                                q.updateFlowNodeIfStmt,
 		updateFlowNodeRequestStmt:                           q.updateFlowNodeRequestStmt,
+		updateFlowStateStmt:                                 q.updateFlowStateStmt,
 		updateHeaderStmt:                                    q.updateHeaderStmt,
 		updateItemApiStmt:                                   q.updateItemApiStmt,
 		updateItemApiExampleStmt:                            q.updateItemApiExampleStmt,

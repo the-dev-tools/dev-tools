@@ -5991,6 +5991,33 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 	return err
 }
 
+const updateFlowState = `-- name: UpdateFlowState :exec
+UPDATE flow_node
+SET
+  state = ?,
+  state_data = ?,
+  state_data_compress_type = ?
+WHERE
+  id = ?
+`
+
+type UpdateFlowStateParams struct {
+	State                 int8
+	StateData             []byte
+	StateDataCompressType int8
+	ID                    idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowState(ctx context.Context, arg UpdateFlowStateParams) error {
+	_, err := q.exec(ctx, q.updateFlowStateStmt, updateFlowState,
+		arg.State,
+		arg.StateData,
+		arg.StateDataCompressType,
+		arg.ID,
+	)
+	return err
+}
+
 const updateHeader = `-- name: UpdateHeader :exec
 UPDATE example_header
 SET
