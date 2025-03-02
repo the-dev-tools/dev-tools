@@ -33,6 +33,9 @@ func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApi
 		Api:         api,
 		Example:     example,
 		HttpClient:  Httpclient,
+		Headers:     Headers,
+		Queries:     Queries,
+		Body:        body,
 	}
 }
 
@@ -47,9 +50,11 @@ func (nr *NodeRequest) SetID(id idwrap.IDWrap) {
 func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	cl := nr.HttpClient
 	httpReq := httpclient.Request{
-		Method: nr.Api.Method,
-		URL:    nr.Api.Url,
-		Body:   nr.Body,
+		Method:  nr.Api.Method,
+		URL:     nr.Api.Url,
+		Queries: nr.Queries,
+		Headers: nr.Headers,
+		Body:    nr.Body,
 	}
 
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
@@ -84,9 +89,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	cl := nr.HttpClient
 	httpReq := httpclient.Request{
-		Method: nr.Api.Method,
-		URL:    nr.Api.Url,
-		Body:   nr.Body,
+		Method:  nr.Api.Method,
+		URL:     nr.Api.Url,
+		Queries: nr.Queries,
+		Headers: nr.Headers,
+		Body:    nr.Body,
 	}
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
 	result := node.FlowNodeResult{
