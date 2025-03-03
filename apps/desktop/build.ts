@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import { pipe } from 'effect';
 import { build, type Configuration } from 'electron-builder';
 
 const config: Configuration = {
@@ -9,6 +11,7 @@ const config: Configuration = {
     buildResources: 'build',
   },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
+  icon: pipe(import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.png'), fileURLToPath),
   asarUnpack: ['resources/**'],
   linux: {
     target: ['AppImage'],

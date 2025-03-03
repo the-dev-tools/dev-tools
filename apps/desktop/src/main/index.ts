@@ -8,6 +8,12 @@ const createWindow = Effect.gen(function* () {
 
   // Create the browser window.
   const mainWindow = new BrowserWindow({
+    title: 'DevTools',
+    icon: yield* pipe(
+      import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.ico'),
+      Url.fromString,
+      Effect.flatMap(path.fromFileUrl),
+    ),
     width: 800,
     height: 600,
     webPreferences: {
