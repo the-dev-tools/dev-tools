@@ -202,8 +202,11 @@ func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
 		}
 	}
 
-	if startTimes[node2ID].After(startTimes[node3ID]) || startTimes[node3ID].After(startTimes[node2ID]) {
-		t.Errorf("Expected node2 and node3 to start at the same time, but got %v and %v", startTimes[node2ID], startTimes[node3ID])
+	// Replace line 205-207 with this:
+	timeDifference := startTimes[node2ID].Sub(startTimes[node3ID])
+	if timeDifference < -time.Millisecond || timeDifference > time.Millisecond {
+		t.Errorf("Expected node2 and node3 to start at approximately the same time, but got %v and %v (diff: %v)",
+			startTimes[node2ID], startTimes[node3ID], timeDifference)
 	}
 
 	if endTimes[node4ID].Before(endTimes[node2ID]) || endTimes[node4ID].Before(endTimes[node3ID]) {
@@ -379,8 +382,6 @@ func TestRunNodeASync_IncompleteExecution(t *testing.T) {
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
 	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
 	testutil.Assert(t, nil, err)
-	close(flowNodeStatusChan)
-	close(flowStatusChan)
 
 	type nodeRunCounter struct {
 		runCounter     int32

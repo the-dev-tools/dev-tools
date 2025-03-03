@@ -1,7 +1,5 @@
 package rnode_test
 
-/*
-
 import (
 	"bytes"
 	"context"
@@ -11,12 +9,10 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnnode"
-	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/backend/pkg/model/mtag"
+	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
-	"the-dev-tools/backend/pkg/service/sflowroot"
 	"the-dev-tools/backend/pkg/service/sitemapi"
 	"the-dev-tools/backend/pkg/service/sitemapiexample"
 	"the-dev-tools/backend/pkg/service/snode"
@@ -25,7 +21,6 @@ import (
 	"the-dev-tools/backend/pkg/service/snodeif"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
-	"the-dev-tools/backend/pkg/service/stag"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/testutil"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
@@ -33,186 +28,313 @@ import (
 	"connectrpc.com/connect"
 )
 
-func TestNodeList(t *testing.T) {
-	ctx := context.Background()
-	base := testutil.CreateBaseDB(ctx, t)
-	queries := base.Queries
-	defer queries.Close()
-	db := base.DB
-
-	us := suser.New(queries)
-	ts := stag.New(queries)
-	fs := sflow.New(queries)
-	frs := sflowroot.New(queries)
-
-	ns := snode.New(queries)
-	rns := snoderequest.New(queries)
-	flns := snodefor.New(queries)
-	flnes := snodeforeach.New(queries)
-	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
-	ins := snodeif.New(queries)
-
-	ias := sitemapi.New(queries)
-	iaes := sitemapiexample.New(queries)
-	eqs := sexamplequery.New(queries)
-	ehs := sexampleheader.New(queries)
-
-	serviceRPC := rnode.NewNodeServiceRPC(db, us,
-		fs, frs, *ins,
-		rns, flns, flnes, ns, sns,
-		ias, iaes, eqs, ehs)
-
-	wsID := idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
-	userID := idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
-	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
-		wsuserID, userID, baseCollectionID)
-	testTagID := idwrap.NewNow()
-	tagData := mtag.Tag{
-		ID:          testTagID,
-		WorkspaceID: wsID,
-		Name:        "test",
-		Color:       uint8(5),
-	}
-	err := ts.CreateTag(ctx, tagData)
-	testutil.AssertFatal(t, nil, err)
-	testFlowID := idwrap.NewNow()
-	flowData := mflow.Flow{
-		ID:          testFlowID,
-		WorkspaceID: wsID,
-		Name:        "test",
-	}
-	err = fs.CreateFlow(ctx, flowData)
-	testutil.AssertFatal(t, nil, err)
-
-	startNodeID := idwrap.NewNow()
-	err = ns.CreateNode(ctx, mnnode.MNode{
-		ID:        startNodeID,
-		FlowID:    testFlowID,
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
-		PositionX: 0,
-		PositionY: 0,
-	})
-	testutil.AssertFatal(t, nil, err)
-
-	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
-		FlowNodeID: startNodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
-	})
-
-	testutil.AssertFatal(t, nil, err)
-	req := connect.NewRequest(
-		&nodev1.NodeListRequest{
-			FlowId: testFlowID.Bytes(),
-		},
-	)
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	resp, err := serviceRPC.NodeList(authedCtx, req)
-	testutil.AssertFatal(t, nil, err)
-	testutil.AssertNotFatal(t, nil, resp.Msg)
-
-	items := resp.Msg.Items
-	testutil.AssertFatal(t, 1, len(items))
-
-	startNode := items[0]
-	if startNode == nil {
-		t.Fatalf("Expected start node id to be non-nil")
-	}
-	if !bytes.Equal(startNode.NodeId, startNodeID.Bytes()) {
-		t.Fatalf("Expected start node id to be %v, got %v", startNodeID.Bytes(), startNode.NodeId)
-	}
-}
-
 func TestNodeGet(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
-	us := suser.New(queries)
-	ts := stag.New(queries)
+	// Create all required services
 	fs := sflow.New(queries)
-	frs := sflowroot.New(queries)
-
+	us := suser.New(queries)
 	ns := snode.New(queries)
-	rns := snoderequest.New(queries)
-	flns := snodefor.New(queries)
-	flnes := snodeforeach.New(queries)
-	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
-	ins := snodeif.New(queries)
-
+	nis := snodeif.New(queries)
+	nrs := snoderequest.New(queries)
+	nfls := snodefor.New(queries)
+	nlfes := snodeforeach.New(queries)
+	nss := snodenoop.New(queries)
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us,
-		fs, frs, *ins,
-		rns, flns, flnes, ns, sns,
-		ias, iaes, eqs, ehs)
-
+	// Create base test data
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
 	baseCollectionID := idwrap.NewNow()
 	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
 		wsuserID, userID, baseCollectionID)
-	testTagID := idwrap.NewNow()
-	tagData := mtag.Tag{
-		ID:          testTagID,
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+
+	// Create a flow
+	flow := mflow.Flow{
+		ID:          flowID,
+		Name:        "Test Flow",
 		WorkspaceID: wsID,
-		Name:        "test",
-		Color:       uint8(5),
 	}
-	err := ts.CreateTag(ctx, tagData)
-	testutil.AssertFatal(t, nil, err)
-	testFlowID := idwrap.NewNow()
-	flowData := mflow.Flow{
-		ID:          testFlowID,
-		WorkspaceID: wsID,
-		Name:        "test",
+	err := fs.CreateFlow(ctx, flow)
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = fs.CreateFlow(ctx, flowData)
-	testutil.AssertFatal(t, nil, err)
 
-	startNodeID := idwrap.NewNow()
-	err = ns.CreateNode(ctx, mnnode.MNode{
-		ID:        startNodeID,
-		FlowID:    testFlowID,
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
-		PositionX: 0,
-		PositionY: 0,
+	// Create a request node
+	node := mnnode.MNode{
+		ID:        nodeID,
+		FlowID:    flowID,
+		Name:      "Test Node",
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		PositionX: 100,
+		PositionY: 100,
+	}
+	err = ns.CreateNode(ctx, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the request sub-node
+	nodeRequest := mnrequest.MNRequest{
+		FlowNodeID: nodeID,
+	}
+	err = nrs.CreateNodeRequest(ctx, nodeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create RPC service - use the variable directly as it implements the interface
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+
+	// Test NodeGet
+	req := connect.NewRequest(&nodev1.NodeGetRequest{
+		NodeId: nodeID.Bytes(),
 	})
-	testutil.AssertFatal(t, nil, err)
 
-	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
-		FlowNodeID: startNodeID,
-	})
-
-	testutil.AssertFatal(t, nil, err)
-	req := connect.NewRequest(
-		&nodev1.NodeGetRequest{
-			NodeId: startNodeID.Bytes(),
-		},
-	)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	resp, err := serviceRPC.NodeGet(authedCtx, req)
-	testutil.AssertFatal(t, nil, err)
-	testutil.AssertNotFatal(t, nil, resp.Msg)
+	resp, err := nodeService.NodeGet(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	startNode := resp.Msg
-	if startNode == nil {
-		t.Fatalf("Expected start node to be non-nil")
+	if resp == nil {
+		t.Fatal("resp is nil")
 	}
-	if startNode.NodeId == nil {
-		t.Fatalf("Expected start node id to be non-nil")
+
+	if resp.Msg == nil {
+		t.Fatal("resp.Msg is nil")
 	}
-	if !bytes.Equal(startNode.NodeId, startNodeID.Bytes()) {
-		t.Fatalf("Expected start node id to be %v, got %v", startNodeID.Bytes(), startNode.NodeId)
+
+	msg := resp.Msg
+	if !bytes.Equal(msg.NodeId, nodeID.Bytes()) {
+		t.Errorf("expected nodeID %v, got %v", nodeID.Bytes(), msg.NodeId)
+	}
+
+	if msg.Name != "Test Node" {
+		t.Errorf("expected name 'Test Node', got %s", msg.Name)
+	}
+
+	if msg.Kind != nodev1.NodeKind_NODE_KIND_REQUEST {
+		t.Errorf("expected kind REQUEST, got %v", msg.Kind)
+	}
+}
+
+func TestNodeList(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Create all required services
+	fs := sflow.New(queries)
+	us := suser.New(queries)
+	ns := snode.New(queries)
+	nis := snodeif.New(queries)
+	nrs := snoderequest.New(queries)
+	nfls := snodefor.New(queries)
+	nlfes := snodeforeach.New(queries)
+	nss := snodenoop.New(queries)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	eqs := sexamplequery.New(queries)
+	ehs := sexampleheader.New(queries)
+
+	// Create base test data
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+
+	// Create a flow
+	flow := mflow.Flow{
+		ID:          flowID,
+		Name:        "Test Flow",
+		WorkspaceID: wsID,
+	}
+	err := fs.CreateFlow(ctx, flow)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a request node
+	node := mnnode.MNode{
+		ID:        nodeID,
+		FlowID:    flowID,
+		Name:      "Test Node",
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		PositionX: 100,
+		PositionY: 100,
+	}
+	err = ns.CreateNode(ctx, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the request sub-node
+	nodeRequest := mnrequest.MNRequest{
+		FlowNodeID: nodeID,
+	}
+	err = nrs.CreateNodeRequest(ctx, nodeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create RPC service
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+
+	// Test NodeList
+	req := connect.NewRequest(&nodev1.NodeListRequest{
+		FlowId: flowID.Bytes(),
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := nodeService.NodeList(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	if resp.Msg == nil {
+		t.Fatal("resp.Msg is nil")
+	}
+
+	msg := resp.Msg
+	if len(msg.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(msg.Items))
+	}
+
+	nodeItem := msg.Items[0]
+	if !bytes.Equal(nodeItem.NodeId, nodeID.Bytes()) {
+		t.Errorf("expected nodeID %v, got %v", nodeID.Bytes(), nodeItem.NodeId)
+	}
+
+	if nodeItem.Kind != nodev1.NodeKind_NODE_KIND_REQUEST {
+		t.Errorf("expected kind REQUEST, got %v", nodeItem.Kind)
+	}
+}
+
+func TestNodeCreate(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Create all required services
+	fs := sflow.New(queries)
+	us := suser.New(queries)
+	ns := snode.New(queries)
+	nis := snodeif.New(queries)
+	nrs := snoderequest.New(queries)
+	nfls := snodefor.New(queries)
+	nlfes := snodeforeach.New(queries)
+	nss := snodenoop.New(queries)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	eqs := sexamplequery.New(queries)
+	ehs := sexampleheader.New(queries)
+
+	// Create base test data
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+
+	// Create a flow
+	flow := mflow.Flow{
+		ID:          flowID,
+		Name:        "Test Flow",
+		WorkspaceID: wsID,
+	}
+	err := fs.CreateFlow(ctx, flow)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create RPC service
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+
+	// Test NodeCreate with a REQUEST type
+	position := &nodev1.Position{X: 200, Y: 300}
+	nodeName := "New Request Node"
+
+	req := connect.NewRequest(&nodev1.NodeCreateRequest{
+		FlowId:   flowID.Bytes(),
+		Position: position,
+		Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
+		Name:     nodeName,
+		Request:  &nodev1.NodeRequest{},
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := nodeService.NodeCreate(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	if resp.Msg == nil {
+		t.Fatal("resp.Msg is nil")
+	}
+
+	// Verify node was created
+	createdNodeID, err := idwrap.NewFromBytes(resp.Msg.NodeId)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	createdNode, err := ns.GetNode(ctx, createdNodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if createdNode.Name != nodeName {
+		t.Errorf("expected name %s, got %s", nodeName, createdNode.Name)
+	}
+
+	if createdNode.NodeKind != mnnode.NODE_KIND_REQUEST {
+		t.Errorf("expected kind REQUEST, got %d", createdNode.NodeKind)
+	}
+
+	// Verify request sub-node
+	nodeRequest, err := nrs.GetNodeRequest(ctx, createdNodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if nodeRequest == nil {
+		t.Fatal("nodeRequest is nil")
+	}
+
+	if nodeRequest.FlowNodeID != createdNodeID {
+		t.Errorf("Expected FlowNodeID %v, got %v", createdNodeID, nodeRequest.FlowNodeID)
 	}
 }
 
@@ -220,102 +342,221 @@ func TestNodeUpdate(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
-	us := suser.New(queries)
-	ts := stag.New(queries)
+	// Create all required services
 	fs := sflow.New(queries)
-	frs := sflowroot.New(queries)
-
+	us := suser.New(queries)
 	ns := snode.New(queries)
-	rns := snoderequest.New(queries)
-	flns := snodefor.New(queries)
-	flnes := snodeforeach.New(queries)
-	sns := snodenoop.New(queries)
-	// TODO: Change this to raw struct no pointer
-	ins := snodeif.New(queries)
-
+	nis := snodeif.New(queries)
+	nrs := snoderequest.New(queries)
+	nfls := snodefor.New(queries)
+	nlfes := snodeforeach.New(queries)
+	nss := snodenoop.New(queries)
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
-	serviceRPC := rnode.NewNodeServiceRPC(db, us,
-		fs, frs, *ins,
-		rns, flns, flnes, ns, sns,
-		ias, iaes, eqs, ehs)
-
+	// Create base test data
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
 	baseCollectionID := idwrap.NewNow()
 	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
 		wsuserID, userID, baseCollectionID)
-	testTagID := idwrap.NewNow()
-	tagData := mtag.Tag{
-		ID:          testTagID,
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+
+	// Create a flow
+	flow := mflow.Flow{
+		ID:          flowID,
+		Name:        "Test Flow",
 		WorkspaceID: wsID,
-		Name:        "test",
-		Color:       uint8(5),
 	}
-	err := ts.CreateTag(ctx, tagData)
-	testutil.AssertFatal(t, nil, err)
-	testFlowID := idwrap.NewNow()
-	flowData := mflow.Flow{
-		ID:          testFlowID,
-		WorkspaceID: wsID,
-		Name:        "test",
+	err := fs.CreateFlow(ctx, flow)
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = fs.CreateFlow(ctx, flowData)
-	testutil.AssertFatal(t, nil, err)
 
-	startNodeID := idwrap.NewNow()
-	err = ns.CreateNode(ctx, mnnode.MNode{
-		ID:        startNodeID,
-		FlowID:    testFlowID,
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
-		PositionX: 0,
-		PositionY: 0,
+	// Create a request node
+	initialName := "Test Node"
+	initialPosX := float64(100)
+	initialPosY := float64(100)
+	node := mnnode.MNode{
+		ID:        nodeID,
+		FlowID:    flowID,
+		Name:      initialName,
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		PositionX: initialPosX,
+		PositionY: initialPosY,
+	}
+	err = ns.CreateNode(ctx, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the request sub-node
+	nodeRequest := mnrequest.MNRequest{
+		FlowNodeID: nodeID,
+	}
+	err = nrs.CreateNodeRequest(ctx, nodeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create RPC service
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+
+	// Test NodeUpdate
+	updatedName := "Updated Node Name"
+	updatedPosX := float32(200)
+	updatedPosY := float32(300)
+	position := &nodev1.Position{X: updatedPosX, Y: updatedPosY}
+
+	req := connect.NewRequest(&nodev1.NodeUpdateRequest{
+		NodeId:   nodeID.Bytes(),
+		Name:     &updatedName,
+		Position: position,
+		Request:  &nodev1.NodeRequest{}, // Include empty request to maintain node type
 	})
-	testutil.AssertFatal(t, nil, err)
 
-	err = sns.CreateNodeNoop(ctx, mnnoop.NoopNode{
-		FlowNodeID: startNodeID,
-	})
-
-	newPosX := 10.0
-	NewPosY := 10.0
-
-	testutil.AssertFatal(t, nil, err)
-	var kind nodev1.NodeKind = nodev1.NodeKind_NODE_KIND_NO_OP
-	var noOpKind nodev1.NodeNoOpKind = nodev1.NodeNoOpKind_NODE_NO_OP_KIND_START
-	req := connect.NewRequest(
-		&nodev1.NodeUpdateRequest{
-			NodeId: startNodeID.Bytes(),
-			Kind:   &kind,
-			NoOp:   &noOpKind,
-			Position: &nodev1.Position{
-				X: float32(newPosX),
-				Y: float32(NewPosY),
-			},
-		},
-	)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	resp, err := serviceRPC.NodeUpdate(authedCtx, req)
-	testutil.AssertFatal(t, nil, err)
-	testutil.AssertNotFatal(t, nil, resp.Msg)
+	resp, err := nodeService.NodeUpdate(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		 testutil.AssertFatal(t, nil, err)
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
 
-		testutil.AssertNotFatal(t, nil, startNodeBase)
-		testutil.Assert(t, newPosX, startNodeBase.PositionX)
-		testutil.Assert(t, NewPosY, startNodeBase.PositionY)
+	// Verify node was updated
+	updatedNode, err := ns.GetNode(ctx, nodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		startNode, err := sns.GetNodeStart(ctx, startNodeID)
+	// Check that the name was updated
+	if updatedNode.Name != updatedName {
+		t.Errorf("expected name to be updated to %s, got %s", updatedName, updatedNode.Name)
+	}
 
-		testutil.AssertFatal(t, nil, err)
-		testutil.AssertNotFatal(t, nil, startNode)
-		testutil.Assert(t, "test", startNode.Name)
+	// Check that the position was updated
+	if float32(updatedNode.PositionX) != updatedPosX {
+		t.Errorf("expected PositionX to be updated to %f, got %f", updatedPosX, updatedNode.PositionX)
+	}
+
+	if float32(updatedNode.PositionY) != updatedPosY {
+		t.Errorf("expected PositionY to be updated to %f, got %f", updatedPosY, updatedNode.PositionY)
+	}
+
+	// Verify node type remains unchanged
+	if updatedNode.NodeKind != mnnode.NODE_KIND_REQUEST {
+		t.Errorf("expected NodeKind to remain %d, got %d", mnnode.NODE_KIND_REQUEST, updatedNode.NodeKind)
+	}
+
+	// Verify request sub-node still exists and is associated with the node
+	nodeRequestTemp, err := nrs.GetNodeRequest(ctx, nodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodeRequest = *nodeRequestTemp
+
+	if nodeRequest.FlowNodeID != nodeID {
+		t.Errorf("Expected FlowNodeID %v, got %v", nodeID, nodeRequest.FlowNodeID)
+	}
 }
-*/
+
+func TestNodeDelete(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Create all required services
+	fs := sflow.New(queries)
+	us := suser.New(queries)
+	ns := snode.New(queries)
+	nis := snodeif.New(queries)
+	nrs := snoderequest.New(queries)
+	nfls := snodefor.New(queries)
+	nlfes := snodeforeach.New(queries)
+	nss := snodenoop.New(queries)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	eqs := sexamplequery.New(queries)
+	ehs := sexampleheader.New(queries)
+
+	// Create base test data
+	wsID := idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
+		wsuserID, userID, baseCollectionID)
+
+	// Create test data
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+
+	// Create a flow
+	flow := mflow.Flow{
+		ID:          flowID,
+		Name:        "Test Flow",
+		WorkspaceID: wsID,
+	}
+	err := fs.CreateFlow(ctx, flow)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a request node
+	node := mnnode.MNode{
+		ID:        nodeID,
+		FlowID:    flowID,
+		Name:      "Test Node",
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		PositionX: 100,
+		PositionY: 100,
+	}
+	err = ns.CreateNode(ctx, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the request sub-node
+	nodeRequest := mnrequest.MNRequest{
+		FlowNodeID: nodeID,
+	}
+	err = nrs.CreateNodeRequest(ctx, nodeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create RPC service
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+
+	// Test NodeDelete
+	req := connect.NewRequest(&nodev1.NodeDeleteRequest{
+		NodeId: nodeID.Bytes(),
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := nodeService.NodeDelete(authedCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	// Verify node was deleted
+	_, err = ns.GetNode(ctx, nodeID)
+	if err == nil {
+		t.Fatal("expected error, node should be deleted")
+	}
+}

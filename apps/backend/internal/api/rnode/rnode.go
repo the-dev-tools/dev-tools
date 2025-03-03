@@ -215,6 +215,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 
 	RpcNodeCreated := &nodev1.Node{
 		NodeId:    NodeID.Bytes(),
+		Name:      req.Msg.Name,
 		Position:  req.Msg.Position,
 		Kind:      req.Msg.Kind,
 		NoOp:      req.Msg.NoOp,
@@ -355,7 +356,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = nsTX.UpdateNode(ctx, *node)
+	err = nsTX.UpdateNode(ctx, *nodeData.Base)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -650,14 +651,13 @@ type NodeData struct {
 }
 
 func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, flowID idwrap.IDWrap, nodeID idwrap.IDWrap) (*NodeData, error) {
-	var node *mnnode.MNode
 	var subNode any
 
 	if rpcNode.Position == nil {
 		rpcNode.Position = &nodev1.Position{}
 	}
 
-	node = &mnnode.MNode{
+	baseNode := &mnnode.MNode{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      rpcNode.Name,
@@ -797,5 +797,5 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		return nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
 	}
 
-	return &NodeData{Base: node, SubNode: subNode}, nil
+	return &NodeData{Base: baseNode, SubNode: subNode}, nil
 }

@@ -270,7 +270,7 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		defer timeoutCancel()
 		var err error
 
-		currentNode.RunAsync(timedCtx, req, resultChan)
+		go currentNode.RunAsync(timedCtx, req, resultChan)
 
 		var result node.FlowNodeResult
 		select {

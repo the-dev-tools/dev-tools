@@ -638,6 +638,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 	close(updateNodeChan)
 
+	flow.VersionParentID = &flow.ID
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
 	if err != nil {
 		fmt.Println("Error in PrepareCopyFlow", err)
@@ -662,15 +663,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	if flowRunErr != nil {
-		err = fmt.Errorf("run flow: %w", err)
-		return connect.NewError(connect.CodeInternal, err)
-	}
 	if flowErr != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-
-	flow.VersionParentID = &flow.ID
 
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {
