@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://dev.tools/">
-    <img width=200px height=200px src="./apps/api-recorder-extension/assets/icon.png">
+    <img width=200px height=200px src="./libraries/core/assets/favicon/favicon.png">
   </a>
 </p>
 
