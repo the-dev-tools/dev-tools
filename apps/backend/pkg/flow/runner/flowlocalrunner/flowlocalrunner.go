@@ -65,9 +65,7 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		flowStatusChan <- runner.FlowStatusFailed
 		return err
 	}
-	fmt.Println("FlowLocalRunner.Run: flowStatusChan <- runner.FlowStatusSuccess")
 	flowStatusChan <- runner.FlowStatusSuccess
-	fmt.Println("FlowLocalRunner.Run: return nil")
 	close(flowNodeStatusChan)
 	close(flowStatusChan)
 	return nil

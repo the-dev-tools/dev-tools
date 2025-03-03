@@ -598,7 +598,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			localErr = stream.Send(resp)
 			if localErr != nil {
 				done <- localErr
-				fmt.Println("Error in sending response")
 				return
 			}
 		}
@@ -619,7 +618,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						nodeStatusFunc(flowNodeStatus)
 					}
 				}
-				fmt.Println("FlowStatus: ", runner.FlowStatusString(flowStatus))
 				if runner.IsFlowStatusDone(flowStatus) {
 					done <- nil
 					return
@@ -641,7 +639,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	flow.VersionParentID = &flow.ID
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
 	if err != nil {
-		fmt.Println("Error in PrepareCopyFlow", err)
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -669,7 +666,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {
-		fmt.Println("Error in CopyFlow")
 		return connect.NewError(connect.CodeInternal, err)
 	}
 

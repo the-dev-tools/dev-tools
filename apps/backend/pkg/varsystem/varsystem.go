@@ -102,7 +102,6 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 
 		// Check if key is present in the map
 		key := GetVarKeyFromRaw(rawVar)
-		fmt.Println("key", key)
 		val, ok := vm.Get(key)
 		if !ok {
 			return "", ErrKeyNotFound

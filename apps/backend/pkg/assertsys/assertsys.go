@@ -134,7 +134,7 @@ func (c AssertSys) Eval(respHttp httpclient.Response, at massert.AssertType, jso
 		evalOuputVal, err = gval.Evaluate(evalQuery, respMap, options...)
 	}
 	if err != nil {
-		fmt.Println(err)
+		return false, err
 	}
 
 	valueBool, ok := evalOuputVal.(bool)

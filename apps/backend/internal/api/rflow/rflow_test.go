@@ -2,7 +2,6 @@ package rflow_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/rflow"
@@ -681,7 +680,6 @@ func TestRunFlow(t *testing.T) {
 
 	stream := ServerStreamingHandlerMock[flowv1.FlowRunResponse]{
 		SendStream: func(a *flowv1.FlowRunResponse) {
-			fmt.Println("a", a)
 		},
 	}
 

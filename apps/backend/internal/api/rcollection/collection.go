@@ -437,7 +437,6 @@ func (c *CollectionServiceRPC) CollectionImportHar(ctx context.Context, req *con
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
 	if err != nil {
-		fmt.Println("err", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

@@ -2,7 +2,6 @@ package nforeach
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"the-dev-tools/backend/pkg/assertv2"
 	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
@@ -60,7 +59,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
-	fmt.Println("iter path", nr.IterPath)
 
 	var arr []interface{}
 	var mapInterface map[string]interface{}
@@ -157,7 +155,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
-	fmt.Println("iter path", nr.IterPath)
 
 	var arr []interface{}
 	var mapInterface map[string]interface{}

@@ -2,7 +2,6 @@ package rlog
 
 import (
 	"context"
-	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/logconsole"
@@ -47,7 +46,6 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 				LogId: logMessage.LogID.Bytes(),
 				Value: logMessage.Value,
 			}
-			fmt.Println("logMessage:", logMessage)
 			stream.Send(b)
 			continue
 		case <-ctx.Done():

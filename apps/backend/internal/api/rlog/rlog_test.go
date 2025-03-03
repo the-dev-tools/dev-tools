@@ -2,7 +2,6 @@ package rlog_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
@@ -112,7 +111,6 @@ func TestLogStream(t *testing.T) {
 		cancel()
 	}()
 
-	fmt.Println("LogStreamAdHoc")
 	err := srv.LogStreamAdHoc(cancelableCtx, req, stream)
 	if err != context.Canceled {
 		t.Errorf("expected context.Canceled, got %v", err)
