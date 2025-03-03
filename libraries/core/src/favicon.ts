@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { pipe } from 'effect';
-import { HtmlTagDescriptor, Plugin, ResolvedConfig } from 'vite';
+import type { HtmlTagDescriptor, Plugin, ResolvedConfig } from 'vite';
 
 // TODO: generate favicons programmatically with https://github.com/itgalaxy/favicons
 

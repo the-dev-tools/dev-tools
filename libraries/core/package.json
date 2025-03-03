@@ -8,6 +8,7 @@
   "exports": {
     "./*": "./src/*.tsx",
     "./assets/*": "./assets/*",
+    "./favicon": "./src/favicon.ts",
     "./tailwind.config": "./tailwind.config.ts"
   },
   "dependencies": {
