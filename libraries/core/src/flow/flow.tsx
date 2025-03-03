@@ -1,3 +1,4 @@
+import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
@@ -6,6 +7,7 @@ import {
   Background,
   BackgroundVariant,
   NodeTypes as NodeTypesCore,
+  OnDelete,
   ReactFlow,
   ReactFlowProps,
   ReactFlowProvider,
@@ -15,7 +17,7 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, HashMap, Match, pipe, Record } from 'effect';
+import { Array, flow, HashMap, Match, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
@@ -38,7 +40,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
-import { flowRoute, useSelectedNodeId, workspaceRoute } from './internal';
+import { flowRoute, HandleKind, HandleKindSchema, useSelectedNodeId, workspaceRoute } from './internal';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -143,7 +145,7 @@ const minZoom = 0.5;
 const maxZoom = 2;
 
 const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
-  const { addNodes, addEdges, screenToFlowPosition } = useReactFlow<Node, Edge>();
+  const { addNodes, addEdges, getEdges, deleteElements, screenToFlowPosition } = useReactFlow<Node, Edge>();
 
   const onEdgesChange = useOnEdgesChange();
   const onNodesChange = useOnNodesChange();
@@ -182,6 +184,37 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
     [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition],
   );
 
+  const onDelete = useCallback<OnDelete<Node, Edge>>(
+    async ({ nodes }) => {
+      const nodeMap = pipe(
+        nodes.map((_) => [_.id, _] as const),
+        HashMap.fromIterable,
+      );
+
+      // When deleting nodes with multiple handles, delete child nodes automatically
+      const descendantNodes = getEdges().map(
+        flow(
+          Option.liftPredicate(
+            (_) =>
+              isEnumJson(HandleKindSchema, _.sourceHandle) &&
+              enumFromJson(HandleKindSchema, _.sourceHandle) !== HandleKind.UNSPECIFIED,
+          ),
+          Option.filter((_) => HashMap.has(nodeMap, _.source)),
+          Option.flatMapNullable((_) => _.target),
+        ),
+      );
+
+      await deleteElements({
+        nodes: pipe(
+          descendantNodes,
+          Array.getSomes,
+          Array.map((_) => ({ id: _ })),
+        ),
+      });
+    },
+    [deleteElements, getEdges],
+  );
+
   return (
     <ReactFlow
       proOptions={{ hideAttribution: true }}
@@ -199,6 +232,7 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
       onEdgesChange={isReadOnly ? undefined! : onEdgesChange}
       onConnect={isReadOnly ? undefined! : onConnect}
       onConnectEnd={isReadOnly ? undefined! : onConnectEnd}
+      onDelete={isReadOnly ? undefined! : onDelete}
       nodesConnectable={!isReadOnly}
       elementsSelectable={!isReadOnly}
       selectNodesOnDrag={false}
