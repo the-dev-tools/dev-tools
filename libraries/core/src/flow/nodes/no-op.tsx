@@ -1,5 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Match, pipe } from 'effect';
+import { twMerge } from 'tailwind-merge';
 
 import { NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { PlayIcon } from '@the-dev-tools/ui/icons';
@@ -16,7 +17,12 @@ export const NoOpNode = (props: NodeProps) => {
 
   return (
     <>
-      <div className={tw`flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white shadow-sm`}>
+      <div
+        className={twMerge(
+          tw`flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white shadow-sm transition-colors`,
+          props.selected && tw`bg-slate-600`,
+        )}
+      >
         {kind === NodeNoOpKind.START && (
           <>
             <PlayIcon className={tw`-ml-2 size-4`} />

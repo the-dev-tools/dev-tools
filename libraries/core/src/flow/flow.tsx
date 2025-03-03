@@ -7,7 +7,7 @@ import {
   Background,
   BackgroundVariant,
   NodeTypes as NodeTypesCore,
-  OnDelete,
+  OnBeforeDelete,
   ReactFlow,
   ReactFlowProps,
   ReactFlowProvider,
@@ -17,7 +17,7 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, flow, HashMap, Match, Option, pipe, Record } from 'effect';
+import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
@@ -145,7 +145,7 @@ const minZoom = 0.5;
 const maxZoom = 2;
 
 const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
-  const { addNodes, addEdges, getEdges, deleteElements, screenToFlowPosition } = useReactFlow<Node, Edge>();
+  const { addNodes, addEdges, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
 
   const onEdgesChange = useOnEdgesChange();
   const onNodesChange = useOnNodesChange();
@@ -184,35 +184,56 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
     [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition],
   );
 
-  const onDelete = useCallback<OnDelete<Node, Edge>>(
-    async ({ nodes }) => {
-      const nodeMap = pipe(
+  const onBeforeDelete = useCallback<OnBeforeDelete<Node, Edge>>(
+    ({ nodes, edges }) => {
+      const deleteNodeMap = pipe(
         nodes.map((_) => [_.id, _] as const),
-        HashMap.fromIterable,
+        MutableHashMap.fromIterable,
       );
 
-      // When deleting nodes with multiple handles, delete child nodes automatically
-      const descendantNodes = getEdges().map(
-        flow(
+      const deleteEdgeMap = pipe(
+        edges.map((_) => [_.id, _] as const),
+        MutableHashMap.fromIterable,
+      );
+
+      const edgesWithHandles = pipe(
+        getEdges(),
+        Array.map(
           Option.liftPredicate(
             (_) =>
               isEnumJson(HandleKindSchema, _.sourceHandle) &&
               enumFromJson(HandleKindSchema, _.sourceHandle) !== HandleKind.UNSPECIFIED,
           ),
-          Option.filter((_) => HashMap.has(nodeMap, _.source)),
-          Option.flatMapNullable((_) => _.target),
         ),
+        Array.getSomes,
       );
 
-      await deleteElements({
-        nodes: pipe(
-          descendantNodes,
-          Array.getSomes,
-          Array.map((_) => ({ id: _ })),
-        ),
+      for (const edge of edgesWithHandles) {
+        if (
+          !Boolean.some([
+            MutableHashMap.has(deleteEdgeMap, edge.id),
+            MutableHashMap.has(deleteNodeMap, edge.source),
+            MutableHashMap.has(deleteNodeMap, edge.target),
+          ])
+        ) {
+          continue;
+        }
+
+        MutableHashMap.set(deleteEdgeMap, edge.id, edge);
+
+        const source = getNode(edge.source);
+        if (source) MutableHashMap.set(deleteNodeMap, source.id, source);
+
+        const target = getNode(edge.target);
+        if (target) MutableHashMap.set(deleteNodeMap, target.id, target);
+      }
+
+      return Promise.resolve({
+        nodes: pipe(Record.fromEntries(deleteNodeMap), Record.values),
+        edges: pipe(Record.fromEntries(deleteEdgeMap), Record.values),
       });
     },
-    [deleteElements, getEdges],
+    [getEdges, getNode],
   );
 
   return (
@@ -232,7 +253,7 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
       onEdgesChange={isReadOnly ? undefined! : onEdgesChange}
       onConnect={isReadOnly ? undefined! : onConnect}
       onConnectEnd={isReadOnly ? undefined! : onConnectEnd}
-      onDelete={isReadOnly ? undefined! : onDelete}
+      onBeforeDelete={isReadOnly ? undefined! : onBeforeDelete}
       nodesConnectable={!isReadOnly}
       elementsSelectable={!isReadOnly}
       selectNodesOnDrag={false}
