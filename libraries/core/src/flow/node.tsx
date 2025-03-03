@@ -53,6 +53,7 @@ export interface NodeProps extends NodePropsCore<Node> {}
 
 export interface NodePanelProps {
   node: NodeGetResponse;
+  isReadOnly?: boolean;
 }
 
 export const Node = {

@@ -110,7 +110,7 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
   );
 };
 
-export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
+export const RequestPanel = ({ node: { nodeId, request }, isReadOnly = false }: NodePanelProps) => {
   const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
 
   const setSelectedNodes = useSetSelectedNodes();
@@ -177,7 +177,12 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         </div>
 
         <ReferenceContext value={{ nodeId, exampleId, workspaceId }}>
-          <EndpointRequestView className={tw`p-5 pt-3`} exampleId={exampleId} deltaExampleId={deltaExampleId} />
+          <EndpointRequestView
+            className={tw`p-5 pt-3`}
+            exampleId={exampleId}
+            deltaExampleId={deltaExampleId}
+            isReadOnly={isReadOnly}
+          />
         </ReferenceContext>
       </div>
 

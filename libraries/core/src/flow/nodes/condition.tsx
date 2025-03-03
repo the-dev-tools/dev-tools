@@ -60,7 +60,7 @@ export const ConditionNode = (props: NodeProps) => {
   );
 };
 
-export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) => {
+export const ConditionPanel = ({ node: { nodeId, condition }, isReadOnly = false }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: condition! });
 
   const setSelectedNodes = useSetSelectedNodes();
@@ -94,7 +94,7 @@ export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) 
       </div>
 
       <div className={tw`m-5`}>
-        <ConditionField control={control} path='condition' />
+        <ConditionField control={control} path='condition' isReadOnly={isReadOnly} />
       </div>
     </>
   );

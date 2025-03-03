@@ -430,7 +430,11 @@ const ActionBar = () => {
   );
 };
 
-const EditPanel = () => {
+interface EditPanelProps {
+  isReadOnly?: boolean;
+}
+
+export const EditPanel = ({ isReadOnly = false }: EditPanelProps) => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const selectedNodeId = useSelectedNodeId();
@@ -441,10 +445,10 @@ const EditPanel = () => {
 
   const view = pipe(
     Match.value(nodeQuery.data.kind),
-    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
+    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
+    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
+    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
     Match.orElse(() => null),
   );
 

@@ -15,7 +15,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { StatusBar } from '../status-bar';
-import { Flow, TopBar } from './flow';
+import { EditPanel, Flow, TopBar } from './flow';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history')({
   component: RouteComponent,
@@ -57,6 +57,7 @@ function RouteComponent() {
             <Panel id='flow' order={1} className='flex h-full flex-col'>
               <TabPanel state={state} />
             </Panel>
+            <EditPanel isReadOnly />
           </ReactFlowProvider>
           <StatusBar />
         </PanelGroup>

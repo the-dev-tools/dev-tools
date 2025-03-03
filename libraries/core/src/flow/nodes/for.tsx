@@ -54,7 +54,7 @@ export const ForNode = (props: NodeProps) => {
   );
 };
 
-export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
+export const ForPanel = ({ node: { nodeId, for: data }, isReadOnly = false }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: data! });
 
   const setSelectedNodes = useSetSelectedNodes();
@@ -94,9 +94,16 @@ export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
           label='Iterations'
           className={tw`contents`}
           groupClassName={tw`min-w-[30%] justify-self-start`}
+          isReadOnly={isReadOnly}
         />
 
-        <ConditionField control={control} path='condition' label='Break If' className={tw`contents`} />
+        <ConditionField
+          control={control}
+          path='condition'
+          label='Break If'
+          className={tw`contents`}
+          isReadOnly={isReadOnly}
+        />
 
         <SelectRHF
           control={control}
@@ -104,6 +111,7 @@ export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
           label='On Error'
           className={tw`contents`}
           triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
+          disabled={isReadOnly}
         >
           <ListBoxItem id={ErrorHandling.UNSPECIFIED}>Throw</ListBoxItem>
           <ListBoxItem id={ErrorHandling.IGNORE}>Ignore</ListBoxItem>
