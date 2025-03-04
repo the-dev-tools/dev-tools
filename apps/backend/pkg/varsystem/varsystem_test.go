@@ -105,3 +105,27 @@ func TestLongStringReplace(t *testing.T) {
 		t.Errorf("Expected %s , got %s", expectedUrl, longUrlNew)
 	}
 }
+
+func TestHostStringReplace(t *testing.T) {
+	const hostVarKey = "host"
+	const hostVarVal = "www.google.com"
+	const BaseUrl = "https://{{env.host}}/search?q="
+
+	expectedUrl := fmt.Sprintf("https://%s/search?q=", hostVarVal)
+
+	a := mvar.Var{
+		ID:     idwrap.NewNow(),
+		EnvID:  idwrap.NewNow(),
+		VarKey: hostVarKey,
+		Value:  hostVarVal,
+	}
+	vs := varsystem.NewVarMap([]mvar.Var{a})
+	urlNew, err := vs.ReplaceVars(BaseUrl)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	if urlNew != expectedUrl {
+		t.Errorf("Expected %s , got %s", expectedUrl, urlNew)
+	}
+}
