@@ -264,6 +264,7 @@ const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
       panOnScroll
       selectionOnDrag
       panOnDrag={[1, 2]}
+      deleteKeyCode={['Backspace', 'Delete']}
       selectionMode={SelectionMode.Partial}
     >
       <Background
