@@ -10,7 +10,7 @@ import {
 } from '@xyflow/react';
 import { Option, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { useState } from 'react';
+import { createContext, useState } from 'react';
 import { tv } from 'tailwind-variants';
 
 import {
@@ -25,6 +25,13 @@ import { Edge } from './edge';
 import { Node } from './node';
 
 export { HandleKind, HandleKindSchema, type HandleKindJson };
+
+export interface FlowContext {
+  flowId: Uint8Array;
+  isReadOnly?: boolean;
+}
+
+export const FlowContext = createContext({} as FlowContext);
 
 const handleInnerStyles = tv({
   base: tw`pointer-events-none`,

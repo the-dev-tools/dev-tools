@@ -1,5 +1,5 @@
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
+import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiPlus, FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
@@ -11,7 +11,7 @@ import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { ConditionField } from '../../condition';
-import { Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
+import { FlowContext, Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const ConditionNode = (props: NodeProps) => {
@@ -60,8 +60,9 @@ export const ConditionNode = (props: NodeProps) => {
   );
 };
 
-export const ConditionPanel = ({ node: { nodeId, condition }, isReadOnly = false }: NodePanelProps) => {
+export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: condition! });
+  const { isReadOnly = false } = use(FlowContext);
 
   const setSelectedNodes = useSetSelectedNodes();
 

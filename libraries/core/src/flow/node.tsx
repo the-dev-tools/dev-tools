@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import { Array, HashMap, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, useCallback, useRef } from 'react';
+import { ReactNode, use, useCallback, useRef } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
@@ -42,7 +42,7 @@ import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import { flowRoute, useSetSelectedNodes } from './internal';
+import { FlowContext, flowRoute, useSetSelectedNodes } from './internal';
 
 export { NodeDTOSchema, type NodeDTO };
 
@@ -52,7 +52,6 @@ export interface NodeProps extends NodePropsCore<Node> {}
 
 export interface NodePanelProps {
   node: NodeGetResponse;
-  isReadOnly?: boolean;
 }
 
 export const Node = {
@@ -94,6 +93,7 @@ interface NodeBaseProps extends NodeProps {
 // TODO: add node name
 export const NodeBase = ({ id, data: { state }, Icon, title, children, selected }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements, getZoom } = useReactFlow();
+  const { isReadOnly = false } = use(FlowContext);
 
   const setSelectedNodes = useSetSelectedNodes();
 
@@ -126,36 +126,38 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children, selected 
           Match.orElse(() => null),
         )}
 
-        <MenuTrigger {...menuTriggerProps}>
-          <Button variant='ghost' className={tw`p-0.5`}>
-            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-          </Button>
+        {!isReadOnly && (
+          <MenuTrigger {...menuTriggerProps}>
+            <Button variant='ghost' className={tw`p-0.5`}>
+              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            </Button>
 
-          <Menu {...menuProps}>
-            <MenuItem onAction={() => void setSelectedNodes([id])}>Edit</MenuItem>
+            <Menu {...menuProps}>
+              <MenuItem onAction={() => void setSelectedNodes([id])}>Edit</MenuItem>
 
-            <MenuItem>Rename</MenuItem>
+              <MenuItem>Rename</MenuItem>
 
-            <MenuItem
-              variant='danger'
-              onAction={async () => {
-                const node = getNode(id);
+              <MenuItem
+                variant='danger'
+                onAction={async () => {
+                  const node = getNode(id);
 
-                const { createEdges = [], edges = [] } = pipe(
-                  getConnectedEdges([node!], getEdges()),
-                  Array.groupBy((_) => (_.id.startsWith('create-') ? 'createEdges' : 'edges')),
-                );
+                  const { createEdges = [], edges = [] } = pipe(
+                    getConnectedEdges([node!], getEdges()),
+                    Array.groupBy((_) => (_.id.startsWith('create-') ? 'createEdges' : 'edges')),
+                  );
 
-                await deleteElements({
-                  nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
-                  edges: [...createEdges, ...edges],
-                });
-              }}
-            >
-              Delete
-            </MenuItem>
-          </Menu>
-        </MenuTrigger>
+                  await deleteElements({
+                    nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
+                    edges: [...createEdges, ...edges],
+                  });
+                }}
+              >
+                Delete
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+        )}
       </div>
 
       {children}
@@ -164,7 +166,7 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children, selected 
 };
 
 export const useMakeNode = () => {
-  const { flowId } = flowRoute.useLoaderData();
+  const { flowId } = use(FlowContext);
   const nodeCreateMutation = useConnectMutation(nodeCreate);
   return useCallback(
     async (data: Omit<MessageInitShape<typeof NodeDTOSchema>, keyof Message>) => {
@@ -189,7 +191,7 @@ export const nodesQueryOptions = ({
 
 export const useOnNodesChange = () => {
   const { transport } = flowRoute.useRouteContext();
-  const { flowId } = flowRoute.useLoaderData();
+  const { flowId, isReadOnly = false } = use(FlowContext);
 
   const queryClient = useQueryClient();
 
@@ -262,8 +264,8 @@ export const useOnNodesChange = () => {
         return applyNodeChanges(changes, nodes);
       });
 
-      if (newNodes) await saveNodes(newNodes);
+      if (newNodes && !isReadOnly) await saveNodes(newNodes);
     },
-    [nodesQueryKey, queryClient, saveNodes],
+    [isReadOnly, nodesQueryKey, queryClient, saveNodes],
   );
 };

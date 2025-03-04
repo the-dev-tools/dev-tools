@@ -19,7 +19,7 @@ import {
 } from '@xyflow/react';
 import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, Suspense, useCallback, useMemo } from 'react';
+import { ReactNode, Suspense, use, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -40,7 +40,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
-import { flowRoute, HandleKind, HandleKindSchema, useSelectedNodeId, workspaceRoute } from './internal';
+import { FlowContext, flowRoute, HandleKind, HandleKindSchema, useSelectedNodeId, workspaceRoute } from './internal';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -98,15 +98,17 @@ function RouteComponent() {
         }
       >
         <PanelGroup direction='vertical'>
-          <ReactFlowProvider>
-            <TopBar />
-            <Panel id='flow' order={1} className='flex h-full flex-col'>
-              <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId}>
-                <ActionBar />
-              </Flow>
-            </Panel>
-            <EditPanel />
-          </ReactFlowProvider>
+          <FlowContext.Provider value={{ flowId }}>
+            <ReactFlowProvider>
+              <TopBar />
+              <Panel id='flow' order={1} className='flex h-full flex-col'>
+                <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId}>
+                  <ActionBar />
+                </Flow>
+              </Panel>
+              <EditPanel />
+            </ReactFlowProvider>
+          </FlowContext.Provider>
           <StatusBar />
         </PanelGroup>
       </Suspense>
@@ -117,10 +119,9 @@ function RouteComponent() {
 interface FlowProps {
   flowId: Uint8Array;
   children?: ReactNode;
-  isReadOnly?: boolean;
 }
 
-export const Flow = ({ flowId, children, isReadOnly }: FlowProps) => {
+export const Flow = ({ flowId, children }: FlowProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
 
   const [edgesQuery, nodesQuery] = useSuspenseQueries({
@@ -128,7 +129,7 @@ export const Flow = ({ flowId, children, isReadOnly }: FlowProps) => {
   });
 
   return (
-    <FlowView edges={edgesQuery.data} nodes={nodesQuery.data} isReadOnly={isReadOnly ?? false}>
+    <FlowView edges={edgesQuery.data} nodes={nodesQuery.data}>
       {children}
     </FlowView>
   );
@@ -144,8 +145,9 @@ interface FlowViewProps {
 const minZoom = 0.5;
 const maxZoom = 2;
 
-const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
+const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
   const { addNodes, addEdges, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
+  const { isReadOnly = false } = use(FlowContext);
 
   const onEdgesChange = useOnEdgesChange();
   const onNodesChange = useOnNodesChange();
@@ -186,6 +188,8 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
 
   const onBeforeDelete = useCallback<OnBeforeDelete<Node, Edge>>(
     ({ nodes, edges }) => {
+      if (isReadOnly) return Promise.resolve(false);
+
       const deleteNodeMap = pipe(
         nodes.map((_) => [_.id, _] as const),
         MutableHashMap.fromIterable,
@@ -233,7 +237,7 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
         edges: pipe(Record.fromEntries(deleteEdgeMap), Record.values),
       });
     },
-    [getEdges, getNode],
+    [getEdges, getNode, isReadOnly],
   );
 
   return (
@@ -249,13 +253,13 @@ const FlowView = ({ edges, nodes, children, isReadOnly }: FlowViewProps) => {
       defaultEdgeOptions={{ type: 'default' }}
       nodes={nodes}
       edges={edges}
-      onNodesChange={isReadOnly ? undefined! : onNodesChange}
-      onEdgesChange={isReadOnly ? undefined! : onEdgesChange}
-      onConnect={isReadOnly ? undefined! : onConnect}
-      onConnectEnd={isReadOnly ? undefined! : onConnectEnd}
-      onBeforeDelete={isReadOnly ? undefined! : onBeforeDelete}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onConnectEnd={onConnectEnd}
+      onBeforeDelete={onBeforeDelete}
       nodesConnectable={!isReadOnly}
-      elementsSelectable={!isReadOnly}
+      nodesDraggable={!isReadOnly}
       selectNodesOnDrag={false}
       panOnScroll
       selectionOnDrag
@@ -369,7 +373,7 @@ export const TopBar = () => {
 };
 
 const ActionBar = () => {
-  const { flowId } = flowRoute.useLoaderData();
+  const { flowId } = use(FlowContext);
   const { transport } = useRouteContext({ from: '__root__' });
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
@@ -451,11 +455,7 @@ const ActionBar = () => {
   );
 };
 
-interface EditPanelProps {
-  isReadOnly?: boolean;
-}
-
-export const EditPanel = ({ isReadOnly = false }: EditPanelProps) => {
+export const EditPanel = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const selectedNodeId = useSelectedNodeId();
@@ -466,10 +466,10 @@ export const EditPanel = ({ isReadOnly = false }: EditPanelProps) => {
 
   const view = pipe(
     Match.value(nodeQuery.data.kind),
-    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
-    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
-    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
-    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} isReadOnly={isReadOnly} />),
+    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} />),
     Match.orElse(() => null),
   );
 

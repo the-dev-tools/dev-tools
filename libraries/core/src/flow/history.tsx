@@ -16,6 +16,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { StatusBar } from '../status-bar';
 import { EditPanel, Flow, TopBar } from './flow';
+import { FlowContext } from './internal';
 
 export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history')({
   component: RouteComponent,
@@ -33,15 +34,26 @@ function RouteComponent() {
     items,
     children: ({ flowId }) => (
       <Item key={Ulid.construct(flowId).toCanonical()}>
-        <Suspense
-          fallback={
-            <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner className={tw`size-16`} />
-            </div>
-          }
-        >
-          <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId} isReadOnly />
-        </Suspense>
+        <PanelGroup direction='vertical'>
+          <Suspense
+            fallback={
+              <div className={tw`flex h-full items-center justify-center`}>
+                <Spinner className={tw`size-16`} />
+              </div>
+            }
+          >
+            <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
+              <ReactFlowProvider>
+                <TopBar />
+                <Panel id='flow' order={1} className='flex h-full flex-col'>
+                  <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId} />
+                </Panel>
+                <EditPanel />
+              </ReactFlowProvider>
+            </FlowContext.Provider>
+            <StatusBar />
+          </Suspense>
+        </PanelGroup>
       </Item>
     ),
   });
@@ -51,16 +63,7 @@ function RouteComponent() {
   return (
     <>
       <Panel id='main' order={2}>
-        <PanelGroup direction='vertical'>
-          <ReactFlowProvider>
-            <TopBar />
-            <Panel id='flow' order={1} className='flex h-full flex-col'>
-              <TabPanel state={state} />
-            </Panel>
-            <EditPanel isReadOnly />
-          </ReactFlowProvider>
-          <StatusBar />
-        </PanelGroup>
+        <TabPanel state={state} />
       </Panel>
 
       <PanelResizeHandle direction='horizontal' />

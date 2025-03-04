@@ -1,5 +1,5 @@
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
+import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
@@ -15,7 +15,7 @@ import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { ConditionField } from '../../condition';
-import { Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
+import { FlowContext, Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const ForNode = (props: NodeProps) => {
@@ -54,8 +54,9 @@ export const ForNode = (props: NodeProps) => {
   );
 };
 
-export const ForPanel = ({ node: { nodeId, for: data }, isReadOnly = false }: NodePanelProps) => {
+export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: data! });
+  const { isReadOnly = false } = use(FlowContext);
 
   const setSelectedNodes = useSetSelectedNodes();
 

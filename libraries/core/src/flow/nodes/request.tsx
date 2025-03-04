@@ -3,6 +3,7 @@ import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { Position, useReactFlow } from '@xyflow/react';
 import { Ulid } from 'id128';
+import { use } from 'react';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
 import { useConnectMutation } from '@the-dev-tools/api/connect-query';
@@ -21,7 +22,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponsePanel, useEndpointUrl } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
-import { flowRoute, Handle, useSetSelectedNodes, workspaceRoute } from '../internal';
+import { FlowContext, flowRoute, Handle, useSetSelectedNodes, workspaceRoute } from '../internal';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => {
@@ -110,8 +111,9 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
   );
 };
 
-export const RequestPanel = ({ node: { nodeId, request }, isReadOnly = false }: NodePanelProps) => {
+export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
+  const { isReadOnly = false } = use(FlowContext);
 
   const setSelectedNodes = useSetSelectedNodes();
 

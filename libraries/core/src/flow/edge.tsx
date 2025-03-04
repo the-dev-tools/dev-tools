@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { useCallback, useRef } from 'react';
+import { use, useCallback, useRef } from 'react';
 import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -33,7 +33,7 @@ import {
 import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import { flowRoute } from './internal';
+import { FlowContext, flowRoute } from './internal';
 
 export { EdgeDTOSchema, type EdgeDTO };
 
@@ -79,7 +79,7 @@ export const Edge = {
 };
 
 export const useMakeEdge = () => {
-  const { flowId } = flowRoute.useLoaderData();
+  const { flowId } = use(FlowContext);
   const edgeCreateMutation = useConnectMutation(edgeCreate);
   return useCallback(
     async (data: Omit<MessageInitShape<typeof EdgeDTOSchema>, keyof Message>) => {
@@ -163,7 +163,7 @@ export const ConnectionLine = ({
 
 export const useOnEdgesChange = () => {
   const { transport } = flowRoute.useRouteContext();
-  const { flowId } = flowRoute.useLoaderData();
+  const { flowId, isReadOnly = false } = use(FlowContext);
 
   const queryClient = useQueryClient();
 
@@ -235,8 +235,8 @@ export const useOnEdgesChange = () => {
         return applyEdgeChanges(changes, edges);
       });
 
-      if (newEdges) await saveEdges(newEdges);
+      if (newEdges && !isReadOnly) await saveEdges(newEdges);
     },
-    [edgesQueryKey, queryClient, saveEdges],
+    [edgesQueryKey, isReadOnly, queryClient, saveEdges],
   );
 };
