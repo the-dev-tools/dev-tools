@@ -440,13 +440,9 @@ func TestPrepareCopyExample(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	db := base.DB
 
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
-	ras := sresultapi.New(queries)
-	cs := scollection.New(queries)
-	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
 	qs := sexamplequery.New(queries)
 	bfs := sbodyform.New(queries)
@@ -454,8 +450,6 @@ func TestPrepareCopyExample(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -510,9 +504,6 @@ func TestPrepareCopyExample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
-		cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
-
 	// Create new item for copy
 	newItem := &mitemapi.ItemApi{
 		ID:           idwrap.NewNow(),
@@ -529,7 +520,7 @@ func TestPrepareCopyExample(t *testing.T) {
 	}
 
 	// Test PrepareCopyExample
-	result, err := rpcExample.PrepareCopyExample(ctx, newItem.ID, *originalExample)
+	result, err := ritemapiexample.PrepareCopyExample(ctx, newItem.ID, *originalExample, hs, qs, brs, bfs, bues, ers, erhs, as, ars)
 	if err != nil {
 		t.Fatal(err)
 	}
