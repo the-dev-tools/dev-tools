@@ -192,7 +192,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		}
 
 		// Build a key based on method + URL.
-		key := entry.Request.Method + " " + entry.Request.URL
+		key := entry.Request.URL
 
 		var api *mitemapi.ItemApi
 
@@ -319,6 +319,11 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		rawBodyDefault.ID = idwrap.NewNow()
 		rawBodyDefault.ExampleID = defaultExampleID
 		result.RawBodies = append(result.RawBodies, rawBodyDefault)
+
+		deltaBody := rawBodyDefault
+		deltaBody.ID = idwrap.NewNow()
+		deltaBody.ExampleID = deltaExampleID
+		result.RawBodies = append(result.RawBodies, deltaBody)
 
 		result.Examples = append(result.Examples, example)
 		exampleDefault.BodyType = example.BodyType

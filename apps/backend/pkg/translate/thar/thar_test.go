@@ -60,8 +60,8 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 	if len(resolved.Apis) != 1 {
 		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 2 {
-		t.Errorf("Expected 4 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 3 {
+		t.Errorf("Expected 3 Raw Body, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -112,8 +112,8 @@ func TestHarResvoledBodyForm(t *testing.T) {
 	if len(resolved.Apis) != 1 {
 		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 2 {
-		t.Errorf("Expected 1 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 3 {
+		t.Errorf("Expected 3 Raw Body, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -168,8 +168,8 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 	if len(resolved.Apis) != 1 {
 		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 2 {
-		t.Errorf("Expected 1 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 3 {
+		t.Errorf("Expected 3 Raw Body, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -247,8 +247,8 @@ func TestHarUnknownMimeType(t *testing.T) {
 
 	// Assuming that an unknown MIME type is treated as a raw body.
 	// Given previous tests, one entry produces 2 raw bodies.
-	if len(resolved.RawBodies) != 2 {
-		t.Errorf("Expected 2 Raw Bodies, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 3 {
+		t.Errorf("Expected 3 Raw Bodies, got %d", len(resolved.RawBodies))
 	}
 
 	// Verify that the bodies are empty.
@@ -325,8 +325,8 @@ func TestHarDiverseEntries(t *testing.T) {
 	}
 
 	// According to previous tests each entry creates 2 raw bodies.
-	if len(resolved.RawBodies) != 6 {
-		t.Errorf("Expected 6 Raw Bodies, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 9 {
+		t.Errorf("Expected 9 Raw Bodies, got %d", len(resolved.RawBodies))
 	}
 
 	// Verify that GET (entry1) did not produce form or URL encoded bodies.

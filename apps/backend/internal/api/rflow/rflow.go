@@ -27,6 +27,7 @@ import (
 	"the-dev-tools/backend/pkg/logconsole"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
@@ -515,6 +516,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
+
 		example, err := c.es.GetApiExample(ctx, *requestNode.ExampleID)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -548,16 +550,27 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			if err == sexampleresp.ErrNoRespFound {
+				exampleResp = &mexampleresp.ExampleResp{
+					ID:        idwrap.NewNow(),
+					ExampleID: example.ID,
+				}
+				err = c.ers.CreateExampleResp(ctx, *exampleResp)
+				if err != nil {
+					return connect.NewError(connect.CodeInternal, errors.New("create example resp"))
+				}
+			} else {
+				return connect.NewError(connect.CodeInternal, err)
+			}
 		}
 
 		exampleRespHeader, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return connect.NewError(connect.CodeInternal, errors.New("get example resp header"))
 		}
 
 		asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
-		if err != nil {
+		if err != nil && err != sassert.ErrNoAssertFound {
 			return connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -580,17 +593,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 			rawBodyDelta, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, errors.New("delta raw body not found"))
 			}
 
 			formBodyDelta, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, errors.New("delta form body not found"))
 			}
 
 			urlBodyDelta, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return connect.NewError(connect.CodeInternal, errors.New("delta url body not found"))
 			}
 
 			mergeExamplesInput := request.MergeExamplesInput{
@@ -726,7 +739,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	tx, err := c.DB.Begin()
+	tx, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -794,10 +807,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 		}
 
-		tx2, err := c.DB.Begin()
+		tx2, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
 		if err != nil {
 			return fmt.Errorf("begin transaction: %w", err)
 		}
+		defer tx2.Rollback()
 
 		err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
 		if err != nil {
