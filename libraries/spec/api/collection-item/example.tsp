@@ -27,8 +27,8 @@ model Example {
   @key exampleId: Resource.Id;
   lastResponseId?: Resource.Id;
   name: string;
-  @visibility("get") breadcrumbs: string[];
-  @visibility("get", "mutate") bodyKind: Body.BodyKind;
+  @visibility(Resource.Mutation.None, Resource.Query.Get) breadcrumbs: string[];
+  @visibility(Resource.Query.Get) bodyKind: Body.BodyKind;
 }
 
 model ExampleChange is Resource.Change<Example>;

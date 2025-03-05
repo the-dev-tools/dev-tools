@@ -41,7 +41,7 @@ model Node {
   @key nodeId: Resource.Id;
   position: Position;
   name: string;
-  @visibility("query") state: NodeState;
+  @visibility(Resource.Mutation.None) state: NodeState;
   kind: NodeKind;
   noOp?: NodeNoOpKind;
   request?: NodeRequest;

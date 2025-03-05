@@ -23,9 +23,9 @@ model Workspace {
   @key workspaceId: Resource.Id;
   selectedEnvironmentId: Resource.Id;
   name: string;
-  @visibility("query") updated: WellKnown.Timestamp;
-  @visibility("query") collectionCount: int32;
-  @visibility("query") flowCount: int32;
+  @visibility(Resource.Mutation.None) updated: WellKnown.Timestamp;
+  @visibility(Resource.Mutation.None) collectionCount: int32;
+  @visibility(Resource.Mutation.None) flowCount: int32;
 }
 
 enum MemberRole {
@@ -40,7 +40,7 @@ enum MemberRole {
 @parentResource(Workspace)
 model WorkspaceMember {
   @key userID: Resource.Id;
-  @visibility("create", "query") email: string;
+  @visibility(Resource.Mutation.Create) email: string;
   role: MemberRole;
 }
 

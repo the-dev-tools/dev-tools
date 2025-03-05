@@ -23,7 +23,7 @@ namespace API.CollectionItem.Request;
 @parentResource(Example.Example)
 model Query {
   @key queryId: Resource.Id;
-  @visibility("create", "query") parentQueryId?: Resource.Id;
+  @visibility(Resource.Mutation.Create) parentQueryId?: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
@@ -35,7 +35,7 @@ model Query {
 @parentResource(Example.Example)
 model Header {
   @key headerId: Resource.Id;
-  @visibility("create", "query") parentHeaderId?: Resource.Id;
+  @visibility(Resource.Mutation.Create) parentHeaderId?: Resource.Id;
   key: string;
   enabled: boolean;
   value: string;
@@ -47,7 +47,7 @@ model Header {
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.Id;
-  @visibility("create", "query") parentAssertId?: Resource.Id;
+  @visibility(Resource.Mutation.Create) parentAssertId?: Resource.Id;
   condition: Condition.Condition;
 }
 

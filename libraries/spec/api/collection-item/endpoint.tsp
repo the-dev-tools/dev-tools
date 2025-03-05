@@ -24,10 +24,10 @@ namespace API.CollectionItem.Endpoint;
 @parentResource(Collection.Collection)
 model Endpoint {
   @key endpointId: Resource.Id;
-  @visibility("list", "mutate") parentFolderId?: Resource.Id;
+  @visibility(Resource.Query.List) parentFolderId?: Resource.Id;
   name: string;
   method: string;
-  @visibility("get", "mutate") url: string;
+  @visibility(Resource.Query.Get) url: string;
 }
 
 model EndpointChange is Resource.Change<Endpoint>;

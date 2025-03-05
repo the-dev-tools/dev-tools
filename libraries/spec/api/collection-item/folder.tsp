@@ -22,7 +22,7 @@ namespace API.CollectionItem.Folder;
 @parentResource(Collection.Collection)
 model Folder {
   @key folderId: Resource.Id;
-  @visibility("list", "mutate") parentFolderId?: Resource.Id;
+  @visibility(Resource.Query.List) parentFolderId?: Resource.Id;
   name: string;
 }
 

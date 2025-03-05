@@ -12,6 +12,25 @@ namespace API.Resource;
 
 alias Id = bytes;
 
+// TODO
+// replace `None` visibilities with `@invisible` and `withVisibility` with
+// `withVisibilityFilter`after upstream bug is fixed
+// https://github.com/microsoft/typespec/issues/6280
+
+@defaultVisibility(Query.Get, Query.List)
+enum Query {
+  None,
+  Get,
+  List,
+}
+
+@defaultVisibility(Mutation.Create, Mutation.Update)
+enum Mutation {
+  None,
+  Create,
+  Update,
+}
+
 @normalize(Resource)
 model Change<Resource extends Model> {
   ...KeyOf<Resource>;
@@ -20,8 +39,7 @@ model Change<Resource extends Model> {
 
 namespace List {
   @normalize(Resource)
-  @withDefaultKeyVisibility("query")
-  @withVisibility("query", "list")
+  @withVisibility(Query.List)
   model Item<Resource extends Model> {
     ...Resource;
   }
@@ -44,8 +62,7 @@ namespace Get {
   }
 
   @normalize(Resource)
-  @withDefaultKeyVisibility("query")
-  @withVisibility("query", "get")
+  @withVisibility(Query.Get)
   model Response<Resource extends Model> {
     ...Resource;
   }
@@ -53,8 +70,7 @@ namespace Get {
 
 namespace Create {
   @normalize(Resource)
-  @withDefaultKeyVisibility("mutate")
-  @withVisibility("mutate", "create")
+  @withVisibility(Mutation.Create)
   model Request<Resource extends Model> {
     ...ParentKeyOf<Resource>;
     ...Resource;
@@ -83,8 +99,7 @@ namespace Create {
 
 namespace Update {
   @normalize(Resource)
-  @withDefaultKeyVisibility("mutate")
-  @withVisibility("mutate", "update")
+  @withVisibility(Mutation.Update)
   model Request<Resource extends Model> {
     ...KeyOf<Resource>;
     ...OptionalProperties<OmitKey<Resource>>;

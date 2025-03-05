@@ -24,8 +24,8 @@ model Environment {
   @key environmentId: Resource.Id;
   name: string;
   description: string;
-  @visibility("query") updated: WellKnown.Timestamp;
-  @visibility("query") isGlobal: boolean;
+  @visibility(Resource.Mutation.None) updated: WellKnown.Timestamp;
+  @visibility(Resource.Mutation.None) isGlobal: boolean;
 }
 
 model EnvironmentChange is Resource.Change<Environment>;
