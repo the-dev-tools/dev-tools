@@ -1,0 +1,149 @@
+package response
+
+import (
+	"context"
+	"strconv"
+	"strings"
+	"the-dev-tools/backend/pkg/assertv2"
+	"the-dev-tools/backend/pkg/assertv2/leafs/leafjson"
+	"the-dev-tools/backend/pkg/http/request"
+	"the-dev-tools/backend/pkg/httpclient"
+	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
+	"the-dev-tools/backend/pkg/model/massertres"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/backend/pkg/model/mexamplerespheader"
+	"the-dev-tools/backend/pkg/zstdcompress"
+
+	"connectrpc.com/connect"
+)
+
+type ResponseCreateOutput struct {
+	BodyRaw     []byte
+	ExampleResp mexampleresp.ExampleResp
+
+	AssertCouples []AssertCouple
+
+	// new headers
+	CreateHeaders, UpdateHeaders []mexamplerespheader.ExampleRespHeader
+	DeleteHeaderIds              []idwrap.IDWrap
+}
+
+type AssertCouple struct {
+	Assert    massert.Assert
+	AssertRes massertres.AssertResult
+}
+
+func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, currentHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert) (*ResponseCreateOutput, error) {
+	ResponseCreateOutput := ResponseCreateOutput{}
+	respHttp := r.HttpResp
+	lapse := r.LapTime
+	ResponseCreateOutput.BodyRaw = respHttp.Body
+	bodyData := respHttp.Body
+
+	if len(bodyData) > 1024 {
+		bodyDataTemp := zstdcompress.Compress(bodyData)
+		if len(bodyDataTemp) < len(bodyData) {
+			exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeZstd
+			bodyData = bodyDataTemp
+		}
+	}
+
+	exampleResp.Body = bodyData
+	exampleResp.Duration = int32(lapse.Milliseconds())
+	exampleResp.Status = uint16(respHttp.StatusCode)
+
+	ResponseCreateOutput.ExampleResp = exampleResp
+
+	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
+	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
+	taskDeleteHeaders := make([]idwrap.IDWrap, 0)
+	for _, respHeader := range respHttp.Headers {
+		found := false
+		for _, dbHeader := range currentHeaders {
+			if dbHeader.HeaderKey == respHeader.HeaderKey {
+				found = true
+				if dbHeader.Value != respHeader.Value {
+					dbHeader.Value = respHeader.Value
+					taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
+				}
+			}
+		}
+		if !found {
+			taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
+				ID:            idwrap.NewNow(),
+				ExampleRespID: exampleResp.ID,
+				HeaderKey:     respHeader.HeaderKey,
+				Value:         respHeader.Value,
+			})
+		}
+	}
+
+	ResponseCreateOutput.CreateHeaders = taskCreateHeaders
+	ResponseCreateOutput.UpdateHeaders = taskUpdateHeaders
+
+	for _, dbHeader := range currentHeaders {
+		found := false
+		for _, respHeader := range respHttp.Headers {
+			if dbHeader.HeaderKey == respHeader.HeaderKey {
+				found = true
+				break
+			}
+		}
+		if !found {
+			taskDeleteHeaders = append(taskDeleteHeaders, dbHeader.ID)
+		}
+	}
+
+	ResponseCreateOutput.DeleteHeaderIds = taskDeleteHeaders
+
+	var resultArr []AssertCouple
+	// TODO: move to proper package
+	tempStruct := struct {
+		Response httpclient.ResponseVar `json:"response"`
+	}{
+		Response: httpclient.ConvertResponseToVar(respHttp),
+	}
+	rootLeaf, err := leafjson.NewWithStruct(tempStruct)
+	if err != nil {
+		return nil, err
+	}
+	for _, assertion := range assertions {
+		if assertion.Enable {
+			root := assertv2.NewAssertRoot(rootLeaf)
+			assertSys := assertv2.NewAssertSystem(root)
+			val := assertion.Value
+			var value interface{}
+			if strings.Contains(val, ".") {
+				if feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64); err == nil {
+					value = feetFloat
+				}
+			} else if feetInt, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
+				value = feetInt
+			} else {
+				value = val
+			}
+
+			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(assertion.Type), assertion.Path, value)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			res := massertres.AssertResult{
+				ID:         assertion.ID,
+				ResponseID: exampleResp.ID,
+				AssertID:   assertion.ID,
+				Result:     ok,
+			}
+
+			resultArr = append(resultArr, AssertCouple{
+				Assert:    assertion,
+				AssertRes: res,
+			})
+
+		}
+	}
+
+	ResponseCreateOutput.AssertCouples = resultArr
+
+	return &ResponseCreateOutput, nil
+}

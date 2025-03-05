@@ -202,7 +202,6 @@ func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
 		}
 	}
 
-	// Replace line 205-207 with this:
 	timeDifference := startTimes[node2ID].Sub(startTimes[node3ID])
 	if timeDifference < -time.Millisecond || timeDifference > time.Millisecond {
 		t.Errorf("Expected node2 and node3 to start at approximately the same time, but got %v and %v (diff: %v)",

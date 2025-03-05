@@ -1,24 +1,18 @@
 package ritemapiexample
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"mime/multipart"
-	"net/url"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/internal/api/ritemapi"
-	"the-dev-tools/backend/pkg/assertv2"
-	"the-dev-tools/backend/pkg/assertv2/leafs/leafjson"
-	"the-dev-tools/backend/pkg/compress"
-	"the-dev-tools/backend/pkg/httpclient"
+	"the-dev-tools/backend/pkg/http/request"
+	"the-dev-tools/backend/pkg/http/response"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
@@ -51,7 +45,6 @@ import (
 	"the-dev-tools/backend/pkg/translate/tassert"
 	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/varsystem"
-	"the-dev-tools/backend/pkg/zstdcompress"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
@@ -533,100 +526,50 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	compressType := compress.CompressTypeNone
-	if varMap != nil {
-		for i, query := range reqQueries {
-			if varsystem.CheckIsVar(query.Value) {
-				key := varsystem.GetVarKeyFromRaw(query.Value)
-				if val, ok := varMap.Get(key); ok {
-					reqQueries[i].Value = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
-				}
-			}
-		}
+	rawBody, err := c.brs.GetBodyRawByExampleID(ctx, exampleUlid)
+	if err != nil {
+		if err == sbodyraw.ErrNoBodyRawFound {
 
-		for i, header := range reqHeaders {
-			if header.HeaderKey == "Content-Encoding" {
-				switch strings.ToLower(header.Value) {
-				case "gzip":
-					compressType = compress.CompressTypeGzip
-				case "zstd":
-					compressType = compress.CompressTypeZstd
-				case "deflate", "br", "identity":
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
-				default:
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
-				}
+			tempBodyRaw := mbodyraw.ExampleBodyRaw{
+				ID:            idwrap.NewNow(),
+				ExampleID:     exampleUlid,
+				VisualizeMode: mbodyraw.VisualizeModeBinary,
+				CompressType:  mbodyraw.CompressTypeNone,
+				Data:          []byte{},
 			}
 
-			if varsystem.CheckIsVar(header.Value) {
-				key := varsystem.GetVarKeyFromRaw(header.Value)
-				if val, ok := varMap.Get(key); !ok {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
-				} else {
-					reqHeaders[i].Value = val.Value
-				}
-			}
-		}
-	}
-
-	bodyBytes := &bytes.Buffer{}
-	switch example.BodyType {
-	case mitemapiexample.BodyTypeRaw:
-		bodyData, err := c.brs.GetBodyRawByExampleID(ctx, exampleUlid)
-		if err != nil {
-			return nil, err
-		}
-		bodyBytes.Write(bodyData.Data)
-	case mitemapiexample.BodyTypeForm:
-		forms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleUlid)
-		if err != nil {
-			return nil, err
-		}
-		writer := multipart.NewWriter(bodyBytes)
-		for _, v := range forms {
-			if err := writer.WriteField(v.BodyKey, v.Value); err != nil {
+			err = c.brs.CreateBodyRaw(ctx, tempBodyRaw)
+			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		}
-	case mitemapiexample.BodyTypeUrlencoded:
-		urls, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleUlid)
-		if err != nil {
+			rawBody = &tempBodyRaw
+		} else {
 			return nil, err
 		}
-		urlVal := url.Values{}
-		for _, url := range urls {
-			urlVal.Add(url.BodyKey, url.Value)
-		}
-		itemApiCall.Url += urlVal.Encode()
 	}
 
-	if compressType != compress.CompressTypeNone {
-		compressedData, err := compress.Compress(bodyBytes.Bytes(), compressType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		bodyBytes = bytes.NewBuffer(compressedData)
-	}
-
-	httpReq := httpclient.Request{
-		Method:  itemApiCall.Method,
-		URL:     itemApiCall.Url,
-		Headers: reqHeaders,
-		Queries: reqQueries,
-		Body:    bodyBytes.Bytes(),
-	}
-
-	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), httpReq, exampleUlid)
-	lapse := time.Since(now)
+	formBody, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleUlid)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeAborted, err)
+		if err == sbodyform.ErrNoBodyFormFound {
+			formBody = []mbodyform.BodyForm{}
+		} else {
+			return nil, err
+		}
 	}
 
-	bodyData := respHttp.Body
-	rawBody := bodyData
+	urlBody, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleUlid)
+	if err != nil {
+		if err == sbodyurl.ErrNoBodyUrlEncodedFound {
+			urlBody = []mbodyurl.BodyURLEncoded{}
+		} else {
+			return nil, err
+		}
+	}
+
+	requestResp, err := request.PrepareRequest(*itemApiCall, *example, reqQueries, reqHeaders, *rawBody, formBody, urlBody, *varMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request: %w", err)
+	}
 
 	isExampleRespExists := true
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
@@ -647,65 +590,37 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
-	if len(bodyData) > 1024 {
-		bodyDataTemp := zstdcompress.Compress(bodyData)
-		if len(bodyDataTemp) < len(bodyData) {
-			exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeZstd
-			bodyData = bodyDataTemp
-		}
-	}
-
-	exampleResp.Body = bodyData
-	exampleResp.Duration = int32(lapse.Milliseconds())
-	exampleResp.Status = uint16(respHttp.StatusCode)
-
-	if err := c.ers.UpdateExampleResp(ctx, *exampleResp); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	exampleResp.Body = rawBody
-
-	dbHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
+	currentRespHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
-	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
-	taskDeleteHeaders := make([]idwrap.IDWrap, 0)
-	for _, respHeader := range respHttp.Headers {
-		found := false
-		for _, dbHeader := range dbHeaders {
-			if dbHeader.HeaderKey == respHeader.HeaderKey {
-				found = true
-				if dbHeader.Value != respHeader.Value {
-					dbHeader.Value = respHeader.Value
-					taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
-				}
-			}
-		}
-		if !found {
-			taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
-				ID:            idwrap.NewNow(),
-				ExampleRespID: exampleResp.ID,
-				HeaderKey:     respHeader.HeaderKey,
-				Value:         respHeader.Value,
-			})
-		}
+	assertions, err := c.as.GetAssertByExampleID(ctx, example.ID)
+	if err != nil && err != sassert.ErrNoAssertFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, dbHeader := range dbHeaders {
-		found := false
-		for _, respHeader := range respHttp.Headers {
-			if dbHeader.HeaderKey == respHeader.HeaderKey {
-				found = true
-				break
-			}
-		}
-		if !found {
-			taskDeleteHeaders = append(taskDeleteHeaders, dbHeader.ID)
-		}
+	responseOutput, err := response.ResponseCreate(ctx, *requestResp, *exampleResp, currentRespHeaders, assertions)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	exampleResp = &responseOutput.ExampleResp
+
+	err = c.ers.UpdateExampleResp(ctx, responseOutput.ExampleResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var assertResults []massertres.AssertResult
+	for _, assertion := range responseOutput.AssertCouples {
+		assertResults = append(assertResults, assertion.AssertRes)
+	}
+
+	taskCreateHeaders := responseOutput.CreateHeaders
+	taskUpdateHeaders := responseOutput.UpdateHeaders
+	taskDeleteHeaders := responseOutput.DeleteHeaderIds
+
 	fullHeaders := append(taskCreateHeaders, taskUpdateHeaders...)
 	if len(fullHeaders) > 0 || len(taskDeleteHeaders) > 0 {
 		tx, err := c.DB.Begin()
@@ -736,61 +651,16 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
-	assertions, err := c.as.GetAssertByExampleID(ctx, example.ID)
-	if err != nil && err != sassert.ErrNoAssertFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	var resultArr []massertres.AssertResult
-	// TODO: move to proper package
-	tempStruct := struct {
-		Response httpclient.ResponseVar `json:"response"`
-	}{
-		Response: httpclient.ConvertResponseToVar(respHttp),
-	}
-	rootLeaf, err := leafjson.NewWithStruct(tempStruct)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	for _, assertion := range assertions {
-		if assertion.Enable {
-			root := assertv2.NewAssertRoot(rootLeaf)
-			assertSys := assertv2.NewAssertSystem(root)
-			val := assertion.Value
-			var value interface{}
-			if strings.Contains(val, ".") {
-				if feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64); err == nil {
-					value = feetFloat
-				}
-			} else if feetInt, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
-				value = feetInt
-			} else {
-				value = val
-			}
-
-			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(assertion.Type), assertion.Path, value)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			res := massertres.AssertResult{
-				ID:         assertion.ID,
-				ResponseID: exampleResp.ID,
-				AssertID:   assertion.ID,
-				Result:     ok,
-			}
-
-			resultArr = append(resultArr, res)
-
-			if _, err := c.ars.GetAssertResult(ctx, res.ID); err != nil {
-				if err == sql.ErrNoRows {
-					if err := c.ars.CreateAssertResult(ctx, res); err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-				}
-			} else {
-				if err := c.ars.UpdateAssertResult(ctx, res); err != nil {
+	for _, assertionCouple := range responseOutput.AssertCouples {
+		if _, err := c.ars.GetAssertResult(ctx, assertionCouple.AssertRes.ID); err != nil {
+			if err == sql.ErrNoRows {
+				if err := c.ars.CreateAssertResult(ctx, assertionCouple.AssertRes); err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
+			}
+		} else {
+			if err := c.ars.UpdateAssertResult(ctx, assertionCouple.AssertRes); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
 	}
@@ -841,7 +711,8 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 
 	var changes []*changev1.Change
 	if isExampleRespExists {
-		changes, err = handleResponseUpdate(exampleResp, assertions, resultArr, respHttp.Headers)
+		exampleResp.Body = responseOutput.BodyRaw
+		changes, err = handleResponseUpdate(exampleResp, assertions, assertResults, requestResp.HttpResp.Headers)
 	} else {
 		changes, err = handleResponseCreate(example.ID, exampleResp.ID)
 	}
@@ -862,12 +733,12 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Data: exampleVersionRequest,
 	})
 
-	size := int32(len(bodyData))
+	size := int32(len(responseOutput.BodyRaw))
 
 	return connect.NewResponse(&examplev1.ExampleRunResponse{
 		ResponseId: exampleResp.ID.Bytes(),
 		Status:     int32(exampleResp.Status),
-		Body:       rawBody,
+		Body:       responseOutput.BodyRaw,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
 		Changes:    changes,
