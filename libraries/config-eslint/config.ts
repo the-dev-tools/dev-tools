@@ -7,7 +7,7 @@ import prettier from 'eslint-config-prettier';
 import { flatConfigs as importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import react from 'eslint-plugin-react';
-import reactHooksOld from 'eslint-plugin-react-hooks';
+import { configs as reactHooks } from 'eslint-plugin-react-hooks';
 import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
 import { ConfigArray, configs as ts } from 'typescript-eslint';
@@ -46,11 +46,6 @@ const settings: Linter.Config = {
   },
 };
 
-const reactHooks = {
-  plugins: { 'react-hooks': reactHooksOld },
-  rules: reactHooksOld.configs.recommended.rules,
-};
-
 const rules: Linter.Config = {
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
@@ -84,7 +79,7 @@ const config: ConfigArray = [
 
   react.configs.flat['recommended']!,
   react.configs.flat['jsx-runtime']!,
-  reactHooks,
+  reactHooks['recommended-latest'],
 
   jsxA11y.flatConfigs.recommended,
 

@@ -6,17 +6,17 @@
     "dist"
   ],
   "devDependencies": {
-    "@react-email/components": "~0.0.32",
+    "@react-email/components": "~0.0.33",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/react": "~19.0.8",
-    "effect": "~3.12.7",
+    "@types/react": "~19.0.10",
+    "effect": "~3.13.6",
     "react": "~19.0.0",
     "react-dom": "~19.0.0",
-    "react-email": "~3.0.6",
+    "react-email": "~3.0.7",
     "tailwind-merge": "~2.6.0",
     "tailwindcss": "~3.4.15",
-    "typescript": "~5.7.3"
+    "typescript": "~5.8.2"
   }
 }

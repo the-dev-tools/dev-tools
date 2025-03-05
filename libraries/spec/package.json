@@ -15,17 +15,15 @@
     "@bufbuild/buf": "~1.50.0",
     "@bufbuild/protobuf": "~2.2.3",
     "@bufbuild/protoc-gen-es": "~2.2.3",
-    "@changesets/changelog-github": "~0.5.0",
-    "@changesets/cli": "~2.27.12",
     "@connectrpc/protoc-gen-connect-query": "~2.0.1",
-    "@types/node": "~22.12.0",
+    "@types/node": "~22.13.9",
     "@typespec/json-schema": "~0.64.0",
     "@typespec/protobuf": "~0.64.0",
     "@typespec/rest": "~0.64.1",
-    "effect": "~3.12.7",
-    "prettier": "~3.4.2",
+    "effect": "~3.13.6",
+    "prettier": "~3.5.3",
     "quicktype": "~23.0.171",
     "rimraf": "~6.0.1",
-    "typescript": "~5.7.3"
+    "typescript": "~5.8.2"
   }
 }

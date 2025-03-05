@@ -10,18 +10,18 @@
     "./tailwind.config": "./tailwind.config.ts"
   },
   "dependencies": {
-    "@fontsource-variable/dm-sans": "5.1.1",
-    "@fontsource/dm-mono": "5.1.1",
+    "@fontsource-variable/dm-sans": "5.2.5",
+    "@fontsource/dm-mono": "5.2.5",
     "@react-aria/collections": "3.0.0-alpha.7",
-    "@tanstack/react-table": "8.20.6",
+    "@tanstack/react-table": "8.21.2",
     "@the-dev-tools/utils": "workspace:^",
-    "effect": "3.12.7",
+    "effect": "3.13.6",
     "react": "19.0.0",
     "react-aria": "3.37.0",
     "react-aria-components": "1.6.0",
     "react-dom": "19.0.0",
     "react-hook-form": "7.54.2",
-    "react-icons": "5.4.0",
+    "react-icons": "5.5.0",
     "react-resizable-panels": "2.1.7",
     "tailwind-merge": "2.6.0",
     "tailwind-variants": "0.3.1"
@@ -29,15 +29,15 @@
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/config-tailwind": "workspace:^",
-    "@types/node": "~22.12.0",
-    "@types/react": "~19.0.8",
-    "@types/react-dom": "~19.0.3",
+    "@types/node": "~22.13.9",
+    "@types/react": "~19.0.10",
+    "@types/react-dom": "~19.0.4",
     "@vitejs/plugin-react": "~4.3.4",
     "react-cosmos": "~6.2.3",
     "react-cosmos-dom": "~6.2.0",
     "react-cosmos-plugin-vite": "~6.2.0",
     "tailwindcss": "~3.4.15",
-    "typescript": "~5.7.3",
-    "vite": "~6.0.11"
+    "typescript": "~5.8.2",
+    "vite": "~6.2.0"
   }
 }
