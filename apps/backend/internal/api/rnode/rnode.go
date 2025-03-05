@@ -18,6 +18,9 @@ import (
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/reference"
+	"the-dev-tools/backend/pkg/service/sbodyform"
+	"the-dev-tools/backend/pkg/service/sbodyraw"
+	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
@@ -59,6 +62,11 @@ type NodeServiceRPC struct {
 	iaes sitemapiexample.ItemApiExampleService
 	eqs  sexamplequery.ExampleQueryService
 	ehs  sexampleheader.HeaderService
+
+	// endpoint body
+	brs  sbodyraw.BodyRawService
+	bfs  sbodyform.BodyFormService
+	bues sbodyurl.BodyURLEncodedService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
@@ -66,6 +74,7 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, ns snode.NodeService, nss snodenoop.NodeNoopService,
 	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
 	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
+	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
 ) *NodeServiceRPC {
 	return &NodeServiceRPC{
 		DB: db,
@@ -84,6 +93,10 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 		iaes: ieas,
 		eqs:  eqs,
 		ehs:  ehs,
+
+		brs:  brs,
+		bfs:  bfs,
+		bues: bues,
 	}
 }
 
@@ -485,7 +498,22 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 			return connect.NewError(connect.CodeInternal, err)
 		}
 
-		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, []byte{}, httpclient.New())
+		rawBody, err := c.brs.GetBodyRawByExampleID(ctx, exampleID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+
+		formBody, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+
+		urlBody, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleID)
+		if err != nil {
+			return err
+		}
+
+		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, *rawBody, formBody, urlBody, httpclient.New())
 
 	case mnnode.NODE_KIND_FOR:
 	default:

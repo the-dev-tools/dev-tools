@@ -10,6 +10,9 @@ import (
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/backend/pkg/service/sbodyform"
+	"the-dev-tools/backend/pkg/service/sbodyraw"
+	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
 	"the-dev-tools/backend/pkg/service/sflow"
@@ -47,6 +50,10 @@ func TestNodeGet(t *testing.T) {
 	iaes := sitemapiexample.New(queries)
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
+
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
 
 	// Create base test data
 	wsID := idwrap.NewNow()
@@ -95,7 +102,7 @@ func TestNodeGet(t *testing.T) {
 	}
 
 	// Create RPC service - use the variable directly as it implements the interface
-	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs, brs, bfs, bues)
 
 	// Test NodeGet
 	req := connect.NewRequest(&nodev1.NodeGetRequest{
@@ -150,6 +157,10 @@ func TestNodeList(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	// Create base test data
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -197,7 +208,7 @@ func TestNodeList(t *testing.T) {
 	}
 
 	// Create RPC service
-	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs, brs, bfs, bues)
 
 	// Test NodeList
 	req := connect.NewRequest(&nodev1.NodeListRequest{
@@ -253,6 +264,10 @@ func TestNodeCreate(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	// Create base test data
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -276,7 +291,7 @@ func TestNodeCreate(t *testing.T) {
 	}
 
 	// Create RPC service
-	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs, brs, bfs, bues)
 
 	// Test NodeCreate with a REQUEST type
 	position := &nodev1.Position{X: 200, Y: 300}
@@ -358,6 +373,10 @@ func TestNodeUpdate(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	// Create base test data
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -408,7 +427,7 @@ func TestNodeUpdate(t *testing.T) {
 	}
 
 	// Create RPC service
-	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs, brs, bfs, bues)
 
 	// Test NodeUpdate
 	updatedName := "Updated Node Name"
@@ -490,6 +509,10 @@ func TestNodeDelete(t *testing.T) {
 	eqs := sexamplequery.New(queries)
 	ehs := sexampleheader.New(queries)
 
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+
 	// Create base test data
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -537,7 +560,7 @@ func TestNodeDelete(t *testing.T) {
 	}
 
 	// Create RPC service
-	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs)
+	nodeService := rnode.NewNodeServiceRPC(db, us, fs, *nis, nrs, nfls, nlfes, ns, nss, ias, iaes, eqs, ehs, brs, bfs, bues)
 
 	// Test NodeDelete
 	req := connect.NewRequest(&nodev1.NodeDeleteRequest{

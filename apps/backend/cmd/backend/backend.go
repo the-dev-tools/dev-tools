@@ -304,7 +304,7 @@ func main() {
 	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us,
 		fs, *ins,
 		rns, lfns, flens, ns, sns,
-		ias, iaes, eqs, ehs)
+		ias, iaes, eqs, ehs, brs, bfs, bues)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// Edge Service

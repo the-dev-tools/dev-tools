@@ -28,7 +28,7 @@ type RequestResponse struct {
 }
 
 func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
-	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap,
+	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap, client httpclient.HttpClient,
 ) (*RequestResponse, error) {
 	var err error
 	if varsystem.CheckStringHasAnyVarKey(endpoint.Url) {
@@ -50,21 +50,23 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				}
 			}
 		}
+	}
 
-		for i, header := range headers {
-			if header.HeaderKey == "Content-Encoding" {
-				switch strings.ToLower(header.Value) {
-				case "gzip":
-					compressType = compress.CompressTypeGzip
-				case "zstd":
-					compressType = compress.CompressTypeZstd
-				case "deflate", "br", "identity":
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
-				default:
-					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
-				}
+	for i, header := range headers {
+		if header.HeaderKey == "Content-Encoding" {
+			switch strings.ToLower(header.Value) {
+			case "gzip":
+				compressType = compress.CompressTypeGzip
+			case "zstd":
+				compressType = compress.CompressTypeZstd
+			case "deflate", "br", "identity":
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
+			default:
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
 			}
+		}
 
+		if varMap != nil {
 			if varsystem.CheckIsVar(header.Value) {
 				key := varsystem.GetVarKeyFromRaw(header.Value)
 				if val, ok := varMap.Get(key); !ok {
@@ -112,7 +114,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	}
 
 	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), httpReq, example.ID)
+	respHttp, err := httpclient.SendRequestAndConvert(client, httpReq, example.ID)
 	lapse := time.Since(now)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeAborted, err)
@@ -138,16 +140,16 @@ type MergeExamplesInput struct {
 	BaseHeaders, DeltaHeaders []mexampleheader.Header
 
 	// Bodies
-	baseRawBody, deltaRawBody               []mbodyraw.ExampleBodyRaw
-	baseFormBody, deltaFormBody             []mbodyform.BodyForm
-	baseUrlEncodedBody, deltaUrlEncodedBody []mbodyurl.BodyURLEncoded
+	BaseRawBody, DeltaRawBody               mbodyraw.ExampleBodyRaw
+	BaseFormBody, DeltaFormBody             []mbodyform.BodyForm
+	BaseUrlEncodedBody, DeltaUrlEncodedBody []mbodyurl.BodyURLEncoded
 }
 
 type MergeExamplesOutput struct {
 	Merged              mitemapiexample.ItemApiExample
 	MergeQueries        []mexamplequery.Query
 	MergeHeaders        []mexampleheader.Header
-	MergeRawBody        []mbodyraw.ExampleBodyRaw
+	MergeRawBody        mbodyraw.ExampleBodyRaw
 	MergeFormBody       []mbodyform.BodyForm
 	MergeUrlEncodedBody []mbodyurl.BodyURLEncoded
 }
@@ -184,44 +186,44 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		headerMap[h.ID] = h
 	}
 
-	output.MergeHeaders = make([]mexampleheader.Header, len(headerMap))
+	output.MergeHeaders = make([]mexampleheader.Header, 0, len(headerMap))
 	for _, h := range headerMap {
 		output.MergeHeaders = append(output.MergeHeaders, h)
 	}
 
 	// Raw Body
-	if len(input.deltaRawBody) > 0 {
-		output.MergeRawBody = input.deltaRawBody
+	if len(input.DeltaRawBody.Data) > 0 {
+		output.MergeRawBody = input.DeltaRawBody
 	} else {
-		output.MergeRawBody = input.baseRawBody
+		output.MergeRawBody = input.BaseRawBody
 	}
 
 	// Form Body
-	formMap := make(map[idwrap.IDWrap]mbodyform.BodyForm, len(input.baseFormBody))
-	for _, f := range input.baseFormBody {
+	formMap := make(map[idwrap.IDWrap]mbodyform.BodyForm, len(input.BaseFormBody))
+	for _, f := range input.BaseFormBody {
 		formMap[f.ID] = f
 	}
 
-	for _, f := range input.deltaFormBody {
+	for _, f := range input.DeltaFormBody {
 		formMap[f.ID] = f
 	}
 
-	output.MergeFormBody = make([]mbodyform.BodyForm, len(formMap))
+	output.MergeFormBody = make([]mbodyform.BodyForm, 0, len(formMap))
 	for _, f := range formMap {
 		output.MergeFormBody = append(output.MergeFormBody, f)
 	}
 
 	// Url Encoded Body
-	urlEncodedMap := make(map[idwrap.IDWrap]mbodyurl.BodyURLEncoded, len(input.baseUrlEncodedBody))
-	for _, f := range input.baseUrlEncodedBody {
+	urlEncodedMap := make(map[idwrap.IDWrap]mbodyurl.BodyURLEncoded, len(input.BaseUrlEncodedBody))
+	for _, f := range input.BaseUrlEncodedBody {
 		urlEncodedMap[f.ID] = f
 	}
 
-	for _, f := range input.deltaUrlEncodedBody {
+	for _, f := range input.DeltaUrlEncodedBody {
 		urlEncodedMap[f.ID] = f
 	}
 
-	output.MergeUrlEncodedBody = make([]mbodyurl.BodyURLEncoded, len(urlEncodedMap))
+	output.MergeUrlEncodedBody = make([]mbodyurl.BodyURLEncoded, 0, len(urlEncodedMap))
 	for _, f := range urlEncodedMap {
 		output.MergeUrlEncodedBody = append(output.MergeUrlEncodedBody, f)
 	}

@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/backend/internal/api/ritemapi"
 	"the-dev-tools/backend/pkg/http/request"
 	"the-dev-tools/backend/pkg/http/response"
+	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
@@ -566,7 +567,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
-	requestResp, err := request.PrepareRequest(*itemApiCall, *example, reqQueries, reqHeaders, *rawBody, formBody, urlBody, *varMap)
+	requestResp, err := request.PrepareRequest(*itemApiCall, *example, reqQueries, reqHeaders, *rawBody, formBody, urlBody, *varMap, httpclient.New())
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare request: %w", err)
 	}
