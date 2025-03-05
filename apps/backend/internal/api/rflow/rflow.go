@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"the-dev-tools/backend/internal/api"
+	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/dbtime"
@@ -24,6 +25,8 @@ import (
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/logconsole"
+	"the-dev-tools/backend/pkg/model/massert"
+	"the-dev-tools/backend/pkg/model/massertres"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
@@ -32,12 +35,16 @@ import (
 	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/service/sassert"
+	"the-dev-tools/backend/pkg/service/sassertres"
 	"the-dev-tools/backend/pkg/service/sbodyform"
 	"the-dev-tools/backend/pkg/service/sbodyraw"
 	"the-dev-tools/backend/pkg/service/sbodyurl"
 	"the-dev-tools/backend/pkg/service/sedge"
 	"the-dev-tools/backend/pkg/service/sexampleheader"
 	"the-dev-tools/backend/pkg/service/sexamplequery"
+	"the-dev-tools/backend/pkg/service/sexampleresp"
+	"the-dev-tools/backend/pkg/service/sexamplerespheader"
 	"the-dev-tools/backend/pkg/service/sflow"
 	"the-dev-tools/backend/pkg/service/sflowtag"
 	"the-dev-tools/backend/pkg/service/sitemapi"
@@ -73,15 +80,21 @@ type FlowServiceRPC struct {
 	fes sedge.EdgeService
 
 	// request
-	as sitemapi.ItemApiService
-	es sitemapiexample.ItemApiExampleService
-	qs sexamplequery.ExampleQueryService
-	hs sexampleheader.HeaderService
+	ias sitemapi.ItemApiService
+	es  sitemapiexample.ItemApiExampleService
+	qs  sexamplequery.ExampleQueryService
+	hs  sexampleheader.HeaderService
 
 	// body
 	brs  sbodyraw.BodyRawService
 	bfs  sbodyform.BodyFormService
 	bues sbodyurl.BodyURLEncodedService
+
+	// response
+	ers  sexampleresp.ExampleRespService
+	erhs sexamplerespheader.ExampleRespHeaderService
+	as   sassert.AssertService
+	ars  sassertres.AssertResultService
 
 	// sub nodes
 	ns   snode.NodeService
@@ -94,11 +107,16 @@ type FlowServiceRPC struct {
 	logChanMap logconsole.LogChanMap
 }
 
-func New(db *sql.DB, ws sworkspace.WorkspaceService,
-	us suser.UserService, ts stag.TagService,
-	fs sflow.FlowService, fts sflowtag.FlowTagService,
-	fes sedge.EdgeService, as sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
+func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts stag.TagService,
+	// flow
+	fs sflow.FlowService, fts sflowtag.FlowTagService, fes sedge.EdgeService,
+	// req
+	ias sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
+	// body
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
+	// resp
+	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, as sassert.AssertService, ars sassertres.AssertResultService,
+	// sub nodes
 	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, fens snodeforeach.NodeForEachService,
 	sns snodenoop.NodeNoopService, ins snodeif.NodeIfService,
 	logChanMap logconsole.LogChanMap,
@@ -114,16 +132,22 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService,
 		fes: fes,
 		fts: fts,
 
+		// request
+		ias: ias,
+		es:  es,
+		qs:  qs,
+		hs:  hs,
+
 		// body
 		brs:  brs,
 		bfs:  bfs,
 		bues: bues,
 
-		// request
-		as: as,
-		es: es,
-		qs: qs,
-		hs: hs,
+		// resp
+		ers:  ers,
+		erhs: erhs,
+		as:   as,
+		ars:  ars,
 
 		// sub nodes
 		ns:   ns,
@@ -480,13 +504,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.IterCount, time.Second)
 	}
 
+	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1000)
 	for _, requestNode := range requestNodes {
 
 		// Base Request
 		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID))
 		}
-		endpoint, err := c.as.GetItemApi(ctx, *requestNode.EndpointID)
+		endpoint, err := c.ias.GetItemApi(ctx, *requestNode.EndpointID)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
@@ -517,6 +542,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 
 		urlBody, err := c.bues.GetBodyURLEncodedByExampleID(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+
+		exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+
+		exampleRespHeader, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+
+		asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
@@ -586,7 +626,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		httpClient := httpclient.New()
 
-		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody, httpClient)
+		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
+			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
 	}
 
 	for _, ifNode := range ifNodes {
@@ -610,6 +651,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
 	flowStatusChan := make(chan runner.FlowStatus, 10)
+
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -676,6 +718,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, flowRunErr)
 	}
 	close(updateNodeChan)
+	close(requestNodeRespChan)
 
 	flow.VersionParentID = &flow.ID
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
@@ -713,6 +756,59 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	for requestNodeResp := range requestNodeRespChan {
+
+		FullHeaders := append(requestNodeResp.Resp.CreateHeaders, requestNodeResp.Resp.UpdateHeaders...)
+
+		var assertResults []massertres.AssertResult
+		var assert []massert.Assert
+		for _, assertCouple := range requestNodeResp.Resp.AssertCouples {
+			assertResults = append(assertResults, assertCouple.AssertRes)
+			assert = append(assert, assertCouple.Assert)
+		}
+
+		example := requestNodeResp.Example
+		endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get endpoint: %w", err))
+		}
+
+		endpoint.VersionParentID = &endpoint.ID
+		endpointNewID := idwrap.NewNow()
+		endpoint.ID = endpointNewID
+
+		err = c.ias.CreateItemApi(ctx, endpoint)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy endpoint: %w", err))
+		}
+
+		example.VersionParentID = &example.ID
+
+		res, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
+			requestNodeResp.Queries, requestNodeResp.Headers, assert,
+			&requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
+			&requestNodeResp.Resp.ExampleResp, FullHeaders, assertResults)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
+		}
+
+		tx2, err := c.DB.Begin()
+		if err != nil {
+			return fmt.Errorf("begin transaction: %w", err)
+		}
+
+		err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
+		}
+
+		err = tx2.Commit()
+		if err != nil {
+			return fmt.Errorf("commit transaction: %w", err)
+		}
+
 	}
 
 	return nil

@@ -9,7 +9,10 @@ import (
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/mcondition"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"the-dev-tools/backend/pkg/model/mnnode"
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnnode/mnforeach"
@@ -512,8 +515,14 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 		if err != nil {
 			return err
 		}
+		requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
 
-		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, *rawBody, formBody, urlBody, httpclient.New())
+		// TODO: add proper new paramters
+		exampleResp := mexampleresp.ExampleResp{}
+		exampleRespHeader := []mexamplerespheader.ExampleRespHeader{}
+		asserts := []massert.Assert{}
+		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, *rawBody, formBody, urlBody,
+			exampleResp, exampleRespHeader, asserts, httpclient.New(), requestNodeRespChan)
 
 	case mnnode.NODE_KIND_FOR:
 	default:

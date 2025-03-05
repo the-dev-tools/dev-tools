@@ -14,11 +14,14 @@ import (
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/httpclient/httpmockclient"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/mbodyform"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
 	"the-dev-tools/backend/pkg/model/mbodyurl"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
 	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 	"the-dev-tools/backend/pkg/testutil"
@@ -45,6 +48,10 @@ func TestNodeRequest_Run(t *testing.T) {
 	formBody := []mbodyform.BodyForm{}
 	urlBody := []mbodyurl.BodyURLEncoded{}
 
+	exampleResp := mexampleresp.ExampleResp{}
+	exampleRespHeader := []mexamplerespheader.ExampleRespHeader{}
+	asserts := []massert.Assert{}
+
 	t.Run("RunSync", func(t *testing.T) {
 		expectedBody := []byte("Hello, World!")
 		buf := bytes.NewBuffer(expectedBody)
@@ -58,7 +65,10 @@ func TestNodeRequest_Run(t *testing.T) {
 		requestBody := []byte("Request body")
 		rawBody.Data = requestBody
 
-		requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody, mockHttpClient)
+		requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
+		requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody,
+			exampleResp, exampleRespHeader, asserts,
+			mockHttpClient, requestNodeRespChan)
 
 		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
 		edges := []edge.Edge{edge1}
@@ -105,7 +115,10 @@ func TestNodeRequest_Run(t *testing.T) {
 		requestBody := []byte("Request body")
 		rawBody.Data = requestBody
 
-		requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody, mockHttpClient)
+		requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
+		requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody,
+			exampleResp, exampleRespHeader, asserts,
+			mockHttpClient, requestNodeRespChan)
 		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
 		edges := []edge.Edge{edge1}
 		edgesMap := edge.NewEdgesMap(edges)
@@ -156,6 +169,11 @@ func TestNodeRequest_SetID(t *testing.T) {
 	rawBody := mbodyraw.ExampleBodyRaw{}
 	formBody := []mbodyform.BodyForm{}
 	urlBody := []mbodyurl.BodyURLEncoded{}
+
+	exampleResp := mexampleresp.ExampleResp{}
+	exampleRespHeader := []mexamplerespheader.ExampleRespHeader{}
+	asserts := []massert.Assert{}
+
 	mockResp := &http.Response{
 		StatusCode: 200,
 		Body:       nil,
@@ -164,7 +182,10 @@ func TestNodeRequest_SetID(t *testing.T) {
 	requestBody := []byte("Request body")
 	rawBody.Data = requestBody
 
-	requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody, mockHttpClient)
+	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
+	requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody,
+		exampleResp, exampleRespHeader, asserts,
+		mockHttpClient, requestNodeRespChan)
 	newID := idwrap.NewNow()
 	requestNode.SetID(newID)
 	if requestNode.GetID() != newID {

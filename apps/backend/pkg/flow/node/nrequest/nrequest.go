@@ -3,17 +3,20 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/http/request"
+	"the-dev-tools/backend/pkg/http/response"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
+	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/mbodyform"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
 	"the-dev-tools/backend/pkg/model/mbodyurl"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
 	"the-dev-tools/backend/pkg/model/mexamplequery"
+	"the-dev-tools/backend/pkg/model/mexampleresp"
+	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
 )
@@ -34,12 +37,33 @@ type NodeRequest struct {
 	FormBody []mbodyform.BodyForm
 	UrlBody  []mbodyurl.BodyURLEncoded
 
-	HttpClient httpclient.HttpClient
+	ExampleResp       mexampleresp.ExampleResp
+	ExampleRespHeader []mexampleheader.Header
+	ExampleAsserts    []massert.Assert
+
+	HttpClient              httpclient.HttpClient
+	NodeRequestSideRespChan chan NodeRequestSideResp
+}
+
+type NodeRequestSideResp struct {
+	// Request
+	Example mitemapiexample.ItemApiExample
+	Queries []mexamplequery.Query
+	Headers []mexampleheader.Header
+
+	RawBody  mbodyraw.ExampleBodyRaw
+	FormBody []mbodyform.BodyForm
+	UrlBody  []mbodyurl.BodyURLEncoded
+
+	// Resp
+	Resp response.ResponseCreateOutput
 }
 
 func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
 	Queries []mexamplequery.Query, Headers []mexampleheader.Header,
-	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, Httpclient httpclient.HttpClient,
+	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded,
+	ExampleResp mexampleresp.ExampleResp, ExampleRespHeader []mexamplerespheader.ExampleRespHeader, asserts []massert.Assert,
+	Httpclient httpclient.HttpClient, NodeRequestSideRespChan chan NodeRequestSideResp,
 ) *NodeRequest {
 	return &NodeRequest{
 		FlownNodeID: id,
@@ -53,7 +77,8 @@ func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApi
 		FormBody: formBody,
 		UrlBody:  urlBody,
 
-		HttpClient: Httpclient,
+		HttpClient:              Httpclient,
+		NodeRequestSideRespChan: NodeRequestSideRespChan,
 	}
 }
 
@@ -74,6 +99,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	resp, err := request.PrepareRequest(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, nil, nr.HttpClient)
+	if err != nil {
+		result.Err = err
+		return result
+	}
+
 	varResp := httpclient.ConvertResponseToVar(resp.HttpResp)
 	respMap := map[string]interface{}{}
 	marshaledResp, err := json.Marshal(varResp)
@@ -91,6 +121,24 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	if err != nil {
 		result.Err = err
 		return result
+	}
+
+	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, resp.HttpResp.Headers, nr.ExampleAsserts)
+	if err != nil {
+		result.Err = err
+		return result
+	}
+
+	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+		Example: nr.Example,
+		Queries: nr.Queries,
+		Headers: nr.Headers,
+
+		RawBody:  nr.RawBody,
+		FormBody: nr.FormBody,
+		UrlBody:  nr.UrlBody,
+
+		Resp: *respCreate,
 	}
 
 	return result
@@ -106,15 +154,14 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	resp, err := request.PrepareRequest(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, nil, nr.HttpClient)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		result.Err = err
 		resultChan <- result
 		return
 	}
 
+	varResp := httpclient.ConvertResponseToVar(resp.HttpResp)
 	respMap := map[string]interface{}{}
 	// TODO: change map conversion non json
-	varResp := httpclient.ConvertResponseToVar(resp.HttpResp)
 	marshaledResp, err := json.Marshal(varResp)
 	if err != nil {
 		result.Err = err
@@ -133,6 +180,25 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		result.Err = err
 		resultChan <- result
 		return
+	}
+
+	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, resp.HttpResp.Headers, nr.ExampleAsserts)
+	if err != nil {
+		result.Err = err
+		resultChan <- result
+		return
+	}
+
+	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+		Example: nr.Example,
+		Queries: nr.Queries,
+		Headers: nr.Headers,
+
+		RawBody:  nr.RawBody,
+		FormBody: nr.FormBody,
+		UrlBody:  nr.UrlBody,
+
+		Resp: *respCreate,
 	}
 
 	// TODO: add some functionality here

@@ -441,7 +441,7 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = c.CreateCopyExample(ctx, res, tx)
+	err = CreateCopyExample(ctx, tx, res)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -695,7 +695,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	err = c.CreateCopyExample(ctx, res, tx)
+	err = CreateCopyExample(ctx, tx, res)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 	}
@@ -925,6 +925,95 @@ func createAssertResponse(exampleResp *mexampleresp.ExampleResp, assertions []ma
 	return response, nil
 }
 
+func PrepareCopyExampleNoService(ctx context.Context, itemApi idwrap.IDWrap, example mitemapiexample.ItemApiExample,
+	queries []mexamplequery.Query, headers []mexampleheader.Header, assertions []massert.Assert,
+	bodyRaw *mbodyraw.ExampleBodyRaw, bodyForm []mbodyform.BodyForm, bodyUrl []mbodyurl.BodyURLEncoded,
+	resp *mexampleresp.ExampleResp, respHeaders []mexamplerespheader.ExampleRespHeader, assertResp []massertres.AssertResult,
+) (CopyExampleResult, error) {
+	result := CopyExampleResult{}
+	example.IsDefault = false
+
+	// Prepare new example
+	exampleIDWrapNew := idwrap.NewNow()
+	newExample := example
+	newExample.Name = fmt.Sprintf("%s - Copy", example.Name)
+	newExample.ID = exampleIDWrapNew
+	newExample.ItemApiID = itemApi
+	result.Example = newExample
+
+	// Prepare headers copy
+	for _, header := range headers {
+		newHeader := header
+		newHeader.ID = idwrap.NewNow()
+		newHeader.ExampleID = exampleIDWrapNew
+		result.Headers = append(result.Headers, newHeader)
+	}
+
+	// Prepare queries copy
+	for _, query := range queries {
+		newQuery := query
+		newQuery.ID = idwrap.NewNow()
+		newQuery.ExampleID = exampleIDWrapNew
+		result.Queries = append(result.Queries, newQuery)
+	}
+
+	// Prepare body copy based on type
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		if bodyRaw != nil {
+			newBodyRaw := *bodyRaw
+			newBodyRaw.ID = idwrap.NewNow()
+			newBodyRaw.ExampleID = exampleIDWrapNew
+			result.BodyRaw = &newBodyRaw
+		}
+
+	case mitemapiexample.BodyTypeForm:
+		for _, form := range bodyForm {
+			newForm := form
+			newForm.ID = idwrap.NewNow()
+			newForm.ExampleID = exampleIDWrapNew
+			result.BodyForms = append(result.BodyForms, newForm)
+		}
+
+	case mitemapiexample.BodyTypeUrlencoded:
+		for _, encoded := range bodyUrl {
+			newEncoded := encoded
+			newEncoded.ID = idwrap.NewNow()
+			newEncoded.ExampleID = exampleIDWrapNew
+			result.BodyURLEncoded = append(result.BodyURLEncoded, newEncoded)
+		}
+	}
+
+	// Prepare assertions copy
+	for i := range assertions {
+		assertions[i].ID = idwrap.NewNow()
+		assertions[i].ExampleID = exampleIDWrapNew
+	}
+	result.Assertions = assertions
+
+	if resp != nil {
+		resp.ExampleID = exampleIDWrapNew
+		resp.ID = idwrap.NewNow()
+		result.Resp = *resp
+
+		for i := range respHeaders {
+			respHeaders[i].ID = idwrap.NewNow()
+			respHeaders[i].ExampleRespID = resp.ID
+		}
+
+		result.RespHeaders = respHeaders
+
+		for i := range assertResp {
+			assertResp[i].ID = idwrap.NewNow()
+			assertResp[i].ResponseID = resp.ID
+		}
+
+		result.RespAsserts = assertResp
+	}
+
+	return result, nil
+}
+
 func createHeaderResponse(exampleResp *mexampleresp.ExampleResp, headers []mexamplerespheader.ExampleRespHeader) *responsev1.ResponseHeaderListResponse {
 	response := &responsev1.ResponseHeaderListResponse{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -1002,7 +1091,7 @@ func handleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.C
 }
 
 // TODO: make this transaction
-func (c *ItemAPIExampleRPC) CreateCopyExample(ctx context.Context, result CopyExampleResult, tx *sql.Tx) error {
+func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult) error {
 	// Create the main example
 	txIaes, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
