@@ -35,6 +35,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
 import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from './form-table';
+import { ImportDialog } from './workspace/import';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -57,7 +58,7 @@ export const EnvironmentsWidget = () => {
   const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
   return (
-    <div className={tw`flex justify-between border-b border-slate-200 p-3`}>
+    <div className={tw`flex gap-1 border-b border-slate-200 p-3`}>
       <Select
         aria-label='Environment'
         selectedKey={selectedEnvironmentIdCan}
@@ -87,6 +88,10 @@ export const EnvironmentsWidget = () => {
           );
         }}
       </Select>
+
+      <div className={tw`flex-1`} />
+
+      <ImportDialog />
 
       <DialogTrigger>
         <Button variant='ghost' className={tw`p-1`}>
