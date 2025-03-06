@@ -13,8 +13,8 @@ require (
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.11.0
-	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc
-	golang.org/x/net v0.29.0
+	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
+	golang.org/x/net v0.33.0
 	google.golang.org/protobuf v1.36.4
 )
 
@@ -24,12 +24,11 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/ethereum/go-ethereum v1.10.20 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
-	golang.org/x/crypto v0.27.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 )
