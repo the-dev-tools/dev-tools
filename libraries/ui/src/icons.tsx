@@ -359,3 +359,42 @@ export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const CloudUploadIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='m9.667 10-2-2-2 2M7.667 8.333v4.334'
+    />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M10.667 12.111h.5a3.167 3.167 0 0 0 .514-6.292 4.223 4.223 0 0 0-7.848 1.384 2.463 2.463 0 0 0 .297 4.908h.537'
+    />
+  </svg>
+);
+
+export const DeleteIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' fill='none' viewBox='0 0 16 16' {...props}>
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='m3.667 4.333.538 7.805A2 2 0 0 0 6.2 14h3.6a2 2 0 0 0 1.995-1.862l.538-7.805'
+    />
+    <path stroke='currentColor' strokeLinecap='round' strokeWidth={1.2} d='M2.667 4h10.666M9.333 7v4M6.667 7v4' />
+    <path
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+      d='M10 4a2 2 0 1 0-4 0'
+    />
+  </svg>
+);

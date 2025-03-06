@@ -2,7 +2,9 @@ import { tv } from 'tailwind-variants';
 
 import { tw } from './tailwind-literal';
 
-const focusedStyles = { true: tw`outline-4 outline-violet-200` };
+export const isFocusedStyle = tw`outline-4 outline-violet-200`;
+
+const focusedStyles = { true: isFocusedStyle };
 
 const baseStyles = tv({
   base: tw`relative outline outline-0 outline-transparent transition-colors`,
