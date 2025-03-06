@@ -45,7 +45,6 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sq
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	db.SetMaxOpenConns(1)
 	err = db.Ping()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)

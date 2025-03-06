@@ -42,12 +42,11 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sq
 	if os.IsNotExist(err) {
 		firstTime = true
 	}
-	dbFilePath = fmt.Sprintf("file:%s", dbFilePath)
+	dbFilePath = fmt.Sprintf("file:%s?mode=rwc&_journal_mode=WAL", dbFilePath)
 	db, err := sql.Open("sqlite3", dbFilePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	db.SetMaxOpenConns(1)
 	err = db.Ping()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)

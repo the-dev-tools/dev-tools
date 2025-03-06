@@ -10,6 +10,8 @@
 .vite
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 data
 dist
 next-env.d.ts
