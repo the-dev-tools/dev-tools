@@ -521,6 +521,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
+
 		if example.ItemApiID != endpoint.ID {
 			return connect.NewError(connect.CodeInternal, errors.New("example and endpoint not match"))
 		}
@@ -799,6 +800,47 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		example.VersionParentID = &example.ID
 
+		// TODO: should use same transaction as flow
+		tx2, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
+		if err != nil {
+			return fmt.Errorf("begin transaction: %w", err)
+		}
+		defer tx2.Rollback()
+
+		txExampleResp, err := sexampleresp.NewTX(ctx, tx2)
+		if err != nil {
+			return err
+		}
+
+		err = txExampleResp.UpdateExampleResp(ctx, requestNodeResp.Resp.ExampleResp)
+		if err != nil {
+			return err
+		}
+
+		txHeaderResp, err := sexamplerespheader.NewTX(ctx, tx2)
+		if err != nil {
+			return err
+		}
+
+		for _, header := range requestNodeResp.Resp.CreateHeaders {
+			err = txHeaderResp.CreateExampleRespHeader(ctx, header)
+			if err != nil {
+				return err
+			}
+		}
+		for _, header := range requestNodeResp.Resp.UpdateHeaders {
+			err = txHeaderResp.UpdateExampleRespHeader(ctx, header)
+			if err != nil {
+				return err
+			}
+		}
+		for _, headerID := range requestNodeResp.Resp.DeleteHeaderIds {
+			err = txHeaderResp.DeleteExampleRespHeader(ctx, headerID)
+			if err != nil {
+				return err
+			}
+		}
+
 		res, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
 			requestNodeResp.Queries, requestNodeResp.Headers, assert,
 			&requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
@@ -806,12 +848,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
 		}
-
-		tx2, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
-		if err != nil {
-			return fmt.Errorf("begin transaction: %w", err)
-		}
-		defer tx2.Rollback()
 
 		err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
 		if err != nil {

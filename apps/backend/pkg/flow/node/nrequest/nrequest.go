@@ -33,13 +33,13 @@ type NodeRequest struct {
 	Queries     []mexamplequery.Query
 	Headers     []mexampleheader.Header
 
-	RawBody  mbodyraw.ExampleBodyRaw
-	FormBody []mbodyform.BodyForm
-	UrlBody  []mbodyurl.BodyURLEncoded
+	RawBody        mbodyraw.ExampleBodyRaw
+	FormBody       []mbodyform.BodyForm
+	UrlBody        []mbodyurl.BodyURLEncoded
+	ExampleAsserts []massert.Assert
 
 	ExampleResp       mexampleresp.ExampleResp
-	ExampleRespHeader []mexampleheader.Header
-	ExampleAsserts    []massert.Assert
+	ExampleRespHeader []mexamplerespheader.ExampleRespHeader
 
 	HttpClient              httpclient.HttpClient
 	NodeRequestSideRespChan chan NodeRequestSideResp
@@ -76,6 +76,10 @@ func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApi
 		RawBody:  rawBody,
 		FormBody: formBody,
 		UrlBody:  urlBody,
+
+		ExampleResp:       ExampleResp,
+		ExampleRespHeader: ExampleRespHeader,
+		ExampleAsserts:    asserts,
 
 		HttpClient:              Httpclient,
 		NodeRequestSideRespChan: NodeRequestSideRespChan,

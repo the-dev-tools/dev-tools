@@ -154,12 +154,15 @@ type MergeExamplesOutput struct {
 	MergeUrlEncodedBody []mbodyurl.BodyURLEncoded
 }
 
+// Function will merge two examples
+// but ID will be the same as the base example
 func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	output := MergeExamplesOutput{}
 	if input.Base.ID == input.Delta.ID {
 		output.Merged = input.Base
 	} else {
 		output.Merged = input.Delta
+		output.Merged.ID = input.Base.ID
 	}
 
 	// Query
