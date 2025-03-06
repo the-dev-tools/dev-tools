@@ -87,7 +87,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 
 func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
-	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
+	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
 	var result node.FlowNodeResult
 	if trueID == nil || falseID == nil {
 		result.Err = node.ErrNodeNotFound
@@ -95,14 +95,28 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
+	a := map[string]interface{}{
+		NodeVarKey: req.VarMap,
+	}
+
 	rootLeaf := &leafmock.LeafMock{
-		Leafs: map[string]interface{}{
-			NodeVarKey: req.VarMap,
-		},
+		Leafs: a,
 	}
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
-	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, n.Value)
+
+	var val interface{}
+	// parse int, float or bool if all fails make it string
+	if v, err := strconv.ParseInt(n.Value, 0, 64); err == nil {
+		val = v
+	} else if v, err := strconv.ParseFloat(n.Value, 64); err == nil {
+		val = v
+	} else if v, err := strconv.ParseBool(n.Value); err == nil {
+		val = v
+	} else {
+		val = n
+	}
+	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, val)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
