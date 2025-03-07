@@ -41,6 +41,9 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+// TODO: this is need be switch to id based system later
+var lastHar thar.HAR
+
 type ImportRPC struct {
 	DB   *sql.DB
 	ws   sworkspace.WorkspaceService
@@ -86,25 +89,34 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 
 	data := req.Msg.Data
 
-	if !json.Valid(data) {
-		return nil, errors.New("invalid json")
-	}
-
 	collectionID := idwrap.NewNow()
 	var changes []*changev1.Change
+	resp := &importv1.ImportResponse{}
+	if len(req.Msg.Filter) == 0 {
+		if !json.Valid(data) {
+			return nil, errors.New("invalid json")
+		}
 
-	// determain the type of file
-	// can be postman, or har file
-	har, err := thar.ConvertRaw(data)
-	if err != nil {
-		return nil, err
+		// determain the type of file
+		// can be postman, or har file
+		har, err := thar.ConvertRaw(data)
+		if err != nil {
+			return nil, err
+		}
+
+		var domains []string
+		for _, entry := range har.Log.Entries {
+			domains = append(domains, entry.Request.URL)
+		}
+
+		resp.Filter = domains
+
+		lastHar = *har
+
+		return connect.NewResponse(resp), nil
 	}
 
-	resp := &importv1.ImportResponse{
-		Changes: changes,
-	}
-
-	changes, err = c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, har)
+	changes, err = c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
 	if err == nil {
 		resp.Changes = changes
 		return connect.NewResponse(resp), nil
