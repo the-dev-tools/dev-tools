@@ -13,6 +13,16 @@ declare module '@tanstack/react-table' {
   }
 }
 
+export const tableStyles = {
+  wrapper: tw`overflow-auto rounded-lg border border-slate-200`,
+  table: tw`w-full divide-inherit border-inherit text-md leading-5 text-slate-800`,
+  header: tw`divide-y divide-inherit border-b border-inherit bg-slate-50 font-medium tracking-tight`,
+  headerCell: tw`px-5 py-1.5 text-left capitalize`,
+  body: tw`divide-y divide-inherit`,
+  row: tw`divide-x divide-inherit`,
+  cell: tw`break-all align-middle`,
+};
+
 export interface DataTableProps<T>
   extends Omit<MixinProps<'wrapper', ComponentProps<'div'>>, 'children'>,
     Omit<MixinProps<'table', ComponentProps<'table'>>, 'children'>,
@@ -39,33 +49,17 @@ export const DataTable = <T,>({
   const forwardedProps = splitProps(props, 'wrapper', 'table', 'headerCell', 'header', 'row', 'cell', 'body');
 
   return (
-    <div
-      {...forwardedProps.wrapper}
-      className={twMerge(tw`overflow-auto rounded-lg border border-slate-200`, wrapperClassName)}
-    >
-      <table
-        {...forwardedProps.table}
-        className={twMerge(tw`w-full divide-inherit border-inherit text-md leading-5 text-slate-800`, tableClassName)}
-      >
-        <thead
-          {...forwardedProps.header}
-          className={twMerge(
-            tw`divide-y divide-inherit border-b border-inherit bg-slate-50 font-medium tracking-tight`,
-            headerClassName,
-          )}
-        >
+    <div {...forwardedProps.wrapper} className={twMerge(tableStyles.wrapper, wrapperClassName)}>
+      <table {...forwardedProps.table} className={twMerge(tableStyles.table, tableClassName)}>
+        <thead {...forwardedProps.header} className={twMerge(tableStyles.header, headerClassName)}>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr
-              key={headerGroup.id}
-              {...forwardedProps.row}
-              className={twMerge(tw`divide-x divide-inherit`, rowClassName)}
-            >
+            <tr key={headerGroup.id} {...forwardedProps.row} className={twMerge(tableStyles.row, rowClassName)}>
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
                   {...forwardedProps.headerCell}
                   className={twMerge(
-                    tw`px-5 py-1.5 text-left capitalize`,
+                    tableStyles.headerCell,
                     header.column.columnDef.meta?.divider === false && tw`!border-l-0`,
                     headerCellClassName,
                   )}
@@ -80,15 +74,15 @@ export const DataTable = <T,>({
             </tr>
           ))}
         </thead>
-        <tbody {...forwardedProps.body} className={twMerge(tw`divide-y divide-inherit`, bodyClassName)}>
+        <tbody {...forwardedProps.body} className={twMerge(tableStyles.body, bodyClassName)}>
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} {...forwardedProps.row} className={twMerge(tw`divide-x divide-inherit`, rowClassName)}>
+            <tr key={row.id} {...forwardedProps.row} className={twMerge(tableStyles.row, rowClassName)}>
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
                   {...forwardedProps.cell}
                   className={twMerge(
-                    tw`break-all align-middle`,
+                    tableStyles.cell,
                     cell.column.columnDef.meta?.divider === false && tw`!border-l-0`,
                     cellClassName,
                   )}

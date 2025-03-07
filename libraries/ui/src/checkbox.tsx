@@ -27,13 +27,11 @@ const rootStyles = tv({
 
 const boxStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex size-4 flex-none cursor-pointer items-center justify-center rounded border p-0.5 text-white transition-colors`,
+  base: tw`flex size-4 flex-none cursor-pointer items-center justify-center rounded border border-slate-200 bg-white p-0.5 text-white transition-colors`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
-    isSelected: {
-      false: tw`border-slate-200 bg-white`,
-      true: tw`border-violet-600 bg-violet-600`,
-    },
+    isIndeterminate: { true: tw`border-violet-600 bg-violet-600` },
+    isSelected: { true: tw`border-violet-600 bg-violet-600` },
   },
 });
 
@@ -61,6 +59,25 @@ export const Checkbox = forwardRef(
         {composeRenderProps(children, (children, renderProps) => (
           <>
             <div className={boxStyles({ className: boxClassName, ...renderProps })} {...forwardedProps.box}>
+              {renderProps.isIndeterminate && (
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  width='1em'
+                  height='1em'
+                  fill='none'
+                  viewBox='0 0 10 2'
+                  {...forwardedProps.indicator}
+                >
+                  <path
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={1.5}
+                    d='M1 1h8.315'
+                  />
+                </svg>
+              )}
+
               {renderProps.isSelected && (
                 <svg
                   xmlns='http://www.w3.org/2000/svg'
