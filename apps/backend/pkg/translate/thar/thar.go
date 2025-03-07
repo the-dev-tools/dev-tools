@@ -188,7 +188,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	// Process each entry in the HAR file
 	for _, entry := range har.Log.Entries {
 		// Only process XHR requests.
-		if !isXHRRequest(entry) {
+		if !IsXHRRequest(entry) {
 			continue
 		}
 
@@ -373,7 +373,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 }
 
 // Helper: returns true if the HAR entry is for an XHR request.
-func isXHRRequest(entry Entry) bool {
+func IsXHRRequest(entry Entry) bool {
 	// Check the X-Requested-With header – common for XHR.
 	for _, header := range entry.Request.Headers {
 		if strings.EqualFold(header.Name, "X-Requested-With") &&

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/dbtime"
@@ -106,14 +108,46 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 
 		var domains []string
 		for _, entry := range har.Log.Entries {
-			domains = append(domains, entry.Request.URL)
+			if thar.IsXHRRequest(entry) {
+				urlData, err := url.Parse(entry.Request.URL)
+				if err != nil {
+					return nil, err
+				}
+				domains = append(domains, fmt.Sprintf("%s://%s%s", urlData.Scheme, urlData.Host, urlData.Path))
+			}
 		}
 
+		resp.Kind = importv1.ImportKind_IMPORT_KIND_FILTER
 		resp.Filter = domains
 
 		lastHar = *har
 
 		return connect.NewResponse(resp), nil
+	} else {
+		var filteredEntries []thar.Entry
+		urlMap := make(map[string][]thar.Entry)
+		for _, entry := range lastHar.Log.Entries {
+			if thar.IsXHRRequest(entry) {
+				urlData, err := url.Parse(entry.Request.URL)
+				if err != nil {
+					return nil, err
+				}
+				fullPath := fmt.Sprintf("%s://%s%s", urlData.Scheme, urlData.Host, urlData.Path)
+				a, ok := urlMap[fullPath]
+				if ok {
+					a = make([]thar.Entry, 0)
+				}
+				a = append(a, entry)
+				urlMap[fullPath] = a
+			}
+		}
+		for _, filter := range req.Msg.Filter {
+			entry, ok := urlMap[filter]
+			if ok {
+				filteredEntries = append(filteredEntries, entry...)
+			}
+		}
+		lastHar.Log.Entries = filteredEntries
 	}
 
 	changes, err = c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
