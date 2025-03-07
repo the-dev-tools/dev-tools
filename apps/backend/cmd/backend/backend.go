@@ -20,6 +20,7 @@ import (
 	"the-dev-tools/backend/internal/api/renv"
 	"the-dev-tools/backend/internal/api/resultapi"
 	"the-dev-tools/backend/internal/api/rflow"
+	"the-dev-tools/backend/internal/api/rimport"
 	"the-dev-tools/backend/internal/api/ritemapi"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/internal/api/ritemfolder"
@@ -168,9 +169,9 @@ func main() {
 	logMap := logconsole.NewLogChanMap()
 
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
+	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
+	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
 	if dbMode != devtoolsdb.LOCAL {
-		optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
-		optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
 		// optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
 		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	} else {
@@ -325,6 +326,9 @@ func main() {
 	// Refernce Service
 	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, us, ws, es, vs, ers, erhs, fs, ns, rns, fes)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
+
+	importServiceRPC := rimport.New(currentDB, ws, cs, us, ifs, ias, iaes, res)
+	newServiceManager.AddService(rimport.CreateService(importServiceRPC, opitonsAll))
 
 	// Start services
 	go func() {

@@ -109,6 +109,7 @@ func ConvertRaw(data []byte) (*HAR, error) {
 	var harFile HAR
 	err := json.Unmarshal(data, &harFile)
 	if err != nil {
+		// check if json field not found
 		return nil, err
 	}
 	return &harFile, nil
