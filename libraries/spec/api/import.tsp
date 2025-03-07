@@ -23,6 +23,8 @@ enum ImportKind {
 
 @autoFields
 model ImportRequest {
+  workspaceId: Resource.Id;
+  name: string;
   kind: ImportKind;
   data: bytes;
   filter?: string[];
