@@ -71,10 +71,12 @@ export const ImportDialog = () => {
         const file = files?.[0];
         if (!file) return;
 
+        const data = pipe(await file.arrayBuffer(), (_) => new Uint8Array(_));
+
         const result = await importMutation.mutateAsync({
           workspaceId,
           name: file.name,
-          data: await file.bytes(),
+          data,
         });
 
         if (result.kind === ImportKind.FILTER) setFilters(result.filter);
@@ -134,6 +136,8 @@ export const ImportDialog = () => {
         const file = files?.[0];
         if (!file) return;
 
+        const data = pipe(await file.arrayBuffer(), (_) => new Uint8Array(_));
+
         const finalFilters =
           selectedFilters === 'all'
             ? filters
@@ -147,7 +151,7 @@ export const ImportDialog = () => {
           kind: ImportKind.FILTER,
           workspaceId,
           name: file.name,
-          data: await file.bytes(),
+          data,
           filter: finalFilters,
         });
 
