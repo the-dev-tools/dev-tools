@@ -34,7 +34,7 @@ type AssertCouple struct {
 	AssertRes massertres.AssertResult
 }
 
-func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, currentHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert) (*ResponseCreateOutput, error) {
+func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert) (*ResponseCreateOutput, error) {
 	ResponseCreateOutput := ResponseCreateOutput{}
 	respHttp := r.HttpResp
 	lapse := r.LapTime
@@ -58,18 +58,27 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
 	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
 	taskDeleteHeaders := make([]idwrap.IDWrap, 0)
+
+	// Create a map for quick lookup of current headers by key
+	headerMap := make(map[string]mexamplerespheader.ExampleRespHeader, len(lastResonseHeaders))
+	headerProcessed := make(map[string]struct{}, len(lastResonseHeaders))
+
+	for _, header := range lastResonseHeaders {
+		headerMap[header.HeaderKey] = header
+	}
+
 	for _, respHeader := range respHttp.Headers {
-		found := false
-		for _, dbHeader := range currentHeaders {
-			if dbHeader.HeaderKey == respHeader.HeaderKey {
-				found = true
-				if dbHeader.Value != respHeader.Value {
-					dbHeader.Value = respHeader.Value
-					taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
-				}
+		dbHeader, found := headerMap[respHeader.HeaderKey]
+		headerProcessed[respHeader.HeaderKey] = struct{}{}
+
+		if found {
+			// Update existing header if values differ
+			if dbHeader.Value != respHeader.Value {
+				dbHeader.Value = respHeader.Value
+				taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
 			}
-		}
-		if !found {
+		} else {
+			// Create new header if not found
 			taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
 				ID:            idwrap.NewNow(),
 				ExampleRespID: exampleResp.ID,
@@ -79,22 +88,15 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 		}
 	}
 
-	ResponseCreateOutput.CreateHeaders = taskCreateHeaders
-	ResponseCreateOutput.UpdateHeaders = taskUpdateHeaders
-
-	for _, dbHeader := range currentHeaders {
-		found := false
-		for _, respHeader := range respHttp.Headers {
-			if dbHeader.HeaderKey == respHeader.HeaderKey {
-				found = true
-				break
-			}
-		}
-		if !found {
-			taskDeleteHeaders = append(taskDeleteHeaders, dbHeader.ID)
+	for _, header := range lastResonseHeaders {
+		_, ok := headerProcessed[header.HeaderKey]
+		if !ok {
+			taskDeleteHeaders = append(taskDeleteHeaders, header.ID)
 		}
 	}
 
+	ResponseCreateOutput.CreateHeaders = taskCreateHeaders
+	ResponseCreateOutput.UpdateHeaders = taskUpdateHeaders
 	ResponseCreateOutput.DeleteHeaderIds = taskDeleteHeaders
 
 	var resultArr []AssertCouple

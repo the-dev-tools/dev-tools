@@ -127,7 +127,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, resp.HttpResp.Headers, nr.ExampleAsserts)
+	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, nr.ExampleRespHeader, nr.ExampleAsserts)
 	if err != nil {
 		result.Err = err
 		return result
@@ -186,7 +186,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, resp.HttpResp.Headers, nr.ExampleAsserts)
+	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, nr.ExampleRespHeader, nr.ExampleAsserts)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
