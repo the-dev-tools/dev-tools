@@ -1,3 +1,4 @@
+import { getRouteApi } from '@tanstack/react-router';
 import { Array, Option, pipe } from 'effect';
 import { useState } from 'react';
 import {
@@ -25,7 +26,11 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+
 export const ImportDialog = () => {
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
   const [isOpen, setOpen] = useState(false);
   const [files, setFiles] = useState<File[]>();
   const [filters, setFilters] = useState<string[]>();
@@ -65,7 +70,13 @@ export const ImportDialog = () => {
       onPress={async () => {
         const file = files?.[0];
         if (!file) return;
-        const result = await importMutation.mutateAsync({ data: await file.bytes() });
+
+        const result = await importMutation.mutateAsync({
+          workspaceId,
+          name: file.name,
+          data: await file.bytes(),
+        });
+
         if (result.kind === ImportKind.FILTER) setFilters(result.filter);
         else onOpenChange(false);
       }}
@@ -134,6 +145,8 @@ export const ImportDialog = () => {
 
         await importMutation.mutateAsync({
           kind: ImportKind.FILTER,
+          workspaceId,
+          name: file.name,
           data: await file.bytes(),
           filter: finalFilters,
         });
