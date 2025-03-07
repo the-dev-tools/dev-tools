@@ -3,17 +3,13 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
-import { Button as AriaButton, FileTrigger, ListBox, MenuTrigger, Text } from 'react-aria-components';
+import { ListBox, MenuTrigger, Text } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 
 import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
-import {
-  collectionCreate,
-  collectionImportHar,
-  collectionImportPostman,
-} from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { collectionCreate } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import {
   flowCreate,
@@ -24,7 +20,7 @@ import {
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
-import { CollectionIcon, FileImportIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
+import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -57,11 +53,6 @@ function Layout() {
   const { workspaceIdCan } = Route.useParams();
 
   const collectionCreateMutation = useConnectMutation(collectionCreate);
-  const collectionImportPostmanMutation = useConnectMutation(collectionImportPostman);
-  const collectionImportHarMutation = useConnectMutation(collectionImportHar);
-
-  const postmanFileTriggerRef = useRef<HTMLInputElement>(null);
-  const harFileTriggerRef = useRef<HTMLInputElement>(null);
 
   const { data: workspace } = useConnectSuspenseQuery(workspaceGet, { workspaceId });
 
@@ -133,42 +124,6 @@ function Layout() {
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-slate-500`} />
               <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
-
-              <MenuTrigger>
-                <Button className={tw`p-0.5`} variant='ghost'>
-                  <FileImportIcon className={tw`size-4 text-slate-500`} />
-                </Button>
-
-                <Menu popoverPlacement='bottom'>
-                  <MenuItem onAction={() => void postmanFileTriggerRef.current?.click()}>Postman</MenuItem>
-
-                  <MenuItem onAction={() => void harFileTriggerRef.current?.click()}>HAR</MenuItem>
-                </Menu>
-              </MenuTrigger>
-
-              <FileTrigger
-                ref={postmanFileTriggerRef}
-                onSelect={async (_) => {
-                  const file = _?.item(0);
-                  if (!file) return;
-                  const data = new Uint8Array(await file.arrayBuffer());
-                  collectionImportPostmanMutation.mutate({ workspaceId, name: file.name, data });
-                }}
-              >
-                <AriaButton className={tw`hidden`} />
-              </FileTrigger>
-
-              <FileTrigger
-                ref={harFileTriggerRef}
-                onSelect={async (_) => {
-                  const file = _?.item(0);
-                  if (!file) return;
-                  const data = new Uint8Array(await file.arrayBuffer());
-                  collectionImportHarMutation.mutate({ workspaceId, name: file.name, data });
-                }}
-              >
-                <AriaButton className={tw`hidden`} />
-              </FileTrigger>
 
               <Button
                 className={tw`bg-slate-200 p-0.5`}
