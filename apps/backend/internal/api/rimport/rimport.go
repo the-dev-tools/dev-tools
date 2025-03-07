@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/url"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
@@ -113,7 +112,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				if err != nil {
 					return nil, err
 				}
-				domains = append(domains, fmt.Sprintf("%s://%s%s", urlData.Scheme, urlData.Host, urlData.Path))
+				domains = append(domains, urlData.Host)
 			}
 		}
 
@@ -132,13 +131,13 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				if err != nil {
 					return nil, err
 				}
-				fullPath := fmt.Sprintf("%s://%s%s", urlData.Scheme, urlData.Host, urlData.Path)
-				a, ok := urlMap[fullPath]
+				host := urlData.Host
+				a, ok := urlMap[host]
 				if ok {
 					a = make([]thar.Entry, 0)
 				}
 				a = append(a, entry)
-				urlMap[fullPath] = a
+				urlMap[host] = a
 			}
 		}
 		for _, filter := range req.Msg.Filter {
