@@ -713,9 +713,9 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	var changes []*changev1.Change
 	if isExampleRespExists {
 		exampleResp.Body = responseOutput.BodyRaw
-		changes, err = handleResponseUpdate(exampleResp, assertions, assertResults, requestResp.HttpResp.Headers)
+		changes, err = HandleResponseUpdate(exampleResp, assertions, assertResults, requestResp.HttpResp.Headers)
 	} else {
-		changes, err = handleResponseCreate(example.ID, exampleResp.ID)
+		changes, err = HandleResponseCreate(example.ID, exampleResp.ID)
 	}
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1045,7 +1045,7 @@ func createChange(data proto.Message, kind changev1.ChangeKind) (*changev1.Chang
 	}, nil
 }
 
-func handleResponseUpdate(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult, headers []mexamplerespheader.ExampleRespHeader) ([]*changev1.Change, error) {
+func HandleResponseUpdate(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult, headers []mexamplerespheader.ExampleRespHeader) ([]*changev1.Change, error) {
 	// Create and add change response
 	changeResp, err := createChangeResponse(exampleResp)
 	if err != nil {
@@ -1076,7 +1076,7 @@ func handleResponseUpdate(exampleResp *mexampleresp.ExampleResp, assertions []ma
 	return []*changev1.Change{change, assertChange, headerChange}, nil
 }
 
-func handleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.Change, error) {
+func HandleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.Change, error) {
 	exampleChange := &examplev1.ExampleChange{
 		ExampleId:      exampleID.Bytes(),
 		LastResponseId: exampleRespID.Bytes(),

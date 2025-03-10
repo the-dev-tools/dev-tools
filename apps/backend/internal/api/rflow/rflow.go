@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/ritemapiexample"
@@ -61,6 +62,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
@@ -505,7 +507,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.IterCount, time.Second)
 	}
 
-	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1000)
+	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
 	for _, requestNode := range requestNodes {
 
 		// Base Request
@@ -669,6 +671,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// this will fill on go routine and we will use to update db after run
+	var NodeRequestSideRespArr []nrequest.NodeRequestSideResp
+
 	done := make(chan error, 1)
 	updateNodeChan := make(chan mnnode.MNode, 1000)
 	go func() {
@@ -682,10 +687,42 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				done <- localErr
 				return
 			}
-			resp := &flowv1.FlowRunResponse{
-				NodeId: flowNodeStatus.NodeID.Bytes(),
-				State:  nodev1.NodeState(flowNodeStatus.State),
+
+			var changes []*changev1.Change
+
+			select {
+			case requestNodeResp := <-requestNodeRespChan:
+				outputResp := requestNodeResp.Resp
+
+				totalAssert := len(requestNodeResp.Resp.AssertCouples)
+				assertResults := make([]massertres.AssertResult, totalAssert)
+				asserts := make([]massert.Assert, totalAssert)
+				for _, assertCouple := range requestNodeResp.Resp.AssertCouples {
+					assertResults = append(assertResults, assertCouple.AssertRes)
+					asserts = append(asserts, assertCouple.Assert)
+				}
+
+				updateHeaders := outputResp.UpdateHeaders
+				createHeaders := outputResp.CreateHeaders
+
+				fullHeaders := append(updateHeaders, createHeaders...)
+
+				changes, err = ritemapiexample.HandleResponseUpdate(&outputResp.ExampleResp, asserts, assertResults, fullHeaders)
+				if err != nil {
+					log.Println("error", err)
+					return
+				}
+
+				NodeRequestSideRespArr = append(NodeRequestSideRespArr, requestNodeResp)
+			default:
 			}
+
+			resp := &flowv1.FlowRunResponse{
+				NodeId:  flowNodeStatus.NodeID.Bytes(),
+				State:   nodev1.NodeState(flowNodeStatus.State),
+				Changes: changes,
+			}
+
 			nodeStateData := mnnode.MNode{
 				ID:        id,
 				State:     flowNodeStatus.State,
@@ -772,93 +809,100 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	for requestNodeResp := range requestNodeRespChan {
-
-		FullHeaders := append(requestNodeResp.Resp.CreateHeaders, requestNodeResp.Resp.UpdateHeaders...)
-
-		var assertResults []massertres.AssertResult
-		var assert []massert.Assert
-		for _, assertCouple := range requestNodeResp.Resp.AssertCouples {
-			assertResults = append(assertResults, assertCouple.AssertRes)
-			assert = append(assert, assertCouple.Assert)
-		}
-
-		example := requestNodeResp.Example
-		endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
+	for _, requestNodeResp := range NodeRequestSideRespArr {
+		err = c.HandleExampleChanges(ctx, requestNodeResp)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get endpoint: %w", err))
+			return fmt.Errorf("handle example changes failed with: %s", err.Error())
 		}
+	}
 
-		endpoint.VersionParentID = &endpoint.ID
-		endpointNewID := idwrap.NewNow()
-		endpoint.ID = endpointNewID
+	return nil
+}
 
-		err = c.ias.CreateItemApi(ctx, endpoint)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy endpoint: %w", err))
-		}
+func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeResp nrequest.NodeRequestSideResp) error {
+	FullHeaders := append(requestNodeResp.Resp.CreateHeaders, requestNodeResp.Resp.UpdateHeaders...)
 
-		example.VersionParentID = &example.ID
+	var assertResults []massertres.AssertResult
+	var assert []massert.Assert
+	for _, assertCouple := range requestNodeResp.Resp.AssertCouples {
+		assertResults = append(assertResults, assertCouple.AssertRes)
+		assert = append(assert, assertCouple.Assert)
+	}
 
-		// TODO: should use same transaction as flow
-		tx2, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
-		if err != nil {
-			return fmt.Errorf("begin transaction: %w", err)
-		}
-		defer tx2.Rollback()
+	example := requestNodeResp.Example
+	endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
+	if err != nil {
+		return err
+	}
 
-		txExampleResp, err := sexampleresp.NewTX(ctx, tx2)
+	endpoint.VersionParentID = &endpoint.ID
+	endpointNewID := idwrap.NewNow()
+	endpoint.ID = endpointNewID
+
+	err = c.ias.CreateItemApi(ctx, endpoint)
+	if err != nil {
+		return err
+	}
+
+	example.VersionParentID = &example.ID
+
+	// TODO: should use same transaction as flow
+	tx2, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx2.Rollback()
+
+	txExampleResp, err := sexampleresp.NewTX(ctx, tx2)
+	if err != nil {
+		return err
+	}
+
+	err = txExampleResp.UpdateExampleResp(ctx, requestNodeResp.Resp.ExampleResp)
+	if err != nil {
+		return err
+	}
+
+	txHeaderResp, err := sexamplerespheader.NewTX(ctx, tx2)
+	if err != nil {
+		return err
+	}
+
+	for _, header := range requestNodeResp.Resp.CreateHeaders {
+		err = txHeaderResp.CreateExampleRespHeader(ctx, header)
 		if err != nil {
 			return err
 		}
-
-		err = txExampleResp.UpdateExampleResp(ctx, requestNodeResp.Resp.ExampleResp)
+	}
+	for _, header := range requestNodeResp.Resp.UpdateHeaders {
+		err = txHeaderResp.UpdateExampleRespHeader(ctx, header)
 		if err != nil {
 			return err
 		}
-
-		txHeaderResp, err := sexamplerespheader.NewTX(ctx, tx2)
+	}
+	for _, headerID := range requestNodeResp.Resp.DeleteHeaderIds {
+		err = txHeaderResp.DeleteExampleRespHeader(ctx, headerID)
 		if err != nil {
 			return err
 		}
+	}
 
-		for _, header := range requestNodeResp.Resp.CreateHeaders {
-			err = txHeaderResp.CreateExampleRespHeader(ctx, header)
-			if err != nil {
-				return err
-			}
-		}
-		for _, header := range requestNodeResp.Resp.UpdateHeaders {
-			err = txHeaderResp.UpdateExampleRespHeader(ctx, header)
-			if err != nil {
-				return err
-			}
-		}
-		for _, headerID := range requestNodeResp.Resp.DeleteHeaderIds {
-			err = txHeaderResp.DeleteExampleRespHeader(ctx, headerID)
-			if err != nil {
-				return err
-			}
-		}
+	res, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
+		requestNodeResp.Queries, requestNodeResp.Headers, assert,
+		&requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
+		&requestNodeResp.Resp.ExampleResp, FullHeaders, assertResults)
+	if err != nil {
+		return err
+	}
 
-		res, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
-			requestNodeResp.Queries, requestNodeResp.Headers, assert,
-			&requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
-			&requestNodeResp.Resp.ExampleResp, FullHeaders, assertResults)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
-		}
+	err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
+	if err != nil {
+		return err
+	}
 
-		err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to copy example: %w", err))
-		}
-
-		err = tx2.Commit()
-		if err != nil {
-			return fmt.Errorf("commit transaction: %w", err)
-		}
-
+	err = tx2.Commit()
+	if err != nil {
+		return err
 	}
 
 	return nil
