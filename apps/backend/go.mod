@@ -16,6 +16,7 @@ require (
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	golang.org/x/net v0.33.0
 	google.golang.org/protobuf v1.36.4
+	rogchap.com/v8go v0.9.0
 )
 
 require (
@@ -31,5 +32,4 @@ require (
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	rogchap.com/v8go v0.9.0 // indirect
 )
