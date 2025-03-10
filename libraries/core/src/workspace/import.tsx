@@ -170,7 +170,7 @@ export const ImportDialog = () => {
 
       <Modal modalSize='sm'>
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-none`}>
-          <div className={tw`flex h-full min-h-0 flex-1 flex-col p-6`}>
+          <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>
               <div className={tw`text-xl font-semibold leading-6 tracking-tighter text-slate-800`}>
                 Import Collections and Flows
