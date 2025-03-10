@@ -61,6 +61,7 @@ model FlowRunRequest {
 model FlowRunResponse {
   ...KeyOf<FlowItem.Node.Node>;
   state: FlowItem.Node.NodeState;
+  ...API.Change.Changes;
 }
 
 @Protobuf.service
