@@ -59,7 +59,7 @@ export const ImportDialog = () => {
 
       {/* <TextField className={tw`mt-4`} inputPlaceholder='Paste cURL, Raw text or URL...' /> */}
 
-      <FileDropZone dropZoneClassName={tw`mt-4 flex-1`} onChange={setFiles} files={files} allowsMultiple />
+      <FileDropZone dropZoneClassName={tw`mt-4 flex-1`} onChange={setFiles} files={files} />
     </>
   );
 
