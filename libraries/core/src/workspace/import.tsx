@@ -94,7 +94,7 @@ export const ImportDialog = () => {
         import.
       </div>
 
-      <div className={twMerge(tableStyles.wrapper, tw`mt-4`)}>
+      <div className={twMerge(tableStyles.wrapper, tw`mt-4 flex-1`)}>
         <Table
           selectedKeys={selectedFilters}
           onSelectionChange={setSelectedFilters}
@@ -102,7 +102,7 @@ export const ImportDialog = () => {
           selectionMode='multiple'
           className={tableStyles.table}
         >
-          <TableHeader className={twMerge(tableStyles.header, tableStyles.row)}>
+          <TableHeader className={twMerge(tableStyles.header, tableStyles.row, tw`sticky top-0 z-10`)}>
             <Column className={twMerge(tableStyles.headerCell, tw`!w-0 min-w-0 px-2`)}>
               <Checkbox variant='table-cell' slot='selection' />
             </Column>
@@ -170,7 +170,7 @@ export const ImportDialog = () => {
 
       <Modal modalSize='sm'>
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-none`}>
-          <div className={tw`flex h-full flex-col p-6`}>
+          <div className={tw`flex h-full min-h-0 flex-1 flex-col p-6`}>
             <div className={tw`flex items-center justify-between`}>
               <div className={tw`text-xl font-semibold leading-6 tracking-tighter text-slate-800`}>
                 Import Collections and Flows
