@@ -42,7 +42,8 @@ import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import { FlowContext, flowRoute, useSetSelectedNodes } from './internal';
+import { FlowContext, flowRoute } from './internal';
+import { FlowSearch } from './layout';
 
 export { NodeDTOSchema, type NodeDTO };
 
@@ -72,7 +73,8 @@ export const Node = {
 };
 
 const nodeBaseStyles = tv({
-  base: tw`w-80 rounded-lg border bg-slate-200 p-1 shadow-sm transition-colors`,
+  // eslint-disable-next-line tailwindcss/no-custom-classname
+  base: tw`nopan w-80 rounded-lg border bg-slate-200 p-1 shadow-sm transition-colors`,
   variants: {
     state: {
       [NodeState.UNSPECIFIED]: tw`border-slate-300`,
@@ -94,8 +96,6 @@ interface NodeBaseProps extends NodeProps {
 export const NodeBase = ({ id, data: { state }, Icon, title, children, selected }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
-
-  const setSelectedNodes = useSetSelectedNodes();
 
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -133,7 +133,7 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children, selected 
             </Button>
 
             <Menu {...menuProps}>
-              <MenuItem onAction={() => void setSelectedNodes([id])}>Edit</MenuItem>
+              <MenuItem href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}>Edit</MenuItem>
 
               <MenuItem>Rename</MenuItem>
 

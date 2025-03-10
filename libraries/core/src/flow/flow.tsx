@@ -2,7 +2,7 @@ import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect, useMatchRoute, useRouteContext } from '@tanstack/react-router';
+import { createFileRoute, redirect, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import {
   Background,
   BackgroundVariant,
@@ -40,7 +40,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
-import { FlowContext, flowRoute, HandleKind, HandleKindSchema, useSelectedNodeId, workspaceRoute } from './internal';
+import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -148,6 +148,8 @@ const maxZoom = 2;
 const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
   const { addNodes, addEdges, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
   const { isReadOnly = false } = use(FlowContext);
+
+  const navigate = useNavigate();
 
   const onEdgesChange = useOnEdgesChange();
   const onNodesChange = useOnNodesChange();
@@ -258,6 +260,7 @@ const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
       onConnect={onConnect}
       onConnectEnd={onConnectEnd}
       onBeforeDelete={onBeforeDelete}
+      onNodeDoubleClick={(_, node) => void navigate({ to: '.', search: (_) => ({ ..._, node: node.id }) })}
       nodesConnectable={!isReadOnly}
       nodesDraggable={!isReadOnly}
       selectNodesOnDrag={false}
@@ -458,12 +461,15 @@ const ActionBar = () => {
 
 export const EditPanel = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
+  const { nodeId } = flowRoute.useLoaderData();
 
-  const selectedNodeId = useSelectedNodeId();
+  const nodeQuery = useConnectQuery(
+    nodeGet,
+    { nodeId: Option.getOrUndefined(nodeId)! },
+    { enabled: Option.isSome(nodeId) },
+  );
 
-  const nodeQuery = useConnectQuery(nodeGet, { nodeId: selectedNodeId! }, { enabled: selectedNodeId !== undefined });
-
-  if (!selectedNodeId || !nodeQuery.data) return null;
+  if (Option.isNone(nodeId) || !nodeQuery.data) return null;
 
   const view = pipe(
     Match.value(nodeQuery.data.kind),
@@ -477,7 +483,7 @@ export const EditPanel = () => {
   if (!view) return null;
 
   return (
-    <ReferenceContext value={{ nodeId: selectedNodeId, workspaceId }}>
+    <ReferenceContext value={{ nodeId: nodeId.value, workspaceId }}>
       <PanelResizeHandle direction='vertical' />
       <Panel id='node' order={2} defaultSize={40} className={tw`!overflow-auto`}>
         <Suspense

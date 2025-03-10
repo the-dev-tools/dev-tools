@@ -7,7 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
-import { Button } from '@the-dev-tools/ui/button';
+import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
@@ -16,25 +16,24 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { ConditionField } from '../../condition';
 import { ReferenceField } from '../../reference';
-import { FlowContext, Handle, HandleKindJson, useSetSelectedNodes } from '../internal';
+import { FlowContext, Handle, HandleKindJson } from '../internal';
+import { FlowSearch } from '../layout';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const ForEachNode = (props: NodeProps) => {
   const { id } = props;
 
-  const setSelectedNodes = useSetSelectedNodes();
-
   return (
     <>
       <NodeBase {...props} Icon={ForIcon} title='For Each Loop'>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
-          <Button
+          <ButtonAsLink
             className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}
-            onPress={() => void setSelectedNodes([id])}
+            href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}
           >
             <CheckListAltIcon className={tw`size-5 text-slate-500`} />
             <span>Edit Loop</span>
-          </Button>
+          </ButtonAsLink>
         </div>
       </NodeBase>
 
@@ -59,8 +58,6 @@ export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
   const { isReadOnly = false } = use(FlowContext);
 
-  const setSelectedNodes = useSetSelectedNodes();
-
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
 
   const update = useDebouncedCallback(async () => {
@@ -84,9 +81,13 @@ export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
 
         <div className={tw`flex-1`} />
 
-        <Button variant='ghost' className={tw`p-1`} onPress={() => void setSelectedNodes()}>
+        <ButtonAsLink
+          variant='ghost'
+          className={tw`p-1`}
+          href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }) }}
+        >
           <FiX className={tw`size-5 text-slate-500`} />
-        </Button>
+        </ButtonAsLink>
       </div>
 
       <div className={tw`m-5 grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
