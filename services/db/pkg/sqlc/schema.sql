@@ -398,7 +398,7 @@ CREATE TABLE flow_node_js (
   code BLOB NOT NULL,
   code_compress_type INT8 NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE migration (
   id BLOB NOT NULL PRIMARY KEY,
