@@ -1,6 +1,7 @@
 import "@typespec/protobuf";
 
 import "../lib";
+import "./reference.tsp";
 import "./resource.tsp";
 
 using TypeSpec.Protobuf;
@@ -17,6 +18,7 @@ namespace API.Log;
 model LogStreamResponse {
   @key logId: Resource.Id;
   value: string;
+  references: Reference.Reference[];
 }
 
 @Protobuf.service
