@@ -95,7 +95,7 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 }
 
 func ConvertAnyToRefViaJSON(m interface{}, key string) (Reference, error) {
-	var mapRef map[string]interface{}
+	var mapRef map[string]any
 	data, err := json.Marshal(m)
 	if err != nil {
 		return Reference{}, err

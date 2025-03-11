@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -707,18 +708,20 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 
-			ref, localErr := reference.ConvertAnyToRefViaJSON(flowNodeStatus, idStr)
-			if err != nil {
-				done <- localErr
-				return
-			}
-			refs := []reference.Reference{ref}
+			go func() {
+				ref, localErr := reference.ConvertAnyToRefViaJSON(flowNodeStatus, idStr)
+				if err != nil {
+					done <- localErr
+					return
+				}
+				refs := []reference.Reference{ref}
 
-			localErr = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr), refs)
-			if localErr != nil {
-				done <- localErr
-				return
-			}
+				localErr = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr), refs)
+				if localErr != nil {
+					done <- localErr
+					return
+				}
+			}()
 
 			var changes []*changev1.Change
 
@@ -755,10 +758,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				Changes: changes,
 			}
 
+			data, localErr := json.Marshal(flowNodeStatus.OutputData)
+			if localErr != nil {
+				done <- err
+				return
+			}
+
 			nodeStateData := mnnode.MNode{
 				ID:        id,
 				State:     flowNodeStatus.State,
-				StateData: flowNodeStatus.OutputData,
+				StateData: data,
 			}
 			updateNodeChan <- nodeStateData
 			localErr = stream.Send(resp)

@@ -2,7 +2,6 @@ package flowlocalrunner
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -291,11 +290,7 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		outputData, ok := req.VarMap[node.NodeVarPrefix+id.String()]
 		if ok {
 			// TODO: change json.Marshal to faster json implementation
-			outputDataBytes, err := json.Marshal(outputData)
-			if err != nil {
-				return nil, err
-			}
-			status.OutputData = outputDataBytes
+			status.OutputData = outputData
 		}
 
 		status.State = mnnode.NODE_STATE_SUCCESS
