@@ -105,19 +105,24 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			return nil, err
 		}
 
-		var domains []string
+		domains := make(map[string]struct{}, len(har.Log.Entries))
 		for _, entry := range har.Log.Entries {
 			if thar.IsXHRRequest(entry) {
 				urlData, err := url.Parse(entry.Request.URL)
 				if err != nil {
 					return nil, err
 				}
-				domains = append(domains, urlData.Host)
+				domains[urlData.Host] = struct{}{}
 			}
 		}
 
 		resp.Kind = importv1.ImportKind_IMPORT_KIND_FILTER
-		resp.Filter = domains
+		keys := make([]string, 0, len(domains))
+		for k := range domains {
+			keys = append(keys, k)
+		}
+
+		resp.Filter = keys
 
 		lastHar = *har
 
@@ -133,7 +138,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				}
 				host := urlData.Host
 				a, ok := urlMap[host]
-				if ok {
+				if !ok {
 					a = make([]thar.Entry, 0)
 				}
 				a = append(a, entry)
