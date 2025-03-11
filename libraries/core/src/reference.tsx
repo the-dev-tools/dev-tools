@@ -35,7 +35,7 @@ import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
 import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
-const makeId = (keys: ReferenceKey[]) =>
+export const makeReferenceTreeId = (keys: ReferenceKey[]) =>
   pipe(
     keys.map((_) => toJson(ReferenceKeySchema, _)),
     JSON.stringify,
@@ -69,7 +69,7 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
         onSelect?.(keys);
       }}
     >
-      {(_) => <ReferenceTreeItem id={makeId([_.key!])} reference={_} parentKeys={[]} />}
+      {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} reference={_} parentKeys={[]} />}
     </AriaTree>
   );
 };
@@ -96,7 +96,7 @@ interface ReferenceTreeItemProps {
   parentKeys: ReferenceKey[];
 }
 
-const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps) => {
+export const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps) => {
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
@@ -188,7 +188,7 @@ const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps
 
       {items && (
         <AriaCollection items={items}>
-          {(_) => <ReferenceTreeItem id={makeId([...keys, _.key!])} reference={_} parentKeys={keys} />}
+          {(_) => <ReferenceTreeItem id={makeReferenceTreeId([...keys, _.key!])} reference={_} parentKeys={keys} />}
         </AriaCollection>
       )}
     </TreeItemRoot>

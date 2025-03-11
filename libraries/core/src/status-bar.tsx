@@ -5,16 +5,23 @@ import { getRouteApi } from '@tanstack/react-router';
 import { Array } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo } from 'react';
+import {
+  Collection as AriaCollection,
+  UNSTABLE_Tree as AriaTree,
+  UNSTABLE_TreeItemContent as AriaTreeItemContent,
+} from 'react-aria-components';
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
-import { twMerge } from 'tailwind-merge';
+import { twJoin, twMerge } from 'tailwind-merge';
 
 import { LogService, LogStreamResponse } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
-import { ArrowToLeftIcon } from '@the-dev-tools/ui/icons';
+import { ArrowToLeftIcon, ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 
+import { makeReferenceTreeId, ReferenceTreeItem } from './reference';
 import type { WorkspaceRouteSearch } from './workspace/layout';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -122,17 +129,38 @@ export const StatusBar = () => {
       {bar}
 
       {showLogs && (
-        <Panel id='status' order={100} className={tw`p-4 pt-0`}>
-          <div
-            className={tw`flex size-full flex-col-reverse overflow-auto rounded-md border border-slate-200 bg-slate-800 p-3 font-mono text-sm leading-5 text-slate-200 shadow-sm`}
-          >
+        <Panel id='status' order={100}>
+          <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
             <div>
               {logs.map((_) => {
                 const ulid = Ulid.construct(_.logId);
                 return (
-                  <div key={ulid.toCanonical()}>
-                    {ulid.time.toLocaleTimeString()}: {_.value}
-                  </div>
+                  <AriaTree key={ulid.toCanonical()} aria-label={_.value}>
+                    <TreeItemRoot textValue={_.value}>
+                      <AriaTreeItemContent>
+                        {({ isExpanded }) => (
+                          <TreeItemWrapper level={0} className={tw`flex-wrap gap-1`}>
+                            <Button variant='ghost' slot='chevron' className={tw`p-1`}>
+                              <ChevronSolidDownIcon
+                                className={twJoin(
+                                  tw`size-3 text-slate-500 transition-transform`,
+                                  !isExpanded ? tw`rotate-0` : tw`rotate-90`,
+                                )}
+                              />
+                            </Button>
+
+                            <div className={tw`font-mono text-sm text-slate-800`}>
+                              {ulid.time.toLocaleTimeString()}: {_.value}
+                            </div>
+                          </TreeItemWrapper>
+                        )}
+                      </AriaTreeItemContent>
+
+                      <AriaCollection items={_.references}>
+                        {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} reference={_} parentKeys={[]} />}
+                      </AriaCollection>
+                    </TreeItemRoot>
+                  </AriaTree>
                 );
               })}
             </div>
