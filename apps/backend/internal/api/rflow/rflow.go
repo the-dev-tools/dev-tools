@@ -12,12 +12,14 @@ import (
 	"the-dev-tools/backend/internal/api/ritemapiexample"
 	"the-dev-tools/backend/internal/api/rtag"
 	"the-dev-tools/backend/internal/api/rworkspace"
+	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/dbtime"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/flow/node/nfor"
 	"the-dev-tools/backend/pkg/flow/node/nforeach"
 	"the-dev-tools/backend/pkg/flow/node/nif"
+	"the-dev-tools/backend/pkg/flow/node/njs"
 	"the-dev-tools/backend/pkg/flow/node/nnoop"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/flow/runner"
@@ -34,6 +36,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/backend/pkg/model/mnnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnnode/mnjs"
 	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
@@ -56,6 +59,7 @@ import (
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodejs"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/stag"
@@ -107,6 +111,7 @@ type FlowServiceRPC struct {
 	fens snodeforeach.NodeForEachService
 	sns  snodenoop.NodeNoopService
 	ins  snodeif.NodeIfService
+	jsns snodejs.NodeJSService
 
 	logChanMap logconsole.LogChanMap
 }
@@ -122,7 +127,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, as sassert.AssertService, ars sassertres.AssertResultService,
 	// sub nodes
 	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, fens snodeforeach.NodeForEachService,
-	sns snodenoop.NodeNoopService, ins snodeif.NodeIfService,
+	sns snodenoop.NodeNoopService, ins snodeif.NodeIfService, jsns snodejs.NodeJSService,
 	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
@@ -160,6 +165,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		fens: fens,
 		sns:  sns,
 		ins:  ins,
+		jsns: jsns,
 
 		logChanMap: logChanMap,
 	}
@@ -450,6 +456,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var forEachNodes []mnforeach.MNForEach
 	var ifNodes []mnif.MNIF
 	var noopNodes []mnnoop.NoopNode
+	var jsNodes []mnjs.MNJS
 	var startNodeID idwrap.IDWrap
 
 	for _, node := range nodes {
@@ -484,6 +491,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				return connect.NewError(connect.CodeInternal, errors.New("get node if"))
 			}
 			ifNodes = append(ifNodes, *in)
+		case mnnode.NODE_KIND_JS:
+			jsn, err := c.jsns.GetNodeJS(ctx, node.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node js: %w", err))
+			}
+			jsNodes = append(jsNodes, jsn)
 		default:
 			return connect.NewError(connect.CodeInternal, errors.New("not supported node"))
 		}
@@ -661,6 +674,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		// TODO: make timeout configurable
 		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, "", forEachNode.IterPath, time.Second,
 			forEachNode.Condition, forEachNode.ErrorHandling)
+	}
+
+	for _, jsNode := range jsNodes {
+		if jsNode.CodeCompressType != compress.CompressTypeNone {
+			jsNode.Code, err = compress.Decompress(jsNode.Code, jsNode.CodeCompressType)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
+		flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, "", string(jsNode.Code))
 	}
 
 	// TODO: get timeout from flow config

@@ -16,6 +16,7 @@ const (
 	NODE_KIND_CONDITION   NodeKind = 3
 	NODE_KIND_FOR         NodeKind = 4
 	NODE_KIND_FOR_EACH    NodeKind = 5
+	NODE_KIND_JS          NodeKind = 6
 )
 
 type NodeState = int8

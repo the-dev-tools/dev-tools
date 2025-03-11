@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rflow"
+	"the-dev-tools/backend/pkg/compress"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -17,6 +18,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mnnode/mnfor"
 	"the-dev-tools/backend/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/backend/pkg/model/mnnode/mnif"
+	"the-dev-tools/backend/pkg/model/mnnode/mnjs"
 	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
@@ -33,6 +35,7 @@ import (
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodejs"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/suser"
@@ -59,6 +62,7 @@ type NodeServiceRPC struct {
 	nfls  snodefor.NodeForService
 	nlfes snodeforeach.NodeForEachService
 	nss   snodenoop.NodeNoopService
+	njss  snodejs.NodeJSService
 
 	// api
 	ias  sitemapi.ItemApiService
@@ -74,7 +78,8 @@ type NodeServiceRPC struct {
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 	fs sflow.FlowService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
-	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, ns snode.NodeService, nss snodenoop.NodeNoopService,
+	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, ns snode.NodeService,
+	nss snodenoop.NodeNoopService, njss snodejs.NodeJSService,
 	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
 	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
@@ -91,6 +96,7 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 		nfls:  nlfs,
 		nlfes: nlfes,
 		nss:   nss,
+		njss:  njss,
 
 		ias:  ias,
 		iaes: ieas,
@@ -126,7 +132,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 
 	NodeList := make([]*nodev1.NodeListItem, len(nodes))
 	for i, node := range nodes {
-		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss)
+		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +184,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("root node not found"))
 	}
-	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss)
+	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("sub node not found"))
 	}
@@ -542,7 +548,7 @@ func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserServ
 }
 
 func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
-	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, nss snodenoop.NodeNoopService,
+	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, nss snodenoop.NodeNoopService, njss snodejs.NodeJSService,
 ) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
 
@@ -665,6 +671,28 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			Name:     currentNode.Name,
 			Condition: &nodev1.NodeCondition{
 				Condition: rpcCondition,
+			},
+		}
+	case mnnode.NODE_KIND_JS:
+
+		nodeJS, err := njss.GetNodeJS(ctx, currentNode.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if nodeJS.CodeCompressType != compress.CompressTypeNone {
+			nodeJS.Code, err = compress.Decompress(nodeJS.Code, nodeJS.CodeCompressType)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		rpcNode = &nodev1.Node{
+			Position: Position,
+			Kind:     nodev1.NodeKind_NODE_KIND_JS,
+			Name:     currentNode.Name,
+			Js: &nodev1.NodeJS{
+				Code: string(nodeJS.Code),
 			},
 		}
 	}
@@ -830,6 +858,11 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			Condition:  *condition,
 		}
 		subNode = ifNode
+	case nodev1.NodeKind_NODE_KIND_JS:
+		subNode = mnjs.MNJS{
+			FlowNodeID: nodeID,
+			Code:       []byte(rpcNode.Js.Code),
+		}
 	default:
 		return nil, fmt.Errorf("unknown node kind: %v", rpcNode.Kind)
 	}

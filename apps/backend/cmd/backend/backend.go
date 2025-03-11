@@ -54,6 +54,7 @@ import (
 	"the-dev-tools/backend/pkg/service/snodefor"
 	"the-dev-tools/backend/pkg/service/snodeforeach"
 	"the-dev-tools/backend/pkg/service/snodeif"
+	"the-dev-tools/backend/pkg/service/snodejs"
 	"the-dev-tools/backend/pkg/service/snodenoop"
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/sresultapi"
@@ -164,6 +165,7 @@ func main() {
 	flens := snodeforeach.New(queries)
 	ins := snodeif.New(queries)
 	sns := snodenoop.New(queries)
+	jsns := snodejs.New(queries)
 
 	// log/console
 	logMap := logconsole.NewLogChanMap()
@@ -305,13 +307,13 @@ func main() {
 		ers, erhs, as, ars,
 		// subnodes
 		ns, rns, lfns, flens,
-		sns, *ins, logMap)
+		sns, *ins, jsns, logMap)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
 	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us,
 		fs, *ins,
-		rns, lfns, flens, ns, sns,
+		rns, lfns, flens, ns, sns, jsns,
 		ias, iaes, eqs, ehs, brs, bfs, bues)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 

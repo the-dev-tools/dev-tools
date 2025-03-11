@@ -32,6 +32,7 @@ enum NodeKind {
   NODE_KIND_CONDITION: 3,
   NODE_KIND_FOR: 4,
   NODE_KIND_FOR_EACH: 5,
+  NODE_KIND_JS: 6,
 }
 
 @parentResource(Flow.Flow)
@@ -48,6 +49,7 @@ model Node {
   condition?: NodeCondition;
   for?: NodeFor;
   forEach?: NodeForEach;
+  js?: NodeJS;
 }
 
 enum NodeNoOpKind {
@@ -90,6 +92,11 @@ model NodeForEach {
 @autoFields
 model NodeCondition {
   condition: Condition.Condition;
+}
+
+@autoFields
+model NodeJS {
+  code: string;
 }
 
 model NodeChange is Resource.Change<Node>;

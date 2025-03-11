@@ -3,6 +3,8 @@ package compress
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
+	"io"
 	"the-dev-tools/backend/pkg/zstdcompress"
 )
 
@@ -35,4 +37,26 @@ func Compress(data []byte, compressType CompressType) ([]byte, error) {
 		buf.Write(byteArr)
 	}
 	return buf.Bytes(), nil
+}
+
+func Decompress(data []byte, compressType CompressType) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.Write(data)
+
+	switch compressType {
+	case CompressTypeGzip:
+		// decompress data with gzip
+		z, err := gzip.NewReader(&buf)
+		if err != nil {
+			return nil, err
+		}
+		defer z.Close()
+		return io.ReadAll(z)
+
+	case CompressTypeZstd:
+		return zstdcompress.Decompress(data)
+
+	default:
+		return nil, fmt.Errorf("unsupported compression type: %v", compressType)
+	}
 }
