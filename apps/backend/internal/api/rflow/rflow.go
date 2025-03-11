@@ -37,6 +37,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/permcheck"
+	"the-dev-tools/backend/pkg/reference"
 	"the-dev-tools/backend/pkg/service/sassert"
 	"the-dev-tools/backend/pkg/service/sassertres"
 	"the-dev-tools/backend/pkg/service/sbodyform"
@@ -682,7 +683,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 
-			localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr))
+			ref, localErr := reference.ConvertAnyToRefViaJSON(flowNodeStatus, idStr)
+			if err != nil {
+				done <- localErr
+				return
+			}
+			refs := []reference.Reference{ref}
+
+			localErr = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr), refs)
 			if localErr != nil {
 				done <- localErr
 				return

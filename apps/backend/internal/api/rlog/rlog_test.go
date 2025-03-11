@@ -104,7 +104,7 @@ func TestLogStream(t *testing.T) {
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		err := logc.SendMsgToUserWithContext(authedCtx, idwrap.NewNow(), "test")
+		err := logc.SendMsgToUserWithContext(authedCtx, idwrap.NewNow(), "test", nil)
 		if err != nil {
 			t.Error(err)
 		}

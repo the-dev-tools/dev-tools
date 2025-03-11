@@ -5,6 +5,8 @@ import (
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/logconsole"
+	"the-dev-tools/backend/pkg/reference"
+	"the-dev-tools/backend/pkg/translate/tgeneric"
 	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
 	"the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
 
@@ -42,9 +44,12 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 	for {
 		select {
 		case logMessage := <-lmc:
+			rpcRefs := tgeneric.MassConvert(logMessage.Refs, reference.ConvertPkgToRpc)
+
 			b := &logv1.LogStreamResponse{
-				LogId: logMessage.LogID.Bytes(),
-				Value: logMessage.Value,
+				LogId:      logMessage.LogID.Bytes(),
+				Value:      logMessage.Value,
+				References: rpcRefs,
 			}
 			stream.Send(b)
 			continue
