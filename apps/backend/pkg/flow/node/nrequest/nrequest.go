@@ -121,7 +121,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	err = node.AddNodeVar(req, respMap, nr.GetID(), NodeRequestKey)
+	err = node.WriteNodeVar(req, nr.GetID(), NodeRequestKey, respMap)
 	if err != nil {
 		result.Err = err
 		return result
@@ -179,7 +179,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	err = node.AddNodeVar(req, respMap, nr.GetID(), NodeRequestKey)
+	err = node.WriteNodeVar(req, nr.GetID(), NodeRequestKey, respMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

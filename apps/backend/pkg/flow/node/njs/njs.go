@@ -16,8 +16,8 @@ const (
 )
 
 const (
-	SetValFuncName = "setVal"
-	GetValFuncName = "getVal"
+	GetValFuncName = "getFlowVar"
+	SetValFuncName = "setFlowVar"
 )
 
 type NodeJS struct {
@@ -50,7 +50,7 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	}
 
 	iso := v8.NewIsolate()
-	global, err := DefaultTemplate(iso, req.VarMap)
+	global, err := DefaultTemplate(iso, req, n.FlowNodeID)
 	if err != nil {
 		result.Err = err
 		return result
@@ -75,7 +75,7 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 
 	iso := v8.NewIsolate()
 
-	global, err := DefaultTemplate(iso, req.VarMap)
+	global, err := DefaultTemplate(iso, req, n.FlowNodeID)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
@@ -93,13 +93,13 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	resultChan <- result
 }
 
-func DefaultTemplate(iso *v8.Isolate, varMap map[string]any) (*v8.ObjectTemplate, error) {
+func DefaultTemplate(iso *v8.Isolate, req *node.FlowNodeRequest, id idwrap.IDWrap) (*v8.ObjectTemplate, error) {
 	global := v8.NewObjectTemplate(iso)
-	getVarCallback, err := NewGetVarCallBack(varMap, iso)
+	getVarCallback, err := NewGetVarCallBack(req, id, iso)
 	if err != nil {
 		return nil, err
 	}
-	setVarCallback, err := NewSetVarCallBack(varMap, iso)
+	setVarCallback, err := NewSetVarCallBack(req, id, iso)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func DefaultTemplate(iso *v8.Isolate, varMap map[string]any) (*v8.ObjectTemplate
 	return global, nil
 }
 
-func NewGetVarCallBack(varMap map[string]any, iso *v8.Isolate) (*v8.FunctionTemplate, error) {
+func NewGetVarCallBack(req *node.FlowNodeRequest, id idwrap.IDWrap, iso *v8.Isolate) (*v8.FunctionTemplate, error) {
 	argsErr, err := v8.NewValue(iso, "error: expected 2 arguments")
 	if err != nil {
 		return nil, err
@@ -126,7 +126,11 @@ func NewGetVarCallBack(varMap map[string]any, iso *v8.Isolate) (*v8.FunctionTemp
 			return iso.ThrowException(argsErr)
 		}
 
-		varValue := varMap[args[0].String()] // this is where you would get the value from the Go side
+		key := args[0].String()
+		varValue, err := node.ReadNodeVar(req, id, key)
+		if err != nil {
+			return iso.ThrowException(errGettingValue)
+		}
 		val, err := v8.NewValue(iso, varValue)
 		if err != nil {
 			return iso.ThrowException(errGettingValue)
@@ -137,13 +141,18 @@ func NewGetVarCallBack(varMap map[string]any, iso *v8.Isolate) (*v8.FunctionTemp
 	return getVal, nil
 }
 
-func NewSetVarCallBack(varMap map[string]any, iso *v8.Isolate) (*v8.FunctionTemplate, error) {
+func NewSetVarCallBack(req *node.FlowNodeRequest, id idwrap.IDWrap, iso *v8.Isolate) (*v8.FunctionTemplate, error) {
 	strErr, err := v8.NewValue(iso, "error: expected 2 arguments")
 	if err != nil {
 		return nil, err
 	}
 
 	unkownTypeErr, err := v8.NewValue(iso, "error: unknown type")
+	if err != nil {
+		return nil, err
+	}
+
+	cannotSetVar, err := v8.NewValue(iso, "error: cannot set var")
 	if err != nil {
 		return nil, err
 	}
@@ -174,9 +183,14 @@ func NewSetVarCallBack(varMap map[string]any, iso *v8.Isolate) (*v8.FunctionTemp
 			return iso.ThrowException(unkownTypeErr)
 		}
 
-		varMap[arg0.String()] = val
+		key := arg0.String()
+		err = node.WriteNodeVar(req, id, key, val)
+		if err != nil {
+			return iso.ThrowException(cannotSetVar)
+		}
 
 		return nil
 	})
+
 	return setVal, nil
 }

@@ -18,7 +18,7 @@ func TestAddNodeVar(t *testing.T) {
 	key := "testKey"
 	value := "testValue"
 
-	err := node.AddNodeVar(req, value, nodeID, key)
+	err := node.WriteNodeVar(req, nodeID, key, value)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

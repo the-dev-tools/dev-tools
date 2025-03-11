@@ -44,7 +44,7 @@ var (
 	ErrVarKeyNotFound  error = errors.New("key not found")
 )
 
-func AddNodeVar(a *FlowNodeRequest, v interface{}, id idwrap.IDWrap, key string) error {
+func WriteNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string, v interface{}) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()
 

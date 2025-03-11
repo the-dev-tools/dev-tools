@@ -2,6 +2,8 @@ package njs_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
@@ -26,7 +28,9 @@ func TestNodeJS_RunSync_SetVariable(t *testing.T) {
 	}
 
 	id := idwrap.NewNow()
-	jsCode := `setVal("result", "hello world");`
+	key := "result"
+	expectedValue := "hello world"
+	jsCode := fmt.Sprintf(`%s("%s", "%s");`, njs.SetValFuncName, key, expectedValue)
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
 
@@ -35,6 +39,7 @@ func TestNodeJS_RunSync_SetVariable(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
 		VarMap:        map[string]any{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
@@ -46,10 +51,14 @@ func TestNodeJS_RunSync_SetVariable(t *testing.T) {
 	}
 	testutil.Assert(t, mockNode1ID, result.NextNodeID[0])
 
-	// Check that the variable was set correctly
-	expectedValue := "hello world"
-	if val, ok := req.VarMap["result"]; !ok || val != expectedValue {
-		t.Errorf("Expected VarMap['result'] to be %v, but got %v", expectedValue, val)
+	fmt.Println("req.VarMap", req.VarMap)
+
+	testVal, err := node.ReadNodeVar(req, id, key)
+	if err != nil {
+		t.Errorf("Expected err to be nil, but got %v", err)
+	}
+	if testVal != expectedValue {
+		t.Errorf("Expected %v, but got %v", expectedValue, testVal)
 	}
 }
 
@@ -68,10 +77,16 @@ func TestNodeJS_RunSync_GetVariable(t *testing.T) {
 	}
 
 	id := idwrap.NewNow()
-	jsCode := `
-		const value = getVal("input");
-		setVal("output", value + " processed");
-	`
+	inputKey := "input"
+	outputKey := "output"
+	inputVal := "test data"
+	outputAdd := "_processed"
+	expectedValue := inputVal + outputAdd
+	jsCode := fmt.Sprintf(`
+		const value = %s("%s");
+		%s("%s", value + "%s");
+	`, njs.GetValFuncName, inputKey,
+		njs.SetValFuncName, outputKey, outputAdd)
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
 
@@ -80,11 +95,17 @@ func TestNodeJS_RunSync_GetVariable(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	req := &node.FlowNodeRequest{
-		VarMap: map[string]any{
-			"input": "test data",
-		},
+		ReadWriteLock: &sync.RWMutex{},
+		VarMap:        map[string]any{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
+	}
+
+	// Set the input variable
+	key := "input"
+	err := node.WriteNodeVar(req, id, key, "test data")
+	if err != nil {
+		t.Errorf("Failed to set input variable: %v", err)
 	}
 
 	result := nodeJS.RunSync(ctx, req)
@@ -93,10 +114,13 @@ func TestNodeJS_RunSync_GetVariable(t *testing.T) {
 	}
 	testutil.Assert(t, mockNode1ID, result.NextNodeID[0])
 
-	// Check that the variable was processed and set correctly
-	expectedValue := "test data processed"
-	if val, ok := req.VarMap["output"]; !ok || val != expectedValue {
-		t.Errorf("Expected VarMap['output'] to be %v, but got %v", expectedValue, val)
+	fmt.Println("req.VarMap", req.VarMap)
+	outputVal, err := node.ReadNodeVar(req, id, outputKey)
+	if err != nil {
+		t.Errorf("Expected err to be nil, but got %v", err)
+	}
+	if outputVal != expectedValue {
+		t.Errorf("Expected output to be %v, but got %v", expectedValue, outputVal)
 	}
 }
 
@@ -115,12 +139,12 @@ func TestNodeJS_RunSync_DifferentTypes(t *testing.T) {
 	}
 
 	id := idwrap.NewNow()
-	jsCode := `
-		setVal("stringVal", "string");
-		setVal("intVal", 42);
-		setVal("floatVal", 3.14);
-		setVal("boolVal", true);
-	`
+	jsCode := fmt.Sprintf(`
+		%s("stringVal", "string");
+		%s("intVal", 42);
+		%s("floatVal", 3.14);
+		%s("boolVal", true);
+	`, njs.SetValFuncName, njs.SetValFuncName, njs.SetValFuncName, njs.SetValFuncName)
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
 
@@ -129,6 +153,7 @@ func TestNodeJS_RunSync_DifferentTypes(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
 		VarMap:        map[string]any{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
@@ -141,20 +166,24 @@ func TestNodeJS_RunSync_DifferentTypes(t *testing.T) {
 	testutil.Assert(t, mockNode1ID, result.NextNodeID[0])
 
 	// Check that variables of different types were set correctly
-	if val, ok := req.VarMap["stringVal"]; !ok || val != "string" {
-		t.Errorf("Expected VarMap['stringVal'] to be 'string', but got %v", val)
+	stringVal, err := node.ReadNodeVar(req, id, "stringVal")
+	if err != nil || stringVal != "string" {
+		t.Errorf("Expected stringVal to be 'string', but got %v (err: %v)", stringVal, err)
 	}
 
-	if val, ok := req.VarMap["intVal"]; !ok || val != int32(42) {
-		t.Errorf("Expected VarMap['intVal'] to be 42, but got %v", val)
+	intVal, err := node.ReadNodeVar(req, id, "intVal")
+	if err != nil || intVal != int32(42) {
+		t.Errorf("Expected intVal to be 42, but got %v (err: %v)", intVal, err)
 	}
 
-	if val, ok := req.VarMap["floatVal"]; !ok || val != 3.14 {
-		t.Errorf("Expected VarMap['floatVal'] to be 3.14, but got %v", val)
+	floatVal, err := node.ReadNodeVar(req, id, "floatVal")
+	if err != nil || floatVal != 3.14 {
+		t.Errorf("Expected floatVal to be 3.14, but got %v (err: %v)", floatVal, err)
 	}
 
-	if val, ok := req.VarMap["boolVal"]; !ok || val != true {
-		t.Errorf("Expected VarMap['boolVal'] to be true, but got %v", val)
+	boolVal, err := node.ReadNodeVar(req, id, "boolVal")
+	if err != nil || boolVal != true {
+		t.Errorf("Expected boolVal to be true, but got %v (err: %v)", boolVal, err)
 	}
 }
 
@@ -173,14 +202,14 @@ func TestNodeJS_RunSync_Computation(t *testing.T) {
 	}
 
 	id := idwrap.NewNow()
-	jsCode := `
+	jsCode := fmt.Sprintf(`
 		const a = 10;
 		const b = 5;
-		setVal("sum", a + b);
-		setVal("difference", a - b);
-		setVal("product", a * b);
-		setVal("quotient", a / b);
-	`
+		%s("sum", a + b);
+		%s("difference", a - b);
+		%s("product", a * b);
+		%s("quotient", a / b);
+	`, njs.SetValFuncName, njs.SetValFuncName, njs.SetValFuncName, njs.SetValFuncName)
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
 
@@ -189,6 +218,7 @@ func TestNodeJS_RunSync_Computation(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
 		VarMap:        map[string]any{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
@@ -201,20 +231,24 @@ func TestNodeJS_RunSync_Computation(t *testing.T) {
 	testutil.Assert(t, mockNode1ID, result.NextNodeID[0])
 
 	// Check computation results
-	if val, ok := req.VarMap["sum"]; !ok || val != int32(15) {
-		t.Errorf("Expected VarMap['sum'] to be 15, but got %v", val)
+	sumVal, err := node.ReadNodeVar(req, id, "sum")
+	if err != nil || sumVal != int32(15) {
+		t.Errorf("Expected sum to be 15, but got %v (err: %v)", sumVal, err)
 	}
 
-	if val, ok := req.VarMap["difference"]; !ok || val != int32(5) {
-		t.Errorf("Expected VarMap['difference'] to be 5, but got %v", val)
+	diffVal, err := node.ReadNodeVar(req, id, "difference")
+	if err != nil || diffVal != int32(5) {
+		t.Errorf("Expected difference to be 5, but got %v (err: %v)", diffVal, err)
 	}
 
-	if val, ok := req.VarMap["product"]; !ok || val != int32(50) {
-		t.Errorf("Expected VarMap['product'] to be 50, but got %v", val)
+	prodVal, err := node.ReadNodeVar(req, id, "product")
+	if err != nil || prodVal != int32(50) {
+		t.Errorf("Expected product to be 50, but got %v (err: %v)", prodVal, err)
 	}
 
-	if val, ok := req.VarMap["quotient"]; !ok || val != int32(2) {
-		t.Errorf("Expected VarMap['quotient'] to be 2, but got %v", val)
+	quotVal, err := node.ReadNodeVar(req, id, "quotient")
+	if err != nil || quotVal != int32(2) {
+		t.Errorf("Expected quotient to be 2, but got %v (err: %v)", quotVal, err)
 	}
 }
 
@@ -233,7 +267,7 @@ func TestNodeJS_RunAsync(t *testing.T) {
 	}
 
 	id := idwrap.NewNow()
-	jsCode := `setVal("async", true);`
+	jsCode := fmt.Sprintf(`%s("async", true);`, njs.SetValFuncName)
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
 
@@ -242,6 +276,7 @@ func TestNodeJS_RunAsync(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
 		VarMap:        map[string]any{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
@@ -255,6 +290,11 @@ func TestNodeJS_RunAsync(t *testing.T) {
 		t.Errorf("Expected err to be nil, but got %v", result.Err)
 	}
 	testutil.Assert(t, mockNode1ID, result.NextNodeID[0])
+
+	asyncVal, err := node.ReadNodeVar(req, id, "async")
+	if err != nil || asyncVal != true {
+		t.Errorf("Expected async to be true, but got %v (err: %v)", asyncVal, err)
+	}
 }
 
 func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
@@ -267,7 +307,7 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 
 	id := idwrap.NewNow()
 	// Try to use restricted operations like file system and network access
-	jsCode := `
+	jsCode := fmt.Sprintf(`
 		let fileAccessError = "";
 		let fetchError = "";
 
@@ -286,9 +326,9 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 			fetchError = err.toString();
 		}
 
-		setVal("fileAccessError", fileAccessError);
-		setVal("fetchError", fetchError);
-	`
+		%s("fileAccessError", fileAccessError);
+		%s("fetchError", fetchError);
+	`, njs.SetValFuncName, njs.SetValFuncName)
 
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
@@ -298,6 +338,7 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
 		VarMap:        map[string]any{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
@@ -309,11 +350,13 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 	}
 
 	// Verify that both operations were blocked
-	if val, ok := req.VarMap["fileAccessError"]; !ok || val == "" {
-		t.Error("Expected file system access to be blocked with an error")
+	fileError, err := node.ReadNodeVar(req, id, "fileAccessError")
+	if err != nil || fileError == "" {
+		t.Errorf("Expected file system access to be blocked with an error, got: %v (err: %v)", fileError, err)
 	}
 
-	if val, ok := req.VarMap["fetchError"]; !ok || val == "" {
-		t.Error("Expected network access to be blocked with an error")
+	fetchError, err := node.ReadNodeVar(req, id, "fetchError")
+	if err != nil || fetchError == "" {
+		t.Errorf("Expected network access to be blocked with an error, got: %v (err: %v)", fetchError, err)
 	}
 }
