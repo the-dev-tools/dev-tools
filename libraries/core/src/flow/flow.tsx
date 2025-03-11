@@ -45,6 +45,7 @@ import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
 import { ForEachNode, ForEachPanel } from './nodes/for-each';
+import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 
@@ -78,11 +79,12 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
 
 export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
   NODE_KIND_UNSPECIFIED: () => null,
+  NODE_KIND_CONDITION: ConditionNode,
+  NODE_KIND_FOR_EACH: ForEachNode,
+  NODE_KIND_FOR: ForNode,
+  NODE_KIND_JS: JavaScriptNode,
   NODE_KIND_NO_OP: NoOpNode,
   NODE_KIND_REQUEST: RequestNode,
-  NODE_KIND_CONDITION: ConditionNode,
-  NODE_KIND_FOR: ForNode,
-  NODE_KIND_FOR_EACH: ForEachNode,
 };
 
 function RouteComponent() {
@@ -473,10 +475,11 @@ export const EditPanel = () => {
 
   const view = pipe(
     Match.value(nodeQuery.data.kind),
-    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} />),
     Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} />),
     Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.JS, () => <JavaScriptPanel node={nodeQuery.data} />),
+    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} />),
     Match.orElse(() => null),
   );
 

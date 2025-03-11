@@ -66,6 +66,7 @@ import { formatSize } from '@the-dev-tools/utils/helpers';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
+import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
 import { ReferenceContext } from './reference';
@@ -781,8 +782,6 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
   );
 };
 
-const languages = ['text', 'json', 'html', 'xml'] as const;
-
 interface ResponseBodyViewProps {
   bodyBytes: Uint8Array;
 }
@@ -848,7 +847,7 @@ interface ResponseBodyPrettyViewProps {
 }
 
 const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
-  const [language, setLanguage] = useState<(typeof languages)[number]>('text');
+  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
 
   const { data: prettierBody } = useQuery({
     initialData: '',
@@ -882,21 +881,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
     },
   });
 
-  const { data: extensions } = useQuery({
-    initialData: [],
-    queryKey: ['code-mirror', language],
-    queryFn: async () => {
-      if (language === 'text') return [];
-      return await pipe(
-        Match.value(language),
-        Match.when('json', () => import('@codemirror/lang-json').then((_) => _.json())),
-        Match.when('html', () => import('@codemirror/lang-html').then((_) => _.html())),
-        Match.when('xml', () => import('@codemirror/lang-xml').then((_) => _.xml())),
-        Match.exhaustive,
-        (_) => _.then(Array.make),
-      );
-    },
-  });
+  const extensions = useCodeMirrorExtensions(language);
 
   return (
     <>
@@ -905,9 +890,9 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
         className='self-center justify-self-start'
         triggerClassName={tw`px-4 py-1`}
         selectedKey={language}
-        onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
+        onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
       >
-        {languages.map((_) => (
+        {CodeMirrorMarkupLanguages.map((_) => (
           <ListBoxItem key={_} id={_}>
             {_}
           </ListBoxItem>

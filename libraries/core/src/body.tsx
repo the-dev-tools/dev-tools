@@ -1,10 +1,10 @@
 import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
-import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
+import { useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Match, pipe, Struct } from 'effect';
+import { Match, pipe, Struct } from 'effect';
 import { useMemo, useState } from 'react';
 
 import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
@@ -32,6 +32,7 @@ import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
+import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
 import {
   makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
@@ -260,8 +261,6 @@ const UrlEncodedDeltaFormTable = ({ exampleId, deltaExampleId }: UrlEncodedDelta
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
-const languages = ['text', 'json', 'html', 'xml'] as const;
-
 interface RawFormProps {
   exampleId: Uint8Array;
   isReadOnly?: boolean | undefined;
@@ -276,23 +275,9 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
   const updateMutation = useConnectMutation(bodyRawUpdate);
 
   const [value, setValue] = useState(body);
-  const [language, setLanguage] = useState<(typeof languages)[number]>('text');
+  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
 
-  const { data: extensions } = useQuery({
-    initialData: [],
-    queryKey: ['code-mirror', language],
-    queryFn: async () => {
-      if (language === 'text') return [];
-      return await pipe(
-        Match.value(language),
-        Match.when('json', () => import('@codemirror/lang-json').then((_) => _.json())),
-        Match.when('html', () => import('@codemirror/lang-html').then((_) => _.html())),
-        Match.when('xml', () => import('@codemirror/lang-xml').then((_) => _.xml())),
-        Match.exhaustive,
-        (_) => _.then(Array.make),
-      );
-    },
-  });
+  const extensions = useCodeMirrorExtensions(language);
 
   return (
     <>
@@ -301,9 +286,9 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
         className='self-center justify-self-start'
         triggerClassName={tw`px-4 py-1`}
         selectedKey={language}
-        onSelectionChange={(_) => void setLanguage(_ as (typeof languages)[number])}
+        onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
       >
-        {languages.map((_) => (
+        {CodeMirrorMarkupLanguages.map((_) => (
           <ListBoxItem key={_} id={_}>
             {_}
           </ListBoxItem>

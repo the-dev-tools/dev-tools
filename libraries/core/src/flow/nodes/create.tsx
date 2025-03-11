@@ -100,7 +100,19 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
 
           <CreateNodeItem id='delay' Icon={DelayIcon} title='Delay' description='Wait specific time' />
 
-          <CreateNodeItem id='javascript' Icon={FiTerminal} title='JavaScript' description='Custom Javascript block' />
+          <CreateNodeItem
+            id='javascript'
+            Icon={FiTerminal}
+            title='JavaScript'
+            description='Custom Javascript block'
+            onAction={async () => {
+              const node = await makeNode({ kind: NodeKind.JS, js: {}, position: getPosition() });
+              const edges = Option.isNone(sourceId)
+                ? []
+                : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
+              await add([node], edges);
+            }}
+          />
         </ListBoxSection>
 
         <ListBoxSection>
