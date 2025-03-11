@@ -971,6 +971,24 @@ func (q *Queries) CreateFlowNodeIf(ctx context.Context, arg CreateFlowNodeIfPara
 	return err
 }
 
+const createFlowNodeJs = `-- name: CreateFlowNodeJs :exec
+INSERT INTO
+  flow_node_js (flow_node_id, code, code_compress_type)
+VALUES
+  (?, ?, ?)
+`
+
+type CreateFlowNodeJsParams struct {
+	FlowNodeID       idwrap.IDWrap
+	Code             []byte
+	CodeCompressType int8
+}
+
+func (q *Queries) CreateFlowNodeJs(ctx context.Context, arg CreateFlowNodeJsParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeJsStmt, createFlowNodeJs, arg.FlowNodeID, arg.Code, arg.CodeCompressType)
+	return err
+}
+
 const createFlowNodeNoop = `-- name: CreateFlowNodeNoop :exec
 INSERT INTO
   flow_node_noop (flow_node_id, node_type)
@@ -2598,6 +2616,17 @@ func (q *Queries) DeleteFlowNodeIf(ctx context.Context, flowNodeID idwrap.IDWrap
 	return err
 }
 
+const deleteFlowNodeJs = `-- name: DeleteFlowNodeJs :exec
+DELETE FROM flow_node_js
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeJsStmt, deleteFlowNodeJs, flowNodeID)
+	return err
+}
+
 const deleteFlowNodeNoop = `-- name: DeleteFlowNodeNoop :exec
 DELETE from flow_node_noop
 WHERE
@@ -3720,6 +3749,25 @@ func (q *Queries) GetFlowNodeIf(ctx context.Context, flowNodeID idwrap.IDWrap) (
 		&i.Path,
 		&i.Value,
 	)
+	return i, err
+}
+
+const getFlowNodeJs = `-- name: GetFlowNodeJs :one
+SELECT
+  flow_node_id,
+  code,
+  code_compress_type
+FROM
+  flow_node_js
+WHERE
+  flow_node_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeJ, error) {
+	row := q.queryRow(ctx, q.getFlowNodeJsStmt, getFlowNodeJs, flowNodeID)
+	var i FlowNodeJ
+	err := row.Scan(&i.FlowNodeID, &i.Code, &i.CodeCompressType)
 	return i, err
 }
 
@@ -5961,6 +6009,26 @@ func (q *Queries) UpdateFlowNodeIf(ctx context.Context, arg UpdateFlowNodeIfPara
 		arg.Value,
 		arg.FlowNodeID,
 	)
+	return err
+}
+
+const updateFlowNodeJs = `-- name: UpdateFlowNodeJs :exec
+UPDATE flow_node_js
+SET
+  code = ?,
+  code_compress_type = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeJsParams struct {
+	Code             []byte
+	CodeCompressType int8
+	FlowNodeID       idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeJs(ctx context.Context, arg UpdateFlowNodeJsParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeJsStmt, updateFlowNodeJs, arg.Code, arg.CodeCompressType, arg.FlowNodeID)
 	return err
 }
 

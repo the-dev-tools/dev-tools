@@ -161,6 +161,12 @@ type FlowNodeIf struct {
 	Value         string
 }
 
+type FlowNodeJ struct {
+	FlowNodeID       idwrap.IDWrap
+	Code             []byte
+	CodeCompressType int8
+}
+
 type FlowNodeNoop struct {
 	FlowNodeID idwrap.IDWrap
 	NodeType   int16

@@ -1950,6 +1950,36 @@ DELETE from flow_node_noop
 WHERE
   flow_node_id = ?;
 
+-- name: GetFlowNodeJs :one
+SELECT
+  flow_node_id,
+  code,
+  code_compress_type
+FROM
+  flow_node_js
+WHERE
+  flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeJs :exec
+INSERT INTO
+  flow_node_js (flow_node_id, code, code_compress_type)
+VALUES
+  (?, ?, ?);
+
+-- name: UpdateFlowNodeJs :exec
+UPDATE flow_node_js
+SET
+  code = ?,
+  code_compress_type = ?
+WHERE
+  flow_node_id = ?;
+
+-- name: DeleteFlowNodeJs :exec
+DELETE FROM flow_node_js
+WHERE
+  flow_node_id = ?;
+
 -- name: GetMigration :one
 SELECT
   id,

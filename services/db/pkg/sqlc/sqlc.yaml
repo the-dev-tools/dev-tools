@@ -564,9 +564,16 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ## flow_node_start
+          ## flow_node_noop
           ### flow_node_id
           - column: 'flow_node_noop.flow_node_id'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ## flow_node_js
+          ### flow_node_id
+          - column: 'flow_node_js.flow_node_id'
             go_type:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'

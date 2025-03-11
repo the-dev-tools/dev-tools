@@ -393,6 +393,13 @@ CREATE TABLE flow_node_noop (
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
+CREATE TABLE flow_node_js (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  code BLOB NOT NULL,
+  code_compress_type INT8 NOT NULL,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+)
+
 CREATE TABLE migration (
   id BLOB NOT NULL PRIMARY KEY,
   version INT NOT NULL,
