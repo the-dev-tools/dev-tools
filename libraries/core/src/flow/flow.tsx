@@ -25,6 +25,7 @@ import { FiClock, FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
+import { useQueryNormalizer } from '@the-dev-tools/api/normalizer';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
@@ -385,6 +386,8 @@ const ActionBar = () => {
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
 
+  const normalizer = useQueryNormalizer();
+
   const makeNode = useMakeNode();
 
   return (
@@ -440,7 +443,7 @@ const ActionBar = () => {
             HashMap.fromIterable,
           );
 
-          for await (const { nodeId, state } of flowRun({ flowId })) {
+          for await (const { nodeId, state, changes } of flowRun({ flowId })) {
             const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
             flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
@@ -451,6 +454,8 @@ const ActionBar = () => {
               Array.flatten,
               Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
             );
+
+            await normalizer.setNormalizedData(changes);
           }
         }}
       >

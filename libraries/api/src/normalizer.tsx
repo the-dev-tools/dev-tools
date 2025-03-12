@@ -307,10 +307,10 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
 
   return {
     getNormalizedData: normalizer.getNormalizedData,
-    setNormalizedData: (data: unknown) => {
+    setNormalizedData: async (data: unknown) => {
       const message = toNormalMessageDeep(data);
       if (Option.isNone(message)) return;
-      updateQueries({ data: message.value, normalizer, queryClient });
+      await processChanges({ data: message.value, normalizer, queryClient });
     },
     clear: normalizer.clearNormalizedData,
     subscribe: () => {
