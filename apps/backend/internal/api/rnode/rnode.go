@@ -245,6 +245,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		For:       req.Msg.For,
 		ForEach:   req.Msg.ForEach,
 		Condition: req.Msg.Condition,
+		Js:        req.Msg.Js,
 	}
 
 	nodeData, err := ConvertRPCNodeToModelWithoutID(ctx, RpcNodeCreated, flow.ID, NodeID)
