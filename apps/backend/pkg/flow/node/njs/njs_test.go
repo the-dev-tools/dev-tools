@@ -297,6 +297,54 @@ func TestNodeJS_RunAsync(t *testing.T) {
 	}
 }
 
+// TODO: fetch should be more restricted in future
+func TestNodeJS_RunSync_Fetch(t *testing.T) {
+	mockNode1ID := idwrap.NewNow()
+	mockNode1 := mocknode.NewMockNode(mockNode1ID, nil, func() {})
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		mockNode1ID: mockNode1,
+	}
+
+	id := idwrap.NewNow()
+	// Try to use restricted operations like file system and network access
+	jsCode := fmt.Sprintf(`
+		let fetchError = "";
+		try {
+			// Attempt network access
+			fetch('https://example.com');
+		} catch (err) {
+			fetchError = err.toString();
+		}
+
+		%s("fetchError", fetchError);
+	`, njs.SetValFuncName)
+
+	nodeJS := njs.New(id, "test-node", jsCode)
+	ctx := context.Background()
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1}
+	edgesMap := edge.NewEdgesMap(edges)
+
+	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
+		VarMap:        map[string]any{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
+	}
+
+	result := nodeJS.RunSync(ctx, req)
+	if result.Err != nil {
+		t.Errorf("Expected err to be nil, but got %v", result.Err)
+	}
+
+	fetchError, err := node.ReadNodeVar(req, id, "fetchError")
+	if err != nil {
+		t.Errorf("Expected network access, got: %v (err: %v)", fetchError, err)
+	}
+}
+
 func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 	mockNode1ID := idwrap.NewNow()
 	mockNode1 := mocknode.NewMockNode(mockNode1ID, nil, func() {})
@@ -309,7 +357,6 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 	// Try to use restricted operations like file system and network access
 	jsCode := fmt.Sprintf(`
 		let fileAccessError = "";
-		let fetchError = "";
 
 		try {
 			// Attempt file system access
@@ -319,16 +366,9 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 			fileAccessError = err.toString();
 		}
 
-		try {
-			// Attempt network access
-			fetch('https://example.com');
-		} catch (err) {
-			fetchError = err.toString();
-		}
 
 		%s("fileAccessError", fileAccessError);
-		%s("fetchError", fetchError);
-	`, njs.SetValFuncName, njs.SetValFuncName)
+	`, njs.SetValFuncName)
 
 	nodeJS := njs.New(id, "test-node", jsCode)
 	ctx := context.Background()
@@ -353,10 +393,5 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 	fileError, err := node.ReadNodeVar(req, id, "fileAccessError")
 	if err != nil || fileError == "" {
 		t.Errorf("Expected file system access to be blocked with an error, got: %v (err: %v)", fileError, err)
-	}
-
-	fetchError, err := node.ReadNodeVar(req, id, "fetchError")
-	if err != nil || fetchError == "" {
-		t.Errorf("Expected network access to be blocked with an error, got: %v (err: %v)", fetchError, err)
 	}
 }

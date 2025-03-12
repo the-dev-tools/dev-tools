@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
 
+	"go.kuoruan.net/v8go-polyfills/fetch"
 	v8 "rogchap.com/v8go"
 )
 
@@ -100,6 +101,10 @@ func DefaultTemplate(iso *v8.Isolate, req *node.FlowNodeRequest, id idwrap.IDWra
 		return nil, err
 	}
 	setVarCallback, err := NewSetVarCallBack(req, id, iso)
+	if err != nil {
+		return nil, err
+	}
+	err = fetch.InjectTo(iso, global)
 	if err != nil {
 		return nil, err
 	}
