@@ -37,7 +37,7 @@ const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemPr
 );
 
 export const CreateNode = ({ id, selected }: NodeProps) => {
-  const { getNode, getEdges, addNodes, addEdges, deleteElements } = useReactFlow();
+  const { getNodes, getNode, getEdges, addNodes, addEdges, deleteElements } = useReactFlow();
 
   const edge = useMemo(
     () =>
@@ -83,7 +83,13 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             title='Send Request'
             description='Send request from your collection'
             onAction={async () => {
-              const node = await makeNode({ kind: NodeKind.REQUEST, request: {}, position: getPosition() });
+              const node = await makeNode({
+                kind: NodeKind.REQUEST,
+                name: `request-${getNodes().length}`,
+                request: {},
+                position: getPosition(),
+              });
+
               const edges = Option.isNone(sourceId)
                 ? []
                 : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
@@ -106,7 +112,12 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             title='JavaScript'
             description='Custom Javascript block'
             onAction={async () => {
-              const node = await makeNode({ kind: NodeKind.JS, js: {}, position: getPosition() });
+              const node = await makeNode({
+                kind: NodeKind.JS,
+                name: `js-${getNodes().length}`,
+                js: {},
+                position: getPosition(),
+              });
               const edges = Option.isNone(sourceId)
                 ? []
                 : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
@@ -127,7 +138,12 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               const position = getPosition();
               const { x, y } = position;
               const [node, nodeThen, nodeElse] = await Promise.all([
-                makeNode({ kind: NodeKind.CONDITION, condition: {}, position }),
+                makeNode({
+                  kind: NodeKind.CONDITION,
+                  name: `condition-${getNodes().length}`,
+                  condition: {},
+                  position,
+                }),
                 makeNode({
                   kind: NodeKind.NO_OP,
                   noOp: NodeNoOpKind.THEN,
@@ -175,7 +191,12 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               const position = getPosition();
               const { x, y } = position;
               const [node, nodeLoop, nodeThen] = await Promise.all([
-                makeNode({ kind: NodeKind.FOR, for: {}, position }),
+                makeNode({
+                  kind: NodeKind.FOR,
+                  name: `for-${getNodes().length}`,
+                  for: {},
+                  position,
+                }),
                 makeNode({
                   kind: NodeKind.NO_OP,
                   noOp: NodeNoOpKind.LOOP,
@@ -217,7 +238,12 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               const position = getPosition();
               const { x, y } = position;
               const [node, nodeLoop, nodeThen] = await Promise.all([
-                makeNode({ kind: NodeKind.FOR_EACH, forEach: {}, position }),
+                makeNode({
+                  kind: NodeKind.FOR_EACH,
+                  name: `foreach-${getNodes().length}`,
+                  forEach: {},
+                  position,
+                }),
                 makeNode({
                   kind: NodeKind.NO_OP,
                   noOp: NodeNoOpKind.LOOP,
