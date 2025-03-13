@@ -1,6 +1,6 @@
 import { create, DescMethodUnary, fromJson, isMessage, JsonObject, Message, toJson } from '@bufbuild/protobuf';
 import { anyPack, AnySchema, anyUnpack } from '@bufbuild/protobuf/wkt';
-import { ConnectQueryKey } from '@connectrpc/connect-query';
+import { createConnectQueryKey } from '@connectrpc/connect-query';
 import { createNormalizer, Data } from '@normy/core';
 import { Query, QueryClient, QueryKey, Updater } from '@tanstack/react-query';
 import { Array, Boolean, flow, Option, pipe, Predicate, Record, Struct } from 'effect';
@@ -15,7 +15,7 @@ import {
   ListChangeSchema,
 } from '@the-dev-tools/spec/change/v1/change_pb';
 
-import { AutoChangeSource, getBaseMessageMeta, getMessageMeta, registry } from './meta';
+import { AutoChangeSource, getBaseMessageMeta, getMessageMeta, getMethod, registry } from './meta';
 
 interface NormyReactQueryMeta extends Record<string, unknown> {
   normalize?: boolean;
@@ -274,19 +274,22 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
   await pipe(
     changesByKind[ChangeKind.INVALIDATE] ?? [],
     Array.map(async (_) => {
-      if (!_.service) return;
+      const service = registry.getService(_.service ?? '');
 
-      const queryKey: ConnectQueryKey = ['connect-query', { serviceName: _.service }];
+      if (!service) return;
 
-      if (_.method) queryKey[1].methodName = _.method;
-
-      pipe(
+      const input = pipe(
         Option.fromNullable(_.data),
-        Option.flatMapNullable((_) => toJson(AnySchema, _, { registry })),
-        Option.flatMap(Option.liftPredicate(Predicate.isRecord)),
-        Option.map(Struct.omit('@type')),
-        Option.map((_) => (queryKey[1].input = _)),
+        Option.flatMapNullable((_) => anyUnpack(_, registry)),
+        Option.getOrUndefined,
       );
+
+      const method = getMethod(service.typeName, _.method ?? '');
+
+      const queryKey = Option.match(method, {
+        onSome: (_) => createConnectQueryKey({ cardinality: 'finite', schema: _ as DescMethodUnary, input }),
+        onNone: () => createConnectQueryKey({ cardinality: 'finite', schema: service }),
+      });
 
       await queryClient.invalidateQueries({ queryKey });
     }),

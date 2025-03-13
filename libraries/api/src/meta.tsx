@@ -7,6 +7,17 @@ import metaJson from '@the-dev-tools/spec/meta/meta.json';
 
 export const registry = createRegistry(...files);
 
+const methodMap = pipe(
+  Array.flatMap(files, (file) =>
+    Array.flatMap(file.services, (service) =>
+      Array.map(service.methods, (method) => [`${service.typeName}.${method.name}`, method] as const),
+    ),
+  ),
+  HashMap.fromIterable,
+);
+
+export const getMethod = (service: string, method: string) => HashMap.get(methodMap, `${service}.${method}`);
+
 type AutoChangeSourceKind = 'REQUEST' | 'RESPONSE' | 'MERGE';
 
 export interface AutoChangeSource {
