@@ -705,11 +705,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	items, err := c.GetVersion(ctx, exampleVersionID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	var changes []*changev1.Change
 	if isExampleRespExists {
 		exampleResp.Body = responseOutput.BodyRaw
@@ -720,18 +715,21 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	exampleVersionRequest, err := anypb.New(&examplev1.ExampleVersionsResponse{
-		EndpointId: endpoint.ID.Bytes(),
-		Items:      items,
+	exampleVersionRequest, err := anypb.New(&examplev1.ExampleVersionsRequest{
+		ExampleId: exampleVersionID.Bytes(),
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_UPDATE
+	HistoryChangesService := "collection.item.example.v1.ExampleService"
+	HistroyChangesMethod := "ExampleVersions"
+	exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
 	changes = append(changes, &changev1.Change{
-		Kind: &exampleVersionChangeKind,
-		Data: exampleVersionRequest,
+		Kind:    &exampleVersionChangeKind,
+		Data:    exampleVersionRequest,
+		Service: &HistoryChangesService,
+		Method:  &HistroyChangesMethod,
 	})
 
 	size := int32(len(responseOutput.BodyRaw))
