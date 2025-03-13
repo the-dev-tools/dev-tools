@@ -15,7 +15,7 @@ import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const JavaScriptNode = (props: NodeProps) => (
   <>
-    <NodeBase {...props} Icon={FiTerminal} title='JavaScript'>
+    <NodeBase {...props} Icon={FiTerminal}>
       <div className={tw`overflow-auto rounded-md border border-slate-200 shadow-sm`}>
         <div className={tw`border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white shadow-sm`}>
           JavaScript

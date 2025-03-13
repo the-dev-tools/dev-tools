@@ -88,12 +88,11 @@ const nodeBaseStyles = tv({
 
 interface NodeBaseProps extends NodeProps {
   Icon: IconType;
-  title: string;
   children: ReactNode;
 }
 
 // TODO: add node name
-export const NodeBase = ({ id, data: { state }, Icon, title, children, selected }: NodeBaseProps) => {
+export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }: NodeBaseProps) => {
   const { getEdges, getNode, deleteElements, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
 
@@ -114,7 +113,7 @@ export const NodeBase = ({ id, data: { state }, Icon, title, children, selected 
 
         <div className={tw`h-4 w-px bg-slate-300`} />
 
-        <span className={tw`flex-1 text-xs font-medium leading-5 tracking-tight`}>{title}</span>
+        <span className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight`}>{name}</span>
 
         {pipe(
           Match.value(state),

@@ -21,7 +21,7 @@ export const ConditionNode = (props: NodeProps) => {
 
   return (
     <>
-      <NodeBase {...props} Icon={IfIcon} title='If'>
+      <NodeBase {...props} Icon={IfIcon}>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           {condition ? (
             <div

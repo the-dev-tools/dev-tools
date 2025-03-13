@@ -25,7 +25,7 @@ export const ForEachNode = (props: NodeProps) => {
 
   return (
     <>
-      <NodeBase {...props} Icon={ForIcon} title='For Each Loop'>
+      <NodeBase {...props} Icon={ForIcon}>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           <ButtonAsLink
             className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800 shadow-sm`}

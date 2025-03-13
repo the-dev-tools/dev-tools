@@ -34,7 +34,7 @@ export const RequestNode = (props: NodeProps) => {
 
   return (
     <>
-      <NodeBase {...props} Icon={SendRequestIcon} title='Send Request'>
+      <NodeBase {...props} Icon={SendRequestIcon}>
         <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
           {data.request?.exampleId.length !== 0 ? (
             <RequestNodeSelected request={data.request!} />
