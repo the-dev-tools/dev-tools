@@ -348,26 +348,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		return nil, rpcErr
 	}
 
-	node, err := c.ns.GetNode(ctx, nodeID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if req.Msg.Position == nil {
-		req.Msg.Position = &nodev1.Position{
-			X: float32(node.PositionX),
-			Y: float32(node.PositionY),
-		}
-	}
-
-	if req.Msg.Name == nil {
-		req.Msg.Name = &node.Name
-	}
-
-	RpcNodeCreated := &nodev1.Node{
+	RpcNodeUpdate := &nodev1.Node{
 		NodeId:    nodeID.Bytes(),
-		Name:      *req.Msg.Name,
-		Kind:      nodev1.NodeKind(node.NodeKind),
 		Position:  req.Msg.Position,
 		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
@@ -377,78 +359,164 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		Js:        req.Msg.Js,
 	}
 
-	nodeData, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, node.FlowID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	tx, err := c.DB.Begin()
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
-	nsTX, err := snode.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	err = nsTX.UpdateNode(ctx, *nodeData.Base)
+	node, err := c.ns.GetNode(ctx, nodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// INFO: this is using reflection to check the type of subNode
-	// in future, this should be refactored to use a more explicit way to check the type
-	switch subNodeType := nodeData.SubNode.(type) {
-	case *mnrequest.MNRequest:
-		nrsTX, err := snoderequest.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		err = nrsTX.UpdateNodeRequest(ctx, *subNodeType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	case *mnfor.MNFor:
-		nlfTX, err := snodefor.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		err = nlfTX.UpdateNodeFor(ctx, *subNodeType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	case *mnforeach.MNForEach:
-		nlfeTX, err := snodeforeach.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		err = nlfeTX.UpdateNodeForEach(ctx, *subNodeType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	case *mnif.MNIF:
-		nisTX, err := snodeif.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		err = nisTX.UpdateNodeIf(ctx, *subNodeType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	case *mnnoop.NoopNode:
-	case *mnjs.MNJS:
-		njsTX, err := snodejs.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		err = njsTX.UpdateNodeJS(ctx, *subNodeType)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	default:
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T, %V", subNodeType, nodeData.SubNode))
+	if req.Msg.Position != nil {
+		node.PositionX = float64(req.Msg.Position.X)
+		node.PositionY = float64(req.Msg.Position.Y)
 	}
-	err = tx.Commit()
+
+	if req.Msg.Name != nil {
+		node.Name = *req.Msg.Name
+	}
+
+	switch RpcNodeUpdate.Kind {
+	case nodev1.NodeKind_NODE_KIND_REQUEST:
+		if RpcNodeUpdate.Request != nil {
+			requestNode, err := c.nrs.GetNodeRequest(ctx, nodeID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			if RpcNodeUpdate.Request.ExampleId != nil {
+				exmplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.ExampleId)
+				if err != nil {
+					return nil, err
+				}
+				requestNode.ExampleID = &exmplePtr
+			}
+
+			if RpcNodeUpdate.Request.EndpointId != nil {
+				endpointPtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.EndpointId)
+				if err != nil {
+					return nil, err
+				}
+				requestNode.EndpointID = &endpointPtr
+			}
+
+			if RpcNodeUpdate.Request.DeltaExampleId != nil {
+				deltaExamplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.DeltaExampleId)
+				if err != nil {
+					return nil, err
+				}
+				requestNode.DeltaExampleID = &deltaExamplePtr
+			}
+		}
+	case nodev1.NodeKind_NODE_KIND_FOR:
+		if RpcNodeUpdate.For != nil {
+			var anyUpdate bool
+			forNode, err := c.nfls.GetNodeFor(ctx, nodeID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if RpcNodeUpdate.For.Condition != nil {
+				condition, err := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.For.Condition)
+				if err != nil {
+					return nil, err
+				}
+				anyUpdate = true
+				forNode.Condition = *condition
+			}
+			if RpcNodeUpdate.For.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
+				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.For.ErrorHandling)
+				RpcNodeUpdate.For.ErrorHandling = nodev1.ErrorHandling(errorHandling)
+				anyUpdate = true
+			}
+			if RpcNodeUpdate.For.Iterations != 0 {
+				forNode.IterCount = int64(RpcNodeUpdate.For.Iterations)
+			}
+			if anyUpdate {
+				err = c.nfls.UpdateNodeFor(ctx, *forNode)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
+		if RpcNodeUpdate.ForEach != nil {
+			forEachNode, err := c.nlfes.GetNodeForEach(ctx, nodeID)
+			if err != nil {
+				return nil, err
+			}
+
+			var anyUpdate bool
+			if RpcNodeUpdate.ForEach.Condition != nil {
+				condition, err := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.ForEach.Condition)
+				if err != nil {
+					return nil, err
+				}
+				forEachNode.Condition = *condition
+				anyUpdate = true
+			}
+
+			if RpcNodeUpdate.ForEach.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
+				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.ForEach.ErrorHandling)
+				if errorHandling != mnfor.ErrorHandling_ERROR_HANDLING_IGNORE {
+					RpcNodeUpdate.ForEach.ErrorHandling = nodev1.ErrorHandling(errorHandling)
+					anyUpdate = true
+				}
+			}
+
+			if RpcNodeUpdate.ForEach.Path != nil {
+				refs := tgeneric.MassConvert(RpcNodeUpdate.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
+				iterpath, err := reference.ConvertRefernceKeyArrayToStringPath(refs)
+				if err != nil {
+					return nil, err
+				}
+				forEachNode.IterPath = iterpath
+				anyUpdate = true
+			}
+
+			if anyUpdate {
+				err = c.nlfes.UpdateNodeForEach(ctx, *forEachNode)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+	case nodev1.NodeKind_NODE_KIND_NO_OP:
+	case nodev1.NodeKind_NODE_KIND_CONDITION:
+		if RpcNodeUpdate.Condition != nil {
+			nodeIf, err := c.nis.GetNodeIf(ctx, nodeID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			if RpcNodeUpdate.Condition.Condition != nil {
+				condition, err := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.Condition.Condition)
+				if err != nil {
+					return nil, err
+				}
+				nodeIf.Condition = *condition
+			}
+
+			err = c.nis.UpdateNodeIf(ctx, *nodeIf)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	case nodev1.NodeKind_NODE_KIND_JS:
+		if RpcNodeUpdate.Js != nil {
+			nodeJS, err := c.njss.GetNodeJS(ctx, nodeID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			if RpcNodeUpdate.Js.Code != "" {
+				nodeJS.Code = []byte(RpcNodeUpdate.Js.Code)
+			}
+
+			err = c.njss.UpdateNodeJS(ctx, nodeJS)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	err = c.ns.UpdateNode(ctx, *node)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -757,26 +825,28 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 	switch rpcNode.Kind {
 	case nodev1.NodeKind_NODE_KIND_REQUEST:
 		var endpointIDPtr, exampleIDPtr, deltaExampleIDPtr *idwrap.IDWrap
-		if rpcNode.Request.EndpointId != nil {
-			endpointID, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
-			if err != nil {
-				return nil, err
+		if rpcNode.Request != nil {
+			if rpcNode.Request.EndpointId != nil {
+				endpointID, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
+				if err != nil {
+					return nil, err
+				}
+				endpointIDPtr = &endpointID
 			}
-			endpointIDPtr = &endpointID
-		}
-		if rpcNode.Request.ExampleId != nil {
-			exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
-			if err != nil {
-				return nil, err
+			if rpcNode.Request.ExampleId != nil {
+				exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
+				if err != nil {
+					return nil, err
+				}
+				exampleIDPtr = &exampleID
 			}
-			exampleIDPtr = &exampleID
-		}
-		if rpcNode.Request.DeltaExampleId != nil {
-			deltaExampleID, err := idwrap.NewFromBytes(rpcNode.Request.DeltaExampleId)
-			if err != nil {
-				return nil, err
+			if rpcNode.Request.DeltaExampleId != nil {
+				deltaExampleID, err := idwrap.NewFromBytes(rpcNode.Request.DeltaExampleId)
+				if err != nil {
+					return nil, err
+				}
+				deltaExampleIDPtr = &deltaExampleID
 			}
-			deltaExampleIDPtr = &deltaExampleID
 		}
 
 		reqNode := &mnrequest.MNRequest{
