@@ -5,17 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
-	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
 	"the-dev-tools/backend/pkg/model/mexampleresp"
 	"the-dev-tools/backend/pkg/model/mnnode"
-	"the-dev-tools/backend/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/backend/pkg/model/mvar"
 	"the-dev-tools/backend/pkg/permcheck"
 	"the-dev-tools/backend/pkg/reference"
@@ -198,88 +195,61 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 
 	// Node
 	if nodeIDPtr != nil {
-		NodeID := *nodeIDPtr
-
-		nodeInst, err := c.fns.GetNode(ctx, NodeID)
+		refs, err := c.HandleNode(ctx, *nodeIDPtr)
 		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, err
 		}
-		flowID := nodeInst.FlowID
-		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		var reqNodeIDs []idwrap.IDWrap
-		for _, n := range nodes {
-			if n.NodeKind == mnnode.NODE_KIND_REQUEST {
-				reqNodeIDs = append(reqNodeIDs, n.ID)
-			}
-		}
-
-		edges, err := c.edgeService.GetEdgesByFlowID(ctx, flowID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		edgesMap := edge.NewEdgesMap(edges)
-
-		var beforeNodeIDs []idwrap.IDWrap
-		// Edges
-		for _, reqNodeID := range reqNodeIDs {
-			if edge.IsNodeCheckTarget(edgesMap, reqNodeID, NodeID) == edge.NodeBefore {
-				beforeNodeIDs = append(beforeNodeIDs, reqNodeID)
-			}
-		}
-
-		// Get All Request
-		var reqs []mnrequest.MNRequest
-		for _, reqNodeID := range beforeNodeIDs {
-			req, err := c.frns.GetNodeRequest(ctx, reqNodeID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, ErrNodeNotFound)
-			}
-			reqs = append(reqs, *req)
-		}
-
-		// Get All Responses
-
-		var nodeRefs []*referencev1.Reference
-		for _, req := range reqs {
-
-			respRef, err := GetExampleRespByExampleID(ctx, c.ers, c.erhs, *req.ExampleID)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			flowNodeIDStr := node.NodeVarPrefix + req.FlowNodeID.String()
-			nodeRefs = append(nodeRefs, &referencev1.Reference{
-				Key: &referencev1.ReferenceKey{
-					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  &flowNodeIDStr,
-				},
-				Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-				Map:  []*referencev1.Reference{reference.ConvertPkgToRpc(*respRef)},
-			})
-
-		}
-
-		refGroupVarStr := "var"
-		Items = append(Items, &referencev1.Reference{
-			Key: &referencev1.ReferenceKey{
-				Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
-				Group: &refGroupVarStr,
-			},
-			Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-			Map:  nodeRefs,
-		})
+		Items = append(Items, refs...)
 	}
 
 	response := &referencev1.ReferenceGetResponse{
 		Items: Items,
 	}
 	return connect.NewResponse(response), nil
+}
+
+func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.Reference, error) {
+	nodeInst, err := c.fns.GetNode(ctx, nodeID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	flowID := nodeInst.FlowID
+	nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Edges
+	edges, err := c.edgeService.GetEdgesByFlowID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	edgesMap := edge.NewEdgesMap(edges)
+
+	beforeNodes := make([]mnnode.MNode, 0, len(nodes))
+	for _, node := range nodes {
+		if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
+			beforeNodes = append(beforeNodes, node)
+		}
+	}
+
+	var nodeRefs []*referencev1.Reference
+	for _, node := range beforeNodes {
+		stateData := node.StateData
+		if json.Valid(stateData) {
+			var anyStateData any
+			err = json.Unmarshal(stateData, &anyStateData)
+			if err != nil {
+				return nil, err
+			}
+
+			ref := reference.NewReferenceFromInterfaceWithKey(anyStateData, node.ID.String())
+			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpc(ref))
+		}
+	}
+
+	return nodeRefs, nil
 }
 
 func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.Reference, error) {

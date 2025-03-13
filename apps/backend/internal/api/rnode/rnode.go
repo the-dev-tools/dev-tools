@@ -137,7 +137,8 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			return nil, err
 		}
 		convertedItem := &nodev1.NodeListItem{
-			NodeId:    rpcNode.NodeId,
+			Name:      node.Name,
+			NodeId:    node.ID.Bytes(),
 			State:     rpcNode.State,
 			Position:  rpcNode.Position,
 			Kind:      rpcNode.Kind,
@@ -189,8 +190,8 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		return nil, connect.NewError(connect.CodeInternal, errors.New("sub node not found"))
 	}
 	resp := nodev1.NodeGetResponse{
-		NodeId:    rpcNode.NodeId,
-		Name:      rpcNode.Name,
+		Name:      node.Name,
+		NodeId:    node.ID.Bytes(),
 		State:     rpcNode.State,
 		Position:  rpcNode.Position,
 		Kind:      rpcNode.Kind,
@@ -365,8 +366,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 
 	RpcNodeCreated := &nodev1.Node{
 		NodeId:    nodeID.Bytes(),
-		Kind:      nodev1.NodeKind(node.NodeKind),
 		Name:      *req.Msg.Name,
+		Kind:      nodev1.NodeKind(node.NodeKind),
 		Position:  req.Msg.Position,
 		NoOp:      req.Msg.NoOp,
 		Request:   req.Msg.Request,
