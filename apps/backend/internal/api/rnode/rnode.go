@@ -199,6 +199,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		For:       rpcNode.For,
 		ForEach:   rpcNode.ForEach,
 		Condition: rpcNode.Condition,
+		Js:        rpcNode.Js,
 	}
 	if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
 		if rpcNode.Request.ExampleId != nil {
@@ -315,6 +316,15 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	case *mnjs.MNJS:
+		njTX, err := snodejs.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = njTX.CreateNodeJS(ctx, *subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T", nodeData.SubNode))
 	}
@@ -363,6 +373,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		For:       req.Msg.For,
 		ForEach:   req.Msg.ForEach,
 		Condition: req.Msg.Condition,
+		Js:        req.Msg.Js,
 	}
 
 	nodeData, err := ConvertRPCNodeToModelWithID(ctx, RpcNodeCreated, node.FlowID)
@@ -424,6 +435,15 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	case *mnnoop.NoopNode:
+	case *mnjs.MNJS:
+		njsTX, err := snodejs.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = njsTX.UpdateNodeJS(ctx, *subNodeType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown subNode type: %T, %V", subNodeType, nodeData.SubNode))
 	}
@@ -689,6 +709,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		}
 
 		rpcNode = &nodev1.Node{
+			NodeId:   nodeJS.FlowNodeID.Bytes(),
 			Position: Position,
 			Kind:     nodev1.NodeKind_NODE_KIND_JS,
 			Name:     currentNode.Name,
@@ -860,7 +881,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		}
 		subNode = ifNode
 	case nodev1.NodeKind_NODE_KIND_JS:
-		subNode = mnjs.MNJS{
+		subNode = &mnjs.MNJS{
 			FlowNodeID: nodeID,
 			Code:       []byte(rpcNode.Js.Code),
 		}
