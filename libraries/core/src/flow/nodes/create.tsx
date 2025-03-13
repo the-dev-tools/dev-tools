@@ -8,7 +8,7 @@ import { FiTerminal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
 import { NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { CollectIcon, ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
+import { ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
@@ -180,7 +180,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
         <ListBoxSection>
           <CreateNodeHeader>Looping</CreateNodeHeader>
 
-          <CreateNodeItem id='collect' Icon={CollectIcon} title='Collect' description='Collect all result' />
+          {/* <CreateNodeItem id='collect' Icon={CollectIcon} title='Collect' description='Collect all result' /> */}
 
           <CreateNodeItem
             id='for'
