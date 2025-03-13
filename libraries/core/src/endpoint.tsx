@@ -348,7 +348,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
       Array.fromIterable,
       Array.map(([key, value]): [string, QueryCreateRequest | QueryUpdateRequest] => [
         key + value,
-        create(QueryCreateRequestSchema, { key, value }),
+        create(QueryCreateRequestSchema, { exampleId, key, value }),
       ]),
       MutableHashMap.fromIterable,
     );
