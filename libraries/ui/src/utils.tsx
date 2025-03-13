@@ -3,6 +3,8 @@ import { composeRenderProps } from 'react-aria-components';
 import { createPortal } from 'react-dom';
 import { twMerge } from 'tailwind-merge';
 
+import { tw } from './tailwind-literal';
+
 export const composeRenderPropsTV = <T, K>(
   className: string | ((renderProps: T) => string) | undefined,
   tv: (variant: T & K) => string,
@@ -28,21 +30,21 @@ export const useEscapePortal = (containerRef: RefObject<HTMLDivElement | null>) 
   const ref = useRef<HTMLDivElement>(null);
 
   const render = useCallback(
-    (children: ReactNode) => {
+    (children: ReactNode, zoom = 1) => {
       if (!containerRef.current || !ref.current) return;
 
       const container = containerRef.current.getBoundingClientRect();
       const target = ref.current.getBoundingClientRect();
 
       const style = {
-        left: target.left - container.left,
-        top: target.top - container.top,
-        width: target.width,
-        height: target.height,
+        left: (target.left - container.left) / zoom,
+        top: (target.top - container.top) / zoom,
+        width: target.width / zoom,
+        height: target.height / zoom,
       };
 
       return createPortal(
-        <div className='absolute size-full' style={style}>
+        <div className={tw`absolute flex size-full items-center`} style={style}>
           {children}
         </div>,
         containerRef.current,

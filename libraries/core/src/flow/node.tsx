@@ -41,6 +41,8 @@ import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useEscapePortal } from '@the-dev-tools/ui/utils';
 
 import { FlowContext, flowRoute } from './internal';
 import { FlowSearch } from './layout';
@@ -74,13 +76,13 @@ export const Node = {
 
 const nodeBaseStyles = tv({
   // eslint-disable-next-line tailwindcss/no-custom-classname
-  base: tw`nopan w-80 rounded-lg border bg-slate-200 p-1 shadow-sm transition-colors`,
+  base: tw`nopan relative w-80 rounded-lg bg-slate-200 p-1 shadow-sm outline outline-1 transition-colors`,
   variants: {
     state: {
-      [NodeState.UNSPECIFIED]: tw`border-slate-300`,
-      [NodeState.RUNNING]: tw`border-violet-600`,
-      [NodeState.SUCCESS]: tw`border-green-600`,
-      [NodeState.FAILURE]: tw`border-red-600`,
+      [NodeState.UNSPECIFIED]: tw`outline-slate-300`,
+      [NodeState.RUNNING]: tw`outline-violet-600`,
+      [NodeState.SUCCESS]: tw`outline-green-600`,
+      [NodeState.FAILURE]: tw`outline-red-600`,
     } satisfies Record<NodeState, string>,
     isSelected: { true: tw`bg-slate-300` },
   },
@@ -96,8 +98,17 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
   const { getEdges, getNode, deleteElements, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
 
+  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const escape = useEscapePortal(ref);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    value: name,
+    onSuccess: (_) => nodeUpdateMutation.mutateAsync({ nodeId: Ulid.fromCanonical(id).bytes, name: _ }),
+  });
 
   return (
     <div ref={ref} className={nodeBaseStyles({ state, isSelected: selected })}>
@@ -113,7 +124,21 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
 
         <div className={tw`h-4 w-px bg-slate-300`} />
 
-        <span className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight`}>{name}</span>
+        <div ref={escape.ref} className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight`}>
+          {name}
+        </div>
+
+        {isEditing &&
+          escape.render(
+            <TextField
+              aria-label='New node name'
+              className={tw`w-full`}
+              inputClassName={tw`-my-1 py-1`}
+              isDisabled={nodeUpdateMutation.isPending}
+              {...textFieldProps}
+            />,
+            getZoom(),
+          )}
 
         {pipe(
           Match.value(state),
@@ -134,7 +159,7 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
             <Menu {...menuProps}>
               <MenuItem href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}>Edit</MenuItem>
 
-              <MenuItem>Rename</MenuItem>
+              <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
               <MenuItem
                 variant='danger'
