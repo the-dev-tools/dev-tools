@@ -8,7 +8,7 @@ import { FiTerminal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
 import { NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { CollectIcon, DataSourceIcon, DelayIcon, ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
+import { CollectIcon, ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
@@ -97,14 +97,14 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             }}
           />
 
-          <CreateNodeItem
+          {/* <CreateNodeItem
             id='data'
             Icon={DataSourceIcon}
             title='Data Source'
             description='Import data from .xlsx file'
-          />
+          /> */}
 
-          <CreateNodeItem id='delay' Icon={DelayIcon} title='Delay' description='Wait specific time' />
+          {/* <CreateNodeItem id='delay' Icon={DelayIcon} title='Delay' description='Wait specific time' /> */}
 
           <CreateNodeItem
             id='javascript'
