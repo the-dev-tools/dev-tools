@@ -186,7 +186,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	apiMap := make(map[string]*mitemapi.ItemApi)
 
 	// Process each entry in the HAR file
-	for _, entry := range har.Log.Entries {
+	for i, entry := range har.Log.Entries {
 		// Only process XHR requests.
 		if !IsXHRRequest(entry) {
 			continue
@@ -247,7 +247,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		node := mnnode.MNode{
 			ID:        flowNodeID,
 			FlowID:    flowID,
-			Name:      key,
+			Name:      fmt.Sprintf("request-%d", i),
 			NodeKind:  mnnode.NODE_KIND_REQUEST,
 			PositionX: posX,
 			PositionY: posY,
