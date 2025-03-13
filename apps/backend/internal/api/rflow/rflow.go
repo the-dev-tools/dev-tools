@@ -709,14 +709,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
 				go func() {
-					ref, localErr := reference.ConvertAnyToRefViaJSON(flowNodeStatus, idStr)
-					if err != nil {
-						done <- localErr
-						return
-					}
+					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, idStr)
 					refs := []reference.Reference{ref}
 
-					localErr = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr), refs)
+					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr), refs)
 					if localErr != nil {
 						done <- localErr
 						return

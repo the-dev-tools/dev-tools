@@ -1,90 +1,218 @@
 package reference_test
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 	"the-dev-tools/backend/pkg/reference"
-	"the-dev-tools/backend/pkg/testutil"
 )
 
-func TestConvertMapToReference_SimpleMap(t *testing.T) {
+func sortReferences(refs []reference.Reference) {
+	sort.Slice(refs, func(i, j int) bool {
+		return refs[i].Key.Key < refs[j].Key.Key
+	})
+}
+
+func TestNewReferenceFromMap(t *testing.T) {
 	input := map[string]interface{}{
 		"key1": "value1",
-		"key2": map[string]interface{}{
-			"subKey1": "subValue1",
-		},
+		"key2": 42,
 	}
-	key := "testKey"
-
 	expected := reference.Reference{
+		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-		Key: reference.ReferenceKey{
-			Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-			Key:  key,
-		},
 		Map: []reference.Reference{
 			{
-				Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE,
-				Key: reference.ReferenceKey{
-					Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  "key1",
-				},
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "key1"},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
 				Value: "value1",
 			},
 			{
-				Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-				Key: reference.ReferenceKey{
-					Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-					Key:  "key2",
-				},
-				Map: []reference.Reference{
-					{
-						Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE,
-						Key: reference.ReferenceKey{
-							Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-							Key:  "subKey1",
-						},
-						Value: "subValue1",
-					},
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "key2"},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "42",
+			},
+		},
+	}
+
+	result := reference.NewReferenceFromInterface(input, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""})
+	sortReferences(result.Map)
+	sortReferences(expected.Map)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestNewReferenceFromSlice(t *testing.T) {
+	input := []interface{}{"value1", 42}
+	expected := reference.Reference{
+		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
+		Kind: reference.ReferenceKind_REFERENCE_KIND_ARRAY,
+		Array: []reference.Reference{
+			{
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 0},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "value1",
+			},
+			{
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 1},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "42",
+			},
+		},
+	}
+
+	result := reference.NewReferenceFromInterface(input, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""})
+	sortReferences(result.Array)
+	sortReferences(expected.Array)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestNewReferenceFromStruct(t *testing.T) {
+	type TestStruct struct {
+		Field1 string
+		Field2 []int
+	}
+	input := TestStruct{
+		Field1: "value1",
+		Field2: []int{1, 2, 3},
+	}
+	expected := reference.Reference{
+		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
+		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
+		Map: []reference.Reference{
+			{
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field1"},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "value1",
+			},
+			{
+				Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field2"},
+				Kind: reference.ReferenceKind_REFERENCE_KIND_ARRAY,
+				Array: []reference.Reference{
+					{Key: reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 0}, Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE, Value: "1"},
+					{Key: reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 1}, Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE, Value: "2"},
+					{Key: reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 2}, Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE, Value: "3"},
 				},
 			},
 		},
 	}
 
-	got, err := reference.ConvertMapToReference(input, key)
-	testutil.Assert(t, nil, err)
-	testutil.Assert(t, expected.Kind, got.Kind)
-	testutil.Assert(t, expected.Key, got.Key)
-	testutil.Assert(t, len(expected.Map), len(got.Map))
-
-	for i := range got.Map {
-		testutil.Assert(t, expected.Map[i].Kind, got.Map[i].Kind)
-		testutil.Assert(t, expected.Map[i].Key, got.Map[i].Key)
-		testutil.Assert(t, expected.Map[i].Value, got.Map[i].Value)
-		testutil.Assert(t, len(expected.Map[i].Map), len(got.Map[i].Map))
+	result := reference.NewReferenceFromInterface(input, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""})
+	sortReferences(result.Map)
+	sortReferences(expected.Map)
+	for _, ref := range result.Map {
+		if ref.Kind == reference.ReferenceKind_REFERENCE_KIND_ARRAY {
+			sortReferences(ref.Array)
+		}
+	}
+	for _, ref := range expected.Map {
+		if ref.Kind == reference.ReferenceKind_REFERENCE_KIND_ARRAY {
+			sortReferences(ref.Array)
+		}
+	}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
 	}
 }
 
-func TestConvertMapToReference_NilMap(t *testing.T) {
-	_, err := reference.ConvertMapToReference(nil, "testKey")
-	testutil.Assert(t, reference.ErrNilMap, err)
-}
-
-func TestConvertMapToReference_EmptyMap(t *testing.T) {
-	input := map[string]interface{}{}
-	key := "testKey"
-
-	expected := reference.Reference{
-		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-		Key: reference.ReferenceKey{
-			Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-			Key:  key,
+func TestNewReferenceFromMapWithStruct(t *testing.T) {
+	type TestStruct struct {
+		Field1 string
+		Field2 int
+	}
+	input := map[string]interface{}{
+		"key1": TestStruct{
+			Field1: "value1",
+			Field2: 42,
 		},
-		Map: []reference.Reference{},
+		"key2": "value2",
+	}
+	expected := reference.Reference{
+		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
+		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
+		Map: []reference.Reference{
+			{
+				Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "key1"},
+				Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
+				Map: []reference.Reference{
+					{
+						Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field1"},
+						Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+						Value: "value1",
+					},
+					{
+						Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field2"},
+						Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+						Value: "42",
+					},
+				},
+			},
+			{
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "key2"},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "value2",
+			},
+		},
 	}
 
-	got, err := reference.ConvertMapToReference(input, key)
-	testutil.Assert(t, nil, err)
-	testutil.Assert(t, expected.Kind, got.Kind)
-	testutil.Assert(t, expected.Key, got.Key)
-	testutil.Assert(t, len(expected.Map), len(got.Map))
+	result := reference.NewReferenceFromInterface(input, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""})
+	sortReferences(result.Map)
+	sortReferences(expected.Map)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+// Benchmarks
+
+func BenchmarkNewReferenceFromInterfaceMap(b *testing.B) {
+	input := map[string]interface{}{
+		"key1": map[string]interface{}{
+			"subkey1": "value1",
+			"subkey2": 42,
+		},
+		"key2": "value2",
+	}
+	key := reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""}
+
+	for i := 0; i < b.N; i++ {
+		_ = reference.NewReferenceFromInterface(input, key)
+	}
+}
+
+func BenchmarkNewReferenceFromInterfaceArray(b *testing.B) {
+	input := []interface{}{"value1", 42}
+	key := reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""}
+
+	for i := 0; i < b.N; i++ {
+		_ = reference.NewReferenceFromInterface(input, key)
+	}
+}
+
+func BenchmarkNewReferenceFromInterfacePrimitive(b *testing.B) {
+	input := 42
+	key := reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""}
+
+	for i := 0; i < b.N; i++ {
+		_ = reference.NewReferenceFromInterface(input, key)
+	}
+}
+
+func BenchmarkNewReferenceFromInterfaceStruct(b *testing.B) {
+	type TestStruct struct {
+		Field1 string
+		Field2 []int
+	}
+	input := TestStruct{
+		Field1: "value1",
+		Field2: []int{1, 2, 3},
+	}
+	key := reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""}
+
+	for i := 0; i < b.N; i++ {
+		_ = reference.NewReferenceFromInterface(input, key)
+	}
 }

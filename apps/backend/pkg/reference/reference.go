@@ -1,9 +1,9 @@
 package reference
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 )
@@ -92,19 +92,6 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 	}
 
 	return ref, nil
-}
-
-func ConvertAnyToRefViaJSON(m interface{}, key string) (Reference, error) {
-	var mapRef map[string]any
-	data, err := json.Marshal(m)
-	if err != nil {
-		return Reference{}, err
-	}
-	if err := json.Unmarshal(data, &mapRef); err != nil {
-		return Reference{}, err
-	}
-
-	return ConvertMapToReference(mapRef, key)
 }
 
 func ConvertPkgToRpc(ref Reference) *referencev1.Reference {
@@ -232,4 +219,51 @@ func ConvertStringPathToReferenceKeyArray(path string) ([]ReferenceKey, error) {
 		})
 	}
 	return refKeys, nil
+}
+
+func NewReferenceFromInterfaceWithKey(value any, key string) Reference {
+	return NewReferenceFromInterface(value, ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: key})
+}
+
+func NewReferenceFromInterface(value any, key ReferenceKey) Reference {
+	val := reflect.ValueOf(value)
+	switch val.Kind() {
+	case reflect.Map:
+		mapRefs := make([]Reference, 0, val.Len())
+		keys := val.MapKeys()
+		for _, mapKey := range keys {
+			if mapKey.Kind() != reflect.String {
+				continue
+			}
+			keyStr := mapKey.String()
+			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: keyStr}
+			mapRefs = append(mapRefs, NewReferenceFromInterface(val.MapIndex(mapKey).Interface(), subKey))
+		}
+		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_MAP, Map: mapRefs}
+	case reflect.Slice, reflect.Array:
+		arrayRefs := make([]Reference, val.Len())
+		for i := range val.Len() {
+			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: int32(i)}
+			arrayRefs[i] = NewReferenceFromInterface(val.Index(i).Interface(), subKey)
+		}
+		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_ARRAY, Array: arrayRefs}
+	case reflect.Struct:
+		mapRefs := make([]Reference, 0, val.NumField())
+		for i := range val.NumField() {
+			field := val.Type().Field(i)
+			if !field.IsExported() {
+				continue
+			}
+			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: field.Name}
+			fieldValue := NewReferenceFromInterface(val.Field(i).Interface(), subKey)
+			mapRefs = append(mapRefs, fieldValue)
+		}
+		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_MAP, Map: mapRefs}
+	case reflect.String:
+		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: val.String()}
+	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
+		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
+	default:
+		return Reference{}
+	}
 }
