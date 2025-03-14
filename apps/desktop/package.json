@@ -4,7 +4,6 @@
   "author": "DevTools",
   "version": "0.0.0",
   "private": true,
-  "repository": "github:the-dev-tools/dev-tools",
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
@@ -19,9 +18,12 @@
     "@the-dev-tools/backend": "workspace:^",
     "@the-dev-tools/core": "workspace:^",
     "@vitejs/plugin-react": "4.3.4",
+    "builder-util-runtime": "9.2.10",
     "effect": "3.13.6",
+    "electron-updater": "6.3.9",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "yaml": "2.7.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",

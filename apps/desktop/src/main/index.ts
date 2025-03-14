@@ -1,7 +1,11 @@
-import { Command, Path, Url } from '@effect/platform';
+import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
+import { CustomPublishOptions } from 'builder-util-runtime';
 import { Console, Effect, Exit, pipe, Runtime, Scope, String } from 'effect';
 import { app, BrowserWindow } from 'electron';
+import { autoUpdater } from 'electron-updater';
+
+import { CustomUpdateProvider } from './update';
 
 const createWindow = Effect.gen(function* () {
   const path = yield* Path.Path;
@@ -68,15 +72,35 @@ const server = Effect.gen(function* () {
   return server;
 });
 
+const onReady = Effect.gen(function* () {
+  autoUpdater.setFeedURL({
+    provider: 'custom',
+    updateProvider: CustomUpdateProvider,
+    runtime: yield* Effect.runtime<Runtime.Runtime.Context<CustomPublishOptions['runtime']>>(),
+    repo: 'the-dev-tools/dev-tools',
+    project: { name: 'desktop', path: 'apps/desktop' },
+  });
+  yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());
+
+  yield* createWindow;
+});
+
+const onActivate = Effect.gen(function* () {
+  if (BrowserWindow.getAllWindows().length > 0) return;
+  yield* createWindow;
+});
+
 const client = pipe(
   Effect.fn(function* (callback: (_: typeof Effect.void) => void) {
     const scope = yield* Scope.make();
-    const runtime = yield* Effect.runtime<Effect.Effect.Context<typeof createWindow>>();
+    const runtime = yield* Effect.runtime<
+      Effect.Effect.Context<typeof onReady> | Effect.Effect.Context<typeof onActivate>
+    >();
 
     // This method will be called when Electron has finished
     // initialization and is ready to create browser windows.
     // Some APIs can only be used after this event occurs.
-    app.on('ready', () => void Runtime.runSync(runtime)(createWindow));
+    app.on('ready', () => void Runtime.runPromise(runtime)(onReady));
 
     // Quit when all windows are closed, except on macOS. There, it's common
     // for applications and their menu bar to stay active until the user quits
@@ -88,10 +112,7 @@ const client = pipe(
 
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length > 0) return;
-      Runtime.runSync(runtime)(createWindow);
-    });
+    app.on('activate', () => void Runtime.runPromise(runtime)(onActivate));
 
     yield* Effect.addFinalizer((exit) => Console.info(`Client exited with status "${exit._tag}"`));
 
@@ -114,4 +135,10 @@ const program = Effect.gen(function* () {
   yield* client;
 });
 
-pipe(program, Effect.scoped, Effect.provide(NodeContext.layer), NodeRuntime.runMain);
+pipe(
+  program,
+  Effect.scoped,
+  Effect.provide(NodeContext.layer),
+  Effect.provide(FetchHttpClient.layer),
+  NodeRuntime.runMain,
+);

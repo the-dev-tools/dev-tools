@@ -7,9 +7,6 @@ const config: Configuration = {
   extraMetadata: {
     name: 'dev-tools',
   },
-  directories: {
-    buildResources: 'build',
-  },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
   icon: pipe(import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.png'), fileURLToPath),
   asarUnpack: ['resources/**'],
@@ -33,10 +30,7 @@ const config: Configuration = {
     allowToChangeInstallationDirectory: true,
   },
   npmRebuild: false,
-  publish: {
-    provider: 'github',
-    private: true,
-  },
+  publish: { provider: 'custom' },
 };
 
 await build({ config, publish: 'never' });
