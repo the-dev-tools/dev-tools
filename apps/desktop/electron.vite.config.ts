@@ -4,7 +4,7 @@ import Tailwind from 'tailwindcss';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@effect/platform-node', 'electron-updater'] })],
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
