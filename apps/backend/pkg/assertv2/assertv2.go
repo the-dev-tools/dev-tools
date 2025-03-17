@@ -75,6 +75,12 @@ func NewAssertRoot(leaf interface{}) *AssertRoot {
 	}
 }
 
+func NewAssertMapLeaf(leaf map[string]interface{}) AssertRoot {
+	return AssertRoot{
+		Leaf: leaf,
+	}
+}
+
 type AssertLeaf interface {
 	Get(ctx context.Context, k string) (AssertLeafResponse, error)
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 	"the-dev-tools/backend/pkg/assertv2"
-	"the-dev-tools/backend/pkg/assertv2/leafs/leafmock"
+	"the-dev-tools/backend/pkg/assertv2/leafs/leafmap"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -49,14 +49,9 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		result.Err = node.ErrNodeNotFound
 		return result
 	}
-	a := map[string]interface{}{
-		node.NodeVarPrefix: req.VarMap,
-	}
 
-	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
-	}
-	root := assertv2.NewAssertRoot(rootLeaf)
+	leafmap := leafmap.ConvertMapToLeafMap(req.VarMap)
+	root := assertv2.NewAssertRoot(leafmap)
 	assertSys := assertv2.NewAssertSystem(root)
 
 	var val interface{}
@@ -94,14 +89,8 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
-	a := map[string]interface{}{
-		node.NodeVarPrefix: req.VarMap,
-	}
-
-	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
-	}
-	root := assertv2.NewAssertRoot(rootLeaf)
+	leafmap := leafmap.ConvertMapToLeafMap(req.VarMap)
+	root := assertv2.NewAssertRoot(leafmap)
 	assertSys := assertv2.NewAssertSystem(root)
 
 	var val interface{}

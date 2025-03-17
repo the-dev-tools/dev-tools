@@ -111,7 +111,7 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 
 	id := idwrap.NewNow()
 
-	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "var.a", "1")
+	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "a", "1")
 	ctx := context.Background()
 
 	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
@@ -153,7 +153,7 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 
 	id := idwrap.NewNow()
 
-	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "var.a", "1")
+	nodeFor := nif.New(id, mcondition.COMPARISON_KIND_EQUAL, "a", "1")
 	ctx := context.Background()
 
 	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)

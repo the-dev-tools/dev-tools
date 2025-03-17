@@ -8,7 +8,6 @@ import (
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rworkspace"
 	"the-dev-tools/backend/pkg/flow/edge"
-	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/httpclient"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
@@ -200,7 +199,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return nil, err
 		}
-		Items = append(Items, refs)
+		Items = append(Items, refs...)
 	}
 
 	response := &referencev1.ReferenceGetResponse{
@@ -209,7 +208,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(response), nil
 }
 
-func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) (*referencev1.Reference, error) {
+func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.Reference, error) {
 	nodeInst, err := c.fns.GetNode(ctx, nodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -250,18 +249,7 @@ func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) (
 		}
 	}
 
-	nodePrefix := node.NodeVarPrefix
-
-	groupRef := &referencev1.Reference{
-		Key: &referencev1.ReferenceKey{
-			Key:  &nodePrefix,
-			Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
-		},
-		Kind: referencev1.ReferenceKind_REFERENCE_KIND_MAP,
-		Map:  nodeRefs,
-	}
-
-	return groupRef, nil
+	return nodeRefs, nil
 }
 
 func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.Reference, error) {

@@ -41,8 +41,9 @@ type FlowNodeResult struct {
 }
 
 var (
-	ErrVarNodeNotFound error = errors.New("node not found")
-	ErrVarKeyNotFound  error = errors.New("key not found")
+	ErrVarGroupNotFound error = errors.New("group not found")
+	ErrVarNodeNotFound  error = errors.New("node not found")
+	ErrVarKeyNotFound   error = errors.New("key not found")
 )
 
 func WriteNodeVar(a *FlowNodeRequest, name string, key string, v interface{}) error {
@@ -78,7 +79,7 @@ func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	return v, nil
 }
 
-func ReadNodeVar(a *FlowNodeRequest, name string, key string) (interface{}, error) {
+func ReadNodeVar(a *FlowNodeRequest, name, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
 	defer a.ReadWriteLock.RUnlock()
 
