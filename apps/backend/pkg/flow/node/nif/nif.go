@@ -11,11 +11,6 @@ import (
 	"the-dev-tools/backend/pkg/model/mcondition"
 )
 
-const (
-	NodeOutputKey = "nif"
-	NodeVarKey    = "var"
-)
-
 type NodeIf struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
@@ -55,7 +50,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 	a := map[string]interface{}{
-		NodeVarKey: req.VarMap,
+		node.NodeVarPrefix: req.VarMap,
 	}
 
 	rootLeaf := &leafmock.LeafMock{
@@ -100,7 +95,7 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	}
 
 	a := map[string]interface{}{
-		NodeVarKey: req.VarMap,
+		node.NodeVarPrefix: req.VarMap,
 	}
 
 	rootLeaf := &leafmock.LeafMock{

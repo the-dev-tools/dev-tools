@@ -373,6 +373,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		node.Name = *req.Msg.Name
 	}
 
+	RpcNodeUpdate.Kind = nodev1.NodeKind(node.NodeKind)
+
 	switch RpcNodeUpdate.Kind {
 	case nodev1.NodeKind_NODE_KIND_REQUEST:
 		if RpcNodeUpdate.Request != nil {
@@ -514,6 +516,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
+	default:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unknown node kind: %s", RpcNodeUpdate.Kind))
 	}
 
 	err = c.ns.UpdateNode(ctx, *node)

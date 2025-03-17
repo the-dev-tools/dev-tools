@@ -33,6 +33,8 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 }
 
 func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus) error {
+	defer close(flowNodeStatusChan)
+	defer close(flowStatusChan)
 	nextNodeID := &r.StartNodeID
 	var err error
 
@@ -65,8 +67,6 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		return err
 	}
 	flowStatusChan <- runner.FlowStatusSuccess
-	close(flowNodeStatusChan)
-	close(flowStatusChan)
 	return nil
 }
 

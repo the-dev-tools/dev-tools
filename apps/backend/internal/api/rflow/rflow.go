@@ -789,9 +789,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				close(flowStatusChan)
 				done <- errors.New("context done")
 				return
-			case flowNodeStatus := <-flowNodeStatusChan:
+			case flowNodeStatus, ok := <-flowNodeStatusChan:
+				if !ok {
+					return
+				}
 				nodeStatusFunc(flowNodeStatus)
-			case flowStatus := <-flowStatusChan:
+			case flowStatus, ok := <-flowStatusChan:
+				if !ok {
+					return
+				}
 				if len(flowNodeStatusChan) > 0 {
 					for flowNodeStatus := range flowNodeStatusChan {
 						nodeStatusFunc(flowNodeStatus)
@@ -810,9 +816,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// wait for the flow to finish
 	flowErr := <-done
 
-	if flowRunErr != nil {
-		return connect.NewError(connect.CodeInternal, flowRunErr)
-	}
 	close(updateNodeChan)
 	close(requestNodeRespChan)
 
@@ -840,10 +843,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	if flowErr != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
@@ -852,6 +851,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	if flowErr != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	if flowRunErr != nil {
+		return connect.NewError(connect.CodeInternal, flowRunErr)
 	}
 
 	for _, requestNodeResp := range NodeRequestSideRespArr {
