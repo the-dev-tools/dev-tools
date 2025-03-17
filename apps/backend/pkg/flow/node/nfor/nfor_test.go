@@ -37,8 +37,9 @@ func TestForNode_RunSync(t *testing.T) {
 	iterCount := int64(3)
 
 	timeOut := time.Duration(0)
+	nodeName := "test-node"
 
-	nodeFor := nfor.New(id, iterCount, timeOut)
+	nodeFor := nfor.New(id, nodeName, iterCount, timeOut)
 	ctx := context.Background()
 
 	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
@@ -87,6 +88,7 @@ func TestForNode_RunAsync(t *testing.T) {
 		mockNode3ID: mockNode3,
 	}
 	id := idwrap.NewNow()
+	nodeName := "test-node"
 
 	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
 	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
@@ -95,7 +97,7 @@ func TestForNode_RunAsync(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	iterCount := int64(3)
-	nodeFor := nfor.New(id, iterCount, time.Minute)
+	nodeFor := nfor.New(id, nodeName, iterCount, time.Minute)
 
 	ctx := context.Background()
 
@@ -123,7 +125,8 @@ func TestForNode_RunAsync(t *testing.T) {
 
 func TestForNode_SetID(t *testing.T) {
 	id := idwrap.NewNow()
-	nodeFor := nfor.New(id, 1, time.Minute)
+	nodeName := "test-node"
+	nodeFor := nfor.New(id, nodeName, 1, time.Minute)
 	nodeFor.SetID(id)
 	if nodeFor.GetID() != id {
 		t.Errorf("Expected nodeFor.GetID() to be %v, but got %v", id, nodeFor.GetID())

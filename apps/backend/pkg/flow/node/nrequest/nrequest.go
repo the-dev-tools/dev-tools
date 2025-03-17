@@ -3,7 +3,6 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/http/request"
@@ -169,7 +168,6 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
-	fmt.Println("varMap", varMap)
 	resp, err := request.PrepareRequest(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap, nr.HttpClient)
 	if err != nil {

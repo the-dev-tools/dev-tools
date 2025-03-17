@@ -522,7 +522,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
-		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, forNode.IterCount, time.Second)
+		name := nodeNameMap[forNode.FlowNodeID]
+		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, time.Second)
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
@@ -668,17 +669,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	for _, ifNode := range ifNodes {
 		comp := ifNode.Condition.Comparisons
-		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, comp.Kind, comp.Path, comp.Value)
+		name := nodeNameMap[ifNode.FlowNodeID]
+		flowNodeMap[ifNode.FlowNodeID] = nif.New(ifNode.FlowNodeID, name, comp.Kind, comp.Path, comp.Value)
 	}
 
 	for _, noopNode := range noopNodes {
-		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID)
+		name := nodeNameMap[noopNode.FlowNodeID]
+		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID, name)
 	}
 
 	for _, forEachNode := range forEachNodes {
-		// TODO: add names
-		// TODO: make timeout configurable
-		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, "", forEachNode.IterPath, time.Second,
+		name := nodeNameMap[forEachNode.FlowNodeID]
+		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterPath, time.Second,
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 

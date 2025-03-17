@@ -14,9 +14,10 @@ type NodeNoop struct {
 	Name       string
 }
 
-func New(id idwrap.IDWrap) *NodeNoop {
+func New(id idwrap.IDWrap, name string) *NodeNoop {
 	return &NodeNoop{
 		FlowNodeID: id,
+		Name:       name,
 	}
 }
 

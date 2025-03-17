@@ -29,9 +29,10 @@ type NodeFor struct {
 }
 
 // TODO: check this
-func New(id idwrap.IDWrap, iterCount int64, timeout time.Duration) *NodeFor {
+func New(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration) *NodeFor {
 	return &NodeFor{
 		FlowNodeID: id,
+		Name:       name,
 		IterCount:  iterCount,
 		Timeout:    timeout,
 	}
