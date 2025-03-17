@@ -4,70 +4,47 @@
   </a>
 </p>
 
-<h3 align="center">DevTools</h3>
+<h1 align="center">DevTools</h1>
 
-<div align="center">
+<p align="center">
+DevTools is a powerful API testing tool that records your browser interactions, automatically generates requests, and seamlessly chains them for functional testing.
+<br />
+With built-in CI integration, it streamlines API validation from development to deployment.
+</p>
+
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About the Project</a></li>
+    <li><a href="#chrome-extension">Chrome Extension</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+  </ol>
+</details>
+
+## About the Project
+
+<!-- TODO: add build badges, description, screenshots -->
+
+**TBD...**
+
+## Chrome Extension
 
 [![Chrome Web Store Version](https://img.shields.io/chrome-web-store/v/bcnbbkdpnoeaaedhhnlefgpijlpbmije?logo=googlechrome&logoColor=white&label=API%20Recorder%20Extension)](https://chromewebstore.google.com/detail/api-recorder/bcnbbkdpnoeaaedhhnlefgpijlpbmije)
 
-</div>
+<!-- TODO: add description and screenshots -->
 
-## Getting Started
+**TBD...**
 
-The following software is needed for the development environment:
+## Contributing
 
-1. [Nix](https://nixos.org/) with Flakes enabled, see [installation instructions](https://github.com/DeterminateSystems/nix-installer)
-2. [Direnv](https://direnv.net/), see [installation instructions](https://direnv.net/docs/installation.html)
-3. [Visual Studio Code](https://code.visualstudio.com/) with [recommended extensions](https://code.visualstudio.com/docs/editor/extension-marketplace#_recommended-extensions)
+We appreciate feedback and contribution to this repo! Before you get started, please see the following:
 
-> [!IMPORTANT]
-> When opening the project for the first time, run `direnv allow` and `pnpm install`
+- [Contribution guidelines](./docs/CONTRIBUTING.md)
+- [Code of conduct guidelines](./docs/CODE-OF-CONDUCT.md)
 
-## Resources
+## License
 
-### Development Environment
+<!-- TODO: add license -->
 
-- Nix Flakes - [Wiki](https://wiki.nixos.org/wiki/Flakes) - [Install](https://github.com/DeterminateSystems/nix-installer#readme)
-- direnv - [Docs](https://direnv.net/) - [Install](https://direnv.net/docs/installation.html)
-- pnpm - [Docs](https://pnpm.io/motivation)
-- Nx - [Docs](https://nx.dev/getting-started/intro) - [Plugins](https://nx.dev/plugin-registry) - [API](https://nx.dev/nx-api)
-
-### General
-
-- Effect - [Docs](https://effect.website/docs/) - [API](https://effect-ts.github.io/effect/docs/effect)
-  - Schema - [Docs](https://effect.website/docs/schema/introduction/) - [API](https://effect-ts.github.io/effect/effect/Schema.ts.html)
-  - Platform - [Docs](https://effect.website/docs/platform/introduction/) - [API](https://effect-ts.github.io/effect/docs/platform)
-- Faker - [API](https://fakerjs.dev/api/)
-
-### State Management
-
-- TanStack Router - [Docs](https://tanstack.com/router/latest/docs/framework/react/overview)
-- TanStack Query - [Docs](https://tanstack.com/query/latest/docs/framework/react/overview)
-- TanStack Table - [Docs](https://tanstack.com/table/latest/docs/introduction)
-- normy - [Core](https://github.com/klis87/normy#readme) - [TanStack Query](https://github.com/klis87/normy/tree/master/packages/normy-react-query#readme)
-- React Hook Form - [API](https://react-hook-form.com/docs) - [TS](https://react-hook-form.com/ts)
-- React Flow - [Docs](https://reactflow.dev/learn) - [API](https://reactflow.dev/api-reference) - [Components](https://reactflow.dev/components) - [Examples](https://reactflow.dev/examples)
-
-### RPC / Protobufs
-
-- Connect for Web - [Docs](https://connectrpc.com/docs/web/getting-started)
-- Connect for TanStack Query - [Docs](https://github.com/connectrpc/connect-query-es)
-- Protobuf ES - [Docs](https://github.com/bufbuild/protobuf-es/blob/main/MANUAL.md)
-
-### UI
-
-- Tailwind CSS - [Docs](https://tailwindcss.com/docs/installation)
-- Tailwind Variants - [Docs](https://www.tailwind-variants.org/docs/introduction)
-- React Aria - [Docs](https://react-spectrum.adobe.com/react-aria/components.html)
-  - Tailwind Starter - [GitHub](https://github.com/adobe/react-spectrum/tree/main/starters/tailwind) - [Storybook](https://react-spectrum.adobe.com/react-aria-tailwind-starter/)
-- React Icons - [Docs](https://react-icons.github.io/react-icons)
-
-### Design
-
-- Figma - [Team](https://www.figma.com/files/team/1400037238435055305/all-projects) - [File](https://www.figma.com/design/psOxuc1CnTJTklIvga49To/DevTools)
-- Token Studio - [Docs](https://docs.tokens.studio/)
-
-### Other
-
-- React Email - [Docs](https://react.email/docs/introduction) - [Components](https://react.email/components) - [Templates](https://react.email/templates)
-- Electron Vite - [Docs](https://electron-vite.org/guide/)
+This repo is covered under [License](./LICENSE).
