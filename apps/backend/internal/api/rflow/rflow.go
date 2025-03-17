@@ -20,7 +20,6 @@ import (
 	"the-dev-tools/backend/pkg/flow/node/nfor"
 	"the-dev-tools/backend/pkg/flow/node/nforeach"
 	"the-dev-tools/backend/pkg/flow/node/nif"
-	"the-dev-tools/backend/pkg/flow/node/njs"
 	"the-dev-tools/backend/pkg/flow/node/nnoop"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/flow/runner"
@@ -460,7 +459,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var jsNodes []mnjs.MNJS
 	var startNodeID idwrap.IDWrap
 
+	nodeNameMap := make(map[idwrap.IDWrap]string, len(nodes))
+
 	for _, node := range nodes {
+		nodeNameMap[node.ID] = node.Name
+
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
 			rn, err := c.rns.GetNodeRequest(ctx, node.ID)
@@ -657,7 +660,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		httpClient := httpclient.New()
 
-		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
+		name := nodeNameMap[requestNode.FlowNodeID]
+
+		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
 			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
 	}
 
@@ -685,7 +690,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 		}
 
-		flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, "", string(jsNode.Code))
+		// TODO: uncomment after js node move
+		// flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, "", string(jsNode.Code))
 	}
 
 	// TODO: get timeout from flow config
@@ -705,14 +711,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	go func() {
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
 			id := flowNodeStatus.NodeID
+			name := flowNodeStatus.Name
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
 				go func() {
-					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, idStr)
+					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, name)
 					refs := []reference.Reference{ref}
 
-					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", idStr, stateStr), refs)
+					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr), refs)
 					if localErr != nil {
 						done <- localErr
 						return

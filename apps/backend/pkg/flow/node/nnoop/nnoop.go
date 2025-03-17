@@ -28,6 +28,10 @@ func (n *NodeNoop) SetID(id idwrap.IDWrap) {
 	n.FlowNodeID = id
 }
 
+func (n NodeNoop) GetName() string {
+	return n.Name
+}
+
 func (n NodeNoop) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleUnspecified)
 	var result node.FlowNodeResult

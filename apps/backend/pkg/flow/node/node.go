@@ -17,6 +17,7 @@ const NodeVarPrefix = "node"
 
 type FlowNode interface {
 	GetID() idwrap.IDWrap
+	GetName() string
 
 	// TODO: will implement streaming in the future
 	RunSync(ctx context.Context, req *FlowNodeRequest) FlowNodeResult
@@ -44,11 +45,11 @@ var (
 	ErrVarKeyNotFound  error = errors.New("key not found")
 )
 
-func WriteNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string, v interface{}) error {
+func WriteNodeVar(a *FlowNodeRequest, name string, key string, v interface{}) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()
 
-	nodeKey := NodeVarPrefix + id.String()
+	nodeKey := name
 
 	oldV, ok := a.VarMap[nodeKey]
 	if !ok {
@@ -77,11 +78,11 @@ func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	return v, nil
 }
 
-func ReadNodeVar(a *FlowNodeRequest, id idwrap.IDWrap, key string) (interface{}, error) {
+func ReadNodeVar(a *FlowNodeRequest, name string, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
 	defer a.ReadWriteLock.RUnlock()
 
-	nodeKey := NodeVarPrefix + id.String()
+	nodeKey := name
 
 	nodeVarMap, ok := a.VarMap[nodeKey]
 	if !ok {

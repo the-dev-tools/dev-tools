@@ -256,6 +256,7 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		status := runner.FlowNodeStatus{
 			NodeID: id,
 			State:  mnnode.NODE_STATE_RUNNING,
+			Name:   currentNode.GetName(),
 		}
 		statusLogFunc(status)
 
@@ -287,7 +288,7 @@ func RunNodeASync(ctx context.Context, startNode node.FlowNode, req *node.FlowNo
 		timeoutCancel()
 
 		// Handle result
-		outputData, ok := req.VarMap[node.NodeVarPrefix+id.String()]
+		outputData, ok := req.VarMap[currentNode.GetName()]
 		if ok {
 			// TODO: change json.Marshal to faster json implementation
 			status.OutputData = outputData

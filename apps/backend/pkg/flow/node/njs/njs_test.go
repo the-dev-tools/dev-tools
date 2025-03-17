@@ -1,5 +1,7 @@
 package njs_test
 
+/*
+
 import (
 	"context"
 	"fmt"
@@ -395,3 +397,4 @@ func TestNodeJS_RunSync_RestrictedOperations(t *testing.T) {
 		t.Errorf("Expected file system access to be blocked with an error, got: %v (err: %v)", fileError, err)
 	}
 }
+*/

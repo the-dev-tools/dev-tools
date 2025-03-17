@@ -46,6 +46,10 @@ func (nr *NodeForEach) SetID(id idwrap.IDWrap) {
 	nr.FlowNodeID = id
 }
 
+func (n *NodeForEach) GetName() string {
+	return n.Name
+}
+
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)

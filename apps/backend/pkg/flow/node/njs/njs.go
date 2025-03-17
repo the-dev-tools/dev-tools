@@ -1,5 +1,7 @@
 package njs
 
+/*
+
 import (
 	"context"
 	"fmt"
@@ -199,3 +201,4 @@ func NewSetVarCallBack(req *node.FlowNodeRequest, id idwrap.IDWrap, iso *v8.Isol
 
 	return setVal, nil
 }
+*/

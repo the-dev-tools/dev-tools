@@ -28,6 +28,10 @@ func (mn *MockNode) SetID(id idwrap.IDWrap) {
 	mn.ID = id
 }
 
+func (mn *MockNode) GetName() string {
+	return "mock"
+}
+
 func (mn *MockNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	mn.OnRun()
 	return node.FlowNodeResult{

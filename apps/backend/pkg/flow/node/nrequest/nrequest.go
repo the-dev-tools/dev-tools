@@ -28,10 +28,12 @@ const (
 
 type NodeRequest struct {
 	FlownNodeID idwrap.IDWrap
-	Api         mitemapi.ItemApi
-	Example     mitemapiexample.ItemApiExample
-	Queries     []mexamplequery.Query
-	Headers     []mexampleheader.Header
+	Name        string
+
+	Api     mitemapi.ItemApi
+	Example mitemapiexample.ItemApiExample
+	Queries []mexamplequery.Query
+	Headers []mexampleheader.Header
 
 	RawBody        mbodyraw.ExampleBodyRaw
 	FormBody       []mbodyform.BodyForm
@@ -59,7 +61,7 @@ type NodeRequestSideResp struct {
 	Resp response.ResponseCreateOutput
 }
 
-func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
+func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
 	Queries []mexamplequery.Query, Headers []mexampleheader.Header,
 	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded,
 	ExampleResp mexampleresp.ExampleResp, ExampleRespHeader []mexamplerespheader.ExampleRespHeader, asserts []massert.Assert,
@@ -67,6 +69,7 @@ func New(id idwrap.IDWrap, api mitemapi.ItemApi, example mitemapiexample.ItemApi
 ) *NodeRequest {
 	return &NodeRequest{
 		FlownNodeID: id,
+		Name:        name,
 		Api:         api,
 		Example:     example,
 
@@ -92,6 +95,10 @@ func (nr *NodeRequest) GetID() idwrap.IDWrap {
 
 func (nr *NodeRequest) SetID(id idwrap.IDWrap) {
 	nr.FlownNodeID = id
+}
+
+func (nr *NodeRequest) GetName() string {
+	return nr.Name
 }
 
 func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
@@ -121,7 +128,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	err = node.WriteNodeVar(req, nr.GetID(), NodeRequestKey, respMap)
+	err = node.WriteNodeVar(req, nr.Name, NodeRequestKey, respMap)
 	if err != nil {
 		result.Err = err
 		return result
@@ -180,7 +187,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	err = node.WriteNodeVar(req, nr.GetID(), NodeRequestKey, respMap)
+	err = node.WriteNodeVar(req, nr.Name, NodeRequestKey, respMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

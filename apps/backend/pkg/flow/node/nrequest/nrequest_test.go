@@ -64,9 +64,10 @@ func TestNodeRequest_Run(t *testing.T) {
 		mockHttpClient := httpmockclient.NewMockHttpClient(mockResp)
 		requestBody := []byte("Request body")
 		rawBody.Data = requestBody
+		name := "example"
 
 		requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
-		requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody,
+		requestNode := nrequest.New(id, name, api, example, queries, headers, rawBody, formBody, urlBody,
 			exampleResp, exampleRespHeader, asserts,
 			mockHttpClient, requestNodeRespChan)
 
@@ -89,7 +90,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		if req.VarMap == nil {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
-		RawOutput, err := node.ReadNodeVar(req, id, nrequest.NodeRequestKey)
+		RawOutput, err := node.ReadNodeVar(req, name, nrequest.NodeRequestKey)
 		testutil.Assert(t, nil, err)
 		testutil.AssertNot(t, nil, RawOutput)
 		var httpResp httpclient.ResponseVar
@@ -116,7 +117,9 @@ func TestNodeRequest_Run(t *testing.T) {
 		rawBody.Data = requestBody
 
 		requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
-		requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody,
+		nodeName := "test-node"
+
+		requestNode := nrequest.New(id, nodeName, api, example, queries, headers, rawBody, formBody, urlBody,
 			exampleResp, exampleRespHeader, asserts,
 			mockHttpClient, requestNodeRespChan)
 		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
@@ -141,7 +144,7 @@ func TestNodeRequest_Run(t *testing.T) {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
 
-		RawOutput, err := node.ReadNodeVar(req, id, nrequest.NodeRequestKey)
+		RawOutput, err := node.ReadNodeVar(req, nodeName, nrequest.NodeRequestKey)
 		testutil.Assert(t, nil, err)
 		testutil.AssertNot(t, nil, RawOutput)
 		var httpResp httpclient.ResponseVar
@@ -183,7 +186,8 @@ func TestNodeRequest_SetID(t *testing.T) {
 	rawBody.Data = requestBody
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, 1)
-	requestNode := nrequest.New(id, api, example, queries, headers, rawBody, formBody, urlBody,
+	nodeName := "test-node"
+	requestNode := nrequest.New(id, nodeName, api, example, queries, headers, rawBody, formBody, urlBody,
 		exampleResp, exampleRespHeader, asserts,
 		mockHttpClient, requestNodeRespChan)
 	newID := idwrap.NewNow()

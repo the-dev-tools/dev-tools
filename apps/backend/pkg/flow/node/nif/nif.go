@@ -42,6 +42,10 @@ func (n *NodeIf) SetID(id idwrap.IDWrap) {
 	n.FlowNodeID = id
 }
 
+func (n NodeIf) GetName() string {
+	return n.Name
+}
+
 func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)

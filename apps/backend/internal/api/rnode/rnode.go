@@ -617,7 +617,9 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 		exampleResp := mexampleresp.ExampleResp{}
 		exampleRespHeader := []mexamplerespheader.ExampleRespHeader{}
 		asserts := []massert.Assert{}
-		nrequest.New(nodeReq.FlowNodeID, *itemApi, *example, queries, headers, *rawBody, formBody, urlBody,
+
+		// TODO: add name
+		nrequest.New(nodeReq.FlowNodeID, "", *itemApi, *example, queries, headers, *rawBody, formBody, urlBody,
 			exampleResp, exampleRespHeader, asserts, httpclient.New(), requestNodeRespChan)
 
 	case mnnode.NODE_KIND_FOR:

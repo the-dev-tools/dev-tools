@@ -263,6 +263,8 @@ func NewReferenceFromInterface(value any, key ReferenceKey) Reference {
 		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: val.String()}
 	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
 		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
+	case reflect.Ptr:
+		return NewReferenceFromInterface(val.Elem().Interface(), key)
 	default:
 		return Reference{}
 	}
