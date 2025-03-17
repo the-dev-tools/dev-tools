@@ -378,33 +378,44 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 	switch RpcNodeUpdate.Kind {
 	case nodev1.NodeKind_NODE_KIND_REQUEST:
 		if RpcNodeUpdate.Request != nil {
+			var anyUpdate bool
 			requestNode, err := c.nrs.GetNodeRequest(ctx, nodeID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-			if RpcNodeUpdate.Request.ExampleId != nil {
+			if len(RpcNodeUpdate.Request.ExampleId) != 0 {
 				exmplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.ExampleId)
 				if err != nil {
 					return nil, err
 				}
 				requestNode.ExampleID = &exmplePtr
+				anyUpdate = true
 			}
 
-			if RpcNodeUpdate.Request.EndpointId != nil {
+			if len(RpcNodeUpdate.Request.EndpointId) != 0 {
 				endpointPtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.EndpointId)
 				if err != nil {
 					return nil, err
 				}
 				requestNode.EndpointID = &endpointPtr
+				anyUpdate = true
 			}
 
-			if RpcNodeUpdate.Request.DeltaExampleId != nil {
+			if len(RpcNodeUpdate.Request.DeltaExampleId) != 0 {
 				deltaExamplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.DeltaExampleId)
 				if err != nil {
 					return nil, err
 				}
 				requestNode.DeltaExampleID = &deltaExamplePtr
+				anyUpdate = true
+			}
+
+			if anyUpdate {
+				err = c.nrs.UpdateNodeRequest(ctx, *requestNode)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 			}
 		}
 	case nodev1.NodeKind_NODE_KIND_FOR:

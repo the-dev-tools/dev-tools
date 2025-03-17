@@ -171,7 +171,7 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		queryMap[q.ID] = q
 	}
 	for _, q := range input.DeltaQueries {
-		queryMap[q.ID] = q
+		queryMap[*q.DeltaParentID] = q
 	}
 
 	output.MergeQueries = make([]mexamplequery.Query, 0, len(queryMap))

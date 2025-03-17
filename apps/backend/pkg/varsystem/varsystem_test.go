@@ -129,3 +129,55 @@ func TestHostStringReplace(t *testing.T) {
 		t.Errorf("Expected %s , got %s", expectedUrl, urlNew)
 	}
 }
+
+func TestNewVarMapFromAnyMap(t *testing.T) {
+	input := map[string]any{
+		"key1": "value1",
+		"key2": 42,
+		"key3": true,
+		"key4": map[string]any{
+			"nestedKey1": "nestedValue1",
+		},
+		"key5": []any{1, 2, 3},
+	}
+
+	expected := varsystem.VarMap{
+		"key1":            mvar.Var{Value: "value1"},
+		"key2":            mvar.Var{Value: "42"},
+		"key3":            mvar.Var{Value: "true"},
+		"key4.nestedKey1": mvar.Var{Value: "nestedValue1"},
+		"key5[0]":         mvar.Var{Value: "1"},
+		"key5[1]":         mvar.Var{Value: "2"},
+		"key5[2]":         mvar.Var{Value: "3"},
+	}
+
+	result := varsystem.NewVarMapFromAnyMap(input)
+	if result["key1"].Value != input["key1"] {
+		fmt.Println(result)
+		t.Errorf("Expected %v, got %v", expected["key1"].Value, result["key1"].Value)
+	}
+
+	if result["key2"].Value != fmt.Sprint(input["key2"]) {
+		t.Errorf("Expected %v, got %v", expected["key2"].Value, result["key2"].Value)
+	}
+
+	if result["key3"].Value != fmt.Sprint(input["key3"]) {
+		t.Errorf("Expected %v, got %v", expected["key3"].Value, result["key3"].Value)
+	}
+
+	if result["key4.nestedKey1"].Value != fmt.Sprint(input["key4"].(map[string]any)["nestedKey1"]) {
+		t.Errorf("Expected %v, got %v", expected["key4.nestedKey1"].Value, result["key4.nestedKey1"].Value)
+	}
+
+	if result["key5[0]"].Value != fmt.Sprint(input["key5"].([]any)[0]) {
+		t.Errorf("Expected %v, got %v", expected["key5[0]"].Value, result["key5[0]"].Value)
+	}
+
+	if result["key5[1]"].Value != fmt.Sprint(input["key5"].([]any)[1]) {
+		t.Errorf("Expected %v, got %v", expected["key5[1]"].Value, result["key5[1]"].Value)
+	}
+
+	if result["key5[2]"].Value != fmt.Sprint(input["key5"].([]any)[2]) {
+		t.Errorf("Expected %v, got %v", expected["key5[2]"].Value, result["key5[2]"].Value)
+	}
+}

@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/backend/pkg/model/mexamplerespheader"
 	"the-dev-tools/backend/pkg/model/mitemapi"
 	"the-dev-tools/backend/pkg/model/mitemapiexample"
+	"the-dev-tools/backend/pkg/varsystem"
 )
 
 const (
@@ -108,8 +109,10 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Err:        nil,
 	}
 
+	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+
 	resp, err := request.PrepareRequest(nr.Api, nr.Example,
-		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, nil, nr.HttpClient)
+		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		return result
@@ -163,8 +166,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 
 	// TODO: varMap is null create varMap
+	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 	resp, err := request.PrepareRequest(nr.Api, nr.Example,
-		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, nil, nr.HttpClient)
+		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

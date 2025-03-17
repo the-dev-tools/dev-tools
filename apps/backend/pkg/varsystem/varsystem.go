@@ -2,6 +2,7 @@ package varsystem
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"the-dev-tools/backend/pkg/model/mvar"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
@@ -20,6 +21,46 @@ func NewVarMap(vars []mvar.Var) VarMap {
 		varMap[v.VarKey] = v
 	}
 	return varMap
+}
+
+func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
+	vars := make([]mvar.Var, 0)
+	for k, v := range anyMap {
+		HelperNewAny(&vars, v, k)
+	}
+	return NewVarMap(vars)
+}
+
+// should convert
+// map[string]any{"something": map[string]any{"something": 1}} -> key: "something.something", value: 1
+// []int{1} -> key: "1", value: 1
+
+func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
+	reflectType := reflect.TypeOf(target)
+	switch reflectType.Kind() {
+	case reflect.Map:
+		castedMap, ok := target.(map[string]any)
+		if !ok {
+			return
+		}
+		for k, v := range castedMap {
+			HelperNewAny(vars, v, prefix+"."+k)
+		}
+	case reflect.Slice:
+		for i, v := range target.([]any) {
+			HelperNewAny(vars, v, fmt.Sprintf("%s[%d]", prefix, i))
+		}
+	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
+		*vars = append(*vars, mvar.Var{
+			VarKey: prefix,
+			Value:  fmt.Sprintf("%v", target),
+		})
+	case reflect.String:
+		*vars = append(*vars, mvar.Var{
+			VarKey: prefix,
+			Value:  target.(string),
+		})
+	}
 }
 
 func (vm VarMap) ToSlice() []mvar.Var {

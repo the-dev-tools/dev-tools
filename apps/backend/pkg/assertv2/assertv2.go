@@ -233,3 +233,8 @@ func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, p
 func (s AssertSystem) AssertComplex(ctx context.Context, expr string) (bool, error) {
 	return s.EvalBool(ctx, expr)
 }
+
+func (s AssertSystem) AssertAny(ctx context.Context, expr string, extensions ...gval.Language) (any, error) {
+	ln := gval.Full(extensions...)
+	return ln.EvaluateWithContext(ctx, expr, s.root.Leaf)
+}
