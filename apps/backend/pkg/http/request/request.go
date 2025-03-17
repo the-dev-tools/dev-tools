@@ -41,6 +41,15 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	compressType := compress.CompressTypeNone
 	if varMap != nil {
 		for i, query := range queries {
+			if varsystem.CheckIsVar(query.QueryKey) {
+				key := varsystem.GetVarKeyFromRaw(query.QueryKey)
+				if val, ok := varMap.Get(key); ok {
+					queries[i].QueryKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+
 			if varsystem.CheckIsVar(query.Value) {
 				key := varsystem.GetVarKeyFromRaw(query.Value)
 				if val, ok := varMap.Get(key); ok {
@@ -67,12 +76,21 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		}
 
 		if varMap != nil {
+			if varsystem.CheckIsVar(header.HeaderKey) {
+				key := varsystem.GetVarKeyFromRaw(header.HeaderKey)
+				if val, ok := varMap.Get(key); ok {
+					headers[i].HeaderKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+
 			if varsystem.CheckIsVar(header.Value) {
 				key := varsystem.GetVarKeyFromRaw(header.Value)
-				if val, ok := varMap.Get(key); !ok {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
-				} else {
+				if val, ok := varMap.Get(key); ok {
 					headers[i].Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
 		}
@@ -186,7 +204,7 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	}
 
 	for _, h := range input.DeltaHeaders {
-		headerMap[h.ID] = h
+		headerMap[*h.DeltaParentID] = h
 	}
 
 	output.MergeHeaders = make([]mexampleheader.Header, 0, len(headerMap))

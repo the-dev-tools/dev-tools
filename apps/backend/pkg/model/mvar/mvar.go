@@ -3,7 +3,7 @@ package mvar
 import "the-dev-tools/backend/pkg/idwrap"
 
 const (
-	Prefix = "{{env."
+	Prefix = "{{"
 	Suffix = "}}"
 )
 

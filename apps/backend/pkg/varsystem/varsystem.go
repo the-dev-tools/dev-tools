@@ -105,7 +105,8 @@ func GetVarKeyFromRaw(raw string) string {
 }
 
 func CheckIsVar(varKey string) bool {
-	return CheckPrefix(varKey) && CheckSuffix(varKey)
+	str := strings.TrimSpace(varKey)
+	return CheckPrefix(str) && CheckSuffix(str)
 }
 
 func CheckPrefix(varKey string) bool {
