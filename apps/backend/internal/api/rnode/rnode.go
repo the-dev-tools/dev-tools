@@ -3,6 +3,7 @@ package rnode
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rflow"
@@ -45,7 +46,6 @@ import (
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
 	"connectrpc.com/connect"
-	"github.com/pkg/errors"
 )
 
 type NodeServiceRPC struct {

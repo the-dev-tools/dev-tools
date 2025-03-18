@@ -11,12 +11,10 @@ require (
 	github.com/klauspost/compress v1.17.9
 	github.com/magiclabs/magic-admin-go v1.0.0
 	github.com/oklog/ulid/v2 v2.1.0
-	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.11.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	golang.org/x/net v0.33.0
 	google.golang.org/protobuf v1.36.4
-	rogchap.com/v8go v0.9.0
 )
 
 require (
@@ -28,7 +26,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
-	go.kuoruan.net/v8go-polyfills v0.5.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
