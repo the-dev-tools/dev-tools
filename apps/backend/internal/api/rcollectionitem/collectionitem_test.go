@@ -1,10 +1,10 @@
-package collectionitem_test
+package rcollectionitem_test
 
 import (
 	"context"
 	"testing"
-	"the-dev-tools/backend/internal/api/collectionitem"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
+	"the-dev-tools/backend/internal/api/rcollectionitem"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mitemfolder"
 	"the-dev-tools/backend/pkg/service/scollection"
@@ -42,7 +42,7 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 
 	var folders []mitemfolder.ItemFolder
 	const folderCount int = 100
-	for i := 0; i < folderCount; i++ {
+	for range folderCount {
 		folder := mitemfolder.ItemFolder{
 			ID:           idwrap.NewNow(),
 			Name:         "test",
@@ -54,7 +54,7 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 
 	var items []mitemfolder.ItemFolder
 	const itemCount int = 100
-	for i := 0; i < folderCount; i++ {
+	for range folderCount {
 		item := mitemfolder.ItemFolder{
 			ID:           idwrap.NewNow(),
 			Name:         "test",
@@ -74,7 +74,7 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 		t.Error(err)
 	}
 
-	serviceRPC := collectionitem.New(db, cs, us, ifs, ias, iaes, res)
+	serviceRPC := rcollectionitem.New(db, cs, us, ifs, ias, iaes, res)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	t.Run("Root items", func(t *testing.T) {
 		reqData := &itemv1.CollectionItemListRequest{

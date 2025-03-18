@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/auth"
-	"the-dev-tools/backend/internal/api/collectionitem"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/middleware/mwcompress"
 	"the-dev-tools/backend/internal/api/rbody"
 	"the-dev-tools/backend/internal/api/rcollection"
+	"the-dev-tools/backend/internal/api/rcollectionitem"
 	"the-dev-tools/backend/internal/api/redge"
 	"the-dev-tools/backend/internal/api/renv"
 	"the-dev-tools/backend/internal/api/resultapi"
@@ -252,8 +252,8 @@ func main() {
 	newServiceManager.AddService(rcollection.CreateService(collectionSrv, opitonsAll))
 
 	// Collection Item Service
-	collectionItemSrv := collectionitem.New(currentDB, cs, us, ifs, ias, iaes, res)
-	newServiceManager.AddService(collectionitem.CreateService(collectionItemSrv, opitonsAll))
+	collectionItemSrv := rcollectionitem.New(currentDB, cs, us, ifs, ias, iaes, res)
+	newServiceManager.AddService(rcollectionitem.CreateService(collectionItemSrv, opitonsAll))
 
 	// Node Service
 	// newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
