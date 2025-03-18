@@ -90,7 +90,20 @@ This is a list of tools that we frequently use throughout the project, along wit
 
 ### Server
 
-<!-- TODO: @Ege fill out server tooling references -->
+#### Database
+
+- Libsql - Unix like - [Website](https://turso.tech/libsql) - [Github](https://github.com/tursodatabase/go-libsql)
+- Sqlite - Windows - [Website](https://www.sqlite.org/) - [Go Reference](https://pkg.go.dev/github.com/mattn/go-sqlite3)
+
+#### RPC
+
+- Connect for Go [Docs](https://connectrpc.com/docs/go/getting-started)
+
+#### General
+
+- Ulid - [Go Reference](https://pkg.go.dev/github.com/oklog/ulid)
+- GVal - [Go Reference](https://pkg.go.dev/github.com/PaesslerAG/gval)
+- Compressed - [Go Reference](https://pkg.go.dev/github.com/klauspost/compress)
 
 ### Client
 
