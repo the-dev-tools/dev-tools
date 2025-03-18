@@ -3,6 +3,7 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/http/request"
@@ -23,7 +24,6 @@ import (
 )
 
 const (
-	NodeOutputKey  = "header"
 	NodeRequestKey = "response"
 )
 
@@ -60,6 +60,11 @@ type NodeRequestSideResp struct {
 
 	// Resp
 	Resp response.ResponseCreateOutput
+}
+
+type NodeRequestOutput struct {
+	Request  request.RequestResponseVar `json:"request"`
+	Response httpclient.ResponseVar     `json:"response"`
 }
 
 func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
@@ -111,16 +116,27 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
-	resp, err := request.PrepareRequest(nr.Api, nr.Example,
-		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap, nr.HttpClient)
+	prepareOutput, err := request.PrepareRequest(nr.Api, nr.Example,
+		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
 	if err != nil {
 		result.Err = err
 		return result
 	}
 
+	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
+	if err != nil {
+		result.Err = err
+	}
+	respMap := map[string]any{}
+
 	varResp := httpclient.ConvertResponseToVar(resp.HttpResp)
-	respMap := map[string]interface{}{}
-	marshaledResp, err := json.Marshal(varResp)
+
+	output := NodeRequestOutput{
+		Request:  request.ConvertRequestToVar(prepareOutput),
+		Response: varResp,
+	}
+
+	marshaledResp, err := json.Marshal(output)
 	if err != nil {
 		result.Err = err
 		return result
@@ -168,18 +184,31 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
-	resp, err := request.PrepareRequest(nr.Api, nr.Example,
-		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap, nr.HttpClient)
+	prepareOutput, err := request.PrepareRequest(nr.Api, nr.Example,
+		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
 		return
 	}
 
-	varResp := httpclient.ConvertResponseToVar(resp.HttpResp)
+	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
+	if err != nil {
+		result.Err = err
+		resultChan <- result
+		return
+	}
+
+	output := NodeRequestOutput{
+		Request:  request.ConvertRequestToVar(prepareOutput),
+		Response: httpclient.ConvertResponseToVar(resp.HttpResp),
+	}
+
+	fmt.Println(output)
+
 	respMap := map[string]any{}
 	// TODO: change map conversion non json
-	marshaledResp, err := json.Marshal(varResp)
+	marshaledResp, err := json.Marshal(output)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
@@ -192,7 +221,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	err = node.WriteNodeVar(req, nr.Name, NodeRequestKey, respMap)
+	err = node.WriteNodeVarBulk(req, nr.Name, respMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

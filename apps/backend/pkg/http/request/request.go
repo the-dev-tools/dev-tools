@@ -22,14 +22,33 @@ import (
 	"connectrpc.com/connect"
 )
 
+type RequestResponseVar struct {
+	Headers map[string]string `json:"headers"`
+	Queries map[string]string `json:"queries"`
+	Body    []byte            `json:"body"`
+}
+
 type RequestResponse struct {
 	HttpResp httpclient.Response
 	LapTime  time.Duration
 }
 
+func ConvertRequestToVar(r *httpclient.Request) RequestResponseVar {
+	headersMaps := make(map[string]string, len(r.Headers))
+	queriesMaps := make(map[string]string, len(r.Queries))
+	for _, header := range r.Headers {
+		headersMaps[header.HeaderKey] = header.Value
+	}
+
+	for _, query := range r.Queries {
+		queriesMaps[query.QueryKey] = query.Value
+	}
+	return RequestResponseVar{Headers: headersMaps, Queries: queriesMaps, Body: r.Body}
+}
+
 func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
-	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap, client httpclient.HttpClient,
-) (*RequestResponse, error) {
+	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap,
+) (*httpclient.Request, error) {
 	var err error
 	if varsystem.CheckStringHasAnyVarKey(endpoint.Url) {
 		endpoint.Url, err = varMap.ReplaceVars(endpoint.Url)
@@ -123,7 +142,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		bodyBytes = bytes.NewBuffer(compressedData)
 	}
 
-	httpReq := httpclient.Request{
+	httpReq := &httpclient.Request{
 		Method:  endpoint.Method,
 		URL:     endpoint.Url,
 		Headers: headers,
@@ -131,17 +150,10 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		Body:    bodyBytes.Bytes(),
 	}
 
-	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvert(client, httpReq, example.ID)
-	lapse := time.Since(now)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeAborted, err)
-	}
-
-	return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
+	return httpReq, nil
 }
 
-func SendRequest(req httpclient.Request, exampleID idwrap.IDWrap) (*RequestResponse, error) {
+func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
 	now := time.Now()
 	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), req, exampleID)
 	lapse := time.Since(now)

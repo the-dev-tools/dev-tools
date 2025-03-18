@@ -67,6 +67,30 @@ func WriteNodeVar(a *FlowNodeRequest, name string, key string, v interface{}) er
 	return nil
 }
 
+func WriteNodeVarBulk(a *FlowNodeRequest, name string, v map[string]interface{}) error {
+	a.ReadWriteLock.Lock()
+	defer a.ReadWriteLock.Unlock()
+
+	nodeKey := name
+
+	oldV, ok := a.VarMap[nodeKey]
+	if !ok {
+		oldV = map[string]interface{}{}
+	}
+
+	mapV, ok := oldV.(map[string]interface{})
+	if !ok {
+		return errors.New("value is not a map")
+	}
+
+	for key, value := range v {
+		mapV[key] = value
+	}
+
+	a.VarMap[nodeKey] = mapV
+	return nil
+}
+
 func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
 	defer a.ReadWriteLock.RUnlock()

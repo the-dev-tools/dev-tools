@@ -72,7 +72,7 @@ func ConvertResponseToVar(r Response) ResponseVar {
 	}
 }
 
-func SendRequest(client HttpClient, req Request) (*http.Response, error) {
+func SendRequest(client HttpClient, req *Request) (*http.Response, error) {
 	reqRaw, err := http.NewRequest(req.Method, req.URL, nil)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func SendRequest(client HttpClient, req Request) (*http.Response, error) {
 	return client.Do(reqRaw)
 }
 
-func SendRequestAndConvert(client HttpClient, req Request, exampleID idwrap.IDWrap) (Response, error) {
+func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDWrap) (Response, error) {
 	resp, err := SendRequest(client, req)
 	if err != nil {
 		return Response{}, err

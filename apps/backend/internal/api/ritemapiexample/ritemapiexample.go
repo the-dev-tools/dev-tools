@@ -567,9 +567,15 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		}
 	}
 
-	requestResp, err := request.PrepareRequest(*itemApiCall, *example, reqQueries, reqHeaders, *rawBody, formBody, urlBody, *varMap, httpclient.New())
+	client := httpclient.New()
+	preparedRequest, err := request.PrepareRequest(*itemApiCall, *example, reqQueries, reqHeaders, *rawBody, formBody, urlBody, *varMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare request: %w", err)
+	}
+
+	requestResp, err := request.SendRequest(preparedRequest, example.ID, client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
 	isExampleRespExists := true

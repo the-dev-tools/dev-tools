@@ -36,6 +36,9 @@ func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
 // []int{1} -> key: "1", value: 1
 
 func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
+	if target == nil {
+		return
+	}
 	reflectType := reflect.TypeOf(target)
 	switch reflectType.Kind() {
 	case reflect.Map:
