@@ -10,10 +10,14 @@ import {
   HttpServerRequest,
   HttpServerResponse,
 } from '@effect/platform';
-import { NodeHttpServer, NodeHttpServerRequest } from '@effect/platform-node';
+import { NodeHttpServer, NodeHttpServerRequest, NodeRuntime } from '@effect/platform-node';
 import { Array, Chunk, Console, Effect, Layer, pipe, Schema, Stream } from 'effect';
 
+import { NodeJSExecutorService } from './nodejs-executor';
+
 const connectRouter = createConnectRouter();
+
+NodeJSExecutorService(connectRouter);
 
 const WorkerServerLive = NodeHttpServer.layer(createServer, { port: 9090 });
 
@@ -58,7 +62,7 @@ const routes = Array.flatMap(connectRouter.handlers, (handler) =>
   ),
 );
 
-export const worker = pipe(
+pipe(
   HttpRouter.fromIterable(routes),
   HttpMiddleware.cors(connectCors),
   HttpServer.serve(),
@@ -66,4 +70,5 @@ export const worker = pipe(
   Layer.provide(WorkerServerLive),
   Layer.launch,
   Effect.ensuring(Console.log('Worker exited')),
+  NodeRuntime.runMain,
 );
