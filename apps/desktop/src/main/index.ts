@@ -1,11 +1,12 @@
 import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
 import { CustomPublishOptions } from 'builder-util-runtime';
-import { Console, Effect, Exit, pipe, Runtime, Scope, String } from 'effect';
+import { Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
 import { CustomUpdateProvider } from './update';
+import { worker } from './worker';
 
 const createWindow = Effect.gen(function* () {
   const path = yield* Path.Path;
@@ -36,41 +37,35 @@ const createWindow = Effect.gen(function* () {
   }
 });
 
-const server = Effect.gen(function* () {
-  const path = yield* Path.Path;
+const server = pipe(
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
 
-  const dist = yield* pipe(
-    import.meta.resolve('@the-dev-tools/backend'),
-    Url.fromString,
-    Effect.flatMap(path.fromFileUrl),
-  );
+    const dist = yield* pipe(
+      import.meta.resolve('@the-dev-tools/backend'),
+      Url.fromString,
+      Effect.flatMap(path.fromFileUrl),
+    );
 
-  const server = yield* pipe(
-    path.join(dist, 'backend'),
-    String.replaceAll('app.asar', 'app.asar.unpacked'),
-    Command.make,
-    Command.env({
-      DB_MODE: 'local',
-      DB_PATH: app.getPath('userData'),
-      DB_NAME: 'state',
-      // TODO: we probably shouldn't encrypt local database
-      DB_ENCRYPTION_KEY: 'secret',
-      HMAC_SECRET: 'secret',
-    }),
-    Command.stdout('inherit'),
-    Command.stderr('inherit'),
-    Command.start,
-  );
-
-  yield* Effect.addFinalizer((exit) =>
-    Effect.gen(function* () {
-      yield* server.kill();
-      yield* Console.info(`Server exited with status "${exit._tag}" and code "${yield* server.exitCode}"`);
-    }).pipe(Effect.ignore),
-  );
-
-  return server;
-});
+    return yield* pipe(
+      path.join(dist, 'backend'),
+      String.replaceAll('app.asar', 'app.asar.unpacked'),
+      Command.make,
+      Command.env({
+        DB_MODE: 'local',
+        DB_PATH: app.getPath('userData'),
+        DB_NAME: 'state',
+        // TODO: we probably shouldn't encrypt local database
+        DB_ENCRYPTION_KEY: 'secret',
+        HMAC_SECRET: 'secret',
+      }),
+      Command.stdout('inherit'),
+      Command.stderr('inherit'),
+      Command.start,
+    );
+  }),
+  Effect.ensuring(Console.log('Server exited')),
+);
 
 const onReady = Effect.gen(function* () {
   autoUpdater.setFeedURL({
@@ -92,7 +87,6 @@ const onActivate = Effect.gen(function* () {
 
 const client = pipe(
   Effect.fn(function* (callback: (_: typeof Effect.void) => void) {
-    const scope = yield* Scope.make();
     const runtime = yield* Effect.runtime<
       Effect.Effect.Context<typeof onReady> | Effect.Effect.Context<typeof onActivate>
     >();
@@ -107,36 +101,31 @@ const client = pipe(
     // explicitly with Cmd + Q.
     app.on('window-all-closed', () => {
       if (process.platform === 'darwin') return;
-      callback(Scope.close(scope, Exit.void));
+      // callback(Scope.close(scope, Exit.void));
+      callback(Effect.interrupt);
     });
 
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     app.on('activate', () => void Runtime.runPromise(runtime)(onActivate));
 
-    yield* Effect.addFinalizer((exit) => Console.info(`Client exited with status "${exit._tag}"`));
-
     return Effect.void;
   }),
   Effect.asyncEffect,
+  Effect.ensuring(Console.log('Client exited')),
 );
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
-const program = Effect.gen(function* () {
-  yield* Effect.addFinalizer((exit) =>
-    Effect.gen(function* () {
-      yield* Console.info(`Program exited with status "${exit._tag}"`);
-      yield* Effect.sync(() => void app.quit());
-    }),
-  );
-
-  if (!import.meta.env.DEV) yield* server;
-  yield* client;
-});
 
 pipe(
-  program,
+  Effect.all([import.meta.env.DEV ? Effect.void : server, client, worker], { concurrency: 'unbounded' }),
+  Effect.ensuring(
+    Effect.gen(function* () {
+      yield* Console.log('Program exited');
+      yield* Effect.sync(() => void app.quit());
+    }),
+  ),
   Effect.scoped,
   Effect.provide(NodeContext.layer),
   Effect.provide(FetchHttpClient.layer),

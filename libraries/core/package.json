@@ -12,7 +12,7 @@
     "./tailwind.config": "./tailwind.config.ts"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "2.2.3",
+    "@bufbuild/protobuf": "2.2.4",
     "@codemirror/lang-html": "6.4.9",
     "@codemirror/lang-javascript": "6.2.3",
     "@codemirror/lang-json": "6.0.1",
