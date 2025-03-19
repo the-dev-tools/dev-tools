@@ -5,6 +5,7 @@ import "./environment.tsp";
 import "./flow.tsp";
 import "./import.tsp";
 import "./log.tsp";
+import "./nodejs-executor.tsp";
 import "./reference.tsp";
 import "./tag.tsp";
 import "./variable.tsp";
