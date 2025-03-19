@@ -27,8 +27,8 @@ const createWindow = Effect.gen(function* () {
   });
 
   // and load the index.html of the app.
-  if (import.meta.env.DEV && process.env['ELECTRON_RENDERER_URL']) {
-    void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
+  if (import.meta.env.DEV && process.env.ELECTRON_RENDERER_URL) {
+    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
 
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
