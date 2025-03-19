@@ -36,6 +36,7 @@ func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
 // []int{1} -> key: "1", value: 1
 
 func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
+	prefix = strings.TrimSpace(prefix)
 	if target == nil {
 		return
 	}
@@ -108,8 +109,9 @@ func GetVarKeyFromRaw(raw string) string {
 }
 
 func CheckIsVar(varKey string) bool {
-	str := strings.TrimSpace(varKey)
-	return CheckPrefix(str) && CheckSuffix(str)
+	varKey = strings.TrimSpace(varKey)
+	varKey = strings.ToLower(varKey)
+	return CheckPrefix(varKey) && CheckSuffix(varKey)
 }
 
 func CheckPrefix(varKey string) bool {

@@ -196,6 +196,11 @@ func ConvertRefernceKeyArrayToStringPath(refKey []ReferenceKey) (string, error) 
 				path += "."
 			}
 			path += v.Key
+		case ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX:
+			if i != 0 {
+				return "", fmt.Errorf("cannot use index as first key")
+			}
+			path += fmt.Sprintf("[%d]", v.Index)
 		default:
 			// TODO: Add other types of reference keys here
 			return "", fmt.Errorf("unknown reference key kind: %v", v.Kind)

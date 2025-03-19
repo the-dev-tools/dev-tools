@@ -90,7 +90,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		if req.VarMap == nil {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
-		RawOutput, err := node.ReadNodeVar(req, name, nrequest.NodeRequestKey)
+		RawOutput, err := node.ReadNodeVar(req, name, nrequest.OUTPUT_RESPONE_NAME)
 		testutil.Assert(t, nil, err)
 		testutil.AssertNot(t, nil, RawOutput)
 		var httpResp httpclient.ResponseVar
@@ -144,7 +144,7 @@ func TestNodeRequest_Run(t *testing.T) {
 			t.Errorf("Expected req.VarMap to be not nil, but got %v", req.VarMap)
 		}
 
-		RawOutput, err := node.ReadNodeVar(req, nodeName, nrequest.NodeRequestKey)
+		RawOutput, err := node.ReadNodeVar(req, nodeName, nrequest.OUTPUT_RESPONE_NAME)
 		testutil.Assert(t, nil, err)
 		testutil.AssertNot(t, nil, RawOutput)
 		var httpResp httpclient.ResponseVar

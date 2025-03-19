@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"the-dev-tools/backend/pkg/compress"
@@ -143,6 +144,11 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 	return result
 }
 
+type FlowVar struct {
+	nodeID idwrap.IDWrap
+	path   string
+}
+
 // TODO: refactor this function to make it more readable
 func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
@@ -182,8 +188,19 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	}
 	result.NoopNodes = append(result.NoopNodes, startNodeNoop)
 
+	type mpos struct {
+		x     float64
+		y     float64
+		index int
+	}
+
 	// Use a map to merge equivalent XHR entries.
 	apiMap := make(map[string]*mitemapi.ItemApi)
+	varMap := make(map[string]FlowVar)
+	nodePosMap := make(map[idwrap.IDWrap]mpos)
+
+	slotIndex := 0
+	const slotSize = 400
 
 	// Process each entry in the HAR file
 	for i, entry := range har.Log.Entries {
@@ -195,12 +212,14 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		// Build a key based on method + URL.
 		key := entry.Request.URL
 
-		var api *mitemapi.ItemApi
-
 		// Check if the API endpoint already exists.
 		if _, ok := apiMap[key]; ok {
 			continue
 		}
+
+		requestName := fmt.Sprintf("request-%d", i)
+
+		var api *mitemapi.ItemApi
 
 		// Create Endpoint/api for first occurrence.
 		apiID := idwrap.NewNow()
@@ -242,18 +261,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			ItemApiID:    apiID,
 		}
 		// Only add a flow node once per unique API.
-		posY += 200
 		flowNodeID := idwrap.NewNow()
-		node := mnnode.MNode{
-			ID:        flowNodeID,
-			FlowID:    flowID,
-			Name:      fmt.Sprintf("request-%d", i),
-			NodeKind:  mnnode.NODE_KIND_REQUEST,
-			PositionX: posX,
-			PositionY: posY,
-		}
-		result.Nodes = append(result.Nodes, node)
-
 		request := mnrequest.MNRequest{
 			FlowNodeID:     flowNodeID,
 			EndpointID:     &api.ID,
@@ -261,6 +269,62 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			DeltaExampleID: &deltaExampleID,
 		}
 		result.RequestNodes = append(result.RequestNodes, request)
+
+		var connected bool
+
+		for i, header := range entry.Request.Headers {
+			v, ok := varMap[header.Value]
+			if ok {
+				entry.Request.Headers[i].Value = v.path
+
+				poses := nodePosMap[v.nodeID]
+				poses.x = poses.x + float64(poses.index*slotSize)
+				poses.index++
+				poses.y += slotSize
+				posX = poses.x
+				posY = poses.y
+				nodePosMap[v.nodeID] = poses
+
+				result.Edges = append(result.Edges, edge.Edge{
+					ID:            idwrap.NewNow(),
+					FlowID:        flowID,
+					SourceID:      v.nodeID,
+					TargetID:      flowNodeID,
+					SourceHandler: edge.HandleUnspecified,
+				})
+				connected = true
+			}
+		}
+
+		for _, header := range entry.Response.Headers {
+			path := fmt.Sprintf("{{ %s.%s.%s.%s }}", requestName, "response", "headers", http.CanonicalHeaderKey(header.Name))
+			varMap[header.Value] = FlowVar{nodeID: flowNodeID, path: path}
+
+		}
+
+		if !connected {
+			posX = float64(slotIndex * slotSize)
+			posY = 100
+			nodePosMap[flowID] = mpos{x: posX, y: posY}
+			slotIndex++
+			result.Edges = append(result.Edges, edge.Edge{
+				ID:            idwrap.NewNow(),
+				FlowID:        flowID,
+				SourceID:      startNodeID,
+				TargetID:      flowNodeID,
+				SourceHandler: edge.HandleUnspecified,
+			})
+		}
+
+		node := mnnode.MNode{
+			ID:        flowNodeID,
+			FlowID:    flowID,
+			Name:      requestName,
+			NodeKind:  mnnode.NODE_KIND_REQUEST,
+			PositionX: posX,
+			PositionY: posY,
+		}
+		result.Nodes = append(result.Nodes, node)
 
 		headers := extractHeaders(entry.Request.Headers, exampleID)
 		headersDefault := extractHeaders(entry.Request.Headers, defaultExampleID)
@@ -354,21 +418,6 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		}
 	}
 
-	// Create sequential edges for the flow nodes.
-	for i, node := range result.Nodes {
-		if i+1 > len(result.Nodes)-1 {
-			break
-		}
-		currentEdge := edge.Edge{
-			ID:            idwrap.NewNow(),
-			FlowID:        flowID,
-			SourceID:      node.ID,
-			TargetID:      result.Nodes[i+1].ID,
-			SourceHandler: edge.HandleUnspecified,
-		}
-		result.Edges = append(result.Edges, currentEdge)
-	}
-
 	return result, nil
 }
 
@@ -428,13 +477,4 @@ func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequer
 		result = append(result, q)
 	}
 	return result
-}
-
-func hasHeader(headers []Header, name string) bool {
-	for _, header := range headers {
-		if strings.EqualFold(header.Name, name) {
-			return true
-		}
-	}
-	return false
 }

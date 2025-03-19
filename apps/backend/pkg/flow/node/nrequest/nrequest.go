@@ -22,10 +22,6 @@ import (
 	"the-dev-tools/backend/pkg/varsystem"
 )
 
-const (
-	NodeRequestKey = "response"
-)
-
 type NodeRequest struct {
 	FlownNodeID idwrap.IDWrap
 	Name        string
@@ -60,6 +56,11 @@ type NodeRequestSideResp struct {
 	// Resp
 	Resp response.ResponseCreateOutput
 }
+
+const (
+	OUTPUT_RESPONE_NAME = "response"
+	OUTPUT_REQUEST_NAME = "request"
+)
 
 type NodeRequestOutput struct {
 	Request  request.RequestResponseVar `json:"request"`
@@ -125,6 +126,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
+		return result
 	}
 	respMap := map[string]any{}
 
@@ -146,7 +148,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	err = node.WriteNodeVar(req, nr.Name, NodeRequestKey, respMap)
+	err = node.WriteNodeVarBulk(req, nr.Name, respMap)
 	if err != nil {
 		result.Err = err
 		return result

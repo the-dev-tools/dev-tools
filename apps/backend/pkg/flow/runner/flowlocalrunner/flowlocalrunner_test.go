@@ -2,6 +2,7 @@ package flowlocalrunner_test
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"the-dev-tools/backend/pkg/flow/edge"
@@ -631,4 +632,113 @@ func BenchmarkAsyncVsSync(b *testing.B) {
 			_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
 		}
 	})
+}
+
+// TestMultipleIncomingEdges verifies that nodes with multiple incoming edges
+// are only executed after all their dependencies have completed
+
+func TestMultipleIncomingEdges(t *testing.T) {
+	// Create a diamond-shaped flow:
+	//    node1
+	//   /     \
+	// node2   node3
+	//   \     /
+	//    node4
+	// Node4 should only execute after both node2 and node3 have completed
+
+	executionOrder := make(map[idwrap.IDWrap]int)
+	executionCounter := 0
+	executionMutex := &sync.Mutex{}
+
+	onRun := func(nodeID idwrap.IDWrap) func() {
+		return func() {
+			executionMutex.Lock()
+			executionCounter++
+			executionOrder[nodeID] = executionCounter
+			executionMutex.Unlock()
+			time.Sleep(10 * time.Millisecond) // Small delay to ensure predictable execution order
+		}
+	}
+
+	node1ID := idwrap.NewNow()
+	node2ID := idwrap.NewNow()
+	node3ID := idwrap.NewNow()
+	node4ID := idwrap.NewNow()
+
+	mockNode1 := mocknode.NewMockNode(node1ID, []idwrap.IDWrap{node2ID, node3ID}, onRun(node1ID))
+	mockNode2 := mocknode.NewMockNode(node2ID, []idwrap.IDWrap{node4ID}, onRun(node2ID))
+	mockNode3 := mocknode.NewMockNode(node3ID, []idwrap.IDWrap{node4ID}, onRun(node3ID))
+	mockNode4 := mocknode.NewMockNode(node4ID, nil, onRun(node4ID))
+
+	flowNodeMap := map[idwrap.IDWrap]node.FlowNode{
+		node1ID: mockNode1,
+		node2ID: mockNode2,
+		node3ID: mockNode3,
+		node4ID: mockNode4,
+	}
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
+	edges := []edge.Edge{edge1, edge2, edge3, edge4}
+	edgesMap := edge.NewEdgesMap(edges)
+
+	// Test both sync and async versions
+	testCases := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{"Sync", 0},
+		{"Async", time.Second},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Reset counters for each test case
+			executionCounter = 0
+			executionOrder = make(map[idwrap.IDWrap]int)
+
+			runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, tc.timeout)
+			flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
+			flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
+			err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+			if err != nil {
+				t.Errorf("Expected err to be nil, but got %v", err)
+			}
+
+			// Verify node1 runs first
+			if executionOrder[node1ID] != 1 {
+				t.Errorf("Expected node1 to be executed first, but it was executed at position %d", executionOrder[node1ID])
+			}
+
+			// Verify node2 and node3 run after node1 but before node4
+			if executionOrder[node2ID] <= executionOrder[node1ID] || executionOrder[node2ID] >= executionOrder[node4ID] {
+				t.Errorf("Expected node2 to be executed after node1 and before node4, but got: node1=%d, node2=%d, node4=%d",
+					executionOrder[node1ID], executionOrder[node2ID], executionOrder[node4ID])
+			}
+
+			if executionOrder[node3ID] <= executionOrder[node1ID] || executionOrder[node3ID] >= executionOrder[node4ID] {
+				t.Errorf("Expected node3 to be executed after node1 and before node4, but got: node1=%d, node3=%d, node4=%d",
+					executionOrder[node1ID], executionOrder[node3ID], executionOrder[node4ID])
+			}
+
+			// Verify node4 runs last (order must be 4)
+			if executionOrder[node4ID] != 4 {
+				t.Errorf("Expected node4 to be executed last (position 4), but it was executed at position %d", executionOrder[node4ID])
+			}
+
+			// Make sure we get status updates for all nodes
+			nodeStatuses := make(map[idwrap.IDWrap]mnnode.NodeState)
+			for status := range flowNodeStatusChan {
+				if status.State == mnnode.NODE_STATE_SUCCESS {
+					nodeStatuses[status.NodeID] = status.State
+				}
+			}
+
+			if len(nodeStatuses) != 4 {
+				t.Errorf("Expected statuses for 4 nodes, but got %d", len(nodeStatuses))
+			}
+		})
+	}
 }

@@ -25,12 +25,13 @@ type FlowNode interface {
 }
 
 type FlowNodeRequest struct {
-	VarMap        map[string]any
-	ReadWriteLock *sync.RWMutex
-	NodeMap       map[idwrap.IDWrap]FlowNode
-	EdgeSourceMap edge.EdgesMap
-	Timeout       time.Duration
-	LogPushFunc   LogPushFunc
+	VarMap           map[string]any
+	ReadWriteLock    *sync.RWMutex
+	NodeMap          map[idwrap.IDWrap]FlowNode
+	EdgeSourceMap    edge.EdgesMap
+	Timeout          time.Duration
+	LogPushFunc      LogPushFunc
+	PendingAtmoicMap map[idwrap.IDWrap]uint32
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)

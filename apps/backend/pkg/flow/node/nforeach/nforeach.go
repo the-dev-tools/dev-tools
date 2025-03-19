@@ -106,15 +106,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 
-			currentNode, ok := req.NodeMap[nextNodeID]
-			if !ok {
-				return node.FlowNodeResult{
-					NextNodeID: nil,
-					Err:        node.ErrNodeNotFound,
-				}
-			}
-
-			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,
@@ -203,15 +195,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 			}
 
-			currentNode, ok := req.NodeMap[nextNodeID]
-			if !ok {
-				return node.FlowNodeResult{
-					NextNodeID: nil,
-					Err:        node.ErrNodeNotFound,
-				}
-			}
-
-			_, err := flowlocalrunner.RunNodeASync(ctx, currentNode, req, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,

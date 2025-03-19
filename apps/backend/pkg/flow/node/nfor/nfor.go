@@ -92,15 +92,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				}
 			}
 
-			currentNode, ok := req.NodeMap[nextNodeID]
-			if !ok {
-				return node.FlowNodeResult{
-					NextNodeID: nil,
-					Err:        node.ErrNodeNotFound,
-				}
-			}
-
-			_, err := flowlocalrunner.RunNodeSync(ctx, currentNode, req, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
@@ -168,16 +160,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				}
 			}
 
-			currentNode, ok := req.NodeMap[nextNodeID]
-			if !ok {
-				resultChan <- node.FlowNodeResult{
-					NextNodeID: nil,
-					Err:        node.ErrNodeNotFound,
-				}
-				return
-			}
-
-			_, err := flowlocalrunner.RunNodeASync(ctx, currentNode, req, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
