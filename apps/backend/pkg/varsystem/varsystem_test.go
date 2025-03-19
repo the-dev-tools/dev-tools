@@ -153,7 +153,6 @@ func TestNewVarMapFromAnyMap(t *testing.T) {
 
 	result := varsystem.NewVarMapFromAnyMap(input)
 	if result["key1"].Value != input["key1"] {
-		fmt.Println(result)
 		t.Errorf("Expected %v, got %v", expected["key1"].Value, result["key1"].Value)
 	}
 

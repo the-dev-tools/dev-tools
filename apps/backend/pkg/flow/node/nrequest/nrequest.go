@@ -3,7 +3,6 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/flow/node"
 	"the-dev-tools/backend/pkg/http/request"
@@ -203,8 +202,6 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		Request:  request.ConvertRequestToVar(prepareOutput),
 		Response: httpclient.ConvertResponseToVar(resp.HttpResp),
 	}
-
-	fmt.Println(output)
 
 	respMap := map[string]any{}
 	// TODO: change map conversion non json

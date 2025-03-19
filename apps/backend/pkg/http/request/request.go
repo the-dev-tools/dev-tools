@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/goccy/go-json"
 )
 
 type RequestResponseVar struct {
@@ -118,10 +119,37 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	bodyBytes := &bytes.Buffer{}
 	switch example.BodyType {
 	case mitemapiexample.BodyTypeRaw:
+		if len(rawBody.Data) > 0 {
+			if json.Valid(rawBody.Data) {
+				bodyStr := string(rawBody.Data)
+				bodyStr, err = varMap.ReplaceVars(bodyStr)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+				rawBody.Data = []byte(bodyStr)
+			}
+		}
+
 		bodyBytes.Write(rawBody.Data)
 	case mitemapiexample.BodyTypeForm:
 		writer := multipart.NewWriter(bodyBytes)
 		for _, v := range formBody {
+			if varsystem.CheckIsVar(v.BodyKey) {
+				key := varsystem.GetVarKeyFromRaw(v.BodyKey)
+				if val, ok := varMap.Get(key); ok {
+					v.BodyKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+			if varsystem.CheckIsVar(v.Value) {
+				key := varsystem.GetVarKeyFromRaw(v.Value)
+				if val, ok := varMap.Get(key); ok {
+					v.Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
 			if err := writer.WriteField(v.BodyKey, v.Value); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -129,6 +157,23 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	case mitemapiexample.BodyTypeUrlencoded:
 		urlVal := url.Values{}
 		for _, url := range urlBody {
+			if varsystem.CheckIsVar(url.BodyKey) {
+				key := varsystem.GetVarKeyFromRaw(url.Value)
+				if val, ok := varMap.Get(key); ok {
+					url.BodyKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+			if varsystem.CheckIsVar(url.Value) {
+				key := varsystem.GetVarKeyFromRaw(url.Value)
+				if val, ok := varMap.Get(key); ok {
+					url.Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+
 			urlVal.Add(url.BodyKey, url.Value)
 		}
 		endpoint.Url += urlVal.Encode()
