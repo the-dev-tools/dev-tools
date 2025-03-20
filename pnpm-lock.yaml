@@ -154,12 +154,6 @@ importers:
         specifier: ~8.26.0
         version: 8.26.0(eslint@9.21.0(jiti@2.4.2))(typescript@5.8.2)
 
-  apps/backend:
-    dependencies:
-      '@the-dev-tools/spec':
-        specifier: workspace:^
-        version: link:../../libraries/spec
-
   apps/desktop:
     dependencies:
       '@bufbuild/protobuf':
@@ -185,7 +179,7 @@ importers:
         version: link:../../libraries/api
       '@the-dev-tools/backend':
         specifier: workspace:^
-        version: link:../backend
+        version: link:../../libraries/backend
       '@the-dev-tools/core':
         specifier: workspace:^
         version: link:../../libraries/core
@@ -305,6 +299,12 @@ importers:
       typescript:
         specifier: ~5.8.2
         version: 5.8.2
+
+  libraries/backend:
+    dependencies:
+      '@the-dev-tools/spec':
+        specifier: workspace:^
+        version: link:../spec
 
   libraries/config-eslint:
     devDependencies:
