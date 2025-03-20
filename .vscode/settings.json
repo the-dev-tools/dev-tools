@@ -1,11 +1,6 @@
 {
   "eslint.options": { "flags": ["unstable_config_lookup_from_file"] },
-  "eslint.workingDirectories": [
-    { "directory": "./" },
-    { "pattern": "./apps/*/" },
-    { "pattern": "./libraries/*/" },
-    { "pattern": "./services/*/" }
-  ],
+  "eslint.workingDirectories": [{ "directory": "./" }, { "pattern": "./apps/*/" }, { "pattern": "./libraries/*/" }],
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },

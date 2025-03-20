@@ -15,4 +15,4 @@ jobs:
         with:
           sqlc-version: '1.27.0'
       - run: sqlc vet
-        working-directory: './services/db/pkg/sqlc'
+        working-directory: './libraries/db/pkg/sqlc'
