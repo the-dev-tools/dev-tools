@@ -16,9 +16,6 @@
       "path": "./libraries/config-eslint"
     },
     {
-      "path": "./libraries/email"
-    },
-    {
       "path": "./libraries/utils"
     },
     {
