@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"the-dev-tools/backend/pkg/compress"
+	"the-dev-tools/backend/pkg/depfinder"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mbodyform"
@@ -196,7 +197,8 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 	// Use a map to merge equivalent XHR entries.
 	apiMap := make(map[string]*mitemapi.ItemApi)
-	varMap := make(map[string]FlowVar)
+
+	depFinder := depfinder.NewDepFinder()
 	nodePosMap := make(map[idwrap.IDWrap]mpos)
 
 	slotIndex := 0
@@ -273,33 +275,44 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		var connected bool
 
 		for i, header := range entry.Request.Headers {
-			v, ok := varMap[header.Value]
-			if ok {
-				entry.Request.Headers[i].Value = v.path
-
-				poses := nodePosMap[v.nodeID]
-				poses.x = poses.x + float64(poses.index*slotSize)
-				poses.index++
-				poses.y += slotSize
-				posX = poses.x
-				posY = poses.y
-				nodePosMap[v.nodeID] = poses
-
-				result.Edges = append(result.Edges, edge.Edge{
-					ID:            idwrap.NewNow(),
-					FlowID:        flowID,
-					SourceID:      v.nodeID,
-					TargetID:      flowNodeID,
-					SourceHandler: edge.HandleUnspecified,
-				})
-				connected = true
+			couple, err := depFinder.FindVar(header.Value)
+			if err != nil {
+				if err == depfinder.ErrNotFound {
+					continue
+				}
+				return result, err
 			}
+			entry.Request.Headers[i].Value = couple.Path
+
+			result.Edges = append(result.Edges, edge.Edge{
+				ID:            idwrap.NewNow(),
+				FlowID:        flowID,
+				SourceID:      couple.NodeID,
+				TargetID:      flowNodeID,
+				SourceHandler: edge.HandleUnspecified,
+			})
+			connected = true
 		}
+
+		/*
+			      TODO: will check this later
+						if len(entry.Response.Content.Text) != 0 {
+							repsonseBodyBytes := []byte(entry.Response.Content.Text)
+							if json.Valid(repsonseBodyBytes) {
+								path := fmt.Sprintf("{{ %s.%s.%s }}", requestName, "response", "body")
+								nodeID := flowNodeID
+								couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
+								err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
+								if err != nil {
+									fmt.Println("Error 3: ", err, entry.Response.Content.Text)
+								}
+							}
+						}
+		*/
 
 		for _, header := range entry.Response.Headers {
 			path := fmt.Sprintf("{{ %s.%s.%s.%s }}", requestName, "response", "headers", http.CanonicalHeaderKey(header.Name))
-			varMap[header.Value] = FlowVar{nodeID: flowNodeID, path: path}
-
+			depFinder.AddVar(header.Value, depfinder.VarCouple{Path: path, NodeID: flowNodeID})
 		}
 
 		if !connected {
@@ -364,7 +377,20 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 			} else {
 
-				rawBody.Data = []byte(postData.Text)
+				bodyBytes := []byte(postData.Text)
+
+				/*
+					        TODO: will check this later
+									if json.Valid(bodyBytes) {
+										var err error
+										bodyBytes, err = depFinder.TemplateJSON(bodyBytes)
+										if err != nil {
+											fmt.Println("Error 4: ", err, postData.Text)
+										}
+									}
+				*/
+
+				rawBody.Data = bodyBytes
 				example.BodyType = mitemapiexample.BodyTypeRaw
 				if len(rawBody.Data) > 1024 {
 					compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
@@ -376,7 +402,6 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 						rawBody.CompressType = mbodyraw.CompressTypeZstd
 					}
 				}
-
 			}
 		}
 		result.RawBodies = append(result.RawBodies, rawBody)
@@ -566,7 +591,7 @@ func PositionNodes(
 
 	// For multiple children, distribute them horizontally
 	childCount := len(children)
-	startX := x - float64(childCount-1)*horizontalSpacing
+	startX := x - ((float64(childCount-1) * horizontalSpacing) / 2)
 
 	for i, childID := range children {
 		childX := startX + float64(i)*horizontalSpacing
