@@ -9,7 +9,6 @@ import (
 	"the-dev-tools/backend/pkg/dbtime"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/menv"
-	"the-dev-tools/backend/pkg/model/muser"
 	"the-dev-tools/backend/pkg/model/mworkspace"
 	"the-dev-tools/backend/pkg/model/mworkspaceuser"
 	"the-dev-tools/backend/pkg/service/senv"
@@ -17,8 +16,6 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/service/sworkspacesusers"
 	"the-dev-tools/backend/pkg/translate/tworkspace"
-	"the-dev-tools/mail/pkg/emailclient"
-	"the-dev-tools/mail/pkg/emailinvite"
 	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
 	"the-dev-tools/spec/dist/buf/go/workspace/v1/workspacev1connect"
 
@@ -38,20 +35,19 @@ type WorkspaceServiceRPC struct {
 	// env
 	es senv.EnvService
 
+	// TODO: @Ege move to private repo
 	// email
-	ec  emailclient.EmailClient
-	eim *emailinvite.EmailTemplateManager
+	// ec  emailclient.EmailClient
+	// eim *emailinvite.EmailTemplateManager
 }
 
-func New(db *sql.DB, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, us suser.UserService, es senv.EnvService, ec emailclient.EmailClient, eim *emailinvite.EmailTemplateManager) WorkspaceServiceRPC {
+func New(db *sql.DB, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, us suser.UserService, es senv.EnvService) WorkspaceServiceRPC {
 	return WorkspaceServiceRPC{
 		DB:  db,
 		ws:  ws,
 		wus: wus,
 		us:  us,
 		es:  es,
-		ec:  ec,
-		eim: eim,
 	}
 }
 
@@ -397,77 +393,79 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *conn
 }
 
 func (c *WorkspaceServiceRPC) WorkspaceMemberCreate(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMemberCreateRequest]) (*connect.Response[workspacev1.WorkspaceMemberCreateResponse], error) {
-	wid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	// check email
-	if req.Msg.GetEmail() == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
-	}
-	// TODO: add more validation for email
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
-	}
+	// TODO: @Ege move to private repo
+	// wid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
+	// if err != nil {
+	// 	return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	// }
+	// // check email
+	// if req.Msg.GetEmail() == "" {
+	// 	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
+	// }
+	// // TODO: add more validation for email
+	// userID, err := mwauth.GetContextUserID(ctx)
+	// if err != nil {
+	// 	return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	// }
 
-	// check if workspace has the user
-	_, err = c.ws.GetByIDandUserID(ctx, wid, userID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	// // check if workspace has the user
+	// _, err = c.ws.GetByIDandUserID(ctx, wid, userID)
+	// if err != nil {
+	// 	if err == sql.ErrNoRows {
+	// 		return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
+	// 	}
+	// 	return nil, connect.NewError(connect.CodeInternal, err)
+	// }
 
-	inviterUser, err := c.us.GetUser(ctx, userID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	// inviterUser, err := c.us.GetUser(ctx, userID)
+	// if err != nil {
+	// 	return nil, connect.NewError(connect.CodeInternal, err)
+	// }
 
-	invitedUser, err := c.us.GetUserByEmail(ctx, req.Msg.GetEmail())
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			invitedUser = &muser.User{
-				ID:           idwrap.NewNow(),
-				Email:        req.Msg.GetEmail(),
-				Password:     nil,
-				ProviderType: muser.Unknown,
-				ProviderID:   nil,
-				Status:       muser.Pending,
-			}
-			err = c.us.CreateUser(ctx, invitedUser)
-		}
-		return nil, err
-	}
+	// invitedUser, err := c.us.GetUserByEmail(ctx, req.Msg.GetEmail())
+	// if err != nil {
+	// 	if errors.Is(err, sql.ErrNoRows) {
+	// 		invitedUser = &muser.User{
+	// 			ID:           idwrap.NewNow(),
+	// 			Email:        req.Msg.GetEmail(),
+	// 			Password:     nil,
+	// 			ProviderType: muser.Unknown,
+	// 			ProviderID:   nil,
+	// 			Status:       muser.Pending,
+	// 		}
+	// 		err = c.us.CreateUser(ctx, invitedUser)
+	// 	}
+	// 	return nil, err
+	// }
 
-	err = c.wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: wid,
-		UserID:      invitedUser.ID,
-		Role:        mworkspaceuser.RoleUser,
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	// err = c.wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	// 	ID:          idwrap.NewNow(),
+	// 	WorkspaceID: wid,
+	// 	UserID:      invitedUser.ID,
+	// 	Role:        mworkspaceuser.RoleUser,
+	// })
+	// if err != nil {
+	// 	return nil, connect.NewError(connect.CodeInternal, err)
+	// }
 
-	workspace, err := c.ws.Get(ctx, wid)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	// workspace, err := c.ws.Get(ctx, wid)
+	// if err != nil {
+	// 	return nil, connect.NewError(connect.CodeInternal, err)
+	// }
 
-	EmailInviteTemplateData := &emailinvite.EmailInviteTemplateData{
-		WorkspaceName:     workspace.Name,
-		InviteLink:        "https://dev.tools",
-		InvitedByUsername: inviterUser.Email,
-		Username:          invitedUser.Email,
-	}
+	// // TODO: @Ege move to private repo
+	// EmailInviteTemplateData := &emailinvite.EmailInviteTemplateData{
+	// 	WorkspaceName:     workspace.Name,
+	// 	InviteLink:        "https://dev.tools",
+	// 	InvitedByUsername: inviterUser.Email,
+	// 	Username:          invitedUser.Email,
+	// }
 
-	// TODO: add limit for sending email
-	err = c.eim.SendEmailInvite(ctx, req.Msg.GetEmail(), EmailInviteTemplateData)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	// // TODO: add limit for sending email
+	// err = c.eim.SendEmailInvite(ctx, req.Msg.GetEmail(), EmailInviteTemplateData)
+	// if err != nil {
+	// 	return nil, connect.NewError(connect.CodeInternal, err)
+	// }
 
 	// TODO: look into this with new spec member id return just not possible
 	return connect.NewResponse(&workspacev1.WorkspaceMemberCreateResponse{}), nil

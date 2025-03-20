@@ -67,9 +67,6 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/tursoembedded"
 	"the-dev-tools/db/pkg/tursolocal"
-	"the-dev-tools/mail/pkg/emailclient/mockemail"
-	"the-dev-tools/mail/pkg/emailclient/sesv2"
-	"the-dev-tools/mail/pkg/emailinvite"
 	"time"
 
 	"connectrpc.com/connect"
@@ -210,24 +207,25 @@ func main() {
 			log.Fatalf("AWS_SECRET_KEY is empty")
 		}
 
-		emailClient, err := sesv2.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
-		if err != nil {
-			log.Fatalf("failed to create email client: %v", err)
-		}
+		// TODO: @Ege move to private repo
+		// emailClient, err := sesv2.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
+		// if err != nil {
+		// 	log.Fatalf("failed to create email client: %v", err)
+		// }
 
-		path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
-		if path == "" {
-			log.Fatalf("EMAIL_INVITE_TEMPLATE_PATH is empty")
-		}
-		emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, emailClient)
-		if err != nil {
-			log.Fatalf("failed to create email invite manager: %v", err)
-		}
+		// path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
+		// if path == "" {
+		// 	log.Fatalf("EMAIL_INVITE_TEMPLATE_PATH is empty")
+		// }
+		// emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, emailClient)
+		// if err != nil {
+		// 	log.Fatalf("failed to create email invite manager: %v", err)
+		// }
 		// Workspace Service
-		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es, *emailClient, emailInviteManager)
+		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es)
 		newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 	} else {
-		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es, mockemail.NewMockEmailClient(), &emailinvite.EmailTemplateManager{})
+		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es)
 		newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 	}
 	// Auth Service

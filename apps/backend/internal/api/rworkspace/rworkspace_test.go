@@ -15,8 +15,6 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/service/sworkspacesusers"
 	"the-dev-tools/backend/pkg/testutil"
-	"the-dev-tools/mail/pkg/emailclient/mockemail"
-	"the-dev-tools/mail/pkg/emailinvite"
 	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
 
 	"connectrpc.com/connect"
@@ -51,7 +49,7 @@ func TestWorkspaceCreate(t *testing.T) {
 		},
 	)
 
-	serviceRPC := rworkspace.New(db, ws, wus, us, es, mockemail.NewMockEmailClient(), &emailinvite.EmailTemplateManager{})
+	serviceRPC := rworkspace.New(db, ws, wus, us, es)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -135,7 +133,7 @@ func TestWorkspaceGet(t *testing.T) {
 		},
 	)
 
-	serviceRPC := rworkspace.New(db, ws, wus, us, es, mockemail.NewMockEmailClient(), &emailinvite.EmailTemplateManager{})
+	serviceRPC := rworkspace.New(db, ws, wus, us, es)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 	resp, err := serviceRPC.WorkspaceGet(authedCtx, req)
 	if err != nil {
@@ -240,7 +238,7 @@ func TestWorkspaceUpdate(t *testing.T) {
 		},
 	)
 
-	serviceRPC := rworkspace.New(db, ws, wus, us, es, mockemail.NewMockEmailClient(), &emailinvite.EmailTemplateManager{})
+	serviceRPC := rworkspace.New(db, ws, wus, us, es)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 	resp, err := serviceRPC.WorkspaceUpdate(authedCtx, req)
 	if err != nil {
@@ -313,7 +311,7 @@ func TestWorkspaceDelete(t *testing.T) {
 		},
 	)
 
-	serviceRPC := rworkspace.New(db, ws, wus, us, es, mockemail.NewMockEmailClient(), &emailinvite.EmailTemplateManager{})
+	serviceRPC := rworkspace.New(db, ws, wus, us, es)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 	resp, err := serviceRPC.WorkspaceDelete(authedCtx, req)
 	if err != nil {

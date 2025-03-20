@@ -5,5 +5,4 @@ use (
 	./libraries/spec
 	./libraries/tools
 	./services/db
-	./services/mail
 )
