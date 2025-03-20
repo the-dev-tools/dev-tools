@@ -31,9 +31,6 @@
       "path": "./libraries/ui"
     },
     {
-      "path": "./apps/web"
-    },
-    {
       "path": "./libraries/scripts"
     }
   ]
