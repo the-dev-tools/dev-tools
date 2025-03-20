@@ -418,6 +418,8 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		}
 	}
 
+	ReorganizeNodePositions(&result)
+
 	return result, nil
 }
 
@@ -461,6 +463,7 @@ func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.
 			result = append(result, h)
 		}
 	}
+
 	return result
 }
 
@@ -477,4 +480,97 @@ func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequer
 		result = append(result, q)
 	}
 	return result
+}
+
+func ReorganizeNodePositions(result *HarResvoled) error {
+	const (
+		horizontalSpacing = 400 // Space between sibling nodes
+		verticalSpacing   = 200 // Space between parent and child nodes
+	)
+
+	// Map for quick node lookup
+	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	for i := range result.Nodes {
+		nodeMap[result.Nodes[i].ID] = &result.Nodes[i]
+	}
+
+	// Find start node
+	var startNode *mnnode.MNode
+	for i := range result.NoopNodes {
+		if result.NoopNodes[i].Type == mnnoop.NODE_NO_OP_KIND_START {
+			startNode = nodeMap[result.NoopNodes[i].FlowNodeID]
+			break
+		}
+	}
+	if startNode == nil {
+		return errors.New("start node not found")
+	}
+
+	// Build an adjacency list from edges
+	outgoingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
+	for _, e := range result.Edges {
+		outgoingEdges[e.SourceID] = append(outgoingEdges[e.SourceID], e.TargetID)
+	}
+
+	// Set start node position
+	startNode.PositionX = 0
+	startNode.PositionY = 0
+
+	// Create a visited map to avoid cycles
+	visited := make(map[idwrap.IDWrap]bool)
+
+	// Perform a depth-first traversal to position nodes
+	PositionNodes(startNode.ID, outgoingEdges, nodeMap, visited, 0, 0, horizontalSpacing, verticalSpacing)
+	return nil
+}
+
+func PositionNodes(
+	nodeID idwrap.IDWrap,
+	outgoingEdges map[idwrap.IDWrap][]idwrap.IDWrap,
+	nodeMap map[idwrap.IDWrap]*mnnode.MNode,
+	visited map[idwrap.IDWrap]bool,
+	x float64,
+	y float64,
+	horizontalSpacing float64,
+	verticalSpacing float64,
+) {
+	// Get the node
+	node := nodeMap[nodeID]
+
+	// If this node has already been positioned and we're revisiting it,
+	// we don't need to reposition its children
+	if visited[nodeID] {
+		return
+	}
+
+	// Mark as visited
+	visited[nodeID] = true
+
+	// Set node position
+	node.PositionX = x
+	node.PositionY = y
+
+	// Get children
+	children := outgoingEdges[nodeID]
+	if len(children) == 0 {
+		return // No children to position
+	}
+
+	// For single child, position directly below the parent
+	if len(children) == 1 {
+		childX := x
+		childY := y + verticalSpacing
+		PositionNodes(children[0], outgoingEdges, nodeMap, visited, childX, childY, horizontalSpacing, verticalSpacing)
+		return
+	}
+
+	// For multiple children, distribute them horizontally
+	childCount := len(children)
+	startX := x - float64(childCount-1)*horizontalSpacing
+
+	for i, childID := range children {
+		childX := startX + float64(i)*horizontalSpacing
+		childY := y + verticalSpacing
+		PositionNodes(childID, outgoingEdges, nodeMap, visited, childX, childY, horizontalSpacing, verticalSpacing)
+	}
 }

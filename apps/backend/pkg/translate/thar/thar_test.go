@@ -3,9 +3,12 @@ package thar_test
 import (
 	"bytes"
 	"testing"
+	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/mflow"
 	"the-dev-tools/backend/pkg/model/mitemapi"
+	"the-dev-tools/backend/pkg/model/mnnode"
+	"the-dev-tools/backend/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/backend/pkg/translate/thar"
 	"time"
 )
@@ -708,4 +711,177 @@ func TestHarUniqueIDs(t *testing.T) {
 				example.ID, example.Name, example.ItemApiID)
 		}
 	}
+}
+
+func TestNodePositioning(t *testing.T) {
+	// Create a test flow with a branching structure:
+	//
+	// Start
+	//   |
+	//   +-------+--------+
+	//   |       |        |
+	// Branch1 Branch2  Branch3
+	//   |       |        |
+	//   |     Child1     |
+	//   |       |        |
+	//   |     Child2     |
+	//   |                |
+	//   +-------+
+	//           |
+	//          (Implicit End)
+
+	// Create a HarResvoled with a simple flow structure
+	result := thar.HarResvoled{
+		Flow: mflow.Flow{
+			ID:   idwrap.NewNow(),
+			Name: "Test Flow",
+		},
+		Nodes:     []mnnode.MNode{},
+		NoopNodes: []mnnoop.NoopNode{},
+		Edges:     []edge.Edge{},
+	}
+
+	// Create node IDs
+	startID := idwrap.NewNow()
+	branch1ID := idwrap.NewNow()
+	branch2ID := idwrap.NewNow()
+	branch3ID := idwrap.NewNow()
+	child1ID := idwrap.NewNow()
+	child2ID := idwrap.NewNow()
+
+	// Add nodes
+	result.Nodes = append(result.Nodes,
+		mnnode.MNode{ID: startID, Name: "Start"},
+		mnnode.MNode{ID: branch1ID, Name: "Branch1"},
+		mnnode.MNode{ID: branch2ID, Name: "Branch2"},
+		mnnode.MNode{ID: branch3ID, Name: "Branch3"},
+		mnnode.MNode{ID: child1ID, Name: "Child1"},
+		mnnode.MNode{ID: child2ID, Name: "Child2"},
+	)
+
+	// Add start noop node
+	result.NoopNodes = append(result.NoopNodes,
+		mnnoop.NoopNode{
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+			FlowNodeID: startID,
+		},
+	)
+
+	// Add edges
+	result.Edges = append(result.Edges,
+		edge.Edge{SourceID: startID, TargetID: branch1ID},
+		edge.Edge{SourceID: startID, TargetID: branch2ID},
+		edge.Edge{SourceID: startID, TargetID: branch3ID},
+		edge.Edge{SourceID: branch2ID, TargetID: child1ID},
+		edge.Edge{SourceID: child1ID, TargetID: child2ID},
+	)
+
+	// Run the positioning function
+	thar.ReorganizeNodePositions(&result)
+
+	// Create a node map for easy lookup
+	nodeMap := make(map[string]*mnnode.MNode)
+	for i := range result.Nodes {
+		nodeMap[result.Nodes[i].Name] = &result.Nodes[i]
+	}
+
+	// Verify start node is at origin
+	if nodeMap["Start"].PositionX != 0 || nodeMap["Start"].PositionY != 0 {
+		t.Errorf("Start node not at origin: (%f, %f)", nodeMap["Start"].PositionX, nodeMap["Start"].PositionY)
+	}
+
+	// Verify branch nodes are at the same Y level
+	branchY := nodeMap["Branch1"].PositionY
+	if nodeMap["Branch2"].PositionY != branchY || nodeMap["Branch3"].PositionY != branchY {
+		t.Errorf("Branch nodes not at same Y level: Branch1=%f, Branch2=%f, Branch3=%f",
+			nodeMap["Branch1"].PositionY, nodeMap["Branch2"].PositionY, nodeMap["Branch3"].PositionY)
+	}
+
+	// Verify that branches are horizontally spread out
+	if !(nodeMap["Branch1"].PositionX < nodeMap["Branch2"].PositionX &&
+		nodeMap["Branch2"].PositionX < nodeMap["Branch3"].PositionX) {
+		t.Errorf("Branch nodes not properly spaced horizontally: Branch1=%.1f, Branch2=%.1f, Branch3=%.1f",
+			nodeMap["Branch1"].PositionX, nodeMap["Branch2"].PositionX, nodeMap["Branch3"].PositionX)
+	}
+
+	// Verify child nodes form a vertical chain
+	if nodeMap["Child1"].PositionY <= nodeMap["Branch2"].PositionY ||
+		nodeMap["Child2"].PositionY <= nodeMap["Child1"].PositionY {
+		t.Errorf("Child nodes not in vertical chain: Branch2=%f, Child1=%f, Child2=%f",
+			nodeMap["Branch2"].PositionY, nodeMap["Child1"].PositionY, nodeMap["Child2"].PositionY)
+	}
+
+	// Verify child nodes are aligned with their parent
+	if nodeMap["Child1"].PositionX != nodeMap["Branch2"].PositionX ||
+		nodeMap["Child2"].PositionX != nodeMap["Child1"].PositionX {
+		t.Errorf("Child nodes not aligned with parent: Branch2=%.1f, Child1=%.1f, Child2=%.1f",
+			nodeMap["Branch2"].PositionX, nodeMap["Child1"].PositionX, nodeMap["Child2"].PositionX)
+	}
+}
+
+func TestPositionNodesWithDifferentTopologies(t *testing.T) {
+	t.Run("linear chain", func(t *testing.T) {
+		// Create a linear chain: Start -> Node1 -> Node2 -> Node3
+		result := thar.HarResvoled{
+			Flow:      mflow.Flow{ID: idwrap.NewNow(), Name: "Linear Chain"},
+			Nodes:     []mnnode.MNode{},
+			NoopNodes: []mnnoop.NoopNode{},
+			Edges:     []edge.Edge{},
+		}
+
+		startID := idwrap.NewNow()
+		node1ID := idwrap.NewNow()
+		node2ID := idwrap.NewNow()
+		node3ID := idwrap.NewNow()
+
+		// Add nodes
+		result.Nodes = append(result.Nodes,
+			mnnode.MNode{ID: startID, Name: "Start"},
+			mnnode.MNode{ID: node1ID, Name: "Node1"},
+			mnnode.MNode{ID: node2ID, Name: "Node2"},
+			mnnode.MNode{ID: node3ID, Name: "Node3"},
+		)
+
+		// Add start noop node
+		result.NoopNodes = append(result.NoopNodes,
+			mnnoop.NoopNode{Type: mnnoop.NODE_NO_OP_KIND_START, FlowNodeID: startID},
+		)
+
+		// Add edges for linear chain
+		result.Edges = append(result.Edges,
+			edge.Edge{SourceID: startID, TargetID: node1ID},
+			edge.Edge{SourceID: node1ID, TargetID: node2ID},
+			edge.Edge{SourceID: node2ID, TargetID: node3ID},
+		)
+
+		// Run the positioning function
+		thar.ReorganizeNodePositions(&result)
+
+		// Create a node map for lookup
+		nodeMap := make(map[string]*mnnode.MNode)
+		for i := range result.Nodes {
+			nodeMap[result.Nodes[i].Name] = &result.Nodes[i]
+		}
+
+		// Verify start node is at origin
+		if nodeMap["Start"].PositionX != 0 || nodeMap["Start"].PositionY != 0 {
+			t.Errorf("Start node not at origin: (%f, %f)", nodeMap["Start"].PositionX, nodeMap["Start"].PositionY)
+		}
+
+		// Verify nodes form a vertical chain with constant X
+		if nodeMap["Node1"].PositionY <= nodeMap["Start"].PositionY ||
+			nodeMap["Node2"].PositionY <= nodeMap["Node1"].PositionY ||
+			nodeMap["Node3"].PositionY <= nodeMap["Node2"].PositionY {
+			t.Errorf("Nodes not in vertical chain: Start=%f, Node1=%f, Node2=%f, Node3=%f",
+				nodeMap["Start"].PositionY, nodeMap["Node1"].PositionY, nodeMap["Node2"].PositionY, nodeMap["Node3"].PositionY)
+		}
+
+		// Verify X positions are the same (vertical alignment)
+		if nodeMap["Node1"].PositionX != nodeMap["Start"].PositionX ||
+			nodeMap["Node2"].PositionX != nodeMap["Start"].PositionX ||
+			nodeMap["Node3"].PositionX != nodeMap["Start"].PositionX {
+			t.Errorf("Nodes not aligned vertically: Start=%.1f, Node1=%.1f, Node2=%.1f, Node3=%.1f",
+				nodeMap["Start"].PositionX, nodeMap["Node1"].PositionX, nodeMap["Node2"].PositionX, nodeMap["Node3"].PositionX)
+		}
+	})
 }
