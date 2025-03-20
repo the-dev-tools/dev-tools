@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@the-dev-tools/email": "workspace:^",
     "@the-dev-tools/spec": "workspace:^"
   },
   "devDependencies": {
