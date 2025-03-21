@@ -1,5 +1,4 @@
-import { createServer } from 'http';
-import { JsonValue } from '@bufbuild/protobuf';
+import { createServer, IncomingMessage } from 'http';
 import { cors as connectCors, createConnectRouter } from '@connectrpc/connect';
 import { UniversalHandler } from '@connectrpc/connect/protocol';
 import {
@@ -11,7 +10,7 @@ import {
   HttpServerResponse,
 } from '@effect/platform';
 import { NodeHttpServer, NodeHttpServerRequest, NodeRuntime } from '@effect/platform-node';
-import { Array, Chunk, Console, Effect, Layer, pipe, Schema, Stream } from 'effect';
+import { Array, Console, Effect, Layer, pipe, Stream } from 'effect';
 
 import { NodeJSExecutorService } from './nodejs-executor';
 
@@ -21,9 +20,14 @@ NodeJSExecutorService(connectRouter);
 
 const WorkerServerLive = NodeHttpServer.layer(createServer, { port: 9090 });
 
+async function* asyncIterableFromNodeServerRequest(request: IncomingMessage) {
+  for await (const chunk of request) {
+    yield chunk;
+  }
+}
+
 const toEffectHandler = Effect.fn(function* (handler: UniversalHandler) {
   const request = yield* HttpServerRequest.HttpServerRequest;
-  const requestBody = yield* HttpServerRequest.schemaBodyJson(Schema.Unknown);
   const requestRaw = NodeHttpServerRequest.toIncomingMessage(request);
 
   const response = yield* Effect.tryPromise((signal) =>
@@ -32,21 +36,17 @@ const toEffectHandler = Effect.fn(function* (handler: UniversalHandler) {
       url: new URL(request.url, `http://${request.headers['host']}`).toString(),
       method: request.method,
       header: new Headers(request.headers),
-      body: requestBody as JsonValue,
+      body: asyncIterableFromNodeServerRequest(requestRaw),
       signal,
     }),
   );
 
-  // Streaming responses is not supported with this implementation
-  const responseBody = yield* pipe(
+  const body = yield* pipe(
     Effect.fromNullable(response.body),
     Effect.map((_) => Stream.fromAsyncIterable(_, (e) => new Error(String(e)))),
-    Effect.flatMap(Stream.runCollect),
-    Effect.map(Chunk.toReadonlyArray),
-    Effect.flatMap(Array.head),
   );
 
-  return yield* HttpServerResponse.uint8Array(responseBody, {
+  return yield* HttpServerResponse.stream(body, {
     status: response.status,
     headers: response.header,
   });
