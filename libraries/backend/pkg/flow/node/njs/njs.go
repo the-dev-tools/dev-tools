@@ -94,7 +94,6 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		resultChan <- result
 		return
 	}
-	fmt.Println("helllo", val)
 
 	rpcReqRaw := nodejs_executorv1.ExecuteNodeJSRequest{
 		Context: val,

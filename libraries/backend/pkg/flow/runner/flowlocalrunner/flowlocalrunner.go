@@ -83,10 +83,10 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 
 	if err != nil {
 		flowStatusChan <- runner.FlowStatusFailed
-		return err
+	} else {
+		flowStatusChan <- runner.FlowStatusSuccess
 	}
-	flowStatusChan <- runner.FlowStatusSuccess
-	return nil
+	return err
 }
 
 type processResult struct {
