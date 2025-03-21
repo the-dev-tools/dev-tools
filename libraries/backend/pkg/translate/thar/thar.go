@@ -294,39 +294,9 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			connected = true
 		}
 
-		/*
-			      TODO: will check this later
-						if len(entry.Response.Content.Text) != 0 {
-							repsonseBodyBytes := []byte(entry.Response.Content.Text)
-							if json.Valid(repsonseBodyBytes) {
-								path := fmt.Sprintf("{{ %s.%s.%s }}", requestName, "response", "body")
-								nodeID := flowNodeID
-								couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
-								err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
-								if err != nil {
-									fmt.Println("Error 3: ", err, entry.Response.Content.Text)
-								}
-							}
-						}
-		*/
-
 		for _, header := range entry.Response.Headers {
 			path := fmt.Sprintf("{{ %s.%s.%s.%s }}", requestName, "response", "headers", http.CanonicalHeaderKey(header.Name))
 			depFinder.AddVar(header.Value, depfinder.VarCouple{Path: path, NodeID: flowNodeID})
-		}
-
-		if !connected {
-			posX = float64(slotIndex * slotSize)
-			posY = 100
-			nodePosMap[flowID] = mpos{x: posX, y: posY}
-			slotIndex++
-			result.Edges = append(result.Edges, edge.Edge{
-				ID:            idwrap.NewNow(),
-				FlowID:        flowID,
-				SourceID:      startNodeID,
-				TargetID:      flowNodeID,
-				SourceHandler: edge.HandleUnspecified,
-			})
 		}
 
 		node := mnnode.MNode{
@@ -379,16 +349,27 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 				bodyBytes := []byte(postData.Text)
 
-				/*
-					        TODO: will check this later
-									if json.Valid(bodyBytes) {
-										var err error
-										bodyBytes, err = depFinder.TemplateJSON(bodyBytes)
-										if err != nil {
-											fmt.Println("Error 4: ", err, postData.Text)
-										}
-									}
-				*/
+				if json.Valid(bodyBytes) {
+					resultDep := depFinder.TemplateJSON(bodyBytes)
+					if resultDep.Err != nil {
+						fmt.Println("Error 4: ", resultDep.Err, postData.Text)
+					} else {
+						if resultDep.FindAny {
+							connected = true
+
+							for _, couple := range resultDep.Couples {
+								result.Edges = append(result.Edges, edge.Edge{
+									ID:            idwrap.NewNow(),
+									FlowID:        flowID,
+									SourceID:      couple.NodeID,
+									TargetID:      flowNodeID,
+									SourceHandler: edge.HandleUnspecified,
+								})
+							}
+							bodyBytes = resultDep.NewJson
+						}
+					}
+				}
 
 				rawBody.Data = bodyBytes
 				example.BodyType = mitemapiexample.BodyTypeRaw
@@ -404,6 +385,34 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 				}
 			}
 		}
+
+		if !connected {
+			posX = float64(slotIndex * slotSize)
+			posY = 100
+			nodePosMap[flowID] = mpos{x: posX, y: posY}
+			slotIndex++
+			result.Edges = append(result.Edges, edge.Edge{
+				ID:            idwrap.NewNow(),
+				FlowID:        flowID,
+				SourceID:      startNodeID,
+				TargetID:      flowNodeID,
+				SourceHandler: edge.HandleUnspecified,
+			})
+		}
+
+		if len(entry.Response.Content.Text) != 0 {
+			repsonseBodyBytes := []byte(entry.Response.Content.Text)
+			if json.Valid(repsonseBodyBytes) {
+				path := fmt.Sprintf("%s.%s.%s", requestName, "response", "body")
+				nodeID := flowNodeID
+				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
+				err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
+				if err != nil {
+					fmt.Println("Error 3: ", err, entry.Response.Content.Text)
+				}
+			}
+		}
+
 		result.RawBodies = append(result.RawBodies, rawBody)
 		rawBodyDefault := rawBody
 		rawBodyDefault.ID = idwrap.NewNow()

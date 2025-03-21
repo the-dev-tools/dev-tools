@@ -60,8 +60,9 @@ func (d DepFinder) addJsonValue(value any, couple VarCouple) {
 
 			// Only add primitive values to the vars map
 			switch val.(type) {
-			case string, float64, bool, nil:
+			case string, float64, bool:
 				d.AddVar(val, VarCouple{Path: newPath, NodeID: couple.NodeID})
+				continue
 			}
 
 			d.addJsonValue(val, VarCouple{Path: newPath, NodeID: couple.NodeID})
@@ -72,8 +73,9 @@ func (d DepFinder) addJsonValue(value any, couple VarCouple) {
 
 			// Only add primitive values to the vars map
 			switch val.(type) {
-			case string, float64, bool, nil:
+			case string, float64, bool:
 				d.AddVar(val, VarCouple{Path: newPath, NodeID: couple.NodeID})
+				continue
 			}
 
 			d.addJsonValue(val, VarCouple{Path: newPath, NodeID: couple.NodeID})
@@ -130,42 +132,55 @@ func (d DepFinder) findJsonValue(jsonValue interface{}, path string, searchValue
 	return "", false
 }
 
-func (d DepFinder) TemplateJSON(jsonBytes []byte) ([]byte, error) {
+type TemplateJSONResult struct {
+	FindAny bool
+	Couples []VarCouple
+	NewJson []byte
+	Err     error
+}
+
+func (d DepFinder) TemplateJSON(jsonBytes []byte) TemplateJSONResult {
 	data := make(map[string]any)
 	if err := json.Unmarshal(jsonBytes, &data); err != nil {
-		return nil, err
+		return TemplateJSONResult{Err: err}
 	}
 
 	// Process the JSON structure
-	templated := d.ReplaceWithPaths(data)
+	templated, findAny, couples := d.ReplaceWithPaths(data)
 
 	// Marshal back to JSON
-	return json.Marshal(templated)
+	jsonBytes, err := json.Marshal(templated)
+	return TemplateJSONResult{FindAny: findAny, Couples: couples, NewJson: jsonBytes, Err: err}
 }
 
-func (d DepFinder) ReplaceWithPaths(value any) any {
+func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
+	var findAny bool
+	var couples []VarCouple
+	var couplesSub []VarCouple
 	switch v := value.(type) {
 	case map[string]any:
 		result := make(map[string]any)
 		for key, val := range v {
-			result[key] = d.ReplaceWithPaths(val)
+			result[key], findAny, couplesSub = d.ReplaceWithPaths(val)
 		}
-		return result
+		couples = append(couples, couplesSub...)
+		return result, findAny, couples
 
 	case []any:
 		result := make([]any, len(v))
 		for i, val := range v {
-			result[i] = d.ReplaceWithPaths(val)
+			result[i], findAny, couplesSub = d.ReplaceWithPaths(val)
 		}
-		return result
+		couples = append(couples, couplesSub...)
+		return result, findAny, couples
 
-	case string, float64, bool, nil:
+	case string, float64, bool:
 		// Check if this value exists in our vars map
 		if couple, err := d.FindVar(v); err == nil {
-			return fmt.Sprintf("{{ %s }}", couple.Path)
+			return fmt.Sprintf("{{ %s }}", couple.Path), true, []VarCouple{couple}
 		}
 	}
 
 	// Return unchanged if not a recognized type or not found
-	return value
+	return value, findAny, couples
 }
