@@ -114,6 +114,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Err:        nil,
 	}
 
+	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
 	prepareOutput, err := request.PrepareRequest(nr.Api, nr.Example,
@@ -128,15 +129,14 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		result.Err = err
 		return result
 	}
-	respMap := map[string]any{}
-
-	varResp := httpclient.ConvertResponseToVar(resp.HttpResp)
 
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: varResp,
+		Response: httpclient.ConvertResponseToVar(resp.HttpResp),
 	}
 
+	respMap := map[string]any{}
+	// TODO: change map conversion non json
 	marshaledResp, err := json.Marshal(output)
 	if err != nil {
 		result.Err = err
@@ -172,6 +172,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Resp: *respCreate,
 	}
 
+	// TODO: add some functionality here
 	return result
 }
 

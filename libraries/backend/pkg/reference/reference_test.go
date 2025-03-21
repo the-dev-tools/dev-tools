@@ -44,7 +44,8 @@ func TestNewReferenceFromMap(t *testing.T) {
 }
 
 func TestNewReferenceFromSlice(t *testing.T) {
-	input := []interface{}{"value1", 42}
+	mapA := map[string]any{"a": 1, "b": 2}
+	input := []any{"value1", 42, mapA}
 	expected := reference.Reference{
 		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_ARRAY,
@@ -58,6 +59,22 @@ func TestNewReferenceFromSlice(t *testing.T) {
 				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 1},
 				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
 				Value: "42",
+			},
+			{
+				Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 2},
+				Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
+				Map: []reference.Reference{
+					{
+						Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "a"},
+						Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+						Value: "1",
+					},
+					{
+						Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "b"},
+						Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+						Value: "2",
+					},
+				},
 			},
 		},
 	}
@@ -214,5 +231,36 @@ func BenchmarkNewReferenceFromInterfaceStruct(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_ = reference.NewReferenceFromInterface(input, key)
+	}
+}
+
+func TestNewReferenceFromInterface(t *testing.T) {
+	input := map[string]any{
+		"a": 1,
+		"b": 2,
+	}
+
+	expected := reference.Reference{
+		Key:  reference.ReferenceKey{},
+		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
+		Map: []reference.Reference{
+			{
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "a"},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "1",
+			},
+			{
+				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "b"},
+				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+				Value: "2",
+			},
+		},
+	}
+
+	result := reference.NewReferenceFromInterface(input, reference.ReferenceKey{})
+	sortReferences(result.Map)
+	sortReferences(expected.Map)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
 	}
 }

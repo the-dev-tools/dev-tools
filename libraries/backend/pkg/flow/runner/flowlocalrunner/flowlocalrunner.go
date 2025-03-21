@@ -96,10 +96,9 @@ type processResult struct {
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
-	statusLogFunc node.LogPushFunc,
 ) ([]idwrap.IDWrap, error) {
 	res := n.RunSync(ctx, req)
-	return res.NextNodeID, nil
+	return res.NextNodeID, res.Err
 }
 
 func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
@@ -119,6 +118,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			id := queue[i]
 
 			status.NodeID = id
+			status.Name = req.NodeMap[id].GetName()
 			status.State = mnnode.NODE_STATE_RUNNING
 			statusLogFunc(status)
 			currentNode, ok := req.NodeMap[id]
@@ -128,7 +128,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 			go func() {
 				defer wg.Done()
-				ids, localErr := processNode(ctx, currentNode, req, statusLogFunc)
+				ids, localErr := processNode(ctx, currentNode, req)
 				resultChan <- processResult{
 					originalID: currentNode.GetID(),
 					nextNodes:  ids,
@@ -144,13 +144,15 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 		for result := range resultChan {
 			status.NodeID = result.originalID
+			node := req.NodeMap[result.originalID]
+			status.Name = node.GetName()
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
 				statusLogFunc(status)
 				return result.err
 			}
 			status.State = mnnode.NODE_STATE_SUCCESS
-			outputData, ok := req.VarMap[req.NodeMap[status.NodeID].GetName()]
+			outputData, ok := req.VarMap[node.GetName()]
 			if ok {
 				status.OutputData = outputData
 			}
@@ -198,12 +200,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			}
 
 			status.NodeID = id
+			status.Name = req.NodeMap[id].GetName()
 			status.State = mnnode.NODE_STATE_RUNNING
 			statusLogFunc(status)
 
 			go func() {
 				defer wg.Done()
-				ids, localErr := processNode(ctxTimed, currentNode, req, statusLogFunc)
+				ids, localErr := processNode(ctxTimed, currentNode, req)
 				if ctxTimed.Err() != nil {
 					return
 				}
@@ -234,15 +237,19 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 		for result := range resultChan {
 			status.NodeID = result.originalID
+			node := req.NodeMap[result.originalID]
+			status.Name = node.GetName()
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
 				statusLogFunc(status)
 				return result.err
 			}
 			status.State = mnnode.NODE_STATE_SUCCESS
-			outputData, ok := req.VarMap[req.NodeMap[status.NodeID].GetName()]
+			outputData, ok := req.VarMap[node.GetName()]
 			if ok {
 				status.OutputData = outputData
+			} else {
+				status.OutputData = nil
 			}
 			statusLogFunc(status)
 

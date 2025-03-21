@@ -98,11 +98,15 @@ func ConvertPkgToRpc(ref Reference) *referencev1.Reference {
 	return &referencev1.Reference{
 		Kind: referencev1.ReferenceKind(ref.Kind),
 		Key: &referencev1.ReferenceKey{
-			Kind: referencev1.ReferenceKeyKind(ref.Key.Kind),
-			Key:  &ref.Key.Key,
+			Kind:  referencev1.ReferenceKeyKind(ref.Key.Kind),
+			Key:   &ref.Key.Key,
+			Index: &ref.Key.Index,
+			Group: &ref.Key.Group,
 		},
-		Value: &ref.Value,
-		Map:   convertReferenceMap(ref.Map),
+		Value:    &ref.Value,
+		Map:      convertReferenceMap(ref.Map),
+		Array:    convertReferenceMap(ref.Array),
+		Variable: ref.Variable,
 	}
 }
 
@@ -270,6 +274,8 @@ func NewReferenceFromInterface(value any, key ReferenceKey) Reference {
 		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
 	case reflect.Ptr:
 		return NewReferenceFromInterface(val.Elem().Interface(), key)
+	case reflect.Int8:
+		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
 	default:
 		return Reference{}
 	}
