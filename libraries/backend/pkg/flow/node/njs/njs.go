@@ -67,17 +67,11 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
+	InterfaceRaw := rpcResp.Msg.Result.AsInterface()
+
 	fmt.Println("return type:", rpcResp.Msg.Result)
 
-	InterfaceRaw := rpcResp.Msg.Result.AsInterface()
-	castedInterface, ok := InterfaceRaw.(map[string]any)
-	if !ok {
-		result.Err = fmt.Errorf("nodejs service returned unexpected type: %T", InterfaceRaw)
-		fmt.Println(result.Err)
-		return result
-	}
-
-	err = node.WriteNodeVarBulk(req, n.Name, castedInterface)
+	err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to write node var bulk: %w", err)
 		fmt.Println(result.Err)
@@ -112,16 +106,10 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		resultChan <- result
 		return
 	}
+	fmt.Println("return type:", rpcResp.Msg.Result)
 
 	InterfaceRaw := rpcResp.Msg.Result.AsInterface()
-	castedInterface, ok := InterfaceRaw.(map[string]any)
-	if !ok {
-		result.Err = fmt.Errorf("nodejs service returned unexpected type: %T", InterfaceRaw)
-		resultChan <- result
-		return
-	}
-
-	err = node.WriteNodeVarBulk(req, n.Name, castedInterface)
+	err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to write node var bulk: %w", err)
 	}

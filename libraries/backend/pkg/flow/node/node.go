@@ -68,6 +68,16 @@ func WriteNodeVar(a *FlowNodeRequest, name string, key string, v interface{}) er
 	return nil
 }
 
+func WriteNodeVarRaw(a *FlowNodeRequest, name string, v interface{}) error {
+	a.ReadWriteLock.Lock()
+	defer a.ReadWriteLock.Unlock()
+
+	nodeKey := name
+
+	a.VarMap[nodeKey] = v
+	return nil
+}
+
 func WriteNodeVarBulk(a *FlowNodeRequest, name string, v map[string]interface{}) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()
