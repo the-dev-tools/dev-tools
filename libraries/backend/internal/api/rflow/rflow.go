@@ -20,6 +20,7 @@ import (
 	"the-dev-tools/backend/pkg/flow/node/nfor"
 	"the-dev-tools/backend/pkg/flow/node/nforeach"
 	"the-dev-tools/backend/pkg/flow/node/nif"
+	"the-dev-tools/backend/pkg/flow/node/njs"
 	"the-dev-tools/backend/pkg/flow/node/nnoop"
 	"the-dev-tools/backend/pkg/flow/node/nrequest"
 	"the-dev-tools/backend/pkg/flow/runner"
@@ -71,6 +72,7 @@ import (
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
+	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
 	"time"
 
 	"connectrpc.com/connect"
@@ -684,7 +686,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
-	for _, jsNode := range jsNodes {
+	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
+	for i, jsNode := range jsNodes {
+		if i == 0 {
+			client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
+			clientPtr = &client
+		}
+
 		if jsNode.CodeCompressType != compress.CompressTypeNone {
 			jsNode.Code, err = compress.Decompress(jsNode.Code, jsNode.CodeCompressType)
 			if err != nil {
@@ -692,8 +700,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 		}
 
-		// TODO: uncomment after js node move
-		// flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, "", string(jsNode.Code))
+		name := nodeNameMap[jsNode.FlowNodeID]
+
+		flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, name, string(jsNode.Code), *clientPtr)
 	}
 
 	// TODO: get timeout from flow config
