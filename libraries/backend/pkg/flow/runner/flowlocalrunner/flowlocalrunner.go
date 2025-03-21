@@ -98,23 +98,7 @@ type processResult struct {
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
 ) ([]idwrap.IDWrap, error) {
-	id := n.GetID()
-	status := runner.FlowNodeStatus{
-		NodeID: id,
-		State:  mnnode.NODE_STATE_RUNNING,
-	}
-	statusLogFunc(status)
-
 	res := n.RunSync(ctx, req)
-
-	if res.Err != nil {
-		status.State = mnnode.NODE_STATE_FAILURE
-		statusLogFunc(status)
-		return nil, res.Err
-	}
-
-	status.State = mnnode.NODE_STATE_SUCCESS
-	statusLogFunc(status)
 	return res.NextNodeID, nil
 }
 
@@ -123,6 +107,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 ) error {
 	queue := []idwrap.IDWrap{startNodeID}
 
+	var status runner.FlowNodeStatus
 	var processCount int
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		processCount = min(goroutineCount, queueLen)
@@ -131,7 +116,12 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		resultChan := make(chan processResult, processCount)
 		wg.Add(processCount)
 		for i := range processCount {
-			currentNode, ok := req.NodeMap[queue[i]]
+			id := queue[i]
+
+			status.NodeID = id
+			status.State = mnnode.NODE_STATE_RUNNING
+			statusLogFunc(status)
+			currentNode, ok := req.NodeMap[id]
 			if !ok {
 				return fmt.Errorf("node not found: %v", currentNode)
 			}
@@ -153,9 +143,18 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		queue = queue[processCount:]
 
 		for result := range resultChan {
+			status.NodeID = result.originalID
 			if result.err != nil {
+				status.State = mnnode.NODE_STATE_FAILURE
+				statusLogFunc(status)
 				return result.err
 			}
+			status.State = mnnode.NODE_STATE_SUCCESS
+			outputData, ok := req.VarMap[req.NodeMap[status.NodeID].GetName()]
+			if ok {
+				status.OutputData = outputData
+			}
+			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
 				i, ok := req.PendingAtmoicMap[id]

@@ -689,7 +689,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
 	for i, jsNode := range jsNodes {
 		if i == 0 {
-			client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090", connect.WithProtoJSON())
+			client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
 			clientPtr = &client
 		}
 

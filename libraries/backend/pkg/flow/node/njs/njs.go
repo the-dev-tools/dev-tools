@@ -63,19 +63,24 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	rpcResp, err := n.nodejsClient.ExecuteNodeJS(ctx, rpcReq)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to execute nodejs: %w", err)
+		fmt.Println(result.Err)
 		return result
 	}
+
+	fmt.Println("return type:", rpcResp.Msg.Result)
 
 	InterfaceRaw := rpcResp.Msg.Result.AsInterface()
 	castedInterface, ok := InterfaceRaw.(map[string]any)
 	if !ok {
 		result.Err = fmt.Errorf("nodejs service returned unexpected type: %T", InterfaceRaw)
+		fmt.Println(result.Err)
 		return result
 	}
 
 	err = node.WriteNodeVarBulk(req, n.Name, castedInterface)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to write node var bulk: %w", err)
+		fmt.Println(result.Err)
 	}
 
 	return result
