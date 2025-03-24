@@ -79,23 +79,21 @@ const goInstallTools = CliCommand.make(
   {},
   Effect.fn(function* () {
     const path = yield* Path.Path;
-    const fs = yield* FileSystem.FileSystem;
     const root = yield* resolveMonorepoRoot;
 
-    const tools = yield* pipe(
-      path.resolve(root, 'libraries', 'tools', 'tools.go'),
-      fs.readFileString,
-      Effect.flatMap(String.match(/(?<=_ ").*(?=")/g)),
+    const tools = path.resolve(root, 'libraries', 'backend');
+
+    const originalDir = process.cwd();
+    process.chdir(tools);
+
+    yield* pipe(
+      PlatformCommand.make('go', 'mod', 'tidy'),
+      PlatformCommand.stdout('inherit'),
+      PlatformCommand.stderr('inherit'),
+      PlatformCommand.exitCode,
     );
 
-    for (const tool of tools) {
-      yield* pipe(
-        PlatformCommand.make('go', 'install', tool),
-        PlatformCommand.stdout('inherit'),
-        PlatformCommand.stderr('inherit'),
-        PlatformCommand.exitCode,
-      );
-    }
+    process.chdir(originalDir);
   }),
 );
 

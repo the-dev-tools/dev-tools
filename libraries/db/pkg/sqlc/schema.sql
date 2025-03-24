@@ -20,7 +20,10 @@ CREATE TABLE workspaces (
   global_env BLOB
 );
 
-CREATE INDEX workspaces_idx1 ON workspaces (name, active_env);
+CREATE INDEX workspaces_idx1 ON workspaces (
+  name,
+  active_env
+);
 
 -- WORKSPACE USERS
 CREATE TABLE workspaces_users (
@@ -35,7 +38,11 @@ CREATE TABLE workspaces_users (
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE INDEX workspaces_users_idx1 ON workspaces_users (workspace_id, user_id, role);
+CREATE INDEX workspaces_users_idx1 ON workspaces_users (
+  workspace_id,
+  user_id,
+  role
+);
 
 -- RESULT API
 CREATE TABLE result_api (
@@ -49,7 +56,10 @@ CREATE TABLE result_api (
   http_resp BLOB
 );
 
-CREATE INDEX result_api_idx1 ON result_api (trigger_by, trigger_type);
+CREATE INDEX result_api_idx1 ON result_api (
+  trigger_by,
+  trigger_type
+);
 
 -- COLLECTIONS
 CREATE TABLE collections (
@@ -106,7 +116,11 @@ CREATE TABLE item_api (
   FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_api_idx1 ON item_api (collection_id, folder_id, version_parent_id);
+CREATE INDEX item_api_idx1 ON item_api (
+  collection_id,
+  folder_id,
+  version_parent_id
+);
 
 /*
  *
@@ -198,6 +212,7 @@ CREATE TABLE example_query (
 
 CREATE INDEX example_query_idx1 ON example_query (
   example_id,
+  delta_parent_id,
   query_key
 );
 
@@ -215,6 +230,7 @@ CREATE TABLE example_body_form (
 
 CREATE INDEX example_body_form_idx1 ON example_body_form (
   example_id,
+  delta_parent_id,
   body_key
 );
 
