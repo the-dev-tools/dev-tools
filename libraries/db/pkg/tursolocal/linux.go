@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"the-dev-tools/db/pkg/sqlc"
+
+	_ "github.com/tursodatabase/go-libsql"
 )
 
 var (

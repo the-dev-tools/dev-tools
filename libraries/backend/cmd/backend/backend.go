@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"syscall"
 	"the-dev-tools/backend/internal/api"
-	"the-dev-tools/backend/internal/api/auth"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/internal/api/middleware/mwcompress"
 	"the-dev-tools/backend/internal/api/rbody"
@@ -65,15 +64,11 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspacesusers"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/db/pkg/tursoembedded"
 	"the-dev-tools/db/pkg/tursolocal"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/bufbuild/httplb"
-	"github.com/magiclabs/magic-admin-go"
-
-	magiccl "github.com/magiclabs/magic-admin-go/client"
 )
 
 func main() {
@@ -94,7 +89,6 @@ func main() {
 	if hmacSecret == "" {
 		log.Fatal(errors.New("HMAC_SECRET env var is required"))
 	}
-	hmacSecretBytes := []byte(hmacSecret)
 
 	dbMode := os.Getenv("DB_MODE")
 	if dbMode == "" {
@@ -106,12 +100,8 @@ func main() {
 	var dbCloseFunc func()
 	var err error
 	switch dbMode {
-	case devtoolsdb.EMBEDDED:
-		currentDB, dbCloseFunc, err = GetDBEmbedded()
 	case devtoolsdb.LOCAL:
 		currentDB, dbCloseFunc, err = GetDBLocal(ctx)
-	case devtoolsdb.REMOTE:
-		err = errors.New("remote db mode is not supported")
 	default:
 		err = errors.New("invalid db mode")
 	}
@@ -170,79 +160,29 @@ func main() {
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
-	if dbMode != devtoolsdb.LOCAL {
-		// optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor(hmacSecretBytes)))
-		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
-	} else {
-		_, err := us.GetUser(ctx, mwauth.LocalDummyID)
-		if err != nil {
-			if errors.Is(err, suser.ErrUserNotFound) {
-				defaultUser := &muser.User{
-					ID: mwauth.LocalDummyID,
-				}
-				err = us.CreateUser(ctx, defaultUser)
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else {
+	_, err = us.GetUser(ctx, mwauth.LocalDummyID)
+	if err != nil {
+		if errors.Is(err, suser.ErrUserNotFound) {
+			defaultUser := &muser.User{
+				ID: mwauth.LocalDummyID,
+			}
+			err = us.CreateUser(ctx, defaultUser)
+			if err != nil {
 				log.Fatal(err)
 			}
+		} else {
+			log.Fatal(err)
 		}
-
-		optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	}
+
+	optionsAuth = append(optionsAuth, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	opitonsAll = append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
-	newServiceManager := NewServiceManager(20)
+	newServiceManager := NewServiceManager(30)
 
-	if dbMode != devtoolsdb.LOCAL {
-		// Email
-		AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
-		if AWS_ACCESS_KEY == "" {
-			log.Fatalf("AWS_ACCESS_KEY is empty")
-		}
-		AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
-		if AWS_SECRET_KEY == "" {
-			log.Fatalf("AWS_SECRET_KEY is empty")
-		}
-
-		// TODO: @Ege move to private repo
-		// emailClient, err := sesv2.NewClient(AWS_ACCESS_KEY, AWS_SECRET_KEY, "")
-		// if err != nil {
-		// 	log.Fatalf("failed to create email client: %v", err)
-		// }
-
-		// path := os.Getenv("EMAIL_INVITE_TEMPLATE_PATH")
-		// if path == "" {
-		// 	log.Fatalf("EMAIL_INVITE_TEMPLATE_PATH is empty")
-		// }
-		// emailInviteManager, err := emailinvite.NewEmailTemplateFile(path, emailClient)
-		// if err != nil {
-		// 	log.Fatalf("failed to create email invite manager: %v", err)
-		// }
-		// Workspace Service
-		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es)
-		newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
-	} else {
-		workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es)
-		newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
-	}
-	// Auth Service
-	if dbMode != devtoolsdb.LOCAL {
-		magicLinkSecret := os.Getenv("MAGIC_LINK_SECRET")
-		if magicLinkSecret == "" {
-			log.Fatal("MAGIC_LINK_SECRET env var is required")
-		}
-
-		cl := magic.NewClientWithRetry(5, time.Second, 10*time.Second)
-		MagicLinkClient, err := magiccl.New(magicLinkSecret, cl)
-		if err != nil {
-			log.Fatal(err)
-		}
-		authSrv := auth.New(*MagicLinkClient, us, ws, wus, hmacSecretBytes)
-		newServiceManager.AddService(auth.CreateService(authSrv, optionsCompress))
-	}
+	workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es)
+	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 
 	// Collection Service
 	collectionSrv := rcollection.New(currentDB, cs, ws,
@@ -365,36 +305,6 @@ func (sm *ServiceManager) AddService(s *api.Service, e error) {
 
 func (sm *ServiceManager) GetServices() []api.Service {
 	return sm.s
-}
-
-func GetDBEmbedded() (*sql.DB, func(), error) {
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		return nil, nil, errors.New("DB_NAME env var is required")
-	}
-	dbToken := os.Getenv("DB_TOKEN")
-	if dbToken == "" {
-		return nil, nil, errors.New("DB_TOKEN env var is required")
-	}
-	dbUsername := os.Getenv("DB_USERNAME")
-	if dbUsername == "" {
-		return nil, nil, errors.New("DB_USERNAME env var is required")
-	}
-	dbVolumePath := os.Getenv("DB_VOLUME_PATH")
-	if dbVolumePath == "" {
-		return nil, nil, errors.New("DB_VOLUME_PATH env var is required")
-	}
-
-	encryptKey := os.Getenv("DB_ENCRYPTION_KEY")
-	if encryptKey == "" {
-		return nil, nil, errors.New("DB_ENCRYPT_KEY env var is required")
-	}
-
-	db, a, err := tursoembedded.NewTursoEmbeded(dbName, dbUsername, dbToken, dbVolumePath, encryptKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return db, a, nil
 }
 
 func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
