@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import { Array, HashMap, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, use, useCallback, useRef } from 'react';
+import { ReactNode, Suspense, use, useCallback, useRef } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
@@ -38,7 +38,7 @@ import {
   nodeUpdate,
 } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
-import { CheckIcon } from '@the-dev-tools/ui/icons';
+import { CheckIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
@@ -184,7 +184,15 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
         )}
       </div>
 
-      {children}
+      <Suspense
+        fallback={
+          <div className={tw`flex h-full items-center justify-center`}>
+            <Spinner className={tw`size-8`} />
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
     </div>
   );
 };
