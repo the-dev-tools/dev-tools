@@ -10,6 +10,8 @@ type Workspace struct {
 	CollectionCount int32
 	Updated         time.Time
 	Name            string
+	ActiveEnv       idwrap.IDWrap
+	GlobalEnv       idwrap.IDWrap
 	ID              idwrap.IDWrap
 }
 

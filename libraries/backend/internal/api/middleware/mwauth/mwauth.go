@@ -3,6 +3,7 @@ package mwauth
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/stoken"
@@ -109,11 +110,13 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 
 	claims, err := stoken.ValidateJWT(tokenRaw[1], stoken.AccessToken, authData.secret)
 	if err != nil {
+		log.Println("Error validating JWT token:", err)
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
 	ID, err := idwrap.NewText(claims.Subject)
 	if err != nil {
+		log.Println("Error creating ID from claims.Subject:", err)
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 

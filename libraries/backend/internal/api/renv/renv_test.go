@@ -110,7 +110,6 @@ func TestGetEnv(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",
@@ -177,7 +176,6 @@ func TestUpdateEnv(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",
@@ -248,7 +246,6 @@ func TestDeleteEnv(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",

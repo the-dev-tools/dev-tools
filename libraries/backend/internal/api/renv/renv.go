@@ -53,7 +53,6 @@ func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[env
 	envReq := menv.Env{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
-		Active:      false,
 		Type:        menv.EnvNormal,
 		Description: ReqEnv.Description,
 		Name:        ReqEnv.Name,

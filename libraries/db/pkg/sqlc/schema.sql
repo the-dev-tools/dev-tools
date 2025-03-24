@@ -6,9 +6,6 @@ CREATE TABLE users (
   provider_type INT8 NOT NULL DEFAULT 0,
   provider_id TEXT,
   status INT8 NOT NULL DEFAULT 0,
-  CHECK (length(id) == 16),
-  CHECK (status IN (0, 1, 2, 3)),
-  CHECK (provider_type IN (0, 1, 2, 3)),
   UNIQUE (provider_type, provider_id)
 );
 
@@ -19,8 +16,11 @@ CREATE TABLE workspaces (
   updated BIGINT NOT NULL DEFAULT (unixepoch()),
   collection_count INT NOT NULL DEFAULT 0,
   flow_count INT NOT NULL DEFAULT 0,
-  CHECK (length(id) == 16)
+  active_env BLOB,
+  global_env BLOB
 );
+
+CREATE INDEX workspaces_idx1 ON workspaces (name, active_env);
 
 -- WORKSPACE USERS
 CREATE TABLE workspaces_users (
@@ -34,6 +34,8 @@ CREATE TABLE workspaces_users (
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
+
+CREATE INDEX workspaces_users_idx1 ON workspaces_users (workspace_id, user_id, role);
 
 -- RESULT API
 CREATE TABLE result_api (
@@ -247,17 +249,13 @@ CREATE TABLE example_body_raw (
 CREATE TABLE environment (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
-  active BOOLEAN NOT NULL DEFAULT FALSE,
   type INT8 NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX unique_active_environment_idx1
-ON environment (workspace_id)
-WHERE active = true;
-
+CREATE INDEX environment_idx1 ON environment (workspace_id, type, name);
 
 CREATE TABLE variable (
     id BLOB NOT NULL PRIMARY KEY,
@@ -269,6 +267,8 @@ CREATE TABLE variable (
     UNIQUE (env_id, var_key),
     FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
 );
+
+CREATE INDEX variable_idx1 ON variable (env_id, var_key);
 
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
@@ -284,6 +284,12 @@ CREATE TABLE assertion (
   FOREIGN KEY (delta_parent_id) REFERENCES assertion (id) ON DELETE CASCADE
 );
 
+CREATE INDEX assertion_idx1 ON assertion (
+  example_id,
+  type,
+  path
+);
+
 CREATE TABLE assertion_result (
   id BLOB NOT NULL PRIMARY KEY,
   response_id BLOB NOT NULL,
@@ -291,6 +297,11 @@ CREATE TABLE assertion_result (
   result BOOLEAN NOT NULL,
   FOREIGN KEY (response_id) REFERENCES example_resp (id) ON DELETE CASCADE,
   FOREIGN KEY (assertion_id) REFERENCES assertion (id) ON DELETE CASCADE
+);
+
+CREATE INDEX assertion_result_idx1 ON assertion_result (
+  response_id,
+  assertion_id
 );
 
 CREATE TABLE flow (
@@ -312,6 +323,8 @@ CREATE TABLE tag (
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
+CREATE INDEX tag_idx1 ON tag (workspace_id);
+
 CREATE TABLE flow_tag (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,
@@ -319,6 +332,8 @@ CREATE TABLE flow_tag (
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
   FOREIGN KEY (tag_id) REFERENCES tag (id) ON DELETE CASCADE
 );
+
+CREATE INDEX flow_tag_idx1 ON flow_tag (flow_id, tag_id);
 
 CREATE TABLE flow_node (
   id BLOB NOT NULL PRIMARY KEY,
@@ -333,6 +348,8 @@ CREATE TABLE flow_node (
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
+CREATE INDEX flow_node_idx1 ON flow_node (flow_id);
+
 CREATE TABLE flow_edge (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,
@@ -343,6 +360,8 @@ CREATE TABLE flow_edge (
   FOREIGN KEY (source_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (target_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
+
+CREATE INDEX flow_edge_idx1 ON flow_edge (flow_id, source_id, target_id);
 
 
 -- TODO: move conditions to new condition table

@@ -216,7 +216,6 @@ func TestWorkspaceUpdate(t *testing.T) {
 	env := menv.Env{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: testWsID,
-		Active:      true,
 		Type:        menv.EnvType(0),
 		Name:        "test",
 		Description: "desc",

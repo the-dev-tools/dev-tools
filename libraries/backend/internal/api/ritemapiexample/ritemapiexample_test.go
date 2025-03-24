@@ -27,6 +27,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sresultapi"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
+	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/testutil"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
@@ -43,6 +44,7 @@ func TestGetExampleApi(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ras := sresultapi.New(queries)
+	ws := sworkspace.New(queries)
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
@@ -108,7 +110,7 @@ func TestGetExampleApi(t *testing.T) {
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
-		cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleGet(authedCtx, req)
 	if err != nil {
@@ -145,6 +147,7 @@ func TestCreateExampleApi(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ras := sresultapi.New(queries)
+	ws := sworkspace.New(queries)
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
@@ -192,7 +195,7 @@ func TestCreateExampleApi(t *testing.T) {
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
-		cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleCreate(authedCtx, req)
 	if err != nil {
@@ -240,6 +243,7 @@ func TestUpdateExampleApi(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ras := sresultapi.New(queries)
+	ws := sworkspace.New(queries)
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
@@ -310,7 +314,7 @@ func TestUpdateExampleApi(t *testing.T) {
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
-		cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleUpdate(authedCtx, req)
 	if err != nil {
@@ -345,6 +349,7 @@ func TestDeleteExampleApi(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ras := sresultapi.New(queries)
+	ws := sworkspace.New(queries)
 	cs := scollection.New(queries)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
@@ -410,7 +415,7 @@ func TestDeleteExampleApi(t *testing.T) {
 	})
 
 	rpcExample := ritemapiexample.New(db, iaes, ias, ras,
-		cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleDelete(authedCtx, req)
 	if err != nil {

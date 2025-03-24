@@ -161,6 +161,18 @@ sql:
               import: 'the-dev-tools/backend/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### active_env
+          - column: 'workspaces.active_env'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### global_Env
+          - column: 'workspaces.global_env'
+            go_type:
+              import: 'the-dev-tools/backend/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## workspaces_users
           ### id
           - column: 'workspaces_users.id'

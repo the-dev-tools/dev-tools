@@ -24,6 +24,8 @@ func ConvertToDBWorkspace(workspace mworkspace.Workspace) gen.Workspace {
 		Updated:         workspace.Updated.Unix(),
 		CollectionCount: workspace.CollectionCount,
 		FlowCount:       workspace.FlowCount,
+		ActiveEnv:       workspace.ActiveEnv,
+		GlobalEnv:       workspace.GlobalEnv,
 	}
 }
 
@@ -34,6 +36,8 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 		Updated:         dbtime.DBTime(time.Unix(workspace.Updated, 0)),
 		CollectionCount: workspace.CollectionCount,
 		FlowCount:       workspace.FlowCount,
+		ActiveEnv:       workspace.ActiveEnv,
+		GlobalEnv:       workspace.GlobalEnv,
 	}
 }
 
@@ -62,6 +66,8 @@ func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) 
 		Updated:         dbWorkspace.Updated,
 		CollectionCount: dbWorkspace.CollectionCount,
 		FlowCount:       dbWorkspace.FlowCount,
+		ActiveEnv:       dbWorkspace.ActiveEnv,
+		GlobalEnv:       dbWorkspace.GlobalEnv,
 	})
 }
 
@@ -85,6 +91,7 @@ func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace
 		FlowCount:       org.FlowCount,
 		CollectionCount: org.CollectionCount,
 		Updated:         org.Updated.Unix(),
+		ActiveEnv:       org.ActiveEnv,
 	})
 	if err == sql.ErrNoRows {
 		return ErrNoWorkspaceFound

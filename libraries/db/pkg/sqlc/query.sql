@@ -552,7 +552,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -566,7 +568,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -589,7 +593,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -608,7 +614,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -628,9 +636,9 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
@@ -638,7 +646,8 @@ SET
   name = ?,
   collection_count = ?,
   flow_count = ?,
-  updated = ?
+  updated = ?,
+  active_env = ?
 WHERE
   id = ?;
 
@@ -1207,7 +1216,6 @@ WHERE
 SELECT
   id,
   workspace_id,
-  active,
   type,
   name,
   description
@@ -1221,7 +1229,6 @@ LIMIT 1;
 SELECT
   id,
   workspace_id,
-  active,
   type,
   name,
   description
@@ -1230,30 +1237,15 @@ FROM
 WHERE
   workspace_id = ?;
 
--- name: GetActiveEnvironmentsByWorkspaceID :one
-SELECT
-  id,
-  workspace_id,
-  active,
-  type,
-  name,
-  description
-FROM
-  environment
-WHERE
-  workspace_id = ? AND active = true
-LIMIT 1;
-
 -- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, active, type, name, description)
+  environment (id, workspace_id, type, name, description)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment
 SET
-    active = ?,
     name = ?,
     description = ?
 WHERE

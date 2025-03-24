@@ -669,15 +669,14 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createEnvironment = `-- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, active, type, name, description)
+  environment (id, workspace_id, type, name, description)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateEnvironmentParams struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
-	Active      bool
 	Type        int8
 	Name        string
 	Description string
@@ -687,7 +686,6 @@ func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentPa
 	_, err := q.exec(ctx, q.createEnvironmentStmt, createEnvironment,
 		arg.ID,
 		arg.WorkspaceID,
-		arg.Active,
 		arg.Type,
 		arg.Name,
 		arg.Description,
@@ -2402,9 +2400,9 @@ func (q *Queries) CreateVariableBulk(ctx context.Context, arg CreateVariableBulk
 
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env)
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
@@ -2413,6 +2411,8 @@ type CreateWorkspaceParams struct {
 	Updated         int64
 	CollectionCount int32
 	FlowCount       int32
+	ActiveEnv       idwrap.IDWrap
+	GlobalEnv       idwrap.IDWrap
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
@@ -2422,6 +2422,8 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 		arg.Updated,
 		arg.CollectionCount,
 		arg.FlowCount,
+		arg.ActiveEnv,
+		arg.GlobalEnv,
 	)
 	return err
 }
@@ -2790,35 +2792,6 @@ WHERE
 func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteWorkspaceUserStmt, deleteWorkspaceUser, id)
 	return err
-}
-
-const getActiveEnvironmentsByWorkspaceID = `-- name: GetActiveEnvironmentsByWorkspaceID :one
-SELECT
-  id,
-  workspace_id,
-  active,
-  type,
-  name,
-  description
-FROM
-  environment
-WHERE
-  workspace_id = ? AND active = true
-LIMIT 1
-`
-
-func (q *Queries) GetActiveEnvironmentsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) (Environment, error) {
-	row := q.queryRow(ctx, q.getActiveEnvironmentsByWorkspaceIDStmt, getActiveEnvironmentsByWorkspaceID, workspaceID)
-	var i Environment
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.Active,
-		&i.Type,
-		&i.Name,
-		&i.Description,
-	)
-	return i, err
 }
 
 const getAssert = `-- name: GetAssert :one
@@ -3354,7 +3327,6 @@ const getEnvironment = `-- name: GetEnvironment :one
 SELECT
   id,
   workspace_id,
-  active,
   type,
   name,
   description
@@ -3371,7 +3343,6 @@ func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environ
 	err := row.Scan(
 		&i.ID,
 		&i.WorkspaceID,
-		&i.Active,
 		&i.Type,
 		&i.Name,
 		&i.Description,
@@ -3383,7 +3354,6 @@ const getEnvironmentsByWorkspaceID = `-- name: GetEnvironmentsByWorkspaceID :man
 SELECT
   id,
   workspace_id,
-  active,
   type,
   name,
   description
@@ -3405,7 +3375,6 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.Active,
 			&i.Type,
 			&i.Name,
 			&i.Description,
@@ -5269,7 +5238,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -5288,6 +5259,8 @@ func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (Workspace
 		&i.Updated,
 		&i.CollectionCount,
 		&i.FlowCount,
+		&i.ActiveEnv,
+		&i.GlobalEnv,
 	)
 	return i, err
 }
@@ -5298,7 +5271,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -5325,6 +5300,8 @@ func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap
 		&i.Updated,
 		&i.CollectionCount,
 		&i.FlowCount,
+		&i.ActiveEnv,
+		&i.GlobalEnv,
 	)
 	return i, err
 }
@@ -5335,7 +5312,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -5368,6 +5347,8 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 		&i.Updated,
 		&i.CollectionCount,
 		&i.FlowCount,
+		&i.ActiveEnv,
+		&i.GlobalEnv,
 	)
 	return i, err
 }
@@ -5516,7 +5497,9 @@ SELECT
   name,
   updated,
   collection_count,
-  flow_count
+  flow_count,
+  active_env,
+  global_env
 FROM
   workspaces
 WHERE
@@ -5545,6 +5528,8 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 			&i.Updated,
 			&i.CollectionCount,
 			&i.FlowCount,
+			&i.ActiveEnv,
+			&i.GlobalEnv,
 		); err != nil {
 			return nil, err
 		}
@@ -5764,7 +5749,6 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE environment
 SET
-    active = ?,
     name = ?,
     description = ?
 WHERE
@@ -5772,19 +5756,13 @@ WHERE
 `
 
 type UpdateEnvironmentParams struct {
-	Active      bool
 	Name        string
 	Description string
 	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
-	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment,
-		arg.Active,
-		arg.Name,
-		arg.Description,
-		arg.ID,
-	)
+	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.Name, arg.Description, arg.ID)
 	return err
 }
 
@@ -6402,7 +6380,8 @@ SET
   name = ?,
   collection_count = ?,
   flow_count = ?,
-  updated = ?
+  updated = ?,
+  active_env = ?
 WHERE
   id = ?
 `
@@ -6412,6 +6391,7 @@ type UpdateWorkspaceParams struct {
 	CollectionCount int32
 	FlowCount       int32
 	Updated         int64
+	ActiveEnv       idwrap.IDWrap
 	ID              idwrap.IDWrap
 }
 
@@ -6421,6 +6401,7 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.CollectionCount,
 		arg.FlowCount,
 		arg.Updated,
+		arg.ActiveEnv,
 		arg.ID,
 	)
 	return err

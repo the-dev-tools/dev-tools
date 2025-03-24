@@ -75,7 +75,7 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	env, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
+	env, err := c.es.Get(ctx, ws.ActiveEnv)
 	if err != nil {
 		if !errors.Is(err, senv.ErrNoEnvFound) {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -108,7 +108,7 @@ func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Re
 
 	var rpcWorkspaces []*workspacev1.WorkspaceListItem
 	for _, workspace := range workspaces {
-		env, err := c.es.GetActiveByWorkspace(ctx, workspace.ID)
+		env, err := c.es.Get(ctx, workspace.ActiveEnv)
 		if err != nil {
 			if !errors.Is(err, senv.ErrNoEnvFound) {
 			}
@@ -150,7 +150,7 @@ func (c *WorkspaceServiceRPC) WorkspaceGet(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	env, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
+	env, err := c.es.Get(ctx, ws.ActiveEnv)
 	if err != nil {
 		if !errors.Is(err, senv.ErrNoEnvFound) {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -180,18 +180,21 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
+	envID := idwrap.NewNow()
+
 	workspaceidWrap := idwrap.NewNow()
 	ws := &mworkspace.Workspace{
-		ID:      workspaceidWrap,
-		Name:    name,
-		Updated: dbtime.DBNow(),
+		ID:        workspaceidWrap,
+		Name:      name,
+		Updated:   dbtime.DBNow(),
+		ActiveEnv: envID,
+		GlobalEnv: envID,
 	}
 
 	wsEnv := menv.Env{
-		ID:          idwrap.NewNow(),
+		ID:          envID,
 		WorkspaceID: workspaceidWrap,
 		Name:        "default",
-		Active:      true,
 		Type:        menv.EnvGlobal,
 	}
 
@@ -205,9 +208,6 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if tx == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("tx is nil"))
 	}
 	defer tx.Rollback()
 	workspaceServiceTX, err := sworkspace.NewTX(ctx, tx)
@@ -274,43 +274,13 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 		}
 	}
 
-	reqEnvIDRaw := req.Msg.GetSelectedEnvironmentId()
-	var envID *idwrap.IDWrap
-	if reqEnvIDRaw != nil {
-		tempEnvID, err := idwrap.NewFromBytes(reqEnvIDRaw)
+	envID := req.Msg.SelectedEnvironmentId
+	if len(envID) != 0 {
+		tempEnvID, err := idwrap.NewFromBytes(envID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		envID = &tempEnvID
-	}
-
-	currentEnv, err := c.es.GetActiveByWorkspace(ctx, ws.ID)
-	if err != nil {
-		if !errors.Is(err, senv.ErrNoEnvFound) {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	if currentEnv != nil {
-		currentEnv.Active = false
-		err = c.es.Update(ctx, currentEnv)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	if envID != nil {
-		env, err := c.es.Get(ctx, *envID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("env not found"))
-			}
-		}
-		env.Active = true
-		err = c.es.Update(ctx, env)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		ws.ActiveEnv = tempEnvID
 	}
 
 	name := req.Msg.GetName()

@@ -175,7 +175,7 @@ func main() {
 		}
 	}
 
-	optionsAuth = append(optionsAuth, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
+	optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	opitonsAll = append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
@@ -211,7 +211,7 @@ func main() {
 
 	// Api Item Example
 	itemApiExampleSrv := ritemapiexample.New(currentDB, iaes, ias, ras,
-		cs, us, ehs, eqs, bfs, bues,
+		ws, cs, us, ehs, eqs, bfs, bues,
 		brs, erhs, ers, es, vs, as, ars)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
 

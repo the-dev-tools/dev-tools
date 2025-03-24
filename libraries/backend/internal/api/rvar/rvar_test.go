@@ -41,7 +41,6 @@ func TestCreateVar(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",
@@ -125,7 +124,6 @@ func TestGetVar(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",
@@ -214,7 +212,6 @@ func TestUpdateVar(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",
@@ -312,7 +309,6 @@ func TestDeleteVar(t *testing.T) {
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
-		Active:      true,
 		Type:        menv.EnvGlobal,
 		Description: "test",
 		Name:        "Something",

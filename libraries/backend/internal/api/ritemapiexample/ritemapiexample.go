@@ -20,7 +20,6 @@ import (
 	"the-dev-tools/backend/pkg/model/mbodyform"
 	"the-dev-tools/backend/pkg/model/mbodyraw"
 	"the-dev-tools/backend/pkg/model/mbodyurl"
-	"the-dev-tools/backend/pkg/model/menv"
 	"the-dev-tools/backend/pkg/model/mexampleheader"
 	"the-dev-tools/backend/pkg/model/mexamplequery"
 	"the-dev-tools/backend/pkg/model/mexampleresp"
@@ -43,6 +42,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sresultapi"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/svar"
+	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tassert"
 	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/varsystem"
@@ -65,8 +65,10 @@ type ItemAPIExampleRPC struct {
 	iaes *sitemapiexample.ItemApiExampleService
 	ias  *sitemapi.ItemApiService
 	ras  *sresultapi.ResultApiService
-	cs   *scollection.CollectionService
-	us   *suser.UserService
+
+	ws *sworkspace.WorkspaceService
+	cs *scollection.CollectionService
+	us *suser.UserService
 	// sub
 	hs   *sexampleheader.HeaderService
 	qs   *sexamplequery.ExampleQueryService
@@ -86,7 +88,7 @@ type ItemAPIExampleRPC struct {
 }
 
 func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService, ras sresultapi.ResultApiService,
-	cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
+	ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
 	bfs sbodyform.BodyFormService, beus sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, erhs sexamplerespheader.ExampleRespHeaderService,
 	ers sexampleresp.ExampleRespService, es senv.EnvService, vs svar.VarService, as sassert.AssertService, ars sassertres.AssertResultService,
 ) ItemAPIExampleRPC {
@@ -95,6 +97,7 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 		iaes: &iaes,
 		ias:  &ias,
 		ras:  &ras,
+		ws:   &ws,
 		cs:   &cs,
 		us:   &us,
 		hs:   &hs,
@@ -484,21 +487,23 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 	workspaceID := collection.OwnerID
 
-	env, err := c.es.GetByWorkspace(ctx, workspaceID)
+	workspace, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var selectedEnv, globalEnv *menv.Env
-	for _, e := range env {
-		if e.Type == menv.EnvGlobal {
-			globalEnv = &e
-		} else if e.Active {
-			selectedEnv = &e
-		}
+	fmt.Println("workspace active env", workspace.ActiveEnv)
+	fmt.Println("workspace global env", workspace.GlobalEnv)
+
+	selectedEnv, err := c.es.Get(ctx, workspace.ActiveEnv)
+	if err != nil {
+		fmt.Println("selectedEnv", selectedEnv)
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if selectedEnv == nil {
-		selectedEnv = globalEnv
+	globalEnv, err := c.es.Get(ctx, workspace.GlobalEnv)
+	if err != nil {
+		fmt.Println("globalEnv", globalEnv)
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	var varMap *varsystem.VarMap

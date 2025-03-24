@@ -39,7 +39,6 @@ type Collection struct {
 type Environment struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
-	Active      bool
 	Type        int8
 	Name        string
 	Description string
@@ -267,6 +266,8 @@ type Workspace struct {
 	Updated         int64
 	CollectionCount int32
 	FlowCount       int32
+	ActiveEnv       idwrap.IDWrap
+	GlobalEnv       idwrap.IDWrap
 }
 
 type WorkspacesUser struct {

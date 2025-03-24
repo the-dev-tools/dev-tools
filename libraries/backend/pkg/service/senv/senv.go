@@ -32,7 +32,6 @@ func ConvertToDBEnv(env menv.Env) gen.Environment {
 	return gen.Environment{
 		ID:          env.ID,
 		WorkspaceID: env.WorkspaceID,
-		Active:      env.Active,
 		Type:        int8(env.Type),
 		Name:        env.Name,
 		Description: env.Description,
@@ -43,7 +42,6 @@ func ConvertToModelEnv(env gen.Environment) *menv.Env {
 	return &menv.Env{
 		ID:          env.ID,
 		WorkspaceID: env.WorkspaceID,
-		Active:      env.Active,
 		Type:        menv.EnvType(env.Type),
 		Name:        env.Name,
 		Description: env.Description,
@@ -72,23 +70,11 @@ func (e EnvService) GetByWorkspace(ctx context.Context, workspaceID idwrap.IDWra
 	return tgeneric.MassConvertPtr(envs, ConvertToModelEnv), nil
 }
 
-func (e EnvService) GetActiveByWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (*menv.Env, error) {
-	env, err := e.queries.GetActiveEnvironmentsByWorkspaceID(ctx, workspaceID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNoEnvFound
-		}
-		return nil, err
-	}
-	return ConvertToModelEnv(env), nil
-}
-
 func (e EnvService) Create(ctx context.Context, env menv.Env) error {
 	dbEnv := ConvertToDBEnv(env)
 	return e.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams{
 		ID:          dbEnv.ID,
 		WorkspaceID: dbEnv.WorkspaceID,
-		Active:      dbEnv.Active,
 		Type:        dbEnv.Type,
 		Name:        dbEnv.Name,
 		Description: dbEnv.Description,
@@ -99,7 +85,6 @@ func (e EnvService) Update(ctx context.Context, env *menv.Env) error {
 	dbEnv := ConvertToDBEnv(*env)
 	return e.queries.UpdateEnvironment(ctx, gen.UpdateEnvironmentParams{
 		ID:          dbEnv.ID,
-		Active:      env.Active,
 		Name:        dbEnv.Name,
 		Description: dbEnv.Description,
 	})
