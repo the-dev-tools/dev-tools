@@ -10,8 +10,6 @@
     "@nx-go/nx-go": "~3.3.0",
     "@nx/eslint": "~20.6.2",
     "@nx/js": "~20.6.2",
-    "@swc-node/register": "~1.10.10",
-    "@swc/core": "~1.11.13",
     "@the-dev-tools/config-eslint": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
     "@typespec/compiler": "~0.67.1",
@@ -24,7 +22,7 @@
     "react": "~19.0.0",
     "syncpack": "~13.0.3",
     "typescript": "~5.8.2",
-    "wrangler": "~4.4.0"
+    "typescript-eslint": "~8.27.0"
   },
   "pnpm": {
     "peerDependencyRules": {

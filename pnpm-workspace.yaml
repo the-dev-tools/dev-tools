@@ -1,3 +1,19 @@
 packages:
-  - 'apps/*'
-  - 'libraries/*'
+  - apps/*
+  - libraries/*
+onlyBuiltDependencies:
+  - '@bufbuild/buf'
+  - '@parcel/watcher'
+  - '@swc/core'
+  - bufferutil
+  - electron
+  - electron-winstaller
+  - es5-ext
+  - esbuild
+  - keccak
+  - lmdb
+  - msgpackr-extract
+  - nx
+  - secp256k1
+  - sharp
+  - utf-8-validate

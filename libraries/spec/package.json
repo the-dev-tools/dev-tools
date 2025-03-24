@@ -21,7 +21,6 @@
     "@typespec/rest": "~0.67.1",
     "effect": "~3.14.1",
     "prettier": "~3.5.3",
-    "quicktype": "~23.0.171",
     "rimraf": "~6.0.1",
     "typescript": "~5.8.2"
   }
