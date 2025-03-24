@@ -22,7 +22,7 @@
           "rimraf dist",
           "pnpm tsp compile api",
           "node lib/patch-paths.js",
-          "pnpm buf generate",
+          "pnpm buf generate --timeout 8m",
           "node lib/collect-file-descriptors.js"
         ]
       }
