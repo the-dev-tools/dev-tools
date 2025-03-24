@@ -492,17 +492,12 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	fmt.Println("workspace active env", workspace.ActiveEnv)
-	fmt.Println("workspace global env", workspace.GlobalEnv)
-
 	selectedEnv, err := c.es.Get(ctx, workspace.ActiveEnv)
 	if err != nil {
-		fmt.Println("selectedEnv", selectedEnv)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	globalEnv, err := c.es.Get(ctx, workspace.GlobalEnv)
 	if err != nil {
-		fmt.Println("globalEnv", globalEnv)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

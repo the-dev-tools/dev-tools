@@ -63,7 +63,6 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	rpcResp, err := n.nodejsClient.ExecuteNodeJS(ctx, rpcReq)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to execute nodejs: %w", err)
-		fmt.Println(result.Err)
 		return result
 	}
 
@@ -72,7 +71,6 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to write node var bulk: %w", err)
-		fmt.Println(result.Err)
 	}
 
 	return result

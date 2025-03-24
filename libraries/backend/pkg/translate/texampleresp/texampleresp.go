@@ -1,6 +1,7 @@
 package texampleresp
 
 import (
+	"errors"
 	"the-dev-tools/backend/pkg/model/mexampleresp"
 	"the-dev-tools/backend/pkg/zstdcompress"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
@@ -18,13 +19,15 @@ func SeralizeHeaderModelToRPC(h mexamplerespheader.ExampleRespHeader) *itemapiex
 }
 */
 
+var ErrDecompress error = errors.New("failed to decompress body")
+
 func SeralizeModelToRPC(e mexampleresp.ExampleResp) (*responsev1.Response, error) {
 	body := e.Body
 	if e.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
 		var err error
 		body, err = zstdcompress.Decompress(body)
 		if err != nil {
-			return nil, err
+			return nil, errors.Join(ErrDecompress, err)
 		}
 	}
 

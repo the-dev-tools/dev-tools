@@ -1,6 +1,6 @@
 module the-dev-tools/backend
 
-go 1.23.3
+go 1.24.1
 
 require (
 	connectrpc.com/connect v1.18.1
@@ -23,4 +23,10 @@ require (
 	github.com/stretchr/testify v1.10.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
+)
+
+tool (
+	connectrpc.com/connect/cmd/protoc-gen-connect-go
+	github.com/sqlc-dev/sqlc/cmd/sqlc
+	google.golang.org/protobuf/cmd/protoc-gen-go
 )

@@ -41,6 +41,8 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 	ResponseCreateOutput.BodyRaw = respHttp.Body
 	bodyData := respHttp.Body
 
+	exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeNone
+
 	if len(bodyData) > 1024 {
 		bodyDataTemp := zstdcompress.Compress(bodyData)
 		if len(bodyDataTemp) < len(bodyData) {
