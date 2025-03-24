@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -73,7 +74,7 @@ func ConvertResponseToVar(r Response) ResponseVar {
 }
 
 func SendRequest(client HttpClient, req *Request) (*http.Response, error) {
-	reqRaw, err := http.NewRequest(req.Method, req.URL, nil)
+	reqRaw, err := http.NewRequest(req.Method, req.URL, bytes.NewReader(req.Body))
 	if err != nil {
 		return nil, err
 	}

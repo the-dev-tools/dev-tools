@@ -130,7 +130,10 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 			}
 		}
 
-		bodyBytes.Write(rawBody.Data)
+		_, err = bodyBytes.Write(rawBody.Data)
+		if err != nil {
+			return nil, err
+		}
 	case mitemapiexample.BodyTypeForm:
 		writer := multipart.NewWriter(bodyBytes)
 		for _, v := range formBody {
@@ -200,7 +203,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 
 func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
 	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvert(httpclient.New(), req, exampleID)
+	respHttp, err := httpclient.SendRequestAndConvert(client, req, exampleID)
 	lapse := time.Since(now)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeAborted, err)
@@ -238,6 +241,8 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	} else {
 		output.Merged = input.Delta
 		output.Merged.ID = input.Base.ID
+		// INFO: seems like FE update base example insteed of delta for bodytype
+		output.Merged.BodyType = input.Base.BodyType
 	}
 
 	// Query
