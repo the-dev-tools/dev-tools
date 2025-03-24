@@ -1,6 +1,6 @@
 module the-dev-tools/db
 
-go 1.23
+go 1.24.1
 
 require (
 	github.com/mattn/go-sqlite3 v1.14.24
@@ -10,6 +10,5 @@ require (
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/libsql/sqlite-antlr4-parser v0.0.0-20240327125255-dbf53b6cbf06 // indirect
-	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 )
