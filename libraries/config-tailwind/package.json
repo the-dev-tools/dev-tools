@@ -11,8 +11,8 @@
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/node": "~22.13.9",
-    "effect": "~3.13.6",
+    "@types/node": "~22.13.13",
+    "effect": "~3.14.1",
     "tailwindcss": "~3.4.15",
     "tailwindcss-animate": "~1.0.7",
     "tailwindcss-react-aria-components": "~1.2.0",

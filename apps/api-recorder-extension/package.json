@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@plasmohq/storage": "1.15.0",
-    "effect": "3.13.6",
-    "magic-sdk": "29.0.0",
+    "effect": "3.14.1",
+    "magic-sdk": "29.0.2",
     "plasmo": "0.90.3",
     "react": "19.0.0",
     "react-aria-components": "1.6.0",
@@ -27,16 +27,16 @@
     "@the-dev-tools/config-tailwind": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "@types/chrome": "~0.0.308",
-    "@types/node": "~22.13.9",
-    "@types/react": "~19.0.10",
+    "@types/chrome": "~0.0.310",
+    "@types/node": "~22.13.13",
+    "@types/react": "~19.0.12",
     "@types/react-dom": "~19.0.4",
-    "autoprefixer": "~10.4.20",
-    "devtools-protocol": "~0.0.1428127",
+    "autoprefixer": "~10.4.21",
+    "devtools-protocol": "~0.0.1436416",
     "postcss": "~8.5.3",
     "tailwindcss": "~3.4.15",
     "typescript": "~5.8.2",
-    "typescript-eslint": "~8.26.0"
+    "typescript-eslint": "~8.27.0"
   },
   "manifest": {
     "host_permissions": [

@@ -6,25 +6,25 @@
     "./*": "./src/*.tsx"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "2.2.4",
+    "@bufbuild/protobuf": "2.2.5",
     "@connectrpc/connect": "2.0.2",
     "@connectrpc/connect-query": "2.0.1",
     "@connectrpc/connect-web": "2.0.2",
-    "@effect/platform": "0.77.6",
+    "@effect/platform": "0.80.1",
     "@normy/core": "0.12.0",
-    "@tanstack/react-query": "5.67.1",
+    "@tanstack/react-query": "5.69.0",
     "@the-dev-tools/spec": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
-    "effect": "3.13.6",
+    "effect": "3.14.1",
     "id128": "1.6.6",
-    "jose": "6.0.8",
-    "magic-sdk": "29.0.0",
+    "jose": "6.0.10",
+    "magic-sdk": "29.0.2",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@the-dev-tools/config-eslint": "workspace:^",
-    "@types/react": "~19.0.10",
+    "@types/react": "~19.0.12",
     "@types/react-dom": "~19.0.4",
     "typescript": "~5.8.2"
   }

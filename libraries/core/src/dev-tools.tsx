@@ -1,4 +1,5 @@
 import type { ReactQueryDevtools as ReactQueryDevtoolsType } from '@tanstack/react-query-devtools';
+import type { TanStackRouterDevtools as TanStackRouterDevtoolsType } from '@tanstack/router-devtools';
 import { Boolean } from 'effect';
 import {
   ComponentProps,
@@ -34,7 +35,7 @@ const TanStackRouterDevToolsLazy = lazy(() =>
   import('@tanstack/router-devtools').then((_) => ({ default: _.TanStackRouterDevtools })),
 );
 
-export const TanStackRouterDevTools = (props: ComponentProps<typeof TanStackRouterDevToolsLazy>) => {
+export const TanStackRouterDevTools = (props: ComponentProps<typeof TanStackRouterDevtoolsType>) => {
   const show = useContext(ShowDevToolsContext);
   if (!show) return null;
   return (
