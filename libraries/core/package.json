@@ -8,8 +8,7 @@
   "exports": {
     "./*": "./src/*.tsx",
     "./assets/*": "./assets/*",
-    "./favicon": "./src/favicon.ts",
-    "./tailwind.config": "./tailwind.config.ts"
+    "./favicon": "./src/favicon.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.2.5",
@@ -24,7 +23,7 @@
     "@effect/platform-browser": "0.59.1",
     "@hookform/resolvers": "4.1.3",
     "@prettier/plugin-xml": "3.4.1",
-    "@react-aria/collections": "3.0.0-alpha.7",
+    "@react-aria/collections": "3.0.0-beta.1",
     "@tanstack/react-query": "5.69.0",
     "@tanstack/react-router": "1.114.27",
     "@tanstack/react-table": "8.21.2",
@@ -40,16 +39,16 @@
     "id128": "1.6.6",
     "prettier": "3.5.3",
     "react": "19.0.0",
-    "react-aria": "3.37.0",
-    "react-aria-components": "1.6.0",
+    "react-aria": "3.38.1",
+    "react-aria-components": "1.7.1",
     "react-dom": "19.0.0",
     "react-hook-form": "7.54.2",
     "react-icons": "5.5.0",
     "react-resizable-panels": "2.1.7",
-    "react-stately": "3.35.0",
-    "react-timeago": "7.2.0",
-    "tailwind-merge": "2.6.0",
-    "tailwind-variants": "0.3.1",
+    "react-stately": "3.36.1",
+    "react-timeago": "8.0.0",
+    "tailwind-merge": "3.0.2",
+    "tailwind-variants": "1.0.0",
     "use-debounce": "10.0.4"
   },
   "devDependencies": {
@@ -58,16 +57,11 @@
     "@tanstack/router-devtools": "~1.114.27",
     "@tanstack/router-plugin": "~1.114.27",
     "@the-dev-tools/config-eslint": "workspace:^",
-    "@the-dev-tools/config-tailwind": "workspace:^",
     "@types/react": "~19.0.12",
     "@types/react-dom": "~19.0.4",
     "@types/react-timeago": "~4.1.7",
-    "@vitejs/plugin-react": "~4.3.4",
-    "autoprefixer": "~10.4.21",
     "eslint": "~9.23.0",
     "globals": "~16.0.0",
-    "postcss": "~8.5.3",
-    "tailwindcss": "~3.4.15",
     "typescript": "~5.8.2",
     "vite": "~6.2.3"
   }

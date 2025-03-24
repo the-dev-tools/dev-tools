@@ -19,7 +19,7 @@ import { ariaTextValue, composeRenderPropsTV } from './utils';
 // Root
 
 export const listBoxStyles = tv({
-  base: tw`pointer-events-auto overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md outline-none`,
+  base: tw`outline-hidden pointer-events-auto overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md`,
 });
 
 export interface ListBoxProps<T> extends Omit<AriaListBoxProps<T>, 'layout' | 'orientation'> {}

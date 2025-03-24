@@ -19,7 +19,7 @@ export const NoOpNode = (props: NodeProps) => {
     <>
       <div
         className={twMerge(
-          tw`flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white shadow-sm transition-colors`,
+          tw`shadow-xs flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white transition-colors`,
           props.selected && tw`bg-slate-600`,
         )}
       >

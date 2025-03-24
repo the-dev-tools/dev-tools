@@ -22,17 +22,17 @@ export const ConditionNode = (props: NodeProps) => {
   return (
     <>
       <NodeBase {...props} Icon={IfIcon}>
-        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+        <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
           {condition ? (
             <div
-              className={tw`flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs font-medium leading-5 tracking-tight text-slate-800 shadow-sm`}
+              className={tw`shadow-xs flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs font-medium leading-5 tracking-tight text-slate-800`}
             >
               <CheckListAltIcon className={tw`size-5 text-slate-500`} />
               <span>Edit Condition</span>
             </div>
           ) : (
             <ButtonAsLink
-              className={tw`flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600 shadow-sm`}
+              className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600`}
               href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}
             >
               <FiPlus className={tw`size-4`} />

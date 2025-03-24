@@ -75,8 +75,7 @@ export const Node = {
 };
 
 const nodeBaseStyles = tv({
-  // eslint-disable-next-line tailwindcss/no-custom-classname
-  base: tw`nopan relative w-80 rounded-lg bg-slate-200 p-1 shadow-sm outline outline-1 transition-colors`,
+  base: tw`nopan shadow-xs relative w-80 rounded-lg bg-slate-200 p-1 outline-1 transition-colors`,
   variants: {
     state: {
       [NodeState.UNSPECIFIED]: tw`outline-slate-300`,

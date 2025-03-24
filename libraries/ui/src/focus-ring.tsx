@@ -7,7 +7,7 @@ export const isFocusedStyle = tw`outline-4 outline-violet-200`;
 const focusedStyles = { true: isFocusedStyle };
 
 const baseStyles = tv({
-  base: tw`relative outline outline-0 outline-transparent transition-colors`,
+  base: tw`relative outline-0 outline-transparent transition-colors`,
 });
 
 export const focusRingStyles = tv({

@@ -68,7 +68,7 @@ export const RadioGroup = ({ children, className, label, containerClassName, err
 // Item
 
 const itemStyles = tv({
-  base: tw`group flex cursor-pointer items-center gap-1.5 text-md font-medium leading-5 tracking-tight text-slate-800`,
+  base: tw`text-md group flex cursor-pointer items-center gap-1.5 font-medium leading-5 tracking-tight text-slate-800`,
   variants: {
     isDisabled: { true: tw`text-gray-300` },
   },
@@ -76,7 +76,7 @@ const itemStyles = tv({
 
 const indicatorStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`size-4 rounded-full border transition-colors`,
+  base: tw`size-4 rounded-full border`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isSelected: {

@@ -25,7 +25,7 @@ export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) =
     className={composeRenderProps(className, (className, { placement }) =>
       twMerge(
         className,
-        tw`pointer-events-none flex h-full min-w-[--trigger-width] flex-col`,
+        tw`min-w-(--trigger-width) pointer-events-none flex h-full flex-col`,
         placement === 'top' && tw`flex-col-reverse`,
       ),
     )}
@@ -35,7 +35,7 @@ export const DropdownPopover = ({ className, ...props }: DropdownPopoverProps) =
 // List box
 
 export const dropdownListBoxStyles = tv({
-  base: tw`pointer-events-auto flex max-h-full flex-col gap-2 overflow-auto rounded border border-black bg-white p-2 outline-none`,
+  base: tw`outline-hidden pointer-events-auto flex max-h-full flex-col gap-2 overflow-auto rounded-sm border border-black bg-white p-2`,
 });
 
 export interface DropdownListBoxProps<T extends object>
@@ -54,7 +54,7 @@ export const DropdownListBox = <T extends object>({ className, ...props }: Dropd
 
 export const dropdownItemStyles = tv({
   extend: focusRingStyles,
-  base: tw`select-none rounded px-3 py-2 text-sm leading-none rac-focus:bg-neutral-400`,
+  base: tw`rac-focus:bg-neutral-400 select-none rounded-sm px-3 py-2 text-sm leading-none`,
   variants: {
     variant: {
       danger: tw`text-red-600`,

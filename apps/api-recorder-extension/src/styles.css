@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import '@the-dev-tools/ui/styles';
+
+@source '.';
 
 html,
 body,

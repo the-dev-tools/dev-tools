@@ -4,8 +4,8 @@ import { createContext, Suspense, useContext } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Collection as AriaCollection,
-  UNSTABLE_Tree as AriaTree,
-  UNSTABLE_TreeItemContent as AriaTreeItemContent,
+  Tree as AriaTree,
+  TreeItemContent as AriaTreeItemContent,
   Dialog,
   DialogTrigger,
 } from 'react-aria-components';
@@ -164,7 +164,7 @@ export const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeIt
             {tags.map((tag, index) => (
               <span
                 key={index}
-                className={tw`rounded bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+                className={tw`rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
               >
                 {tag}
               </span>
@@ -207,7 +207,7 @@ export const ReferencePath = ({ path }: ReferencePath) => {
       return (
         <span
           key={`${index} ${indexText}`}
-          className={tw`mx-0.5 flex-none rounded bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+          className={tw`mx-0.5 flex-none rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
         >
           entry {indexText}
         </span>
@@ -218,7 +218,7 @@ export const ReferencePath = ({ path }: ReferencePath) => {
 
     if (keyText) {
       return (
-        <span key={`${index} ${keyText}`} className={tw`flex-none text-md leading-5 tracking-tight text-slate-800`}>
+        <span key={`${index} ${keyText}`} className={tw`text-md flex-none leading-5 tracking-tight text-slate-800`}>
           {keyText}
         </span>
       );

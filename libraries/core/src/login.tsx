@@ -30,7 +30,7 @@ function LoginPage() {
       <Logo className={tw`mb-10 mt-24 h-16 w-auto`} />
 
       <h1 className={tw`mb-1 text-xl font-semibold leading-6 tracking-tight text-slate-800`}>Welcome to DevTools</h1>
-      <span className={tw`mb-6 text-md leading-5 tracking-tight text-slate-500`}>
+      <span className={tw`text-md mb-6 leading-5 tracking-tight text-slate-500`}>
         Please enter your account details
       </span>
 

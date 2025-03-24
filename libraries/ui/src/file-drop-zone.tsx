@@ -79,7 +79,7 @@ export const FileDropZone = ({
               </div>
 
               <div
-                className={tw`w-full truncate text-center text-md font-medium leading-5 tracking-tight text-slate-800`}
+                className={tw`text-md w-full truncate text-center font-medium leading-5 tracking-tight text-slate-800`}
               >
                 {file.name}
               </div>

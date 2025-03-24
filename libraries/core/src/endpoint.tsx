@@ -174,7 +174,7 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, cla
         id='params'
         className={({ isSelected }) =>
           twMerge(
-            tw`-mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
@@ -186,7 +186,7 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, cla
         id='headers'
         className={({ isSelected }) =>
           twMerge(
-            tw`-mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
@@ -198,7 +198,7 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, cla
         id='body'
         className={({ isSelected }) =>
           twMerge(
-            tw`-mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
@@ -210,7 +210,7 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, cla
         id='assertions'
         className={({ isSelected }) =>
           twMerge(
-            tw`-mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
@@ -423,7 +423,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
     <form onSubmit={onSubmit}>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
         <div
-          className={tw`flex min-w-0 flex-1 select-none gap-1 text-md font-medium leading-5 tracking-tight text-slate-400`}
+          className={tw`text-md flex min-w-0 flex-1 select-none gap-1 font-medium leading-5 tracking-tight text-slate-400`}
         >
           {example.breadcrumbs.map((_, index) => (
             <Fragment key={`${index} ${_}`}>
@@ -486,7 +486,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
       </div>
 
       <div className={tw`flex gap-3 p-6 pb-0`}>
-        <div className='flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+        <div className='shadow-xs flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
           <SelectRHF control={form.control} name='method' aria-label='Method' triggerClassName={tw`border-none p-0`}>
             {methods.map((_) => (
               <ListBoxItem key={_} id={_} textValue={_}>
@@ -553,7 +553,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
 
   return (
     <Modal modalSize='lg' isDismissable>
-      <Dialog className={tw`size-full outline-none`}>
+      <Dialog className={tw`outline-hidden size-full`}>
         <Tabs className={tw`flex h-full`} orientation='vertical'>
           <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
             <div className={tw`mb-4`}>
@@ -569,7 +569,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
                 <div className={tw`w-px flex-1 bg-slate-200`} />
               </div>
 
-              <div className={tw`p-2 text-md font-semibold leading-5 tracking-tight text-violet-700`}>
+              <div className={tw`text-md p-2 font-semibold leading-5 tracking-tight text-violet-700`}>
                 Current Version
               </div>
 
@@ -579,7 +579,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
                 <div className={tw`w-px flex-1 bg-slate-200`} />
               </div>
 
-              <div className={tw`p-2 text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+              <div className={tw`text-md p-2 font-semibold leading-5 tracking-tight text-slate-800`}>
                 {versions.length} previous responses
               </div>
 
@@ -591,7 +591,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
                     id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
                     className={({ isSelected }) =>
                       twJoin(
-                        tw`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md font-semibold leading-5 text-slate-800`,
+                        tw`text-md flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold leading-5 text-slate-800`,
                         isSelected && tw`bg-slate-200`,
                       )
                     }
@@ -641,7 +641,7 @@ const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }
   return (
     <PanelGroup direction='vertical'>
       <Panel className={tw`flex flex-col`}>
-        <div className='m-5 mb-2 flex items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+        <div className='shadow-xs m-5 mb-2 flex items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
           <MethodBadge method={endpoint.method} size='lg' />
           <div className={tw`h-7 w-px bg-slate-200`} />
           <div className={tw`truncate font-medium leading-5 tracking-tight text-slate-800`}>{url}</div>
@@ -673,13 +673,13 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
-      <div className={twMerge(tw`flex items-center gap-3 border-b border-slate-200 text-md`, fullWidth && tw`px-4`)}>
+      <div className={twMerge(tw`text-md flex items-center gap-3 border-b border-slate-200`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             id='body'
             className={({ isSelected }) =>
               twMerge(
-                tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
@@ -691,7 +691,7 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
             id='headers'
             className={({ isSelected }) =>
               twMerge(
-                tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
@@ -703,7 +703,7 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
             id='assertions'
             className={({ isSelected }) =>
               twMerge(
-                tw`-mb-px cursor-pointer border-b-2 border-transparent py-2 text-md font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
@@ -795,8 +795,8 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
+              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
             )
           }
           id='pretty'
@@ -806,8 +806,8 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
+              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
             )
           }
           id='raw'
@@ -817,8 +817,8 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
+              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
             )
           }
           id='preview'
@@ -951,7 +951,7 @@ const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
           <Fragment key={assertIdCan}>
             <div
               className={twJoin(
-                tw`rounded px-2 py-1 text-center font-light uppercase text-white`,
+                tw`rounded-sm px-2 py-1 text-center font-light uppercase text-white`,
                 result ? tw`bg-green-600` : tw`bg-red-600`,
               )}
             >

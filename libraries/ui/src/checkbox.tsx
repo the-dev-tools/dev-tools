@@ -27,7 +27,7 @@ const rootStyles = tv({
 
 const boxStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex size-4 flex-none cursor-pointer items-center justify-center rounded border border-slate-200 bg-white p-0.5 text-white transition-colors`,
+  base: tw`flex size-4 flex-none cursor-pointer items-center justify-center rounded-sm border border-slate-200 bg-white p-0.5 text-white`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isIndeterminate: { true: tw`border-violet-600 bg-violet-600` },

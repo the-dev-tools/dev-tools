@@ -20,8 +20,6 @@ import { ApiTransport } from '@the-dev-tools/api/transport';
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
 
-import '@xyflow/react/dist/style.css';
-import '@the-dev-tools/ui/fonts';
 import './styles.css';
 
 const makeRouter = Effect.gen(function* () {

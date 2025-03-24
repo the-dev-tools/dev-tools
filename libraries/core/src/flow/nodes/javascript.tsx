@@ -16,8 +16,8 @@ import { NodeBase, NodePanelProps, NodeProps } from '../node';
 export const JavaScriptNode = (props: NodeProps) => (
   <>
     <NodeBase {...props} Icon={FiTerminal}>
-      <div className={tw`overflow-auto rounded-md border border-slate-200 shadow-sm`}>
-        <div className={tw`border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white shadow-sm`}>
+      <div className={tw`shadow-xs overflow-auto rounded-md border border-slate-200`}>
+        <div className={tw`shadow-xs border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white`}>
           JavaScript
         </div>
         <div className={tw`bg-slate-800 px-3 py-5 text-center font-mono text-xs leading-4 text-slate-400`}>

@@ -25,7 +25,7 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 const groupStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex rounded-md border border-slate-200 text-md leading-5 text-slate-800`,
+  base: tw`text-md flex rounded-md border border-slate-200 leading-5 text-slate-800`,
 });
 
 // Number field
@@ -66,7 +66,7 @@ export const NumberField = ({
           <FiMinus />
         </AriaButton>
 
-        <AriaInput className={composeRenderPropsTW(inputClassName, tw`flex-1 px-3 outline-none`)} {...props.input} />
+        <AriaInput className={composeRenderPropsTW(inputClassName, tw`outline-hidden flex-1 px-3`)} {...props.input} />
 
         <AriaButton
           slot='increment'

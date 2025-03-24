@@ -99,7 +99,7 @@ export const EnvironmentsWidget = () => {
         </Button>
 
         <Modal>
-          <Dialog className={tw`h-full outline-none`}>
+          <Dialog className={tw`outline-hidden h-full`}>
             {({ close }) => (
               <Tabs className={tw`flex h-full`} orientation='vertical'>
                 <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
@@ -138,7 +138,7 @@ export const EnvironmentsWidget = () => {
                             <VariableIcon className={tw`size-4 text-slate-500`} />
                           ) : (
                             <div
-                              className={tw`flex size-4 items-center justify-center rounded bg-slate-300 text-xs leading-3 text-slate-500`}
+                              className={tw`flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3 text-slate-500`}
                             >
                               {item.name[0]}
                             </div>

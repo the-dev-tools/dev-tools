@@ -40,7 +40,7 @@ export const Menu = <T extends object>({
       {contextMenuRef && <div ref={contextMenuRef} className={tw`fixed`} style={contextMenuPosition} />}
 
       <DropdownPopover triggerRef={triggerRef!} {...forwardedProps.popover}>
-        <AriaMenu {...forwardedProps.rest} className={listBoxStyles({ className })} />
+        <AriaMenu {...forwardedProps.rest} className={composeRenderPropsTV(className, listBoxStyles)} />
       </DropdownPopover>
     </>
   );

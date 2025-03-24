@@ -35,7 +35,7 @@ export const RequestNode = (props: NodeProps) => {
   return (
     <>
       <NodeBase {...props} Icon={SendRequestIcon}>
-        <div className={tw`rounded-md border border-slate-200 bg-white shadow-sm`}>
+        <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
           {data.request?.exampleId.length !== 0 ? (
             <RequestNodeSelected request={data.request!} />
           ) : (
@@ -168,7 +168,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         </ButtonAsLink>
       </div>
 
-      <div className='m-5 mb-4 flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-sm'>
+      <div className='shadow-xs m-5 mb-4 flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
         <MethodBadge method={endpoint.method} size='lg' />
         <div className={tw`h-7 w-px bg-slate-200`} />
         <div className={tw`truncate font-medium leading-5 tracking-tight text-slate-800`}>{url}</div>
@@ -176,7 +176,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
       <div className={tw`mx-5 overflow-auto rounded-lg border border-slate-200`}>
         <div
-          className={tw`border-b border-slate-200 bg-slate-50 px-3 py-2 text-md font-medium leading-5 tracking-tight text-slate-800`}
+          className={tw`text-md border-b border-slate-200 bg-slate-50 px-3 py-2 font-medium leading-5 tracking-tight text-slate-800`}
         >
           Request
         </div>
@@ -194,7 +194,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
       {lastResponseId && (
         <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
           <div
-            className={tw`border-b border-slate-200 bg-slate-50 px-3 py-2 text-md font-medium leading-5 tracking-tight text-slate-800`}
+            className={tw`text-md border-b border-slate-200 bg-slate-50 px-3 py-2 font-medium leading-5 tracking-tight text-slate-800`}
           >
             Response
           </div>

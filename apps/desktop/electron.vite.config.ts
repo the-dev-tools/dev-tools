@@ -1,6 +1,6 @@
+import TailwindVite from '@tailwindcss/vite';
 import ReactVite from '@vitejs/plugin-react';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
-import Tailwind from 'tailwindcss';
 
 export default defineConfig({
   main: {
@@ -10,12 +10,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
   },
   renderer: {
-    plugins: [ReactVite()],
-    css: {
-      postcss: {
-        plugins: [Tailwind()],
-      },
-    },
+    plugins: [ReactVite(), TailwindVite()],
     envPrefix: 'PUBLIC_',
   },
 });

@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "dist"
-  },
-  "include": ["."],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../utils/tsconfig.lib.json" }, { "path": "../config-eslint/tsconfig.lib.json" }]
-}

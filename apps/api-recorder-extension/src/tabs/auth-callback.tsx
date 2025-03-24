@@ -1,4 +1,3 @@
-import '@the-dev-tools/ui/fonts';
 import '~styles.css';
 
 import { Effect, Match, Option, pipe, Tuple } from 'effect';
@@ -20,7 +19,7 @@ interface FeaturedIconProps extends React.ComponentPropsWithoutRef<'div'> {
 }
 
 const FeaturedIcon = ({ className, Icon, iconClassName, ...props }: FeaturedIconProps) => (
-  <div className={twMerge('rounded-lg border p-3 shadow-sm', className)} {...props}>
+  <div className={twMerge('shadow-xs rounded-lg border p-3', className)} {...props}>
     <Icon className={twMerge('size-7', iconClassName)} />
   </div>
 );

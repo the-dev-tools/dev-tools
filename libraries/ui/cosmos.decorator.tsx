@@ -3,8 +3,6 @@ import { twJoin } from 'tailwind-merge';
 
 import { tw } from './src/tailwind-literal';
 
-import './src/fonts';
-
 export interface RootDecoratorOptions {
   isCentered?: boolean;
 }

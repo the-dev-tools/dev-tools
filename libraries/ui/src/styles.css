@@ -1,0 +1,19 @@
+@import '@fontsource-variable/dm-sans';
+@import '@fontsource/dm-mono';
+
+@import 'tailwindcss' source(none);
+
+@import 'tw-animate-css';
+
+@plugin 'tailwindcss-react-aria-components' {
+  prefix: rac;
+}
+
+@source '.';
+
+@theme {
+  --font-sans: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  --text-md: 0.8125rem;
+}

@@ -4,7 +4,7 @@ import { getRouteApi, ToOptions, useMatchRoute } from '@tanstack/react-router';
 import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef, useState } from 'react';
-import { MenuTrigger, Text, UNSTABLE_Tree as Tree } from 'react-aria-components';
+import { MenuTrigger, Text, Tree } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';

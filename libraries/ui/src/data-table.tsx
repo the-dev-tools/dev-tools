@@ -15,12 +15,12 @@ declare module '@tanstack/react-table' {
 
 export const tableStyles = {
   wrapper: tw`overflow-auto rounded-lg border border-slate-200`,
-  table: tw`w-full divide-inherit border-inherit text-md leading-5 text-slate-800`,
-  header: tw`divide-y divide-inherit border-b border-inherit bg-slate-50 font-medium tracking-tight`,
-  headerCell: tw`px-5 py-1.5 text-left capitalize`,
-  body: tw`divide-y divide-inherit`,
-  row: tw`divide-x divide-inherit`,
-  cell: tw`break-all align-middle`,
+  table: tw`text-md w-full border-inherit leading-5 text-slate-800`,
+  header: tw`divide-y border-b border-inherit bg-slate-50 font-medium tracking-tight`,
+  headerCell: tw`border-inherit px-5 py-1.5 text-left capitalize`,
+  body: tw`divide-y border-inherit`,
+  row: tw`divide-x border-inherit`,
+  cell: tw`break-all border-inherit align-middle`,
 };
 
 export interface DataTableProps<T>

@@ -7,8 +7,8 @@ import { Ulid } from 'id128';
 import { useMemo } from 'react';
 import {
   Collection as AriaCollection,
-  UNSTABLE_Tree as AriaTree,
-  UNSTABLE_TreeItemContent as AriaTreeItemContent,
+  Tree as AriaTree,
+  TreeItemContent as AriaTreeItemContent,
 } from 'react-aria-components';
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';

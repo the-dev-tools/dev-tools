@@ -90,7 +90,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
         {isEditing ? (
           <TextField
             className={tw`justify-self-start`}
-            inputClassName={tw`-my-1 py-1 text-md font-semibold leading-none tracking-tight text-slate-800`}
+            inputClassName={tw`text-md -my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
             isDisabled={workspaceUpdateMutation.isPending}
             {...textFieldProps}
           />

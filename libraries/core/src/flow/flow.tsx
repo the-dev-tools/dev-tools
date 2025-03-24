@@ -312,7 +312,7 @@ export const TopBar = () => {
     <div className={tw`flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5`}>
       {isEditing ? (
         <TextField
-          inputClassName={tw`-my-1 py-1 text-md font-medium leading-none tracking-tight text-slate-800`}
+          inputClassName={tw`text-md -my-1 py-1 font-medium leading-none tracking-tight text-slate-800`}
           isDisabled={flowUpdateMutation.isPending}
           {...textFieldProps}
         />
@@ -392,7 +392,10 @@ const ActionBar = () => {
   const makeNode = useMakeNode();
 
   return (
-    <RFPanel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow`} position='bottom-center'>
+    <RFPanel
+      className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow-sm`}
+      position='bottom-center'
+    >
       {/* <Button variant='ghost dark' className={tw`p-1`}>
         <TextBoxIcon className={tw`size-5 text-slate-300`} />
       </Button> */}

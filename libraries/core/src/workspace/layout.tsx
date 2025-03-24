@@ -123,7 +123,7 @@ function Layout() {
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
+              <h2 className={tw`text-md flex-1 font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
 
               <Button
                 className={tw`bg-slate-200 p-0.5`}
@@ -161,7 +161,7 @@ const FlowList = () => {
     <>
       <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
         <FlowsIcon className={tw`size-5 text-slate-500`} />
-        <h2 className={tw`flex-1 text-md font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
+        <h2 className={tw`text-md flex-1 font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
 
         <Button
           className={tw`bg-slate-200 p-0.5`}
@@ -210,7 +210,7 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemPr
       id={flowIdCan}
       textValue={name}
       href={{ to: '/workspace/$workspaceIdCan/flow/$flowIdCan', params: { workspaceIdCan, flowIdCan } }}
-      className={tw`rounded-md pl-9 text-md font-medium leading-5`}
+      className={tw`text-md rounded-md pl-9 font-medium leading-5`}
       showSelectIndicator={false}
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>

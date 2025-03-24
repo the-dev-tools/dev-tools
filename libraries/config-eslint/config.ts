@@ -8,16 +8,11 @@ import { flatConfigs as importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import react from 'eslint-plugin-react';
 import { configs as reactHooks } from 'eslint-plugin-react-hooks';
-import tailwind from 'eslint-plugin-tailwindcss';
+// import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
 import { ConfigArray, configs as ts } from 'typescript-eslint';
 
 const gitignore = includeIgnoreFile(resolve(import.meta.dirname, '../../.gitignore'));
-
-const commonjs: Linter.Config = {
-  files: ['postcss.config.js'],
-  languageOptions: { sourceType: 'commonjs' },
-};
 
 const nodejs: Linter.Config = {
   files: ['*.js', '*.mjs', '*.ts'],
@@ -28,13 +23,13 @@ const nodejs: Linter.Config = {
 const settings: Linter.Config = {
   settings: {
     react: { version: 'detect' },
-    tailwindcss: {
-      // This might not be needed after this PR is merged
-      // https://github.com/francoismassart/eslint-plugin-tailwindcss/pull/380
-      config: resolve(import.meta.dirname, '../config-tailwind/src/config.ts'),
-      callees: ['tv', 'twMerge', 'twJoin'],
-      tags: ['tw'],
-    },
+    // tailwindcss: {
+    //   // This might not be needed after this PR is merged
+    //   // https://github.com/francoismassart/eslint-plugin-tailwindcss/pull/380
+    //   config: resolve(import.meta.dirname, '../config-tailwind/src/config.ts'),
+    //   callees: ['tv', 'twMerge', 'twJoin'],
+    //   tags: ['tw'],
+    // },
   },
   languageOptions: {
     parser: tsParser,
@@ -63,7 +58,6 @@ const rules: Linter.Config = {
 const config: ConfigArray = [
   gitignore,
   settings,
-  commonjs,
   nodejs,
 
   prettier,
@@ -83,7 +77,9 @@ const config: ConfigArray = [
 
   jsxA11y.flatConfigs.recommended,
 
-  ...tailwind.configs['flat/recommended'],
+  // ! Re-enable once Tailwind 4 is supported
+  // https://github.com/francoismassart/eslint-plugin-tailwindcss/issues/325
+  // ...tailwind.configs['flat/recommended'],
 
   rules,
 ];

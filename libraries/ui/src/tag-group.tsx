@@ -20,11 +20,11 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 export const tagStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`cursor-pointer rounded px-2 py-1.5 text-xs font-medium leading-none tracking-tight`,
+  base: tw`cursor-pointer rounded-sm px-2 py-1.5 text-xs font-medium leading-none tracking-tight`,
   variants: {
     isSelected: {
       false: tw`bg-transparent text-slate-400`,
-      true: tw`bg-white text-slate-800 shadow`,
+      true: tw`bg-white text-slate-800 shadow-sm`,
     },
   },
 });

@@ -1,4 +1,3 @@
-import '@the-dev-tools/ui/fonts';
 import '~styles.css';
 
 import {
@@ -307,14 +306,14 @@ const RecorderPage = () => {
               className='min-w-0 flex-1 p-2 text-sm leading-tight outline outline-0 [&::-webkit-search-cancel-button]:hidden'
               placeholder='Search'
             />
-            <RAC.Button className='rounded-full bg-gray-100 p-1 opacity-100 transition-opacity group-rac-empty:invisible group-rac-empty:opacity-0'>
+            <RAC.Button className='group-rac-empty:invisible group-rac-empty:opacity-0 rounded-full bg-gray-100 p-1 opacity-100 transition-opacity'>
               <FeatherIcons.FiX className='size-4' />
             </RAC.Button>
           </RAC.Group>
         </RAC.SearchField>
       }
     >
-      <div className='flex min-h-0 flex-1 divide-x divide-slate-300 '>
+      <div className='flex min-h-0 flex-1 divide-x divide-slate-300'>
         <div className='flex flex-1 flex-col items-start gap-4 overflow-auto p-4'>
           <h2 className='text-2xl font-medium leading-7'>Visited pages</h2>
 
@@ -340,23 +339,23 @@ const RecorderPage = () => {
                         focusRingStyles({
                           ...renderProps,
                           className: [
-                            tw`group relative -mt-px flex cursor-pointer items-center gap-2.5 overflow-auto border bg-slate-50 px-4 py-6 text-sm transition-[border-color,outline-color,outline-width,background-color] last:rounded-b-lg odd:bg-white rac-selected:bg-indigo-100`,
+                            tw`rac-selected:bg-indigo-100 group relative -mt-px flex cursor-pointer items-center gap-2.5 overflow-auto border bg-slate-50 px-4 py-6 text-sm transition-[border-color,outline-color,outline-width,background-color] last:rounded-b-lg odd:bg-white`,
                             !renderProps.isFocused && tw`border-slate-200`,
                           ],
                         })
                       }
                     >
-                      <div className='absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width] group-rac-selected:w-0.5' />
+                      <div className='group-rac-selected:w-0.5 absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width]' />
                       <RAC.Text
                         slot='label'
-                        className='flex-1 truncate text-slate-500 transition-colors group-rac-selected:text-indigo-700'
+                        className='group-rac-selected:text-indigo-700 flex-1 truncate text-slate-500 transition-colors'
                       >
                         {host.name}
                       </RAC.Text>
-                      <div className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 transition-colors group-rac-selected:border-indigo-200 group-rac-selected:bg-indigo-50 group-rac-selected:text-indigo-700'>
+                      <div className='group-rac-selected:border-indigo-200 group-rac-selected:bg-indigo-50 group-rac-selected:text-indigo-700 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 transition-colors'>
                         {host.item?.length ?? 0} calls
                       </div>
-                      <FeatherIcons.FiChevronRight className='size-5 text-slate-500 transition-colors group-rac-selected:text-indigo-700' />
+                      <FeatherIcons.FiChevronRight className='group-rac-selected:text-indigo-700 size-5 text-slate-500 transition-colors' />
                     </RAC.ListBoxItem>
                   )}
                 </RAC.Collection>
@@ -396,7 +395,7 @@ const RecorderPage = () => {
                   focusRingStyles({
                     ...renderProps,
                     className: [
-                      tw`-mt-px grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center gap-y-1.5 border bg-slate-50 p-4 text-slate-500 transition-[border-color,outline-color,outline-width,background-color] first:mt-0 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white rac-selected:bg-indigo-100`,
+                      tw`rac-selected:bg-indigo-100 -mt-px grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center gap-y-1.5 border bg-slate-50 p-4 text-slate-500 transition-[border-color,outline-color,outline-width,background-color] first:mt-0 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white`,
                       !renderProps.isFocused && tw`border-slate-200`,
                     ],
                   })
@@ -411,7 +410,7 @@ const RecorderPage = () => {
                       aria-label={request.name ?? ''}
                       className='group relative row-span-2'
                     >
-                      <div className='mr-3 flex size-5 cursor-pointer items-center justify-center rounded border border-slate-300 text-white transition-colors group-rac-selected:border-transparent group-rac-selected:bg-indigo-600'>
+                      <div className='group-rac-selected:border-transparent group-rac-selected:bg-indigo-600 mr-3 flex size-5 cursor-pointer items-center justify-center rounded-sm border border-slate-300 text-white transition-colors'>
                         {isSelected && <FeatherIcons.FiCheck />}
                       </div>
                     </RAC.Checkbox>
@@ -433,7 +432,7 @@ const RecorderPage = () => {
                         <div
                           key={null}
                           className={twMerge(
-                            'col-start-2 row-start-2 mr-1.5 rounded border px-2 py-1 text-xs leading-tight',
+                            'col-start-2 row-start-2 mr-1.5 rounded-sm border px-2 py-1 text-xs leading-tight',
                             className,
                           )}
                         >

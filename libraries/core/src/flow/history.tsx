@@ -90,7 +90,7 @@ function RouteComponent() {
             <div className={tw`w-px flex-1 bg-slate-200`} />
           </div>
 
-          <div className={tw`p-2 text-md font-semibold leading-5 tracking-tight text-violet-700`}>Current Version</div>
+          <div className={tw`text-md p-2 font-semibold leading-5 tracking-tight text-violet-700`}>Current Version</div>
 
           <div className={tw`flex flex-col items-center gap-0.5`}>
             <div className={tw`w-px flex-1 bg-slate-200`} />
@@ -98,7 +98,7 @@ function RouteComponent() {
             <div className={tw`w-px flex-1 bg-slate-200`} />
           </div>
 
-          <div className={tw`p-2 text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+          <div className={tw`text-md p-2 font-semibold leading-5 tracking-tight text-slate-800`}>
             {items.length} previous responses
           </div>
 
@@ -131,7 +131,7 @@ const Tab = ({ item, state }: TabProps) => {
       ref={ref}
       className={twJoin(
         tabProps.className,
-        tw`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md font-semibold leading-5 text-slate-800`,
+        tw`text-md flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold leading-5 text-slate-800`,
         isSelected && tw`bg-slate-200`,
       )}
     >
