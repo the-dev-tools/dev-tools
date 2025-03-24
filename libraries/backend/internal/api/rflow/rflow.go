@@ -69,6 +69,7 @@ import (
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
+	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
@@ -76,6 +77,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type FlowServiceRPC struct {
@@ -741,27 +743,26 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			var changes []*changev1.Change
 
 			select {
+			// TODO: move invalidation to a separate function so we can test it
 			case requestNodeResp := <-requestNodeRespChan:
-				outputResp := requestNodeResp.Resp
+				HistoryChangesService := "collection.item.example.v1.ExampleService"
+				HistroyChangesMethod := "ExampleGetRequest"
+				exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
 
-				totalAssert := len(requestNodeResp.Resp.AssertCouples)
-				assertResults := make([]massertres.AssertResult, totalAssert)
-				asserts := make([]massert.Assert, totalAssert)
-				for _, assertCouple := range requestNodeResp.Resp.AssertCouples {
-					assertResults = append(assertResults, assertCouple.AssertRes)
-					asserts = append(asserts, assertCouple.Assert)
-				}
-
-				updateHeaders := outputResp.UpdateHeaders
-				createHeaders := outputResp.CreateHeaders
-
-				fullHeaders := append(updateHeaders, createHeaders...)
-
-				changes, err = ritemapiexample.HandleResponseUpdate(&outputResp.ExampleResp, asserts, assertResults, fullHeaders)
+				exampleVersionRequest, err := anypb.New(&examplev1.ExampleGetRequest{
+					ExampleId: requestNodeResp.Example.ID.Bytes(),
+				})
 				if err != nil {
-					log.Println("error", err)
+					log.Println("Error creating ExampleGetRequest")
 					return
 				}
+
+				changes = append(changes, &changev1.Change{
+					Kind:    &exampleVersionChangeKind,
+					Data:    exampleVersionRequest,
+					Service: &HistoryChangesService,
+					Method:  &HistroyChangesMethod,
+				})
 
 				NodeRequestSideRespArr = append(NodeRequestSideRespArr, requestNodeResp)
 			default:
