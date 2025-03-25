@@ -16,7 +16,7 @@ import { FlowSearch } from '../layout';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const ConditionNode = (props: NodeProps) => {
-  const { id, data } = props;
+  const { data, id } = props;
   const { condition } = data.condition!;
 
   return (
@@ -33,7 +33,7 @@ export const ConditionNode = (props: NodeProps) => {
           ) : (
             <ButtonAsLink
               className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600`}
-              href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}
+              href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}
             >
               <FiPlus className={tw`size-4`} />
               <span>Setup Condition</span>
@@ -42,24 +42,24 @@ export const ConditionNode = (props: NodeProps) => {
         </div>
       </NodeBase>
 
-      <Handle type='target' position={Position.Top} />
+      <Handle position={Position.Top} type='target' />
       <Handle
-        type='source'
-        position={Position.Bottom}
         id={'HANDLE_THEN' satisfies HandleKindJson}
         isConnectable={false}
+        position={Position.Bottom}
+        type='source'
       />
       <Handle
-        type='source'
-        position={Position.Bottom}
         id={'HANDLE_ELSE' satisfies HandleKindJson}
         isConnectable={false}
+        position={Position.Bottom}
+        type='source'
       />
     </>
   );
 };
 
-export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) => {
+export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: condition! });
   const { isReadOnly = false } = use(FlowContext);
 
@@ -67,7 +67,7 @@ export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) 
 
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (condition) => {
-      await nodeUpdateMutation.mutateAsync({ nodeId, condition });
+      await nodeUpdateMutation.mutateAsync({ condition, nodeId });
     })();
   }, 200);
 
@@ -87,16 +87,16 @@ export const ConditionPanel = ({ node: { nodeId, condition } }: NodePanelProps) 
         <div className={tw`flex-1`} />
 
         <ButtonAsLink
-          variant='ghost'
           className={tw`p-1`}
-          href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }) }}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+          variant='ghost'
         >
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>
 
       <div className={tw`m-5`}>
-        <ConditionField control={control} path='condition' isReadOnly={isReadOnly} />
+        <ConditionField control={control} isReadOnly={isReadOnly} path='condition' />
       </div>
     </>
   );

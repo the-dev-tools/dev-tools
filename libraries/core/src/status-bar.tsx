@@ -21,28 +21,28 @@ import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/re
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 
-import { makeReferenceTreeId, ReferenceTreeItem } from './reference';
 import type { WorkspaceRouteSearch } from './workspace/layout';
+
+import { makeReferenceTreeId, ReferenceTreeItem } from './reference';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const useLogsQuery = () => {
-  const { transport, queryClient } = workspaceRoute.useRouteContext();
+  const { queryClient, transport } = workspaceRoute.useRouteContext();
 
   const { logStream } = useMemo(() => createClient(LogService, transport), [transport]);
 
   const queryKey = useMemo(
     () =>
       createConnectQueryKey({
-        schema: { ...LogService.method.logStream, methodKind: 'unary' },
         cardinality: 'infinite',
+        schema: { ...LogService.method.logStream, methodKind: 'unary' },
         transport,
       }),
     [transport],
   );
 
   const query = useQuery({
-    queryKey,
     initialData: [],
     meta: { normalize: false },
     queryFn: async ({ queryKey, signal }) => {
@@ -52,6 +52,7 @@ export const useLogsQuery = () => {
       }
       return queryClient.getQueryData<LogStreamResponse[]>(queryKey)!;
     },
+    queryKey,
   });
 
   return { ...query, queryKey };
@@ -61,27 +62,27 @@ export const StatusBar = () => {
   const { showLogs } = workspaceRoute.useSearch();
   const { queryClient } = workspaceRoute.useRouteContext();
 
-  const { queryKey, data: logs } = useLogsQuery();
+  const { data: logs, queryKey } = useLogsQuery();
 
   const separator = <div className={tw`h-3.5 w-px bg-slate-200`} />;
 
   const bar = (
     <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
       {/* TODO: implement sidebar collapse */}
-      <Button variant='ghost' className={tw`p-0.5`}>
+      <Button className={tw`p-0.5`} variant='ghost'>
         <ArrowToLeftIcon className={tw`size-4 text-slate-500`} />
       </Button>
 
       {separator}
 
       <ButtonAsLink
-        variant='ghost'
         className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
         href={{
-          to: '.',
           search: (_: Partial<WorkspaceRouteSearch>) =>
             ({ ..._, showLogs: true }) satisfies Partial<WorkspaceRouteSearch>,
+          to: '.',
         }}
+        variant='ghost'
       >
         <FiTerminal className={tw`size-3`} />
         <span>Logs</span>
@@ -92,9 +93,9 @@ export const StatusBar = () => {
       {showLogs && (
         <>
           <Button
-            variant='ghost'
             className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
             onPress={() => void queryClient.setQueryData(queryKey, [])}
+            variant='ghost'
           >
             <FiTrash2 className={tw`size-3 text-slate-500`} />
             <span>Clear Logs</span>
@@ -103,13 +104,13 @@ export const StatusBar = () => {
           {separator}
 
           <ButtonAsLink
-            variant='ghost'
             className={tw`p-0.5`}
             href={{
-              to: '.',
               search: (_: Partial<WorkspaceRouteSearch>) =>
                 ({ ..._, showLogs: undefined }) satisfies Partial<WorkspaceRouteSearch>,
+              to: '.',
             }}
+            variant='ghost'
           >
             <FiX className={tw`size-4 text-slate-500`} />
           </ButtonAsLink>
@@ -135,12 +136,12 @@ export const StatusBar = () => {
               {logs.map((_) => {
                 const ulid = Ulid.construct(_.logId);
                 return (
-                  <AriaTree key={ulid.toCanonical()} aria-label={_.value}>
+                  <AriaTree aria-label={_.value} key={ulid.toCanonical()}>
                     <TreeItemRoot textValue={_.value}>
                       <AriaTreeItemContent>
                         {({ isExpanded }) => (
-                          <TreeItemWrapper level={0} className={tw`flex-wrap gap-1`}>
-                            <Button variant='ghost' slot='chevron' className={tw`p-1`}>
+                          <TreeItemWrapper className={tw`flex-wrap gap-1`} level={0}>
+                            <Button className={tw`p-1`} slot='chevron' variant='ghost'>
                               <ChevronSolidDownIcon
                                 className={twJoin(
                                   tw`size-3 text-slate-500 transition-transform`,
@@ -157,7 +158,7 @@ export const StatusBar = () => {
                       </AriaTreeItemContent>
 
                       <AriaCollection items={_.references}>
-                        {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} reference={_} parentKeys={[]} />}
+                        {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} parentKeys={[]} reference={_} />}
                       </AriaCollection>
                     </TreeItemRoot>
                   </AriaTree>

@@ -1,8 +1,7 @@
-import { Effect, Option, pipe, Schema } from 'effect';
-import * as React from 'react';
-
 import * as PlasmoStorage from '@plasmohq/storage';
 import * as PlasmoStorageHook from '@plasmohq/storage/hook';
+import { Effect, Option, pipe, Schema } from 'effect';
+import * as React from 'react';
 
 import { Runtime } from '~runtime';
 

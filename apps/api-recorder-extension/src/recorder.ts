@@ -1,12 +1,10 @@
+import * as PlasmoStorage from '@plasmohq/storage/hook';
 import * as Devtools from 'devtools-protocol';
 import { Array, Effect, flow, MutableHashMap, Option, pipe, Record, Schema, Struct } from 'effect';
 import * as React from 'react';
 import * as Uuid from 'uuid';
 
-import * as PlasmoStorage from '@plasmohq/storage/hook';
-
 import { makeUrl } from '@the-dev-tools/utils/url';
-
 import * as Postman from '~postman';
 import { Runtime } from '~runtime';
 import * as Storage from '~storage';
@@ -63,14 +61,14 @@ export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.T
 
     let host = Array.head(newCollection.item).pipe(Option.getOrUndefined);
     if (host?.name !== url.host) {
-      host = Postman.Item.make({ id: Uuid.v4(), name: url.host, item: [] });
+      host = Postman.Item.make({ id: Uuid.v4(), item: [], name: url.host });
     } else {
       newCollection = Struct.evolve(newCollection, { item: (_) => Array.drop(_, 1) });
     }
 
     let pathname = Array.head(host.item ?? []).pipe(Option.getOrUndefined);
     if (pathname?.name !== url.pathname) {
-      pathname = Postman.Item.make({ id: Uuid.v4(), name: url.pathname, item: [] });
+      pathname = Postman.Item.make({ id: Uuid.v4(), item: [], name: url.pathname });
     } else {
       host = Struct.evolve(host, { item: (_) => Array.drop(_ ?? [], 1) });
     }
@@ -89,7 +87,7 @@ const hostnameBlacklist = ['api-iam.intercom.io'];
 export const addRequest = (
   collection: Postman.Collection,
   indexMap: ReturnType<typeof makeIndexMap>,
-  { requestId, request, wallTime }: Devtools.Protocol.Network.RequestWillBeSentEvent,
+  { request, requestId, wallTime }: Devtools.Protocol.Network.RequestWillBeSentEvent,
   { postData }: Partial<Devtools.Protocol.Network.GetRequestPostDataResponse> = {},
 ) =>
   Effect.gen(function* () {
@@ -120,13 +118,13 @@ export const addRequest = (
     const requestItem = new Postman.Item({
       id: Uuid.v4(),
       name: request.url,
-      variable: [timestampVariable],
       request: new Postman.RequestClass({
-        url: request.url,
-        method: request.method,
         body: Option.getOrNull(postBody),
         header,
+        method: request.method,
+        url: request.url,
       }),
+      variable: [timestampVariable],
     });
 
     const newNavigation = Struct.evolve(navigation, { item: (_) => Array.prepend(_ ?? [], requestItem) });
@@ -173,10 +171,10 @@ export const addResponse = (
     );
 
     const responseItem = new Postman.Response({
-      code: response.status,
-      status: response.statusText,
       body,
+      code: response.status,
       header,
+      status: response.statusText,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-misused-spread
@@ -258,32 +256,32 @@ export const reset = (indexMap: ReturnType<typeof makeIndexMap>) =>
   });
 
 interface WatchProps {
+  onReset: Effect.Effect<void>;
   onStart: (tabId: number) => Effect.Effect<void>;
   onStop: (tabId: number) => Effect.Effect<void>;
-  onReset: Effect.Effect<void>;
 }
 
-export const watch = ({ onStart, onStop, onReset }: WatchProps) =>
+export const watch = ({ onReset, onStart, onStop }: WatchProps) =>
   Storage.Local.watch({
-    [TabIdTag]: (_) =>
-      void pipe(
-        Schema.decodeUnknown(Storage.Change(TabId))(_),
-        Effect.flatMap((_) =>
-          Option.match(Option.flatten(_.newValue), {
-            onSome: onStart,
-            onNone: () => Effect.flatMap(Option.flatten(_.oldValue), onStop),
-          }),
-        ),
-        Effect.ignoreLogged,
-        Runtime.runPromise,
-      ),
     [ResetRequestTag]: (_) =>
       void pipe(
         Schema.decodeUnknown(Storage.Change(ResetRequest))(_),
         Effect.flatMap((_) =>
           Option.match(Option.flatten(_.newValue), {
-            onSome: () => onReset,
             onNone: () => Effect.void,
+            onSome: () => onReset,
+          }),
+        ),
+        Effect.ignoreLogged,
+        Runtime.runPromise,
+      ),
+    [TabIdTag]: (_) =>
+      void pipe(
+        Schema.decodeUnknown(Storage.Change(TabId))(_),
+        Effect.flatMap((_) =>
+          Option.match(Option.flatten(_.newValue), {
+            onNone: () => Effect.flatMap(Option.flatten(_.oldValue), onStop),
+            onSome: onStart,
           }),
         ),
         Effect.ignoreLogged,

@@ -60,18 +60,18 @@ const useInvalidateCollectionListQuery = () => {
 };
 
 interface CollectionListTreeContext {
+  containerRef: RefObject<HTMLDivElement | null>;
   navigate?: boolean;
   showControls?: boolean;
-  containerRef: RefObject<HTMLDivElement | null>;
 }
 
 const CollectionListTreeContext = createContext({} as CollectionListTreeContext);
 
 class TreeKey extends Schema.Class<TreeKey>('CollectionListTreeKey')({
   collectionId: pipe(Schema.Uint8Array, Schema.optional),
-  folderId: pipe(Schema.Uint8Array, Schema.optional),
   endpointId: pipe(Schema.Uint8Array, Schema.optional),
   exampleId: pipe(Schema.Uint8Array, Schema.optional),
+  folderId: pipe(Schema.Uint8Array, Schema.optional),
 }) {}
 
 interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'containerRef'> {
@@ -89,7 +89,7 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
 
   return (
     <CollectionListTreeContext.Provider value={{ ...context, containerRef: ref }}>
-      <div ref={ref} className={tw`relative`}>
+      <div className={tw`relative`} ref={ref}>
         <Tree
           aria-label='Collections'
           items={collections}
@@ -105,7 +105,7 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
         >
           {(_) => {
             const collectionIdCan = Ulid.construct(_.collectionId).toCanonical();
-            return <CollectionTree id={collectionIdCan} collection={_} />;
+            return <CollectionTree collection={_} id={collectionIdCan} />;
           }}
         </Tree>
       </div>
@@ -114,12 +114,12 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
 };
 
 interface CollectionTreeProps {
-  id: string;
   collection: CollectionListItem;
+  id: string;
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
-  const { showControls, containerRef } = useContext(CollectionListTreeContext);
+  const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
@@ -136,8 +136,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: collection.name,
     onSuccess: (_) => collectionUpdateMutation.mutateAsync({ collectionId, name: _ }),
+    value: collection.name,
   });
 
   const childItems = useMemo(
@@ -151,16 +151,16 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   return (
     <TreeItem
-      id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      textValue={collection.name}
-      childItems={childItems}
       childItem={mapCollectionItemTree(collectionId)}
+      childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
-      wrapperOnContextMenu={onContextMenu}
+      id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       loading={collectionItemListQuery.isLoading}
+      textValue={collection.name}
+      wrapperOnContextMenu={onContextMenu}
     >
-      <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
         {collection.name}
       </Text>
 
@@ -176,7 +176,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
-          <Button variant='ghost' className={tw`p-0.5`}>
+          <Button className={tw`p-0.5`} variant='ghost'>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
@@ -191,7 +191,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
               Add Folder
             </MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void collectionDeleteMutation.mutate({ collectionId })}>
+            <MenuItem onAction={() => void collectionDeleteMutation.mutate({ collectionId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>
@@ -208,27 +208,27 @@ const mapCollectionItemTree =
       Match.when({ kind: ItemKind.FOLDER }, (_) => {
         const folderIdCan = Ulid.construct(_.folder!.folderId).toCanonical();
         return (
-          <FolderTree id={folderIdCan} collectionId={collectionId} parentFolderId={parentFolderId} folder={_.folder!} />
+          <FolderTree collectionId={collectionId} folder={_.folder!} id={folderIdCan} parentFolderId={parentFolderId} />
         );
       }),
       Match.when({ kind: ItemKind.ENDPOINT }, (_) => {
         const endpointIdCan = Ulid.construct(_.endpoint!.endpointId).toCanonical();
         return (
-          <EndpointTree id={endpointIdCan} collectionId={collectionId} endpoint={_.endpoint!} example={_.example!} />
+          <EndpointTree collectionId={collectionId} endpoint={_.endpoint!} example={_.example!} id={endpointIdCan} />
         );
       }),
       Match.orElse(() => null),
     );
 
 interface FolderTreeProps {
-  id: string;
   collectionId: Collection['collectionId'];
-  parentFolderId: Folder['folderId'] | undefined;
   folder: FolderListItem;
+  id: string;
+  parentFolderId: Folder['folderId'] | undefined;
 }
 
-const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folder } }: FolderTreeProps) => {
-  const { showControls, containerRef } = useContext(CollectionListTreeContext);
+const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolderId }: FolderTreeProps) => {
+  const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
   const [enabled, setEnabled] = useState(false);
 
@@ -254,25 +254,25 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: folder.name,
     onSuccess: (_) =>
       folderUpdateMutation.mutateAsync({
         folderId,
-        parentFolderId: parentFolderId!,
         name: _,
+        parentFolderId: parentFolderId!,
       }),
+    value: folder.name,
   });
 
   return (
     <TreeItem
-      id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      textValue={folder.name}
-      childItems={childItems}
       childItem={mapCollectionItemTree(collectionId, folderId)}
+      childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
-      wrapperOnContextMenu={onContextMenu}
+      id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       loading={collectionItemListQuery.isLoading}
+      textValue={folder.name}
+      wrapperOnContextMenu={onContextMenu}
     >
       {({ isExpanded }) => (
         <>
@@ -282,7 +282,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
             <FiFolder className={tw`size-4 text-slate-500`} />
           )}
 
-          <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>
+          <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
             {folder.name}
           </Text>
 
@@ -298,7 +298,7 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
 
           {showControls && (
             <MenuTrigger {...menuTriggerProps}>
-              <Button variant='ghost' className={tw`p-0.5`}>
+              <Button className={tw`p-0.5`} variant='ghost'>
                 <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
               </Button>
 
@@ -309,8 +309,8 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
                   onAction={() =>
                     void endpointCreateMutation.mutate({
                       collectionId,
-                      parentFolderId: folderId,
                       name: 'New API call',
+                      parentFolderId: folderId,
                     })
                   }
                 >
@@ -321,15 +321,15 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
                   onAction={() =>
                     void folderCreateMutation.mutate({
                       collectionId,
-                      parentFolderId: folderId,
                       name: 'New folder',
+                      parentFolderId: folderId,
                     })
                   }
                 >
                   Add Folder
                 </MenuItem>
 
-                <MenuItem variant='danger' onAction={() => void folderDeleteMutation.mutate({ folderId })}>
+                <MenuItem onAction={() => void folderDeleteMutation.mutate({ folderId })} variant='danger'>
                   Delete
                 </MenuItem>
               </Menu>
@@ -342,19 +342,19 @@ const FolderTree = ({ collectionId, parentFolderId, folder: { folderId, ...folde
 };
 
 interface EndpointTreeProps {
-  id: string;
   collectionId: Collection['collectionId'];
   endpoint: EndpointListItem;
   example: ExampleListItem;
+  id: string;
 }
 
-const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: EndpointTreeProps) => {
+const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: EndpointTreeProps) => {
   const { endpointId, method, name } = endpoint;
   const { exampleId, lastResponseId } = example;
 
   const matchRoute = useMatchRoute();
 
-  const { navigate = false, showControls, containerRef } = useContext(CollectionListTreeContext);
+  const { containerRef, navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const exampleIdCan = Ulid.construct(exampleId).toCanonical();
   const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
@@ -377,35 +377,35 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: En
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: endpoint.name,
     onSuccess: (_) => endpointUpdateMutation.mutateAsync({ endpointId, name: _ }),
+    value: endpoint.name,
   });
 
   const route = {
-    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
     params: { endpointIdCan, exampleIdCan },
     search: { responseIdCan: lastResponseIdCan },
+    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
   } satisfies ToOptions;
 
   return (
     <TreeItem
-      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      textValue={name}
-      href={navigate ? route : undefined!}
-      isActive={navigate && matchRoute(route) !== false}
-      childItems={exampleListQuery.data?.items ?? []}
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
-        return <ExampleItem id={exampleIdCan} collectionId={collectionId} endpointId={endpointId} example={_} />;
+        return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
       }}
+      childItems={exampleListQuery.data?.items ?? []}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
-      wrapperOnContextMenu={onContextMenu}
+      href={navigate ? route : undefined!}
+      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      isActive={navigate && matchRoute(route) !== false}
       loading={exampleListQuery.isLoading}
+      textValue={name}
+      wrapperOnContextMenu={onContextMenu}
     >
       {method && <MethodBadge method={method} />}
 
-      <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
         {name}
       </Text>
 
@@ -421,7 +421,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: En
 
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
-          <Button variant='ghost' className={tw`p-0.5`}>
+          <Button className={tw`p-0.5`} variant='ghost'>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
@@ -441,7 +441,7 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: En
 
             <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void endpointDeleteMutation.mutate({ endpointId })}>
+            <MenuItem onAction={() => void endpointDeleteMutation.mutate({ endpointId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>
@@ -452,13 +452,13 @@ const EndpointTree = ({ id: endpointIdCan, collectionId, endpoint, example }: En
 };
 
 interface ExampleItemProps {
-  id: string;
   collectionId: Collection['collectionId'];
   endpointId: Endpoint['endpointId'];
   example: ExampleListItem;
+  id: string;
 }
 
-const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: ExampleItemProps) => {
+const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: ExampleItemProps) => {
   const { exampleId, lastResponseId, name } = example;
 
   const endpointIdCan = Ulid.construct(endpointId).toCanonical();
@@ -466,7 +466,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
 
   const matchRoute = useMatchRoute();
 
-  const { navigate = false, showControls, containerRef } = useContext(CollectionListTreeContext);
+  const { containerRef, navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
   const exampleUpdateMutation = useConnectMutation(exampleUpdate);
@@ -480,27 +480,27 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: name,
     onSuccess: (_) => exampleUpdateMutation.mutateAsync({ exampleId, name: _ }),
+    value: name,
   });
 
   const route = {
-    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
     params: { endpointIdCan, exampleIdCan },
     search: { responseIdCan: lastResponseIdCan },
+    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
   } satisfies ToOptions;
 
   return (
     <TreeItem
-      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      textValue={name}
       href={navigate ? route : undefined!}
+      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       isActive={navigate && matchRoute(route) !== false}
+      textValue={name}
       wrapperOnContextMenu={onContextMenu}
     >
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
-      <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)}>
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
         {name}
       </Text>
 
@@ -516,7 +516,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
 
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
-          <Button variant='ghost' className={tw`p-0.5`}>
+          <Button className={tw`p-0.5`} variant='ghost'>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
@@ -525,7 +525,7 @@ const ExampleItem = ({ id: exampleIdCan, collectionId, endpointId, example }: Ex
 
             <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ exampleId })}>
+            <MenuItem onAction={() => void exampleDeleteMutation.mutate({ exampleId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>

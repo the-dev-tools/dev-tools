@@ -25,7 +25,6 @@ import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { keyValue } from '@the-dev-tools/utils/helpers';
 import { makeUrl } from '@the-dev-tools/utils/url';
-
 import { Button } from '~/ui/button';
 import * as Auth from '~auth';
 import { Layout as BaseLayout, type LayoutProps } from '~layout';
@@ -67,7 +66,7 @@ const LoginPage = () => {
         <h2 className='mb-10 w-64 text-center text-sm leading-snug'>
           Create your account and get your APIs call in seconds
         </h2>
-        <RAC.TextField className='mb-6 w-full' name='email' type='email' isRequired>
+        <RAC.TextField className='mb-6 w-full' isRequired name='email' type='email'>
           <RAC.Label className='mb-2 block'>Email</RAC.Label>
           <RAC.Input
             className={(renderProps) =>
@@ -152,8 +151,8 @@ const RecorderPage = () => {
       (items: Postman.Item['item']) =>
         Array.map(items ?? [], (item, index) =>
           Tuple.make(item.id, {
-            item,
             index: { ...previousIndex, ...keyValue(key, index) },
+            item,
           }),
         );
 
@@ -162,7 +161,7 @@ const RecorderPage = () => {
       <PreviousKey extends PropertyKey, PreviousIndex>(
         input: ReturnType<ReturnType<typeof itemTuples<PreviousKey, PreviousIndex>>>,
       ) =>
-        pipe(input, Array.flatMap(flow(Tuple.getSecond, ({ item, index }) => itemTuples(key, index)(item.item))));
+        pipe(input, Array.flatMap(flow(Tuple.getSecond, ({ index, item }) => itemTuples(key, index)(item.item))));
 
     const hostTuples = pipe(collection.item, itemTuples('navigation', {}), mapItemTuples('host'));
 
@@ -173,7 +172,7 @@ const RecorderPage = () => {
   }, [collection.item]);
 
   const [hostsSelectionMaybe, setHostsSelection] = Storage.useState(Storage.Local, 'HostsSelection', SelectionSchema);
-  const hostsSelection = Option.getOrElse(hostsSelectionMaybe, () => new Set<string | number>());
+  const hostsSelection = Option.getOrElse(hostsSelectionMaybe, () => new Set<number | string>());
 
   const selectedHost = pipe(
     hostsSelection,
@@ -202,7 +201,7 @@ const RecorderPage = () => {
     'RequestsSelection',
     SelectionSchema,
   );
-  const requestsSelection = Option.getOrElse(requestsSelectionMaybe, () => new Set<string | number>());
+  const requestsSelection = Option.getOrElse(requestsSelectionMaybe, () => new Set<number | string>());
 
   const selectedCollection = (): Postman.Collection => {
     if (requestsSelection === 'all') return collection;
@@ -289,7 +288,7 @@ const RecorderPage = () => {
   return (
     <RecorderLayout
       headerSlot={
-        <RAC.SearchField value={searchTerm} onChange={setSearchTerm} className='group w-80' aria-label='Search'>
+        <RAC.SearchField aria-label='Search' className='group w-80' onChange={setSearchTerm} value={searchTerm}>
           <RAC.Group
             className={(renderProps) =>
               focusRingStyles({
@@ -318,12 +317,12 @@ const RecorderPage = () => {
           <h2 className='text-2xl font-medium leading-7'>Visited pages</h2>
 
           <RAC.ListBox
-            items={filteredNavigations}
-            selectionMode='single'
-            onSelectionChange={flow(setHostsSelection, Runtime.runPromise)}
-            selectedKeys={hostsSelection}
             aria-label='Visited pages'
             className='flex w-full flex-col gap-4'
+            items={filteredNavigations}
+            onSelectionChange={flow(setHostsSelection, Runtime.runPromise)}
+            selectedKeys={hostsSelection}
+            selectionMode='single'
           >
             {(navigation) => (
               <RAC.Section id={navigation.id ?? ''}>
@@ -333,8 +332,6 @@ const RecorderPage = () => {
                 <RAC.Collection items={navigation.item ?? []}>
                   {(host) => (
                     <RAC.ListBoxItem
-                      id={host.id ?? ''}
-                      textValue={host.name ?? ''}
                       className={(renderProps) =>
                         focusRingStyles({
                           ...renderProps,
@@ -344,11 +341,13 @@ const RecorderPage = () => {
                           ],
                         })
                       }
+                      id={host.id ?? ''}
+                      textValue={host.name ?? ''}
                     >
                       <div className='group-rac-selected:w-0.5 absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width]' />
                       <RAC.Text
-                        slot='label'
                         className='group-rac-selected:text-indigo-700 flex-1 truncate text-slate-500 transition-colors'
+                        slot='label'
                       >
                         {host.name}
                       </RAC.Text>
@@ -368,10 +367,6 @@ const RecorderPage = () => {
           <h2 className='text-2xl font-medium leading-7'>API Calls</h2>
 
           <RAC.ListBox
-            items={filteredRequests}
-            selectionMode='multiple'
-            selectedKeys={requestsSelection}
-            onSelectionChange={flow(setRequestsSelection, Runtime.runPromise)}
             aria-label='API Calls'
             className={(renderProps) =>
               focusRingStyles({
@@ -379,6 +374,8 @@ const RecorderPage = () => {
                 className: [tw`w-full`, renderProps.isEmpty && tw`min-h-0 flex-1`],
               })
             }
+            items={filteredRequests}
+            onSelectionChange={flow(setRequestsSelection, Runtime.runPromise)}
             renderEmptyState={() => (
               <div className='flex h-full flex-col items-center justify-center'>
                 <EmptyCollectionIllustration className='mb-6' />
@@ -386,11 +383,11 @@ const RecorderPage = () => {
                 <span className='text-sm leading-5'>{"Let's try another one"}</span>
               </div>
             )}
+            selectedKeys={requestsSelection}
+            selectionMode='multiple'
           >
             {(request) => (
               <RAC.ListBoxItem
-                id={request.id ?? ''}
-                textValue={request.name ?? ''}
                 className={(renderProps) =>
                   focusRingStyles({
                     ...renderProps,
@@ -400,15 +397,17 @@ const RecorderPage = () => {
                     ],
                   })
                 }
+                id={request.id ?? ''}
+                textValue={request.name ?? ''}
               >
                 {({ isSelected }) => (
                   <>
                     <RAC.Checkbox
-                      isReadOnly
-                      excludeFromTabOrder
-                      isSelected={isSelected}
                       aria-label={request.name ?? ''}
                       className='group relative row-span-2'
+                      excludeFromTabOrder
+                      isReadOnly
+                      isSelected={isSelected}
                     >
                       <div className='group-rac-selected:border-transparent group-rac-selected:bg-indigo-600 mr-3 flex size-5 cursor-pointer items-center justify-center rounded-sm border border-slate-300 text-white transition-colors'>
                         {isSelected && <FeatherIcons.FiCheck />}
@@ -430,11 +429,11 @@ const RecorderPage = () => {
                       ),
                       Option.map(([method, className]) => (
                         <div
-                          key={null}
                           className={twMerge(
                             'col-start-2 row-start-2 mr-1.5 rounded-sm border px-2 py-1 text-xs leading-tight',
                             className,
                           )}
+                          key={null}
                         >
                           {pipe(method, String.toLowerCase, String.capitalize)}
                         </div>

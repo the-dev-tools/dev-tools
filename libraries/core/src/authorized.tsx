@@ -11,27 +11,29 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { LoginSearch } from './login';
 
-export const Route = createFileRoute('/_authorized')({
-  beforeLoad: ({ location, context: { runtime } }) =>
+const makeRoute = createFileRoute('/_authorized');
+
+export const Route = makeRoute({
+  beforeLoad: ({ context: { runtime }, location }) =>
     pipe(Effect.option(getUser), Runtime.runPromise(runtime), async (_) =>
       Option.getOrThrowWith(await _, () =>
         redirect({
-          to: '/login',
           search: LoginSearch.make({ redirect: location.href }),
+          to: '/login',
         }),
       ),
     ),
 });
 
 export interface DashboardLayoutProps {
-  navbar?: React.ReactNode;
   children?: React.ReactNode;
+  navbar?: React.ReactNode;
 }
 
-export const DashboardLayout = ({ navbar, children }: DashboardLayoutProps) => (
+export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => (
   <div className='flex h-full flex-col'>
     <NavigationBar>
-      <ButtonAsLink href={{ to: '/' }} variant='ghost' className={tw`p-0`}>
+      <ButtonAsLink className={tw`p-0`} href={{ to: '/' }} variant='ghost'>
         <Logo className={tw`size-7`} />
       </ButtonAsLink>
 

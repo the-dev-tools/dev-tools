@@ -69,7 +69,7 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
         onSelect?.(keys);
       }}
     >
-      {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} reference={_} parentKeys={[]} />}
+      {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} parentKeys={[]} reference={_} />}
     </AriaTree>
   );
 };
@@ -92,11 +92,11 @@ const getIndexText = (key: ReferenceKey) =>
 
 interface ReferenceTreeItemProps {
   id: string;
-  reference: Reference;
   parentKeys: ReferenceKey[];
+  reference: Reference;
 }
 
-export const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeItemProps) => {
+export const ReferenceTreeItem = ({ id, parentKeys, reference }: ReferenceTreeItemProps) => {
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
@@ -138,12 +138,12 @@ export const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeIt
   );
 
   return (
-    <TreeItemRoot id={id} textValue={keyText ?? kindIndexTag ?? ''} className={tw`rounded-none py-1`}>
+    <TreeItemRoot className={tw`rounded-none py-1`} id={id} textValue={keyText ?? kindIndexTag ?? ''}>
       <AriaTreeItemContent>
-        {({ level, isExpanded }) => (
-          <TreeItemWrapper level={level} className={tw`flex-wrap gap-1`}>
+        {({ isExpanded, level }) => (
+          <TreeItemWrapper className={tw`flex-wrap gap-1`} level={level}>
             {items && (
-              <Button variant='ghost' slot='chevron' className={tw`p-1`}>
+              <Button className={tw`p-1`} slot='chevron' variant='ghost'>
                 <ChevronSolidDownIcon
                   className={twJoin(
                     tw`size-3 text-slate-500 transition-transform`,
@@ -163,8 +163,8 @@ export const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeIt
 
             {tags.map((tag, index) => (
               <span
-                key={index}
                 className={tw`rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+                key={index}
               >
                 {tag}
               </span>
@@ -188,7 +188,7 @@ export const ReferenceTreeItem = ({ id, reference, parentKeys }: ReferenceTreeIt
 
       {items && (
         <AriaCollection items={items}>
-          {(_) => <ReferenceTreeItem id={makeReferenceTreeId([...keys, _.key!])} reference={_} parentKeys={keys} />}
+          {(_) => <ReferenceTreeItem id={makeReferenceTreeId([...keys, _.key!])} parentKeys={keys} reference={_} />}
         </AriaCollection>
       )}
     </TreeItemRoot>
@@ -206,8 +206,8 @@ export const ReferencePath = ({ path }: ReferencePath) => {
     if (indexText) {
       return (
         <span
-          key={`${index} ${indexText}`}
           className={tw`mx-0.5 flex-none rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+          key={`${index} ${indexText}`}
         >
           entry {indexText}
         </span>
@@ -218,7 +218,7 @@ export const ReferencePath = ({ path }: ReferencePath) => {
 
     if (keyText) {
       return (
-        <span key={`${index} ${keyText}`} className={tw`text-md flex-none leading-5 tracking-tight text-slate-800`}>
+        <span className={tw`text-md flex-none leading-5 tracking-tight text-slate-800`} key={`${index} ${keyText}`}>
           {keyText}
         </span>
       );
@@ -230,7 +230,7 @@ export const ReferencePath = ({ path }: ReferencePath) => {
   return <div className={tw`flex flex-wrap items-center`}>{Array.intersperse(keys, '.')}</div>;
 };
 
-interface ReferenceTreePopoverProps extends ReferenceTreeProps, MixinProps<'dropdown', DropdownPopoverProps> {}
+interface ReferenceTreePopoverProps extends MixinProps<'dropdown', DropdownPopoverProps>, ReferenceTreeProps {}
 
 const ReferenceTreePopover = ({ onSelect, ...mixProps }: ReferenceTreePopoverProps) => {
   const props = splitProps(mixProps, 'dropdown');
@@ -260,12 +260,12 @@ const ReferenceTreePopover = ({ onSelect, ...mixProps }: ReferenceTreePopoverPro
   );
 };
 
-interface ReferenceFieldProps extends ReferenceTreeProps, MixinProps<'button', ButtonProps> {
-  path: ReferenceKey[];
+interface ReferenceFieldProps extends MixinProps<'button', ButtonProps>, ReferenceTreeProps {
   isReadOnly?: boolean | undefined;
+  path: ReferenceKey[];
 }
 
-export const ReferenceField = ({ path, buttonClassName, isReadOnly, ...mixProps }: ReferenceFieldProps) => {
+export const ReferenceField = ({ buttonClassName, isReadOnly, path, ...mixProps }: ReferenceFieldProps) => {
   const props = splitProps(mixProps, 'button');
 
   return (
@@ -302,14 +302,14 @@ export const TextFieldWithReference = <
   const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextFieldProps = {
-    name: field.name,
-    value: field.value,
-    onChange: field.onChange,
-    onBlur: field.onBlur,
-    isDisabled: field.disabled ?? false,
-    validationBehavior: 'aria',
-    isInvalid: fieldState.invalid,
     error: fieldState.error?.message,
+    isDisabled: field.disabled ?? false,
+    isInvalid: fieldState.invalid,
+    name: field.name,
+    onBlur: field.onBlur,
+    onChange: field.onChange,
+    validationBehavior: 'aria',
+    value: field.value,
   };
 
   return (

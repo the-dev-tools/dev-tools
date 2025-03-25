@@ -6,8 +6,8 @@ import { twMerge } from 'tailwind-merge';
 import { tw } from './tailwind-literal';
 
 export const composeRenderPropsTV = <T, K>(
-  className: string | ((renderProps: T) => string) | undefined,
-  tv: (variant: T & K) => string,
+  className: ((renderProps: T) => string) | string | undefined,
+  tv: (variant: K & T) => string,
   props: K = {} as K,
 ) =>
   composeRenderProps(className, (className, renderProps) =>
@@ -18,7 +18,7 @@ export const composeRenderPropsTV = <T, K>(
     }),
   );
 
-export const composeRenderPropsTW = <T,>(className: string | ((renderProps: T) => string) | undefined, tw: string) =>
+export const composeRenderPropsTW = <T,>(className: ((renderProps: T) => string) | string | undefined, tw: string) =>
   composeRenderProps(className, (className) => twMerge(tw, className));
 
 export const ariaTextValue = (textValue?: string, children?: unknown) => {
@@ -37,10 +37,10 @@ export const useEscapePortal = (containerRef: RefObject<HTMLDivElement | null>) 
       const target = ref.current.getBoundingClientRect();
 
       const style = {
+        height: target.height / zoom,
         left: (target.left - container.left) / zoom,
         top: (target.top - container.top) / zoom,
         width: target.width / zoom,
-        height: target.height / zoom,
       };
 
       return createPortal(

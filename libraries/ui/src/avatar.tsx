@@ -16,36 +16,36 @@ interface SharedProps {
 
 export const avatarStyles = tv({
   base: tw`flex select-none items-center justify-center border font-semibold`,
+  defaultVariants: {
+    shape: 'circle',
+    size: 'sm',
+    variant: 'neutral',
+  },
   variants: {
     shape: {
       circle: tw`rounded-full`,
       square: tw`rounded-md`,
     },
     size: {
-      sm: tw`size-5 text-[0.625rem]`,
       base: tw`size-7`,
       md: tw`size-9`,
+      sm: tw`size-5 text-[0.625rem]`,
     },
     variant: {
-      neutral: tw`border-slate-200 bg-white text-slate-800`,
       amber: tw`border-amber-500 bg-amber-100 text-amber-600`,
       blue: tw`border-blue-400 bg-blue-100 text-blue-600`,
       lime: tw`border-lime-500 bg-lime-200 text-lime-600`,
+      neutral: tw`border-slate-200 bg-white text-slate-800`,
       pink: tw`border-pink-400 bg-pink-100 text-pink-600`,
       teal: tw`border-teal-400 bg-teal-100 text-teal-600`,
       violet: tw`border-violet-400 bg-violet-200 text-violet-600`,
     },
   },
-  defaultVariants: {
-    shape: 'circle',
-    size: 'sm',
-    variant: 'neutral',
-  },
 });
 
 export interface AvatarProps
-  extends SharedProps,
-    Omit<ComponentProps<'div'>, keyof SharedProps>,
+  extends Omit<ComponentProps<'div'>, keyof SharedProps>,
+    SharedProps,
     VariantProps<typeof avatarStyles> {}
 
 export const Avatar = ({ children, className, shorten = true, ...props }: AvatarProps) => {
@@ -64,13 +64,13 @@ export const Avatar = ({ children, className, shorten = true, ...props }: Avatar
 // Button
 
 export const avatarButtonStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: avatarStyles.base,
+  defaultVariants: avatarStyles.defaultVariants,
+  extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     ...avatarStyles.variants,
   },
-  defaultVariants: avatarStyles.defaultVariants,
 });
 
 export const avatarButtonVariantKeys = pipe(
@@ -79,8 +79,8 @@ export const avatarButtonVariantKeys = pipe(
 );
 
 export interface AvatarButtonProps
-  extends SharedProps,
-    Omit<AriaButtonProps, keyof SharedProps>,
+  extends Omit<AriaButtonProps, keyof SharedProps>,
+    SharedProps,
     VariantProps<typeof avatarButtonStyles> {}
 
 export const AvatarButton = ({ children, className, shorten = true, ...props }: AvatarButtonProps) => {

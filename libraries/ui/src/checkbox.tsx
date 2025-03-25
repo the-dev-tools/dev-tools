@@ -26,8 +26,8 @@ const rootStyles = tv({
 });
 
 const boxStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`flex size-4 flex-none cursor-pointer items-center justify-center rounded-sm border border-slate-200 bg-white p-0.5 text-white`,
+  extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isIndeterminate: { true: tw`border-violet-600 bg-violet-600` },
@@ -39,12 +39,12 @@ const boxStyles = tv({
 
 export interface CheckboxProps
   extends AriaCheckboxProps,
-    VariantProps<typeof rootStyles>,
     MixinProps<'box', Omit<ComponentProps<'div'>, 'children'>>,
-    MixinProps<'indicator', SVGProps<SVGSVGElement>> {}
+    MixinProps<'indicator', SVGProps<SVGSVGElement>>,
+    VariantProps<typeof rootStyles> {}
 
 export const Checkbox = forwardRef(
-  ({ className, children, boxClassName, ...props }: CheckboxProps, ref: ForwardedRef<HTMLLabelElement>) => {
+  ({ boxClassName, children, className, ...props }: CheckboxProps, ref: ForwardedRef<HTMLLabelElement>) => {
     const forwardedProps = splitProps(props, 'box', 'indicator');
 
     const rootForwardedProps = Struct.omit(forwardedProps.rest, ...rootStyles.variantKeys);
@@ -52,8 +52,8 @@ export const Checkbox = forwardRef(
 
     return (
       <AriaCheckbox
-        ref={ref}
         className={composeRenderPropsTV(className, rootStyles, rootVariantProps)}
+        ref={ref}
         {...rootForwardedProps}
       >
         {composeRenderProps(children, (children, renderProps) => (
@@ -61,38 +61,38 @@ export const Checkbox = forwardRef(
             <div className={boxStyles({ className: boxClassName, ...renderProps })} {...forwardedProps.box}>
               {renderProps.isIndeterminate && (
                 <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  width='1em'
-                  height='1em'
                   fill='none'
+                  height='1em'
                   viewBox='0 0 10 2'
+                  width='1em'
+                  xmlns='http://www.w3.org/2000/svg'
                   {...forwardedProps.indicator}
                 >
                   <path
+                    d='M1 1h8.315'
                     stroke='currentColor'
                     strokeLinecap='round'
                     strokeLinejoin='round'
                     strokeWidth={1.5}
-                    d='M1 1h8.315'
                   />
                 </svg>
               )}
 
               {renderProps.isSelected && (
                 <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  width='1em'
-                  height='1em'
                   fill='none'
+                  height='1em'
                   viewBox='0 0 10 8'
+                  width='1em'
+                  xmlns='http://www.w3.org/2000/svg'
                   {...forwardedProps.indicator}
                 >
                   <path
+                    d='m.833 4.183 2.778 3.15L9.167 1.5'
                     stroke='currentColor'
                     strokeLinecap='round'
                     strokeLinejoin='round'
                     strokeWidth={1.2}
-                    d='m.833 4.183 2.778 3.15L9.167 1.5'
                   />
                 </svg>
               )}
@@ -127,13 +127,13 @@ export const CheckboxRHF = <
   const { field, fieldState } = useController({ defaultValue: false as never, ...controllerProps });
 
   const fieldProps: CheckboxProps = {
-    name: field.name,
-    isSelected: field.value,
-    onChange: field.onChange,
-    onBlur: field.onBlur,
     isDisabled: field.disabled ?? false,
-    validationBehavior: 'aria',
     isInvalid: fieldState.invalid,
+    isSelected: field.value,
+    name: field.name,
+    onBlur: field.onBlur,
+    onChange: field.onChange,
+    validationBehavior: 'aria',
   };
 
   return <Checkbox {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;

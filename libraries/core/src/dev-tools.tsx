@@ -1,5 +1,6 @@
 import type { ReactQueryDevtools as ReactQueryDevtoolsType } from '@tanstack/react-query-devtools';
 import type { TanStackRouterDevtools as TanStackRouterDevtoolsType } from '@tanstack/router-devtools';
+
 import { Boolean } from 'effect';
 import {
   ComponentProps,
@@ -62,17 +63,17 @@ export const ReactQueryDevTools = (props: ComponentProps<typeof ReactQueryDevToo
 const RHFDevToolsLazy = lazy(() => import('@hookform/devtools').then((_) => ({ default: _.DevTool })));
 
 interface RHFDevToolsProps<T extends FieldValues> extends ComponentProps<'div'> {
-  id?: string;
   control?: Control<T>;
+  id?: string;
 }
 
-export const RHFDevTools = <T extends FieldValues>({ control, id, className, ...props }: RHFDevToolsProps<T>) => {
+export const RHFDevTools = <T extends FieldValues>({ className, control, id, ...props }: RHFDevToolsProps<T>) => {
   const show = useContext(ShowDevToolsContext);
   if (!show) return null;
   return (
     <Suspense>
       <div {...props} className={twMerge(tw`flex items-center justify-center`, className)}>
-        <RHFDevToolsLazy id={id} control={control as unknown as Control} styles={{ button: { position: 'unset' } }} />
+        <RHFDevToolsLazy control={control as unknown as Control} id={id} styles={{ button: { position: 'unset' } }} />
       </div>
     </Suspense>
   );

@@ -64,7 +64,7 @@ const exportProjectInfo = CliCommand.make(
     const output = yield* Config.string('GITHUB_OUTPUT');
 
     const info = pipe(
-      { name, version, root },
+      { name, root, version },
       Record.map((value, key) => String.camelToSnake(key) + '=' + value),
       Record.values,
       Array.join('\n'),
@@ -111,8 +111,8 @@ const release = CliCommand.make(
 
     const { projectChangelogs = {} } = yield* Effect.tryPromise(() =>
       releaseChangelog({
-        versionData: projectsVersionData,
         gitCommitMessage: 'Version projects',
+        versionData: projectsVersionData,
         ...options,
       }),
     );
@@ -124,8 +124,8 @@ const release = CliCommand.make(
           Option.fromNullable,
           Option.map((_) =>
             repo.dispatchWorkflow({
-              workflow: _,
               ref: gitTag,
+              workflow: _,
             }),
           ),
         ),
@@ -160,9 +160,9 @@ const uploadElectronReleaseAssets = CliCommand.make(
           Match.when(String.startsWith('latest'), (file) =>
             Option.some(
               repo.uploadReleaseAsset({
-                releaseId,
-                path: path.join(dist, file),
                 name: `latest-${process.platform}-${process.arch}.yml`,
+                path: path.join(dist, file),
+                releaseId,
               }),
             ),
           ),
@@ -171,8 +171,8 @@ const uploadElectronReleaseAssets = CliCommand.make(
           Match.when(String.includes(version), (file) =>
             Option.some(
               repo.uploadReleaseAsset({
-                releaseId,
                 path: path.join(dist, file),
+                releaseId,
               }),
             ),
           ),

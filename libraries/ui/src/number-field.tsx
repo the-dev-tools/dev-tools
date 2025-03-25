@@ -24,28 +24,28 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 const groupStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`text-md flex rounded-md border border-slate-200 leading-5 text-slate-800`,
+  extend: isFocusVisibleRingStyles,
 });
 
 // Number field
 
 export interface NumberFieldProps
-  extends Omit<AriaNumberFieldProps, 'children'>,
-    MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
+  extends MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'group', Omit<AriaGroupProps, 'children'>>,
     MixinProps<'button', Omit<AriaButtonProps, 'children' | 'slot'>>,
-    MixinProps<'input', Omit<AriaInputProps, 'children'>> {
-  ref?: Ref<HTMLDivElement>;
+    MixinProps<'input', Omit<AriaInputProps, 'children'>>,
+    Omit<AriaNumberFieldProps, 'children'> {
   label?: FieldLabelProps['children'];
+  ref?: Ref<HTMLDivElement>;
 }
 
 export const NumberField = ({
-  ref,
-  label,
-  groupClassName,
   buttonClassName,
+  groupClassName,
   inputClassName,
+  label,
+  ref,
   ...mixProps
 }: NumberFieldProps) => {
   const props = splitProps(mixProps, 'label', 'group', 'button', 'input');
@@ -56,11 +56,11 @@ export const NumberField = ({
 
       <AriaGroup className={composeRenderPropsTV(groupClassName, groupStyles)} {...props.group}>
         <AriaButton
-          slot='decrement'
           className={composeRenderPropsTW(
             buttonClassName,
             tw`flex size-8 items-center justify-center border-r border-slate-200`,
           )}
+          slot='decrement'
           {...props.button}
         >
           <FiMinus />
@@ -69,11 +69,11 @@ export const NumberField = ({
         <AriaInput className={composeRenderPropsTW(inputClassName, tw`outline-hidden flex-1 px-3`)} {...props.input} />
 
         <AriaButton
-          slot='increment'
           className={composeRenderPropsTW(
             buttonClassName,
             tw`flex size-8 items-center justify-center border-l border-slate-200`,
           )}
+          slot='increment'
           {...props.button}
         >
           <FiPlus />
@@ -103,13 +103,13 @@ export const NumberFieldRHF = <
   const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: NumberFieldProps = {
-    name: field.name,
-    value: field.value,
-    onChange: field.onChange,
-    onBlur: field.onBlur,
     isDisabled: field.disabled ?? false,
-    validationBehavior: 'aria',
     isInvalid: fieldState.invalid,
+    name: field.name,
+    onBlur: field.onBlur,
+    onChange: field.onChange,
+    validationBehavior: 'aria',
+    value: field.value,
   };
 
   return <NumberField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;

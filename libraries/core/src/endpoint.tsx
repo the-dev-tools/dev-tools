@@ -76,17 +76,17 @@ export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('Endp
   responseIdCan: pipe(Schema.String, Schema.optional),
 }) {}
 
-export const Route = createFileRoute(
+const makeRoute = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-)({
-  component: Page,
-  shouldReload: false,
+);
+
+export const Route = makeRoute({
   validateSearch: (_) => Schema.decodeSync(EndpointRouteSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
   loader: async ({
-    params: { workspaceIdCan, endpointIdCan, exampleIdCan },
+    context: { queryClient, transport },
     deps: { responseIdCan },
-    context: { transport, queryClient },
+    params: { endpointIdCan, exampleIdCan, workspaceIdCan },
   }) => {
     const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
     const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;
@@ -109,14 +109,16 @@ export const Route = createFileRoute(
       ]);
     } catch {
       redirect({
-        to: '/workspace/$workspaceIdCan',
         params: { workspaceIdCan },
         throw: true,
+        to: '/workspace/$workspaceIdCan',
       });
     }
 
     return { endpointId, exampleId, responseId };
   },
+  component: Page,
+  shouldReload: false,
 });
 
 function Page() {
@@ -136,7 +138,7 @@ function Page() {
         }
       >
         <PanelGroup direction='vertical'>
-          <Panel id='request' order={1} className='flex h-full flex-col'>
+          <Panel className='flex h-full flex-col' id='request' order={1}>
             <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
             <ReferenceContext value={{ exampleId, workspaceId }}>
@@ -146,8 +148,8 @@ function Page() {
           {example.lastResponseId && (
             <>
               <PanelResizeHandle direction='vertical' />
-              <Panel id='response' order={2} defaultSize={40}>
-                <ResponsePanel responseId={example.lastResponseId} fullWidth />
+              <Panel defaultSize={40} id='response' order={2}>
+                <ResponsePanel fullWidth responseId={example.lastResponseId} />
               </Panel>
             </>
           )}
@@ -161,59 +163,59 @@ function Page() {
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 interface EndpointRequestViewProps {
-  exampleId: Uint8Array;
-  deltaExampleId?: Uint8Array;
-  isReadOnly?: boolean;
   className?: string;
+  deltaExampleId?: Uint8Array;
+  exampleId: Uint8Array;
+  isReadOnly?: boolean;
 }
 
-export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, className }: EndpointRequestViewProps) => (
+export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isReadOnly }: EndpointRequestViewProps) => (
   <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
     <TabList className={tw`flex gap-3 border-b border-slate-200`}>
       <Tab
-        id='params'
         className={({ isSelected }) =>
           twMerge(
             tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
+        id='params'
       >
         Params
       </Tab>
 
       <Tab
-        id='headers'
         className={({ isSelected }) =>
           twMerge(
             tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
+        id='headers'
       >
         Headers
       </Tab>
 
       <Tab
-        id='body'
         className={({ isSelected }) =>
           twMerge(
             tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
+        id='body'
       >
         Body
       </Tab>
 
       <Tab
-        id='assertions'
         className={({ isSelected }) =>
           twMerge(
             tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
             isSelected && tw`border-b-violet-700 text-slate-800`,
           )
         }
+        id='assertions'
       >
         Assertion
       </Tab>
@@ -227,15 +229,15 @@ export const EndpointRequestView = ({ exampleId, deltaExampleId, isReadOnly, cla
       }
     >
       <TabPanel id='params'>
-        <QueryTable exampleId={exampleId} deltaExampleId={deltaExampleId} isReadOnly={isReadOnly} />
+        <QueryTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
       </TabPanel>
 
       <TabPanel id='headers'>
-        <HeaderTable exampleId={exampleId} deltaExampleId={deltaExampleId} isReadOnly={isReadOnly} />
+        <HeaderTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
       </TabPanel>
 
       <TabPanel id='body'>
-        <BodyView exampleId={exampleId} deltaExampleId={deltaExampleId} isReadOnly={isReadOnly} />
+        <BodyView deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
       </TabPanel>
 
       <TabPanel id='assertions'>
@@ -328,8 +330,8 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
   const values = useMemo(() => {
     return new EndpointFormData({
-      url,
       method: Array.contains(methods, endpoint.method) ? endpoint.method : 'N/A',
+      url,
     });
   }, [endpoint.method, url]);
 
@@ -353,18 +355,18 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
       MutableHashMap.fromIterable,
     );
 
-    queries.forEach(({ queryId, key, value, enabled }) => {
+    queries.forEach(({ enabled, key, queryId, value }) => {
       MutableHashMap.modifyAt(
         queryMap,
         key + value,
         Option.match({
-          onSome: () => {
-            if (enabled) return Option.none();
-            return Option.some(create(QueryUpdateRequestSchema, { queryId, enabled: true }));
-          },
           onNone: () => {
             if (!enabled) return Option.none();
-            return Option.some(create(QueryUpdateRequestSchema, { queryId, enabled: false }));
+            return Option.some(create(QueryUpdateRequestSchema, { enabled: false, queryId }));
+          },
+          onSome: () => {
+            if (enabled) return Option.none();
+            return Option.some(create(QueryUpdateRequestSchema, { enabled: true, queryId }));
           },
         }),
       );
@@ -404,9 +406,9 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
     queryClient.setQueryData(
       createConnectQueryKey({
-        schema: queryList,
         cardinality: 'finite',
         input: { exampleId },
+        schema: queryList,
       }),
       createProtobufSafeUpdater(queryList, () => create(QueryListResponseSchema, { items: newQueryList })),
     );
@@ -415,8 +417,8 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: example.name,
     onSuccess: (_) => exampleUpdateMutation.mutateAsync({ exampleId, name: _ }),
+    value: example.name,
   });
 
   return (
@@ -446,7 +448,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
         </div>
 
         <DialogTrigger>
-          <Button variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+          <Button className={tw`px-2 py-1 text-slate-800`} variant='ghost'>
             <FiClock className={tw`size-4 text-slate-500`} /> Response History
           </Button>
 
@@ -460,12 +462,12 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
         {/* <Separator orientation='vertical' className={tw`h-4`} /> */}
 
-        <Button type='submit' variant='ghost' className={tw`px-2 py-1 text-slate-800`}>
+        <Button className={tw`px-2 py-1 text-slate-800`} type='submit' variant='ghost'>
           <FiSave className={tw`size-4 text-slate-500`} /> Save
         </Button>
 
         <MenuTrigger {...menuTriggerProps}>
-          <Button variant='ghost' className={tw`p-1`}>
+          <Button className={tw`p-1`} variant='ghost'>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
@@ -478,7 +480,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void exampleDeleteMutation.mutate({ exampleId })}>
+            <MenuItem onAction={() => void exampleDeleteMutation.mutate({ exampleId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>
@@ -487,28 +489,27 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
       <div className={tw`flex gap-3 p-6 pb-0`}>
         <div className='shadow-xs flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
-          <SelectRHF control={form.control} name='method' aria-label='Method' triggerClassName={tw`border-none p-0`}>
+          <SelectRHF aria-label='Method' control={form.control} name='method' triggerClassName={tw`border-none p-0`}>
             {methods.map((_) => (
-              <ListBoxItem key={_} id={_} textValue={_}>
+              <ListBoxItem id={_} key={_} textValue={_}>
                 <MethodBadge method={_} size='lg' />
               </ListBoxItem>
             ))}
           </SelectRHF>
 
-          <Separator orientation='vertical' className={tw`h-7`} />
+          <Separator className={tw`h-7`} orientation='vertical' />
 
           <TextFieldRHF
-            control={form.control}
-            onBlur={onSubmit}
-            name='url'
             aria-label='URL'
             className={tw`flex-1`}
+            control={form.control}
             inputClassName={tw`border-none font-medium tracking-tight`}
+            name='url'
+            onBlur={onSubmit}
           />
         </div>
 
         <Button
-          variant='primary'
           className={tw`px-6`}
           onPress={async () => {
             await onSubmit();
@@ -518,10 +519,10 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
             // TODO: remove manual update once optional field normalization is fixed
             queryClient.setQueryData(
               createConnectQueryKey({
-                schema: exampleGet,
-                transport,
                 cardinality: 'finite',
                 input: { exampleId },
+                schema: exampleGet,
+                transport,
               }),
               createProtobufSafeUpdater(exampleGet, (old) => {
                 if (old === undefined) return undefined;
@@ -529,6 +530,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
               }),
             );
           }}
+          variant='primary'
         >
           Send
         </Button>
@@ -552,7 +554,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
   } = useConnectSuspenseQuery(exampleVersions, { exampleId });
 
   return (
-    <Modal modalSize='lg' isDismissable>
+    <Modal isDismissable modalSize='lg'>
       <Dialog className={tw`outline-hidden size-full`}>
         <Tabs className={tw`flex h-full`} orientation='vertical'>
           <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
@@ -588,13 +590,13 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
               <TabList items={versions}>
                 {(item) => (
                   <Tab
-                    id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
                     className={({ isSelected }) =>
                       twJoin(
                         tw`text-md flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold leading-5 text-slate-800`,
                         isSelected && tw`bg-slate-200`,
                       )
                     }
+                    id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
                   >
                     {Ulid.construct(item.exampleId).time.toLocaleString()}
                   </Tab>
@@ -607,8 +609,8 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
             <Collection items={versions}>
               {(item) => (
                 <TabPanel
-                  id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
                   className={tw`h-full`}
+                  id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
                 >
                   <Suspense
                     fallback={
@@ -654,7 +656,7 @@ const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel>
-            <ResponsePanel responseId={lastResponseId} fullWidth />
+            <ResponsePanel fullWidth responseId={lastResponseId} />
           </Panel>
         </>
       )}
@@ -663,12 +665,12 @@ const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }
 };
 
 interface ResponsePanelProps {
-  responseId: Uint8Array;
-  fullWidth?: boolean;
   className?: string;
+  fullWidth?: boolean;
+  responseId: Uint8Array;
 }
 
-export const ResponsePanel = ({ responseId, fullWidth = false, className }: ResponsePanelProps) => {
+export const ResponsePanel = ({ className, fullWidth = false, responseId }: ResponsePanelProps) => {
   const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
 
   return (
@@ -676,37 +678,37 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
       <div className={twMerge(tw`text-md flex items-center gap-3 border-b border-slate-200`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
-            id='body'
             className={({ isSelected }) =>
               twMerge(
                 tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
+            id='body'
           >
             Body
           </Tab>
 
           <Tab
-            id='headers'
             className={({ isSelected }) =>
               twMerge(
                 tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
+            id='headers'
           >
             Headers
           </Tab>
 
           <Tab
-            id='assertions'
             className={({ isSelected }) =>
               twMerge(
                 tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
+            id='assertions'
           >
             Test Results
           </Tab>
@@ -720,7 +722,7 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
             <span className={tw`text-green-600`}>{response.status}</span>
           </div>
 
-          <Separator orientation='vertical' className={tw`h-4`} />
+          <Separator className={tw`h-4`} orientation='vertical' />
 
           <div className={tw`flex gap-1 p-2`}>
             <span>Time:</span>
@@ -729,7 +731,7 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
             </span>
           </div>
 
-          <Separator orientation='vertical' className={tw`h-4`} />
+          <Separator className={tw`h-4`} orientation='vertical' />
 
           <div className={tw`flex gap-1 p-2`}>
             <span>Size:</span>
@@ -765,7 +767,7 @@ export const ResponsePanel = ({ responseId, fullWidth = false, className }: Resp
             </div>
           }
         >
-          <TabPanel id='body' className={twJoin(tw`flex h-full flex-col gap-4`)}>
+          <TabPanel className={twJoin(tw`flex h-full flex-col gap-4`)} id='body'>
             <ResponseBodyView bodyBytes={response.body} />
           </TabPanel>
 
@@ -827,16 +829,16 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         </Tab>
       </TabList>
 
-      <TabPanel id='pretty' className='contents'>
+      <TabPanel className='contents' id='pretty'>
         <ResponseBodyPrettyView body={body} />
       </TabPanel>
 
-      <TabPanel id='raw' className='col-span-full font-mono'>
+      <TabPanel className='col-span-full font-mono' id='raw'>
         {body}
       </TabPanel>
 
-      <TabPanel id='preview' className='col-span-full self-stretch'>
-        <iframe title='Response preview' srcDoc={body} className='size-full' />
+      <TabPanel className='col-span-full self-stretch' id='preview'>
+        <iframe className='size-full' srcDoc={body} title='Response preview' />
       </TabPanel>
     </Tabs>
   );
@@ -851,7 +853,6 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
 
   const { data: prettierBody } = useQuery({
     initialData: '',
-    queryKey: ['prettier', language, body],
     queryFn: async () => {
       if (language === 'text') return body;
 
@@ -872,13 +873,14 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
       );
 
       return await prettierFormat(body, {
+        htmlWhitespaceSensitivity: 'ignore',
         parser,
         plugins,
         singleAttributePerLine: true,
-        htmlWhitespaceSensitivity: 'ignore',
         xmlWhitespaceSensitivity: 'ignore',
       }).catch(() => body);
     },
+    queryKey: ['prettier', language, body],
   });
 
   const extensions = useCodeMirrorExtensions(language);
@@ -888,23 +890,23 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
       <Select
         aria-label='Language'
         className='self-center justify-self-start'
-        triggerClassName={tw`px-4 py-1`}
-        selectedKey={language}
         onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
+        selectedKey={language}
+        triggerClassName={tw`px-4 py-1`}
       >
         {CodeMirrorMarkupLanguages.map((_) => (
-          <ListBoxItem key={_} id={_}>
+          <ListBoxItem id={_} key={_}>
             {_}
           </ListBoxItem>
         ))}
       </Select>
 
       <CodeMirror
-        value={prettierBody}
-        readOnly
-        height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}
+        height='100%'
+        readOnly
+        value={prettierBody}
       />
     </>
   );
@@ -930,7 +932,7 @@ const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} cellClassName={tw`px-5 py-1.5`} />;
+  return <DataTable cellClassName={tw`px-5 py-1.5`} table={table} />;
 };
 
 interface ResponseAssertTableProps {

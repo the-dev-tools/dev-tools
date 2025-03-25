@@ -24,14 +24,14 @@ import {
 } from './form-table';
 
 interface HeaderTableProps {
-  exampleId: Uint8Array;
   deltaExampleId?: Uint8Array | undefined;
+  exampleId: Uint8Array;
   isReadOnly?: boolean | undefined;
 }
 
-export const HeaderTable = ({ exampleId, deltaExampleId, isReadOnly }: HeaderTableProps) => {
+export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTableProps) => {
   if (isReadOnly) return <DisplayTable exampleId={exampleId} />;
-  if (deltaExampleId) return <DeltaFormTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+  if (deltaExampleId) return <DeltaFormTable deltaExampleId={deltaExampleId} exampleId={exampleId} />;
   return <FormTable exampleId={exampleId} />;
 };
 
@@ -66,23 +66,23 @@ const FormTable = ({ exampleId }: FormTableProps) => {
   } = useConnectSuspenseQuery(headerList, { exampleId });
 
   const table = useFormTable({
-    items,
-    schema: HeaderListItemSchema,
     columns: makeGenericFormTableColumns<HeaderListItem>(),
+    items,
     onCreate: (_) => requestService.headerCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.headerId),
-    onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.headerDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
+    schema: HeaderListItemSchema,
   });
 
   return <DataTable table={table} />;
 };
 
 interface DeltaFormTableProps {
-  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
+  exampleId: Uint8Array;
 }
 
-const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
+const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
@@ -101,10 +101,10 @@ const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
   });
 
   const table = useDeltaFormTable({
-    items,
-    deltaItems,
     columns: makeGenericDeltaFormTableColumns<HeaderListItem>(),
+    deltaItems,
     getParentId: (_) => _.parentHeaderId!,
+    items,
     onCreate: (_) =>
       requestService
         .headerCreate({
@@ -113,8 +113,8 @@ const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
           parentHeaderId: _.headerId,
         })
         .then((_) => _.headerId),
-    onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.headerDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} />;

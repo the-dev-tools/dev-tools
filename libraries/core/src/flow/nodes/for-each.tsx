@@ -29,7 +29,7 @@ export const ForEachNode = (props: NodeProps) => {
         <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
           <ButtonAsLink
             className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800`}
-            href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}
+            href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}
           >
             <CheckListAltIcon className={tw`size-5 text-slate-500`} />
             <span>Edit Loop</span>
@@ -37,24 +37,24 @@ export const ForEachNode = (props: NodeProps) => {
         </div>
       </NodeBase>
 
-      <Handle type='target' position={Position.Top} />
+      <Handle position={Position.Top} type='target' />
       <Handle
-        type='source'
-        position={Position.Bottom}
         id={'HANDLE_LOOP' satisfies HandleKindJson}
         isConnectable={false}
+        position={Position.Bottom}
+        type='source'
       />
       <Handle
-        type='source'
-        position={Position.Bottom}
         id={'HANDLE_THEN' satisfies HandleKindJson}
         isConnectable={false}
+        position={Position.Bottom}
+        type='source'
       />
     </>
   );
 };
 
-export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
+export const ForEachPanel = ({ node: { forEach, nodeId } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
   const { isReadOnly = false } = use(FlowContext);
 
@@ -62,7 +62,7 @@ export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
 
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (forEach) => {
-      await nodeUpdateMutation.mutateAsync({ nodeId, forEach });
+      await nodeUpdateMutation.mutateAsync({ forEach, nodeId });
     })();
   }, 200);
 
@@ -82,9 +82,9 @@ export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
         <div className={tw`flex-1`} />
 
         <ButtonAsLink
-          variant='ghost'
           className={tw`p-1`}
-          href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }) }}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+          variant='ghost'
         >
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
@@ -94,33 +94,33 @@ export const ForEachPanel = ({ node: { nodeId, forEach } }: NodePanelProps) => {
         <FieldLabel>Array to Loop</FieldLabel>
         <Controller
           control={control}
-          name='path'
           defaultValue={[]}
+          name='path'
           render={({ field }) => (
             <ReferenceField
-              path={field.value}
-              onSelect={field.onChange}
               buttonClassName={tw`min-w-[30%] justify-self-start`}
               isReadOnly={isReadOnly}
+              onSelect={field.onChange}
+              path={field.value}
             />
           )}
         />
 
         <ConditionField
-          control={control}
-          path='condition'
-          label='Break If'
           className={tw`contents`}
+          control={control}
           isReadOnly={isReadOnly}
+          label='Break If'
+          path='condition'
         />
 
         <SelectRHF
-          control={control}
-          name='errorHandling'
-          label='On Error'
           className={tw`contents`}
-          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
+          control={control}
           isDisabled={isReadOnly}
+          label='On Error'
+          name='errorHandling'
+          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
         >
           <ListBoxItem id={ErrorHandling.UNSPECIFIED}>Throw</ListBoxItem>
           <ListBoxItem id={ErrorHandling.IGNORE}>Ignore</ListBoxItem>

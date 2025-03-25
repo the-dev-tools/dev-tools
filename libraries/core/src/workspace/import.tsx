@@ -59,13 +59,12 @@ export const ImportDialog = () => {
 
       {/* <TextField className={tw`mt-4`} inputPlaceholder='Paste cURL, Raw text or URL...' /> */}
 
-      <FileDropZone dropZoneClassName={tw`mt-4 flex-1`} onChange={setFiles} files={files} />
+      <FileDropZone dropZoneClassName={tw`mt-4 flex-1`} files={files} onChange={setFiles} />
     </>
   );
 
   const importUniversalSubmit = !filters && (
     <Button
-      variant='primary'
       isDisabled={!files?.length}
       onPress={async () => {
         const file = files?.[0];
@@ -74,14 +73,15 @@ export const ImportDialog = () => {
         const data = pipe(await file.arrayBuffer(), (_) => new Uint8Array(_));
 
         const result = await importMutation.mutateAsync({
-          workspaceId,
-          name: file.name,
           data,
+          name: file.name,
+          workspaceId,
         });
 
         if (result.kind === ImportKind.FILTER) setFilters(result.filter);
         else onOpenChange(false);
       }}
+      variant='primary'
     >
       Import
     </Button>
@@ -96,27 +96,27 @@ export const ImportDialog = () => {
 
       <div className={twMerge(tableStyles.wrapper, tw`mt-4 flex-1`)}>
         <Table
-          selectedKeys={selectedFilters}
-          onSelectionChange={setSelectedFilters}
           aria-label='Filters'
-          selectionMode='multiple'
           className={tableStyles.table}
+          onSelectionChange={setSelectedFilters}
+          selectedKeys={selectedFilters}
+          selectionMode='multiple'
         >
           <TableHeader className={twMerge(tableStyles.header, tableStyles.row, tw`sticky top-0 z-10`)}>
             <Column className={twMerge(tableStyles.headerCell, tw`!w-0 min-w-0 px-2`)}>
-              <Checkbox variant='table-cell' slot='selection' />
+              <Checkbox slot='selection' variant='table-cell' />
             </Column>
             <Column className={tableStyles.headerCell} isRowHeader>
               Domain
             </Column>
           </TableHeader>
 
-          <TableBody items={filters.map((value, index) => ({ value, index }))} className={tableStyles.body}>
+          <TableBody className={tableStyles.body} items={filters.map((value, index) => ({ index, value }))}>
             {(_) => (
-              <Row id={_.index} className={twMerge(tableStyles.row, tw`cursor-pointer`)}>
+              <Row className={twMerge(tableStyles.row, tw`cursor-pointer`)} id={_.index}>
                 <Cell className={tableStyles.cell}>
                   <div className={tw`flex justify-center`}>
-                    <Checkbox variant='table-cell' slot='selection' />
+                    <Checkbox slot='selection' variant='table-cell' />
                   </div>
                 </Cell>
                 <Cell className={twMerge(tableStyles.cell, tw`!border-l-0 px-5 py-1.5`)}>{_.value}</Cell>
@@ -130,7 +130,6 @@ export const ImportDialog = () => {
 
   const importFilterSubmit = filters && (
     <Button
-      variant='primary'
       isDisabled={!isFilterSelected}
       onPress={async () => {
         const file = files?.[0];
@@ -148,15 +147,16 @@ export const ImportDialog = () => {
               );
 
         await importMutation.mutateAsync({
-          kind: ImportKind.FILTER,
-          workspaceId,
-          name: file.name,
           data,
           filter: finalFilters,
+          kind: ImportKind.FILTER,
+          name: file.name,
+          workspaceId,
         });
 
         onOpenChange(false);
       }}
+      variant='primary'
     >
       Import
     </Button>
@@ -176,7 +176,7 @@ export const ImportDialog = () => {
                 Import Collections and Flows
               </div>
 
-              <Button className={tw`p-1`} variant='ghost' onPress={() => void onOpenChange(false)}>
+              <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
                 <FiX className={tw`size-5 text-slate-500`} />
               </Button>
             </div>

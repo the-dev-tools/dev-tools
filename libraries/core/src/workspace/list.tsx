@@ -21,9 +21,9 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 
-export const Route = createFileRoute('/_authorized/_dashboard/')({
-  component: Page,
-});
+const makeRoute = createFileRoute('/_authorized/_dashboard/');
+
+export const Route = makeRoute({ component: Page });
 
 function Page() {
   const {
@@ -44,7 +44,7 @@ function Page() {
         <div className={tw`flex items-center gap-2 px-5 py-3`}>
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
           {/* <Button>View All Workspaces</Button> */}
-          <Button variant='primary' onPress={() => void workspaceCreateMutation.mutate({ name: 'New Workspace' })}>
+          <Button onPress={() => void workspaceCreateMutation.mutate({ name: 'New Workspace' })} variant='primary'>
             Add Workspace
           </Button>
         </div>
@@ -74,8 +74,8 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => workspaceUpdateMutation.mutateAsync({ name: _, workspaceId }),
     value: workspace.name,
-    onSuccess: (_) => workspaceUpdateMutation.mutateAsync({ workspaceId, name: _ }),
   });
 
   return (
@@ -96,7 +96,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
           />
         ) : (
           <div className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
-            <Link to='/workspace/$workspaceIdCan' params={{ workspaceIdCan }}>
+            <Link params={{ workspaceIdCan }} to='/workspace/$workspaceIdCan'>
               {workspace.name}
             </Link>
           </div>

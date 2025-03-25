@@ -11,7 +11,6 @@ export type CodeMirrorLanguage = (typeof CodeMirrorLanguages)[number];
 export const useCodeMirrorExtensions = (language: CodeMirrorLanguage): Extension[] => {
   const { data: extensions } = useQuery({
     initialData: [],
-    queryKey: ['code-mirror', language],
     queryFn: async () => {
       if (language === 'text') return [];
       return await pipe(
@@ -24,6 +23,7 @@ export const useCodeMirrorExtensions = (language: CodeMirrorLanguage): Extension
         (_) => _.then(Array.make),
       );
     },
+    queryKey: ['code-mirror', language],
   });
 
   return extensions;

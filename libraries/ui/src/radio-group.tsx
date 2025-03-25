@@ -21,14 +21,14 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 const containerStyles = tv({
   base: tw`flex`,
-  variants: {
-    orientation: {
-      vertical: tw`flex-col`,
-      horizontal: tw`gap-3`,
-    },
-  },
   defaultVariants: {
     orientation: 'vertical',
+  },
+  variants: {
+    orientation: {
+      horizontal: tw`gap-3`,
+      vertical: tw`flex-col`,
+    },
   },
 });
 
@@ -37,11 +37,11 @@ export interface RadioGroupProps
     MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'container', Omit<ComponentProps<'div'>, 'children'>>,
     MixinProps<'error', Omit<FieldErrorProps, 'children'>> {
-  label?: FieldLabelProps['children'];
   error?: FieldErrorProps['children'];
+  label?: FieldLabelProps['children'];
 }
 
-export const RadioGroup = ({ children, className, label, containerClassName, error, ...props }: RadioGroupProps) => {
+export const RadioGroup = ({ children, className, containerClassName, error, label, ...props }: RadioGroupProps) => {
   const forwardedProps = splitProps(props, 'label', 'container', 'error');
 
   return (
@@ -75,22 +75,22 @@ const itemStyles = tv({
 });
 
 const indicatorStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`size-4 rounded-full border`,
+  compoundVariants: [
+    { className: tw`border-slate-400`, isPressed: true, isSelected: false },
+    { className: tw`border-red-800`, isInvalid: true, isPressed: true },
+  ],
+  extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
+    isDisabled: { true: tw`border-slate-200 bg-slate-200` },
+    isInvalid: { true: tw`border-red-700 bg-red-700` },
+    isPressed: { true: null },
     isSelected: {
       false: tw`border-slate-200 bg-white`,
       true: tw`border-violet-600 bg-violet-600`,
     },
-    isInvalid: { true: tw`border-red-700 bg-red-700` },
-    isDisabled: { true: tw`border-slate-200 bg-slate-200` },
-    isPressed: { true: null },
   },
-  compoundVariants: [
-    { isSelected: false, isPressed: true, className: tw`border-slate-400` },
-    { isInvalid: true, isPressed: true, className: tw`border-red-800` },
-  ],
 });
 
 export interface RadioProps
@@ -98,7 +98,7 @@ export interface RadioProps
     MixinProps<'indicator', Omit<ComponentProps<'div'>, 'children'>>,
     MixinProps<'ring', Omit<ComponentProps<'div'>, 'children'>> {}
 
-export const Radio = ({ className, children, indicatorClassName, ringClassName, ...props }: RadioProps) => {
+export const Radio = ({ children, className, indicatorClassName, ringClassName, ...props }: RadioProps) => {
   const forwardedProps = splitProps(props, 'indicator', 'ring');
 
   return (

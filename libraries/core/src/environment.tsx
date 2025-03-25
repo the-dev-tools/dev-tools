@@ -61,14 +61,14 @@ export const EnvironmentsWidget = () => {
     <div className={tw`flex gap-1 border-b border-slate-200 p-3`}>
       <Select
         aria-label='Environment'
-        selectedKey={selectedEnvironmentIdCan}
+        listBoxItems={environments}
         onSelectionChange={(selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
-          workspaceUpdateMutation.mutate({ workspaceId, selectedEnvironmentId });
+          workspaceUpdateMutation.mutate({ selectedEnvironmentId, workspaceId });
         }}
+        selectedKey={selectedEnvironmentIdCan}
         triggerClassName={tw`justify-start p-0`}
         triggerVariant='ghost'
-        listBoxItems={environments}
       >
         {(item) => {
           const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
@@ -94,7 +94,7 @@ export const EnvironmentsWidget = () => {
       <ImportDialog />
 
       <DialogTrigger>
-        <Button variant='ghost' className={tw`p-1`}>
+        <Button className={tw`p-1`} variant='ghost'>
           <GlobalEnvironmentIcon className={tw`size-4 text-slate-500`} />
         </Button>
 
@@ -112,9 +112,9 @@ export const EnvironmentsWidget = () => {
                     <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
 
                     <Button
-                      variant='ghost'
                       className={tw`bg-slate-200 p-0.5`}
-                      onPress={() => void environmentCreateMutation.mutate({ workspaceId, name: 'New Environment' })}
+                      onPress={() => void environmentCreateMutation.mutate({ name: 'New Environment', workspaceId })}
+                      variant='ghost'
                     >
                       <FiPlus className={tw`size-4 text-slate-500`} />
                     </Button>
@@ -125,7 +125,6 @@ export const EnvironmentsWidget = () => {
                       const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
                       return (
                         <Tab
-                          id={environmentIdCan}
                           className={({ isSelected }) =>
                             twJoin(
                               tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
@@ -133,6 +132,7 @@ export const EnvironmentsWidget = () => {
                               item.isGlobal && tw`-order-2`,
                             )
                           }
+                          id={environmentIdCan}
                         >
                           {item.isGlobal ? (
                             <VariableIcon className={tw`size-4 text-slate-500`} />
@@ -156,14 +156,14 @@ export const EnvironmentsWidget = () => {
                   <Collection items={environments}>
                     {(_) => {
                       const id = Ulid.construct(_.environmentId).toCanonical();
-                      return <EnvironmentPanel id={id} environment={_} />;
+                      return <EnvironmentPanel environment={_} id={id} />;
                     }}
                   </Collection>
 
                   <div className={tw`flex-1`} />
 
                   <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
-                    <Button variant='primary' onPress={close}>
+                    <Button onPress={close} variant='primary'>
                       Close
                     </Button>
                   </div>
@@ -178,23 +178,23 @@ export const EnvironmentsWidget = () => {
 };
 
 interface EnvironmentPanelProps {
-  id: string;
   environment: EnvironmentListItem;
+  id: string;
 }
 
-const EnvironmentPanel = ({ id, environment: { environmentId, isGlobal, name } }: EnvironmentPanelProps) => {
+const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }: EnvironmentPanelProps) => {
   const environmentUpdateMutation = useConnectMutation(environmentUpdate);
   const environmentDeleteMutation = useConnectMutation(environmentDelete);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: name,
     onSuccess: (_) => environmentUpdateMutation.mutateAsync({ environmentId, name: _ }),
+    value: name,
   });
 
   return (
-    <TabPanel id={id} className={tw`h-full px-6 py-4`}>
+    <TabPanel className={tw`h-full px-6 py-4`} id={id}>
       <div className={tw`mb-4 flex items-center gap-2`} onContextMenu={onContextMenu}>
         {isGlobal ? (
           <VariableIcon className={tw`size-6 text-slate-500`} />
@@ -222,14 +222,14 @@ const EnvironmentPanel = ({ id, environment: { environmentId, isGlobal, name } }
 
         {!isGlobal && (
           <MenuTrigger {...menuTriggerProps}>
-            <Button variant='ghost' className={tw`p-1`}>
+            <Button className={tw`p-1`} variant='ghost'>
               <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
             </Button>
 
             <Menu {...menuProps}>
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-              <MenuItem variant='danger' onAction={() => void environmentDeleteMutation.mutate({ environmentId })}>
+              <MenuItem onAction={() => void environmentDeleteMutation.mutate({ environmentId })} variant='danger'>
                 Delete
               </MenuItem>
             </Menu>
@@ -255,31 +255,31 @@ const variableColumnHelper = createColumnHelper<FormTableItem<VariableListItem>>
 const variableColumns = [
   genericFormTableEnableColumn,
   variableColumnHelper.accessor('data.name', {
-    header: 'Name',
-    meta: { divider: false },
-    cell: ({ table, row }) => (
+    cell: ({ row, table }) => (
       <TextFieldRHF control={table.options.meta!.control!} name={`items.${row.index}.data.name`} variant='table-cell' />
     ),
+    header: 'Name',
+    meta: { divider: false },
   }),
   variableColumnHelper.accessor('data.value', {
-    header: 'Value',
-    cell: ({ table, row }) => (
+    cell: ({ row, table }) => (
       <TextFieldRHF
         control={table.options.meta!.control!}
         name={`items.${row.index}.data.value`}
         variant='table-cell'
       />
     ),
+    header: 'Value',
   }),
   variableColumnHelper.accessor('data.description', {
-    header: 'Description',
-    cell: ({ table, row }) => (
+    cell: ({ row, table }) => (
       <TextFieldRHF
         control={table.options.meta!.control!}
         name={`items.${row.index}.data.description`}
         variant='table-cell'
       />
     ),
+    header: 'Description',
   }),
   genericFormTableActionColumn,
 ];
@@ -297,13 +297,13 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   } = useConnectSuspenseQuery(variableList, { environmentId });
 
   const table = useFormTable({
-    items,
-    schema: VariableListItemSchema,
     columns: variableColumns as ColumnDef<FormTableItem<VariableListItem>>[],
+    items,
     onCreate: (_) =>
       variableService.variableCreate({ ...Struct.omit(_, '$typeName'), environmentId }).then((_) => _.variableId),
-    onUpdate: (_) => variableService.variableUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => variableService.variableDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => variableService.variableUpdate(Struct.omit(_, '$typeName')),
+    schema: VariableListItemSchema,
   });
 
   return <DataTable table={table} />;

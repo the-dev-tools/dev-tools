@@ -27,7 +27,7 @@ import { FlowSearch } from '../layout';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => {
-  const { id, data } = props;
+  const { data, id } = props;
   const { updateNodeData } = useReactFlow();
 
   const exampleCreateMutation = useConnectMutation(exampleCreate);
@@ -46,9 +46,9 @@ export const RequestNode = (props: NodeProps) => {
                 const request = create(NodeRequestSchema, {
                   ...data.request!,
                   collectionId,
+                  deltaExampleId,
                   endpointId,
                   exampleId,
-                  deltaExampleId,
                 });
                 updateNodeData(id, { ...data, request });
               }}
@@ -57,8 +57,8 @@ export const RequestNode = (props: NodeProps) => {
         </div>
       </NodeBase>
 
-      <Handle type='target' position={Position.Top} />
-      <Handle type='source' position={Position.Bottom} />
+      <Handle position={Position.Top} type='target' />
+      <Handle position={Position.Bottom} type='source' />
     </>
   );
 };
@@ -95,15 +95,15 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
         <MethodBadge method={method} />
         <div className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
         <ButtonAsLink
-          variant='ghost'
           className={tw`p-0.5`}
           href={{
-            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
             params: {
               endpointIdCan: Ulid.construct(endpointId).toCanonical(),
               exampleIdCan: Ulid.construct(exampleId).toCanonical(),
             },
+            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
           }}
+          variant='ghost'
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
         </ButtonAsLink>
@@ -113,7 +113,7 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
 };
 
 export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
-  const { collectionId, endpointId, exampleId, deltaExampleId } = request!;
+  const { collectionId, deltaExampleId, endpointId, exampleId } = request!;
   const { isReadOnly = false } = use(FlowContext);
 
   const { transport } = flowRoute.useRouteContext();
@@ -143,15 +143,15 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         <div className={tw`flex-1`} />
 
         <ButtonAsLink
-          variant='ghost'
           className={tw`shrink-0 px-2`}
           href={{
-            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
             params: {
               endpointIdCan: Ulid.construct(endpointId).toCanonical(),
               exampleIdCan: Ulid.construct(exampleId).toCanonical(),
             },
+            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
           }}
+          variant='ghost'
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
           Open API
@@ -160,9 +160,9 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         <div className={tw`ml-2 mr-3 h-5 w-px shrink-0 bg-slate-300`} />
 
         <ButtonAsLink
-          variant='ghost'
           className={tw`p-1`}
-          href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }) }}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+          variant='ghost'
         >
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
@@ -181,11 +181,11 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
           Request
         </div>
 
-        <ReferenceContext value={{ nodeId, exampleId, workspaceId }}>
+        <ReferenceContext value={{ exampleId, nodeId, workspaceId }}>
           <EndpointRequestView
             className={tw`p-5 pt-3`}
-            exampleId={exampleId}
             deltaExampleId={deltaExampleId}
+            exampleId={exampleId}
             isReadOnly={isReadOnly}
           />
         </ReferenceContext>

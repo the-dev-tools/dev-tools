@@ -42,8 +42,8 @@ export const NoOpNode = (props: NodeProps) => {
         </span>
       </div>
 
-      {kind !== NodeNoOpKind.START && <Handle type='target' position={Position.Top} isConnectable={false} />}
-      <Handle type='source' position={Position.Bottom} />
+      {kind !== NodeNoOpKind.START && <Handle isConnectable={false} position={Position.Top} type='target' />}
+      <Handle position={Position.Bottom} type='source' />
     </>
   );
 };

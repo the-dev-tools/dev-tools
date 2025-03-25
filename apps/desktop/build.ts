@@ -1,36 +1,36 @@
-import { fileURLToPath } from 'node:url';
 import { pipe } from 'effect';
 import { build, type Configuration } from 'electron-builder';
+import { fileURLToPath } from 'node:url';
 
 const config: Configuration = {
   artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
+  asarUnpack: ['resources/**'],
   extraMetadata: {
     name: 'dev-tools',
   },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
   icon: pipe(import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.png'), fileURLToPath),
-  asarUnpack: ['resources/**'],
   linux: {
-    target: ['AppImage'],
     category: 'Development',
+    target: ['AppImage'],
   },
   mac: {
     category: 'public.app-category.developer-tools',
-    hardenedRuntime: true,
-    gatekeeperAssess: false,
-    type: 'distribution',
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
+    gatekeeperAssess: false,
+    hardenedRuntime: true,
+    type: 'distribution',
   },
+  npmRebuild: false,
+  nsis: {
+    allowToChangeInstallationDirectory: true,
+    oneClick: false,
+  },
+  publish: { provider: 'custom' },
   win: {
     signAndEditExecutable: false,
   },
-  nsis: {
-    oneClick: false,
-    allowToChangeInstallationDirectory: true,
-  },
-  npmRebuild: false,
-  publish: { provider: 'custom' },
 };
 
 await build({ config, publish: 'never' });

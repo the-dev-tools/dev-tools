@@ -20,26 +20,26 @@ const overlayStyles = tv({
 
 const modalStyles = tv({
   base: tw`size-full overflow-auto rounded-lg bg-white`,
-  variants: {
-    size: {
-      sm: tw`max-h-[40vh] max-w-[40vw]`,
-      md: tw`max-h-[50vh] max-w-[70vw]`,
-      lg: tw`max-h-[75vh] max-w-[80vw]`,
-    },
-  },
   defaultVariants: {
     size: 'md',
+  },
+  variants: {
+    size: {
+      lg: tw`max-h-[75vh] max-w-[80vw]`,
+      md: tw`max-h-[50vh] max-w-[70vw]`,
+      sm: tw`max-h-[40vh] max-w-[40vw]`,
+    },
   },
 });
 
 export interface ModalProps
-  extends Omit<AriaModalOverlayProps, 'className'>,
-    MixinProps<'modal', VariantProps<typeof modalStyles>> {
-  overlayClassName?: AriaModalOverlayProps['className'];
+  extends MixinProps<'modal', VariantProps<typeof modalStyles>>,
+    Omit<AriaModalOverlayProps, 'className'> {
   modalClassName?: AriaModalOverlayProps['className'];
+  overlayClassName?: AriaModalOverlayProps['className'];
 }
 
-export const Modal = ({ overlayClassName, modalClassName, ...props }: ModalProps) => {
+export const Modal = ({ modalClassName, overlayClassName, ...props }: ModalProps) => {
   const forwardedProps = splitProps(props, 'modal');
 
   return (

@@ -24,14 +24,14 @@ import {
 } from './form-table';
 
 interface QueryTableProps {
-  exampleId: Uint8Array;
   deltaExampleId?: Uint8Array | undefined;
+  exampleId: Uint8Array;
   isReadOnly?: boolean | undefined;
 }
 
-export const QueryTable = ({ exampleId, deltaExampleId, isReadOnly }: QueryTableProps) => {
+export const QueryTable = ({ deltaExampleId, exampleId, isReadOnly }: QueryTableProps) => {
   if (isReadOnly) return <DisplayTable exampleId={exampleId} />;
-  if (deltaExampleId) return <DeltaFormTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+  if (deltaExampleId) return <DeltaFormTable deltaExampleId={deltaExampleId} exampleId={exampleId} />;
   return <FormTable exampleId={exampleId} />;
 };
 
@@ -66,23 +66,23 @@ const FormTable = ({ exampleId }: FormTableProps) => {
   } = useConnectSuspenseQuery(queryList, { exampleId });
 
   const table = useFormTable({
-    items,
-    schema: QueryListItemSchema,
     columns: makeGenericFormTableColumns<QueryListItem>(),
+    items,
     onCreate: (_) => requestService.queryCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.queryId),
-    onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.queryDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
+    schema: QueryListItemSchema,
   });
 
   return <DataTable table={table} />;
 };
 
 interface DeltaFormTableProps {
-  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
+  exampleId: Uint8Array;
 }
 
-const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
+const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 
@@ -101,10 +101,10 @@ const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
   });
 
   const table = useDeltaFormTable({
-    items,
-    deltaItems,
     columns: makeGenericDeltaFormTableColumns<QueryListItem>(),
+    deltaItems,
     getParentId: (_) => _.parentQueryId!,
+    items,
     onCreate: (_) =>
       requestService
         .queryCreate({
@@ -113,8 +113,8 @@ const DeltaFormTable = ({ exampleId, deltaExampleId }: DeltaFormTableProps) => {
           parentQueryId: _.queryId,
         })
         .then((_) => _.queryId),
-    onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.queryDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} />;

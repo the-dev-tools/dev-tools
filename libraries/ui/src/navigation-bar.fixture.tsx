@@ -19,7 +19,7 @@ export default (
       <Avatar variant='lime'>A</Avatar>
       <Avatar variant='amber'>B</Avatar>
       <Avatar variant='blue'>C</Avatar>
-      <Avatar variant='violet' shorten={false}>
+      <Avatar shorten={false} variant='violet'>
         3+
       </Avatar>
       <AddButton variant='light' />

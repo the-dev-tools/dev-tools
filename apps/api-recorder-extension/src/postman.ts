@@ -135,9 +135,9 @@ export class FormParameter extends S.Class<FormParameter>('FormParameter')({
   ),
   disabled: S.optional(S.Union(S.Boolean, S.Null)),
   key: S.String,
+  src: S.optional(S.Union(S.Array(S.Any), S.Null, S.String)),
   type: S.optional(S.Union(FormParameterType, S.Null)),
   value: S.optional(S.Union(S.Null, S.String)),
-  src: S.optional(S.Union(S.Array(S.Any), S.Null, S.String)),
 }) {}
 
 export class File extends S.Class<File>('File')({
@@ -185,6 +185,12 @@ export class RequestClass extends S.Class<RequestClass>('RequestClass')({
 }) {}
 
 export class Item extends S.Class<Item>('Item')({
+  auth: S.optional(
+    S.Union(
+      S.suspend(() => Auth),
+      S.Null,
+    ),
+  ),
   description: S.optional(
     S.Union(
       S.suspend(() => Description),
@@ -194,18 +200,12 @@ export class Item extends S.Class<Item>('Item')({
   ),
   event: S.optional(S.Union(S.Array(S.suspend(() => Event)), S.Null)),
   id: S.optional(S.Union(S.Null, S.String)),
+  item: S.optional(S.Union(S.Array(S.suspend((): S.Schema<Item> => Item)), S.Null)),
   name: S.optional(S.Union(S.Null, S.String)),
   protocolProfileBehavior: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
   request: S.optional(S.Union(RequestClass, S.Null, S.String)),
   response: S.optional(S.Union(S.Array(Response), S.Null)),
   variable: S.optional(S.Union(S.Array(S.suspend(() => Variable)), S.Null)),
-  auth: S.optional(
-    S.Union(
-      S.suspend(() => Auth),
-      S.Null,
-    ),
-  ),
-  item: S.optional(S.Union(S.Array(S.suspend((): S.Schema<Item> => Item)), S.Null)),
 }) {}
 
 export class CollectionVersionClass extends S.Class<CollectionVersionClass>('CollectionVersionClass')({
@@ -319,7 +319,7 @@ export class Collection extends S.Class<Collection>('Collection')({
     S.propertySignature,
     S.withConstructorDefault(() => new Information({ name: DEFAULT_NAME, schema: DEFAULT_SCHEMA })),
   ),
-  item: S.optional(S.Array(Item)).pipe(S.withDefaults({ decoding: () => [], constructor: () => [] })),
+  item: S.optional(S.Array(Item)).pipe(S.withDefaults({ constructor: () => [], decoding: () => [] })),
   protocolProfileBehavior: S.optional(S.Union(S.Record({ key: S.String, value: S.Any }), S.Null)),
   variable: S.optional(S.Union(S.Array(Variable), S.Null)),
 }) {}

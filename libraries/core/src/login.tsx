@@ -12,7 +12,9 @@ export class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
   redirect: Schema.optional(Schema.String),
 }) {}
 
-export const Route = createFileRoute('/login')({
+const makeRoute = createFileRoute('/login');
+
+export const Route = makeRoute({
   validateSearch: Schema.decodeSync(LoginSearch),
   component: LoginPage,
 });
@@ -59,15 +61,15 @@ function LoginPage() {
       >
         <TextField
           className={tw`mb-4`}
-          labelClassName={tw`mb-1 text-start text-sm font-medium leading-5 tracking-tight text-slate-800`}
           inputPlaceholder='Enter email...'
-          name='email'
-          type='email'
           isRequired
           label='Email'
+          labelClassName={tw`mb-1 text-start text-sm font-medium leading-5 tracking-tight text-slate-800`}
+          name='email'
+          type='email'
         />
 
-        <Button className={tw`w-full py-2.5`} variant='primary' type='submit'>
+        <Button className={tw`w-full py-2.5`} type='submit' variant='primary'>
           Login
         </Button>
       </Form>
@@ -77,11 +79,11 @@ function LoginPage() {
       {/* TODO: implement TOS */}
       <span className={tw`mb-10 text-sm leading-5 text-slate-500`}>
         By clicking “Login” you agree with our{' '}
-        <a href='.' className={tw`text-violet-600 underline`}>
+        <a className={tw`text-violet-600 underline`} href='.'>
           Terms of use
         </a>{' '}
         and{' '}
-        <a href='.' className={tw`text-violet-600 underline`}>
+        <a className={tw`text-violet-600 underline`} href='.'>
           Privacy policy
         </a>
       </span>

@@ -11,16 +11,16 @@ import { Context, Effect, pipe, Runtime } from 'effect';
 
 export class ApiTransport extends Context.Tag('ApiTransport')<ApiTransport, Transport>() {}
 
-export type Request = UnaryRequest | StreamRequest;
-type Response = UnaryResponse | StreamResponse;
+export type Request = StreamRequest | UnaryRequest;
+type Response = StreamResponse | UnaryResponse;
 type AnyFn = (req: Request) => Promise<Response>;
 export type AnyFnEffect<E, R> = (req: Request) => Effect.Effect<Response, E, R>;
 
 export const finalizeEffectInterceptor = (next: AnyFn) => (request: Request) =>
   pipe(
     Effect.tryPromise({
-      try: (_) => next({ ...request, signal: AbortSignal.any([_, request.signal]) }),
       catch: (_) => ConnectError.from(_),
+      try: (_) => next({ ...request, signal: AbortSignal.any([_, request.signal]) }),
     }),
     Effect.catchIf(
       (_) => _.code === Code.Canceled,

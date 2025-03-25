@@ -47,9 +47,9 @@ import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { FlowContext, flowRoute } from './internal';
 import { FlowSearch } from './layout';
 
-export { NodeDTOSchema, type NodeDTO };
+export { type NodeDTO, NodeDTOSchema };
 
-export interface NodeData extends Omit<NodeDTO, keyof Message | 'nodeId' | 'kind' | 'position'> {}
+export interface NodeData extends Omit<NodeDTO, 'kind' | 'nodeId' | 'position' | keyof Message> {}
 export interface Node extends NodeCore<NodeData> {}
 export interface NodeProps extends NodePropsCore<Node> {}
 
@@ -58,18 +58,18 @@ export interface NodePanelProps {
 }
 
 export const Node = {
-  fromDTO: ({ nodeId, kind, position, ...data }: Omit<NodeDTO, keyof Message> & Message): Node => ({
-    id: Ulid.construct(nodeId).toCanonical(),
-    position: Struct.pick(position!, 'x', 'y'),
-    origin: [0.5, 0],
-    type: enumToJson(NodeKindSchema, kind),
+  fromDTO: ({ kind, nodeId, position, ...data }: Message & Omit<NodeDTO, keyof Message>): Node => ({
     data: Struct.omit(data, '$typeName', '$unknown'),
+    id: Ulid.construct(nodeId).toCanonical(),
+    origin: [0.5, 0],
+    position: Struct.pick(position!, 'x', 'y'),
+    type: enumToJson(NodeKindSchema, kind),
   }),
 
-  toDTO: (_: Node): Omit<NodeDTO, keyof Message | 'state'> => ({
+  toDTO: (_: Node): Omit<NodeDTO, 'state' | keyof Message> => ({
     ...Struct.omit(_.data, 'state'),
-    nodeId: Ulid.fromCanonical(_.id).bytes,
     kind: isEnumJson(NodeKindSchema, _.type) ? enumFromJson(NodeKindSchema, _.type) : NodeKind.UNSPECIFIED,
+    nodeId: Ulid.fromCanonical(_.id).bytes,
     position: create(PositionSchema, _.position),
   }),
 };
@@ -77,24 +77,24 @@ export const Node = {
 const nodeBaseStyles = tv({
   base: tw`nopan shadow-xs relative w-80 rounded-lg bg-slate-200 p-1 outline-1 transition-colors`,
   variants: {
+    isSelected: { true: tw`bg-slate-300` },
     state: {
-      [NodeState.UNSPECIFIED]: tw`outline-slate-300`,
+      [NodeState.FAILURE]: tw`outline-red-600`,
       [NodeState.RUNNING]: tw`outline-violet-600`,
       [NodeState.SUCCESS]: tw`outline-green-600`,
-      [NodeState.FAILURE]: tw`outline-red-600`,
+      [NodeState.UNSPECIFIED]: tw`outline-slate-300`,
     } satisfies Record<NodeState, string>,
-    isSelected: { true: tw`bg-slate-300` },
   },
 });
 
 interface NodeBaseProps extends NodeProps {
-  Icon: IconType;
   children: ReactNode;
+  Icon: IconType;
 }
 
 // TODO: add node name
-export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }: NodeBaseProps) => {
-  const { getEdges, getNode, deleteElements, getZoom } = useReactFlow();
+export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }: NodeBaseProps) => {
+  const { deleteElements, getEdges, getNode, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
 
   const nodeUpdateMutation = useConnectMutation(nodeUpdate);
@@ -105,12 +105,12 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
   const escape = useEscapePortal(ref);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => nodeUpdateMutation.mutateAsync({ name: _, nodeId: Ulid.fromCanonical(id).bytes }),
     value: name,
-    onSuccess: (_) => nodeUpdateMutation.mutateAsync({ nodeId: Ulid.fromCanonical(id).bytes, name: _ }),
   });
 
   return (
-    <div ref={ref} className={nodeBaseStyles({ state, isSelected: selected })}>
+    <div className={nodeBaseStyles({ isSelected: selected, state })} ref={ref}>
       <div
         className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}
         onContextMenu={(event) => {
@@ -123,7 +123,7 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
 
         <div className={tw`h-4 w-px bg-slate-300`} />
 
-        <div ref={escape.ref} className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight`}>
+        <div className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight`} ref={escape.ref}>
           {name}
         </div>
 
@@ -151,17 +151,16 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
 
         {!isReadOnly && (
           <MenuTrigger {...menuTriggerProps}>
-            <Button variant='ghost' className={tw`p-0.5`}>
+            <Button className={tw`p-0.5`} variant='ghost'>
               <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
             </Button>
 
             <Menu {...menuProps}>
-              <MenuItem href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}>Edit</MenuItem>
+              <MenuItem href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}>Edit</MenuItem>
 
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
               <MenuItem
-                variant='danger'
                 onAction={async () => {
                   const node = getNode(id);
 
@@ -171,10 +170,11 @@ export const NodeBase = ({ id, data: { name, state }, Icon, children, selected }
                   );
 
                   await deleteElements({
-                    nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
                     edges: [...createEdges, ...edges],
+                    nodes: [{ id }, ...createEdges.map((_) => ({ id: _.target }))],
                   });
                 }}
+                variant='danger'
               >
                 Delete
               </MenuItem>
@@ -213,11 +213,11 @@ export const nodesQueryOptions = ({
   ...input
 }: MessageInitShape<typeof NodeListRequestSchema> & { transport: Transport }) =>
   queryOptions({
+    queryFn: async () => pipe(await callUnaryMethod(transport, nodeList, input), (_) => _.items.map(Node.fromDTO)),
     queryKey: pipe(
-      createConnectQueryKey({ schema: nodeList, cardinality: 'finite', transport, input }),
+      createConnectQueryKey({ cardinality: 'finite', input, schema: nodeList, transport }),
       Array.append('react-flow'),
     ),
-    queryFn: async () => pipe(await callUnaryMethod(transport, nodeList, input), (_) => _.items.map(Node.fromDTO)),
   });
 
 export const useOnNodesChange = () => {
@@ -285,7 +285,7 @@ export const useOnNodesChange = () => {
     oldNodes.current = undefined;
   }, 500);
 
-  const nodesQueryKey = nodesQueryOptions({ transport, flowId }).queryKey;
+  const nodesQueryKey = nodesQueryOptions({ flowId, transport }).queryKey;
 
   return useCallback<OnNodesChange<Node>>(
     async (changes) => {

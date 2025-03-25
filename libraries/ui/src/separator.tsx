@@ -5,17 +5,17 @@ import { tw } from './tailwind-literal';
 
 const styles = tv({
   base: tw`bg-slate-200`,
+  defaultVariants: {
+    orientation: 'horizontal',
+  },
   variants: {
     orientation: {
       horizontal: tw`h-px w-full`,
       vertical: tw`w-px`,
     },
   },
-  defaultVariants: {
-    orientation: 'horizontal',
-  },
 });
 
 export const Separator = ({ className, ...props }: AriaSeparatorProps) => (
-  <AriaSeparator {...props} className={styles({ orientation: props.orientation, className })} />
+  <AriaSeparator {...props} className={styles({ className, orientation: props.orientation })} />
 );

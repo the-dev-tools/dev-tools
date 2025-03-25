@@ -28,7 +28,7 @@ export const ForNode = (props: NodeProps) => {
         <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
           <ButtonAsLink
             className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800`}
-            href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: id }) }}
+            href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}
           >
             <CheckListAltIcon className={tw`size-5 text-slate-500`} />
             <span>Edit Loop</span>
@@ -36,24 +36,24 @@ export const ForNode = (props: NodeProps) => {
         </div>
       </NodeBase>
 
-      <Handle type='target' position={Position.Top} />
+      <Handle position={Position.Top} type='target' />
       <Handle
-        type='source'
-        position={Position.Bottom}
         id={'HANDLE_LOOP' satisfies HandleKindJson}
         isConnectable={false}
+        position={Position.Bottom}
+        type='source'
       />
       <Handle
-        type='source'
-        position={Position.Bottom}
         id={'HANDLE_THEN' satisfies HandleKindJson}
         isConnectable={false}
+        position={Position.Bottom}
+        type='source'
       />
     </>
   );
 };
 
-export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
+export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
   const { control, handleSubmit, watch } = useForm({ values: data! });
   const { isReadOnly = false } = use(FlowContext);
 
@@ -61,7 +61,7 @@ export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
 
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (data) => {
-      await nodeUpdateMutation.mutateAsync({ nodeId, for: data });
+      await nodeUpdateMutation.mutateAsync({ for: data, nodeId });
     })();
   }, 200);
 
@@ -81,9 +81,9 @@ export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
         <div className={tw`flex-1`} />
 
         <ButtonAsLink
-          variant='ghost'
           className={tw`p-1`}
-          href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }) }}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+          variant='ghost'
         >
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
@@ -91,29 +91,29 @@ export const ForPanel = ({ node: { nodeId, for: data } }: NodePanelProps) => {
 
       <div className={tw`m-5 grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
         <NumberFieldRHF
-          control={control}
-          name='iterations'
-          label='Iterations'
           className={tw`contents`}
+          control={control}
           groupClassName={tw`min-w-[30%] justify-self-start`}
           isReadOnly={isReadOnly}
+          label='Iterations'
+          name='iterations'
         />
 
         <ConditionField
-          control={control}
-          path='condition'
-          label='Break If'
           className={tw`contents`}
+          control={control}
           isReadOnly={isReadOnly}
+          label='Break If'
+          path='condition'
         />
 
         <SelectRHF
-          control={control}
-          name='errorHandling'
-          label='On Error'
           className={tw`contents`}
-          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
+          control={control}
           disabled={isReadOnly}
+          label='On Error'
+          name='errorHandling'
+          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
         >
           <ListBoxItem id={ErrorHandling.UNSPECIFIED}>Throw</ListBoxItem>
           <ListBoxItem id={ErrorHandling.IGNORE}>Ignore</ListBoxItem>

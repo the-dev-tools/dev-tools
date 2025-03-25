@@ -18,9 +18,9 @@ import { StatusBar } from '../status-bar';
 import { EditPanel, Flow, TopBar } from './flow';
 import { FlowContext } from './internal';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history')({
-  component: RouteComponent,
-});
+const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history');
+
+export const Route = makeRoute({ component: RouteComponent });
 
 function RouteComponent() {
   const { flowIdCan } = Route.useParams();
@@ -31,7 +31,6 @@ function RouteComponent() {
   } = useConnectSuspenseQuery(flowVersions, { flowId });
 
   const state = useTabListState({
-    items,
     children: ({ flowId }) => (
       <Item key={Ulid.construct(flowId).toCanonical()}>
         <PanelGroup direction='vertical'>
@@ -45,8 +44,8 @@ function RouteComponent() {
             <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
               <ReactFlowProvider>
                 <TopBar />
-                <Panel id='flow' order={1} className='flex h-full flex-col'>
-                  <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId} />
+                <Panel className='flex h-full flex-col' id='flow' order={1}>
+                  <Flow flowId={flowId} key={Ulid.construct(flowId).toCanonical()} />
                 </Panel>
                 <EditPanel />
               </ReactFlowProvider>
@@ -56,6 +55,7 @@ function RouteComponent() {
         </PanelGroup>
       </Item>
     ),
+    items,
   });
   const tabListRef = useRef(null);
   const { tabListProps } = useTabList({ items, orientation: 'vertical' }, state, tabListRef);
@@ -69,13 +69,13 @@ function RouteComponent() {
       <PanelResizeHandle direction='horizontal' />
 
       <Panel
-        id='history'
-        order={3}
         className={tw`flex flex-col bg-slate-50 p-4 tracking-tight`}
-        style={{ overflowY: 'auto' }}
         defaultSize={20}
-        minSize={10}
+        id='history'
         maxSize={40}
+        minSize={10}
+        order={3}
+        style={{ overflowY: 'auto' }}
       >
         <div className={tw`mb-4`}>
           <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Flow History</div>
@@ -106,7 +106,7 @@ function RouteComponent() {
 
           <div ref={tabListRef} {...tabListProps}>
             {[...state.collection].map((item) => (
-              <Tab key={item.key} item={item} state={state} />
+              <Tab item={item} key={item.key} state={state} />
             ))}
           </div>
         </div>
@@ -123,17 +123,17 @@ interface TabProps {
 const Tab = ({ item, state }: TabProps) => {
   const { key, value } = item;
   const ref = useRef(null);
-  const { tabProps, isSelected } = useTab({ key }, state, ref);
+  const { isSelected, tabProps } = useTab({ key }, state, ref);
   if (!value) return null;
   return (
     <div
       {...tabProps}
-      ref={ref}
       className={twJoin(
         tabProps.className,
         tw`text-md flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold leading-5 text-slate-800`,
         isSelected && tw`bg-slate-200`,
       )}
+      ref={ref}
     >
       {Ulid.construct(value.flowId).time.toLocaleString()}
     </div>
@@ -148,7 +148,7 @@ const TabPanel = ({ state }: TabPanelProps) => {
   const ref = useRef(null);
   const { tabPanelProps } = useTabPanel({}, state, ref);
   return (
-    <div {...tabPanelProps} ref={ref} className={tw`size-full`}>
+    <div {...tabPanelProps} className={tw`size-full`} ref={ref}>
       {state.selectedItem?.rendered}
     </div>
   );

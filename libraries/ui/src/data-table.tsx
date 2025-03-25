@@ -14,13 +14,13 @@ declare module '@tanstack/react-table' {
 }
 
 export const tableStyles = {
-  wrapper: tw`overflow-auto rounded-lg border border-slate-200`,
-  table: tw`text-md w-full border-inherit leading-5 text-slate-800`,
+  body: tw`divide-y border-inherit`,
+  cell: tw`break-all border-inherit align-middle`,
   header: tw`divide-y border-b border-inherit bg-slate-50 font-medium tracking-tight`,
   headerCell: tw`border-inherit px-5 py-1.5 text-left capitalize`,
-  body: tw`divide-y border-inherit`,
   row: tw`divide-x border-inherit`,
-  cell: tw`break-all border-inherit align-middle`,
+  table: tw`text-md w-full border-inherit leading-5 text-slate-800`,
+  wrapper: tw`overflow-auto rounded-lg border border-slate-200`,
 };
 
 export interface DataTableProps<T>
@@ -35,15 +35,15 @@ export interface DataTableProps<T>
 }
 
 export const DataTable = <T,>({
-  table,
-  wrapperClassName,
-  tableClassName,
+  bodyClassName,
+  cellClassName,
   headerCellClassName,
   headerCellStyle,
   headerClassName,
   rowClassName,
-  cellClassName,
-  bodyClassName,
+  table,
+  tableClassName,
+  wrapperClassName,
   ...props
 }: DataTableProps<T>) => {
   const forwardedProps = splitProps(props, 'wrapper', 'table', 'headerCell', 'header', 'row', 'cell', 'body');

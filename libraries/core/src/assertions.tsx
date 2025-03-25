@@ -47,10 +47,10 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
     <div className={tw`flex flex-col gap-2`}>
       {fieldArray.fields.map((item, index) => (
         <ConditionField
-          key={item.id}
           control={form.control}
-          path={`items.${index}.condition`}
           isReadOnly={isReadOnly}
+          key={item.id}
+          path={`items.${index}.condition`}
         />
       ))}
 

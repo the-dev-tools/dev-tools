@@ -7,7 +7,7 @@ import {
   type MenuProps as AriaMenuProps,
 } from 'react-aria-components';
 
-import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
+import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { listBoxItemStyles, listBoxItemVariantKeys, ListBoxItemVariants, listBoxStyles } from './list-box';
@@ -17,17 +17,17 @@ import { composeRenderPropsTV } from './utils';
 // Root
 
 export interface MenuProps<T extends object>
-  extends Omit<AriaMenuProps<T>, 'children'>,
-    MixinProps<'popover', Omit<DropdownPopoverProps, 'children'>> {
+  extends MixinProps<'popover', Omit<DropdownPopoverProps, 'children'>>,
+    Omit<AriaMenuProps<T>, 'children'> {
   children?: AriaMenuProps<T>['children'];
-  contextMenuRef?: RefObject<HTMLDivElement | null>;
   contextMenuPosition?: ContextMenuPosition | undefined;
+  contextMenuRef?: RefObject<HTMLDivElement | null>;
 }
 
 export const Menu = <T extends object>({
   className,
-  contextMenuRef,
   contextMenuPosition,
+  contextMenuRef,
   popoverTriggerRef,
   ...props
 }: MenuProps<T>) => {
@@ -37,7 +37,7 @@ export const Menu = <T extends object>({
 
   return (
     <>
-      {contextMenuRef && <div ref={contextMenuRef} className={tw`fixed`} style={contextMenuPosition} />}
+      {contextMenuRef && <div className={tw`fixed`} ref={contextMenuRef} style={contextMenuPosition} />}
 
       <DropdownPopover triggerRef={triggerRef!} {...forwardedProps.popover}>
         <AriaMenu {...forwardedProps.rest} className={composeRenderPropsTV(className, listBoxStyles)} />
@@ -49,25 +49,25 @@ export const Menu = <T extends object>({
 // Context menu state
 
 interface ContextMenuPosition {
-  top: number;
   left: number;
+  top: number;
 }
 
 export const useContextMenuState = () => {
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const [{ isOpen, contextMenuPosition }, setState] = useState<{
-    isOpen: boolean;
+  const [{ contextMenuPosition, isOpen }, setState] = useState<{
     contextMenuPosition?: ContextMenuPosition;
+    isOpen: boolean;
   }>({ isOpen: false });
 
   const onContextMenu = useCallback((event: React.MouseEvent, offset?: ContextMenuPosition, zoom = 1) => {
     setState({
-      isOpen: true,
       contextMenuPosition: {
         left: (event.pageX - (offset?.left ?? 0)) / zoom,
         top: (event.pageY - (offset?.top ?? 0)) / zoom,
       },
+      isOpen: true,
     });
 
     event.preventDefault();

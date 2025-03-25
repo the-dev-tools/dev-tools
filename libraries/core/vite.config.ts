@@ -6,10 +6,10 @@ import { routes } from './src/routes';
 export default defineConfig({
   plugins: [
     TanStackRouterVite({
-      routesDirectory: './src',
       generatedRouteTree: './src/router-tree.tsx',
-      virtualRouteConfig: routes,
+      routesDirectory: './src',
       semicolons: true,
+      virtualRouteConfig: routes,
     }),
   ],
   server: {

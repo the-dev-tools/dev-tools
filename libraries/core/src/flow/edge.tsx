@@ -35,7 +35,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { FlowContext, flowRoute } from './internal';
 
-export { EdgeDTOSchema, type EdgeDTO };
+export { type EdgeDTO, EdgeDTOSchema };
 
 export interface EdgeData extends Record<string, unknown> {
   state: NodeState;
@@ -44,12 +44,12 @@ export interface Edge extends EdgeCore<EdgeData> {}
 export interface EdgeProps extends EdgePropsCore<Edge> {}
 
 export const Edge = {
-  fromDTO: (edge: Omit<EdgeDTO, keyof Message> & Message): Edge => ({
+  fromDTO: (edge: Message & Omit<EdgeDTO, keyof Message>): Edge => ({
+    data: { state: NodeState.UNSPECIFIED },
     id: Ulid.construct(edge.edgeId).toCanonical(),
     source: Ulid.construct(edge.sourceId).toCanonical(),
     sourceHandle: edge.sourceHandle === HandleKind.UNSPECIFIED ? null : enumToJson(HandleKindSchema, edge.sourceHandle),
     target: Ulid.construct(edge.targetId).toCanonical(),
-    data: { state: NodeState.UNSPECIFIED },
   }),
 
   toDTO: (_: Partial<Edge>): Omit<EdgeDTO, keyof Message> =>
@@ -60,14 +60,14 @@ export const Edge = {
           Option.map((_) => Ulid.fromCanonical(_).bytes),
           Option.getOrUndefined,
         )!,
+        sourceHandle: isEnumJson(HandleKindSchema, _.sourceHandle)
+          ? enumFromJson(HandleKindSchema, _.sourceHandle)
+          : HandleKind.UNSPECIFIED,
         sourceId: pipe(
           Option.fromNullable(_.source),
           Option.map((_) => Ulid.fromCanonical(_).bytes),
           Option.getOrUndefined,
         )!,
-        sourceHandle: isEnumJson(HandleKindSchema, _.sourceHandle)
-          ? enumFromJson(HandleKindSchema, _.sourceHandle)
-          : HandleKind.UNSPECIFIED,
         targetId: pipe(
           Option.fromNullable(_.target),
           Option.map((_) => Ulid.fromCanonical(_).bytes),
@@ -95,23 +95,23 @@ export const edgesQueryOptions = ({
   ...input
 }: MessageInitShape<typeof EdgeListRequestSchema> & { transport: Transport }) =>
   queryOptions({
+    queryFn: async () => pipe(await callUnaryMethod(transport, edgeList, input), (_) => _.items.map(Edge.fromDTO)),
     queryKey: pipe(
-      createConnectQueryKey({ schema: edgeList, cardinality: 'finite', transport, input }),
+      createConnectQueryKey({ cardinality: 'finite', input, schema: edgeList, transport }),
       Array.append('react-flow'),
     ),
-    queryFn: async () => pipe(await callUnaryMethod(transport, edgeList, input), (_) => _.items.map(Edge.fromDTO)),
   });
 
-const DefaultEdge = ({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data }: EdgeProps) => (
+const DefaultEdge = ({ data, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: EdgeProps) => (
   <ConnectionLine
+    connected
+    fromPosition={sourcePosition}
     fromX={sourceX}
     fromY={sourceY}
-    fromPosition={sourcePosition}
+    state={data?.state}
+    toPosition={targetPosition}
     toX={targetX}
     toY={targetY}
-    toPosition={targetPosition}
-    connected
-    state={data?.state}
   />
 );
 
@@ -123,39 +123,39 @@ const connectionLineStyles = tv({
   base: tw`fill-none stroke-1 transition-colors`,
   variants: {
     state: {
-      [NodeState.UNSPECIFIED]: tw`stroke-slate-800`,
+      [NodeState.FAILURE]: tw`stroke-red-600`,
       [NodeState.RUNNING]: tw`stroke-violet-600`,
       [NodeState.SUCCESS]: tw`stroke-green-600`,
-      [NodeState.FAILURE]: tw`stroke-red-600`,
+      [NodeState.UNSPECIFIED]: tw`stroke-slate-800`,
     } satisfies Record<NodeState, string>,
   },
 });
 
 interface ConnectionLineProps
-  extends Pick<ConnectionLineComponentProps, 'fromX' | 'fromY' | 'fromPosition' | 'toX' | 'toY' | 'toPosition'> {
+  extends Pick<ConnectionLineComponentProps, 'fromPosition' | 'fromX' | 'fromY' | 'toPosition' | 'toX' | 'toY'> {
   connected?: boolean;
   state?: NodeState | undefined;
 }
 
 export const ConnectionLine = ({
+  connected = false,
+  fromPosition,
   fromX,
   fromY,
-  fromPosition,
+  state = NodeState.UNSPECIFIED,
+  toPosition,
   toX,
   toY,
-  toPosition,
-  connected = false,
-  state = NodeState.UNSPECIFIED,
 }: ConnectionLineProps) => {
   const [edgePath] = getSmoothStepPath({
-    sourceX: fromX,
-    sourceY: fromY,
-    sourcePosition: fromPosition,
-    targetX: toX,
-    targetY: toY,
-    targetPosition: toPosition,
     borderRadius: 8,
     offset: 8,
+    sourcePosition: fromPosition,
+    sourceX: fromX,
+    sourceY: fromY,
+    targetPosition: toPosition,
+    targetX: toX,
+    targetY: toY,
   });
 
   return <path className={connectionLineStyles({ state })} d={edgePath} strokeDasharray={connected ? undefined : 4} />;
@@ -226,7 +226,7 @@ export const useOnEdgesChange = () => {
     oldEdges.current = undefined;
   }, 500);
 
-  const edgesQueryKey = edgesQueryOptions({ transport, flowId }).queryKey;
+  const edgesQueryKey = edgesQueryOptions({ flowId, transport }).queryKey;
   return useCallback<OnEdgesChange<Edge>>(
     async (changes) => {
       const newEdges = queryClient.setQueryData<Edge[]>(edgesQueryKey, (edges) => {

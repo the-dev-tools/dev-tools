@@ -1,4 +1,3 @@
-import { createServer, IncomingMessage } from 'http';
 import { cors as connectCors, createConnectRouter } from '@connectrpc/connect';
 import { UniversalHandler } from '@connectrpc/connect/protocol';
 import {
@@ -11,6 +10,7 @@ import {
 } from '@effect/platform';
 import { NodeHttpServer, NodeHttpServerRequest, NodeRuntime } from '@effect/platform-node';
 import { Array, Console, Effect, Layer, pipe, Stream } from 'effect';
+import { createServer, IncomingMessage } from 'http';
 
 import { NodeJSExecutorService } from './nodejs-executor';
 
@@ -32,12 +32,12 @@ const toEffectHandler = Effect.fn(function* (handler: UniversalHandler) {
 
   const response = yield* Effect.tryPromise((signal) =>
     handler({
-      httpVersion: requestRaw.httpVersion,
-      url: new URL(request.url, `http://${request.headers['host']}`).toString(),
-      method: request.method,
-      header: new Headers(request.headers),
       body: asyncIterableFromNodeServerRequest(requestRaw),
+      header: new Headers(request.headers),
+      httpVersion: requestRaw.httpVersion,
+      method: request.method,
       signal,
+      url: new URL(request.url, `http://${request.headers['host']}`).toString(),
     }),
   );
 
@@ -47,8 +47,8 @@ const toEffectHandler = Effect.fn(function* (handler: UniversalHandler) {
   );
 
   return yield* HttpServerResponse.stream(body, {
-    status: response.status,
     headers: response.header,
+    status: response.status,
   });
 }, Effect.onError(Effect.logError));
 

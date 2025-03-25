@@ -19,13 +19,12 @@ import { ApiTransport } from '@the-dev-tools/api/transport';
 
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
-
 import './styles.css';
 
 const makeRouter = Effect.gen(function* () {
   // TODO: create an Electron-related layer instead to better represent this logic
   const history = (yield* LocalMode) ? createHashHistory() : createBrowserHistory();
-  return createRouter({ routeTree, context: {} as RouterContext, history });
+  return createRouter({ context: {} as RouterContext, history, routeTree });
 });
 
 declare module '@tanstack/react-router' {
@@ -36,7 +35,7 @@ declare module '@tanstack/react-router' {
 
 declare module 'react-aria-components' {
   interface RouterConfig {
-    href: ToOptions | string;
+    href: string | ToOptions;
     routerOptions: Omit<NavigateOptions, keyof ToOptions>;
   }
 }
@@ -68,7 +67,7 @@ export const app = Effect.gen(function* () {
                 return router.buildLocation(to).href;
               }}
             >
-              <RouterProvider router={router} context={{ queryClient, runtime, transport }} />
+              <RouterProvider context={{ queryClient, runtime, transport }} router={router} />
             </AriaRouterProvider>
           </QueryClientProvider>
         </QueryNormalizerProvider>

@@ -1,6 +1,29 @@
 /** @type {import("syncpack").RcFile} */
 export default {
   dependencyTypes: ['!local'],
+  semverGroups: [
+    {
+      dependencies: ['**'],
+      dependencyTypes: ['!dev', '!peer'],
+      label: 'Production dependencies should have fixed version numbers',
+      packages: ['**'],
+      range: '',
+    },
+    {
+      dependencies: ['**'],
+      dependencyTypes: ['dev'],
+      label: 'Development dependencies should have fixed minor version',
+      packages: ['**'],
+      range: '~',
+    },
+    {
+      dependencies: ['**'],
+      dependencyTypes: ['peer'],
+      label: 'Peer dependencies should have fixed major version',
+      packages: ['**'],
+      range: '^',
+    },
+  ],
   sortFirst: [
     'name',
     'displayName',
@@ -17,34 +40,11 @@ export default {
   ],
   versionGroups: [
     {
-      label: 'PNPM Workspace Version Group',
-      pinVersion: 'workspace:^',
-      packages: ['!the-dev-tools'],
       dependencies: ['$LOCAL'],
       dependencyTypes: ['!local'],
-    },
-  ],
-  semverGroups: [
-    {
-      label: 'Production dependencies should have fixed version numbers',
-      range: '',
-      dependencyTypes: ['!dev', '!peer'],
-      dependencies: ['**'],
-      packages: ['**'],
-    },
-    {
-      label: 'Development dependencies should have fixed minor version',
-      range: '~',
-      dependencyTypes: ['dev'],
-      dependencies: ['**'],
-      packages: ['**'],
-    },
-    {
-      label: 'Peer dependencies should have fixed major version',
-      range: '^',
-      dependencyTypes: ['peer'],
-      dependencies: ['**'],
-      packages: ['**'],
+      label: 'PNPM Workspace Version Group',
+      packages: ['!the-dev-tools'],
+      pinVersion: 'workspace:^',
     },
   ],
 };

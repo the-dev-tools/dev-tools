@@ -31,34 +31,34 @@ export const ListBox = <T extends object>({ className, ...props }: ListBoxProps<
 // Item
 
 export const listBoxItemStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`group/listbox flex cursor-pointer select-none items-center gap-2.5 px-3 py-1.5 text-xs font-medium leading-4 tracking-tight -outline-offset-4`,
-  variants: {
-    ...isFocusVisibleRingStyles.variants,
-    variant: {
-      default: tw`text-slate-800`,
-      danger: tw`text-rose-700`,
-      accent: tw`text-violet-600`,
-    },
-    isHovered: { false: null },
-    isPressed: { false: null },
-    isSelected: { false: null },
-  },
   compoundVariants: [
-    { isHovered: true, variant: 'default', className: tw`bg-slate-100` },
-    { isHovered: true, variant: 'danger', className: tw`bg-rose-100` },
-    { isHovered: true, variant: 'accent', className: tw`bg-violet-100` },
+    { className: tw`bg-slate-100`, isHovered: true, variant: 'default' },
+    { className: tw`bg-rose-100`, isHovered: true, variant: 'danger' },
+    { className: tw`bg-violet-100`, isHovered: true, variant: 'accent' },
 
-    { isPressed: true, variant: 'default', className: tw`bg-slate-200` },
-    { isPressed: true, variant: 'danger', className: tw`bg-rose-200` },
-    { isPressed: true, variant: 'accent', className: tw`bg-violet-200` },
+    { className: tw`bg-slate-200`, isPressed: true, variant: 'default' },
+    { className: tw`bg-rose-200`, isPressed: true, variant: 'danger' },
+    { className: tw`bg-violet-200`, isPressed: true, variant: 'accent' },
 
-    { isSelected: true, variant: 'default', className: tw`bg-slate-200` },
-    { isSelected: true, variant: 'danger', className: tw`bg-rose-200` },
-    { isSelected: true, variant: 'accent', className: tw`bg-violet-200` },
+    { className: tw`bg-slate-200`, isSelected: true, variant: 'default' },
+    { className: tw`bg-rose-200`, isSelected: true, variant: 'danger' },
+    { className: tw`bg-violet-200`, isSelected: true, variant: 'accent' },
   ],
   defaultVariants: {
     variant: 'default',
+  },
+  extend: isFocusVisibleRingStyles,
+  variants: {
+    ...isFocusVisibleRingStyles.variants,
+    isHovered: { false: null },
+    isPressed: { false: null },
+    isSelected: { false: null },
+    variant: {
+      accent: tw`text-violet-600`,
+      danger: tw`text-rose-700`,
+      default: tw`text-slate-800`,
+    },
   },
 });
 
@@ -81,10 +81,10 @@ export interface ListBoxItemProps extends AriaListBoxItemProps, ListBoxItemVaria
 }
 
 export const ListBoxItem = ({
-  className,
   children,
-  textValue,
+  className,
   showSelectIndicator = true,
+  textValue,
   ...props
 }: ListBoxItemProps) => {
   const forwardedProps = Struct.omit(props, ...listBoxItemVariantKeys);

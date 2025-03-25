@@ -58,9 +58,9 @@ interface FormWatchProps<
   TFieldValues extends FieldValues = FieldValues,
   TFieldNames extends readonly FieldPath<TFieldValues>[] = readonly FieldPath<TFieldValues>[],
 > {
-  name: readonly [...TFieldNames];
-  control: Control<TFieldValues>;
   children: (values: FieldPathValues<TFieldValues, TFieldNames>) => ReactNode;
+  control: Control<TFieldValues>;
+  name: readonly [...TFieldNames];
 }
 
 export const FormWatch = <
@@ -93,8 +93,8 @@ interface UseFieldArrayTasksProps<
     setValue: UseFormSetValue<TFieldValues>;
     watch: UseFormWatch<TFieldValues>;
   };
-  itemPath: (index: number) => TItemPath;
   itemKey: (item: TItem) => TKey;
+  itemPath: (index: number) => TItemPath;
   onTask: (task: Task<TItem>) => Promise<void>;
   wait?: number;
 }
@@ -106,8 +106,8 @@ export const useFieldArrayTasks = <
   TItem extends FieldPathValue<TFieldValues, TItemPath> = FieldPathValue<TFieldValues, TItemPath>,
 >({
   form,
-  itemPath,
   itemKey,
+  itemPath,
   onTask,
   wait = 200,
 }: UseFieldArrayTasksProps<TFieldValues, TItemPath, TKey, TItem>) => {
@@ -174,7 +174,7 @@ export const useFieldArrayTasks = <
     };
   }, [tasks, form, itemKey, itemPath, processTasks, ignoreChanges, queueTask]);
 
-  return { queueTask, itemTransaction };
+  return { itemTransaction, queueTask };
 };
 
 export interface FormTableData<T> {
@@ -191,45 +191,45 @@ export interface DeltaFormTableItem<T> extends FormTableItem<T> {
 
 declare module '@tanstack/table-core' {
   interface TableMeta<TData extends RowData> {
+    control?: Control<FormTableData<TData>>;
     // Form table column dependencies must be stable to avoid full table re-renders
     // which cause focus loss. Unstable dependencies must be passed via table meta
     queueTask?: (index: number, type: TaskType) => void;
-    control?: Control<FormTableData<TData>>;
   }
 }
 
 interface GenericFormTableItem extends Message {
+  description: string;
   enabled: boolean;
   key: string;
   value: string;
-  description: string;
 }
 
 const genericDisplayTableColumnHelper = createColumnHelper<GenericFormTableItem>();
 
 const genericDisplayTableColumns = [
   genericDisplayTableColumnHelper.accessor('enabled', {
-    header: () => null,
-    size: 0,
     cell: ({ getValue }) => (
       <div className={tw`flex justify-center`}>
         {' '}
-        <Checkbox isSelected={getValue()} variant='table-cell' isReadOnly />
+        <Checkbox isReadOnly isSelected={getValue()} variant='table-cell' />
       </div>
     ),
+    header: () => null,
+    size: 0,
   }),
   genericDisplayTableColumnHelper.accessor('key', {
+    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
     header: 'Key',
     meta: { divider: false },
-    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
   }),
   genericDisplayTableColumnHelper.accessor('value', {
-    header: 'Value',
     cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
+    header: 'Value',
   }),
   genericDisplayTableColumnHelper.accessor('description', {
-    header: 'Description',
     cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
+    header: 'Description',
   }),
 ];
 
@@ -240,10 +240,8 @@ const genericFormTableColumnHelper = createColumnHelper<FormTableItem<GenericFor
 
 export const genericFormTableEnableColumn: AccessorKeyColumnDef<FormTableItem<{ enabled: boolean }>, boolean> = {
   accessorKey: 'data.enabled',
-  header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
-  size: 0,
-  cell: ({ table, row }) => (
-    <HidePlaceholderCell row={row} table={table} className={tw`flex justify-center`}>
+  cell: ({ row, table }) => (
+    <HidePlaceholderCell className={tw`flex justify-center`} row={row} table={table}>
       <CheckboxRHF
         control={table.options.meta!.control!}
         name={`items.${row.index}.data.enabled`}
@@ -251,59 +249,61 @@ export const genericFormTableEnableColumn: AccessorKeyColumnDef<FormTableItem<{ 
       />
     </HidePlaceholderCell>
   ),
+  header: ({ table }) => <RHFDevTools className={tw`size-0`} control={table.options.meta!.control!} />,
+  size: 0,
 };
 
 export const genericFormTableActionColumn: DisplayColumnDef<FormTableItem<GenericFormTableItem>> = {
-  id: 'actions',
-  header: '',
-  size: 0,
-  meta: { divider: false },
-  cell: ({ table, row }) => (
+  cell: ({ row, table }) => (
     <HidePlaceholderCell row={row} table={table}>
       <Button
         className='text-red-700'
-        variant='ghost'
         onPress={() => void table.options.meta?.queueTask?.(row.index, 'delete')}
+        variant='ghost'
       >
         <LuTrash2 />
       </Button>
     </HidePlaceholderCell>
   ),
+  header: '',
+  id: 'actions',
+  meta: { divider: false },
+  size: 0,
 };
 
 const genericFormTableColumnsShared = [
   genericFormTableColumnHelper.accessor('data.key', {
-    header: 'Key',
-    meta: { divider: false },
-    cell: ({ table, row: { index } }) => (
+    cell: ({ row: { index }, table }) => (
       <TextFieldWithReference
+        className='flex-1'
         control={table.options.meta!.control!}
         name={`items.${index}.data.key`}
         variant='table-cell'
-        className='flex-1'
       />
     ),
+    header: 'Key',
+    meta: { divider: false },
   }),
   genericFormTableColumnHelper.accessor('data.value', {
-    header: 'Value',
-    cell: ({ table, row: { index } }) => (
+    cell: ({ row: { index }, table }) => (
       <TextFieldWithReference
+        className='flex-1'
         control={table.options.meta!.control!}
         name={`items.${index}.data.value`}
         variant='table-cell'
-        className='flex-1'
       />
     ),
+    header: 'Value',
   }),
   genericFormTableColumnHelper.accessor('data.description', {
-    header: 'Description',
-    cell: ({ table, row }) => (
+    cell: ({ row, table }) => (
       <TextFieldRHF
         control={table.options.meta!.control!}
         name={`items.${row.index}.data.description`}
         variant='table-cell'
       />
     ),
+    header: 'Description',
   }),
 ];
 
@@ -320,9 +320,7 @@ const genericDeltaFormTableColumnHelper = createColumnHelper<DeltaFormTableItem<
 
 const genericDeltaFormTableColumns = [
   genericDeltaFormTableColumnHelper.accessor('data.enabled', {
-    header: ({ table }) => <RHFDevTools control={table.options.meta!.control!} className={tw`size-0`} />,
-    size: 0,
-    cell: ({ table, row }) => (
+    cell: ({ row, table }) => (
       <div className={tw`flex justify-center`}>
         <CheckboxRHF
           control={table.options.meta!.control!}
@@ -331,14 +329,12 @@ const genericDeltaFormTableColumns = [
         />
       </div>
     ),
+    header: ({ table }) => <RHFDevTools className={tw`size-0`} control={table.options.meta!.control!} />,
+    size: 0,
   }),
   ...genericFormTableColumnsShared,
   genericDeltaFormTableColumnHelper.display({
-    id: 'actions',
-    header: '',
-    size: 0,
-    meta: { divider: false },
-    cell: function ActionCell({ table, row }) {
+    cell: function ActionCell({ row, table }) {
       const [parentData, data] = useWatch({
         control: table.options.meta!.control!,
         name: [`items.${row.index}.parentData`, `items.${row.index}.data`],
@@ -350,13 +346,17 @@ const genericDeltaFormTableColumns = [
       return (
         <Button
           className={twJoin(tw`text-slate-500`, idEqual(parentUlid, itemUlid) && tw`invisible`)}
-          variant='ghost'
           onPress={() => void table.options.meta!.queueTask!(row.index, 'undo')}
+          variant='ghost'
         >
           <RedoIcon />
         </Button>
       );
     },
+    header: '',
+    id: 'actions',
+    meta: { divider: false },
+    size: 0,
   }),
 ];
 
@@ -365,20 +365,20 @@ export const makeGenericDeltaFormTableColumns = <T extends GenericFormTableItem>
 
 interface UseFormTableProps<T extends Message> {
   columns: ColumnDef<FormTableItem<T>>[];
-  schema: GenMessage<T>;
   items: T[];
   onCreate: (item: T) => Promise<Uint8Array>;
-  onUpdate: (item: T) => Promise<unknown>;
   onDelete: (item: T) => Promise<unknown>;
+  onUpdate: (item: T) => Promise<unknown>;
+  schema: GenMessage<T>;
 }
 
 export const useFormTable = <T extends Message>({
   columns,
-  schema,
   items,
   onCreate,
-  onUpdate,
   onDelete,
+  onUpdate,
+  schema,
 }: UseFormTableProps<T>) => {
   const emptyItem = useCallback(
     (): FormTableItem<T> => ({ data: create(schema, { enabled: true } as object) }),
@@ -397,15 +397,15 @@ export const useFormTable = <T extends Message>({
   const form = useForm({ values });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const { queueTask, itemTransaction } = useFieldArrayTasks<
+  const { itemTransaction, queueTask } = useFieldArrayTasks<
     FormTableData<FormTableItem<Message>>,
     `items.${number}`,
     string,
     FormTableItem<Message>
   >({
     form,
-    itemPath: (index) => `items.${index}`,
     itemKey: (_) => pipe(getMessageId(_.data), Option.getOrThrow, (_) => Ulid.construct(_).toCanonical()),
+    itemPath: (index) => `items.${index}`,
     onTask: async ({ index, item, type }) => {
       const { data } = item as FormTableItem<T>;
       const id = pipe(getMessageId(data), Option.getOrThrow);
@@ -426,33 +426,33 @@ export const useFormTable = <T extends Message>({
   });
 
   return useReactTable<FormTableItem<Message>>({
+    columns: columns as ColumnDef<FormTableItem<Message>>[],
+    data: fieldArray.fields,
+    defaultColumn: { minSize: 0 },
     getCoreRowModel: getCoreRowModel(),
     getRowId: (_) => (_ as (typeof fieldArray.fields)[number]).id,
-    defaultColumn: { minSize: 0 },
-    data: fieldArray.fields,
-    meta: { queueTask, control: form.control },
-    columns: columns as ColumnDef<FormTableItem<Message>>[],
+    meta: { control: form.control, queueTask },
   });
 };
 
 interface UseDeltaFormTableProps<T extends Message> {
   columns: ColumnDef<DeltaFormTableItem<T>>[];
-  items: T[];
   deltaItems: T[];
   getParentId: (item: T) => Uint8Array;
+  items: T[];
   onCreate: (item: T) => Promise<Uint8Array>;
-  onUpdate: (item: T) => Promise<unknown>;
   onDelete: (item: T) => Promise<unknown>;
+  onUpdate: (item: T) => Promise<unknown>;
 }
 
 export const useDeltaFormTable = <T extends Message>({
   columns,
-  items: baseItems,
   deltaItems,
   getParentId,
+  items: baseItems,
   onCreate,
-  onUpdate,
   onDelete,
+  onUpdate,
 }: UseDeltaFormTableProps<T>) => {
   const values = useMemo((): FormTableData<DeltaFormTableItem<Message>> => {
     const deltaItemMap = pipe(
@@ -462,12 +462,12 @@ export const useDeltaFormTable = <T extends Message>({
 
     const items = baseItems.map(
       (_): DeltaFormTableItem<T> => ({
-        parentData: _,
         data: pipe(
           getMessageId(_),
           Option.flatMap((id) => HashMap.get(deltaItemMap, id.toString())),
           Option.getOrElse(() => _),
         ),
+        parentData: _,
       }),
     );
 
@@ -477,15 +477,15 @@ export const useDeltaFormTable = <T extends Message>({
   const form = useForm({ values });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
-  const { queueTask, itemTransaction } = useFieldArrayTasks<
+  const { itemTransaction, queueTask } = useFieldArrayTasks<
     FormTableData<DeltaFormTableItem<Message>>,
     `items.${number}`,
     string,
     DeltaFormTableItem<Message>
   >({
     form,
-    itemPath: (index) => `items.${index}`,
     itemKey: (_) => pipe(getMessageId(_.data), Option.getOrThrow, (_) => Ulid.construct(_).toCanonical()),
+    itemPath: (index) => `items.${index}`,
     onTask: async ({ index, item, type }) => {
       const { data, parentData } = item as DeltaFormTableItem<T>;
 
@@ -506,11 +506,11 @@ export const useDeltaFormTable = <T extends Message>({
   });
 
   return useReactTable<DeltaFormTableItem<Message>>({
+    columns: columns as ColumnDef<DeltaFormTableItem<Message>>[],
+    data: fieldArray.fields,
+    defaultColumn: { minSize: 0 },
     getCoreRowModel: getCoreRowModel(),
     getRowId: (_) => (_ as (typeof fieldArray.fields)[number]).id,
-    defaultColumn: { minSize: 0 },
-    data: fieldArray.fields,
-    meta: { queueTask, control: form.control },
-    columns: columns as ColumnDef<DeltaFormTableItem<Message>>[],
+    meta: { control: form.control, queueTask },
   });
 };

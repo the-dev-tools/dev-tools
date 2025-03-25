@@ -50,14 +50,10 @@ import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/')({
-  component: RouteComponent,
-  pendingComponent: () => (
-    <div className={tw`flex h-full items-center justify-center`}>
-      <Spinner className={tw`size-16`} />
-    </div>
-  ),
-  loader: async ({ context: { transport, queryClient }, parentMatchPromise }) => {
+const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/');
+
+export const Route = makeRoute({
+  loader: async ({ context: { queryClient, transport }, parentMatchPromise }) => {
     const { loaderData } = await parentMatchPromise;
     if (!loaderData) return;
     const { flowId } = loaderData;
@@ -65,27 +61,33 @@ export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flo
     try {
       await Promise.all([
         queryClient.ensureQueryData(createQueryOptions(flowGet, { flowId }, { transport })),
-        queryClient.ensureQueryData(edgesQueryOptions({ transport, flowId })),
-        queryClient.ensureQueryData(nodesQueryOptions({ transport, flowId })),
+        queryClient.ensureQueryData(edgesQueryOptions({ flowId, transport })),
+        queryClient.ensureQueryData(nodesQueryOptions({ flowId, transport })),
       ]);
     } catch {
       redirect({
         from: Route.fullPath,
-        to: '/workspace/$workspaceIdCan',
         throw: true,
+        to: '/workspace/$workspaceIdCan',
       });
     }
   },
+  component: RouteComponent,
+  pendingComponent: () => (
+    <div className={tw`flex h-full items-center justify-center`}>
+      <Spinner className={tw`size-16`} />
+    </div>
+  ),
 });
 
 export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
-  NODE_KIND_UNSPECIFIED: () => null,
   NODE_KIND_CONDITION: ConditionNode,
-  NODE_KIND_FOR_EACH: ForEachNode,
   NODE_KIND_FOR: ForNode,
+  NODE_KIND_FOR_EACH: ForEachNode,
   NODE_KIND_JS: JavaScriptNode,
   NODE_KIND_NO_OP: NoOpNode,
   NODE_KIND_REQUEST: RequestNode,
+  NODE_KIND_UNSPECIFIED: () => null,
 };
 
 function RouteComponent() {
@@ -104,8 +106,8 @@ function RouteComponent() {
           <FlowContext.Provider value={{ flowId }}>
             <ReactFlowProvider>
               <TopBar />
-              <Panel id='flow' order={1} className='flex h-full flex-col'>
-                <Flow key={Ulid.construct(flowId).toCanonical()} flowId={flowId}>
+              <Panel className='flex h-full flex-col' id='flow' order={1}>
+                <Flow flowId={flowId} key={Ulid.construct(flowId).toCanonical()}>
                   <ActionBar />
                 </Flow>
               </Panel>
@@ -120,15 +122,15 @@ function RouteComponent() {
 }
 
 interface FlowProps {
-  flowId: Uint8Array;
   children?: ReactNode;
+  flowId: Uint8Array;
 }
 
-export const Flow = ({ flowId, children }: FlowProps) => {
+export const Flow = ({ children, flowId }: FlowProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
 
   const [edgesQuery, nodesQuery] = useSuspenseQueries({
-    queries: [edgesQueryOptions({ transport, flowId }), nodesQueryOptions({ transport, flowId })],
+    queries: [edgesQueryOptions({ flowId, transport }), nodesQueryOptions({ flowId, transport })],
   });
 
   return (
@@ -139,17 +141,17 @@ export const Flow = ({ flowId, children }: FlowProps) => {
 };
 
 interface FlowViewProps {
-  edges: Edge[];
-  nodes: Node[];
   children?: ReactNode;
+  edges: Edge[];
   isReadOnly?: boolean;
+  nodes: Node[];
 }
 
 const minZoom = 0.5;
 const maxZoom = 2;
 
-const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
-  const { addNodes, addEdges, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
+const FlowView = ({ children, edges, nodes }: FlowViewProps) => {
+  const { addEdges, addNodes, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
   const { isReadOnly = false } = use(FlowContext);
 
   const navigate = useNavigate();
@@ -169,15 +171,15 @@ const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
   );
 
   const onConnectEnd = useCallback<NonNullable<ReactFlowProps['onConnectEnd']>>(
-    async (event, { isValid, fromNode }) => {
+    async (event, { fromNode, isValid }) => {
       if (!(event instanceof MouseEvent)) return;
       if (isValid) return;
       if (fromNode === null) return;
 
       const node = await makeNode({
-        position: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
         kind: NodeKind.NO_OP,
         noOp: NodeNoOpKind.CREATE,
+        position: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
       });
 
       const edge = await makeEdge({
@@ -192,7 +194,7 @@ const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
   );
 
   const onBeforeDelete = useCallback<OnBeforeDelete<Node, Edge>>(
-    ({ nodes, edges }) => {
+    ({ edges, nodes }) => {
       if (isReadOnly) return Promise.resolve(false);
 
       const deleteNodeMap = pipe(
@@ -238,8 +240,8 @@ const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
       }
 
       return Promise.resolve({
-        nodes: pipe(Record.fromEntries(deleteNodeMap), Record.values),
         edges: pipe(Record.fromEntries(deleteEdgeMap), Record.values),
+        nodes: pipe(Record.fromEntries(deleteNodeMap), Record.values),
       });
     },
     [getEdges, getNode, isReadOnly],
@@ -247,39 +249,39 @@ const FlowView = ({ edges, nodes, children }: FlowViewProps) => {
 
   return (
     <ReactFlow
-      proOptions={{ hideAttribution: true }}
       colorMode='light'
-      minZoom={minZoom}
-      maxZoom={maxZoom}
-      fitView
       connectionLineComponent={ConnectionLine}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
       defaultEdgeOptions={{ type: 'default' }}
-      nodes={nodes}
+      deleteKeyCode={['Backspace', 'Delete']}
       edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      onConnectEnd={onConnectEnd}
-      onBeforeDelete={onBeforeDelete}
-      onNodeDoubleClick={(_, node) => void navigate({ to: '.', search: (_) => ({ ..._, node: node.id }) })}
+      edgeTypes={edgeTypes}
+      fitView
+      maxZoom={maxZoom}
+      minZoom={minZoom}
+      nodes={nodes}
       nodesConnectable={!isReadOnly}
       nodesDraggable={!isReadOnly}
-      selectNodesOnDrag={false}
-      panOnScroll
-      selectionOnDrag
-      panOnDrag={[1, 2]}
-      deleteKeyCode={['Backspace', 'Delete']}
-      selectionMode={SelectionMode.Partial}
+      nodeTypes={nodeTypes}
+      onBeforeDelete={onBeforeDelete}
+      onConnect={onConnect}
+      onConnectEnd={onConnectEnd}
+      onEdgesChange={onEdgesChange}
       onlyRenderVisibleElements
+      onNodeDoubleClick={(_, node) => void navigate({ search: (_) => ({ ..._, node: node.id }), to: '.' })}
+      onNodesChange={onNodesChange}
+      panOnDrag={[1, 2]}
+      panOnScroll
+      proOptions={{ hideAttribution: true }}
+      selectionMode={SelectionMode.Partial}
+      selectionOnDrag
+      selectNodesOnDrag={false}
     >
       <Background
-        variant={BackgroundVariant.Dots}
-        size={2}
-        gap={20}
-        color='currentColor'
         className={tw`text-slate-300`}
+        color='currentColor'
+        gap={20}
+        size={2}
+        variant={BackgroundVariant.Dots}
       />
       {children}
     </ReactFlow>
@@ -304,8 +306,8 @@ export const TopBar = () => {
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: name,
     onSuccess: (_) => flowUpdateMutation.mutateAsync({ flowId, name: _ }),
+    value: name,
   });
 
   return (
@@ -325,10 +327,10 @@ export const TopBar = () => {
       <div className={tw`flex-1`} />
 
       <Button
-        variant='ghost'
         className={tw`p-0.5`}
-        onPress={() => void zoomOut({ duration: 100 })}
         isDisabled={zoom <= minZoom}
+        onPress={() => void zoomOut({ duration: 100 })}
+        variant='ghost'
       >
         <FiMinus className={tw`size-4 text-slate-500`} />
       </Button>
@@ -338,10 +340,10 @@ export const TopBar = () => {
       </div>
 
       <Button
-        variant='ghost'
         className={tw`p-0.5`}
-        onPress={() => void zoomIn({ duration: 100 })}
         isDisabled={zoom >= maxZoom}
+        onPress={() => void zoomIn({ duration: 100 })}
+        variant='ghost'
       >
         <FiPlus className={tw`size-4 text-slate-500`} />
       </Button>
@@ -349,7 +351,6 @@ export const TopBar = () => {
       <div className={tw`h-4 w-px bg-slate-200`} />
 
       <ButtonAsLink
-        variant='ghost'
         className={tw`px-2 py-1 text-slate-800`}
         href={{
           from: '/workspace/$workspaceIdCan/flow/$flowIdCan',
@@ -357,12 +358,13 @@ export const TopBar = () => {
             ? '/workspace/$workspaceIdCan/flow/$flowIdCan'
             : '/workspace/$workspaceIdCan/flow/$flowIdCan/history',
         }}
+        variant='ghost'
       >
         <FiClock className={tw`size-4 text-slate-500`} /> Flows History
       </ButtonAsLink>
 
       <MenuTrigger {...menuTriggerProps}>
-        <Button variant='ghost' className={tw`bg-slate-200 p-0.5`}>
+        <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
           <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
         </Button>
 
@@ -371,7 +373,7 @@ export const TopBar = () => {
 
           <Separator />
 
-          <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ flowId })}>
+          <MenuItem onAction={() => void flowDeleteMutation.mutate({ flowId })} variant='danger'>
             Delete
           </MenuItem>
         </Menu>
@@ -407,7 +409,6 @@ const ActionBar = () => {
       {/* <div className={tw`mx-2 h-5 w-px bg-white/20`} /> */}
 
       <Button
-        variant='ghost dark'
         className={tw`px-1.5 py-1`}
         onPress={async () => {
           const { domNode } = storeApi.getState();
@@ -417,13 +418,13 @@ const ActionBar = () => {
           const node = await makeNode({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.CREATE, position });
           pipe(node, Node.fromDTO, flow.addNodes);
         }}
+        variant='ghost dark'
       >
         <FiPlus className={tw`size-5 text-slate-300`} />
         Add Node
       </Button>
 
       <Button
-        variant='primary'
         onPress={async () => {
           flow.getNodes().forEach(
             (_) =>
@@ -447,7 +448,7 @@ const ActionBar = () => {
             HashMap.fromIterable,
           );
 
-          for await (const { nodeId, state, changes } of flowRun({ flowId })) {
+          for await (const { changes, nodeId, state } of flowRun({ flowId })) {
             const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
             flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
@@ -462,6 +463,7 @@ const ActionBar = () => {
             await normalizer.setNormalizedData(changes);
           }
         }}
+        variant='primary'
       >
         <PlayCircleIcon className={tw`size-4`} />
         Run
@@ -497,7 +499,7 @@ export const EditPanel = () => {
   return (
     <ReferenceContext value={{ nodeId: nodeId.value, workspaceId }}>
       <PanelResizeHandle direction='vertical' />
-      <Panel id='node' order={2} defaultSize={40} className={tw`!overflow-auto`}>
+      <Panel className={tw`!overflow-auto`} defaultSize={40} id='node' order={2}>
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>

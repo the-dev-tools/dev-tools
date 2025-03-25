@@ -15,13 +15,13 @@ import { ReferenceField } from './reference';
 interface ConditionFieldProps<
   TFieldValues extends FieldValues,
   TPath extends FieldPathByValue<TFieldValues, Condition['$typeName']>,
-> extends Omit<ComponentProps<'div'>, 'children'>,
-    MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
-    MixinProps<'group', Omit<ComponentProps<'div'>, 'children'>> {
+> extends MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
+    MixinProps<'group', Omit<ComponentProps<'div'>, 'children'>>,
+    Omit<ComponentProps<'div'>, 'children'> {
   control: Control<TFieldValues>;
-  path: TPath extends `${infer Path}.$typeName` ? Path : never;
-  label?: FieldLabelProps['children'];
   isReadOnly?: boolean | undefined;
+  label?: FieldLabelProps['children'];
+  path: TPath extends `${infer Path}.$typeName` ? Path : never;
 }
 
 export const ConditionField = <
@@ -29,10 +29,10 @@ export const ConditionField = <
   TPath extends FieldPathByValue<TFieldValues, Condition['$typeName']>,
 >({
   control,
-  path,
-  label,
   groupClassName,
   isReadOnly,
+  label,
+  path,
   ...mixProps
 }: ConditionFieldProps<TFieldValues, TPath>) => {
   const props = splitProps(mixProps, 'label', 'group');
@@ -47,25 +47,25 @@ export const ConditionField = <
       <div className={twMerge(tw`flex items-center gap-2`, groupClassName)}>
         <Controller
           control={resolvedControl}
-          name={`${resolvedPath}.comparison.path`}
           defaultValue={[]}
+          name={`${resolvedPath}.comparison.path`}
           render={({ field }) => (
             <ReferenceField
-              path={field.value}
-              onSelect={field.onChange}
               buttonClassName={tw`flex-[2]`}
               isReadOnly={isReadOnly}
+              onSelect={field.onChange}
+              path={field.value}
             />
           )}
         />
 
         <SelectRHF
-          control={resolvedControl}
-          name={`${resolvedPath}.comparison.kind`}
-          className={tw`h-full flex-1`}
-          triggerClassName={tw`h-full justify-between`}
           aria-label='Comparison Method'
+          className={tw`h-full flex-1`}
+          control={resolvedControl}
           isDisabled={isReadOnly ?? false}
+          name={`${resolvedPath}.comparison.kind`}
+          triggerClassName={tw`h-full justify-between`}
         >
           <ListBoxItem id={ComparisonKind.EQUAL}>is equal to</ListBoxItem>
           <ListBoxItem id={ComparisonKind.NOT_EQUAL}>is not equal to</ListBoxItem>
@@ -78,12 +78,12 @@ export const ConditionField = <
         </SelectRHF>
 
         <TextFieldRHF
-          control={resolvedControl}
-          name={`${resolvedPath}.comparison.value`}
           className={tw`h-full flex-[2]`}
+          control={resolvedControl}
           inputClassName={tw`h-full`}
           inputPlaceholder='Enter comparison value'
           isReadOnly={isReadOnly ?? false}
+          name={`${resolvedPath}.comparison.value`}
         />
       </div>
     </div>

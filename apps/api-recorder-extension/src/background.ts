@@ -1,5 +1,6 @@
 import type { Protocol } from 'devtools-protocol';
 import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
+
 import { Array, Effect, flow, Option, Predicate, String, Struct } from 'effect';
 
 import * as Recorder from '~recorder';
@@ -33,6 +34,9 @@ void Effect.gen(function* () {
 
   // Debugger control
   Recorder.watch({
+    onReset: Effect.gen(function* () {
+      collection = yield* Recorder.reset(indexMap);
+    }).pipe(Effect.ignoreLogged),
     onStart: (tabId) =>
       Effect.gen(function* () {
         yield* Effect.tryPromise(() => chrome.debugger.attach({ tabId }, '1.0'));
@@ -62,9 +66,6 @@ void Effect.gen(function* () {
         ),
         Effect.ignoreLogged,
       ),
-    onReset: Effect.gen(function* () {
-      collection = yield* Recorder.reset(indexMap);
-    }).pipe(Effect.ignoreLogged),
   });
 
   // URL updates

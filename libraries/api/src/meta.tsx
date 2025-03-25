@@ -18,11 +18,11 @@ const methodMap = pipe(
 
 export const getMethod = (service: string, method: string) => HashMap.get(methodMap, `${service}.${method}`);
 
-type AutoChangeSourceKind = 'REQUEST' | 'RESPONSE' | 'MERGE';
+type AutoChangeSourceKind = 'MERGE' | 'REQUEST' | 'RESPONSE';
 
 export interface AutoChangeSource {
-  kind: AutoChangeSourceKind;
   $type: string;
+  kind: AutoChangeSourceKind;
 }
 
 interface AutoListChange extends Omit<ListChangeJson, 'parent'> {

@@ -6,10 +6,12 @@ export class FlowSearch extends Schema.Class<FlowSearch>('FlowSearch')({
   node: pipe(Schema.String, Schema.optional),
 }) {}
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
+const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan');
+
+export const Route = makeRoute({
   validateSearch: (_) => Schema.decodeSync(FlowSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'node'),
-  loader: ({ params: { flowIdCan }, deps: { node } }) => {
+  loader: ({ deps: { node }, params: { flowIdCan } }) => {
     const flowId = Ulid.fromCanonical(flowIdCan).bytes;
     const nodeId = pipe(
       Option.fromNullable(node),

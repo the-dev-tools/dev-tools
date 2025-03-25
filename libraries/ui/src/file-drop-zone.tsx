@@ -15,8 +15,8 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
 const dropZoneStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white p-4`,
+  extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDropTarget: { true: twJoin(isFocusedStyle, tw`bg-violet-100`) },
@@ -24,19 +24,19 @@ const dropZoneStyles = tv({
 });
 
 export interface FileDropZoneProps
-  extends Omit<FileTriggerProps, 'children'>,
-    MixinProps<'dropZone', Omit<DropZoneProps, 'children'>> {
+  extends MixinProps<'dropZone', Omit<DropZoneProps, 'children'>>,
+    Omit<FileTriggerProps, 'children'> {
   files?: File[] | undefined;
   onChange?: (files: File[] | undefined) => void;
 }
 
 export const FileDropZone = ({
-  files,
-  onChange,
-  onSelect,
   dropZoneClassName,
   dropZoneIsDisabled = false,
   dropZoneOnDrop,
+  files,
+  onChange,
+  onSelect,
   ...mixProps
 }: FileDropZoneProps) => {
   const props = splitProps(mixProps, 'dropZone');
@@ -71,8 +71,8 @@ export const FileDropZone = ({
         <div className={tw`flex flex-wrap justify-around gap-4`}>
           {Array.fromIterable(files).map((file, index) => (
             <div
-              key={index.toString() + file.name + file.size.toString()}
               className={tw`flex w-40 flex-col items-center`}
+              key={index.toString() + file.name + file.size.toString()}
             >
               <div className={tw`mb-3 rounded-md border border-slate-200 bg-white p-1.5`}>
                 <FiFile className={tw`size-5 text-slate-500`} />
@@ -88,12 +88,12 @@ export const FileDropZone = ({
 
               {onChange && (
                 <Button
-                  variant='ghost'
                   className={tw`mt-1 p-1`}
                   onPress={() => {
                     const newFiles = Array.remove(files, index);
                     onChange(newFiles.length ? newFiles : undefined);
                   }}
+                  variant='ghost'
                 >
                   <DeleteIcon className={tw`size-4 text-rose-700`} />
                 </Button>
@@ -105,7 +105,7 @@ export const FileDropZone = ({
         <>
           <CloudUploadIcon className={tw`size-7 text-slate-500`} />
 
-          <Text slot='label' className={tw`mb-1 text-sm font-semibold leading-5 tracking-tight text-slate-800`}>
+          <Text className={tw`mb-1 text-sm font-semibold leading-5 tracking-tight text-slate-800`} slot='label'>
             Drag and drop your files or
           </Text>
 

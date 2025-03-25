@@ -3,19 +3,19 @@ import { forwardRef, useCallback, useState } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Input as AriaInput,
-  TextArea as AriaTextArea,
-  TextField as AriaTextField,
-  composeRenderProps,
   type InputProps as AriaInputProps,
+  TextArea as AriaTextArea,
   type TextAreaProps as AriaTextAreaProps,
+  TextField as AriaTextField,
   type TextFieldProps as AriaTextFieldProps,
+  composeRenderProps,
 } from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { tv, VariantProps } from 'tailwind-variants';
 
-import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
+import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
-import { FieldError, FieldLabel, type FieldErrorProps, type FieldLabelProps } from './field';
+import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { isFocusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
@@ -24,15 +24,15 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 // Input
 
 export const inputStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`text-md rounded-md border border-slate-200 px-3 py-1.5 leading-5 text-slate-800`,
+  extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
-    variant: {
-      'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
-    },
     isDisabled: {
       true: tw`bg-slate-100 opacity-50`,
+    },
+    variant: {
+      'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
     },
   },
 });
@@ -45,11 +45,11 @@ const inputVariantKeys = pipe(
 // Editable text state
 
 export interface UseEditableTextStateProps {
-  value: string;
   onSuccess: (value: string) => Promise<unknown>;
+  value: string;
 }
 
-export const useEditableTextState = ({ value, onSuccess }: UseEditableTextStateProps) => {
+export const useEditableTextState = ({ onSuccess, value }: UseEditableTextStateProps) => {
   const [isEditing, setIsEditing] = useState(false);
 
   const edit = useCallback(() => void setIsEditing(true), []);
@@ -71,8 +71,8 @@ export const useEditableTextState = ({ value, onSuccess }: UseEditableTextStateP
   );
 
   return {
-    isEditing,
     edit,
+    isEditing,
     textFieldProps: {
       autoFocus: true,
       defaultValue: value,
@@ -88,11 +88,11 @@ interface RootProps
   extends AriaTextFieldProps,
     MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'error', Omit<FieldErrorProps, 'children'>> {
-  label?: FieldLabelProps['children'];
   error?: FieldErrorProps['children'];
+  label?: FieldLabelProps['children'];
 }
 
-const Root = ({ className, children, label, error, ...props }: RootProps) => {
+const Root = ({ children, className, error, label, ...props }: RootProps) => {
   const forwardedProps = splitProps(props, 'label', 'error');
 
   if (!label && !forwardedProps.rest['aria-label'] && forwardedProps.rest.name) {
@@ -115,9 +115,9 @@ const Root = ({ className, children, label, error, ...props }: RootProps) => {
 // Text field
 
 export interface TextFieldProps
-  extends Omit<RootProps, 'children'>,
-    VariantProps<typeof inputStyles>,
-    MixinProps<'input', Omit<AriaInputProps, 'children'>> {}
+  extends MixinProps<'input', Omit<AriaInputProps, 'children'>>,
+    Omit<RootProps, 'children'>,
+    VariantProps<typeof inputStyles> {}
 
 export const TextField = forwardRef(
   ({ inputClassName, ...props }: TextFieldProps, ref: React.ForwardedRef<HTMLInputElement>) => {
@@ -130,8 +130,8 @@ export const TextField = forwardRef(
       <Root {...rootForwardedProps}>
         <AriaInput
           {...forwardedProps.input}
-          ref={ref}
           className={composeRenderPropsTV(inputClassName, inputStyles, variantProps)}
+          ref={ref}
         />
       </Root>
     );
@@ -159,14 +159,14 @@ export const TextFieldRHF = <
   const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextFieldProps = {
-    name: field.name,
-    value: field.value,
-    onChange: field.onChange,
-    onBlur: field.onBlur,
-    isDisabled: field.disabled ?? false,
-    validationBehavior: 'aria',
-    isInvalid: fieldState.invalid,
     error: fieldState.error?.message,
+    isDisabled: field.disabled ?? false,
+    isInvalid: fieldState.invalid,
+    name: field.name,
+    onBlur: field.onBlur,
+    onChange: field.onChange,
+    validationBehavior: 'aria',
+    value: field.value,
   };
 
   return <TextField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
@@ -175,9 +175,9 @@ export const TextFieldRHF = <
 // Text area field
 
 export interface TextAreaFieldProps
-  extends Omit<RootProps, 'children'>,
-    VariantProps<typeof inputStyles>,
-    MixinProps<'area', Omit<AriaTextAreaProps, 'children'>> {}
+  extends MixinProps<'area', Omit<AriaTextAreaProps, 'children'>>,
+    Omit<RootProps, 'children'>,
+    VariantProps<typeof inputStyles> {}
 
 export const TextAreaField = forwardRef(
   ({ areaClassName, ...props }: TextAreaFieldProps, ref: React.ForwardedRef<HTMLTextAreaElement>) => {
@@ -190,8 +190,8 @@ export const TextAreaField = forwardRef(
       <Root {...rootForwardedProps}>
         <AriaTextArea
           {...forwardedProps.area}
-          ref={ref}
           className={composeRenderPropsTV(areaClassName, inputStyles, variantProps)}
+          ref={ref}
         />
       </Root>
     );
@@ -219,14 +219,14 @@ export const TextAreaFieldRHF = <
   const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextFieldProps = {
-    name: field.name,
-    value: field.value,
-    onChange: field.onChange,
-    onBlur: field.onBlur,
-    isDisabled: field.disabled ?? false,
-    validationBehavior: 'aria',
-    isInvalid: fieldState.invalid,
     error: fieldState.error?.message,
+    isDisabled: field.disabled ?? false,
+    isInvalid: fieldState.invalid,
+    name: field.name,
+    onBlur: field.onBlur,
+    onChange: field.onChange,
+    validationBehavior: 'aria',
+    value: field.value,
   };
 
   return <TextAreaField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;

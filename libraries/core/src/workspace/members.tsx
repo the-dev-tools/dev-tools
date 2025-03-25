@@ -7,9 +7,9 @@ import { workspaceMemberCreate } from '@the-dev-tools/spec/workspace/v1/workspac
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/members')({
-  component: Page,
-});
+const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/members');
+
+export const Route = makeRoute({ component: Page });
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -38,11 +38,11 @@ function Page() {
               Schema.decode(InviteForm),
             );
 
-            workspaceMemberCreateMutation.mutate({ workspaceId, email });
+            workspaceMemberCreateMutation.mutate({ email, workspaceId });
           }).pipe(Runtime.runPromise(runtime))
         }
       >
-        <TextField name='email' type='email' isRequired label='Invite new member:' inputPlaceholder='Email' />
+        <TextField inputPlaceholder='Email' isRequired label='Invite new member:' name='email' type='email' />
         <Button type='submit'>Send invite</Button>
       </Form>
     </div>

@@ -12,8 +12,8 @@ export const useFixtureVariants = <
   Key extends keyof V = keyof V,
 >(
   styles: {
-    variants: V;
     defaultVariants: TVDefaultVariants<V, S, EV, ES>;
+    variants: V;
   },
   keys?: Key[],
 ) => {
@@ -24,7 +24,7 @@ export const useFixtureVariants = <
     const defaultValue = styles.defaultVariants[variant as keyof typeof styles.variants] as string;
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return Option.some(useFixtureSelect(variant, { options, defaultValue }));
+    return Option.some(useFixtureSelect(variant, { defaultValue, options }));
   });
 
   const values = Record.map(states, Tuple.getFirst) as { [Variant in Key]: keyof V[Variant] };

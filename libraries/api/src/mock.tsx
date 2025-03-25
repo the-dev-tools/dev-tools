@@ -43,7 +43,7 @@ const EmailMock = Layer.effect(
 const AuthTransportMock = Layer.effect(
   AuthTransport,
   Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<Faker | EmailRef>();
+    const runtime = yield* Effect.runtime<EmailRef | Faker>();
     return createRouterTransport(
       (router) => {
         router.service(AuthService, {
@@ -74,7 +74,7 @@ const AuthTransportMock = Layer.effect(
 const MagicClientMock = Layer.effect(
   MagicClient,
   Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<Faker | EmailRef>();
+    const runtime = yield* Effect.runtime<EmailRef | Faker>();
     return {
       auth: {
         loginWithMagicLink: (request) =>
@@ -99,9 +99,6 @@ const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field:
 
   // https://github.com/bufbuild/protobuf-es/blob/main/MANUAL.md#scalar-fields
   switch (scalar) {
-    case ScalarType.STRING:
-      return faker.word.words();
-
     case ScalarType.BOOL:
       return faker.datatype.boolean();
 
@@ -112,58 +109,54 @@ const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field:
     case ScalarType.FLOAT:
       return faker.number.float();
 
-    case ScalarType.INT32:
-    case ScalarType.UINT32:
-    case ScalarType.SINT32:
     case ScalarType.FIXED32:
+    case ScalarType.INT32:
     case ScalarType.SFIXED32:
-      return faker.number.int({ min: 0, max: 2 ** 32 / 2 - 1 });
+    case ScalarType.SINT32:
+    case ScalarType.UINT32:
+      return faker.number.int({ max: 2 ** 32 / 2 - 1, min: 0 });
 
-    case ScalarType.INT64:
-    case ScalarType.UINT64:
-    case ScalarType.SINT64:
     case ScalarType.FIXED64:
+    case ScalarType.INT64:
     case ScalarType.SFIXED64:
-      return faker.number.bigInt({ min: 0, max: 2n ** 64n / 2n - 1n });
+    case ScalarType.SINT64:
+    case ScalarType.UINT64:
+      return faker.number.bigInt({ max: 2n ** 64n / 2n - 1n, min: 0 });
+
+    case ScalarType.STRING:
+      return faker.word.words();
   }
 };
 
 const fakeEnum = (faker: (typeof Faker)['Service'], enum_: DescEnum) =>
   faker.number.int({
-    min: 1,
     max: enum_.values.length - 1,
+    min: 1,
   });
 
 const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, depth = 0): Message => {
   switch (message.typeName) {
-    case 'google.protobuf.Timestamp':
-      return timestampFromDate(faker.date.anytime());
+    case 'flow.edge.v1.EdgeListResponse':
+      return create(message);
 
     case 'flow.node.v1.NodeListResponse':
       return create(NodeListResponseSchema, {
         items: [
           {
-            nodeId: new Uint8Array(),
-            position: { x: 0, y: 0 },
             kind: NodeKind.NO_OP,
+            nodeId: new Uint8Array(),
             noOp: NodeNoOpKind.START,
+            position: { x: 0, y: 0 },
           },
         ],
       });
 
-    case 'flow.edge.v1.EdgeListResponse':
-      return create(message);
+    case 'google.protobuf.Timestamp':
+      return timestampFromDate(faker.date.anytime());
   }
 
   const value = Record.map(message.field, (field) => {
     switch (field.fieldKind) {
-      case 'message':
-        if (depth > 5) return undefined;
-        return fakeMessage(faker, field.message, depth + 1);
-
-      case 'scalar':
-        return fakeScalar(faker, field.scalar, field);
-
       case 'enum':
         return fakeEnum(faker, field.enum);
 
@@ -172,16 +165,23 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, dep
         if (depth > 5) return [];
         return faker.helpers.multiple(() => {
           switch (field.listKind) {
+            case 'enum':
+              return fakeEnum(faker, field.enum);
+
             case 'message':
               return fakeMessage(faker, field.message, depth + 1);
 
             case 'scalar':
               return fakeScalar(faker, field.scalar, field);
-
-            case 'enum':
-              return fakeEnum(faker, field.enum);
           }
         });
+
+      case 'message':
+        if (depth > 5) return undefined;
+        return fakeMessage(faker, field.message, depth + 1);
+
+      case 'scalar':
+        return fakeScalar(faker, field.scalar, field);
 
       default:
         throw new Error('Unimplemented field kind');
@@ -207,14 +207,6 @@ const ApiTransportMock = Layer.effect(
               const makeMessage = () => fakeMessage(faker, method.output);
 
               switch (method.methodKind) {
-                case 'unary':
-                  return (input: Message) => {
-                    const key = makeKey(input);
-                    const message = pipe(MutableHashMap.get(cache, key), Option.getOrElse(makeMessage));
-                    MutableHashMap.set(cache, key, message);
-                    return message;
-                  };
-
                 case 'server_streaming':
                   return (input: Message) => {
                     const key = makeKey(input);
@@ -234,6 +226,14 @@ const ApiTransportMock = Layer.effect(
 
                     MutableHashMap.set(streamCache, key, stream);
                     return stream;
+                  };
+
+                case 'unary':
+                  return (input: Message) => {
+                    const key = makeKey(input);
+                    const message = pipe(MutableHashMap.get(cache, key), Option.getOrElse(makeMessage));
+                    MutableHashMap.set(cache, key, message);
+                    return message;
                   };
 
                 default:
@@ -277,9 +277,9 @@ const tokens = Effect.gen(function* () {
 
   const accessToken = yield* pipe(
     AccessTokenPayload.make({
-      token_type: 'access_token',
-      exp: pipe(yield* DateTime.now, DateTime.add({ minutes: 1 }), DateTime.toDate),
       email,
+      exp: pipe(yield* DateTime.now, DateTime.add({ minutes: 1 }), DateTime.toDate),
+      token_type: 'access_token',
     }),
     Schema.encode(AccessTokenPayload),
     Effect.map((_) => new UnsecuredJWT(_).encode()),
@@ -287,8 +287,8 @@ const tokens = Effect.gen(function* () {
 
   const refreshToken = yield* pipe(
     RefreshTokenPayload.make({
-      token_type: 'refresh_token',
       exp: pipe(yield* DateTime.now, DateTime.add({ days: 1 }), DateTime.toDate),
+      token_type: 'refresh_token',
     }),
     Schema.encode(RefreshTokenPayload),
     Effect.map((_) => new UnsecuredJWT(_).encode()),

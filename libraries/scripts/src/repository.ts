@@ -4,15 +4,15 @@ import { Octokit as OctokitBase } from '@octokit/rest';
 import { Config, Console, DefaultServices, Effect, flow, Layer, Option, pipe, String, Tuple } from 'effect';
 
 interface DispatchWorkflowProps {
+  inputs?: unknown;
   ref: string;
   workflow: string;
-  inputs?: unknown;
 }
 
 interface UploadReleaseAssetProps {
-  releaseId: number;
-  path: string;
   name?: string;
+  path: string;
+  releaseId: number;
 }
 
 class Octokit extends Effect.Service<Octokit>()('Octokit', {
@@ -25,9 +25,9 @@ class Octokit extends Effect.Service<Octokit>()('Octokit', {
           authStrategy: createActionAuth,
           log: {
             debug: () => undefined,
+            error: (_) => void console.unsafe.error(_),
             info: (_) => void console.unsafe.info(_),
             warn: (_) => void console.unsafe.warn(_),
-            error: (_) => void console.unsafe.error(_),
           },
         }),
     );
@@ -46,7 +46,7 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
       function* (_: DispatchWorkflowProps) {
         const octokit = yield* Octokit;
         return yield* Effect.tryPromise(() =>
-          octokit.rest.actions.createWorkflowDispatch({ owner, repo, ref: _.ref, workflow_id: _.workflow }),
+          octokit.rest.actions.createWorkflowDispatch({ owner, ref: _.ref, repo, workflow_id: _.workflow }),
         );
       },
       Effect.provide(Octokit.Default),
@@ -72,7 +72,7 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
         const data: unknown = yield* fs.readFile(_.path);
 
         return yield* Effect.tryPromise(() =>
-          octokit.rest.repos.uploadReleaseAsset({ owner, repo, release_id: _.releaseId, name, data: data as string }),
+          octokit.rest.repos.uploadReleaseAsset({ data: data as string, name, owner, release_id: _.releaseId, repo }),
         );
       },
       Effect.provide(Octokit.Default),
@@ -93,6 +93,6 @@ export class Repository extends Effect.Service<Repository>()('Repository', {
       ),
     );
 
-    return { dispatchWorkflow, getReleaseByTag, uploadReleaseAsset, tag, project };
+    return { dispatchWorkflow, getReleaseByTag, project, tag, uploadReleaseAsset };
   }),
 }) {}

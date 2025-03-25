@@ -4,27 +4,27 @@ import { tv } from 'tailwind-variants';
 import { Badge, BadgeProps } from './badge';
 import { tw } from './tailwind-literal';
 
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTION' | 'CONNECT' | (string & {});
+type Method = 'CONNECT' | 'DELETE' | 'GET' | 'HEAD' | 'OPTION' | 'PATCH' | 'POST' | 'PUT' | (string & {});
 
 type MatchedMethod = [string, BadgeProps['color']];
 
 const styles = tv({
+  defaultVariants: {
+    size: 'default',
+  },
   variants: {
     size: {
       default: tw`w-10`,
       lg: tw`w-12`,
     },
   },
-  defaultVariants: {
-    size: 'default',
-  },
 });
 
-export interface MethodBadgeProps extends Omit<BadgeProps, 'color' | 'children'> {
+export interface MethodBadgeProps extends Omit<BadgeProps, 'children' | 'color'> {
   method: Method;
 }
 
-export const MethodBadge = ({ method, className, ...props }: MethodBadgeProps) => {
+export const MethodBadge = ({ className, method, ...props }: MethodBadgeProps) => {
   const [value, color] = pipe(
     Match.value(method),
     Match.when('GET', (_): MatchedMethod => [_ as string, 'green']),
@@ -39,7 +39,7 @@ export const MethodBadge = ({ method, className, ...props }: MethodBadgeProps) =
   );
 
   return (
-    <Badge color={color} className={styles({ className, size: props.size })} {...props}>
+    <Badge className={styles({ className, size: props.size })} color={color} {...props}>
       {value}
     </Badge>
   );

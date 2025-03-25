@@ -12,8 +12,8 @@ import { tw } from './tailwind-literal';
 // Resize handle
 
 export const panelResizeHandleStyles = tv({
-  extend: focusRingStyles,
   base: tw`bg-slate-200`,
+  extend: focusRingStyles,
   variants: {
     direction: {
       horizontal: tw`h-full w-px cursor-col-resize`,
@@ -23,15 +23,15 @@ export const panelResizeHandleStyles = tv({
 });
 
 export interface PanelResizeHandleProps
-  extends UpstreamPanelResizeHandleProps,
-    Omit<VariantProps<typeof panelResizeHandleStyles>, 'direction'>,
-    Required<Pick<VariantProps<typeof panelResizeHandleStyles>, 'direction'>> {}
+  extends Omit<VariantProps<typeof panelResizeHandleStyles>, 'direction'>,
+    Required<Pick<VariantProps<typeof panelResizeHandleStyles>, 'direction'>>,
+    UpstreamPanelResizeHandleProps {}
 
 export const PanelResizeHandle = ({ className, direction, ...props }: PanelResizeHandleProps) => {
   const [isFocused, setIsFocused] = useState(false);
   const forwardedProps = mergeProps(props, {
-    onFocus: () => void setIsFocused(true),
     onBlur: () => void setIsFocused(false),
+    onFocus: () => void setIsFocused(true),
   });
   return (
     <UpstreamPanelResizeHandle

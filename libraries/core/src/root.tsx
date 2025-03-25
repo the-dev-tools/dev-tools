@@ -11,7 +11,7 @@ import { DevToolsProvider, ReactQueryDevTools, TanStackRouterDevTools } from './
 
 export interface RouterContext {
   queryClient: QueryClient;
-  runtime: Runtime.Runtime<KeyValueStore | MagicClient | AuthTransport>;
+  runtime: Runtime.Runtime<AuthTransport | KeyValueStore | MagicClient>;
   transport: Transport;
 }
 

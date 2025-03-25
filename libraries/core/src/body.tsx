@@ -42,12 +42,12 @@ import {
 } from './form-table';
 
 interface BodyViewProps {
-  exampleId: Uint8Array;
   deltaExampleId?: Uint8Array | undefined;
+  exampleId: Uint8Array;
   isReadOnly?: boolean | undefined;
 }
 
-export const BodyView = ({ exampleId, deltaExampleId, isReadOnly }: BodyViewProps) => {
+export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProps) => {
   const query = useConnectSuspenseQuery(exampleGet, { exampleId });
   const updateMutation = useConnectMutation(exampleUpdate);
 
@@ -59,10 +59,10 @@ export const BodyView = ({ exampleId, deltaExampleId, isReadOnly }: BodyViewProp
       <RadioGroup
         aria-label='Body type'
         className='h-7 justify-center'
+        isReadOnly={isReadOnly ?? false}
+        onChange={(key) => void updateMutation.mutate({ bodyKind: parseInt(key), exampleId })}
         orientation='horizontal'
         value={bodyKind.toString()}
-        onChange={(key) => void updateMutation.mutate({ exampleId, bodyKind: parseInt(key) })}
-        isReadOnly={isReadOnly ?? false}
       >
         <Radio value={BodyKind.UNSPECIFIED.toString()}>none</Radio>
         <Radio value={BodyKind.FORM_ARRAY.toString()}>form-data</Radio>
@@ -74,12 +74,12 @@ export const BodyView = ({ exampleId, deltaExampleId, isReadOnly }: BodyViewProp
         Match.value(bodyKind),
         Match.when(BodyKind.FORM_ARRAY, () => {
           if (isReadOnly) return <FormDisplayTable exampleId={exampleId} />;
-          if (deltaExampleId) return <FormDeltaDataTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+          if (deltaExampleId) return <FormDeltaDataTable deltaExampleId={deltaExampleId} exampleId={exampleId} />;
           return <FormDataTable exampleId={exampleId} />;
         }),
         Match.when(BodyKind.URL_ENCODED_ARRAY, () => {
           if (isReadOnly) return <UrlEncodedDisplayTable exampleId={exampleId} />;
-          if (deltaExampleId) return <UrlEncodedDeltaFormTable exampleId={exampleId} deltaExampleId={deltaExampleId} />;
+          if (deltaExampleId) return <UrlEncodedDeltaFormTable deltaExampleId={deltaExampleId} exampleId={exampleId} />;
           return <UrlEncodedFormTable exampleId={exampleId} />;
         }),
         Match.when(BodyKind.RAW, () => <RawForm exampleId={exampleId} isReadOnly={isReadOnly} />),
@@ -120,24 +120,24 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
 
   const table = useFormTable({
-    items,
-    schema: BodyFormItemListItemSchema,
     columns: makeGenericFormTableColumns<BodyFormItemListItem>(),
+    items,
     onCreate: (_) =>
       requestService.bodyFormItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
-    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.bodyFormItemDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
+    schema: BodyFormItemListItemSchema,
   });
 
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 interface FormDeltaDataTableProps {
-  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
+  exampleId: Uint8Array;
 }
 
-const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTableProps) => {
+const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
@@ -156,10 +156,10 @@ const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTablePro
   });
 
   const table = useDeltaFormTable({
-    items,
-    deltaItems,
     columns: makeGenericDeltaFormTableColumns<BodyFormItemListItem>(),
+    deltaItems,
     getParentId: (_) => _.parentBodyId!,
+    items,
     onCreate: (_) =>
       requestService
         .bodyFormItemCreate({
@@ -168,8 +168,8 @@ const FormDeltaDataTable = ({ exampleId, deltaExampleId }: FormDeltaDataTablePro
           parentBodyId: _.bodyId,
         })
         .then((_) => _.bodyId),
-    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.bodyFormItemDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
@@ -206,24 +206,24 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
 
   const table = useFormTable({
-    items,
-    schema: BodyUrlEncodedItemListItemSchema,
     columns: makeGenericFormTableColumns<BodyUrlEncodedItemListItem>(),
+    items,
     onCreate: (_) =>
       requestService.bodyUrlEncodedItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
-    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.bodyUrlEncodedItemDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
+    schema: BodyUrlEncodedItemListItemSchema,
   });
 
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 interface UrlEncodedDeltaFormTableProps {
-  exampleId: Uint8Array;
   deltaExampleId: Uint8Array;
+  exampleId: Uint8Array;
 }
 
-const UrlEncodedDeltaFormTable = ({ exampleId, deltaExampleId }: UrlEncodedDeltaFormTableProps) => {
+const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
@@ -242,10 +242,10 @@ const UrlEncodedDeltaFormTable = ({ exampleId, deltaExampleId }: UrlEncodedDelta
   });
 
   const table = useDeltaFormTable({
-    items,
-    deltaItems,
     columns: makeGenericDeltaFormTableColumns<BodyUrlEncodedItemListItem>(),
+    deltaItems,
     getParentId: (_) => _.parentBodyId!,
+    items,
     onCreate: (_) =>
       requestService
         .bodyUrlEncodedItemCreate({
@@ -254,8 +254,8 @@ const UrlEncodedDeltaFormTable = ({ exampleId, deltaExampleId }: UrlEncodedDelta
           parentBodyId: _.bodyId,
         })
         .then((_) => _.bodyId),
-    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
     onDelete: (_) => requestService.bodyUrlEncodedItemDelete(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
   });
 
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
@@ -284,25 +284,25 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
       <Select
         aria-label='Language'
         className='self-center justify-self-start'
-        triggerClassName={tw`px-4 py-1`}
-        selectedKey={language}
         onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
+        selectedKey={language}
+        triggerClassName={tw`px-4 py-1`}
       >
         {CodeMirrorMarkupLanguages.map((_) => (
-          <ListBoxItem key={_} id={_}>
+          <ListBoxItem id={_} key={_}>
             {_}
           </ListBoxItem>
         ))}
       </Select>
 
       <CodeMirror
-        value={value}
-        onChange={setValue}
-        onBlur={() => void updateMutation.mutate({ exampleId, data: new TextEncoder().encode(value) })}
-        height='100%'
         className='col-span-full self-stretch'
         extensions={extensions}
+        height='100%'
+        onBlur={() => void updateMutation.mutate({ data: new TextEncoder().encode(value), exampleId })}
+        onChange={setValue}
         readOnly={isReadOnly ?? false}
+        value={value}
       />
     </>
   );

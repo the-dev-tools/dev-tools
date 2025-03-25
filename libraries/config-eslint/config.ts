@@ -1,15 +1,16 @@
-import { resolve } from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
+import { Array, pipe, Record } from 'effect';
 import { Linter } from 'eslint';
 import prettier from 'eslint-config-prettier';
 import { flatConfigs as importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import perfectionistRaw from 'eslint-plugin-perfectionist';
 import react from 'eslint-plugin-react';
 import { configs as reactHooks } from 'eslint-plugin-react-hooks';
-// import tailwind from 'eslint-plugin-tailwindcss';
 import globals from 'globals';
+import { resolve } from 'node:path';
 import { ConfigArray, configs as ts } from 'typescript-eslint';
 
 const gitignore = includeIgnoreFile(resolve(import.meta.dirname, '../../.gitignore'));
@@ -21,8 +22,15 @@ const nodejs: Linter.Config = {
 };
 
 const settings: Linter.Config = {
+  languageOptions: {
+    globals: globals.browser,
+    parser: tsParser,
+    parserOptions: {
+      projectService: true,
+      tsconfigRootDir: process.cwd(),
+    },
+  },
   settings: {
-    react: { version: 'detect' },
     // tailwindcss: {
     //   // This might not be needed after this PR is merged
     //   // https://github.com/francoismassart/eslint-plugin-tailwindcss/pull/380
@@ -30,16 +38,34 @@ const settings: Linter.Config = {
     //   callees: ['tv', 'twMerge', 'twJoin'],
     //   tags: ['tw'],
     // },
-  },
-  languageOptions: {
-    parser: tsParser,
-    globals: globals.browser,
-    parserOptions: {
-      projectService: true,
-      tsconfigRootDir: process.cwd(),
-    },
+    perfectionist: { partitionByComment: '^s*\\*.*' },
+    react: { version: 'detect' },
   },
 };
+
+const perfectionist = {
+  plugins: { perfectionist: perfectionistRaw },
+  // Convert errors to warnings
+  rules: Record.map(perfectionistRaw.configs['recommended-natural'].rules ?? {}, (rule) => {
+    if (!Array.isArray(rule)) return 'warn';
+    return pipe(rule, Array.drop(1), Array.prepend('warn'));
+  }),
+};
+
+// Implement TanStack Router rule via Perfectionist
+// https://tanstack.com/router/latest/docs/eslint/create-route-property-order
+// https://perfectionist.dev/rules/sort-objects#useconfigurationif
+const sortRouterObject = pipe(
+  [['params', 'validateSearch'], ['loaderDeps', 'search'], ['context'], ['beforeLoad'], ['loader']],
+  (groups) => ({
+    customGroups: Array.map(groups, (names, index) => ({
+      elementNamePattern: names,
+      groupName: String(index),
+    })),
+    groups: Array.map(groups, (_, index) => String(index)),
+    useConfigurationIf: { callingFunctionNamePattern: 'makeRoute' },
+  }),
+);
 
 const rules: Linter.Config = {
   rules: {
@@ -50,7 +76,13 @@ const rules: Linter.Config = {
     '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
     '@typescript-eslint/no-unused-vars': ['error', { destructuredArrayIgnorePattern: '^_' }],
     '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+
     'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
+
+    'perfectionist/sort-imports': ['warn', { internalPattern: ['^@the-dev-tools/.*', '^~.*'] }],
+    'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
+    'perfectionist/sort-objects': ['warn', sortRouterObject],
+
     'react/prop-types': 'off',
   },
 };
@@ -61,6 +93,8 @@ const config: ConfigArray = [
   nodejs,
 
   prettier,
+
+  perfectionist,
 
   js.configs.recommended,
 

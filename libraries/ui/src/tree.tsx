@@ -2,16 +2,16 @@ import { type CollectionProps } from '@react-aria/collections';
 import {
   TreeItem as AriaTreeItem,
   TreeItemContent as AriaTreeItemContent,
-  Collection,
-  composeRenderProps,
   type TreeItemContentProps as AriaTreeItemContentProps,
   type TreeItemProps as AriaTreeItemProps,
+  Collection,
+  composeRenderProps,
 } from 'react-aria-components';
 import { IconBaseProps } from 'react-icons';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
-import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
+import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { Button, ButtonProps } from './button';
 import { isFocusVisibleRingStyles } from './focus-ring';
@@ -25,13 +25,13 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 // Item root
 
 export const treeItemRootStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`text-md outline-hidden cursor-pointer select-none rounded-md bg-transparent px-3 py-1.5 font-medium leading-5 tracking-tight text-slate-800`,
+  extend: isFocusVisibleRingStyles,
   variants: {
+    isActive: { true: tw`bg-slate-200` },
     isHovered: { true: tw`bg-slate-100` },
     isPressed: { true: tw`bg-slate-200` },
     isSelected: { true: tw`bg-slate-200` },
-    isActive: { true: tw`bg-slate-200` },
   },
 });
 
@@ -49,7 +49,7 @@ export interface TreeItemWrapperProps extends React.ComponentProps<'div'> {
   level: number;
 }
 
-export const TreeItemWrapper = ({ className, style, level, ...props }: TreeItemWrapperProps) => (
+export const TreeItemWrapper = ({ className, level, style, ...props }: TreeItemWrapperProps) => (
   <div
     {...props}
     className={twMerge(tw`flex items-center gap-2`, className)}
@@ -60,21 +60,21 @@ export const TreeItemWrapper = ({ className, style, level, ...props }: TreeItemW
 // Item mix
 
 export interface TreeItemProps<T extends object>
-  extends Omit<TreeItemRootProps, 'children'>,
-    MixinProps<'content', Omit<AriaTreeItemContentProps, 'children'>>,
+  extends MixinProps<'content', Omit<AriaTreeItemContentProps, 'children'>>,
     MixinProps<'wrapper', Omit<TreeItemWrapperProps, 'level'>>,
     MixinProps<'expandButton', Omit<ButtonProps, 'children'>>,
     MixinProps<'expandIndicator', IconBaseProps>,
-    MixinProps<'child', Omit<CollectionProps<T>, 'children'>> {
-  children?: AriaTreeItemContentProps['children'];
+    MixinProps<'child', Omit<CollectionProps<T>, 'children'>>,
+    Omit<TreeItemRootProps, 'children'> {
   childItem?: CollectionProps<T>['children'];
+  children?: AriaTreeItemContentProps['children'];
   expandButtonIsForced?: boolean;
   loading?: boolean;
 }
 
 export const TreeItem = <T extends object>({
-  children,
   childItem,
+  children,
   expandButtonClassName,
   expandButtonIsForced,
   loading,
@@ -84,17 +84,17 @@ export const TreeItem = <T extends object>({
   return (
     <TreeItemRoot {...props.rest}>
       <AriaTreeItemContent {...props.content}>
-        {composeRenderProps(children, (children, { level, hasChildItems, isExpanded }) => (
+        {composeRenderProps(children, (children, { hasChildItems, isExpanded, level }) => (
           <TreeItemWrapper level={level} {...props.wrapper}>
             {loading ? (
-              <Button variant='ghost' isDisabled className={tw`p-1`}>
+              <Button className={tw`p-1`} isDisabled variant='ghost'>
                 <Spinner className={tw`size-3`} />
               </Button>
             ) : hasChildItems || expandButtonIsForced ? (
               <Button
-                variant='ghost'
-                slot='chevron'
                 className={composeRenderPropsTW(expandButtonClassName, tw`p-1`)}
+                slot='chevron'
+                variant='ghost'
                 {...props.expandButton}
               >
                 <ChevronSolidDownIcon

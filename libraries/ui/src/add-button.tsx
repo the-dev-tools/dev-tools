@@ -8,26 +8,26 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
 export const addButtonStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`flex size-5 select-none items-center justify-center rounded-full border font-semibold`,
+  compoundVariants: [
+    { className: tw`border-slate-500 text-slate-600`, isHovered: true, variant: 'dark' },
+    { className: tw`border-slate-800 text-slate-900`, isPressed: true, variant: 'dark' },
+
+    { className: tw`border-white/40`, isHovered: true, variant: 'light' },
+    { className: tw`border-white`, isPressed: true, variant: 'light' },
+  ],
+  defaultVariants: {
+    variant: 'dark',
+  },
+  extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
+    isHovered: { false: null },
+    isPressed: { false: null },
     variant: {
       dark: tw`border-slate-300 text-slate-500`,
       light: tw`border-white/20 text-white`,
     },
-    isHovered: { false: null },
-    isPressed: { false: null },
-  },
-  compoundVariants: [
-    { variant: 'dark', isHovered: true, className: tw`border-slate-500 text-slate-600` },
-    { variant: 'dark', isPressed: true, className: tw`border-slate-800 text-slate-900` },
-
-    { variant: 'light', isHovered: true, className: tw`border-white/40` },
-    { variant: 'light', isPressed: true, className: tw`border-white` },
-  ],
-  defaultVariants: {
-    variant: 'dark',
   },
 });
 
@@ -39,7 +39,7 @@ export const addButtonVariantKeys = pipe(
 export interface AddButtonVariantProps
   extends Pick<VariantProps<typeof addButtonStyles>, (typeof addButtonVariantKeys)[number]> {}
 
-export interface AddButtonProps extends Omit<AriaButtonProps, 'children'>, AddButtonVariantProps {}
+export interface AddButtonProps extends AddButtonVariantProps, Omit<AriaButtonProps, 'children'> {}
 
 export const AddButton = ({ className, ...props }: AddButtonProps) => {
   const forwardedProps = Struct.omit(props, ...addButtonVariantKeys);

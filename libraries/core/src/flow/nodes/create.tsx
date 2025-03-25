@@ -21,12 +21,12 @@ const CreateNodeHeader = (props: Omit<ComponentProps<'div'>, 'className'>) => (
 );
 
 interface CreateNodeItemProps extends Omit<ListBoxItemProps, 'children' | 'className' | 'textValue'> {
+  description: string;
   Icon: IconType;
   title: string;
-  description: string;
 }
 
-const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemProps) => (
+const CreateNodeItem = ({ description, Icon, title, ...props }: CreateNodeItemProps) => (
   <ListBoxItem {...props} className={tw`grid grid-cols-[auto_1fr] gap-x-2 gap-y-0 px-3 py-2`} textValue={title}>
     <div className={tw`row-span-2 rounded-md border border-slate-200 bg-white p-1.5`}>
       <Icon className={tw`size-5 text-slate-500`} />
@@ -37,7 +37,7 @@ const CreateNodeItem = ({ Icon, title, description, ...props }: CreateNodeItemPr
 );
 
 export const CreateNode = ({ id, selected }: NodeProps) => {
-  const { getNodes, getNode, getEdges, addNodes, addEdges, deleteElements } = useReactFlow();
+  const { addEdges, addNodes, deleteElements, getEdges, getNode, getNodes } = useReactFlow();
 
   const edge = useMemo(
     () =>
@@ -52,7 +52,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
 
   const add = useCallback(
     async (nodes: NodeDTO[], edges: EdgeDTO[]) => {
-      await deleteElements({ nodes: [{ id }], edges: Option.toArray(edge) });
+      await deleteElements({ edges: Option.toArray(edge), nodes: [{ id }] });
 
       pipe(nodes.map(Node.fromDTO), addNodes);
       pipe(edges.map(Edge.fromDTO), addEdges);
@@ -71,23 +71,22 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
     <>
       <ListBox
         aria-label='Create node type'
-        onAction={() => void {}}
         className={twJoin(tw`w-80 divide-y divide-slate-200 pt-0 transition-colors`, selected && tw`bg-slate-100`)}
+        onAction={() => void {}}
       >
         <ListBoxSection>
           <CreateNodeHeader>Task</CreateNodeHeader>
 
           <CreateNodeItem
-            id='request'
-            Icon={SendRequestIcon}
-            title='Send Request'
             description='Send request from your collection'
+            Icon={SendRequestIcon}
+            id='request'
             onAction={async () => {
               const node = await makeNode({
                 kind: NodeKind.REQUEST,
                 name: `request-${getNodes().length}`,
-                request: {},
                 position: getPosition(),
+                request: {},
               });
 
               const edges = Option.isNone(sourceId)
@@ -95,6 +94,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                 : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
               await add([node], edges);
             }}
+            title='Send Request'
           />
 
           {/* <CreateNodeItem
@@ -107,15 +107,14 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
           {/* <CreateNodeItem id='delay' Icon={DelayIcon} title='Delay' description='Wait specific time' /> */}
 
           <CreateNodeItem
-            id='javascript'
-            Icon={FiTerminal}
-            title='JavaScript'
             description='Custom Javascript block'
+            Icon={FiTerminal}
+            id='javascript'
             onAction={async () => {
               const node = await makeNode({
+                js: {},
                 kind: NodeKind.JS,
                 name: `js-${getNodes().length}`,
-                js: {},
                 position: getPosition(),
               });
               const edges = Option.isNone(sourceId)
@@ -123,6 +122,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                 : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })];
               await add([node], edges);
             }}
+            title='JavaScript'
           />
         </ListBoxSection>
 
@@ -130,18 +130,17 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
           <CreateNodeHeader>Logic</CreateNodeHeader>
 
           <CreateNodeItem
-            id='condition'
-            Icon={IfIcon}
-            title='If'
             description='Add true/false'
+            Icon={IfIcon}
+            id='condition'
             onAction={async () => {
               const position = getPosition();
               const { x, y } = position;
               const [node, nodeThen, nodeElse] = await Promise.all([
                 makeNode({
+                  condition: {},
                   kind: NodeKind.CONDITION,
                   name: `condition-${getNodes().length}`,
-                  condition: {},
                   position,
                 }),
                 makeNode({
@@ -161,19 +160,20 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                   ? []
                   : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
-                  sourceId: node.nodeId,
                   sourceHandle: HandleKind.THEN,
+                  sourceId: node.nodeId,
                   targetId: nodeThen.nodeId,
                 }),
                 makeEdge({
-                  sourceId: node.nodeId,
                   sourceHandle: HandleKind.ELSE,
+                  sourceId: node.nodeId,
                   targetId: nodeElse.nodeId,
                 }),
               ]);
 
               await add([node, nodeThen, nodeElse], edges);
             }}
+            title='If'
           />
         </ListBoxSection>
 
@@ -183,18 +183,17 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
           {/* <CreateNodeItem id='collect' Icon={CollectIcon} title='Collect' description='Collect all result' /> */}
 
           <CreateNodeItem
-            id='for'
-            Icon={ForIcon}
-            title='For Loop'
             description='Loop'
+            Icon={ForIcon}
+            id='for'
             onAction={async () => {
               const position = getPosition();
               const { x, y } = position;
               const [node, nodeLoop, nodeThen] = await Promise.all([
                 makeNode({
+                  for: {},
                   kind: NodeKind.FOR,
                   name: `for-${getNodes().length}`,
-                  for: {},
                   position,
                 }),
                 makeNode({
@@ -214,34 +213,34 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                   ? []
                   : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
-                  sourceId: node.nodeId,
                   sourceHandle: HandleKind.LOOP,
+                  sourceId: node.nodeId,
                   targetId: nodeLoop.nodeId,
                 }),
                 makeEdge({
-                  sourceId: node.nodeId,
                   sourceHandle: HandleKind.THEN,
+                  sourceId: node.nodeId,
                   targetId: nodeThen.nodeId,
                 }),
               ]);
 
               await add([node, nodeLoop, nodeThen], edges);
             }}
+            title='For Loop'
           />
 
           <CreateNodeItem
-            id='foreach'
-            Icon={ForIcon}
-            title='For Each Loop'
             description='Loop'
+            Icon={ForIcon}
+            id='foreach'
             onAction={async () => {
               const position = getPosition();
               const { x, y } = position;
               const [node, nodeLoop, nodeThen] = await Promise.all([
                 makeNode({
+                  forEach: {},
                   kind: NodeKind.FOR_EACH,
                   name: `foreach-${getNodes().length}`,
-                  forEach: {},
                   position,
                 }),
                 makeNode({
@@ -261,24 +260,25 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                   ? []
                   : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
-                  sourceId: node.nodeId,
                   sourceHandle: HandleKind.LOOP,
+                  sourceId: node.nodeId,
                   targetId: nodeLoop.nodeId,
                 }),
                 makeEdge({
-                  sourceId: node.nodeId,
                   sourceHandle: HandleKind.THEN,
+                  sourceId: node.nodeId,
                   targetId: nodeThen.nodeId,
                 }),
               ]);
 
               await add([node, nodeLoop, nodeThen], edges);
             }}
+            title='For Each Loop'
           />
         </ListBoxSection>
       </ListBox>
 
-      <Handle type='target' position={Position.Top} isConnectableStart={false} />
+      <Handle isConnectableStart={false} position={Position.Top} type='target' />
     </>
   );
 };

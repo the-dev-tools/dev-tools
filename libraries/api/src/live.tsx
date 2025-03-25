@@ -10,8 +10,8 @@ import { ApiTransport, effectInterceptor } from './transport';
 const baseTransportOptions = Effect.gen(function* () {
   return {
     baseUrl: (yield* LocalMode) ? 'http://localhost:8080' : yield* Config.string('PUBLIC_API_URL'),
-    useHttpGet: true,
     jsonOptions: { registry },
+    useHttpGet: true,
   } satisfies ConnectTransportOptions;
 });
 
@@ -29,8 +29,8 @@ const MagicClientLive = Layer.effect(
     if (yield* LocalMode) return {} as Magic;
     const apiKey = yield* Config.string('PUBLIC_MAGIC_KEY');
     return new Magic(apiKey, {
-      useStorageCache: true,
       deferPreload: true,
+      useStorageCache: true,
     });
   }),
 );

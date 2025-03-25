@@ -1,7 +1,7 @@
 import {
   FieldError as AriaFieldError,
-  Label as AriaLabel,
   type FieldErrorProps as AriaFieldErrorProps,
+  Label as AriaLabel,
   type LabelProps as AriaLabelProps,
 } from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';

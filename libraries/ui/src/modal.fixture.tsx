@@ -17,7 +17,7 @@ export default (
 
         <div className={tw`mt-5 flex justify-end gap-2`}>
           <Button variant='secondary'>Cancel</Button>
-          <Button variant='primary' className={tw`border-red-700 bg-red-600`}>
+          <Button className={tw`border-red-700 bg-red-600`} variant='primary'>
             Delete
           </Button>
         </div>

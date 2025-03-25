@@ -19,8 +19,8 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 // Tag
 
 export const tagStyles = tv({
-  extend: isFocusVisibleRingStyles,
   base: tw`cursor-pointer rounded-sm px-2 py-1.5 text-xs font-medium leading-none tracking-tight`,
+  extend: isFocusVisibleRingStyles,
   variants: {
     isSelected: {
       false: tw`bg-transparent text-slate-400`,
@@ -38,14 +38,14 @@ export const Tag = ({ className, ...props }: TagProps) => {
 // Group
 
 export interface TagGroupProps<T>
-  extends Omit<AriaTagGroupProps, 'children'>,
-    MixinProps<'list', Omit<AriaTagListProps<T>, 'children'>>,
-    MixinProps<'label', Omit<AriaLabelProps, 'children'>> {
-  label?: AriaLabelProps['children'];
+  extends MixinProps<'list', Omit<AriaTagListProps<T>, 'children'>>,
+    MixinProps<'label', Omit<AriaLabelProps, 'children'>>,
+    Omit<AriaTagGroupProps, 'children'> {
   children?: AriaTagListProps<T>['children'];
+  label?: AriaLabelProps['children'];
 }
 
-export const TagGroup = <T extends object>({ label, children, listClassName, ...props }: TagGroupProps<T>) => {
+export const TagGroup = <T extends object>({ children, label, listClassName, ...props }: TagGroupProps<T>) => {
   const forwardedProps = splitProps(props, 'list', 'label');
 
   return (

@@ -14,17 +14,17 @@ const createWindow = Effect.gen(function* () {
 
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    title: 'DevTools',
+    height: 600,
     icon: yield* pipe(
       import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.ico'),
       Url.fromString,
       Effect.flatMap(path.fromFileUrl),
     ),
-    width: 800,
-    height: 600,
+    title: 'DevTools',
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.mjs'),
     },
+    width: 800,
   });
 
   // and load the index.html of the app.
@@ -53,11 +53,11 @@ const server = pipe(
       String.replaceAll('app.asar', 'app.asar.unpacked'),
       Command.make,
       Command.env({
-        DB_MODE: 'local',
-        DB_PATH: app.getPath('userData'),
-        DB_NAME: 'state',
         // TODO: we probably shouldn't encrypt local database
         DB_ENCRYPTION_KEY: 'secret',
+        DB_MODE: 'local',
+        DB_NAME: 'state',
+        DB_PATH: app.getPath('userData'),
         HMAC_SECRET: 'secret',
       }),
       Command.stdout('inherit'),
@@ -78,11 +78,11 @@ const worker = pipe(
 
 const onReady = Effect.gen(function* () {
   autoUpdater.setFeedURL({
-    provider: 'custom',
-    updateProvider: CustomUpdateProvider,
-    runtime: yield* Effect.runtime<Runtime.Runtime.Context<CustomPublishOptions['runtime']>>(),
-    repo: 'the-dev-tools/dev-tools',
     project: { name: 'desktop', path: 'apps/desktop' },
+    provider: 'custom',
+    repo: 'the-dev-tools/dev-tools',
+    runtime: yield* Effect.runtime<Runtime.Runtime.Context<CustomPublishOptions['runtime']>>(),
+    updateProvider: CustomUpdateProvider,
   });
   yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());
 
@@ -97,7 +97,7 @@ const onActivate = Effect.gen(function* () {
 const client = pipe(
   Effect.fn(function* (callback: (_: typeof Effect.void) => void) {
     const runtime = yield* Effect.runtime<
-      Effect.Effect.Context<typeof onReady> | Effect.Effect.Context<typeof onActivate>
+      Effect.Effect.Context<typeof onActivate> | Effect.Effect.Context<typeof onReady>
     >();
 
     // This method will be called when Electron has finished

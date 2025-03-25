@@ -10,7 +10,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
   },
   renderer: {
-    plugins: [ReactVite(), TailwindVite()],
     envPrefix: 'PUBLIC_',
+    plugins: [ReactVite(), TailwindVite()],
   },
 });

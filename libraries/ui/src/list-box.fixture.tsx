@@ -39,7 +39,7 @@ const ListBoxItemAvatar = ({
 );
 
 const avatars = (
-  <ListBox aria-label='List Box with Avatars' selectionMode='single' disallowEmptySelection>
+  <ListBox aria-label='List Box with Avatars' disallowEmptySelection selectionMode='single'>
     <ListBoxHeader>Your Workspace</ListBoxHeader>
     <ListBoxItemAvatar color='violet'>Workspace 1.1</ListBoxItemAvatar>
     <ListBoxItemAvatar color='lime'>KreativeDesk</ListBoxItemAvatar>
@@ -47,7 +47,7 @@ const avatars = (
     <ListBoxItemAvatar color='blue'>QuestHub</ListBoxItemAvatar>
     <ListBoxItemAvatar color='pink'>TrendSpace</ListBoxItemAvatar>
     <Separator />
-    <ListBoxItem variant='accent' onAction={noop}>
+    <ListBoxItem onAction={noop} variant='accent'>
       <FiPlus className={tw`stroke-[1.2px]`} /> Create Workspace
     </ListBoxItem>
   </ListBox>

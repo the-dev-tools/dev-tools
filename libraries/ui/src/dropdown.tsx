@@ -2,11 +2,11 @@ import { Struct } from 'effect';
 import {
   ListBox as AriaListBox,
   ListBoxItem as AriaListBoxItem,
-  Popover as AriaPopover,
-  composeRenderProps,
   type ListBoxItemProps as AriaListBoxItemProps,
   type ListBoxProps as AriaListBoxProps,
+  Popover as AriaPopover,
   type PopoverProps as AriaPopoverProps,
+  composeRenderProps,
 } from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';
 import { tv, type VariantProps } from 'tailwind-variants';
@@ -53,13 +53,13 @@ export const DropdownListBox = <T extends object>({ className, ...props }: Dropd
 // Item
 
 export const dropdownItemStyles = tv({
-  extend: focusRingStyles,
   base: tw`rac-focus:bg-neutral-400 select-none rounded-sm px-3 py-2 text-sm leading-none`,
+  extend: focusRingStyles,
   variants: {
+    isDisabled: { false: tw`cursor-pointer` },
     variant: {
       danger: tw`text-red-600`,
     },
-    isDisabled: { false: tw`cursor-pointer` },
   },
 });
 
@@ -71,8 +71,8 @@ export const DropdownItem = ({ className, ...props }: DropdownItemProps) => {
   return (
     <AriaListBoxItem
       {...forwardedProps}
-      isDisabled={props.isDisabled ?? false}
       className={composeRenderPropsTV(className, dropdownItemStyles, variantProps)}
+      isDisabled={props.isDisabled ?? false}
     />
   );
 };

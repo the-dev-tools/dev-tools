@@ -37,15 +37,17 @@ export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('Wo
   showLogs: pipe(Schema.Boolean, Schema.optional),
 }) {}
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
-  component: Layout,
+const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan');
+
+export const Route = makeRoute({
   validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
-  loader: async ({ params: { workspaceIdCan }, context: { transport, queryClient } }) => {
+  loader: async ({ context: { queryClient, transport }, params: { workspaceIdCan } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
     const options = createQueryOptions(workspaceGet, { workspaceId }, { transport });
-    await queryClient.ensureQueryData(options).catch(() => redirect({ to: '/', throw: true }));
+    await queryClient.ensureQueryData(options).catch(() => redirect({ throw: true, to: '/' }));
     return { workspaceId };
   },
+  component: Layout,
 });
 
 function Layout() {
@@ -64,9 +66,9 @@ function Layout() {
       navbar={
         <>
           <ButtonAsLink
-            variant='ghost dark'
             className={tw`-ml-3 gap-2 px-2 py-1`}
-            href={{ to: '/workspace/$workspaceIdCan', params: { workspaceIdCan } }}
+            href={{ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' }}
+            variant='ghost dark'
           >
             <Avatar shape='square' size='base'>
               {workspace.name}
@@ -101,13 +103,13 @@ function Layout() {
     >
       <PanelGroup direction='horizontal'>
         <Panel
-          id='sidebar'
-          order={1}
           className={tw`flex flex-col bg-slate-50`}
-          style={{ overflowY: 'auto' }}
           defaultSize={20}
-          minSize={10}
+          id='sidebar'
           maxSize={40}
+          minSize={10}
+          order={1}
+          style={{ overflowY: 'auto' }}
         >
           <EnvironmentsWidget />
 
@@ -127,8 +129,8 @@ function Layout() {
 
               <Button
                 className={tw`bg-slate-200 p-0.5`}
+                onPress={() => void collectionCreateMutation.mutate({ name: 'New collection', workspaceId })}
                 variant='ghost'
-                onPress={() => void collectionCreateMutation.mutate({ workspaceId, name: 'New collection' })}
               >
                 <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
               </Button>
@@ -165,18 +167,18 @@ const FlowList = () => {
 
         <Button
           className={tw`bg-slate-200 p-0.5`}
+          onPress={() => void flowCreateMutation.mutate({ name: 'New flow', workspaceId })}
           variant='ghost'
-          onPress={() => void flowCreateMutation.mutate({ workspaceId, name: 'New flow' })}
         >
           <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
         </Button>
       </div>
 
-      <div ref={listRef} className={tw`relative`}>
-        <ListBox aria-label='Flow list' selectionMode='single' items={flows} className={tw`w-full`}>
+      <div className={tw`relative`} ref={listRef}>
+        <ListBox aria-label='Flow list' className={tw`w-full`} items={flows} selectionMode='single'>
           {(_) => {
             const id = Ulid.construct(_.flowId).toCanonical();
-            return <FlowItem id={id} flow={_} listRef={listRef} />;
+            return <FlowItem flow={_} id={id} listRef={listRef} />;
           }}
         </ListBox>
       </div>
@@ -185,12 +187,12 @@ const FlowList = () => {
 };
 
 interface FlowItemProps {
-  id: string;
   flow: FlowListItem;
+  id: string;
   listRef: RefObject<HTMLDivElement | null>;
 }
 
-const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemProps) => {
+const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemProps) => {
   const { workspaceIdCan } = Route.useParams();
 
   const flowDeleteMutation = useConnectMutation(flowDelete);
@@ -201,20 +203,20 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemPr
   const escape = useEscapePortal(listRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    value: name,
     onSuccess: (_) => flowUpdateMutation.mutateAsync({ flowId, name: _ }),
+    value: name,
   });
 
   return (
     <ListBoxItem
-      id={flowIdCan}
-      textValue={name}
-      href={{ to: '/workspace/$workspaceIdCan/flow/$flowIdCan', params: { workspaceIdCan, flowIdCan } }}
       className={tw`text-md rounded-md pl-9 font-medium leading-5`}
+      href={{ params: { flowIdCan, workspaceIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' }}
+      id={flowIdCan}
       showSelectIndicator={false}
+      textValue={name}
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>
-        <Text ref={escape.ref} className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} slot='label'>
+        <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref} slot='label'>
           {name}
         </Text>
 
@@ -229,14 +231,14 @@ const FlowItem = ({ id: flowIdCan, flow: { flowId, name }, listRef }: FlowItemPr
           )}
 
         <MenuTrigger {...menuTriggerProps}>
-          <Button variant='ghost' className={tw`p-0.5`}>
+          <Button className={tw`p-0.5`} variant='ghost'>
             <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
           </Button>
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem variant='danger' onAction={() => void flowDeleteMutation.mutate({ flowId })}>
+            <MenuItem onAction={() => void flowDeleteMutation.mutate({ flowId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>

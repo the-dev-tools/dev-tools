@@ -11,24 +11,24 @@ import { composeRenderPropsTV } from '@the-dev-tools/ui/utils';
 // Button
 
 export const buttonStyles = tv({
-  extend: focusRingStyles,
   base: tw`flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
-  variants: {
-    variant: {
-      primary: tw`bg-indigo-600 text-white`,
-      'secondary gray': tw`border border-slate-200 bg-white text-black`,
-      'secondary color': tw`border border-indigo-200 bg-indigo-50 text-indigo-700`,
-    },
-    isHovered: { true: null },
-  },
   compoundVariants: [
     {
-      isHovered: true,
       className: tw`bg-neutral-400`,
+      isHovered: true,
     },
   ],
   defaultVariants: {
     variant: 'primary',
+  },
+  extend: focusRingStyles,
+  variants: {
+    isHovered: { true: null },
+    variant: {
+      primary: tw`bg-indigo-600 text-white`,
+      'secondary color': tw`border border-indigo-200 bg-indigo-50 text-indigo-700`,
+      'secondary gray': tw`border border-slate-200 bg-white text-black`,
+    },
   },
 });
 

@@ -7,12 +7,12 @@ import * as Yaml from 'yaml';
 
 declare module 'builder-util-runtime' {
   interface CustomPublishOptions {
-    runtime: Runtime.Runtime<Effect.Effect.Context<ReturnType<typeof getUpdateInfo>>>;
-    repo: string;
     project: {
       name: string;
       path: string;
     };
+    repo: string;
+    runtime: Runtime.Runtime<Effect.Effect.Context<ReturnType<typeof getUpdateInfo>>>;
   }
 }
 
@@ -33,8 +33,8 @@ export const getUpdateInfo = Effect.fn(function* (options: CustomPublishOptions)
         Schema.Struct({
           assets: Schema.Array(
             Schema.Struct({
-              name: Schema.String,
               browser_download_url: Schema.String,
+              name: Schema.String,
             }),
           ),
         }),
@@ -67,14 +67,14 @@ export class CustomUpdateProvider extends UpdateProvider<UpdateInfo> {
     const result = await pipe(getUpdateInfo(this.options), Runtime.runPromiseExit(this.options.runtime));
 
     return Exit.match(result, {
-      onSuccess: (_) => _,
       onFailure: (): UpdateInfo => ({
-        version: this.updater.currentVersion as string,
         files: [],
         path: '',
         releaseDate: '',
         sha512: '',
+        version: this.updater.currentVersion as string,
       }),
+      onSuccess: (_) => _,
     });
   }
 

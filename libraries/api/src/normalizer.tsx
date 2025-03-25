@@ -24,8 +24,8 @@ interface NormyReactQueryMeta extends Record<string, unknown> {
 
 declare module '@tanstack/react-query' {
   interface Register {
-    queryMeta: NormyReactQueryMeta;
     mutationMeta: NormyReactQueryMeta;
+    queryMeta: NormyReactQueryMeta;
   }
 }
 
@@ -44,7 +44,7 @@ const toNormalMessage = (data: unknown, options = { alwaysEmitImplicit: false })
   if (!schema) return Option.none();
 
   message = create(schema, message);
-  const json = toJson(schema, message, { registry, alwaysEmitImplicit });
+  const json = toJson(schema, message, { alwaysEmitImplicit, registry });
   if (!Predicate.isRecord(json)) return Option.none();
 
   const keys = pipe(Array.fromNullable(key), Array.appendAll(normalKeys ?? []));
@@ -110,7 +110,7 @@ const setQueryData = ({ query, queryClient, queryKey, updater }: SetQueryDataPro
     updatedAt: dataUpdatedAt,
   });
 
-  query.setState({ isInvalidated, error, status, dataUpdatedAt });
+  query.setState({ dataUpdatedAt, error, isInvalidated, status });
 };
 
 interface UpdateQueriesProps {
@@ -130,13 +130,13 @@ const updateQueries = ({ data, normalizer, queryClient }: UpdateQueriesProps) =>
 
       setQueryData({
         query: cachedQuery,
-        queryKey,
         queryClient,
+        queryKey,
         updater: (data: unknown) =>
           pipe(
             Option.liftPredicate(data, isMessage),
             Option.flatMapNullable((_) => registry.getMessage(_.$typeName)),
-            Option.map((_) => fromJson(_, query.data as JsonObject, { registry, ignoreUnknownFields: true })),
+            Option.map((_) => fromJson(_, query.data as JsonObject, { ignoreUnknownFields: true, registry })),
             Option.getOrElse(() => data),
           ),
       });
@@ -170,14 +170,14 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
       );
 
       if (isTopLevel) {
-        await queryClient.invalidateQueries({ queryKey, exact: true });
+        await queryClient.invalidateQueries({ exact: true, queryKey });
         return;
       }
 
       setQueryData({
         query,
-        queryKey,
         queryClient,
+        queryKey,
         updater: (data: unknown) => {
           const schema = pipe(
             Option.liftPredicate(data, isMessage),
@@ -189,7 +189,7 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
           return pipe(
             toNormalMessageDeep(data),
             Option.flatMap(removeMessageDeep($id)),
-            Option.map((_) => fromJson(schema.value, _ as JsonObject, { registry, ignoreUnknownFields: true })),
+            Option.map((_) => fromJson(schema.value, _ as JsonObject, { ignoreUnknownFields: true, registry })),
             Option.getOrElse(() => data),
           );
         },
@@ -208,7 +208,7 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
 
   // Perform list changes
   pipe(
-    Array.flatMap(changes, ({ list, data }) => {
+    Array.flatMap(changes, ({ data, list }) => {
       const messageMaybe = pipe(
         Option.fromNullable(data),
         Option.flatMapNullable((_) => anyUnpack(_, registry)),
@@ -287,8 +287,8 @@ const processChanges = async ({ data, normalizer, queryClient }: UpdateQueriesPr
       const method = getMethod(service.typeName, _.method ?? '');
 
       const queryKey = Option.match(method, {
-        onSome: (_) => createConnectQueryKey({ cardinality: 'finite', schema: _ as DescMethodUnary, input }),
         onNone: () => createConnectQueryKey({ cardinality: 'finite', schema: service }),
+        onSome: (_) => createConnectQueryKey({ cardinality: 'finite', input, schema: _ as DescMethodUnary }),
       });
 
       await queryClient.invalidateQueries({ queryKey });
@@ -305,17 +305,23 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
     },
   });
 
-  let unsubscribeQueryCache: null | (() => void) = null;
-  let unsubscribeMutationCache: null | (() => void) = null;
+  let unsubscribeQueryCache: (() => void) | null = null;
+  let unsubscribeMutationCache: (() => void) | null = null;
 
   return {
+    clear: normalizer.clearNormalizedData,
+    getDependentQueries: (mutationData: Data) =>
+      normalizer.getDependentQueries(mutationData).map((key) => JSON.parse(key) as QueryKey),
+    getDependentQueriesByIds: (ids: readonly string[]) =>
+      normalizer.getDependentQueriesByIds(ids).map((key) => JSON.parse(key) as QueryKey),
     getNormalizedData: normalizer.getNormalizedData,
+    getObjectById: normalizer.getObjectById,
+    getQueryFragment: normalizer.getQueryFragment,
     setNormalizedData: async (data: unknown) => {
       const message = toNormalMessageDeep(data);
       if (Option.isNone(message)) return;
       await processChanges({ data: message.value, normalizer, queryClient });
     },
-    clear: normalizer.clearNormalizedData,
     subscribe: () => {
       unsubscribeQueryCache = queryClient.getQueryCache().subscribe((event) => {
         if (event.type === 'removed') {
@@ -418,12 +424,6 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
       unsubscribeQueryCache = null;
       unsubscribeMutationCache = null;
     },
-    getObjectById: normalizer.getObjectById,
-    getQueryFragment: normalizer.getQueryFragment,
-    getDependentQueries: (mutationData: Data) =>
-      normalizer.getDependentQueries(mutationData).map((key) => JSON.parse(key) as QueryKey),
-    getDependentQueriesByIds: (ids: readonly string[]) =>
-      normalizer.getDependentQueriesByIds(ids).map((key) => JSON.parse(key) as QueryKey),
   };
 };
 
@@ -432,11 +432,11 @@ const QueryNormalizerContext = createContext<Option.Option<ReturnType<typeof cre
 export const useQueryNormalizer = () => pipe(useContext(QueryNormalizerContext), Option.getOrThrow);
 
 export const QueryNormalizerProvider = ({
-  queryClient,
   children,
+  queryClient,
 }: {
-  queryClient: QueryClient;
   children: ReactNode;
+  queryClient: QueryClient;
 }) => {
   const [queryNormalizer] = useState(() => createQueryNormalizer(queryClient));
 

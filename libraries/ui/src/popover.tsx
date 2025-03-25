@@ -19,8 +19,8 @@ export const PopoverDialog = ({ className, ...props }: PopoverDialogProps) => {
 // Mix
 
 export interface PopoverProps
-  extends Omit<DropdownPopoverProps, 'children'>,
-    MixinProps<'dialog', Omit<PopoverDialogProps, 'children'>> {
+  extends MixinProps<'dialog', Omit<PopoverDialogProps, 'children'>>,
+    Omit<DropdownPopoverProps, 'children'> {
   children?: PopoverDialogProps['children'];
 }
 

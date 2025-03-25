@@ -26,12 +26,12 @@ export const JavaScriptNode = (props: NodeProps) => (
       </div>
     </NodeBase>
 
-    <Handle type='target' position={Position.Top} />
-    <Handle type='source' position={Position.Bottom} />
+    <Handle position={Position.Top} type='target' />
+    <Handle position={Position.Bottom} type='source' />
   </>
 );
 
-export const JavaScriptPanel = ({ node: { nodeId, js } }: NodePanelProps) => {
+export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
   const { code } = js!;
   const { isReadOnly = false } = use(FlowContext);
 
@@ -52,22 +52,22 @@ export const JavaScriptPanel = ({ node: { nodeId, js } }: NodePanelProps) => {
         <div className={tw`flex-1`} />
 
         <ButtonAsLink
-          variant='ghost'
           className={tw`p-1`}
-          href={{ to: '.', search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }) }}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+          variant='ghost'
         >
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>
 
       <CodeMirror
-        value={value}
-        onChange={setValue}
-        onBlur={() => void updateMutation.mutate({ nodeId, js: { code: value } })}
-        height='100%'
         className={tw`flex-1 overflow-auto`}
         extensions={extensions}
+        height='100%'
+        onBlur={() => void updateMutation.mutate({ js: { code: value }, nodeId })}
+        onChange={setValue}
         readOnly={isReadOnly}
+        value={value}
       />
     </>
   );

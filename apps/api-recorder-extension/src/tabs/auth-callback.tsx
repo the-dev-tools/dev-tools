@@ -1,13 +1,13 @@
 import '~styles.css';
 
+import type { IconType } from 'react-icons';
+
 import { Effect, Match, Option, pipe, Tuple } from 'effect';
 import * as React from 'react';
-import type { IconType } from 'react-icons';
 import * as FeatherIcons from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-
 import { Button } from '~/ui/button';
 import * as Auth from '~auth';
 import { Layout } from '~layout';
@@ -39,7 +39,7 @@ const Subheading = ({ children, ...props }: Omit<React.ComponentPropsWithoutRef<
 const AuthCallbackPage = () => {
   const token = new URLSearchParams(window.location.search).get('magic_credential');
 
-  const [state, setState] = React.useState<'loading' | 'success' | 'failure'>(token ? 'loading' : 'failure');
+  const [state, setState] = React.useState<'failure' | 'loading' | 'success'>(token ? 'loading' : 'failure');
   const [resendLoading, setResendLoading] = React.useState(false);
 
   const email = pipe(

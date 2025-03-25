@@ -15,7 +15,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { Edge } from './edge';
 import { Node } from './node';
 
-export { HandleKind, HandleKindSchema, type HandleKindJson };
+export { HandleKind, type HandleKindJson, HandleKindSchema };
 
 export interface FlowContext {
   flowId: Uint8Array;
@@ -28,10 +28,10 @@ const handleInnerStyles = tv({
   base: tw`pointer-events-none`,
   variants: {
     state: {
-      [NodeState.UNSPECIFIED]: tw`text-slate-800`,
+      [NodeState.FAILURE]: tw`text-red-600`,
       [NodeState.RUNNING]: tw`text-violet-600`,
       [NodeState.SUCCESS]: tw`text-green-600`,
-      [NodeState.FAILURE]: tw`text-red-600`,
+      [NodeState.UNSPECIFIED]: tw`text-slate-800`,
     } satisfies Record<NodeState, string>,
   },
 });
@@ -60,7 +60,7 @@ export const Handle = (props: HandleProps) => {
       className={tw`shadow-xs -z-10 size-5 overflow-visible rounded-full border-none bg-transparent`}
       {...props}
     >
-      <svg viewBox='-10 -10 20 20' className={handleInnerStyles({ state })}>
+      <svg className={handleInnerStyles({ state })} viewBox='-10 -10 20 20'>
         <circle className={tw`fill-slate-300`} r={10} />
         <circle className={tw`fill-slate-200`} r={9} />
         <circle className={tw`fill-current`} r={4} />

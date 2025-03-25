@@ -3,10 +3,10 @@ import { FC, ForwardedRef, forwardRef, RefAttributes } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Button as AriaButton,
-  Select as AriaSelect,
-  SelectValue as AriaSelectValue,
   type ButtonProps as AriaButtonProps,
+  Select as AriaSelect,
   type SelectProps as AriaSelectProps,
+  SelectValue as AriaSelectValue,
   type SelectValueProps as AriaSelectValueProps,
 } from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
@@ -15,11 +15,11 @@ import { FiChevronDown } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { type VariantProps } from 'tailwind-variants';
 
-import { splitProps, type MixinProps } from '@the-dev-tools/utils/mixin-props';
+import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { buttonStyles } from './button';
 import { DropdownPopover, DropdownPopoverProps } from './dropdown';
-import { FieldError, FieldLabel, type FieldErrorProps, type FieldLabelProps } from './field';
+import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { ListBox, ListBoxProps } from './list-box';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
@@ -44,8 +44,8 @@ export const SelectTrigger = forwardRef(
     return (
       <AriaButton
         {...forwardedProps}
-        ref={ref}
         className={composeRenderPropsTV(className, buttonStyles, variantProps)}
+        ref={ref}
       />
     );
   },
@@ -68,26 +68,26 @@ export const SelectIndicator = ({ isOpen, ...props }: SelectIndicatorProps) => (
 // Mix
 
 export interface SelectProps<T extends object>
-  extends Omit<SelectRootProps<T>, 'children'>,
-    RefAttributes<HTMLButtonElement>,
-    MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
+  extends MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
     MixinProps<'trigger', Omit<SelectTriggerProps, 'children'>>,
     MixinProps<'value', Omit<AriaSelectValueProps<T>, 'children'>>,
     MixinProps<'indicator', Omit<SelectIndicatorProps, 'children' | 'isOpen'>>,
     MixinProps<'error', Omit<FieldErrorProps, 'children'>>,
     MixinProps<'popover', Omit<DropdownPopoverProps, 'children'>>,
-    MixinProps<'listBox', Omit<ListBoxProps<T>, 'children'>> {
+    MixinProps<'listBox', Omit<ListBoxProps<T>, 'children'>>,
+    Omit<SelectRootProps<T>, 'children'>,
+    RefAttributes<HTMLButtonElement> {
   children?: ListBoxProps<T>['children'];
-  value?: AriaSelectValueProps<T>['children'];
-  label?: FieldLabelProps['children'];
   error?: FieldErrorProps['children'];
+  label?: FieldLabelProps['children'];
+  value?: AriaSelectValueProps<T>['children'];
 }
 
 interface Select extends FC<SelectProps<object>> {
   <T extends object>(props: SelectProps<T>): ReturnType<FC<SelectProps<T>>>;
 }
 
-export const Select: Select = forwardRef(({ children, label, error, value, ...props }, ref) => {
+export const Select: Select = forwardRef(({ children, error, label, value, ...props }, ref) => {
   const forwardedProps = splitProps(props, 'label', 'trigger', 'value', 'indicator', 'error', 'popover', 'listBox');
   return (
     <SelectRoot {...forwardedProps.rest}>
@@ -129,14 +129,14 @@ export const SelectRHF = <
   const { field, fieldState } = useController({ defaultValue: null as never, ...controllerProps });
 
   const fieldProps: SelectProps<TFieldValues> = {
-    name: field.name,
-    selectedKey: field.value,
-    onSelectionChange: field.onChange,
-    onBlur: field.onBlur,
-    isDisabled: field.disabled ?? false,
-    validationBehavior: 'aria',
-    isInvalid: fieldState.invalid,
     error: fieldState.error?.message,
+    isDisabled: field.disabled ?? false,
+    isInvalid: fieldState.invalid,
+    name: field.name,
+    onBlur: field.onBlur,
+    onSelectionChange: field.onChange,
+    selectedKey: field.value,
+    validationBehavior: 'aria',
   };
 
   return <Select {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;

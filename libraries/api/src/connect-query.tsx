@@ -5,8 +5,8 @@ import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 export {
-  useQuery as useConnectQuery,
   useInfiniteQuery as useConnectInfiniteQuery,
+  useQuery as useConnectQuery,
   useSuspenseInfiniteQuery as useConnectSuspenseInfiniteQuery,
   useSuspenseQuery as useConnectSuspenseQuery,
 } from '@connectrpc/connect-query';
@@ -25,10 +25,10 @@ export function useConnectMutation<I extends DescMessage, O extends DescMessage,
   );
   return useMutation({
     ...queryOptions,
-    mutationFn,
     meta: {
       schema,
       ...queryOptions.meta,
     },
+    mutationFn,
   });
 }
