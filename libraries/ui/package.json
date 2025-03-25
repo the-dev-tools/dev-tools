@@ -15,7 +15,7 @@
     "@react-aria/collections": "3.0.0-beta.1",
     "@tanstack/react-table": "8.21.2",
     "@the-dev-tools/utils": "workspace:^",
-    "effect": "3.14.1",
+    "effect": "3.14.2",
     "react": "19.0.0",
     "react-aria": "3.38.1",
     "react-aria-components": "1.7.1",

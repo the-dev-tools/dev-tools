@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@plasmohq/storage": "1.15.0",
-    "effect": "3.14.1",
+    "effect": "3.14.2",
     "magic-sdk": "29.0.2",
     "plasmo": "0.90.3",
     "react": "19.0.0",
@@ -35,7 +35,7 @@
     "postcss": "~8.5.3",
     "tailwindcss": "~4.0.15",
     "typescript": "~5.8.2",
-    "typescript-eslint": "~8.27.0"
+    "typescript-eslint": "~8.28.0"
   },
   "manifest": {
     "host_permissions": [
