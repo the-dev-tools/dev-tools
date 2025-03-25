@@ -5,4 +5,5 @@ use (
 	./libraries/backend
 	./libraries/db
 	./libraries/spec
+	./apps/cli
 )
