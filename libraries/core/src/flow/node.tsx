@@ -291,7 +291,7 @@ export const useOnNodesChange = () => {
     async (changes) => {
       const newNodes = queryClient.setQueryData<Node[]>(nodesQueryKey, (nodes) => {
         if (nodes === undefined) return undefined;
-        if (oldNodes.current === undefined) oldNodes.current = nodes;
+        oldNodes.current ??= nodes;
         return applyNodeChanges(changes, nodes);
       });
 

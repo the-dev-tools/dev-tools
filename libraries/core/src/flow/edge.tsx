@@ -231,7 +231,7 @@ export const useOnEdgesChange = () => {
     async (changes) => {
       const newEdges = queryClient.setQueryData<Edge[]>(edgesQueryKey, (edges) => {
         if (edges === undefined) return undefined;
-        if (oldEdges.current === undefined) oldEdges.current = edges;
+        oldEdges.current ??= edges;
         return applyEdgeChanges(changes, edges);
       });
 
