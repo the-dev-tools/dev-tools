@@ -74,29 +74,6 @@ const exportProjectInfo = CliCommand.make(
   }, Effect.provide(Repository.Default)),
 );
 
-const goInstallTools = CliCommand.make(
-  'go-install-tools',
-  {},
-  Effect.fn(function* () {
-    const path = yield* Path.Path;
-    const root = yield* resolveMonorepoRoot;
-
-    const tools = path.resolve(root, 'libraries', 'tools');
-
-    const originalDir = process.cwd();
-    process.chdir(tools);
-
-    yield* pipe(
-      PlatformCommand.make('go', 'mod', 'tidy'),
-      PlatformCommand.stdout('inherit'),
-      PlatformCommand.stderr('inherit'),
-      PlatformCommand.exitCode,
-    );
-
-    process.chdir(originalDir);
-  }),
-);
-
 type ReleaseWorkflow =
   | 'release-chrome-extension.yaml'
   | 'release-cloudflare-pages.yaml'
@@ -210,7 +187,7 @@ const uploadElectronReleaseAssets = CliCommand.make(
 
 pipe(
   CliCommand.make('scripts'),
-  CliCommand.withSubcommands([exportProjectInfo, goInstallTools, release, uploadElectronReleaseAssets]),
+  CliCommand.withSubcommands([exportProjectInfo, release, uploadElectronReleaseAssets]),
   CliCommand.run({ name: 'Internal scripts', version: '' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),

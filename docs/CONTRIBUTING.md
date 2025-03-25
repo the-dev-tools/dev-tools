@@ -70,7 +70,7 @@ The development environment for this project is set up using Nix Flakes for full
 2. [Direnv](https://direnv.net/), see [installation instructions](https://direnv.net/docs/installation.html). Run `direnv allow` in project root to activate the environment
 3. [Visual Studio Code](https://code.visualstudio.com/) with [recommended extensions](https://code.visualstudio.com/docs/editor/extension-marketplace#_recommended-extensions)
 
-Make sure to update project dependencies by running `pnpm install` and `scripts go-install-tools` before making any changes.
+Make sure to update project dependencies by running `pnpm install` and `go install tool` before making any changes.
 
 ## Tooling References
 

@@ -28,4 +28,4 @@ runs:
       run: pnpm install
 
     - shell: ${{ inputs.shell }}
-      run: scripts go-install-tools
+      run: go install tool
