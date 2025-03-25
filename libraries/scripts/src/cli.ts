@@ -81,7 +81,7 @@ const goInstallTools = CliCommand.make(
     const path = yield* Path.Path;
     const root = yield* resolveMonorepoRoot;
 
-    const tools = path.resolve(root, 'libraries', 'backend');
+    const tools = path.resolve(root, 'libraries', 'tools');
 
     const originalDir = process.cwd();
     process.chdir(tools);
