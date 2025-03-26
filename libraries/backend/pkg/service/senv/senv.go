@@ -19,6 +19,10 @@ func New(queries *gen.Queries) EnvService {
 	return EnvService{queries: queries}
 }
 
+func (e EnvService) TX(tx *sql.Tx) EnvService {
+	return EnvService{queries: e.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*EnvService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

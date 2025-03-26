@@ -19,6 +19,10 @@ func New(queries *gen.Queries) VarService {
 	return VarService{queries: queries}
 }
 
+func (e VarService) TX(tx *sql.Tx) VarService {
+	return VarService{queries: e.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*VarService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

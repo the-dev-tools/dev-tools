@@ -18,6 +18,10 @@ func New(queries *gen.Queries) BodyURLEncodedService {
 	return BodyURLEncodedService{queries: queries}
 }
 
+func (bues BodyURLEncodedService) TX(tx *sql.Tx) BodyURLEncodedService {
+	return BodyURLEncodedService{queries: bues.queries.WithTx(tx)}
+}
+
 var ErrNoBodyUrlEncodedFound = sql.ErrNoRows
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {

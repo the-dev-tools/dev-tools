@@ -18,6 +18,10 @@ func New(queries *gen.Queries) NodeNoopService {
 	return NodeNoopService{queries: queries}
 }
 
+func (nns NodeNoopService) TX(tx *sql.Tx) NodeNoopService {
+	return NodeNoopService{queries: nns.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeNoopService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

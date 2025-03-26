@@ -43,6 +43,10 @@ func New(queries *gen.Queries) AssertService {
 	return AssertService{queries: queries}
 }
 
+func (as AssertService) TX(tx *sql.Tx) AssertService {
+	return AssertService{queries: as.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*AssertService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

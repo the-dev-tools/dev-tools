@@ -40,6 +40,10 @@ func New(queries *gen.Queries) BodyRawService {
 	return BodyRawService{queries: queries}
 }
 
+func (brs BodyRawService) TX(tx *sql.Tx) BodyRawService {
+	return BodyRawService{queries: brs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyRawService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

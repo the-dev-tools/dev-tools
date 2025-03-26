@@ -19,6 +19,10 @@ func New(queries *gen.Queries) FlowService {
 	return FlowService{queries: queries}
 }
 
+func (s FlowService) TX(tx *sql.Tx) FlowService {
+	return FlowService{queries: s.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*FlowService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -80,6 +84,17 @@ func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 		Name:            arg.Name,
 	})
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
+}
+
+func (s *FlowService) CreateFlowBulk(ctx context.Context, flows []mflow.Flow) error {
+	var err error
+	for _, flow := range flows {
+		err = s.CreateFlow(ctx, flow)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *FlowService) UpdateFlow(ctx context.Context, flow mflow.Flow) error {

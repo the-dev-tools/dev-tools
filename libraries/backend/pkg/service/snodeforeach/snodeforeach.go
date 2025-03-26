@@ -21,6 +21,10 @@ func New(queries *gen.Queries) NodeForEachService {
 	return NodeForEachService{queries: queries}
 }
 
+func (nfs NodeForEachService) TX(tx *sql.Tx) NodeForEachService {
+	return NodeForEachService{queries: nfs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForEachService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -75,6 +79,17 @@ func (nfs NodeForEachService) CreateNodeForEach(ctx context.Context, nf mnforeac
 		ConditionPath: nodeForEach.ConditionPath,
 		Value:         nodeForEach.Value,
 	})
+}
+
+func (nfs NodeForEachService) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mnforeach.MNForEach) error {
+	var err error
+	for _, forEachNode := range forEachNodes {
+		err = nfs.CreateNodeForEach(ctx, forEachNode)
+		if err != nil {
+			break
+		}
+	}
+	return err
 }
 
 func (nfs NodeForEachService) UpdateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {

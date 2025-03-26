@@ -19,6 +19,10 @@ func New(queries *gen.Queries) NodeForService {
 	return NodeForService{queries: queries}
 }
 
+func (nfs NodeForService) TX(tx *sql.Tx) NodeForService {
+	return NodeForService{queries: nfs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -72,6 +76,17 @@ func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) err
 		ConditionPath: nodeFor.ConditionPath,
 		Value:         nodeFor.Value,
 	})
+}
+
+func (nfs NodeForService) CreateNodeForBulk(ctx context.Context, nf []mnfor.MNFor) error {
+	var err error
+	for _, n := range nf {
+		err = nfs.CreateNodeFor(ctx, n)
+		if err != nil {
+			break
+		}
+	}
+	return err
 }
 
 func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) error {

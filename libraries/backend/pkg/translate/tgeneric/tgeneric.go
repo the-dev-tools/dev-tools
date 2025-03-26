@@ -42,3 +42,39 @@ func ReplaceRootWithSub[T comparable](rootError, subError, got T) T {
 	}
 	return got
 }
+
+const thresholdSwitchRemove = 100
+
+func RemoveElement[T comparable](arr []T, v T) []T {
+	if len(arr) < thresholdSwitchRemove {
+		return RemoveElementSmall(arr, v)
+	} else {
+		return RemoveElementBig(arr, v)
+	}
+}
+
+func RemoveElementSmall[T comparable](arr []T, v T) []T {
+	var result []T
+	for _, e := range arr {
+		if e != v {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+func RemoveElementBig[T comparable](arr []T, v T) []T {
+	a := make(map[T]struct{})
+	for _, v := range arr {
+		a[v] = struct{}{}
+	}
+
+	delete(a, v)
+
+	result := make([]T, 0, len(a))
+	for k := range a {
+		result = append(result, k)
+	}
+
+	return result
+}

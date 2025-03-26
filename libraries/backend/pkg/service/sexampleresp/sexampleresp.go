@@ -18,6 +18,10 @@ func New(queries *gen.Queries) ExampleRespService {
 	return ExampleRespService{Queries: queries}
 }
 
+func (s ExampleRespService) TX(tx *sql.Tx) ExampleRespService {
+	return ExampleRespService{Queries: s.Queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -81,6 +85,17 @@ func (s ExampleRespService) CreateExampleResp(ctx context.Context, item mexample
 		BodyCompressType: e.BodyCompressType,
 		Duration:         e.Duration,
 	})
+}
+
+func (s ExampleRespService) CreateExampleRespBulk(ctx context.Context, items []mexampleresp.ExampleResp) error {
+	var err error
+	for _, item := range items {
+		err = s.CreateExampleResp(ctx, item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s ExampleRespService) UpdateExampleResp(ctx context.Context, item mexampleresp.ExampleResp) error {

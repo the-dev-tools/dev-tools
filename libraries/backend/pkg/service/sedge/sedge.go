@@ -2,6 +2,7 @@ package sedge
 
 import (
 	"context"
+	"database/sql"
 	"the-dev-tools/backend/pkg/flow/edge"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
@@ -14,6 +15,10 @@ type EdgeService struct {
 
 func New(queries *gen.Queries) EdgeService {
 	return EdgeService{queries: queries}
+}
+
+func (es EdgeService) TX(tx *sql.Tx) EdgeService {
+	return EdgeService{queries: es.queries.WithTx(tx)}
 }
 
 func NewTX(ctx context.Context, tx gen.DBTX) (*EdgeService, error) {

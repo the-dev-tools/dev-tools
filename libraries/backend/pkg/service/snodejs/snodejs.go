@@ -19,6 +19,10 @@ func New(queries *gen.Queries) NodeJSService {
 	return NodeJSService{queries: queries}
 }
 
+func (nfs NodeJSService) TX(tx *sql.Tx) NodeJSService {
+	return NodeJSService{queries: nfs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeJSService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -61,6 +65,17 @@ func (nfs NodeJSService) CreateNodeJS(ctx context.Context, mn mnjs.MNJS) error {
 		Code:             nodeJS.Code,
 		CodeCompressType: nodeJS.CodeCompressType,
 	})
+}
+
+func (nfs NodeJSService) CreateNodeJSBulk(ctx context.Context, jsNodes []mnjs.MNJS) error {
+	var err error
+	for _, jsNode := range jsNodes {
+		err = nfs.CreateNodeJS(ctx, jsNode)
+		if err != nil {
+			break
+		}
+	}
+	return err
 }
 
 func (nfs NodeJSService) UpdateNodeJS(ctx context.Context, mn mnjs.MNJS) error {

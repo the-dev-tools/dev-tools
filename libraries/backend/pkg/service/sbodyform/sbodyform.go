@@ -44,6 +44,10 @@ func New(queries *gen.Queries) BodyFormService {
 	return BodyFormService{queries: queries}
 }
 
+func (bfs BodyFormService) TX(tx *sql.Tx) BodyFormService {
+	return BodyFormService{queries: bfs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyFormService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

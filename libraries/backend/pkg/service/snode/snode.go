@@ -19,6 +19,10 @@ func New(queries *gen.Queries) NodeService {
 	return NodeService{queries: queries}
 }
 
+func (s NodeService) TX(tx *sql.Tx) NodeService {
+	return NodeService{queries: s.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

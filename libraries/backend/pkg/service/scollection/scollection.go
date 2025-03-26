@@ -35,6 +35,10 @@ func New(queries *gen.Queries) CollectionService {
 	return CollectionService{queries: queries}
 }
 
+func (cs CollectionService) TX(tx *sql.Tx) CollectionService {
+	return CollectionService{queries: cs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

@@ -19,6 +19,10 @@ func New(queries *gen.Queries) *NodeIfService {
 	}
 }
 
+func (nifs NodeIfService) TX(tx *sql.Tx) *NodeIfService {
+	return &NodeIfService{queries: nifs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeIfService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -67,6 +71,17 @@ func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error 
 		Path:          nodeIf.Path,
 		Value:         nodeIf.Value,
 	})
+}
+
+func (nifs NodeIfService) CreateNodeIfBulk(ctx context.Context, conditionNodes []mnif.MNIF) error {
+	var err error
+	for _, n := range conditionNodes {
+		err = nifs.CreateNodeIf(ctx, n)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error {

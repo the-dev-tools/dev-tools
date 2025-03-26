@@ -20,6 +20,10 @@ func New(queries *gen.Queries) ExampleRespHeaderService {
 	return ExampleRespHeaderService{queries: queries}
 }
 
+func (s ExampleRespHeaderService) TX(tx *sql.Tx) ExampleRespHeaderService {
+	return ExampleRespHeaderService{queries: s.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleRespHeaderService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

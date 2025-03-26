@@ -38,6 +38,10 @@ func New(queries *gen.Queries) WorkspaceUserService {
 	return WorkspaceUserService{queries: queries}
 }
 
+func (wsu WorkspaceUserService) TX(tx *sql.Tx) WorkspaceUserService {
+	return WorkspaceUserService{queries: wsu.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceUserService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

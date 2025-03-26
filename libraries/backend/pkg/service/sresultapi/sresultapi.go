@@ -46,6 +46,10 @@ func New(queries *gen.Queries) ResultApiService {
 	return ResultApiService{queries: queries}
 }
 
+func (ras ResultApiService) TX(tx *sql.Tx) ResultApiService {
+	return ResultApiService{queries: ras.queries.WithTx(tx)}
+}
+
 func (ras ResultApiService) CreateResultApi(ctx context.Context, result *mresultapi.MResultAPI) error {
 	res := ConvertToDBResultApi(*result)
 

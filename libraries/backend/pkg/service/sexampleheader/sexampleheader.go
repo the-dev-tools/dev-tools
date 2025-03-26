@@ -21,6 +21,10 @@ func New(queries *gen.Queries) HeaderService {
 	return HeaderService{queries: queries}
 }
 
+func (h HeaderService) TX(tx *sql.Tx) HeaderService {
+	return HeaderService{queries: h.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*HeaderService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

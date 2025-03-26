@@ -45,6 +45,10 @@ func New(queries *gen.Queries) ExampleQueryService {
 	return ExampleQueryService{queries: queries}
 }
 
+func (h ExampleQueryService) TX(tx *sql.Tx) ExampleQueryService {
+	return ExampleQueryService{queries: h.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*ExampleQueryService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

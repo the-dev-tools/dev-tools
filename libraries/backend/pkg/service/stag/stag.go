@@ -19,6 +19,10 @@ func New(queries *gen.Queries) TagService {
 	return TagService{queries: queries}
 }
 
+func (s *TagService) TX(tx *sql.Tx) TagService {
+	return TagService{queries: s.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*TagService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

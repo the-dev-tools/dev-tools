@@ -17,6 +17,10 @@ func New(queries *gen.Queries) UserService {
 	return UserService{queries: queries}
 }
 
+func (us UserService) TX(tx *sql.Tx) UserService {
+	return UserService{queries: us.queries.WithTx(tx)}
+}
+
 var ErrUserNotFound = sql.ErrNoRows
 
 // WARNING: this is also get user password hash do not use for public api

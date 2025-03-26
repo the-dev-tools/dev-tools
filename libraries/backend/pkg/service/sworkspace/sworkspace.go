@@ -45,6 +45,10 @@ func New(queries *gen.Queries) WorkspaceService {
 	return WorkspaceService{queries: queries}
 }
 
+func (ws WorkspaceService) TX(tx *sql.Tx) WorkspaceService {
+	return WorkspaceService{queries: ws.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

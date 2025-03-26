@@ -48,6 +48,10 @@ func New(queries *gen.Queries) ItemApiService {
 	return ItemApiService{queries: queries}
 }
 
+func (ias ItemApiService) TX(tx *sql.Tx) ItemApiService {
+	return ItemApiService{queries: ias.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*ItemApiService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

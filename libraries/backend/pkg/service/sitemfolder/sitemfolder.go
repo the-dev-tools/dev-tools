@@ -39,6 +39,10 @@ func New(queries *gen.Queries) ItemFolderService {
 	return ItemFolderService{queries: queries}
 }
 
+func (ifs ItemFolderService) TX(tx *sql.Tx) ItemFolderService {
+	return ItemFolderService{queries: ifs.queries.WithTx(tx)}
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*ItemFolderService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
