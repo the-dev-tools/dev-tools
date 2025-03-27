@@ -8,7 +8,7 @@ import {
   RouterProvider,
   ToOptions,
 } from '@tanstack/react-router';
-import { Effect, Runtime } from 'effect';
+import { Effect, Option, pipe, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
@@ -16,6 +16,7 @@ import { createRoot } from 'react-dom/client';
 import { LocalMode } from '@the-dev-tools/api/local';
 import { QueryNormalizerProvider } from '@the-dev-tools/api/normalizer';
 import { ApiTransport } from '@the-dev-tools/api/transport';
+import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
@@ -50,28 +51,29 @@ export const app = Effect.gen(function* () {
   const transport = yield* ApiTransport;
   const queryClient = new QueryClient();
   const router = yield* makeRouter;
+  const toastQueue = makeToastQueue();
 
-  const root = createRoot(rootEl);
-  root.render(
-    <StrictMode>
-      <TransportProvider transport={transport}>
-        <QueryNormalizerProvider queryClient={queryClient}>
-          <QueryClientProvider client={queryClient}>
-            <AriaRouterProvider
-              navigate={(to, options) => {
-                if (typeof to === 'string') return;
-                return router.navigate({ ...to, ...options });
-              }}
-              useHref={(to) => {
-                if (typeof to === 'string') return to;
-                return router.buildLocation(to).href;
-              }}
-            >
-              <RouterProvider context={{ queryClient, runtime, transport }} router={router} />
-            </AriaRouterProvider>
-          </QueryClientProvider>
-        </QueryNormalizerProvider>
-      </TransportProvider>
-    </StrictMode>,
+  pipe(
+    <RouterProvider context={{ queryClient, runtime, transport }} router={router} />,
+    (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
+    (_) => (
+      <AriaRouterProvider
+        navigate={(to, options) => {
+          if (typeof to === 'string') return;
+          return router.navigate({ ...to, ...options });
+        }}
+        useHref={(to) => {
+          if (typeof to === 'string') return to;
+          return router.buildLocation(to).href;
+        }}
+      >
+        {_}
+      </AriaRouterProvider>
+    ),
+    (_) => <QueryClientProvider client={queryClient}>{_}</QueryClientProvider>,
+    (_) => <QueryNormalizerProvider queryClient={queryClient}>{_}</QueryNormalizerProvider>,
+    (_) => <TransportProvider transport={transport}>{_}</TransportProvider>,
+    (_) => <StrictMode>{_}</StrictMode>,
+    (_) => void createRoot(rootEl).render(_),
   );
 });
