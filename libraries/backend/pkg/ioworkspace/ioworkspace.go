@@ -3,7 +3,6 @@ package ioworkspace
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
@@ -360,6 +359,8 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 			return nil, err
 		}
 
+		data.FlowNodes = append(data.FlowNodes, flowNodes...)
+
 		for _, node := range flowNodes {
 			switch node.NodeKind {
 			case mnnode.NODE_KIND_REQUEST:
@@ -427,12 +428,9 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("examples", examples)
-			data.Examples = append(data.Examples, examples...)
 
 			// filter
 			if FilterExport.FilterExampleIds != nil {
-				fmt.Println("FilterExport.FilterExampleIds", FilterExport.FilterExampleIds)
 
 				filterMap := make(map[idwrap.IDWrap]struct{})
 				for _, id := range *FilterExport.FilterExampleIds {
@@ -475,27 +473,28 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 		data.ExampleAsserts = append(data.ExampleAsserts, exampleAsserts...)
 
 		// // body
+		//
 
 		// raw
-		rawBody, err := s.rawBodyService.GetBodyRaw(ctx, example.ID)
+		rawBody, err := s.rawBodyService.GetBodyRawByExampleID(ctx, example.ID)
 		if err != nil {
 			return nil, err
 		}
 		data.Rawbodies = append(data.Rawbodies, *rawBody)
 
 		// form
-		formBodies, err := s.formBodyService.GetBodyForm(ctx, example.ID)
+		formBodies, err := s.formBodyService.GetBodyFormsByExampleID(ctx, example.ID)
 		if err != nil {
 			return nil, err
 		}
-		data.FormBodies = append(data.FormBodies, *formBodies)
+		data.FormBodies = append(data.FormBodies, formBodies...)
 
 		// url
-		urlBodies, err := s.urlBodyService.GetBodyURLEncoded(ctx, example.ID)
+		urlBodies, err := s.urlBodyService.GetBodyURLEncodedByExampleID(ctx, example.ID)
 		if err != nil {
 			return nil, err
 		}
-		data.UrlBodies = append(data.UrlBodies, *urlBodies)
+		data.UrlBodies = append(data.UrlBodies, urlBodies...)
 
 		// response
 		response, err := s.responseService.GetExampleRespByExampleID(ctx, example.ID)

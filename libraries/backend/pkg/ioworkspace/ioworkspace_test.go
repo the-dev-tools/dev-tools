@@ -102,6 +102,14 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 		},
 	}
 
+	wsData.Rawbodies = append(wsData.Rawbodies, mbodyraw.ExampleBodyRaw{
+		Data:          []byte(`{"test": "data"}`),
+		VisualizeMode: mbodyraw.VisualizeModeJSON,
+		CompressType:  mbodyraw.CompressTypeNone,
+		ID:            idwrap.NewNow(),
+		ExampleID:     exampleID,
+	})
+
 	wsData.ExampleHeaders = []mexampleheader.Header{
 		{
 			ID:          idwrap.NewNow(),
@@ -392,9 +400,33 @@ func TestImportWorkspace(t *testing.T) {
 			t.Errorf("Endpoint URL mismatch: expected %s, got %s", data.Endpoints[0].Url, endpoints[0].Url)
 		}
 	}
+
+	examples, err := base.Queries.GetItemApiExamples(ctx, data.Endpoints[0].ID)
+	if err != nil {
+		t.Fatalf("Failed to get example: %v", err)
+	}
+	if len(examples) != len(data.Examples) {
+		t.Errorf("Example count mismatch: expected %d, got %d", len(data.Examples), len(examples))
+	}
+
+	flows, err := base.Queries.GetFlowsByWorkspaceID(ctx, data.Workspace.ID)
+	if err != nil {
+		t.Fatalf("Failed to get flows: %v", err)
+	}
+
+	if len(flows) != len(data.Flows) {
+		t.Errorf("Flow count mismatch: expected %d, got %d", len(data.Flows), len(flows))
+	}
+
+	flowNodes, err := base.Queries.GetFlowNodesByFlowID(ctx, data.Flows[0].ID)
+	if err != nil {
+		t.Fatalf("Failed to get flow nodes: %v", err)
+	}
+	if len(flowNodes) != len(data.FlowNodes) {
+		t.Errorf("Flow node count mismatch: expected %d, got %d", len(data.FlowNodes), len(flowNodes))
+	}
 }
 
-/*
 func TestExportWorkspace(t *testing.T) {
 	ctx := context.Background()
 	ioWorkspaceService, _ := setupIOWorkspaceService(ctx, t)
@@ -460,7 +492,6 @@ func TestExportWorkspace(t *testing.T) {
 	}
 }
 
-/*
 func TestFilteredExport(t *testing.T) {
 	ctx := context.Background()
 	ioWorkspaceService, _ := setupIOWorkspaceService(ctx, t)
