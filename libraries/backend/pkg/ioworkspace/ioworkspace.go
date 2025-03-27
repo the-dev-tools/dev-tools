@@ -3,6 +3,7 @@ package ioworkspace
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
@@ -49,6 +50,8 @@ import (
 	"the-dev-tools/backend/pkg/service/snoderequest"
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+
+	"gopkg.in/yaml.v3"
 )
 
 type IOWorkspaceService struct {
@@ -138,43 +141,42 @@ func NewIOWorkspaceService(
 }
 
 type WorkspaceData struct {
-	Workspace mworkspace.Workspace
+	Workspace mworkspace.Workspace `yaml:"workspace"`
 
 	// collections
-	Collections []mcollection.Collection
-	Folders     []mitemfolder.ItemFolder
-	Endpoints   []mitemapi.ItemApi
-	Examples    []mitemapiexample.ItemApiExample
+	Collections []mcollection.Collection         `yaml:"collections"`
+	Folders     []mitemfolder.ItemFolder         `yaml:"folders"`
+	Endpoints   []mitemapi.ItemApi               `yaml:"endpoints"`
+	Examples    []mitemapiexample.ItemApiExample `yaml:"examples"`
 
 	// example sub items
-
-	ExampleHeaders []mexampleheader.Header
-	ExampleQueries []mexamplequery.Query
-	ExampleAsserts []massert.Assert
+	ExampleHeaders []mexampleheader.Header `yaml:"example_headers"`
+	ExampleQueries []mexamplequery.Query   `yaml:"example_queries"`
+	ExampleAsserts []massert.Assert        `yaml:"example_asserts"`
 
 	// body
-	Rawbodies  []mbodyraw.ExampleBodyRaw
-	FormBodies []mbodyform.BodyForm
-	UrlBodies  []mbodyurl.BodyURLEncoded
+	Rawbodies  []mbodyraw.ExampleBodyRaw `yaml:"rawbodies"`
+	FormBodies []mbodyform.BodyForm      `yaml:"form_bodies"`
+	UrlBodies  []mbodyurl.BodyURLEncoded `yaml:"url_bodies"`
 
 	// response
-	ExampleResponses       []mexampleresp.ExampleResp
-	ExampleResponseHeaders []mexamplerespheader.ExampleRespHeader
-	ExampleResponseAsserts []massertres.AssertResult
+	ExampleResponses       []mexampleresp.ExampleResp             `yaml:"example_responses"`
+	ExampleResponseHeaders []mexamplerespheader.ExampleRespHeader `yaml:"example_response_headers"`
+	ExampleResponseAsserts []massertres.AssertResult              `yaml:"example_response_asserts"`
 
 	// flows
-	Flows []mflow.Flow
+	Flows []mflow.Flow `yaml:"flows"`
 
 	// Root nodes
-	FlowNodes []mnnode.MNode
+	FlowNodes []mnnode.MNode `yaml:"flow_nodes"`
 
 	// Sub nodes
-	FlowRequestNodes   []mnrequest.MNRequest
-	FlowConditionNodes []mnif.MNIF
-	FlowNoopNodes      []mnnoop.NoopNode
-	FlowForNodes       []mnfor.MNFor
-	FlowForEachNodes   []mnforeach.MNForEach
-	FlowJSNodes        []mnjs.MNJS
+	FlowRequestNodes   []mnrequest.MNRequest `yaml:"flow_request_nodes"`
+	FlowConditionNodes []mnif.MNIF           `yaml:"flow_condition_nodes"`
+	FlowNoopNodes      []mnnoop.NoopNode     `yaml:"flow_noop_nodes"`
+	FlowForNodes       []mnfor.MNFor         `yaml:"flow_for_nodes"`
+	FlowForEachNodes   []mnforeach.MNForEach `yaml:"flow_foreach_nodes"`
+	FlowJSNodes        []mnjs.MNJS           `yaml:"flow_js_nodes"`
 }
 
 func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data WorkspaceData) error {
@@ -519,4 +521,21 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 	}
 
 	return &data, nil
+}
+
+func UnmarshalWorkspace(data []byte) (*WorkspaceData, error) {
+	var workspace WorkspaceData
+	err := yaml.Unmarshal(data, &workspace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal workspace: %w", err)
+	}
+	return &workspace, nil
+}
+
+func MarshalWorkspace(workspace *WorkspaceData) ([]byte, error) {
+	data, err := yaml.Marshal(workspace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal workspace: %w", err)
+	}
+	return data, nil
 }
