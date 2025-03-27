@@ -31,7 +31,7 @@ import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
 import { registry } from './meta';
-import { AnyFnEffect, ApiTransport, effectInterceptor, Request } from './transport';
+import { AnyFnEffect, ApiTransport, effectInterceptor, errorInterceptor, Request } from './transport';
 
 class EmailRef extends Context.Tag('EmailRef')<EmailRef, Ref.Ref<string>>() {}
 
@@ -247,7 +247,7 @@ const ApiTransportMock = Layer.effect(
       {
         transport: {
           // Interceptor flow order is reversed
-          interceptors: [yield* effectInterceptor(flow(mockInterceptor, authorizationInterceptor))],
+          interceptors: [yield* effectInterceptor(flow(errorInterceptor, mockInterceptor, authorizationInterceptor))],
         },
       },
     );

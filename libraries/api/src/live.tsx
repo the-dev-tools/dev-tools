@@ -1,11 +1,11 @@
 import { ConnectTransportOptions, createConnectTransport } from '@connectrpc/connect-web';
-import { Config, Effect, Layer, pipe } from 'effect';
+import { Config, Effect, flow, Layer, pipe } from 'effect';
 import { Magic } from 'magic-sdk';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { LocalMode } from './local';
 import { registry } from './meta';
-import { ApiTransport, effectInterceptor } from './transport';
+import { ApiTransport, effectInterceptor, errorInterceptor } from './transport';
 
 const baseTransportOptions = Effect.gen(function* () {
   return {
@@ -18,7 +18,10 @@ const baseTransportOptions = Effect.gen(function* () {
 const AuthTransportLive = Layer.effect(
   AuthTransport,
   Effect.gen(function* () {
-    return createConnectTransport(yield* baseTransportOptions);
+    return createConnectTransport({
+      ...(yield* baseTransportOptions),
+      interceptors: [yield* effectInterceptor(errorInterceptor)],
+    });
   }),
 );
 
@@ -40,7 +43,8 @@ const ApiTransportLive = Layer.effect(
   Effect.gen(function* () {
     return createConnectTransport({
       ...(yield* baseTransportOptions),
-      interceptors: [yield* effectInterceptor(authorizationInterceptor)],
+      // Interceptor flow order is reversed
+      interceptors: [yield* effectInterceptor(flow(errorInterceptor, authorizationInterceptor))],
     });
   }),
 );

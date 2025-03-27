@@ -30,7 +30,7 @@ import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
 
 import { ApiLayer } from '@the-dev-tools/api/layer';
-import { app } from '@the-dev-tools/core/index';
+import { ApiErrorHandlerLive, app } from '@the-dev-tools/core/index';
 
 const ConfigLive = pipe(
   {
@@ -43,6 +43,7 @@ const ConfigLive = pipe(
 
 const layer = pipe(
   ApiLayer,
+  Layer.provideMerge(ApiErrorHandlerLive),
   Layer.provideMerge(ConfigLive),
   Layer.provideMerge(Logger.pretty),
   Layer.provideMerge(Logger.minimumLogLevel(LogLevel.Debug)),

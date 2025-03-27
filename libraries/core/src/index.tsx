@@ -8,14 +8,14 @@ import {
   RouterProvider,
   ToOptions,
 } from '@tanstack/react-router';
-import { Effect, Option, pipe, Runtime } from 'effect';
+import { Effect, Layer, Option, pipe, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
 import { LocalMode } from '@the-dev-tools/api/local';
 import { QueryNormalizerProvider } from '@the-dev-tools/api/normalizer';
-import { ApiTransport } from '@the-dev-tools/api/transport';
+import { ApiErrorHandler, ApiTransport } from '@the-dev-tools/api/transport';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 
 import { RouterContext } from './root';
@@ -41,6 +41,13 @@ declare module 'react-aria-components' {
   }
 }
 
+const toastQueue = makeToastQueue();
+
+export const ApiErrorHandlerLive = Layer.succeed(
+  ApiErrorHandler,
+  (error) => void toastQueue.add({ title: error.message }),
+);
+
 export const app = Effect.gen(function* () {
   const runtime = yield* Effect.runtime<RouterContext['runtime'] extends Runtime.Runtime<infer R> ? R : never>();
 
@@ -51,7 +58,6 @@ export const app = Effect.gen(function* () {
   const transport = yield* ApiTransport;
   const queryClient = new QueryClient();
   const router = yield* makeRouter;
-  const toastQueue = makeToastQueue();
 
   pipe(
     <RouterProvider context={{ queryClient, runtime, transport }} router={router} />,
