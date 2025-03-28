@@ -1,6 +1,7 @@
 import {
   Code,
   ConnectError,
+  createContextKey,
   StreamRequest,
   StreamResponse,
   Transport,
@@ -39,6 +40,8 @@ export const effectInterceptor = <E, R>(
       pipe(next, finalizeEffectInterceptor, interceptor, (_) => _(request), Runtime.runPromise(runtime));
   });
 
+export const enableErrorInterceptorKey = createContextKey(false);
+
 export const errorInterceptor =
   <E, R>(next: AnyFnEffect<E, R>) =>
   (request: Request) =>
@@ -46,6 +49,7 @@ export const errorInterceptor =
       next(request),
       Effect.tapError(
         Effect.fn(function* (error) {
+          if (!request.contextValues.get(enableErrorInterceptorKey)) return;
           const handler = yield* Effect.serviceOption(ApiErrorHandler);
           if (error instanceof ConnectError) Option.map(handler, (_) => void _(error));
         }),
