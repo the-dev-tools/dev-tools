@@ -16,8 +16,10 @@ import { createRoot } from 'react-dom/client';
 import { LocalMode } from '@the-dev-tools/api/local';
 import { QueryNormalizerProvider } from '@the-dev-tools/api/normalizer';
 import { ApiErrorHandler, ApiTransport } from '@the-dev-tools/api/transport';
-import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { makeToastQueue, ToastQueueContext, ToastRegion } from '@the-dev-tools/ui/toast';
 
+import { DevToolsProvider, ReactQueryDevTools, TanStackRouterDevTools } from './dev-tools';
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
 import './styles.css';
@@ -60,7 +62,14 @@ export const app = Effect.gen(function* () {
   const router = yield* makeRouter;
 
   pipe(
-    <RouterProvider context={{ queryClient, runtime, transport }} router={router} />,
+    <>
+      <DevToolsProvider>
+        <ToastRegion />
+        <TanStackRouterDevTools position='bottom-right' toggleButtonProps={{ class: tw`!bottom-3 !right-16` }} />
+        <ReactQueryDevTools buttonPosition='bottom-right' />
+      </DevToolsProvider>
+      <RouterProvider context={{ queryClient, runtime, transport }} router={router} />
+    </>,
     (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
     (_) => (
       <AriaRouterProvider

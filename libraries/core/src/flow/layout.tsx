@@ -1,6 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { QueryErrorResetBoundary } from '@tanstack/react-query';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
+import { Panel } from 'react-resizable-panels';
+
+import { ErrorComponent } from '../error';
 
 export class FlowSearch extends Schema.Class<FlowSearch>('FlowSearch')({
   node: pipe(Schema.String, Schema.optional),
@@ -19,4 +23,14 @@ export const Route = makeRoute({
     );
     return { flowId, nodeId };
   },
+  component: () => (
+    <QueryErrorResetBoundary>
+      <Outlet />
+    </QueryErrorResetBoundary>
+  ),
+  errorComponent: (props) => (
+    <Panel id='main' order={2}>
+      <ErrorComponent {...props} />
+    </Panel>
+  ),
 });

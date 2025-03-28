@@ -2,7 +2,7 @@ import { create, toJson } from '@bufbuild/protobuf';
 import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
-import { useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
+import { QueryErrorResetBoundary, useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi, redirect, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
@@ -67,6 +67,7 @@ import { formatSize } from '@the-dev-tools/utils/helpers';
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
 import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
+import { ErrorComponent } from './error';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
 import { ReferenceContext } from './reference';
@@ -117,7 +118,16 @@ export const Route = makeRoute({
 
     return { endpointId, exampleId, responseId };
   },
-  component: Page,
+  component: () => (
+    <QueryErrorResetBoundary>
+      <Page />
+    </QueryErrorResetBoundary>
+  ),
+  errorComponent: (props) => (
+    <Panel id='main' order={2}>
+      <ErrorComponent {...props} />
+    </Panel>
+  ),
   shouldReload: false,
 });
 
