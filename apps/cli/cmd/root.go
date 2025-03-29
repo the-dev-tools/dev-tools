@@ -17,11 +17,14 @@ automatically generates requests, and seamlessly chains them for functional test
 With built-in CI integration, it streamlines API validation from development to deployment.
   `,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Do Stuff Here
+		cmd.Help()
 	},
 }
 
-var cfgFilePath string
+var (
+	cfgFilePath       string
+	workspaceFilePath string
+)
 
 const (
 	ConfigFileName      = ".devtools"
@@ -40,6 +43,7 @@ func init() {
 
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFilePath, "config", cfgFilePath, "config file (default is $HOME/.devtools.yaml)")
+	rootCmd.PersistentFlags().StringVar(&workspaceFilePath, "workspaceFilePath", "", "")
 }
 
 func Execute() {
