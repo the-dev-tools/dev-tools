@@ -4,3 +4,4 @@ flake.lock
 pnpm-lock.yaml
 router-tree.tsx
 *.har
+.golangci.yml
