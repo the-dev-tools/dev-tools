@@ -7,7 +7,7 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
-      "path": "../../configs/eslint/tsconfig.lib.json"
+      "path": "../eslint/tsconfig.lib.json"
     }
   ]
 }

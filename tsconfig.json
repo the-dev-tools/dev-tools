@@ -16,9 +16,6 @@
       "path": "./configs/eslint"
     },
     {
-      "path": "./packages/scripts"
-    },
-    {
       "path": "./packages/utils"
     },
     {
@@ -29,6 +26,9 @@
     },
     {
       "path": "./packages/client"
+    },
+    {
+      "path": "./configs/gha-scripts"
     }
   ]
 }

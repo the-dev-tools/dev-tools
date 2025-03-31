@@ -1,5 +1,6 @@
 {
-  "name": "@the-dev-tools/scripts",
+  "name": "@the-dev-tools/gha-scripts",
+  "description": "Scripts for GitHub Actions",
   "private": true,
   "type": "module",
   "scripts": {

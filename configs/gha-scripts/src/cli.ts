@@ -186,9 +186,9 @@ const uploadElectronReleaseAssets = CliCommand.make(
 );
 
 pipe(
-  CliCommand.make('scripts'),
+  CliCommand.make('gha-scripts'),
   CliCommand.withSubcommands([exportProjectInfo, release, uploadElectronReleaseAssets]),
-  CliCommand.run({ name: 'Internal scripts', version: '' }),
+  CliCommand.run({ name: 'Scripts for GitHub Actions', version: 'internal' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),
   NodeRuntime.runMain,

@@ -22,11 +22,11 @@
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
 
         devShells.runner = let
-          scripts = pkgs.writeShellApplication {
-            name = "scripts";
+          gha-scripts = pkgs.writeShellApplication {
+            name = "gha-scripts";
             runtimeInputs = with pkgs; [pnpm];
             runtimeEnv.NODE_OPTIONS = "--disable-warning=ExperimentalWarning";
-            text = ''pnpm run --filter="*/scripts" cli "$@"'';
+            text = ''pnpm run --filter="*/gha-scripts" cli "$@"'';
           };
         in
           pkgs.mkShell {
@@ -54,7 +54,7 @@
               jq
               nodejs_latest
               pnpm
-              scripts
+              gha-scripts
             ];
           };
 

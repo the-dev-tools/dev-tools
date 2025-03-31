@@ -33,4 +33,4 @@ runs:
           Out-File -FilePath $env:GITHUB_PATH -Encoding ascii -Force
 
     - shell: powershell
-      run: scoop shim add scripts pnpm '--' run --filter="*/scripts" cli
+      run: scoop shim add gha-scripts pnpm '--' run --filter="*/gha-scripts" cli

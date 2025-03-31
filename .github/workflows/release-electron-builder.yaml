@@ -24,7 +24,7 @@ jobs:
 
       - id: info
         name: Get project information
-        run: scripts export-project-info
+        run: gha-scripts export-project-info
 
       - name: Build
         env:
@@ -38,4 +38,4 @@ jobs:
       - name: Publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: scripts upload-electron-release-assets
+        run: gha-scripts upload-electron-release-assets

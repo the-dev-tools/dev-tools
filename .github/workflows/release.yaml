@@ -35,7 +35,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          scripts release \
+          gha-scripts release \
             ${{ inputs.api-recorder-extension && 'api-recorder-extension' || '' }} \
             ${{ inputs.desktop && 'desktop' || '' }} \
             ${{ inputs.web && 'web' || '' }} \

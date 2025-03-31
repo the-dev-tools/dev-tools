@@ -290,6 +290,39 @@ importers:
         specifier: ~8.28.0
         version: 8.28.0(eslint@9.23.0(jiti@2.4.2))(typescript@5.8.2)
 
+  configs/gha-scripts:
+    devDependencies:
+      '@effect/cli':
+        specifier: ~0.59.1
+        version: 0.59.2(@effect/platform@0.80.2(effect@3.14.2))(@effect/printer-ansi@0.42.2(@effect/typeclass@0.33.2(effect@3.14.2))(effect@3.14.2))(@effect/printer@0.42.2(@effect/typeclass@0.33.2(effect@3.14.2))(effect@3.14.2))(effect@3.14.2)
+      '@effect/platform':
+        specifier: ~0.80.2
+        version: 0.80.2(effect@3.14.2)
+      '@effect/platform-node':
+        specifier: ~0.76.5
+        version: 0.76.5(@effect/cluster@0.29.5(@effect/platform@0.80.2(effect@3.14.2))(@effect/rpc@0.55.3(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/sql@0.33.2(@effect/experimental@0.44.2(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(@effect/rpc@0.55.3(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/sql@0.33.2(@effect/experimental@0.44.2(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(bufferutil@4.0.9)(effect@3.14.2)(utf-8-validate@5.0.10)
+      '@octokit/auth-action':
+        specifier: ~5.1.1
+        version: 5.1.1
+      '@octokit/rest':
+        specifier: ~21.1.1
+        version: 21.1.1
+      '@the-dev-tools/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
+      '@types/node':
+        specifier: ~22.13.13
+        version: 22.13.13
+      effect:
+        specifier: ~3.14.2
+        version: 3.14.2
+      nx:
+        specifier: ~20.6.2
+        version: 20.6.4(@swc/core@1.11.13(@swc/helpers@0.5.15))
+      typescript:
+        specifier: ~5.8.2
+        version: 5.8.2
+
   packages/api:
     dependencies:
       '@bufbuild/protobuf':
@@ -507,39 +540,6 @@ importers:
       vite:
         specifier: ~6.2.3
         version: 6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0)
-
-  packages/scripts:
-    devDependencies:
-      '@effect/cli':
-        specifier: ~0.59.1
-        version: 0.59.2(@effect/platform@0.80.2(effect@3.14.2))(@effect/printer-ansi@0.42.2(@effect/typeclass@0.33.2(effect@3.14.2))(effect@3.14.2))(@effect/printer@0.42.2(@effect/typeclass@0.33.2(effect@3.14.2))(effect@3.14.2))(effect@3.14.2)
-      '@effect/platform':
-        specifier: ~0.80.2
-        version: 0.80.2(effect@3.14.2)
-      '@effect/platform-node':
-        specifier: ~0.76.5
-        version: 0.76.5(@effect/cluster@0.29.5(@effect/platform@0.80.2(effect@3.14.2))(@effect/rpc@0.55.3(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/sql@0.33.2(@effect/experimental@0.44.2(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(@effect/rpc@0.55.3(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/sql@0.33.2(@effect/experimental@0.44.2(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(bufferutil@4.0.9)(effect@3.14.2)(utf-8-validate@5.0.10)
-      '@octokit/auth-action':
-        specifier: ~5.1.1
-        version: 5.1.1
-      '@octokit/rest':
-        specifier: ~21.1.1
-        version: 21.1.1
-      '@the-dev-tools/eslint-config':
-        specifier: workspace:^
-        version: link:../../configs/eslint
-      '@types/node':
-        specifier: ~22.13.13
-        version: 22.13.13
-      effect:
-        specifier: ~3.14.2
-        version: 3.14.2
-      nx:
-        specifier: ~20.6.2
-        version: 20.6.4(@swc/core@1.11.13(@swc/helpers@0.5.15))
-      typescript:
-        specifier: ~5.8.2
-        version: 5.8.2
 
   packages/server:
     dependencies:
