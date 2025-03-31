@@ -5,7 +5,7 @@ import base from '@the-dev-tools/eslint-config';
 const config: ConfigArray = [
   ...base,
   {
-    ignores: ['apps', 'libraries'],
+    ignores: ['apps', 'configs', 'libraries'],
   },
 ];
 

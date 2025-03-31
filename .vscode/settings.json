@@ -1,6 +1,11 @@
 {
   "eslint.options": { "flags": ["unstable_config_lookup_from_file"] },
-  "eslint.workingDirectories": [{ "directory": "./" }, { "pattern": "./apps/*/" }, { "pattern": "./libraries/*/" }],
+  "eslint.workingDirectories": [
+    { "directory": "./" },
+    { "pattern": "./apps/*/" },
+    { "pattern": "./configs/*/" },
+    { "pattern": "./libraries/*/" }
+  ],
   "files.associations": { "*.css": "tailwindcss" },
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
