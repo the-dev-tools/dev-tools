@@ -1,6 +1,12 @@
 package depfinder_test
 
-/*
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+	"the-dev-tools/backend/pkg/depfinder"
+)
+
 func TestNewDepFinder(t *testing.T) {
 	df := depfinder.NewDepFinder()
 
@@ -150,9 +156,9 @@ func TestReplaceValueWithPath(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result, _ := df.ReplaceWithPaths(tc.value)
-		if result != tc.expected {
-			t.Errorf("For value %v, expected '%s', got '%s'", tc.value, tc.expected, result)
+		value, _, _ := df.ReplaceWithPaths(tc.value)
+		if value != tc.expected {
+			t.Errorf("For value %v, expected '%s', got '%s'", tc.value, tc.expected, value)
 		}
 	}
 }
@@ -181,14 +187,14 @@ func TestTemplateJSON(t *testing.T) {
 	df.AddVar("secret-key", depfinder.VarCouple{Path: "app.credentials.key"})
 
 	// Template the JSON
-	_, templated, err := df.TemplateJSON(jsonData)
-	if err != nil {
-		t.Fatalf("Failed to template JSON: %v", err)
+	result := df.TemplateJSON(jsonData)
+	if result.Err != nil {
+		t.Fatalf("Failed to template JSON: %v", result.Err)
 	}
 
 	// Parse the templated JSON to verify the values
-	var result map[string]any
-	if err := json.Unmarshal(templated, &result); err != nil {
+	var resultMap map[string]any
+	if err := json.Unmarshal(result.NewJson, &resultMap); err != nil {
 		t.Fatalf("Failed to parse templated JSON: %v", err)
 	}
 
@@ -199,22 +205,23 @@ func TestTemplateJSON(t *testing.T) {
 			"port":  "{{ app.port }}",
 			"debug": "{{ app.debug }}",
 		},
-		"tags": []interface{}{
+		"tags": []any{
 			"{{ app.environment }}",
 			"api",
 		},
-		"nested": map[string]interface{}{
+		"nested": map[string]any{
 			"value": "{{ app.credentials.key }}",
 		},
 	}
 
 	// We need to convert to JSON and back to make sure the comparison is accurate
-	expectedJSON, _ := json.Marshal(expected)
-	var expectedMap map[string]interface{}
-	json.Unmarshal(expectedJSON, &expectedMap)
+	expectedJSON, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if !reflect.DeepEqual(result, expectedMap) {
-		t.Errorf("Templated JSON doesn't match expected result.\nGot: %v\nExpected: %v", result, expectedMap)
+	if !bytes.Equal(result.NewJson, expectedJSON) {
+		t.Errorf("Templated JSON doesn't match expected result.\nGot: %v\nExpected: %v", result, expectedJSON)
 	}
 }
 
@@ -241,35 +248,35 @@ func TestTemplateJSONWithSubstringValues(t *testing.T) {
 	df.AddVar("production", depfinder.VarCouple{Path: "app.environment"})
 
 	// Template the JSON
-	_, templated, err := df.TemplateJSON(jsonData)
-	if err != nil {
-		t.Fatalf("Failed to template JSON: %v", err)
+	result := df.TemplateJSON(jsonData)
+
+	if result.Err != nil {
+		t.Fatalf("Failed to template JSON: %v", result.Err)
 	}
 
 	// Parse the templated JSON to verify the values
-	var result map[string]any
-	if err := json.Unmarshal(templated, &result); err != nil {
+	var resultMap map[string]any
+	if err := json.Unmarshal(result.NewJson, &resultMap); err != nil {
 		t.Fatalf("Failed to parse templated JSON: %v", err)
 	}
 
 	// Verify that strings containing our variables as substrings weren't replaced
-	if result["service"] != "service-name-extended" {
-		t.Errorf("Expected 'service' to remain unchanged, got %v", result["service"])
+	if resultMap["service"] != "service-name-extended" {
+		t.Errorf("Expected 'service' to remain unchanged, got %v", resultMap["service"])
 	}
 
-	if result["description"] != "This contains service-name somewhere" {
-		t.Errorf("Expected 'description' to remain unchanged, got %v", result["description"])
+	if resultMap["description"] != "This contains service-name somewhere" {
+		t.Errorf("Expected 'description' to remain unchanged, got %v", resultMap["description"])
 	}
 
-	configMap := result["config"].(map[string]any)
+	configMap := resultMap["config"].(map[string]any)
 	if configMap["setting"] != "prefix-secret-key-suffix" {
 		t.Errorf("Expected 'setting' to remain unchanged, got %v", configMap["setting"])
 	}
 
-	nestedMap := result["nested"].(map[string]any)
+	nestedMap := resultMap["nested"].(map[string]any)
 	propertiesMap := nestedMap["properties"].(map[string]any)
 	if propertiesMap["id"] != "app-123-production-env" {
 		t.Errorf("Expected 'id' to remain unchanged, got %v", propertiesMap["id"])
 	}
 }
-*/

@@ -153,6 +153,7 @@ func (d DepFinder) TemplateJSON(jsonBytes []byte) TemplateJSONResult {
 	return TemplateJSONResult{FindAny: findAny, Couples: couples, NewJson: jsonBytes, Err: err}
 }
 
+// replace value with path if the value in vars
 func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 	var findAny bool
 	var couples []VarCouple
