@@ -2,9 +2,8 @@ import { Struct } from 'effect';
 import { Dialog as AriaDialog, type DialogProps as AriaDialogProps } from 'react-aria-components';
 import { VariantProps } from 'tailwind-variants';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { dropdownListBoxStyles, DropdownPopover, DropdownPopoverProps } from './dropdown';
+import { MixinProps, splitProps } from './mixin-props';
 
 // Dialog
 

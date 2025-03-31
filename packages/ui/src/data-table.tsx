@@ -2,8 +2,7 @@ import { flexRender, RowData, Table as TanStackTable } from '@tanstack/react-tab
 import { ComponentProps } from 'react';
 import { twMerge } from 'tailwind-merge';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
+import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
 
 declare module '@tanstack/react-table' {

@@ -5,10 +5,10 @@ import { twMerge } from 'tailwind-merge';
 import { ComparisonKind, Condition } from '@the-dev-tools/spec/condition/v1/condition_pb';
 import { FieldLabel, FieldLabelProps } from '@the-dev-tools/ui/field';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
+import { MixinProps, splitProps } from '@the-dev-tools/ui/mixin-props';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 import { ReferenceField } from './reference';
 

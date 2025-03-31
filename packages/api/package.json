@@ -14,7 +14,6 @@
     "@normy/core": "0.12.0",
     "@tanstack/react-query": "5.69.0",
     "@the-dev-tools/spec": "workspace:^",
-    "@the-dev-tools/utils": "workspace:^",
     "effect": "3.14.2",
     "id128": "1.6.6",
     "jose": "6.0.10",
@@ -23,6 +22,7 @@
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "~9.6.0",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/react": "~19.0.12",
     "@types/react-dom": "~19.0.4",

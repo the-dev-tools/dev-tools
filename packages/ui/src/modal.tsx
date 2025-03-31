@@ -5,8 +5,7 @@ import {
 } from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
+import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 

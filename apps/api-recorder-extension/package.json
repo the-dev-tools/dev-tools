@@ -26,7 +26,6 @@
     "@tailwindcss/postcss": "~4.0.15",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
-    "@the-dev-tools/utils": "workspace:^",
     "@types/chrome": "~0.0.310",
     "@types/node": "~22.13.13",
     "@types/react": "~19.0.12",

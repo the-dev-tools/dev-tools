@@ -11,11 +11,10 @@ import { IconBaseProps } from 'react-icons';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
-import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { Button, ButtonProps } from './button';
 import { isFocusVisibleRingStyles } from './focus-ring';
 import { ChevronSolidDownIcon, Spinner } from './icons';
+import { type MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 

@@ -9,9 +9,8 @@ import {
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { tv, VariantProps } from 'tailwind-variants';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { isFocusVisibleRingStyles } from './focus-ring';
+import { MixinProps, splitProps } from './mixin-props';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';

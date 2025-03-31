@@ -15,10 +15,9 @@ import { FieldPath, FieldValues, useController, UseControllerProps } from 'react
 import { FiMinus, FiPlus } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { FieldLabel, FieldLabelProps } from './field';
 import { isFocusVisibleRingStyles } from './focus-ring';
+import { MixinProps, splitProps } from './mixin-props';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';

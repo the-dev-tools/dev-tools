@@ -23,8 +23,6 @@ import { twMerge } from 'tailwind-merge';
 import { focusRingStyles } from '@the-dev-tools/ui/focus-ring';
 import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { keyValue } from '@the-dev-tools/utils/helpers';
-import { makeUrl } from '@the-dev-tools/utils/url';
 import { Button } from '~/ui/button';
 import * as Auth from '~auth';
 import { Layout as BaseLayout, type LayoutProps } from '~layout';
@@ -32,6 +30,8 @@ import * as Postman from '~postman';
 import * as Recorder from '~recorder';
 import { Runtime } from '~runtime';
 import * as Storage from '~storage';
+
+import { keyValue } from './utils';
 
 const Layout = (props: Omit<LayoutProps, 'className'>) => (
   <BaseLayout {...props} className='h-[600px] w-[800px] overflow-hidden border border-slate-300' />
@@ -443,7 +443,7 @@ const RecorderPage = () => {
 
                     {pipe(
                       request.name ?? '',
-                      makeUrl,
+                      Schema.decode(Schema.URL),
                       Effect.map((url) => (
                         <>
                           <span className='col-span-2 col-start-2 truncate text-xs leading-none text-indigo-600'>

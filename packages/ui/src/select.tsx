@@ -15,12 +15,11 @@ import { FiChevronDown } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { type VariantProps } from 'tailwind-variants';
 
-import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { buttonStyles } from './button';
 import { DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { ListBox, ListBoxProps } from './list-box';
+import { type MixinProps, splitProps } from './mixin-props';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';

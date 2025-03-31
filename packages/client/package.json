@@ -32,7 +32,6 @@
     "@the-dev-tools/api": "workspace:^",
     "@the-dev-tools/spec": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
-    "@the-dev-tools/utils": "workspace:^",
     "@uiw/react-codemirror": "4.23.10",
     "@xyflow/react": "12.4.4",
     "effect": "3.14.2",

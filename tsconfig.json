@@ -16,9 +16,6 @@
       "path": "./configs/eslint"
     },
     {
-      "path": "./packages/utils"
-    },
-    {
       "path": "./packages/api"
     },
     {

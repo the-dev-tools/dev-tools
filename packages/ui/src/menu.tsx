@@ -7,10 +7,9 @@ import {
   type MenuProps as AriaMenuProps,
 } from 'react-aria-components';
 
-import { type MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { listBoxItemStyles, listBoxItemVariantKeys, ListBoxItemVariants, listBoxStyles } from './list-box';
+import { type MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 

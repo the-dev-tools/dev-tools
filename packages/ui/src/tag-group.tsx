@@ -10,9 +10,8 @@ import {
 } from 'react-aria-components';
 import { tv } from 'tailwind-variants';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { isFocusVisibleRingStyles } from './focus-ring';
+import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 

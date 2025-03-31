@@ -1,6 +1,7 @@
 import { create, DescEnum, DescField, DescMessage, Message, ScalarType, toJsonString } from '@bufbuild/protobuf';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { createRouterTransport, ServiceImpl } from '@connectrpc/connect';
+import { Faker as FakerClass, base as fakerLocaleBase, en as fakerLocaleEn } from '@faker-js/faker';
 import {
   Context,
   DateTime,
@@ -26,12 +27,19 @@ import {
 } from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
 import { NodeKind, NodeListResponseSchema, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { Faker, FakerLive } from '@the-dev-tools/utils/faker';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
 import { registry } from './meta';
 import { AnyFnEffect, ApiTransport, effectInterceptor, errorInterceptor, Request } from './transport';
+
+export class Faker extends Context.Tag('Faker')<Faker, FakerClass>() {}
+
+export const FakerLive = Layer.sync(Faker, () => {
+  const faker = new FakerClass({ locale: [fakerLocaleEn, fakerLocaleBase] });
+  faker.seed(0);
+  return faker;
+});
 
 class EmailRef extends Context.Tag('EmailRef')<EmailRef, Ref.Ref<string>>() {}
 

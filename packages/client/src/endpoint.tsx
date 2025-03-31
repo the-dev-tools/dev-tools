@@ -62,7 +62,7 @@ import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { formatSize } from '@the-dev-tools/utils/helpers';
+import { formatSize } from '@the-dev-tools/ui/utils';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';

@@ -55,3 +55,10 @@ export const useEscapePortal = (containerRef: RefObject<HTMLDivElement | null>) 
 
   return { ref, render };
 };
+
+export const formatSize = (bytes: number) => {
+  const scale = bytes == 0 ? 0 : Math.floor(Math.log(bytes) / Math.log(1024));
+  const size = (bytes / Math.pow(1024, scale)).toFixed(2);
+  const name = ['B', 'KiB', 'MiB', 'GiB', 'TiB'][scale];
+  return `${size} ${name}`;
+};

@@ -5,14 +5,12 @@ import { FiFile } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
-import { formatSize } from '@the-dev-tools/utils/helpers';
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { Button } from './button';
 import { isFocusedStyle, isFocusVisibleRingStyles } from './focus-ring';
 import { CloudUploadIcon, DeleteIcon } from './icons';
+import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV } from './utils';
+import { composeRenderPropsTV, formatSize  } from './utils';
 
 const dropZoneStyles = tv({
   base: tw`flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white p-4`,

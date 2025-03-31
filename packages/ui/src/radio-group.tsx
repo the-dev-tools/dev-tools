@@ -10,10 +10,9 @@ import {
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
-
 import { FieldError, FieldErrorProps, FieldLabel, FieldLabelProps } from './field';
 import { isFocusVisibleRingStyles } from './focus-ring';
+import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 

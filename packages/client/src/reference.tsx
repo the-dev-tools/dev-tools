@@ -28,12 +28,12 @@ import { Button, ButtonProps } from '@the-dev-tools/ui/button';
 import { DropdownPopover, DropdownPopoverProps } from '@the-dev-tools/ui/dropdown';
 import { ChevronSolidDownIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { listBoxStyles } from '@the-dev-tools/ui/list-box';
+import { MixinProps, splitProps } from '@the-dev-tools/ui/mixin-props';
 import { controllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldProps, TextFieldRHFProps } from '@the-dev-tools/ui/text-field';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
-import { MixinProps, splitProps } from '@the-dev-tools/utils/mixin-props';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[]) =>
   pipe(
