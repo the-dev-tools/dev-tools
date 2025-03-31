@@ -6,7 +6,6 @@ import { MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import {
   workspaceCreate,
@@ -20,6 +19,7 @@ import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 const makeRoute = createFileRoute('/_authorized/_dashboard/');
 

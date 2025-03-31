@@ -13,11 +13,11 @@ import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
-import { LocalMode } from '@the-dev-tools/api/local';
-import { QueryNormalizerProvider } from '@the-dev-tools/api/normalizer';
-import { ApiErrorHandler, ApiTransport } from '@the-dev-tools/api/transport';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { makeToastQueue, ToastQueueContext, ToastRegion } from '@the-dev-tools/ui/toast';
+import { LocalMode } from '~/api/local';
+import { QueryNormalizerProvider } from '~/api/normalizer';
+import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 
 import { DevToolsProvider, ReactQueryDevTools, TanStackRouterDevTools } from './dev-tools';
 import { RouterContext } from './root';

@@ -2,12 +2,12 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { Effect, Option, pipe, Runtime } from 'effect';
 import { Suspense } from 'react';
 
-import { getUser } from '@the-dev-tools/api/auth';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { Spinner } from '@the-dev-tools/ui/icons';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { NavigationBar, NavigationBarDivider } from '@the-dev-tools/ui/navigation-bar';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { getUser } from '~/api/auth';
 
 import { LoginSearch } from './login';
 

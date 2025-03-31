@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "jsx": "react-jsx",
+    "paths": { "~*": ["./src/*"] },
     "types": ["vite/client"]
   },
   "include": ["."],
@@ -10,9 +11,6 @@
   "references": [
     {
       "path": "../ui/tsconfig.lib.json"
-    },
-    {
-      "path": "../api/tsconfig.lib.json"
     },
     {
       "path": "../../configs/eslint/tsconfig.lib.json"

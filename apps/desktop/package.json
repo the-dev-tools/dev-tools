@@ -17,7 +17,6 @@
     "@effect/platform": "0.80.2",
     "@effect/platform-browser": "0.59.2",
     "@effect/platform-node": "0.76.5",
-    "@the-dev-tools/api": "workspace:^",
     "@the-dev-tools/client": "workspace:^",
     "@the-dev-tools/server": "workspace:^",
     "@vitejs/plugin-react": "4.3.4",

@@ -6,7 +6,6 @@ import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Struct } from 'effect';
 import { useMemo } from 'react';
 
-import { useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   QueryListItem,
   QueryListItemSchema,
@@ -14,6 +13,7 @@ import {
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import { queryList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { DataTable } from '@the-dev-tools/ui/data-table';
+import { useConnectSuspenseQuery } from '~/api/connect-query';
 
 import {
   makeGenericDeltaFormTableColumns,

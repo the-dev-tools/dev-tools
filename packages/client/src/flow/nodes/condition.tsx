@@ -4,11 +4,11 @@ import { useForm } from 'react-hook-form';
 import { FiPlus, FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation } from '~/api/connect-query';
 
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';

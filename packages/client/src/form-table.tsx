@@ -30,12 +30,12 @@ import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { getMessageId, setMessageId } from '@the-dev-tools/api/meta';
 import { Button } from '@the-dev-tools/ui/button';
 import { Checkbox, CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { inputStyles, TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { getMessageId, setMessageId } from '~/api/meta';
 
 import { RHFDevTools } from './dev-tools';
 import { TextFieldWithReference } from './reference';

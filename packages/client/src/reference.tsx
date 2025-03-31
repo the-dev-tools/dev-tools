@@ -13,7 +13,6 @@ import { FieldPath, FieldValues, useController } from 'react-hook-form';
 import { LuLink } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   Reference,
   ReferenceGetRequest,
@@ -34,6 +33,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldProps, TextFieldRHFProps } from '@the-dev-tools/ui/text-field';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
+import { useConnectSuspenseQuery } from '~/api/connect-query';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[]) =>
   pipe(

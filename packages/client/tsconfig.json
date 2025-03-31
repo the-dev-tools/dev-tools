@@ -6,9 +6,6 @@
       "path": "../ui"
     },
     {
-      "path": "../api"
-    },
-    {
       "path": "../../configs/eslint"
     },
     {

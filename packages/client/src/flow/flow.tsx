@@ -24,8 +24,6 @@ import { MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
-import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
-import { useQueryNormalizer } from '@the-dev-tools/api/normalizer';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
@@ -37,6 +35,8 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useQueryNormalizer } from '~/api/normalizer';
 
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';

@@ -2,10 +2,10 @@ import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { workspaceMemberCreate } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
+import { useConnectMutation } from '~/api/connect-query';
 
 const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/members');
 

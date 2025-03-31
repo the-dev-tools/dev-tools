@@ -20,7 +20,6 @@ import { TbAlertTriangle, TbRefresh } from 'react-icons/tb';
 import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import {
   Node as NodeDTO,
   NodeSchema as NodeDTOSchema,
@@ -43,6 +42,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { useConnectMutation } from '~/api/connect-query';
 
 import { FlowContext, flowRoute } from './internal';
 import { FlowSearch } from './layout';

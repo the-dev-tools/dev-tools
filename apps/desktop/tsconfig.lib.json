@@ -12,9 +12,6 @@
       "path": "../../packages/client/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/api/tsconfig.lib.json"
-    },
-    {
       "path": "../../configs/eslint/tsconfig.lib.json"
     }
   ]

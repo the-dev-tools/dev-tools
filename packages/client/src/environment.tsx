@@ -10,7 +10,6 @@ import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel,
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
   environmentCreate,
@@ -33,6 +32,7 @@ import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from './form-table';
 import { ImportDialog } from './workspace/import';

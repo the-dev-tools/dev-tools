@@ -6,7 +6,6 @@ import { Ulid } from 'id128';
 import { use } from 'react';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import {
   exampleCreate,
@@ -18,6 +17,7 @@ import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation } from '~/api/connect-query';
 
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponsePanel, useEndpointUrl } from '../../endpoint';

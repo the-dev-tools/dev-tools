@@ -3,10 +3,10 @@ import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
 import { FiTerminal, FiX } from 'react-icons/fi';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation } from '~/api/connect-query';
 
 import { useCodeMirrorExtensions } from '../../code-mirror';
 import { FlowContext, Handle } from '../internal';

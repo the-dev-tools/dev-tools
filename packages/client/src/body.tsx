@@ -7,7 +7,6 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe, Struct } from 'effect';
 import { useMemo, useState } from 'react';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   BodyFormItemListItem,
   BodyFormItemListItemSchema,
@@ -31,6 +30,7 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
 import {

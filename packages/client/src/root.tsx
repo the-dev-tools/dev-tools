@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext } from '@tanstack/react-router';
 import { Runtime } from 'effect';
 
-import { AuthTransport, MagicClient } from '@the-dev-tools/api/auth';
+import { AuthTransport, MagicClient } from '~/api/auth';
 
 import { ErrorComponent } from './error';
 

@@ -15,7 +15,6 @@ import {
 import { FiInfo, FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { ImportKind } from '@the-dev-tools/spec/import/v1/import_pb';
 import { import$ } from '@the-dev-tools/spec/import/v1/import-ImportService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
@@ -25,6 +24,7 @@ import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
 import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation } from '~/api/connect-query';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 

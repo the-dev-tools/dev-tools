@@ -2,11 +2,11 @@ import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
-import * as Auth from '@the-dev-tools/api/auth';
 import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
+import * as Auth from '~/api/auth';
 
 export class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
   redirect: Schema.optional(Schema.String),

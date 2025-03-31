@@ -7,12 +7,12 @@ import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { FlowVersionsItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowVersions } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
 import { Spinner } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { StatusBar } from '../status-bar';
 import { EditPanel, Flow, TopBar } from './flow';

@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
@@ -13,6 +12,7 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { NumberFieldRHF } from '@the-dev-tools/ui/number-field';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation } from '~/api/connect-query';
 
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';

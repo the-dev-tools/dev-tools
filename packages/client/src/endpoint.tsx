@@ -16,7 +16,6 @@ import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   endpointGet,
   endpointUpdate,
@@ -63,6 +62,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';

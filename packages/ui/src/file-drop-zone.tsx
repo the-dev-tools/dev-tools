@@ -10,7 +10,7 @@ import { isFocusedStyle, isFocusVisibleRingStyles } from './focus-ring';
 import { CloudUploadIcon, DeleteIcon } from './icons';
 import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, formatSize  } from './utils';
+import { composeRenderPropsTV, formatSize } from './utils';
 
 const dropZoneStyles = tv({
   base: tw`flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white p-4`,

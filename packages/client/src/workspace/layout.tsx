@@ -8,7 +8,6 @@ import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import { collectionCreate } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import {
@@ -27,6 +26,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { DashboardLayout } from '../authorized';
 import { CollectionListTree } from '../collection';

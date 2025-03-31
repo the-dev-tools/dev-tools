@@ -16,7 +16,6 @@ import { use, useCallback, useRef } from 'react';
 import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useConnectMutation } from '@the-dev-tools/api/connect-query';
 import {
   Edge as EdgeDTO,
   EdgeSchema as EdgeDTOSchema,
@@ -32,6 +31,7 @@ import {
 } from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation } from '~/api/connect-query';
 
 import { FlowContext, flowRoute } from './internal';
 

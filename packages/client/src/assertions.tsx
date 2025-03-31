@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { useConnectMutation, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
 import {
   assertCreate,
   assertList,
@@ -11,6 +10,7 @@ import {
 } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { ConditionField } from './condition';
 

@@ -6,9 +6,6 @@
       "path": "../../packages/client"
     },
     {
-      "path": "../../packages/api"
-    },
-    {
       "path": "../../configs/eslint"
     },
     {

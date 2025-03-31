@@ -9,8 +9,6 @@ import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 
-import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '@the-dev-tools/api/connect-query';
-import { enumToString } from '@the-dev-tools/api/utils';
 import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import {
   endpointCreate,
@@ -48,6 +46,8 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
+import { enumToString } from '~/api/utils';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
