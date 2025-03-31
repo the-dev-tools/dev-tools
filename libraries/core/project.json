@@ -2,6 +2,5 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
   "name": "core",
-  "projectType": "library",
-  "implicitDependencies": ["spec"]
+  "projectType": "library"
 }
