@@ -49,19 +49,19 @@ func TestCreateEnv(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcEnv.EnvironmentCreate(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 
 	if resp.Msg.GetEnvironmentId() == nil {
-		t.Error("resp.Msg.GetEnvironmentId() is nil")
+		t.Fatal("resp.Msg.GetEnvironmentId() is nil")
 	}
 
 	envID, err := idwrap.NewFromBytes(resp.Msg.GetEnvironmentId())
@@ -128,13 +128,13 @@ func TestGetEnv(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcEnv.EnvironmentGet(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 	respEnvID, err := idwrap.NewFromBytes(resp.Msg.EnvironmentId)
 	if err != nil {
@@ -202,10 +202,10 @@ func TestUpdateEnv(t *testing.T) {
 		t.Error(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 
 	dbEnv, err := es.Get(ctx, envID)
@@ -264,13 +264,13 @@ func TestDeleteEnv(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcEnv.EnvironmentDelete(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 
 	dbEnv, err := es.Get(ctx, envID)

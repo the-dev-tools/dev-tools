@@ -95,7 +95,10 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 		return Response{}, err
 	}
 
-	defer resp.Body.Close()
+	err = resp.Body.Close()
+	if err != nil {
+		return Response{}, err
+	}
 	return Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,

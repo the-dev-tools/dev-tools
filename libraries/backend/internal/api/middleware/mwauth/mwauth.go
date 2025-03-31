@@ -28,8 +28,6 @@ func NewAuthInterceptor() *authInterceptor {
 	return &authInterceptor{}
 }
 
-var errNoToken = errors.New("no token")
-
 func (i *authInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	// Same as previous UnaryInterceptorFunc.
 	return connect.UnaryFunc(func(

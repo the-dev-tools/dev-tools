@@ -26,7 +26,7 @@ func SeralizeRPCToModelWithoutID(item *endpointv1.Endpoint, collectionID idwrap.
 	}
 	var parentID *idwrap.IDWrap
 	parentIDBytes := item.GetParentFolderId()
-	if parentIDBytes != nil && len(parentIDBytes) > 0 {
+	if len(parentIDBytes) > 0 {
 		tempParentID, err := idwrap.NewFromBytes(parentIDBytes)
 		if err != nil {
 			return nil, err

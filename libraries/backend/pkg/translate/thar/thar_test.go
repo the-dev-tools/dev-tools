@@ -777,7 +777,10 @@ func TestNodePositioning(t *testing.T) {
 	)
 
 	// Run the positioning function
-	thar.ReorganizeNodePositions(&result)
+	err := thar.ReorganizeNodePositions(&result)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a node map for easy lookup
 	nodeMap := make(map[string]*mnnode.MNode)
@@ -855,7 +858,10 @@ func TestPositionNodesWithDifferentTopologies(t *testing.T) {
 		)
 
 		// Run the positioning function
-		thar.ReorganizeNodePositions(&result)
+		err := thar.ReorganizeNodePositions(&result)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// Create a node map for lookup
 		nodeMap := make(map[string]*mnnode.MNode)

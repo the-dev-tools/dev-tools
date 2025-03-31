@@ -14,7 +14,10 @@ type LeafMock struct {
 // TODO: add tests
 func (l *LeafMock) SelectGVal(ctx context.Context, k string) (interface{}, error) {
 	if l.DoFunc != nil {
-		(*l.DoFunc)()
+		_, err := (*l.DoFunc)()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	leaf, ok := l.Leafs[k]

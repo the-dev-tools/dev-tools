@@ -21,7 +21,6 @@ func TestCollectionGet(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	cs := scollection.New(queries)
@@ -89,7 +88,6 @@ func TestCollectionCreate(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	cs := scollection.New(queries)
@@ -145,7 +143,6 @@ func TestCollectionUpdate(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	cs := scollection.New(queries)
@@ -207,7 +204,6 @@ func TestCollectionDelete(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	cs := scollection.New(queries)

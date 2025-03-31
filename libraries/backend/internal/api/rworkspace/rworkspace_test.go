@@ -24,7 +24,6 @@ func TestWorkspaceCreate(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -85,7 +84,6 @@ func TestWorkspaceGet(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -170,7 +168,6 @@ func TestWorkspaceUpdate(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -261,7 +258,6 @@ func TestWorkspaceDelete(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)

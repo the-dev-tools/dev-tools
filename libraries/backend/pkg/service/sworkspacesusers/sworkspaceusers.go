@@ -118,7 +118,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx con
 // is a greater than b
 func IsPermGreater(a, b *mworkspaceuser.WorkspaceUser) (bool, error) {
 	if a.Role > mworkspaceuser.RoleOwner || b.Role > mworkspaceuser.RoleOwner {
-		return false, errors.New("Invalid role")
+		return false, errors.New("invalid role")
 	}
 	return a.Role > b.Role, nil
 }

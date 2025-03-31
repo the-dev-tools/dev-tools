@@ -51,7 +51,10 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 				Value:      logMessage.Value,
 				References: rpcRefs,
 			}
-			stream.Send(b)
+			err = stream.Send(b)
+			if err != nil {
+				return err
+			}
 			continue
 		case <-ctx.Done():
 			err = ctx.Err()

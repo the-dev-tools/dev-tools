@@ -11,9 +11,8 @@ import (
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/migrate"
 	"the-dev-tools/backend/pkg/testutil"
-	"time"
 
-	"golang.org/x/exp/rand"
+	"math/rand/v2"
 )
 
 func TestMigrateManager_CreateNewDBForTesting(t *testing.T) {
@@ -35,8 +34,16 @@ func TestMigrateManager_CreateNewDBForTesting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove("currentDBPath")
-	defer os.Remove("testDBPath")
+	defer func() {
+		localErr := os.Remove("testDBPath")
+		if localErr != nil {
+			t.Fatal(localErr)
+		}
+		localErr = os.Remove("currentDBPath")
+		if localErr != nil {
+			t.Fatal(localErr)
+		}
+	}()
 	testFile, err := os.ReadFile("testDBPath")
 	if err != nil {
 		t.Fatal(err)
@@ -49,8 +56,17 @@ func TestMigrateManager_CreateNewDBForTesting(t *testing.T) {
 func TestMigrateManager_ParsePath(t *testing.T) {
 	folder := "migrations"
 	// create folder
-	os.Mkdir(folder, 0755)
-	defer os.RemoveAll(folder)
+	err := os.Mkdir(folder, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		localErr := os.RemoveAll(folder)
+		if localErr != nil {
+			t.Fatal(localErr)
+		}
+	}()
 
 	sqlQuery := "SELECT * FROM migration;"
 
@@ -70,8 +86,12 @@ func TestMigrateManager_ParsePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
 	_, err = file.Write(jsonData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = file.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +103,12 @@ func TestMigrateManager_ParsePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file2.Close()
+	defer func() {
+		localErr := file2.Close()
+		if localErr != nil {
+			t.Fatal(localErr)
+		}
+	}()
 	_, err = file2.Write(jsonData)
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +137,6 @@ func TestMigration(t *testing.T) {
 	migrateManager := migrate.NewTX(base.DB)
 
 	// Generate a random table name
-	rand.Seed(uint64(time.Now().UnixNano()))
 	tableName := fmt.Sprintf("test_table_%d", rand.Int())
 
 	// Create table migration
@@ -157,7 +181,6 @@ func TestMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
 
 	columnExists := false
 	for rows.Next() {
@@ -174,6 +197,12 @@ func TestMigration(t *testing.T) {
 			break
 		}
 	}
+
+	err = rows.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if !columnExists {
 		t.Fatalf("expected column 'name' to be present in table '%s'", tableName)
 	}

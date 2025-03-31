@@ -72,13 +72,12 @@ func TestGetVars(t *testing.T) {
 
 func TestLongStringReplace(t *testing.T) {
 	const total_key = 10
-	const total_val = 10
 	const key_prefix = "key_"
 	const val_prefix = "val_"
 
 	const BaseUrl = "https://www.google.com/search?q="
-	var expectedUrl string = BaseUrl
-	var testUrl string = BaseUrl
+	expectedUrl := BaseUrl
+	testUrl := BaseUrl
 	for i := 0; i < total_key; i++ {
 		expectedUrl += fmt.Sprintf("%s%d", val_prefix, i)
 	}

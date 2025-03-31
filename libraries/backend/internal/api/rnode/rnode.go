@@ -307,6 +307,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 		}
 		err = nlfeTX.CreateNodeForEach(ctx, *subNodeType)
 		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	case *mnnoop.NoopNode:
 		noopTX, err := snodenoop.NewTX(ctx, tx)

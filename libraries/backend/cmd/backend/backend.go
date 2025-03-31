@@ -65,10 +65,8 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/tursolocal"
-	"time"
 
 	"connectrpc.com/connect"
-	"github.com/bufbuild/httplb"
 )
 
 func main() {
@@ -109,9 +107,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer dbCloseFunc()
-
-	clientHttp := httplb.NewClient(httplb.WithDefaultTimeout(time.Hour))
-	defer clientHttp.Close()
 
 	queries, err := gen.Prepare(ctx, currentDB)
 	if err != nil {
@@ -192,9 +187,6 @@ func main() {
 	// Collection Item Service
 	collectionItemSrv := rcollectionitem.New(currentDB, cs, us, ifs, ias, iaes, res)
 	newServiceManager.AddService(rcollectionitem.CreateService(collectionItemSrv, opitonsAll))
-
-	// Node Service
-	// newServiceManager.AddService(node.CreateService(clientHttp, opitonsAll))
 
 	// Result API Service
 	resultapiSrv := resultapi.New(currentDB, us, cs, ias, iaes, ws, ers, erhs, as, ars)

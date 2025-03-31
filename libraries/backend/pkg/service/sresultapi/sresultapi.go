@@ -14,7 +14,6 @@ import (
 )
 
 type ResultApiService struct {
-	db      *sql.DB
 	queries *gen.Queries
 }
 

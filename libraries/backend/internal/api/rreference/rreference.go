@@ -311,7 +311,10 @@ func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleResp
 	if err != nil {
 		return nil, err
 	}
-	json.Unmarshal(data, &m)
+	err = json.Unmarshal(data, &m)
+	if err != nil {
+		return nil, err
+	}
 
 	localRef, err := reference.ConvertMapToReference(m, "response")
 	if err != nil {

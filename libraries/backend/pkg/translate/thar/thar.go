@@ -145,11 +145,6 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 	return result
 }
 
-type FlowVar struct {
-	nodeID idwrap.IDWrap
-	path   string
-}
-
 // TODO: refactor this function to make it more readable
 func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
@@ -190,9 +185,8 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	result.NoopNodes = append(result.NoopNodes, startNodeNoop)
 
 	type mpos struct {
-		x     float64
-		y     float64
-		index int
+		x float64
+		y float64
 	}
 
 	// Use a map to merge equivalent XHR entries.
@@ -452,7 +446,10 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		}
 	}
 
-	ReorganizeNodePositions(&result)
+	err := ReorganizeNodePositions(&result)
+	if err != nil {
+		return result, err
+	}
 
 	return result, nil
 }

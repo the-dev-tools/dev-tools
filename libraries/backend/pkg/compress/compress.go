@@ -50,7 +50,10 @@ func Decompress(data []byte, compressType CompressType) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer z.Close()
+		err = z.Close()
+		if err != nil {
+			return nil, err
+		}
 		return io.ReadAll(z)
 
 	case CompressTypeZstd:

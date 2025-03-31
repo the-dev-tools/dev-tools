@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/middleware/mwauth"
 	"the-dev-tools/backend/pkg/dbtime"
@@ -111,6 +112,7 @@ func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Re
 		env, err := c.es.Get(ctx, workspace.ActiveEnv)
 		if err != nil {
 			if !errors.Is(err, senv.ErrNoEnvFound) {
+				return nil, err
 			}
 		}
 		rpcworkspace := tworkspace.SeralizeWorkspaceItem(workspace, env)
@@ -209,7 +211,12 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		localErr := tx.Rollback()
+		if localErr != nil {
+			fmt.Println(localErr)
+		}
+	}()
 	workspaceServiceTX, err := sworkspace.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -331,6 +338,7 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *conn
 	}
 	workspaceUlid, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
 	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	ok, err := c.us.CheckUserBelongsToWorkspace(ctx, actionUserUlid, workspaceUlid)
 	if err != nil {

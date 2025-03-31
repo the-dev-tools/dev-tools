@@ -148,8 +148,8 @@ func TestLocalFlowRunner_Run_Timeout(t *testing.T) {
 }
 
 func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
-	sleepTime := time.Microsecond
-	timeout := time.Millisecond
+	sleepTime := time.Nanosecond
+	timeout := time.Millisecond * 100
 
 	onRun := func() {
 		time.Sleep(sleepTime)

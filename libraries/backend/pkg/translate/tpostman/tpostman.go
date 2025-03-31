@@ -464,7 +464,6 @@ func GetQueryParams(urlData interface{}) (*murl.URL, error) {
 }
 
 func GetBody(body *mbody.Body, exampleID, collectionID idwrap.IDWrap, channels *ItemChannels) {
-	const compressThreshold = 1000
 	defer channels.Wg.Done()
 	switch body.Mode {
 	case mbody.ModeFormData:

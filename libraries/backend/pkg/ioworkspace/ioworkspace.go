@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"the-dev-tools/backend/pkg/idwrap"
 	"the-dev-tools/backend/pkg/model/massert"
 	"the-dev-tools/backend/pkg/model/massertres"
@@ -184,7 +185,12 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		localErr := tx.Rollback()
+		if localErr != nil {
+			log.Println(localErr)
+		}
+	}()
 
 	err = s.workspaceService.TX(tx).Create(ctx, &data.Workspace)
 	if err != nil {

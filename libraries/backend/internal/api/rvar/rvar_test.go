@@ -68,13 +68,13 @@ func TestCreateVar(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcVar.VariableCreate(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 	respVarID, err := idwrap.NewFromBytes(resp.Msg.VariableId)
 	if err != nil {
@@ -160,13 +160,13 @@ func TestGetVar(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcVar.VariableGet(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 	respVarID, err := idwrap.NewFromBytes(resp.Msg.VariableId)
 	if err != nil {
@@ -257,13 +257,13 @@ func TestUpdateVar(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcVar.VariableUpdate(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 	dbVar, err := vs.Get(ctx, ID)
 	if err != nil {
@@ -345,13 +345,13 @@ func TestDeleteVar(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcVar.VariableDelete(authedCtx, req)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if resp == nil {
-		t.Error("resp is nil")
+		t.Fatal("resp is nil")
 	}
 	if resp.Msg == nil {
-		t.Error("resp.Msg is nil")
+		t.Fatal("resp.Msg is nil")
 	}
 	dbVar, err := vs.Get(ctx, ID)
 	if err == nil {

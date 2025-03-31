@@ -20,7 +20,6 @@ func TestGetTag(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -82,7 +81,6 @@ func TestCreateTag(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -135,7 +133,6 @@ func TestUpdateTag(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -192,7 +189,6 @@ func TestDeleteTag(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
 	db := base.DB
 
 	ws := sworkspace.New(queries)

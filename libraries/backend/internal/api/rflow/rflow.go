@@ -915,7 +915,11 @@ func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeRe
 	if err != nil {
 		return err
 	}
-	defer tx2.Rollback()
+	defer func() {
+		// TODO: find a better way to handle
+		err := tx2.Rollback()
+		log.Println(err)
+	}()
 
 	txExampleResp, err := sexampleresp.NewTX(ctx, tx2)
 	if err != nil {

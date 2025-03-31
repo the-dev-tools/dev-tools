@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"the-dev-tools/backend/internal/api"
 	"the-dev-tools/backend/internal/api/rcollection"
 	"the-dev-tools/backend/pkg/idwrap"
@@ -83,7 +84,14 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		// TODO: find a better way
+		localErr := tx.Rollback()
+		if localErr != nil {
+			log.Println(localErr)
+		}
+
+	}()
 
 	txIfs, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {
