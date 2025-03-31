@@ -1,0 +1,10 @@
+{
+  "name": "@the-dev-tools/server",
+  "version": "0.47.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist",
+  "dependencies": {
+    "@the-dev-tools/spec": "workspace:^"
+  }
+}

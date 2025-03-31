@@ -43,13 +43,13 @@ const server = pipe(
     const path = yield* Path.Path;
 
     const dist = yield* pipe(
-      import.meta.resolve('@the-dev-tools/backend'),
+      import.meta.resolve('@the-dev-tools/server'),
       Url.fromString,
       Effect.flatMap(path.fromFileUrl),
     );
 
     return yield* pipe(
-      path.join(dist, 'backend'),
+      path.join(dist, 'server'),
       String.replaceAll('app.asar', 'app.asar.unpacked'),
       Command.make,
       Command.env({

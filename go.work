@@ -3,7 +3,7 @@ go 1.24.1
 use (
 	./apps/cli
 	./configs/go-tool
-	./packages/backend
 	./packages/db
+	./packages/server
 	./packages/spec
 )

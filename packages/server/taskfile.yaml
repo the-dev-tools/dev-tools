@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+vars:
+  APP_NAME: server
+  VERSION: v1.0.0
+  BIN_DIR: dist
+  SOURCE_PATH: cmd/server/server.go
+  PLATFORMS:
+    sh: jq --raw-output 'keys[]' platforms.json
+
+tasks:
+  clean:
+    desc: Clean build artifacts
+    cmd: rm -rf {{.BIN_DIR}}
+
+  build:*:
+    desc: Build for specified platform
+    vars:
+      PLATFORM: '{{index .MATCH 0}}'
+      ENV:
+        sh: >-
+          jq --raw-output \
+            '."{{.PLATFORM}}".go
+              | to_entries
+              | map("\(.key)=\(.value)")
+              | join(" ")' \
+            platforms.json
+      BINARY_SUFFIX:
+        sh: >-
+          jq --raw-output \
+            '."{{.PLATFORM}}"."binary-suffix" // ""' \
+            platforms.json
+    cmds:
+      - >-
+        {{.ENV}} go build \
+          -ldflags="-X main.Version={{.VERSION}}" \
+          -o {{.BIN_DIR}}/{{.APP_NAME}}-{{.PLATFORM}}{{.BINARY_SUFFIX}} \
+          {{.SOURCE_PATH}}
+
+  build:all:
+    desc: Build for all platforms
+
+    deps:
+      - for:
+          var: PLATFORMS
+        task: 'build:{{.ITEM}}'

@@ -13,9 +13,9 @@ tasks:
     interactive: true
     cmd: >-
       pnpm nx run-many --targets=dev \
-        --projects=backend \
         --projects=client \
         --projects=desktop \
+        --projects=server \
         --projects=ui \
         {{.CLI_ARGS}}
 
@@ -24,10 +24,10 @@ tasks:
     interactive: true
     cmd: >-
       pnpm nx run-many --targets=dev \
-        --projects=backend \
         --projects=client \
-        --projects=web \
+        --projects=server \
         --projects=ui \
+        --projects=web \
         {{.CLI_ARGS}}
 
   lint:

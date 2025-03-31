@@ -9,8 +9,8 @@ import (
 	"context"
 	"database/sql"
 
-	idwrap "the-dev-tools/backend/pkg/idwrap"
-	mresultapi "the-dev-tools/backend/pkg/model/result/mresultapi"
+	idwrap "the-dev-tools/server/pkg/idwrap"
+	mresultapi "the-dev-tools/server/pkg/model/result/mresultapi"
 )
 
 const checkIFWorkspaceUserExists = `-- name: CheckIFWorkspaceUserExists :one
