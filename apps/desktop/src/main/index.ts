@@ -16,7 +16,7 @@ const createWindow = Effect.gen(function* () {
   const mainWindow = new BrowserWindow({
     height: 600,
     icon: yield* pipe(
-      import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.ico'),
+      import.meta.resolve('@the-dev-tools/client/assets/favicon/favicon.ico'),
       Url.fromString,
       Effect.flatMap(path.fromFileUrl),
     ),

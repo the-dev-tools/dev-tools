@@ -14,8 +14,8 @@ tasks:
     cmd: >-
       pnpm nx run-many --targets=dev \
         --projects=backend \
+        --projects=client \
         --projects=desktop \
-        --projects=core \
         --projects=ui \
         {{.CLI_ARGS}}
 
@@ -25,8 +25,8 @@ tasks:
     cmd: >-
       pnpm nx run-many --targets=dev \
         --projects=backend \
+        --projects=client \
         --projects=web \
-        --projects=core \
         --projects=ui \
         {{.CLI_ARGS}}
 

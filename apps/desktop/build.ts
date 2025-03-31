@@ -9,7 +9,7 @@ const config: Configuration = {
     name: 'dev-tools',
   },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
-  icon: pipe(import.meta.resolve('@the-dev-tools/core/assets/favicon/favicon.png'), fileURLToPath),
+  icon: pipe(import.meta.resolve('@the-dev-tools/client/assets/favicon/favicon.png'), fileURLToPath),
   linux: {
     category: 'Development',
     target: ['AppImage'],

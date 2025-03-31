@@ -1,5 +1,5 @@
 {
-  "name": "@the-dev-tools/core",
+  "name": "@the-dev-tools/client",
   "private": true,
   "type": "module",
   "scripts": {

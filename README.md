@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://dev.tools/">
-    <img width=200px height=200px src="./packages/core/assets/favicon/favicon.png">
+    <img width=200px height=200px src="./packages/client/assets/favicon/favicon.png">
   </a>
 </p>
 

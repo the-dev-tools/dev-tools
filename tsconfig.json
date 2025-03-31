@@ -22,13 +22,13 @@
       "path": "./packages/utils"
     },
     {
-      "path": "./packages/core"
-    },
-    {
       "path": "./packages/api"
     },
     {
       "path": "./packages/ui"
+    },
+    {
+      "path": "./packages/client"
     }
   ]
 }

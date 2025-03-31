@@ -30,7 +30,7 @@ import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
 
 import { ApiLayer } from '@the-dev-tools/api/layer';
-import { ApiErrorHandlerLive, app } from '@the-dev-tools/core/index';
+import { ApiErrorHandlerLive, app } from '@the-dev-tools/client/index';
 
 const ConfigLive = pipe(
   {

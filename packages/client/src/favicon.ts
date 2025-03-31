@@ -12,7 +12,7 @@ export const FaviconPlugin = (): Plugin => {
   return {
     buildStart() {
       const favicon = (fileName: string) => {
-        const url = import.meta.resolve(`@the-dev-tools/core/assets/favicon/${fileName}`);
+        const url = import.meta.resolve(`@the-dev-tools/client/assets/favicon/${fileName}`);
         if (config.command === 'serve') return url;
         this.emitFile({ fileName, source: pipe(url, fileURLToPath, readFileSync), type: 'asset' });
         return fileName;
