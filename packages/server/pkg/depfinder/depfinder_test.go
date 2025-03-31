@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
-	"the-dev-tools/backend/pkg/depfinder"
+	"the-dev-tools/server/pkg/depfinder"
 )
 
 func TestNewDepFinder(t *testing.T) {
