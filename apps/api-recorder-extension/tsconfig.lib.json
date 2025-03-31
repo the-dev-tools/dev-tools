@@ -9,10 +9,10 @@
   "exclude": [".plasmo", "dist", "node_modules"],
   "references": [
     {
-      "path": "../../libraries/utils/tsconfig.lib.json"
+      "path": "../../packages/utils/tsconfig.lib.json"
     },
     {
-      "path": "../../libraries/ui/tsconfig.lib.json"
+      "path": "../../packages/ui/tsconfig.lib.json"
     },
     {
       "path": "../../configs/eslint/tsconfig.lib.json"

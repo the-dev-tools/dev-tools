@@ -9,10 +9,10 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
-      "path": "../../libraries/core/tsconfig.lib.json"
+      "path": "../../packages/core/tsconfig.lib.json"
     },
     {
-      "path": "../../libraries/api/tsconfig.lib.json"
+      "path": "../../packages/api/tsconfig.lib.json"
     },
     {
       "path": "../../configs/eslint/tsconfig.lib.json"

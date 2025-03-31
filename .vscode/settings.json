@@ -4,7 +4,7 @@
     { "directory": "./" },
     { "pattern": "./apps/*/" },
     { "pattern": "./configs/*/" },
-    { "pattern": "./libraries/*/" }
+    { "pattern": "./packages/*/" }
   ],
   "files.associations": { "*.css": "tailwindcss" },
   "nix.enableLanguageServer": true,

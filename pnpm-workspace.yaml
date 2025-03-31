@@ -1,7 +1,7 @@
 packages:
   - apps/*
   - configs/*
-  - libraries/*
+  - packages/*
 onlyBuiltDependencies:
   - '@bufbuild/buf'
   - '@parcel/watcher'

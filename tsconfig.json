@@ -10,25 +10,25 @@
       "path": "./apps/api-recorder-extension"
     },
     {
-      "path": "./libraries/utils"
-    },
-    {
-      "path": "./libraries/core"
-    },
-    {
-      "path": "./libraries/api"
-    },
-    {
       "path": "./apps/desktop"
     },
     {
-      "path": "./libraries/ui"
-    },
-    {
-      "path": "./libraries/scripts"
-    },
-    {
       "path": "./configs/eslint"
+    },
+    {
+      "path": "./packages/scripts"
+    },
+    {
+      "path": "./packages/utils"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/api"
+    },
+    {
+      "path": "./packages/ui"
     }
   ]
 }

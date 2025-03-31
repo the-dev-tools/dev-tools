@@ -3,10 +3,10 @@
   "files": [],
   "references": [
     {
-      "path": "../../libraries/core"
+      "path": "../../packages/core"
     },
     {
-      "path": "../../libraries/api"
+      "path": "../../packages/api"
     },
     {
       "path": "../../configs/eslint"

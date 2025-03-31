@@ -19,5 +19,5 @@ export default {
 
   //* Tailwind
   tailwindFunctions: ['tw'],
-  tailwindStylesheet: './libraries/ui/src/styles.css',
+  tailwindStylesheet: './packages/ui/src/styles.css',
 };

@@ -18,7 +18,7 @@ importers:
     dependencies:
       '@the-dev-tools/spec':
         specifier: workspace:^
-        version: link:libraries/spec
+        version: link:packages/spec
     devDependencies:
       '@nx-go/nx-go':
         specifier: ~3.3.0
@@ -113,10 +113,10 @@ importers:
         version: link:../../configs/eslint
       '@the-dev-tools/ui':
         specifier: workspace:^
-        version: link:../../libraries/ui
+        version: link:../../packages/ui
       '@the-dev-tools/utils':
         specifier: workspace:^
-        version: link:../../libraries/utils
+        version: link:../../packages/utils
       '@types/chrome':
         specifier: ~0.0.310
         version: 0.0.312
@@ -167,13 +167,13 @@ importers:
         version: 0.76.5(@effect/cluster@0.29.5(@effect/platform@0.80.2(effect@3.14.2))(@effect/rpc@0.55.3(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/sql@0.33.2(@effect/experimental@0.44.2(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(@effect/rpc@0.55.3(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/sql@0.33.2(@effect/experimental@0.44.2(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(@effect/platform@0.80.2(effect@3.14.2))(effect@3.14.2))(bufferutil@4.0.9)(effect@3.14.2)(utf-8-validate@5.0.10)
       '@the-dev-tools/api':
         specifier: workspace:^
-        version: link:../../libraries/api
+        version: link:../../packages/api
       '@the-dev-tools/backend':
         specifier: workspace:^
-        version: link:../../libraries/backend
+        version: link:../../packages/backend
       '@the-dev-tools/core':
         specifier: workspace:^
-        version: link:../../libraries/core
+        version: link:../../packages/core
       '@vitejs/plugin-react':
         specifier: 4.3.4
         version: 4.3.4(vite@6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0))
@@ -290,7 +290,7 @@ importers:
         specifier: ~8.28.0
         version: 8.28.0(eslint@9.23.0(jiti@2.4.2))(typescript@5.8.2)
 
-  libraries/api:
+  packages/api:
     dependencies:
       '@bufbuild/protobuf':
         specifier: 2.2.5
@@ -351,13 +351,13 @@ importers:
         specifier: ~5.8.2
         version: 5.8.2
 
-  libraries/backend:
+  packages/backend:
     dependencies:
       '@the-dev-tools/spec':
         specifier: workspace:^
         version: link:../spec
 
-  libraries/core:
+  packages/core:
     dependencies:
       '@bufbuild/protobuf':
         specifier: 2.2.5
@@ -514,7 +514,7 @@ importers:
         specifier: ~6.2.3
         version: 6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0)
 
-  libraries/scripts:
+  packages/scripts:
     devDependencies:
       '@effect/cli':
         specifier: ~0.59.1
@@ -547,7 +547,7 @@ importers:
         specifier: ~5.8.2
         version: 5.8.2
 
-  libraries/spec:
+  packages/spec:
     devDependencies:
       '@bufbuild/buf':
         specifier: ~1.50.1
@@ -583,7 +583,7 @@ importers:
         specifier: ~5.8.2
         version: 5.8.2
 
-  libraries/ui:
+  packages/ui:
     dependencies:
       '@fontsource-variable/dm-sans':
         specifier: 5.2.5
@@ -674,7 +674,7 @@ importers:
         specifier: ~6.2.3
         version: 6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0)
 
-  libraries/utils:
+  packages/utils:
     dependencies:
       effect:
         specifier: 3.14.2
