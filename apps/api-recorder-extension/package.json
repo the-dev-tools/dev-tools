@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "~4.0.15",
-    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/utils": "workspace:^",
     "@types/chrome": "~0.0.310",

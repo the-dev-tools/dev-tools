@@ -12,7 +12,7 @@
       "path": "../api"
     },
     {
-      "path": "../config-eslint"
+      "path": "../../configs/eslint"
     },
     {
       "path": "./tsconfig.lib.json"

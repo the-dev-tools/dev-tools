@@ -56,7 +56,7 @@
     "@tanstack/react-query-devtools": "~5.69.0",
     "@tanstack/router-devtools": "~1.114.27",
     "@tanstack/router-plugin": "~1.114.27",
-    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/eslint-config": "workspace:^",
     "@types/react": "~19.0.12",
     "@types/react-dom": "~19.0.4",
     "@types/react-timeago": "~4.1.7",

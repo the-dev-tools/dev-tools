@@ -1,1 +1,1 @@
-export { default } from '@the-dev-tools/config-eslint';
+export { default } from '@the-dev-tools/eslint-config';

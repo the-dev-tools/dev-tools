@@ -9,7 +9,7 @@
     "@nx-go/nx-go": "~3.3.0",
     "@nx/eslint": "~20.6.2",
     "@nx/js": "~20.6.2",
-    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/eslint-config": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
     "@typespec/compiler": "~0.67.1",
     "@typespec/prettier-plugin-typespec": "~0.67.1",

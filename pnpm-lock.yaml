@@ -29,9 +29,9 @@ importers:
       '@nx/js':
         specifier: ~20.6.2
         version: 20.6.4(@babel/traverse@7.27.0)(@swc/core@1.11.13(@swc/helpers@0.5.15))(nx@20.6.4(@swc/core@1.11.13(@swc/helpers@0.5.15)))
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:libraries/config-eslint
+        version: link:configs/eslint
       '@tsconfig/strictest':
         specifier: ~2.0.5
         version: 2.0.5
@@ -108,9 +108,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ~4.0.15
         version: 4.0.16
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../../libraries/config-eslint
+        version: link:../../configs/eslint
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../../libraries/ui
@@ -199,9 +199,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ~4.0.15
         version: 4.0.16(vite@6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0))
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../../libraries/config-eslint
+        version: link:../../configs/eslint
       '@types/react':
         specifier: ~19.0.12
         version: 19.0.12
@@ -230,74 +230,7 @@ importers:
         specifier: ~6.2.3
         version: 6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0)
 
-  libraries/api:
-    dependencies:
-      '@bufbuild/protobuf':
-        specifier: 2.2.5
-        version: 2.2.5
-      '@connectrpc/connect':
-        specifier: 2.0.2
-        version: 2.0.2(@bufbuild/protobuf@2.2.5)
-      '@connectrpc/connect-query':
-        specifier: 2.0.1
-        version: 2.0.1(@bufbuild/protobuf@2.2.5)(@connectrpc/connect@2.0.2(@bufbuild/protobuf@2.2.5))(@tanstack/query-core@5.69.0)(@tanstack/react-query@5.69.0(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@connectrpc/connect-web':
-        specifier: 2.0.2
-        version: 2.0.2(@bufbuild/protobuf@2.2.5)(@connectrpc/connect@2.0.2(@bufbuild/protobuf@2.2.5))
-      '@effect/platform':
-        specifier: 0.80.2
-        version: 0.80.2(effect@3.14.2)
-      '@normy/core':
-        specifier: 0.12.0
-        version: 0.12.0
-      '@tanstack/react-query':
-        specifier: 5.69.0
-        version: 5.69.0(react@19.0.0)
-      '@the-dev-tools/spec':
-        specifier: workspace:^
-        version: link:../spec
-      '@the-dev-tools/utils':
-        specifier: workspace:^
-        version: link:../utils
-      effect:
-        specifier: 3.14.2
-        version: 3.14.2
-      id128:
-        specifier: 1.6.6
-        version: 1.6.6
-      jose:
-        specifier: 6.0.10
-        version: 6.0.10
-      magic-sdk:
-        specifier: 29.0.2
-        version: 29.0.2
-      react:
-        specifier: 19.0.0
-        version: 19.0.0
-      react-dom:
-        specifier: 19.0.0
-        version: 19.0.0(react@19.0.0)
-    devDependencies:
-      '@the-dev-tools/config-eslint':
-        specifier: workspace:^
-        version: link:../config-eslint
-      '@types/react':
-        specifier: ~19.0.12
-        version: 19.0.12
-      '@types/react-dom':
-        specifier: ~19.0.4
-        version: 19.0.4(@types/react@19.0.12)
-      typescript:
-        specifier: ~5.8.2
-        version: 5.8.2
-
-  libraries/backend:
-    dependencies:
-      '@the-dev-tools/spec':
-        specifier: workspace:^
-        version: link:../spec
-
-  libraries/config-eslint:
+  configs/eslint:
     devDependencies:
       '@eslint/compat':
         specifier: ~1.2.7
@@ -356,6 +289,73 @@ importers:
       typescript-eslint:
         specifier: ~8.28.0
         version: 8.28.0(eslint@9.23.0(jiti@2.4.2))(typescript@5.8.2)
+
+  libraries/api:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: 2.2.5
+        version: 2.2.5
+      '@connectrpc/connect':
+        specifier: 2.0.2
+        version: 2.0.2(@bufbuild/protobuf@2.2.5)
+      '@connectrpc/connect-query':
+        specifier: 2.0.1
+        version: 2.0.1(@bufbuild/protobuf@2.2.5)(@connectrpc/connect@2.0.2(@bufbuild/protobuf@2.2.5))(@tanstack/query-core@5.69.0)(@tanstack/react-query@5.69.0(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@connectrpc/connect-web':
+        specifier: 2.0.2
+        version: 2.0.2(@bufbuild/protobuf@2.2.5)(@connectrpc/connect@2.0.2(@bufbuild/protobuf@2.2.5))
+      '@effect/platform':
+        specifier: 0.80.2
+        version: 0.80.2(effect@3.14.2)
+      '@normy/core':
+        specifier: 0.12.0
+        version: 0.12.0
+      '@tanstack/react-query':
+        specifier: 5.69.0
+        version: 5.69.0(react@19.0.0)
+      '@the-dev-tools/spec':
+        specifier: workspace:^
+        version: link:../spec
+      '@the-dev-tools/utils':
+        specifier: workspace:^
+        version: link:../utils
+      effect:
+        specifier: 3.14.2
+        version: 3.14.2
+      id128:
+        specifier: 1.6.6
+        version: 1.6.6
+      jose:
+        specifier: 6.0.10
+        version: 6.0.10
+      magic-sdk:
+        specifier: 29.0.2
+        version: 29.0.2
+      react:
+        specifier: 19.0.0
+        version: 19.0.0
+      react-dom:
+        specifier: 19.0.0
+        version: 19.0.0(react@19.0.0)
+    devDependencies:
+      '@the-dev-tools/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
+      '@types/react':
+        specifier: ~19.0.12
+        version: 19.0.12
+      '@types/react-dom':
+        specifier: ~19.0.4
+        version: 19.0.4(@types/react@19.0.12)
+      typescript:
+        specifier: ~5.8.2
+        version: 5.8.2
+
+  libraries/backend:
+    dependencies:
+      '@the-dev-tools/spec':
+        specifier: workspace:^
+        version: link:../spec
 
   libraries/core:
     dependencies:
@@ -489,9 +489,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ~1.114.27
         version: 1.114.27(@tanstack/react-router@1.114.27(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(vite@6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0))
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../config-eslint
+        version: link:../../configs/eslint
       '@types/react':
         specifier: ~19.0.12
         version: 19.0.12
@@ -531,9 +531,9 @@ importers:
       '@octokit/rest':
         specifier: ~21.1.1
         version: 21.1.1
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../config-eslint
+        version: link:../../configs/eslint
       '@types/node':
         specifier: ~22.13.13
         version: 22.13.13
@@ -634,9 +634,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ~4.0.15
         version: 4.0.16(vite@6.2.3(@types/node@22.13.13)(jiti@2.4.2)(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0)(tsx@4.19.3)(yaml@2.7.0))
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../config-eslint
+        version: link:../../configs/eslint
       '@types/node':
         specifier: ~22.13.13
         version: 22.13.13
@@ -683,9 +683,9 @@ importers:
       '@faker-js/faker':
         specifier: ~9.6.0
         version: 9.6.0
-      '@the-dev-tools/config-eslint':
+      '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../config-eslint
+        version: link:../../configs/eslint
       '@types/node':
         specifier: ~22.13.13
         version: 22.13.13
@@ -12052,7 +12052,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.5.4
+      semver: 7.7.1
       srcset: 4.0.0
     transitivePeerDependencies:
       - '@parcel/core'
@@ -12121,7 +12121,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.5.4
+      semver: 7.7.1
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12166,7 +12166,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.5.4
+      semver: 7.7.1
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -16697,7 +16697,7 @@ snapshots:
     dependencies:
       array-union: 2.1.0
       dir-glob: 3.0.1
-      fast-glob: 3.3.2
+      fast-glob: 3.3.3
       ignore: 5.3.2
       merge2: 1.4.1
       slash: 3.0.0

@@ -8,8 +8,14 @@
   "include": [".plasmo/index.d.ts", "."],
   "exclude": [".plasmo", "dist", "node_modules"],
   "references": [
-    { "path": "../../libraries/ui/tsconfig.lib.json" },
-    { "path": "../../libraries/utils/tsconfig.lib.json" },
-    { "path": "../../libraries/config-eslint/tsconfig.lib.json" }
+    {
+      "path": "../../libraries/utils/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libraries/ui/tsconfig.lib.json"
+    },
+    {
+      "path": "../../configs/eslint/tsconfig.lib.json"
+    }
   ]
 }

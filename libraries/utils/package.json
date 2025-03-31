@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "~9.6.0",
-    "@the-dev-tools/config-eslint": "workspace:^",
+    "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "~22.13.13",
     "typescript": "~5.8.2"
   }

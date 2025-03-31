@@ -8,8 +8,14 @@
   "include": ["."],
   "exclude": ["node_modules", "dist"],
   "references": [
-    { "path": "../../libraries/core/tsconfig.lib.json" },
-    { "path": "../../libraries/api/tsconfig.lib.json" },
-    { "path": "../../libraries/config-eslint/tsconfig.lib.json" }
+    {
+      "path": "../../libraries/core/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libraries/api/tsconfig.lib.json"
+    },
+    {
+      "path": "../../configs/eslint/tsconfig.lib.json"
+    }
   ]
 }

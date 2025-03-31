@@ -10,9 +10,6 @@
       "path": "./apps/api-recorder-extension"
     },
     {
-      "path": "./libraries/config-eslint"
-    },
-    {
       "path": "./libraries/utils"
     },
     {
@@ -29,6 +26,9 @@
     },
     {
       "path": "./libraries/scripts"
+    },
+    {
+      "path": "./configs/eslint"
     }
   ]
 }

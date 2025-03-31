@@ -9,7 +9,7 @@
       "path": "../../libraries/ui"
     },
     {
-      "path": "../../libraries/config-eslint"
+      "path": "../../configs/eslint"
     },
     {
       "path": "./tsconfig.lib.json"
