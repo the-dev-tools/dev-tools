@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"the-dev-tools/backend/pkg/idwrap"
+	devtoolsdb "the-dev-tools/db"
 )
 
 type MigrateManager struct {
@@ -98,7 +99,7 @@ func (m MigrateManager) ApplyMigration(migration Migration) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fmt.Println("Applying migration", migration.ID)
 	for i, sql := range migration.Sql {

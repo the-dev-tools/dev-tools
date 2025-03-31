@@ -39,6 +39,7 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/testutil"
+	"the-dev-tools/db/pkg/sqlc"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 
 	"connectrpc.com/connect"
@@ -48,7 +49,7 @@ func TestListFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
+	defer sqlc.CloseQueriesAndLog(queries)
 
 	db := base.DB
 
@@ -212,7 +213,7 @@ func TestGetFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
+	defer sqlc.CloseQueriesAndLog(queries)
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -332,7 +333,7 @@ func TestCreateFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
+	defer sqlc.CloseQueriesAndLog(queries)
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -439,7 +440,7 @@ func TestUpdateFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
+	defer sqlc.CloseQueriesAndLog(queries)
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -548,7 +549,7 @@ func TestDeleteFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
+	defer sqlc.CloseQueriesAndLog(queries)
 	db := base.DB
 
 	ws := sworkspace.New(queries)
@@ -655,7 +656,7 @@ func TestRunFlow(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
-	defer queries.Close()
+	defer sqlc.CloseQueriesAndLog(queries)
 	db := base.DB
 
 	ws := sworkspace.New(queries)

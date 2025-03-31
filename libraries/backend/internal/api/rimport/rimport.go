@@ -32,6 +32,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/thar"
 	"the-dev-tools/backend/pkg/translate/tpostman"
+	devtoolsdb "the-dev-tools/db"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
@@ -186,7 +187,7 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	}
 
 	tx, err := c.DB.Begin()
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -344,7 +345,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	tx, err := c.DB.Begin()
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

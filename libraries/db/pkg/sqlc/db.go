@@ -6,6 +6,8 @@ import (
 	_ "embed"
 	"strings"
 	"the-dev-tools/db/pkg/sqlc/gen"
+
+	"github.com/pingcap/log"
 )
 
 //go:embed schema.sql
@@ -27,4 +29,12 @@ func CreateLocalTables(ctx context.Context, db *sql.DB) error {
 
 func GetService[I any](ctx context.Context, queries *gen.Queries, serviceFunc func(context.Context, *gen.Queries) I) I {
 	return serviceFunc(ctx, queries)
+}
+
+// checks if error then logs error
+func CloseQueriesAndLog(q *gen.Queries) {
+	err := q.Close()
+	if err != nil {
+		log.Error(err.Error())
+	}
 }

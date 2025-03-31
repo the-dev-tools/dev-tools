@@ -20,6 +20,7 @@ import (
 	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/translate/tfolder"
 	"the-dev-tools/backend/pkg/translate/titemapi"
+	devtoolsdb "the-dev-tools/db"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/v1/itemv1connect"
 
@@ -209,7 +210,7 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		defer tx.Rollback()
+		defer devtoolsdb.TxnRollback(tx)
 
 		txIfs, err := sitemfolder.NewTX(ctx, tx)
 		if err != nil {
@@ -285,7 +286,7 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		defer tx.Rollback()
+		defer devtoolsdb.TxnRollback(tx)
 
 		txIas, err := sitemapi.NewTX(ctx, tx)
 		if err != nil {

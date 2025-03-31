@@ -46,6 +46,7 @@ import (
 	"the-dev-tools/backend/pkg/translate/tassert"
 	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/varsystem"
+	devtoolsdb "the-dev-tools/db"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
@@ -360,7 +361,7 @@ func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	txIfs, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {

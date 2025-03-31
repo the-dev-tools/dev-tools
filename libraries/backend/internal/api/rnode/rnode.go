@@ -42,6 +42,7 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/translate/tcondition"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+	devtoolsdb "the-dev-tools/db"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
@@ -259,7 +260,7 @@ func (c *NodeServiceRPC) NodeCreate(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 	nsTX, err := snode.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

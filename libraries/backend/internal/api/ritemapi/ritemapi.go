@@ -20,6 +20,7 @@ import (
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/translate/texample"
 	"the-dev-tools/backend/pkg/translate/titemapi"
+	devtoolsdb "the-dev-tools/db"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1/endpointv1connect"
@@ -130,7 +131,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	txIas, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
@@ -282,7 +283,7 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	iasTX, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
@@ -441,7 +442,7 @@ func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[en
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	txias, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {

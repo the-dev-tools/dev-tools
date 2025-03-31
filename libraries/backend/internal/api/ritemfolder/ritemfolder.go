@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sitemfolder"
 	"the-dev-tools/backend/pkg/service/suser"
 	"the-dev-tools/backend/pkg/translate/tfolder"
+	devtoolsdb "the-dev-tools/db"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/folder/v1/folderv1connect"
@@ -258,7 +259,7 @@ func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[f
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	txIfs, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {

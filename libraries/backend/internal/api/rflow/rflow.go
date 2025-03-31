@@ -68,6 +68,7 @@ import (
 	"the-dev-tools/backend/pkg/service/sworkspace"
 	"the-dev-tools/backend/pkg/translate/tflow"
 	"the-dev-tools/backend/pkg/translate/tgeneric"
+	devtoolsdb "the-dev-tools/db"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
@@ -297,7 +298,7 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	txFlow, err := sflow.NewTX(ctx, tx)
 	if err != nil {
@@ -841,7 +842,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	txNode, err := snode.NewTX(ctx, tx)
 	if err != nil {
@@ -915,11 +916,7 @@ func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeRe
 	if err != nil {
 		return err
 	}
-	defer func() {
-		// TODO: find a better way to handle
-		err := tx2.Rollback()
-		log.Println(err)
-	}()
+	defer devtoolsdb.TxnRollback(tx2)
 
 	txExampleResp, err := sexampleresp.NewTX(ctx, tx2)
 	if err != nil {
