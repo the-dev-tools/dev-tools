@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/internal/api/redge"
 	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/resultapi"
+	"the-dev-tools/server/internal/api/rexport"
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/internal/api/ritemapi"
@@ -261,6 +262,21 @@ func main() {
 
 	importServiceRPC := rimport.New(currentDB, ws, cs, us, ifs, ias, iaes, res)
 	newServiceManager.AddService(rimport.CreateService(importServiceRPC, opitonsAll))
+
+	exportServiceRPC := rexport.New(
+		currentDB,
+		ws, cs, ifs,
+		ias, iaes, ehs, eqs, as,
+		brs, bfs, bues,
+		ers, erhs, ars,
+		// flow
+		fs,
+		// nodes
+		ns, rns,
+		*ins, sns,
+		lfns, flens, jsns,
+	)
+	newServiceManager.AddService(rexport.CreateService(exportServiceRPC, opitonsAll))
 
 	// Start services
 	go func() {
