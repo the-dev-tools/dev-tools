@@ -415,7 +415,6 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 				data.FlowJSNodes = append(data.FlowJSNodes, jsNode)
 			}
 		}
-
 	}
 
 	for _, collection := range collections {
@@ -507,7 +506,12 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 		// response
 		response, err := s.responseService.GetExampleRespByExampleID(ctx, example.ID)
 		if err != nil {
-			return nil, err
+			if err == sexampleresp.ErrNoRespFound {
+				// didn't find response so there will be no resp header etc...
+				continue
+			} else {
+				return nil, err
+			}
 		}
 		data.ExampleResponses = append(data.ExampleResponses, *response)
 
@@ -524,6 +528,7 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 			return nil, err
 		}
 		data.ExampleResponseAsserts = append(data.ExampleResponseAsserts, responseAsserts...)
+
 	}
 
 	return &data, nil

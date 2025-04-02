@@ -112,6 +112,15 @@ var flowCmd = &cobra.Command{
 	Use:   "flow",
 	Short: "Workspace Flow Controls",
 	Long:  `Workspace Flow Controls`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+var flowRunCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run Flow",
+	Long:  `Running Flow`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		ctx := cmd.Context()
@@ -223,16 +232,7 @@ var flowCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return nil
-	},
-}
 
-var flowRunCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Print the version number of DevToolsCLI",
-	Long:  `All software has versions. This is DevToolsCLI's`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
 		// TODO: move to const
 		flowLocalDataInterface := ctx.Value("flowServiceLocal")
 		flowLocalData := flowLocalDataInterface.(FLowServiceLocal)
