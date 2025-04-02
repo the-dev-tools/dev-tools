@@ -38,6 +38,7 @@ import {
   collectionList,
   collectionUpdate,
 } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -45,7 +46,7 @@ import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem } from '@the-dev-tools/ui/tree';
-import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
 import { enumToString } from '~/api/utils';
 
@@ -354,6 +355,8 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
 
   const matchRoute = useMatchRoute();
 
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
   const { containerRef, navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const exampleIdCan = Ulid.construct(exampleId).toCanonical();
@@ -371,6 +374,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
   const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
+  const exportMutation = useConnectMutation(export$);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -441,6 +445,15 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
 
             <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
 
+            <MenuItem
+              onAction={async () => {
+                const { data, name } = await exportMutation.mutateAsync({ exampleIds: [exampleId], workspaceId });
+                saveFile({ blobParts: [data], name });
+              }}
+            >
+              Export
+            </MenuItem>
+
             <MenuItem onAction={() => void endpointDeleteMutation.mutate({ endpointId })} variant='danger'>
               Delete
             </MenuItem>
@@ -466,6 +479,8 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
   const matchRoute = useMatchRoute();
 
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
   const { containerRef, navigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
@@ -474,6 +489,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   const exampleDuplicateMutation = useConnectMutation(exampleDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
+  const exportMutation = useConnectMutation(export$);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -524,6 +540,15 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
+
+            <MenuItem
+              onAction={async () => {
+                const { data, name } = await exportMutation.mutateAsync({ exampleIds: [exampleId], workspaceId });
+                saveFile({ blobParts: [data], name });
+              }}
+            >
+              Export
+            </MenuItem>
 
             <MenuItem onAction={() => void exampleDeleteMutation.mutate({ exampleId })} variant='danger'>
               Delete

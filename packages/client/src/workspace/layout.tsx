@@ -9,6 +9,7 @@ import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 
 import { collectionCreate } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
+import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import {
   flowCreate,
@@ -25,7 +26,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { DashboardLayout } from '../authorized';
@@ -194,9 +195,11 @@ interface FlowItemProps {
 
 const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemProps) => {
   const { workspaceIdCan } = Route.useParams();
+  const { workspaceId } = Route.useLoaderData();
 
   const flowDeleteMutation = useConnectMutation(flowDelete);
   const flowUpdateMutation = useConnectMutation(flowUpdate);
+  const exportMutation = useConnectMutation(export$);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -237,6 +240,15 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <MenuItem
+              onAction={async () => {
+                const { data, name } = await exportMutation.mutateAsync({ flowIds: [flowId], workspaceId });
+                saveFile({ blobParts: [data], name });
+              }}
+            >
+              Export
+            </MenuItem>
 
             <MenuItem onAction={() => void flowDeleteMutation.mutate({ flowId })} variant='danger'>
               Delete

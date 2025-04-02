@@ -62,3 +62,18 @@ export const formatSize = (bytes: number) => {
   const name = ['B', 'KiB', 'MiB', 'GiB', 'TiB'][scale];
   return `${size} ${name}`;
 };
+
+interface SaveFileProps {
+  blobParts: BlobPart[];
+  name?: string;
+  options?: BlobPropertyBag;
+}
+
+export const saveFile = ({ blobParts, name, options }: SaveFileProps) => {
+  const link = document.createElement('a');
+  const file = new Blob(blobParts, options);
+  link.href = URL.createObjectURL(file);
+  if (name) link.download = name;
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
