@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"os"
-	"strings"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/tursomem"
 	"the-dev-tools/server/pkg/compress"
@@ -244,17 +242,19 @@ var flowRunCmd = &cobra.Command{
 		// check if id
 		id, err := idwrap.NewText(nameOrID)
 		if err != nil {
-			// seems like not id try find
-
+			// seems like not id try find name
 			flows, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
 			if err != nil {
 				return err
 			}
-			const matchComparRate = 2
 			for _, flow := range flows {
-				if math.Abs(float64(strings.Compare(nameOrID, flow.Name))) < matchComparRate {
+				if nameOrID == flow.Name {
 					flowPtr = &flow
 				}
+			}
+
+			if flowPtr == nil {
+				return fmt.Errorf("%s didn't match any flow names", nameOrID)
 			}
 
 		} else {
@@ -265,10 +265,7 @@ var flowRunCmd = &cobra.Command{
 			flowPtr = &flow
 		}
 
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
-
+		log.Println("found flow", flowPtr.Name)
 		return flowRun(ctx, flowPtr, c)
 	},
 }

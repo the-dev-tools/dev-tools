@@ -2,6 +2,7 @@ package ioworkspace_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -701,5 +702,31 @@ func TestImportMultipleWorkspaces(t *testing.T) {
 	if workspace2DB.Name != workspace2.Workspace.Name {
 		t.Errorf("Workspace2 name mismatch: expected %s, got %s",
 			workspace2.Workspace.Name, workspace2DB.Name)
+	}
+}
+
+func TestImportWorkspaceWithLongFlowName(t *testing.T) {
+	ctx := context.Background()
+	ioWorkspaceService, base := setupIOWorkspaceService(ctx, t)
+
+	// Create test data with a flow that has a very long name
+	data := createTestWorkspaceData()
+	longName := strings.Repeat("Very long flow name ", 50) // Create a name that's approximately 1000 characters
+	data.Flows[0].Name = longName
+
+	// Test ImportWorkspace with long flow name
+	err := ioWorkspaceService.ImportWorkspace(ctx, data)
+	if err != nil {
+		t.Fatalf("ImportWorkspace failed with long flow name: %v", err)
+	}
+
+	// Verify flow was created with the long name
+	flow, err := base.Queries.GetFlow(ctx, data.Flows[0].ID)
+	if err != nil {
+		t.Fatalf("Failed to get flow: %v", err)
+	}
+	if flow.Name != longName {
+		t.Errorf("Flow name mismatch: expected long name of length %d, got name of length %d",
+			len(longName), len(flow.Name))
 	}
 }
