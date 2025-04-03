@@ -26,10 +26,6 @@ jobs:
         name: Get project information
         run: gha-scripts export-project-info
 
-      - name: Build
-        if: runner.os != 'macOS'
-        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
-
       - name: Build (macOS)
         if: runner.os == 'macOS'
         env:
@@ -38,6 +34,20 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        env:
+          AZURE_KEY_VAULT_CERTIFICATE: ${{ secrets.AZURE_KEY_VAULT_CERTIFICATE }}
+          AZURE_KEY_VAULT_CLIENT_ID: ${{ secrets.AZURE_KEY_VAULT_CLIENT_ID }}
+          AZURE_KEY_VAULT_CLIENT_SECRET: ${{ secrets.AZURE_KEY_VAULT_CLIENT_SECRET }}
+          AZURE_KEY_VAULT_TENANT_ID: ${{ secrets.AZURE_KEY_VAULT_TENANT_ID }}
+          AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
 
       - name: Publish

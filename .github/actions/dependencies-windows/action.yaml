@@ -34,3 +34,6 @@ runs:
 
     - shell: powershell
       run: scoop shim add gha-scripts pnpm '--' run --filter="*/gha-scripts" cli
+
+    - shell: powershell
+      run: winget install vcsjones.azuresigntool
