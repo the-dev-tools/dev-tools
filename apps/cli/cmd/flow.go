@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"strings"
@@ -35,7 +36,6 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
 	"the-dev-tools/server/pkg/service/sbodyform"
@@ -224,22 +224,13 @@ var flowRunCmd = &cobra.Command{
 		}
 
 		// TODO: move to const
-		ctxValue := context.WithValue(ctx, "flowServiceLocal", flowServiceLocal)
-		ctxValue = context.WithValue(ctx, "workspaceID", workspaceData.Workspace.ID)
-		cmd.SetContext(ctxValue)
+		workspaceID := workspaceData.Workspace.ID
+		c := flowServiceLocal
 
 		err = ioWorkspaceService.ImportWorkspace(ctx, *workspaceData)
 		if err != nil {
 			return err
 		}
-
-		// TODO: move to const
-		flowLocalDataInterface := ctx.Value("flowServiceLocal")
-		flowLocalData := flowLocalDataInterface.(FLowServiceLocal)
-		c := flowLocalData
-
-		workspaceIDInterface := ctx.Value("workspaceID")
-		workspaceID := workspaceIDInterface.(idwrap.IDWrap)
 
 		if len(args) < 1 {
 			return errors.New("args should be more then 0")
@@ -564,17 +555,10 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 			name := flowNodeStatus.Name
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
-			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
-				go func() {
-					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, name)
-					refs := []reference.Reference{ref}
 
-					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr), refs)
-					if localErr != nil {
-						done <- localErr
-						return
-					}
-				}()
+			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
+				str := fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr)
+				log.Println(str)
 			}
 		}
 

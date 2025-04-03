@@ -8,7 +8,7 @@ import (
 )
 
 type IDWrap struct {
-	ulid ulid.ULID
+	ulid ulid.ULID `yaml:"binary_data"`
 }
 
 func New(ulid ulid.ULID) IDWrap {
@@ -17,6 +17,27 @@ func New(ulid ulid.ULID) IDWrap {
 
 func NewNow() IDWrap {
 	return IDWrap{ulid: ulid.Make()}
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (id IDWrap) MarshalYAML() (interface{}, error) {
+	return id.ulid.String(), nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (id *IDWrap) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var value string
+	if err := unmarshal(&value); err != nil {
+		return err
+	}
+
+	parsed, err := ulid.Parse(value)
+	if err != nil {
+		return err
+	}
+
+	id.ulid = parsed
+	return nil
 }
 
 func NewText(ulidString string) (IDWrap, error) {
