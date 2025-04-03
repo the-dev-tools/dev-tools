@@ -388,6 +388,9 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 
 		// flow edge
 		flowEdges, err := s.flowEdgeService.GetEdgesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, err
+		}
 		data.FlowEdges = append(data.FlowEdges, flowEdges...)
 
 		for _, node := range flowNodes {
