@@ -27,6 +27,11 @@ jobs:
         run: gha-scripts export-project-info
 
       - name: Build
+        if: runner.os != 'macOS'
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
         env:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
