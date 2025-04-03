@@ -34,6 +34,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/sedge"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -298,6 +299,7 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 	responseAssertService := sassertres.New(queries)
 	flowService := sflow.New(queries)
 	flowNodeService := snode.New(queries)
+	flowEdgeService := sedge.New(queries)
 	flowRequestService := snoderequest.New(queries)
 	flowConditionService := snodeif.New(queries)
 	flowNoopService := snodenoop.New(queries)
@@ -324,6 +326,7 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 		responseAssertService,
 		flowService,
 		flowNodeService,
+		flowEdgeService,
 		flowRequestService,
 		*flowConditionService,
 		flowNoopService,

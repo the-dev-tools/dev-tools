@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/sedge"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -56,9 +57,9 @@ type ExportRPC struct {
 	responseHeaderService sexamplerespheader.ExampleRespHeaderService
 	responseAssertService sassertres.AssertResultService
 
-	flowService sflow.FlowService
-
+	flowService     sflow.FlowService
 	flowNodeService snode.NodeService
+	flowEdgeService sedge.EdgeService
 
 	flowRequestService   snoderequest.NodeRequestService
 	flowConditionService snodeif.NodeIfService
@@ -86,6 +87,7 @@ func New(
 	responseAssertService sassertres.AssertResultService,
 	flowService sflow.FlowService,
 	flowNodeService snode.NodeService,
+	flowEdgeService sedge.EdgeService,
 	flowRequestService snoderequest.NodeRequestService,
 	flowConditionService snodeif.NodeIfService,
 	flowNoopService snodenoop.NodeNoopService,
@@ -111,6 +113,7 @@ func New(
 		responseAssertService: responseAssertService,
 		flowService:           flowService,
 		flowNodeService:       flowNodeService,
+		flowEdgeService:       flowEdgeService,
 		flowRequestService:    flowRequestService,
 		flowConditionService:  flowConditionService,
 		flowNoopService:       flowNoopService,
@@ -175,6 +178,7 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		c.responseAssertService,
 		c.flowService,
 		c.flowNodeService,
+		c.flowEdgeService,
 		c.flowRequestService,
 		c.flowConditionService,
 		c.flowNoopService,

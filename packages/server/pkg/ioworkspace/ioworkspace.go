@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
@@ -34,6 +35,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/sedge"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -80,6 +82,7 @@ type IOWorkspaceService struct {
 	flowService sflow.FlowService
 
 	flowNodeService snode.NodeService
+	flowEdgeService sedge.EdgeService
 
 	flowRequestService   snoderequest.NodeRequestService
 	flowConditionService snodeif.NodeIfService
@@ -105,8 +108,13 @@ func NewIOWorkspaceService(
 	responseService sexampleresp.ExampleRespService,
 	responseHeaderService sexamplerespheader.ExampleRespHeaderService,
 	responseAssertService sassertres.AssertResultService,
+
+	// flow
 	flowService sflow.FlowService,
+
 	flowNodeService snode.NodeService,
+	flowEdgeService sedge.EdgeService,
+
 	flowRequestService snoderequest.NodeRequestService,
 	flowConditionService snodeif.NodeIfService,
 	flowNoopService snodenoop.NodeNoopService,
@@ -130,14 +138,17 @@ func NewIOWorkspaceService(
 		responseService:       responseService,
 		responseHeaderService: responseHeaderService,
 		responseAssertService: responseAssertService,
-		flowService:           flowService,
-		flowNodeService:       flowNodeService,
-		flowRequestService:    flowRequestService,
-		flowConditionService:  flowConditionService,
-		flowNoopService:       flowNoopService,
-		flowForService:        flowForService,
-		flowForEachService:    flowForEachService,
-		flowJSService:         flowJSService,
+
+		flowService:     flowService,
+		flowNodeService: flowNodeService,
+		flowEdgeService: flowEdgeService,
+
+		flowRequestService:   flowRequestService,
+		flowConditionService: flowConditionService,
+		flowNoopService:      flowNoopService,
+		flowForService:       flowForService,
+		flowForEachService:   flowForEachService,
+		flowJSService:        flowJSService,
 	}
 }
 
@@ -170,6 +181,7 @@ type WorkspaceData struct {
 
 	// Root nodes
 	FlowNodes []mnnode.MNode `yaml:"flow_nodes"`
+	FlowEdges []edge.Edge    `yaml:"flow_edges"`
 
 	// Sub nodes
 	FlowRequestNodes   []mnrequest.MNRequest `yaml:"flow_request_nodes"`
@@ -211,8 +223,12 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	txResponseService := s.responseService.TX(tx)
 	txResponseHeaderService := s.responseHeaderService.TX(tx)
 	txResponseAssertService := s.responseAssertService.TX(tx)
+
+	// // flow
 	txFlowService := s.flowService.TX(tx)
 	txFlowNodeService := s.flowNodeService.TX(tx)
+	txFlowEdgeService := s.flowEdgeService.TX(tx)
+
 	tdFlowRequestService := s.flowRequestService.TX(tx)
 	txFlowConditionService := s.flowConditionService.TX(tx)
 	txFlowNoopService := s.flowNoopService.TX(tx)
@@ -322,6 +338,11 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 		return err
 	}
 
+	err = txFlowEdgeService.CreateEdgeBulk(ctx, data.FlowEdges)
+	if err != nil {
+		return err
+	}
+
 	err = txFlowForEachService.CreateNodeForEachBulk(ctx, data.FlowForEachNodes)
 	if err != nil {
 		return err
@@ -362,12 +383,17 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 	data.Flows = flows
 
 	for _, flow := range flows {
+		// flow node
 		flowNodes, err := s.flowNodeService.GetNodesByFlowID(ctx, flow.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		data.FlowNodes = append(data.FlowNodes, flowNodes...)
+
+		// flow edge
+		flowEdges, err := s.flowEdgeService.GetEdgesByFlowID(ctx, flow.ID)
+		data.FlowEdges = append(data.FlowEdges, flowEdges...)
 
 		for _, node := range flowNodes {
 			switch node.NodeKind {

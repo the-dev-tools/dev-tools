@@ -164,6 +164,7 @@ var flowRunCmd = &cobra.Command{
 		flowRequestService := snoderequest.New(queries)
 		flowConditionService := snodeif.New(queries)
 		flowNoopService := snodenoop.New(queries)
+		flowEdgeService := sedge.New(queries)
 		flowForService := snodefor.New(queries)
 		flowForEachService := snodeforeach.New(queries)
 		flowJSService := snodejs.New(queries)
@@ -187,6 +188,7 @@ var flowRunCmd = &cobra.Command{
 			responseAssertService,
 			flowService,
 			flowNodeService,
+			flowEdgeService,
 			flowRequestService,
 			*flowConditionService,
 			flowNoopService,

@@ -272,7 +272,7 @@ func main() {
 		// flow
 		fs,
 		// nodes
-		ns, rns,
+		ns, fes, rns,
 		*ins, sns,
 		lfns, flens, jsns,
 	)
