@@ -9,7 +9,7 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/service/sedge"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/suser"

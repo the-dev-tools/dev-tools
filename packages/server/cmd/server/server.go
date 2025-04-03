@@ -36,13 +36,13 @@ import (
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
-	"the-dev-tools/server/pkg/service/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
@@ -114,41 +114,40 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cs := scollection.New(queries)
-	ws := sworkspace.New(queries)
-	wus := sworkspacesusers.New(queries)
-	us := suser.New(queries)
-	ias := sitemapi.New(queries)
-	ifs := sitemfolder.New(queries)
-	ras := sresultapi.New(queries)
-	iaes := sitemapiexample.New(queries)
-	ehs := sexampleheader.New(queries)
-	eqs := sexamplequery.New(queries)
-	brs := sbodyraw.New(queries)
-	bfs := sbodyform.New(queries)
-	bues := sbodyurl.New(queries)
-	ers := sexampleresp.New(queries)
-	erhs := sexamplerespheader.New(queries)
-	as := sassert.New(queries)
-	ars := sassertres.New(queries)
-	vs := svar.New(queries)
-	es := senv.New(queries)
-	res := sexampleresp.New(queries)
-	ts := stag.New(queries)
+	collectionService := scollection.New(queries)
+	workspaceService := sworkspace.New(queries)
+	workspaceUserService := sworkspacesusers.New(queries)
+	userService := suser.New(queries)
+	endpointService := sitemapi.New(queries)
+	folderService := sitemfolder.New(queries)
+	responseService := sresultapi.New(queries)
+	exampleService := sitemapiexample.New(queries)
+	exampleHeaderService := sexampleheader.New(queries)
+	exampleQueryService := sexamplequery.New(queries)
+	bodyRawService := sbodyraw.New(queries)
+	bodyFormService := sbodyform.New(queries)
+	bodyUrlService := sbodyurl.New(queries)
+	exampleResponseService := sexampleresp.New(queries)
+	exampleResponseHeaderService := sexamplerespheader.New(queries)
+	assertService := sassert.New(queries)
+	assertResultService := sassertres.New(queries)
+	variableService := svar.New(queries)
+	environmentService := senv.New(queries)
+	tagService := stag.New(queries)
 
 	// Flow
-	fs := sflow.New(queries)
-	fts := sflowtag.New(queries)
-	fes := sedge.New(queries)
+	flowService := sflow.New(queries)
+	flowTagService := sflowtag.New(queries)
+	flowEdgeService := sedge.New(queries)
 
 	// nodes
-	ns := snode.New(queries)
-	rns := snoderequest.New(queries)
-	lfns := snodefor.New(queries)
-	flens := snodeforeach.New(queries)
-	ins := snodeif.New(queries)
-	sns := snodenoop.New(queries)
-	jsns := snodejs.New(queries)
+	flowNodeService := snode.New(queries)
+	flowNodeRequestSevice := snoderequest.New(queries)
+	flowNodeForService := snodefor.New(queries)
+	flowNodeForeachService := snodeforeach.New(queries)
+	flowNodeCondition := snodeif.New(queries)
+	flowNodeNoOpService := snodenoop.New(queries)
+	flowNodeJsService := snodejs.New(queries)
 
 	// log/console
 	logMap := logconsole.NewLogChanMap()
@@ -156,13 +155,13 @@ func main() {
 	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
-	_, err = us.GetUser(ctx, mwauth.LocalDummyID)
+	_, err = userService.GetUser(ctx, mwauth.LocalDummyID)
 	if err != nil {
 		if errors.Is(err, suser.ErrUserNotFound) {
 			defaultUser := &muser.User{
 				ID: mwauth.LocalDummyID,
 			}
-			err = us.CreateUser(ctx, defaultUser)
+			err = userService.CreateUser(ctx, defaultUser)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -177,79 +176,79 @@ func main() {
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(30)
 
-	workspaceSrv := rworkspace.New(currentDB, ws, wus, us, es)
+	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 
 	// Collection Service
-	collectionSrv := rcollection.New(currentDB, cs, ws,
-		us)
+	collectionSrv := rcollection.New(currentDB, collectionService, workspaceService,
+		userService)
 	newServiceManager.AddService(rcollection.CreateService(collectionSrv, opitonsAll))
 
 	// Collection Item Service
-	collectionItemSrv := rcollectionitem.New(currentDB, cs, us, ifs, ias, iaes, res)
+	collectionItemSrv := rcollectionitem.New(currentDB, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService)
 	newServiceManager.AddService(rcollectionitem.CreateService(collectionItemSrv, opitonsAll))
 
 	// Result API Service
-	resultapiSrv := resultapi.New(currentDB, us, cs, ias, iaes, ws, ers, erhs, as, ars)
+	resultapiSrv := resultapi.New(currentDB, userService, collectionService, endpointService, exampleService, workspaceService, exampleResponseService, exampleResponseHeaderService, assertService, assertResultService)
 	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
 
 	// Item API Service
-	itemapiSrv := ritemapi.New(currentDB, ias, cs,
-		ifs, us, iaes, ers)
+	itemapiSrv := ritemapi.New(currentDB, endpointService, collectionService,
+		folderService, userService, exampleService, exampleResponseService)
 	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
 
 	// Folder API Service
-	folderItemSrv := ritemfolder.New(currentDB, ifs, us, cs)
+	folderItemSrv := ritemfolder.New(currentDB, folderService, userService, collectionService)
 	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
 
 	// Api Item Example
-	itemApiExampleSrv := ritemapiexample.New(currentDB, iaes, ias, ras,
-		ws, cs, us, ehs, eqs, bfs, bues,
-		brs, erhs, ers, es, vs, as, ars)
+	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService, responseService,
+		workspaceService, collectionService, userService, exampleHeaderService, exampleQueryService, bodyFormService, bodyUrlService,
+		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
 
-	requestSrv := rrequest.New(currentDB, cs, us, iaes, ehs, eqs, as)
+	requestSrv := rrequest.New(currentDB, collectionService, userService, exampleService, exampleHeaderService, exampleQueryService, assertService)
 	newServiceManager.AddService(rrequest.CreateService(requestSrv, opitonsAll))
 
 	// BodyRaw Service
-	bodySrv := rbody.New(currentDB, cs, iaes, us, bfs, bues, brs)
+	bodySrv := rbody.New(currentDB, collectionService, exampleService, userService, bodyFormService, bodyUrlService, bodyRawService)
 	newServiceManager.AddService(rbody.CreateService(bodySrv, opitonsAll))
 
 	// Env Service
-	envSrv := renv.New(currentDB, es, vs, us)
+	envSrv := renv.New(currentDB, environmentService, variableService, userService)
 	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
 
 	// Var Service
-	varSrv := rvar.New(currentDB, us, es, vs)
+	varSrv := rvar.New(currentDB, userService, environmentService, variableService)
 	newServiceManager.AddService(rvar.CreateService(varSrv, opitonsAll))
 
-	tagSrv := rtag.New(currentDB, ws, us, ts)
+	tagSrv := rtag.New(currentDB, workspaceService, userService, tagService)
 	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
 
 	// Flow Service
-	flowSrv := rflow.New(currentDB, ws, us, ts,
+	flowSrv := rflow.New(currentDB, workspaceService, userService, tagService,
 		// flow
-		fs, fts, fes,
+		flowService, flowTagService, flowEdgeService,
 		// req
-		ias, iaes, eqs, ehs,
+		endpointService, exampleService, exampleQueryService, exampleHeaderService,
 		// body
-		brs, bfs, bues,
+		bodyRawService, bodyFormService, bodyUrlService,
 		// resp
-		ers, erhs, as, ars,
+		exampleResponseService, exampleResponseHeaderService, assertService, assertResultService,
 		// subnodes
-		ns, rns, lfns, flens,
-		sns, *ins, jsns, logMap)
+		flowNodeService, flowNodeRequestSevice, flowNodeForService, flowNodeForeachService,
+		flowNodeNoOpService, *flowNodeCondition, flowNodeJsService, logMap)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
-	nodeSrv := rnode.NewNodeServiceRPC(currentDB, us,
-		fs, *ins,
-		rns, lfns, flens, ns, sns, jsns,
-		ias, iaes, eqs, ehs, brs, bfs, bues)
+	nodeSrv := rnode.NewNodeServiceRPC(currentDB, userService,
+		flowService, *flowNodeCondition,
+		flowNodeRequestSevice, flowNodeForService, flowNodeForeachService, flowNodeService, flowNodeNoOpService, flowNodeJsService,
+		endpointService, exampleService, exampleQueryService, exampleHeaderService, bodyRawService, bodyFormService, bodyUrlService)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// Edge Service
-	edgeSrv := redge.NewEdgeServiceRPC(currentDB, fs, us, fes, ns)
+	edgeSrv := redge.NewEdgeServiceRPC(currentDB, flowService, userService, flowEdgeService, flowNodeService)
 	newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
 
 	// Log Service
@@ -257,24 +256,24 @@ func main() {
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
 	// Refernce Service
-	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, us, ws, es, vs, ers, erhs, fs, ns, rns, fes)
+	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService, flowService, flowNodeService, flowNodeRequestSevice, flowEdgeService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
-	importServiceRPC := rimport.New(currentDB, ws, cs, us, ifs, ias, iaes, res)
+	importServiceRPC := rimport.New(currentDB, workspaceService, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService)
 	newServiceManager.AddService(rimport.CreateService(importServiceRPC, opitonsAll))
 
 	exportServiceRPC := rexport.New(
 		currentDB,
-		ws, cs, ifs,
-		ias, iaes, ehs, eqs, as,
-		brs, bfs, bues,
-		ers, erhs, ars,
+		workspaceService, collectionService, folderService,
+		endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService,
+		bodyRawService, bodyFormService, bodyUrlService,
+		exampleResponseService, exampleResponseHeaderService, assertResultService,
 		// flow
-		fs,
+		flowService,
 		// nodes
-		ns, fes, rns,
-		*ins, sns,
-		lfns, flens, jsns,
+		flowNodeService, flowEdgeService, flowNodeRequestSevice,
+		*flowNodeCondition, flowNodeNoOpService,
+		flowNodeForService, flowNodeForeachService, flowNodeJsService,
 	)
 	newServiceManager.AddService(rexport.CreateService(exportServiceRPC, opitonsAll))
 
