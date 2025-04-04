@@ -36,4 +36,10 @@ runs:
       run: scoop shim add gha-scripts pnpm '--' run --filter="*/gha-scripts" cli
 
     - shell: powershell
-      run: winget install vcsjones.azuresigntool
+      run: |
+        Invoke-WebRequest `
+          https://github.com/vcsjones/AzureSignTool/releases/download/v6.0.1/AzureSignTool-x64.exe `
+          -OutFile $env:RUNNER_TEMP/AzureSignTool.exe
+
+    - shell: powershell
+      run: echo $env:RUNNER_TEMP >> $env:GITHUB_PATH
