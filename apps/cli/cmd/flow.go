@@ -545,19 +545,42 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	var successCount int
+	totalNodes := len(flowNodeMap)
+
+	flowTitle := flowPtr.Name
+	const maxTitleLenght = 64
+	if len(flowTitle) > maxTitleLenght {
+		flowTitle = flowTitle[:maxTitleLenght]
+		flowTitle += "..."
+	}
+
+	fmt.Println("=================================================================")
+	fmt.Printf("| Flow: %s\n", flowTitle)
+	fmt.Println("─────────────────────────────────────────────────────────────────")
+	fmt.Println("| Timestamp           | Step           | Duration | Status      |")
+	fmt.Println("─────────────────────────────────────────────────────────────────")
+
 	done := make(chan error, 1)
-	updateNodeChan := make(chan mnnode.MNode, 1000)
 	go func() {
 		defer close(done)
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
-			id := flowNodeStatus.NodeID
+			//id := flowNodeStatus.NodeID
 			name := flowNodeStatus.Name
-			idStr := id.String()
-			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
+			//idStr := id.String()
+			stateStr := mnnode.StringNodeStateWithIcons(flowNodeStatus.State)
 
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
-				str := fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr)
-				log.Println(str)
+
+				fmt.Printf("| %-20s | %-14s | %-8s | %-10s |\n",
+					time.Now().Format("2006-01-02 15:04:05"),
+					name,
+					time.Second,
+					stateStr)
+
+				if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS {
+					successCount++
+				}
 			}
 		}
 
@@ -590,20 +613,25 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 		}
 	}()
 
+	flowTime := time.Now()
 	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan)
 
 	// wait for the flow to finish
 	flowErr := <-done
 
-	close(updateNodeChan)
+	flowTimeLapse := time.Since(flowTime)
+
 	close(requestNodeRespChan)
 
+	fmt.Println("=================================================================")
+	fmt.Printf("Flow Duration: %v | Steps: %d/%d Successful\n", flowTimeLapse, successCount, totalNodes)
+
 	if flowErr != nil {
-		return connect.NewError(connect.CodeInternal, err)
+		return err
 	}
 
 	if flowRunErr != nil {
-		return connect.NewError(connect.CodeInternal, flowRunErr)
+		return err
 	}
 
 	return nil

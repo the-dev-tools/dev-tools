@@ -30,6 +30,10 @@ func FlowStatusString(f FlowStatus) string {
 	return [...]string{"Starting", "Running", "Success", "Failed", "Timeout"}[f]
 }
 
+func FlowStatusStringWithIcons(f FlowStatus) string {
+	return [...]string{"🔄 Starting", "⏳ Running", "✅ Success", "❌ Failed", "⏰ Timeout"}[f]
+}
+
 func IsFlowStatusDone(f FlowStatus) bool {
 	return f == FlowStatusSuccess || f == FlowStatusFailed || f == FlowStatusTimeout
 }

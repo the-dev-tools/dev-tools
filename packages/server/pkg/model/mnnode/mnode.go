@@ -32,6 +32,10 @@ func StringNodeState(a NodeState) string {
 	return [...]string{"Unspecified", "Running", "Success", "Failure"}[a]
 }
 
+func StringNodeStateWithIcons(a NodeState) string {
+	return [...]string{"🔄 Starting", "⏳ Running", "✅ Success", "❌ Failed"}[a]
+}
+
 type MNode struct {
 	ID                    idwrap.IDWrap
 	FlowID                idwrap.IDWrap

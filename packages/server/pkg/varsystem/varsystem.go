@@ -1,6 +1,7 @@
 package varsystem
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -151,7 +152,7 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 		key := GetVarKeyFromRaw(rawVar)
 		val, ok := vm.Get(key)
 		if !ok {
-			return "", ErrKeyNotFound
+			return "", errors.Join(ErrKeyNotFound, errors.New(key))
 		}
 
 		result += raw[:startIndex] + val.Value
