@@ -270,6 +270,19 @@ var flowRunCmd = &cobra.Command{
 	},
 }
 
+func formatDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%.2fµs", float64(d.Nanoseconds())/1000)
+	} else if d < time.Second {
+		return fmt.Sprintf("%.2fms", float64(d.Nanoseconds())/1000000)
+	} else if d < time.Minute {
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	} else if d < time.Hour {
+		return fmt.Sprintf("%.2fm", d.Minutes())
+	}
+	return fmt.Sprintf("%.2fh", d.Hours())
+}
+
 func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error {
 	latestFlowID := flowPtr.ID
 
@@ -575,7 +588,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 				fmt.Printf("| %-20s | %-14s | %-8s | %-10s |\n",
 					time.Now().Format("2006-01-02 15:04:05"),
 					name,
-					time.Second,
+					formatDuration(flowNodeStatus.RunDuration),
 					stateStr)
 
 				if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"time"
 )
 
 var (
@@ -39,10 +40,11 @@ func IsFlowStatusDone(f FlowStatus) bool {
 }
 
 type FlowNodeStatus struct {
-	NodeID     idwrap.IDWrap
-	Name       string
-	State      mnnode.NodeState
-	OutputData any
+	NodeID      idwrap.IDWrap
+	Name        string
+	State       mnnode.NodeState
+	OutputData  any
+	RunDuration time.Duration
 }
 
 func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {

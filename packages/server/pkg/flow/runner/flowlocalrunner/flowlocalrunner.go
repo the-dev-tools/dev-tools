@@ -113,6 +113,10 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 		var wg sync.WaitGroup
 		resultChan := make(chan processResult, processCount)
+
+		// TODO: can be done better
+		timeStart := make(map[idwrap.IDWrap]time.Time, processCount)
+
 		wg.Add(processCount)
 		for i := range processCount {
 			id := queue[i]
@@ -125,7 +129,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			if !ok {
 				return fmt.Errorf("node not found: %v", currentNode)
 			}
-
+			timeStart[id] = time.Now()
 			go func() {
 				defer wg.Done()
 				ids, localErr := processNode(ctx, currentNode, req)
@@ -152,6 +156,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				return result.err
 			}
 			status.State = mnnode.NODE_STATE_SUCCESS
+			status.RunDuration = time.Since(timeStart[status.NodeID])
 			outputData, ok := req.VarMap[node.GetName()]
 			if ok {
 				status.OutputData = outputData
@@ -190,6 +195,10 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 		var wg sync.WaitGroup
 		resultChan := make(chan processResult, processCount)
+
+		// TODO: can be done better
+		timeStart := make(map[idwrap.IDWrap]time.Time, processCount)
+
 		wg.Add(processCount)
 		for i := range processCount {
 			id := queue[i]
@@ -203,6 +212,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.Name = req.NodeMap[id].GetName()
 			status.State = mnnode.NODE_STATE_RUNNING
 			statusLogFunc(status)
+			timeStart[id] = time.Now()
 
 			go func() {
 				defer wg.Done()
@@ -251,6 +261,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			} else {
 				status.OutputData = nil
 			}
+			status.RunDuration = time.Since(timeStart[status.NodeID])
 			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
