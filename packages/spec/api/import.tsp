@@ -27,6 +27,7 @@ model ImportRequest {
   name: string;
   kind: ImportKind;
   data: bytes;
+  textData: string;
   filter?: string[];
 }
 

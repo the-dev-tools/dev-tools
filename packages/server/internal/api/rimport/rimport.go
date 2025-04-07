@@ -31,6 +31,7 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
@@ -84,28 +85,45 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsUlid))
-	if rpcErr != nil {
+	if rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsUlid)); rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	data := req.Msg.Data
-
-	collectionID := idwrap.NewNow()
-	var changes []*changev1.Change
+	textData := req.Msg.TextData
 	resp := &importv1.ImportResponse{}
+	collectionID := idwrap.NewNow()
+
+	// If no filter provided, we need to parse and present filter options
 	if len(req.Msg.Filter) == 0 {
+		// Handle curl import
+		if len(textData) > 0 {
+			curlResolved, err := tcurl.ConvertCurl(textData)
+			if err != nil {
+				return nil, err
+			}
+
+			changes, err := c.ImportCurl(ctx, wsUlid, collectionID, "curl", curlResolved)
+			if err != nil {
+				return nil, err
+			}
+
+			resp.Changes = changes
+			return connect.NewResponse(resp), nil
+		}
+
+		// Handle other imports
 		if !json.Valid(data) {
 			return nil, errors.New("invalid json")
 		}
 
-		// determain the type of file
-		// can be postman, or har file
+		// Determine the type of file (HAR file)
 		har, err := thar.ConvertRaw(data)
 		if err != nil {
 			return nil, err
 		}
 
+		// Extract unique domains for filtering
 		domains := make(map[string]struct{}, len(har.Log.Entries))
 		for _, entry := range har.Log.Entries {
 			if thar.IsXHRRequest(entry) {
@@ -117,54 +135,61 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			}
 		}
 
+		// Return filter options to the client
 		resp.Kind = importv1.ImportKind_IMPORT_KIND_FILTER
 		keys := make([]string, 0, len(domains))
 		for k := range domains {
 			keys = append(keys, k)
 		}
-
 		resp.Filter = keys
 
+		// Save HAR for subsequent filtered import
 		lastHar = *har
 
 		return connect.NewResponse(resp), nil
-	} else {
-		var filteredEntries []thar.Entry
-		urlMap := make(map[string][]thar.Entry)
-		for _, entry := range lastHar.Log.Entries {
-			if thar.IsXHRRequest(entry) {
-				urlData, err := url.Parse(entry.Request.URL)
-				if err != nil {
-					return nil, err
-				}
-				host := urlData.Host
-				a, ok := urlMap[host]
-				if !ok {
-					a = make([]thar.Entry, 0)
-				}
-				a = append(a, entry)
-				urlMap[host] = a
-			}
-		}
-		for _, filter := range req.Msg.Filter {
-			entry, ok := urlMap[filter]
-			if ok {
-				filteredEntries = append(filteredEntries, entry...)
-			}
-		}
-		lastHar.Log.Entries = filteredEntries
 	}
 
-	changes, err = c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
+	// Process filtered entries
+	var filteredEntries []thar.Entry
+	urlMap := make(map[string][]thar.Entry)
+
+	for _, entry := range lastHar.Log.Entries {
+		if thar.IsXHRRequest(entry) {
+			urlData, err := url.Parse(entry.Request.URL)
+			if err != nil {
+				return nil, err
+			}
+
+			host := urlData.Host
+			entries, ok := urlMap[host]
+			if !ok {
+				entries = make([]thar.Entry, 0)
+			}
+			entries = append(entries, entry)
+			urlMap[host] = entries
+		}
+	}
+
+	for _, filter := range req.Msg.Filter {
+		if entries, ok := urlMap[filter]; ok {
+			filteredEntries = append(filteredEntries, entries...)
+		}
+	}
+	lastHar.Log.Entries = filteredEntries
+
+	// Try to import as HAR
+	changes, err := c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
 	if err == nil {
 		resp.Changes = changes
 		return connect.NewResponse(resp), nil
 	}
 
+	// Try to import as Postman Collection
 	postman, err := tpostman.ParsePostmanCollection(data)
 	if err != nil {
 		return nil, err
 	}
+
 	changes, err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
 	if err == nil {
 		resp.Changes = changes
@@ -172,6 +197,147 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	}
 
 	return nil, errors.New("invalid file")
+}
+
+func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) ([]*changev1.Change, error) {
+	collection := mcollection.Collection{
+		ID:      CollectionID,
+		Name:    name,
+		OwnerID: workspaceID,
+	}
+
+	tx, err := c.DB.Begin()
+	defer devtoolsdb.TxnRollback(tx)
+
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txCollectionService, err := scollection.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txCollectionService.CreateCollection(ctx, &collection)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txItemApiService, err := sitemapi.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txItemApiService.CreateItemApiBulk(ctx, resolvedCurl.Apis)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolvedCurl.Examples)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// START BODY
+	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolvedCurl.RawBodies)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyFormService.CreateBulkBodyForm(ctx, resolvedCurl.FormBodies)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolvedCurl.UrlEncodedBodies)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	// END BODY
+
+	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	err = txHeaderService.CreateBulkHeader(ctx, resolvedCurl.Headers)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	err = txQueriesService.CreateBulkQuery(ctx, resolvedCurl.Queries)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	ws, err := c.ws.Get(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	ws.CollectionCount++
+	ws.Updated = dbtime.DBNow()
+	err = c.ws.Update(ctx, ws)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Changes
+	collectionListItem := &collectionv1.CollectionListItem{
+		CollectionId: CollectionID.Bytes(),
+		Name:         name,
+	}
+
+	changeCollectionListResp := collectionv1.CollectionListResponse{
+		WorkspaceId: workspaceID.Bytes(),
+		Items:       []*collectionv1.CollectionListItem{collectionListItem},
+	}
+
+	changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	listCollectionChanges := []*changev1.ListChange{
+		{
+			Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
+			Parent: changeCollectionListRespAny,
+		},
+	}
+
+	collectionChangeAnyData, err := anypb.New(collectionListItem)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeCollection := &changev1.Change{
+		Kind: new(changev1.ChangeKind),
+		List: listCollectionChanges,
+		Data: collectionChangeAnyData,
+	}
+
+	return []*changev1.Change{changeCollection}, nil
 }
 
 func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) ([]*changev1.Change, error) {
