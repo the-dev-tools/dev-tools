@@ -2,5 +2,14 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
   "name": "api-recorder-extension",
-  "projectType": "application"
+  "projectType": "application",
+
+  "targets": {
+    "build": {
+      "command": "echo",
+      "metadata": {
+        "description": "Target is disabled due to broken build. Plasmo framework seems to not be well maintained anymore, and doesn't work with Tailwind CSS v4 out of the box. Needs to be investigated more and potentially switched to a different framework."
+      }
+    }
+  }
 }
