@@ -7,22 +7,22 @@
   },
   "devDependencies": {
     "@nx-go/nx-go": "~3.3.0",
-    "@nx/eslint": "~20.6.2",
-    "@nx/js": "~20.6.2",
+    "@nx/eslint": "~20.7.2",
+    "@nx/js": "~20.7.2",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
-    "@typespec/compiler": "~0.67.1",
-    "@typespec/prettier-plugin-typespec": "~0.67.1",
-    "eslint": "~9.23.0",
+    "@typespec/compiler": "1.0.0-rc.0",
+    "@typespec/prettier-plugin-typespec": "~0.68.0",
+    "eslint": "~9.24.0",
     "jiti": "~2.4.0",
-    "nx": "~20.6.2",
+    "nx": "~20.7.2",
     "prettier": "~3.5.3",
     "prettier-plugin-tailwindcss": "~0.6.11",
-    "react": "~19.0.0",
+    "react": "~19.1.0",
     "swc-node": "~1.0.0",
     "syncpack": "~13.0.3",
-    "typescript": "~5.8.2",
-    "typescript-eslint": "~8.28.0"
+    "typescript": "~5.8.3",
+    "typescript-eslint": "~8.29.1"
   },
   "pnpm": {
     "peerDependencyRules": {
