@@ -32,7 +32,7 @@ function Page() {
   const workspaceCreateMutation = useConnectMutation(workspaceCreate);
 
   return (
-    <div className={tw`container mx-auto my-12 grid gap-x-10 gap-y-6`}>
+    <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
       <div className={tw`col-span-full`}>
         <span className={tw`mb-1 text-sm leading-5 tracking-tight text-slate-500`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
@@ -40,8 +40,8 @@ function Page() {
         <h1 className={tw`text-2xl font-medium leading-8 tracking-tight text-slate-800`}>Welcome to DevTools 👋</h1>
       </div>
 
-      <div className={tw`divide-y divide-slate-200 rounded-lg border border-slate-200`}>
-        <div className={tw`flex items-center gap-2 px-5 py-3`}>
+      <div className={tw`flex min-h-0 flex-col rounded-lg border border-slate-200`}>
+        <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
           {/* <Button>View All Workspaces</Button> */}
           <Button onPress={() => void workspaceCreateMutation.mutate({ name: 'New Workspace' })} variant='primary'>
@@ -49,13 +49,15 @@ function Page() {
           </Button>
         </div>
 
-        {workspaces.map((_) => {
-          const workspaceUlid = Ulid.construct(_.workspaceId);
-          const workspaceIdCan = workspaceUlid.toCanonical();
-          return (
-            <Row key={workspaceIdCan} workspace={_} workspaceIdCan={workspaceIdCan} workspaceUlid={workspaceUlid} />
-          );
-        })}
+        <div className={tw`flex-1 divide-y divide-slate-200 overflow-auto`}>
+          {workspaces.map((_) => {
+            const workspaceUlid = Ulid.construct(_.workspaceId);
+            const workspaceIdCan = workspaceUlid.toCanonical();
+            return (
+              <Row key={workspaceIdCan} workspace={_} workspaceIdCan={workspaceIdCan} workspaceUlid={workspaceUlid} />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
