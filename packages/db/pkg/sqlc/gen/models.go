@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
-	mresultapi "the-dev-tools/server/pkg/model/result/mresultapi"
 )
 
 type Assertion struct {
@@ -222,17 +221,6 @@ type Migration struct {
 	Version     int32
 	Description string
 	ApplyAt     int64
-}
-
-type ResultApi struct {
-	ID          idwrap.IDWrap
-	TriggerType mresultapi.TriggerType
-	TriggerBy   idwrap.IDWrap
-	Name        string
-	Status      string
-	Time        int64
-	Duration    int64
-	HttpResp    mresultapi.HttpResp
 }
 
 type Tag struct {

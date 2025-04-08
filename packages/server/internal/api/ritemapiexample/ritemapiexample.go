@@ -40,7 +40,6 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
-	"the-dev-tools/server/pkg/service/sresultapi"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -64,7 +63,6 @@ type ItemAPIExampleRPC struct {
 	DB   *sql.DB
 	iaes *sitemapiexample.ItemApiExampleService
 	ias  *sitemapi.ItemApiService
-	ras  *sresultapi.ResultApiService
 
 	ws *sworkspace.WorkspaceService
 	cs *scollection.CollectionService
@@ -87,7 +85,7 @@ type ItemAPIExampleRPC struct {
 	ars *sassertres.AssertResultService
 }
 
-func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService, ras sresultapi.ResultApiService,
+func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService,
 	ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
 	bfs sbodyform.BodyFormService, beus sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, erhs sexamplerespheader.ExampleRespHeaderService,
 	ers sexampleresp.ExampleRespService, es senv.EnvService, vs svar.VarService, as sassert.AssertService, ars sassertres.AssertResultService,
@@ -96,7 +94,6 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 		DB:   db,
 		iaes: &iaes,
 		ias:  &ias,
-		ras:  &ras,
 		ws:   &ws,
 		cs:   &cs,
 		us:   &us,

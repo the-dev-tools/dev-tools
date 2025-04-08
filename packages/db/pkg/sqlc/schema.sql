@@ -44,23 +44,6 @@ CREATE INDEX workspaces_users_idx1 ON workspaces_users (
   role
 );
 
--- RESULT API
-CREATE TABLE result_api (
-  id BLOB NOT NULL PRIMARY KEY,
-  trigger_type TINYINT,
-  trigger_by BLOB,
-  name TEXT NOT NULL,
-  status TEXT NOT NULL,
-  time TIMESTAMP NOT NULL DEFAULT (unixepoch ()),
-  duration BIGINT NOT NULL,
-  http_resp BLOB
-);
-
-CREATE INDEX result_api_idx1 ON result_api (
-  trigger_by,
-  trigger_type
-);
-
 -- COLLECTIONS
 CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,

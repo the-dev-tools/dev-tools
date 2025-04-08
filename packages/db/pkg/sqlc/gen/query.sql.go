@@ -10,7 +10,6 @@ import (
 	"database/sql"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
-	mresultapi "the-dev-tools/server/pkg/model/result/mresultapi"
 )
 
 const checkIFWorkspaceUserExists = `-- name: CheckIFWorkspaceUserExists :one
@@ -2206,47 +2205,6 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 	return err
 }
 
-const createResultApi = `-- name: CreateResultApi :exec
-INSERT INTO
-  result_api (
-    id,
-    trigger_type,
-    trigger_by,
-    name,
-    status,
-    time,
-    duration,
-    http_resp
-  )
-VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateResultApiParams struct {
-	ID          idwrap.IDWrap
-	TriggerType mresultapi.TriggerType
-	TriggerBy   idwrap.IDWrap
-	Name        string
-	Status      string
-	Time        int64
-	Duration    int64
-	HttpResp    mresultapi.HttpResp
-}
-
-func (q *Queries) CreateResultApi(ctx context.Context, arg CreateResultApiParams) error {
-	_, err := q.exec(ctx, q.createResultApiStmt, createResultApi,
-		arg.ID,
-		arg.TriggerType,
-		arg.TriggerBy,
-		arg.Name,
-		arg.Status,
-		arg.Time,
-		arg.Duration,
-		arg.HttpResp,
-	)
-	return err
-}
-
 const createTag = `-- name: CreateTag :exec
 INSERT INTO
   tag (id, workspace_id, name, color)
@@ -2725,17 +2683,6 @@ WHERE
 
 func (q *Queries) DeleteQuery(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteQueryStmt, deleteQuery, id)
-	return err
-}
-
-const deleteResultApi = `-- name: DeleteResultApi :exec
-DELETE FROM result_api
-WHERE
-  id = ?
-`
-
-func (q *Queries) DeleteResultApi(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteResultApiStmt, deleteResultApi, id)
 	return err
 }
 
@@ -4885,122 +4832,6 @@ func (q *Queries) GetQueryByDeltaParentID(ctx context.Context, deltaParentID *id
 	return i, err
 }
 
-const getResultApi = `-- name: GetResultApi :one
-SELECT
-  id, trigger_type, trigger_by, name, status, time, duration, http_resp
-FROM
-  result_api
-WHERE
-  id = ?
-LIMIT
-  1
-`
-
-// ResultAPI
-func (q *Queries) GetResultApi(ctx context.Context, id idwrap.IDWrap) (ResultApi, error) {
-	row := q.queryRow(ctx, q.getResultApiStmt, getResultApi, id)
-	var i ResultApi
-	err := row.Scan(
-		&i.ID,
-		&i.TriggerType,
-		&i.TriggerBy,
-		&i.Name,
-		&i.Status,
-		&i.Time,
-		&i.Duration,
-		&i.HttpResp,
-	)
-	return i, err
-}
-
-const getResultApiByTriggerBy = `-- name: GetResultApiByTriggerBy :many
-SELECT
-  id, trigger_type, trigger_by, name, status, time, duration, http_resp
-FROM
-  result_api
-WHERE
-  trigger_by = ?
-`
-
-func (q *Queries) GetResultApiByTriggerBy(ctx context.Context, triggerBy idwrap.IDWrap) ([]ResultApi, error) {
-	rows, err := q.query(ctx, q.getResultApiByTriggerByStmt, getResultApiByTriggerBy, triggerBy)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ResultApi{}
-	for rows.Next() {
-		var i ResultApi
-		if err := rows.Scan(
-			&i.ID,
-			&i.TriggerType,
-			&i.TriggerBy,
-			&i.Name,
-			&i.Status,
-			&i.Time,
-			&i.Duration,
-			&i.HttpResp,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getResultApiByTriggerByAndTriggerType = `-- name: GetResultApiByTriggerByAndTriggerType :many
-SELECT
-  id, trigger_type, trigger_by, name, status, time, duration, http_resp
-FROM
-  result_api
-WHERE
-  trigger_by = ?
-  AND trigger_type = ?
-`
-
-type GetResultApiByTriggerByAndTriggerTypeParams struct {
-	TriggerBy   idwrap.IDWrap
-	TriggerType mresultapi.TriggerType
-}
-
-func (q *Queries) GetResultApiByTriggerByAndTriggerType(ctx context.Context, arg GetResultApiByTriggerByAndTriggerTypeParams) ([]ResultApi, error) {
-	rows, err := q.query(ctx, q.getResultApiByTriggerByAndTriggerTypeStmt, getResultApiByTriggerByAndTriggerType, arg.TriggerBy, arg.TriggerType)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ResultApi{}
-	for rows.Next() {
-		var i ResultApi
-		if err := rows.Scan(
-			&i.ID,
-			&i.TriggerType,
-			&i.TriggerBy,
-			&i.Name,
-			&i.Status,
-			&i.Time,
-			&i.Duration,
-			&i.HttpResp,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getTag = `-- name: GetTag :one
 SELECT
   id,
@@ -6317,39 +6148,6 @@ func (q *Queries) UpdateQuery(ctx context.Context, arg UpdateQueryParams) error 
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.ID,
-	)
-	return err
-}
-
-const updateResultApi = `-- name: UpdateResultApi :exec
-UPDATE result_api
-SET
-  name = ?,
-  status = ?,
-  time = ?,
-  duration = ?,
-  http_resp = ?
-WHERE
-  id = ?
-`
-
-type UpdateResultApiParams struct {
-	Name     string
-	Status   string
-	Time     int64
-	Duration int64
-	HttpResp mresultapi.HttpResp
-	ID       idwrap.IDWrap
-}
-
-func (q *Queries) UpdateResultApi(ctx context.Context, arg UpdateResultApiParams) error {
-	_, err := q.exec(ctx, q.updateResultApiStmt, updateResultApi,
-		arg.Name,
-		arg.Status,
-		arg.Time,
-		arg.Duration,
-		arg.HttpResp,
 		arg.ID,
 	)
 	return err

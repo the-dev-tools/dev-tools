@@ -60,7 +60,6 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/sresultapi"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -120,7 +119,6 @@ func main() {
 	userService := suser.New(queries)
 	endpointService := sitemapi.New(queries)
 	folderService := sitemfolder.New(queries)
-	responseService := sresultapi.New(queries)
 	exampleService := sitemapiexample.New(queries)
 	exampleHeaderService := sexampleheader.New(queries)
 	exampleQueryService := sexamplequery.New(queries)
@@ -202,7 +200,7 @@ func main() {
 	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
 
 	// Api Item Example
-	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService, responseService,
+	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService,
 		workspaceService, collectionService, userService, exampleHeaderService, exampleQueryService, bodyFormService, bodyUrlService,
 		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
