@@ -1,11 +1,10 @@
 import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
-import { CustomPublishOptions } from 'builder-util-runtime';
 import { Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
-import { CustomUpdateProvider } from './update';
+import { CustomUpdateProvider, UpdateOptions } from './update';
 // eslint-disable-next-line import-x/default
 import workerPath from './worker?modulePath';
 
@@ -78,10 +77,12 @@ const worker = pipe(
 
 const onReady = Effect.gen(function* () {
   autoUpdater.setFeedURL({
-    project: { name: 'desktop', path: 'apps/desktop' },
     provider: 'custom',
-    repo: 'the-dev-tools/dev-tools',
-    runtime: yield* Effect.runtime<Runtime.Runtime.Context<CustomPublishOptions['runtime']>>(),
+    update: {
+      project: { name: 'desktop', path: 'apps/desktop' },
+      repo: 'the-dev-tools/dev-tools',
+      runtime: yield* Effect.runtime<Runtime.Runtime.Context<UpdateOptions['runtime']>>(),
+    },
     updateProvider: CustomUpdateProvider,
   });
   yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());

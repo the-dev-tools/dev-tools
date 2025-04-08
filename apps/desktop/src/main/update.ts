@@ -5,18 +5,22 @@ import { AppUpdater, UpdateInfo, Provider as UpdateProvider } from 'electron-upd
 import { ProviderRuntimeOptions, resolveFiles } from 'electron-updater/out/providers/Provider';
 import * as Yaml from 'yaml';
 
+export interface UpdateOptions {
+  project: {
+    name: string;
+    path: string;
+  };
+  repo: string;
+  runtime: Runtime.Runtime<Effect.Effect.Context<ReturnType<typeof getUpdateInfo>>>;
+}
+
 declare module 'builder-util-runtime' {
   interface CustomPublishOptions {
-    project: {
-      name: string;
-      path: string;
-    };
-    repo: string;
-    runtime: Runtime.Runtime<Effect.Effect.Context<ReturnType<typeof getUpdateInfo>>>;
+    update?: UpdateOptions;
   }
 }
 
-export const getUpdateInfo = Effect.fn(function* (options: CustomPublishOptions) {
+const getUpdateInfo = Effect.fn(function* (options: UpdateOptions) {
   const client = pipe(yield* HttpClient.HttpClient, HttpClient.followRedirects(3));
 
   const { version } = yield* pipe(
@@ -55,16 +59,21 @@ export const getUpdateInfo = Effect.fn(function* (options: CustomPublishOptions)
 });
 
 export class CustomUpdateProvider extends UpdateProvider<UpdateInfo> {
+  readonly updateOptions: UpdateOptions;
+
   constructor(
     readonly options: CustomPublishOptions,
     readonly updater: AppUpdater,
     runtimeOptions: ProviderRuntimeOptions,
   ) {
     super(runtimeOptions);
+
+    if (!options.update) throw new Error('Update options must be provided');
+    this.updateOptions = options.update;
   }
 
   async getLatestVersion() {
-    const result = await pipe(getUpdateInfo(this.options), Runtime.runPromiseExit(this.options.runtime));
+    const result = await pipe(getUpdateInfo(this.updateOptions), Runtime.runPromiseExit(this.updateOptions.runtime));
 
     return Exit.match(result, {
       onFailure: (): UpdateInfo => ({
@@ -82,7 +91,7 @@ export class CustomUpdateProvider extends UpdateProvider<UpdateInfo> {
     return resolveFiles(
       updateInfo,
       new URL(
-        `https://github.com/${this.options.repo}/releases/download/${this.options.project.name}@${updateInfo.version}/`,
+        `https://github.com/${this.updateOptions.repo}/releases/download/${this.updateOptions.project.name}@${updateInfo.version}/`,
       ),
     );
   }
