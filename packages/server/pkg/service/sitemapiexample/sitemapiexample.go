@@ -3,6 +3,7 @@ package sitemapiexample
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -105,6 +106,34 @@ func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id idwrap.I
 		return nil, err
 	}
 	return ConvertToModelItem(itemApiExample), nil
+}
+
+func (iaes ItemApiExampleService) GetExampleAllParentsNames(ctx context.Context, id idwrap.IDWrap) (*mitemapiexample.ExampleBreadcrumbs, error) {
+	arg := gen.GetExampleAllParentsNamesParams{
+		ID:   id,
+		ID_2: id,
+	}
+
+	names, err := iaes.Queries.GetExampleAllParentsNames(ctx, arg)
+	if err != nil {
+		return nil, err
+	}
+	var folderPathPtr *string
+	if names.FolderPath != nil {
+		path, ok := names.FolderPath.(string)
+		if !ok {
+			return nil, errors.New("folderPath type is not string")
+		}
+		folderPathPtr = &path
+	}
+
+	breadcrumbs := mitemapiexample.ExampleBreadcrumbs{
+		CollectionName: names.CollectionName,
+		ApiName:        names.ApiName,
+		ExampleName:    names.ExampleName,
+		FolderPath:     folderPathPtr,
+	}
+	return &breadcrumbs, nil
 }
 
 func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemapiexample.ItemApiExample, error) {

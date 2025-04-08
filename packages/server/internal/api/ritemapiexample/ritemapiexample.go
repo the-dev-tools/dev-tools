@@ -48,7 +48,6 @@ import (
 	"the-dev-tools/server/pkg/translate/texample"
 	"the-dev-tools/server/pkg/varsystem"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
-	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
@@ -147,6 +146,7 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 		} else {
 			exampleRespID = &exampleResp.ID
 		}
+
 		respsRpc = append(respsRpc, texample.SerializeModelToRPCItem(example, exampleRespID))
 
 	}
@@ -164,13 +164,9 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
 	}
 
-	isMember, err := CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleIdWrap)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !isMember {
-		// return not found
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
+	rpcErr := permcheck.CheckPerm(CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleIdWrap))
+	if rpcErr != nil {
+		return nil, err
 	}
 
 	example, err := c.iaes.GetApiExample(ctx, exampleIdWrap)
@@ -178,23 +174,28 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	exampleBreadcrumbs, err := c.iaes.GetExampleAllParentsNames(ctx, exampleIdWrap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// TODO: this can fail fix this
-	var parentExampleIdWrap []byte = nil
+	var respIdPtr *idwrap.IDWrap
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleIdWrap)
 	if err != nil && err != sexampleresp.ErrNoRespFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if err == nil && exampleResp != nil {
-		parentExampleIdWrap = exampleResp.ID.Bytes()
+	if exampleResp != nil {
+		respIdPtr = &exampleResp.ID
 	}
-
+	rpcExample := texample.SerializeModelToRPC(*example, respIdPtr, *exampleBreadcrumbs)
 	resp := &examplev1.ExampleGetResponse{
-		ExampleId:      example.ID.Bytes(),
-		LastResponseId: parentExampleIdWrap,
-		Name:           example.Name,
-		BodyKind:       bodyv1.BodyKind(example.BodyType),
+		ExampleId:      rpcExample.ExampleId,
+		LastResponseId: rpcExample.LastResponseId,
+		Name:           rpcExample.Name,
+		Breadcrumbs:    rpcExample.Breadcrumbs,
+		BodyKind:       rpcExample.BodyKind,
 	}
-
 	return connect.NewResponse(resp), nil
 }
 

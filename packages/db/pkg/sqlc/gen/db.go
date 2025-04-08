@@ -297,6 +297,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceID: %w", err)
 	}
+	if q.getExampleAllParentsNamesStmt, err = db.PrepareContext(ctx, getExampleAllParentsNames); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleAllParentsNames: %w", err)
+	}
 	if q.getExampleRespStmt, err = db.PrepareContext(ctx, getExampleResp); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleResp: %w", err)
 	}
@@ -1048,6 +1051,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
+	if q.getExampleAllParentsNamesStmt != nil {
+		if cerr := q.getExampleAllParentsNamesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleAllParentsNamesStmt: %w", cerr)
+		}
+	}
 	if q.getExampleRespStmt != nil {
 		if cerr := q.getExampleRespStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getExampleRespStmt: %w", cerr)
@@ -1663,6 +1671,7 @@ type Queries struct {
 	getCollectionOwnerIDStmt                              *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt                      *sql.Stmt
+	getExampleAllParentsNamesStmt                         *sql.Stmt
 	getExampleRespStmt                                    *sql.Stmt
 	getExampleRespHeaderStmt                              *sql.Stmt
 	getExampleRespHeadersByRespIDStmt                     *sql.Stmt
@@ -1857,6 +1866,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionOwnerIDStmt:                         q.getCollectionOwnerIDStmt,
 		getEnvironmentStmt:                               q.getEnvironmentStmt,
 		getEnvironmentsByWorkspaceIDStmt:                 q.getEnvironmentsByWorkspaceIDStmt,
+		getExampleAllParentsNamesStmt:                    q.getExampleAllParentsNamesStmt,
 		getExampleRespStmt:                               q.getExampleRespStmt,
 		getExampleRespHeaderStmt:                         q.getExampleRespHeaderStmt,
 		getExampleRespHeadersByRespIDStmt:                q.getExampleRespHeadersByRespIDStmt,

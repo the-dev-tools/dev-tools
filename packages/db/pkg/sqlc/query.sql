@@ -136,6 +136,50 @@ WHERE
 LIMIT
   1;
 
+-- name: GetExampleAllParentsNames :one
+-- name: GetExampleAllParentsNames :one
+WITH RECURSIVE folder_path AS (
+  SELECT
+    f.id,
+    f.name,
+    f.parent_id,
+    f.collection_id,
+    1 AS level,
+    f.name AS path
+  FROM
+    item_folder f
+  WHERE
+    f.id = (SELECT folder_id FROM item_api WHERE item_api.id = (SELECT item_api_id FROM item_api_example WHERE item_api_example.id = ?))
+    AND f.id IS NOT NULL
+
+  UNION ALL
+
+  SELECT
+    f.id,
+    f.name,
+    f.parent_id,
+    f.collection_id,
+    fp.level + 1,
+    fp.path || '/' || f.name
+  FROM
+    item_folder f
+  JOIN
+    folder_path fp ON f.id = fp.parent_id
+)
+SELECT
+  c.name AS collection_name,
+  a.name AS api_name,
+  e.name AS example_name,
+  COALESCE((SELECT path FROM folder_path WHERE parent_id IS NULL ORDER BY level DESC LIMIT 1), '') AS folder_path
+FROM
+  item_api_example e
+JOIN
+  item_api a ON e.item_api_id = a.id
+JOIN
+  collections c ON e.collection_id = c.id
+WHERE
+  e.id = ?;
+
 -- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
 SELECT
     id,
