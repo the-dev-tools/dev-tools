@@ -24,6 +24,7 @@ import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
 import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextField } from '@the-dev-tools/ui/text-field';
 import { useConnectMutation } from '~/api/connect-query';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -32,6 +33,7 @@ export const ImportDialog = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const [isOpen, setOpen] = useState(false);
+  const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>();
   const [filters, setFilters] = useState<string[]>();
   const [selectedFilters, setSelectedFilters] = useState<Selection>(new Set());
@@ -43,6 +45,7 @@ export const ImportDialog = () => {
   const onOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) return;
+    setText('');
     setFiles(undefined);
     setFilters(undefined);
     setSelectedFilters(new Set());
@@ -57,24 +60,34 @@ export const ImportDialog = () => {
         Import Postman or HAR files
       </div>
 
-      {/* <TextField className={tw`mt-4`} inputPlaceholder='Paste cURL, Raw text or URL...' /> */}
+      <TextField
+        className={tw`mt-4`}
+        inputPlaceholder='Paste cURL, Raw text or URL...'
+        label='Text value'
+        onChange={setText}
+        value={text}
+      />
 
       <FileDropZone dropZoneClassName={tw`mt-4 flex-1`} files={files} onChange={setFiles} />
     </>
   );
 
+  const file = files?.[0];
+
+  const data = pipe(
+    Option.fromNullable(files?.[0]),
+    Option.map((_) => _.arrayBuffer().then((_) => new Uint8Array(_))),
+    Option.getOrElse(() => Promise.resolve(undefined)),
+  );
+
   const importUniversalSubmit = !filters && (
     <Button
-      isDisabled={!files?.length}
+      isDisabled={!files?.length && !text}
       onPress={async () => {
-        const file = files?.[0];
-        if (!file) return;
-
-        const data = pipe(await file.arrayBuffer(), (_) => new Uint8Array(_));
-
         const result = await importMutation.mutateAsync({
-          data,
-          name: file.name,
+          data: (await data) ?? new Uint8Array(),
+          name: file?.name ?? '',
+          textData: text,
           workspaceId,
         });
 
@@ -132,11 +145,6 @@ export const ImportDialog = () => {
     <Button
       isDisabled={!isFilterSelected}
       onPress={async () => {
-        const file = files?.[0];
-        if (!file) return;
-
-        const data = pipe(await file.arrayBuffer(), (_) => new Uint8Array(_));
-
         const finalFilters =
           selectedFilters === 'all'
             ? filters
@@ -147,10 +155,11 @@ export const ImportDialog = () => {
               );
 
         await importMutation.mutateAsync({
-          data,
+          data: (await data) ?? new Uint8Array(),
           filter: finalFilters,
           kind: ImportKind.FILTER,
-          name: file.name,
+          name: file?.name ?? '',
+          textData: text,
           workspaceId,
         });
 
