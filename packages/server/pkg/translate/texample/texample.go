@@ -22,7 +22,7 @@ func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp *idwrap.IDW
 	}
 
 	// Add API name and example name
-	breadcrumbs = append(breadcrumbs, exampleBreadcrumbs.ApiName, ex.Name)
+	breadcrumbs = append(breadcrumbs, exampleBreadcrumbs.ApiName)
 
 	var lastResponseBytes []byte
 	if lastResp != nil {
