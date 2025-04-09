@@ -276,14 +276,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCollectionStmt, err = db.PrepareContext(ctx, getCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollection: %w", err)
 	}
-	if q.getCollectionByOwnerIDStmt, err = db.PrepareContext(ctx, getCollectionByOwnerID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetCollectionByOwnerID: %w", err)
-	}
 	if q.getCollectionByPlatformIDandTypeStmt, err = db.PrepareContext(ctx, getCollectionByPlatformIDandType); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionByPlatformIDandType: %w", err)
 	}
-	if q.getCollectionOwnerIDStmt, err = db.PrepareContext(ctx, getCollectionOwnerID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetCollectionOwnerID: %w", err)
+	if q.getCollectionByWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionByWorkspaceID: %w", err)
+	}
+	if q.getCollectionWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceID: %w", err)
 	}
 	if q.getEnvironmentStmt, err = db.PrepareContext(ctx, getEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironment: %w", err)
@@ -381,8 +381,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemApiExamplesStmt, err = db.PrepareContext(ctx, getItemApiExamples); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExamples: %w", err)
 	}
-	if q.getItemApiOwnerIDStmt, err = db.PrepareContext(ctx, getItemApiOwnerID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiOwnerID: %w", err)
+	if q.getItemApiWorkspaceIDStmt, err = db.PrepareContext(ctx, getItemApiWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiWorkspaceID: %w", err)
 	}
 	if q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt, err = db.PrepareContext(ctx, getItemExampleByCollectionIDAndNextIDAndItemApiID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemExampleByCollectionIDAndNextIDAndItemApiID: %w", err)
@@ -393,8 +393,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt, err = db.PrepareContext(ctx, getItemFolderByCollectionIDAndNextIDAndParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFolderByCollectionIDAndNextIDAndParentID: %w", err)
 	}
-	if q.getItemFolderOwnerIDStmt, err = db.PrepareContext(ctx, getItemFolderOwnerID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemFolderOwnerID: %w", err)
+	if q.getItemFolderWorkspaceIDStmt, err = db.PrepareContext(ctx, getItemFolderWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemFolderWorkspaceID: %w", err)
 	}
 	if q.getItemFoldersByCollectionIDStmt, err = db.PrepareContext(ctx, getItemFoldersByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemFoldersByCollectionID: %w", err)
@@ -998,19 +998,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCollectionStmt: %w", cerr)
 		}
 	}
-	if q.getCollectionByOwnerIDStmt != nil {
-		if cerr := q.getCollectionByOwnerIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getCollectionByOwnerIDStmt: %w", cerr)
-		}
-	}
 	if q.getCollectionByPlatformIDandTypeStmt != nil {
 		if cerr := q.getCollectionByPlatformIDandTypeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionByPlatformIDandTypeStmt: %w", cerr)
 		}
 	}
-	if q.getCollectionOwnerIDStmt != nil {
-		if cerr := q.getCollectionOwnerIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getCollectionOwnerIDStmt: %w", cerr)
+	if q.getCollectionByWorkspaceIDStmt != nil {
+		if cerr := q.getCollectionByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionByWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionWorkspaceIDStmt != nil {
+		if cerr := q.getCollectionWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getEnvironmentStmt != nil {
@@ -1173,9 +1173,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemApiExamplesStmt: %w", cerr)
 		}
 	}
-	if q.getItemApiOwnerIDStmt != nil {
-		if cerr := q.getItemApiOwnerIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiOwnerIDStmt: %w", cerr)
+	if q.getItemApiWorkspaceIDStmt != nil {
+		if cerr := q.getItemApiWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt != nil {
@@ -1193,9 +1193,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemFolderByCollectionIDAndNextIDAndParentIDStmt: %w", cerr)
 		}
 	}
-	if q.getItemFolderOwnerIDStmt != nil {
-		if cerr := q.getItemFolderOwnerIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemFolderOwnerIDStmt: %w", cerr)
+	if q.getItemFolderWorkspaceIDStmt != nil {
+		if cerr := q.getItemFolderWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemFolderWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getItemFoldersByCollectionIDStmt != nil {
@@ -1616,9 +1616,9 @@ type Queries struct {
 	getBodyUrlEncodedStmt                                 *sql.Stmt
 	getBodyUrlEncodedsByExampleIDStmt                     *sql.Stmt
 	getCollectionStmt                                     *sql.Stmt
-	getCollectionByOwnerIDStmt                            *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt                  *sql.Stmt
-	getCollectionOwnerIDStmt                              *sql.Stmt
+	getCollectionByWorkspaceIDStmt                        *sql.Stmt
+	getCollectionWorkspaceIDStmt                          *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt                      *sql.Stmt
 	getExampleAllParentsNamesStmt                         *sql.Stmt
@@ -1651,11 +1651,11 @@ type Queries struct {
 	getItemApiExampleByVersionParentIDStmt                *sql.Stmt
 	getItemApiExampleDefaultStmt                          *sql.Stmt
 	getItemApiExamplesStmt                                *sql.Stmt
-	getItemApiOwnerIDStmt                                 *sql.Stmt
+	getItemApiWorkspaceIDStmt                             *sql.Stmt
 	getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt *sql.Stmt
 	getItemFolderStmt                                     *sql.Stmt
 	getItemFolderByCollectionIDAndNextIDAndParentIDStmt   *sql.Stmt
-	getItemFolderOwnerIDStmt                              *sql.Stmt
+	getItemFolderWorkspaceIDStmt                          *sql.Stmt
 	getItemFoldersByCollectionIDStmt                      *sql.Stmt
 	getItemsApiByCollectionIDStmt                         *sql.Stmt
 	getMigrationStmt                                      *sql.Stmt
@@ -1805,9 +1805,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getBodyUrlEncodedStmt:                            q.getBodyUrlEncodedStmt,
 		getBodyUrlEncodedsByExampleIDStmt:                q.getBodyUrlEncodedsByExampleIDStmt,
 		getCollectionStmt:                                q.getCollectionStmt,
-		getCollectionByOwnerIDStmt:                       q.getCollectionByOwnerIDStmt,
 		getCollectionByPlatformIDandTypeStmt:             q.getCollectionByPlatformIDandTypeStmt,
-		getCollectionOwnerIDStmt:                         q.getCollectionOwnerIDStmt,
+		getCollectionByWorkspaceIDStmt:                   q.getCollectionByWorkspaceIDStmt,
+		getCollectionWorkspaceIDStmt:                     q.getCollectionWorkspaceIDStmt,
 		getEnvironmentStmt:                               q.getEnvironmentStmt,
 		getEnvironmentsByWorkspaceIDStmt:                 q.getEnvironmentsByWorkspaceIDStmt,
 		getExampleAllParentsNamesStmt:                    q.getExampleAllParentsNamesStmt,
@@ -1840,11 +1840,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemApiExampleByVersionParentIDStmt:           q.getItemApiExampleByVersionParentIDStmt,
 		getItemApiExampleDefaultStmt:                     q.getItemApiExampleDefaultStmt,
 		getItemApiExamplesStmt:                           q.getItemApiExamplesStmt,
-		getItemApiOwnerIDStmt:                            q.getItemApiOwnerIDStmt,
+		getItemApiWorkspaceIDStmt:                        q.getItemApiWorkspaceIDStmt,
 		getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt: q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt,
 		getItemFolderStmt: q.getItemFolderStmt,
 		getItemFolderByCollectionIDAndNextIDAndParentIDStmt: q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt,
-		getItemFolderOwnerIDStmt:                            q.getItemFolderOwnerIDStmt,
+		getItemFolderWorkspaceIDStmt:                        q.getItemFolderWorkspaceIDStmt,
 		getItemFoldersByCollectionIDStmt:                    q.getItemFoldersByCollectionIDStmt,
 		getItemsApiByCollectionIDStmt:                       q.getItemsApiByCollectionIDStmt,
 		getMigrationStmt:                                    q.getMigrationStmt,

@@ -60,9 +60,9 @@ WHERE
   collection_id = ? AND
   version_parent_id is NULL;
 
--- name: GetItemApiOwnerID :one
+-- name: GetItemApiWorkspaceID :one
 SELECT
-  c.owner_id
+  c.workspace_id
 FROM
   collections c
   INNER JOIN item_api i ON c.id = i.collection_id
@@ -384,9 +384,9 @@ WHERE
 LIMIT
   1;
 
--- name: GetItemFolderOwnerID :one
+-- name: GetItemFolderWorkspaceID :one
 SELECT
-  c.owner_id
+  c.workspace_id
 FROM
   collections c
   INNER JOIN item_folder i ON c.id = i.collection_id
@@ -529,7 +529,7 @@ WHERE
 -- name: GetCollection :one
 SELECT
   id,
-  owner_id,
+  workspace_id,
   name
 FROM
   collections
@@ -541,16 +541,16 @@ LIMIT
 -- name: GetCollectionByPlatformIDandType :many
 SELECT
   id,
-  owner_id,
+  workspace_id,
   name
 FROM
   collections
 WHERE
   id = ?;
 
--- name: GetCollectionOwnerID :one
+-- name: GetCollectionWorkspaceID :one
 SELECT
-  owner_id
+  workspace_id
 FROM
   collections
 WHERE
@@ -558,26 +558,26 @@ WHERE
 LIMIT
   1;
 
--- name: GetCollectionByOwnerID :many
+-- name: GetCollectionByWorkspaceID :many
 SELECT
   id,
-  owner_id,
+  workspace_id,
   name
 FROM
   collections
 WHERE
-  owner_id = ?;
+  workspace_id = ?;
 
 -- name: CreateCollection :exec
 INSERT INTO
-  collections (id, owner_id, name)
+  collections (id, workspace_id, name)
 VALUES
   (?, ?, ?);
 
 -- name: UpdateCollection :exec
 UPDATE collections
 SET
-  owner_id = ?,
+  workspace_id = ?,
   name = ?
 WHERE
   id = ?;

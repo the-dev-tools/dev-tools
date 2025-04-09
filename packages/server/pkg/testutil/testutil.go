@@ -108,7 +108,7 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 
 	collectionData := mcollection.Collection{
 		ID:      collectionID,
-		OwnerID: wsID,
+		WorkspaceID: wsID,
 		Name:    "test",
 		Updated: time.Now(),
 	}

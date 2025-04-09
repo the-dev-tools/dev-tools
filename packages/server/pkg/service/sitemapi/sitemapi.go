@@ -286,8 +286,8 @@ func (ias ItemApiService) GetItemApiByCollectionIDAndNextIDAndParentID(ctx conte
 	return ConvertToModelItemApi(itemApi), nil
 }
 
-func (ias ItemApiService) GetOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	ownerUlid, err := ias.queries.GetItemApiOwnerID(ctx, id)
+func (ias ItemApiService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	ownerUlid, err := ias.queries.GetItemApiWorkspaceID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return idwrap.IDWrap{}, ErrNoItemApiFound
@@ -297,13 +297,13 @@ func (ias ItemApiService) GetOwnerID(ctx context.Context, id idwrap.IDWrap) (idw
 	return ownerUlid, err
 }
 
-func (ias ItemApiService) CheckOwnerID(ctx context.Context, id, ownerID idwrap.IDWrap) (bool, error) {
-	collectionOwnerID, err := ias.GetOwnerID(ctx, id)
+func (ias ItemApiService) CheckWorkspaceID(ctx context.Context, id, ownerID idwrap.IDWrap) (bool, error) {
+	collectionWorkspaceID, err := ias.GetWorkspaceID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, ErrNoItemApiFound
 		}
 		return false, err
 	}
-	return ownerID.Compare(collectionOwnerID) == 0, nil
+	return ownerID.Compare(collectionWorkspaceID) == 0, nil
 }

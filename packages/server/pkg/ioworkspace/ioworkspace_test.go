@@ -72,9 +72,9 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 	}
 	wsData.Collections = []mcollection.Collection{
 		{
-			ID:      collectionID,
-			OwnerID: workspaceID,
-			Name:    "Test Collection",
+			ID:          collectionID,
+			WorkspaceID: workspaceID,
+			Name:        "Test Collection",
 		},
 	}
 	wsData.Folders = []mitemfolder.ItemFolder{
@@ -362,7 +362,7 @@ func TestImportWorkspace(t *testing.T) {
 	}
 
 	// Verify collections were created
-	collections, err := base.Queries.GetCollectionByOwnerID(ctx, workspace.ID)
+	collections, err := base.Queries.GetCollectionByWorkspaceID(ctx, workspace.ID)
 	if err != nil {
 		t.Fatalf("Failed to get collections: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestImportExportRoundtrip(t *testing.T) {
 
 	// Update all workspaceId references
 	for i := range exportData.Collections {
-		exportData.Collections[i].OwnerID = newWorkspaceID
+		exportData.Collections[i].WorkspaceID = newWorkspaceID
 	}
 
 	for i := range exportData.Flows {
@@ -671,7 +671,7 @@ func TestImportMultipleWorkspaces(t *testing.T) {
 	// Update references in workspace2 to point to the new workspace ID
 	for i := range workspace2.Collections {
 		workspace2.Collections[i].ID = idwrap.NewNow() // Different collection ID
-		workspace2.Collections[i].OwnerID = workspace2.Workspace.ID
+		workspace2.Collections[i].WorkspaceID = workspace2.Workspace.ID
 	}
 
 	// Import both workspaces

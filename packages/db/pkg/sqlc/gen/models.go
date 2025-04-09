@@ -30,9 +30,9 @@ type AssertionResult struct {
 }
 
 type Collection struct {
-	ID      idwrap.IDWrap
-	OwnerID idwrap.IDWrap
-	Name    string
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
 }
 
 type Environment struct {

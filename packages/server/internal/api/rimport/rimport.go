@@ -203,7 +203,7 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	collection := mcollection.Collection{
 		ID:      CollectionID,
 		Name:    name,
-		OwnerID: workspaceID,
+		WorkspaceID: workspaceID,
 	}
 
 	tx, err := c.DB.Begin()
@@ -344,7 +344,7 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	collection := mcollection.Collection{
 		ID:      CollectionID,
 		Name:    name,
-		OwnerID: workspaceID,
+		WorkspaceID: workspaceID,
 	}
 
 	items, err := tpostman.ConvertPostmanCollection(collectionData, CollectionID)
@@ -507,7 +507,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	collectionData := mcollection.Collection{
 		ID:      CollectionID,
 		Name:    name,
-		OwnerID: workspaceID,
+		WorkspaceID: workspaceID,
 	}
 
 	tx, err := c.DB.Begin()

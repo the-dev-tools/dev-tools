@@ -95,7 +95,7 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 	collectionID := idwrap.NewNow()
 	collection := mcollection.Collection{
 		ID:      collectionID,
-		OwnerID: workspaceUlid,
+		WorkspaceID: workspaceUlid,
 		Name:    name,
 		Updated: dbtime.DBNow(),
 	}
@@ -157,7 +157,7 @@ func (c *CollectionServiceRPC) CollectionUpdate(ctx context.Context, req *connec
 	collection := mcollection.Collection{
 		ID:      idWrap,
 		Name:    req.Msg.GetName(),
-		OwnerID: collectionOld.OwnerID,
+		WorkspaceID: collectionOld.WorkspaceID,
 	}
 	err = c.cs.UpdateCollection(ctx, &collection)
 	if err != nil {
@@ -183,7 +183,7 @@ func (c *CollectionServiceRPC) CollectionDelete(ctx context.Context, req *connec
 		return nil, err
 	}
 
-	ws, err := c.ws.Get(ctx, cs.OwnerID)
+	ws, err := c.ws.Get(ctx, cs.WorkspaceID)
 	if err != nil {
 		return nil, err
 	}

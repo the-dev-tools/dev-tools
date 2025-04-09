@@ -39,7 +39,7 @@ func TestCollectionGet(t *testing.T) {
 	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
 		ID:      testCollectionID,
-		OwnerID: wsID,
+		WorkspaceID: wsID,
 		Name:    "test",
 		Updated: time.Now(),
 	}
@@ -161,7 +161,7 @@ func TestCollectionUpdate(t *testing.T) {
 	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
 		ID:      testCollectionID,
-		OwnerID: wsID,
+		WorkspaceID: wsID,
 		Name:    "test",
 		Updated: time.Now(),
 	}
@@ -222,7 +222,7 @@ func TestCollectionDelete(t *testing.T) {
 	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
 		ID:      testCollectionID,
-		OwnerID: wsID,
+		WorkspaceID: wsID,
 		Name:    "test",
 		Updated: time.Now(),
 	}

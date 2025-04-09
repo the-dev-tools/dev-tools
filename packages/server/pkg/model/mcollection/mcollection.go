@@ -12,10 +12,10 @@ const (
 )
 
 type Collection struct {
-	Updated time.Time
-	Name    string
-	ID      idwrap.IDWrap
-	OwnerID idwrap.IDWrap
+	Updated     time.Time
+	Name        string
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
 }
 
 func (c Collection) GetCreatedTime() time.Time {

@@ -484,7 +484,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	workspaceID := collection.OwnerID
+	workspaceID := collection.WorkspaceID
 
 	workspace, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {

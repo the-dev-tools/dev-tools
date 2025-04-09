@@ -17,17 +17,17 @@ type CollectionService struct {
 
 func ConvertToDBCollection(collection mcollection.Collection) gen.Collection {
 	return gen.Collection{
-		ID:      collection.ID,
-		OwnerID: collection.OwnerID,
-		Name:    collection.Name,
+		ID:          collection.ID,
+		WorkspaceID: collection.WorkspaceID,
+		Name:        collection.Name,
 	}
 }
 
 func ConvertToModelCollection(collection gen.Collection) *mcollection.Collection {
 	return &mcollection.Collection{
-		ID:      collection.ID,
-		OwnerID: collection.OwnerID,
-		Name:    collection.Name,
+		ID:          collection.ID,
+		WorkspaceID: collection.WorkspaceID,
+		Name:        collection.Name,
 	}
 }
 
@@ -49,7 +49,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {
 }
 
 func (cs CollectionService) ListCollections(ctx context.Context, ownerID idwrap.IDWrap) ([]mcollection.Collection, error) {
-	rows, err := cs.queries.GetCollectionByOwnerID(ctx, ownerID)
+	rows, err := cs.queries.GetCollectionByWorkspaceID(ctx, ownerID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNoCollectionFound
@@ -62,9 +62,9 @@ func (cs CollectionService) ListCollections(ctx context.Context, ownerID idwrap.
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
 	col := ConvertToDBCollection(*collection)
 	return cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
-		ID:      col.ID,
-		OwnerID: col.OwnerID,
-		Name:    col.Name,
+		ID:          col.ID,
+		WorkspaceID: col.WorkspaceID,
+		Name:        col.Name,
 	})
 }
 
@@ -81,9 +81,9 @@ func (cs CollectionService) GetCollection(ctx context.Context, id idwrap.IDWrap)
 
 func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mcollection.Collection) error {
 	err := cs.queries.UpdateCollection(ctx, gen.UpdateCollectionParams{
-		ID:      collection.ID,
-		OwnerID: collection.OwnerID,
-		Name:    collection.Name,
+		ID:          collection.ID,
+		WorkspaceID: collection.WorkspaceID,
+		Name:        collection.Name,
 	})
 	return err
 }
@@ -92,8 +92,8 @@ func (cs CollectionService) DeleteCollection(ctx context.Context, id idwrap.IDWr
 	return cs.queries.DeleteCollection(ctx, id)
 }
 
-func (cs CollectionService) GetOwner(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	ulidData, err := cs.queries.GetCollectionOwnerID(ctx, id)
+func (cs CollectionService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	ulidData, err := cs.queries.GetCollectionWorkspaceID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return idwrap.IDWrap{}, ErrNoCollectionFound
@@ -103,13 +103,13 @@ func (cs CollectionService) GetOwner(ctx context.Context, id idwrap.IDWrap) (idw
 	return ulidData, nil
 }
 
-func (cs CollectionService) CheckOwner(ctx context.Context, id, ownerID idwrap.IDWrap) (bool, error) {
-	CollectionOwnerID, err := cs.GetOwner(ctx, id)
+func (cs CollectionService) CheckWorkspaceID(ctx context.Context, id, ownerID idwrap.IDWrap) (bool, error) {
+	CollectionWorkspaceID, err := cs.GetWorkspaceID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, ErrNoCollectionFound
 		}
 		return false, err
 	}
-	return ownerID.Compare(CollectionOwnerID) == 0, nil
+	return ownerID.Compare(CollectionWorkspaceID) == 0, nil
 }

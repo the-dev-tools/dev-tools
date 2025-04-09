@@ -47,12 +47,12 @@ CREATE INDEX workspaces_users_idx1 ON workspaces_users (
 -- COLLECTIONS
 CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,
-  owner_id BLOB NOT NULL,
+  workspace_id BLOB NOT NULL,
   name TEXT NOT NULL,
-  FOREIGN KEY (owner_id) REFERENCES workspaces (id) ON DELETE CASCADE
+  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
-CREATE INDEX collection_idx1 ON collections (owner_id);
+CREATE INDEX collection_idx1 ON collections (workspace_id);
 
 /*
  *

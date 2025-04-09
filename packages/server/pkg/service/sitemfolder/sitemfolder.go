@@ -349,8 +349,8 @@ func (ifs ItemFolderService) DeleteItemFolder(ctx context.Context, id idwrap.IDW
 	return err
 }
 
-func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID idwrap.IDWrap) (idwrap.IDWrap, error) {
-	ownerID, err := ifs.queries.GetItemFolderOwnerID(ctx, folderID)
+func (ifs ItemFolderService) GetWorkspaceID(ctx context.Context, folderID idwrap.IDWrap) (idwrap.IDWrap, error) {
+	ownerID, err := ifs.queries.GetItemFolderWorkspaceID(ctx, folderID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return idwrap.IDWrap{}, ErrNoItemFolderFound
@@ -360,13 +360,13 @@ func (ifs ItemFolderService) GetOwnerID(ctx context.Context, folderID idwrap.IDW
 	return ownerID, err
 }
 
-func (ifs ItemFolderService) CheckOwnerID(ctx context.Context, folderID idwrap.IDWrap, ownerID idwrap.IDWrap) (bool, error) {
-	CollectionOwnerID, err := ifs.GetOwnerID(ctx, folderID)
+func (ifs ItemFolderService) CheckWorkspaceID(ctx context.Context, folderID idwrap.IDWrap, ownerID idwrap.IDWrap) (bool, error) {
+	CollectionWorkspaceID, err := ifs.GetWorkspaceID(ctx, folderID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, ErrNoItemFolderFound
 		}
 		return false, err
 	}
-	return folderID.Compare(CollectionOwnerID) == 0, nil
+	return folderID.Compare(CollectionWorkspaceID) == 0, nil
 }

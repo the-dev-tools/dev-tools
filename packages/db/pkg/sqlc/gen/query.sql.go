@@ -650,19 +650,19 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 
 const createCollection = `-- name: CreateCollection :exec
 INSERT INTO
-  collections (id, owner_id, name)
+  collections (id, workspace_id, name)
 VALUES
   (?, ?, ?)
 `
 
 type CreateCollectionParams struct {
-	ID      idwrap.IDWrap
-	OwnerID idwrap.IDWrap
-	Name    string
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
 }
 
 func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) error {
-	_, err := q.exec(ctx, q.createCollectionStmt, createCollection, arg.ID, arg.OwnerID, arg.Name)
+	_, err := q.exec(ctx, q.createCollectionStmt, createCollection, arg.ID, arg.WorkspaceID, arg.Name)
 	return err
 }
 
@@ -3162,7 +3162,7 @@ func (q *Queries) GetBodyUrlEncodedsByExampleID(ctx context.Context, exampleID i
 const getCollection = `-- name: GetCollection :one
 SELECT
   id,
-  owner_id,
+  workspace_id,
   name
 FROM
   collections
@@ -3176,48 +3176,14 @@ LIMIT
 func (q *Queries) GetCollection(ctx context.Context, id idwrap.IDWrap) (Collection, error) {
 	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
 	var i Collection
-	err := row.Scan(&i.ID, &i.OwnerID, &i.Name)
+	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
 	return i, err
-}
-
-const getCollectionByOwnerID = `-- name: GetCollectionByOwnerID :many
-SELECT
-  id,
-  owner_id,
-  name
-FROM
-  collections
-WHERE
-  owner_id = ?
-`
-
-func (q *Queries) GetCollectionByOwnerID(ctx context.Context, ownerID idwrap.IDWrap) ([]Collection, error) {
-	rows, err := q.query(ctx, q.getCollectionByOwnerIDStmt, getCollectionByOwnerID, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Collection{}
-	for rows.Next() {
-		var i Collection
-		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getCollectionByPlatformIDandType = `-- name: GetCollectionByPlatformIDandType :many
 SELECT
   id,
-  owner_id,
+  workspace_id,
   name
 FROM
   collections
@@ -3234,7 +3200,7 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwra
 	items := []Collection{}
 	for rows.Next() {
 		var i Collection
-		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Name); err != nil {
+		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3248,9 +3214,43 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwra
 	return items, nil
 }
 
-const getCollectionOwnerID = `-- name: GetCollectionOwnerID :one
+const getCollectionByWorkspaceID = `-- name: GetCollectionByWorkspaceID :many
 SELECT
-  owner_id
+  id,
+  workspace_id,
+  name
+FROM
+  collections
+WHERE
+  workspace_id = ?
+`
+
+func (q *Queries) GetCollectionByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Collection, error) {
+	rows, err := q.query(ctx, q.getCollectionByWorkspaceIDStmt, getCollectionByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Collection{}
+	for rows.Next() {
+		var i Collection
+		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCollectionWorkspaceID = `-- name: GetCollectionWorkspaceID :one
+SELECT
+  workspace_id
 FROM
   collections
 WHERE
@@ -3259,11 +3259,11 @@ LIMIT
   1
 `
 
-func (q *Queries) GetCollectionOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getCollectionOwnerIDStmt, getCollectionOwnerID, id)
-	var owner_id idwrap.IDWrap
-	err := row.Scan(&owner_id)
-	return owner_id, err
+func (q *Queries) GetCollectionWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getCollectionWorkspaceIDStmt, getCollectionWorkspaceID, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
 }
 
 const getEnvironment = `-- name: GetEnvironment :one
@@ -4407,9 +4407,9 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 	return items, nil
 }
 
-const getItemApiOwnerID = `-- name: GetItemApiOwnerID :one
+const getItemApiWorkspaceID = `-- name: GetItemApiWorkspaceID :one
 SELECT
-  c.owner_id
+  c.workspace_id
 FROM
   collections c
   INNER JOIN item_api i ON c.id = i.collection_id
@@ -4419,11 +4419,11 @@ LIMIT
   1
 `
 
-func (q *Queries) GetItemApiOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getItemApiOwnerIDStmt, getItemApiOwnerID, id)
-	var owner_id idwrap.IDWrap
-	err := row.Scan(&owner_id)
-	return owner_id, err
+func (q *Queries) GetItemApiWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getItemApiWorkspaceIDStmt, getItemApiWorkspaceID, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
 }
 
 const getItemExampleByCollectionIDAndNextIDAndItemApiID = `-- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
@@ -4541,9 +4541,9 @@ func (q *Queries) GetItemFolderByCollectionIDAndNextIDAndParentID(ctx context.Co
 	return i, err
 }
 
-const getItemFolderOwnerID = `-- name: GetItemFolderOwnerID :one
+const getItemFolderWorkspaceID = `-- name: GetItemFolderWorkspaceID :one
 SELECT
-  c.owner_id
+  c.workspace_id
 FROM
   collections c
   INNER JOIN item_folder i ON c.id = i.collection_id
@@ -4553,11 +4553,11 @@ LIMIT
   1
 `
 
-func (q *Queries) GetItemFolderOwnerID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getItemFolderOwnerIDStmt, getItemFolderOwnerID, id)
-	var owner_id idwrap.IDWrap
-	err := row.Scan(&owner_id)
-	return owner_id, err
+func (q *Queries) GetItemFolderWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getItemFolderWorkspaceIDStmt, getItemFolderWorkspaceID, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
 }
 
 const getItemFoldersByCollectionID = `-- name: GetItemFoldersByCollectionID :many
@@ -5628,20 +5628,20 @@ func (q *Queries) UpdateBodyUrlEncoded(ctx context.Context, arg UpdateBodyUrlEnc
 const updateCollection = `-- name: UpdateCollection :exec
 UPDATE collections
 SET
-  owner_id = ?,
+  workspace_id = ?,
   name = ?
 WHERE
   id = ?
 `
 
 type UpdateCollectionParams struct {
-	OwnerID idwrap.IDWrap
-	Name    string
-	ID      idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
-	_, err := q.exec(ctx, q.updateCollectionStmt, updateCollection, arg.OwnerID, arg.Name, arg.ID)
+	_, err := q.exec(ctx, q.updateCollectionStmt, updateCollection, arg.WorkspaceID, arg.Name, arg.ID)
 	return err
 }
 
