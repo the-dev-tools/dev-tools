@@ -747,7 +747,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			// TODO: move invalidation to a separate function so we can test it
 			case requestNodeResp := <-requestNodeRespChan:
 				HistoryChangesService := "collection.item.example.v1.ExampleService"
-				HistroyChangesMethod := "ExampleGetRequest"
+				HistroyChangesMethod := "ExampleGet"
 				exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
 
 				exampleVersionRequest, err := anypb.New(&examplev1.ExampleGetRequest{
