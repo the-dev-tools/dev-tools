@@ -317,11 +317,7 @@ export const createQueryNormalizer = (queryClient: QueryClient) => {
     getNormalizedData: normalizer.getNormalizedData,
     getObjectById: normalizer.getObjectById,
     getQueryFragment: normalizer.getQueryFragment,
-    setNormalizedData: async (data: unknown) => {
-      const message = toNormalMessageDeep(data);
-      if (Option.isNone(message)) return;
-      await processChanges({ data: message.value, normalizer, queryClient });
-    },
+    setNormalizedData: (data: unknown) => processChanges({ data, normalizer, queryClient }),
     subscribe: () => {
       unsubscribeQueryCache = queryClient.getQueryCache().subscribe((event) => {
         if (event.type === 'removed') {
