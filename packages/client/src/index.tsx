@@ -13,13 +13,11 @@ import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
 
-import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { makeToastQueue, ToastQueueContext, ToastRegion } from '@the-dev-tools/ui/toast';
+import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { LocalMode } from '~/api/local';
 import { QueryNormalizerProvider } from '~/api/normalizer';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 
-import { DevToolsProvider, ReactQueryDevTools, TanStackRouterDevTools } from './dev-tools';
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
 import './styles.css';
@@ -62,14 +60,7 @@ export const app = Effect.gen(function* () {
   const router = yield* makeRouter;
 
   pipe(
-    <>
-      <DevToolsProvider>
-        <ToastRegion />
-        <TanStackRouterDevTools position='bottom-right' toggleButtonProps={{ class: tw`!bottom-3 !right-16` }} />
-        <ReactQueryDevTools buttonPosition='bottom-right' />
-      </DevToolsProvider>
-      <RouterProvider context={{ queryClient, runtime, transport }} router={router} />
-    </>,
+    <RouterProvider context={{ queryClient, runtime, transport }} router={router} />,
     (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
     (_) => (
       <AriaRouterProvider

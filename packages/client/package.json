@@ -56,7 +56,7 @@
   "devDependencies": {
     "@hookform/devtools": "~4.4.0",
     "@tanstack/react-query-devtools": "~5.72.1",
-    "@tanstack/router-devtools": "~1.115.2",
+    "@tanstack/react-router-devtools": "~1.115.2",
     "@tanstack/router-plugin": "~1.115.2",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/react": "~19.1.0",

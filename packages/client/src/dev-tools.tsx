@@ -1,5 +1,5 @@
 import type { ReactQueryDevtools as ReactQueryDevtoolsType } from '@tanstack/react-query-devtools';
-import type { TanStackRouterDevtools as TanStackRouterDevtoolsType } from '@tanstack/router-devtools';
+import type { TanStackRouterDevtools as TanStackRouterDevtoolsType } from '@tanstack/react-router-devtools';
 
 import { Boolean } from 'effect';
 import {
@@ -33,7 +33,7 @@ export const DevToolsProvider = ({ children }: PropsWithChildren) => {
 };
 
 const TanStackRouterDevToolsLazy = lazy(() =>
-  import('@tanstack/router-devtools').then((_) => ({ default: _.TanStackRouterDevtools })),
+  import('@tanstack/react-router-devtools').then((_) => ({ default: _.TanStackRouterDevtools })),
 );
 
 export const TanStackRouterDevTools = (props: ComponentProps<typeof TanStackRouterDevtoolsType>) => {
