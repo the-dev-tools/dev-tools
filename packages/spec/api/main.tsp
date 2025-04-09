@@ -3,6 +3,7 @@ import "./collection-item";
 import "./collection.tsp";
 import "./environment.tsp";
 import "./flow.tsp";
+import "./flow-variable.tsp";
 import "./import.tsp";
 import "./export.tsp";
 import "./log.tsp";
