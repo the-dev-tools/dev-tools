@@ -71,6 +71,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
+	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
@@ -748,9 +749,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			case requestNodeResp := <-requestNodeRespChan:
 				HistoryChangesService := "collection.item.example.v1.ExampleService"
 				HistroyChangesMethod := "ExampleGet"
-				exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+				exampleGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
 
-				exampleVersionRequest, err := anypb.New(&examplev1.ExampleGetRequest{
+				exampleGetRequest, err := anypb.New(&examplev1.ExampleGetRequest{
 					ExampleId: requestNodeResp.Example.ID.Bytes(),
 				})
 				if err != nil {
@@ -759,10 +760,24 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 
 				changes = append(changes, &changev1.Change{
-					Kind:    &exampleVersionChangeKind,
-					Data:    exampleVersionRequest,
+					Kind:    &exampleGetChangeKind,
+					Data:    exampleGetRequest,
 					Service: &HistoryChangesService,
 					Method:  &HistroyChangesMethod,
+				})
+
+				HistroyChangesSubService := "collection.item.response.v1.ResponseService"
+				HistroyChangesSubMethod := "ResponseGet"
+				responseGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+				RespRequest, err := anypb.New(&responsev1.ResponseGetRequest{
+					ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
+				})
+
+				changes = append(changes, &changev1.Change{
+					Kind:    &responseGetChangeKind,
+					Data:    RespRequest,
+					Service: &HistroyChangesSubService,
+					Method:  &HistroyChangesSubMethod,
 				})
 
 				NodeRequestSideRespArr = append(NodeRequestSideRespArr, requestNodeResp)
