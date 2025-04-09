@@ -98,14 +98,14 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	if len(req.Msg.Filter) == 0 {
 		// Handle curl import
 		if len(textData) > 0 {
-			curlResolved, err := tcurl.ConvertCurl(textData)
+			curlResolved, err := tcurl.ConvertCurl(textData, collectionID)
 			if err != nil {
 				return nil, err
 			}
 
 			changes, err := c.ImportCurl(ctx, wsUlid, collectionID, "curl", curlResolved)
 			if err != nil {
-				return nil, err
+				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
 			resp.Changes = changes
@@ -207,11 +207,11 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	}
 
 	tx, err := c.DB.Begin()
-	defer devtoolsdb.TxnRollback(tx)
-
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
+
+	defer devtoolsdb.TxnRollback(tx)
 
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
@@ -353,10 +353,10 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	}
 
 	tx, err := c.DB.Begin()
-	defer devtoolsdb.TxnRollback(tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer devtoolsdb.TxnRollback(tx)
 
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {

@@ -2,7 +2,9 @@ package tcurl
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
@@ -22,7 +24,27 @@ type CurlResolved struct {
 	UrlEncodedBodies []mbodyurl.BodyURLEncoded
 }
 
-func ConvertCurl(curlStr string) (CurlResolved, error) {
+// Regular expressions for parsing curl commands
+var (
+	// URL pattern matches URLs in curl commands
+	urlPattern = regexp.MustCompile(`(?:https?://|www\.)[^\s'"]+`)
+
+	// Method pattern matches the -X or --request flag followed by the HTTP method
+	methodPattern = regexp.MustCompile(`(?:-X|--request)\s+(?:'([A-Z]+)'|"([A-Z]+)"|([A-Z]+))`)
+
+	// Header pattern matches -H or --header flags with their values
+	headerPattern = regexp.MustCompile(`(?:-H|--header)\s+(?:'([^:]+):([^']+)'|"([^:]+):([^"]+)"|([^:]+):([^'"\s]+))`)
+
+	// Data patterns for different types of data
+	dataPattern          = regexp.MustCompile(`(?:-d|--data|--data-raw|--data-binary)\s+(?:'([^']*)'|"([^"]*)"|([^\s'"][^\s]*))`)
+	dataUrlEncodePattern = regexp.MustCompile(`--data-urlencode\s+(?:'([^=]+)=([^']*)'|"([^=]+)=([^"]*)"|([^=\s]+)=([^\s'"][^\s]*))`)
+	formDataPattern      = regexp.MustCompile(`(?:-F|--form)\s+(?:'([^=]+)=([^']*)'|"([^=]+)=([^"]*)"|([^=\s]+)=([^\s'"][^\s]*))`)
+
+	// Query parameter pattern to extract from URL
+	queryParamPattern = regexp.MustCompile(`([^&=]+)=([^&]*)`)
+)
+
+func ConvertCurl(curlStr string, collectionID idwrap.IDWrap) (CurlResolved, error) {
 	result := CurlResolved{
 		Apis:             []mitemapi.ItemApi{},
 		Examples:         []mitemapiexample.ItemApiExample{},
@@ -33,147 +55,296 @@ func ConvertCurl(curlStr string) (CurlResolved, error) {
 		UrlEncodedBodies: []mbodyurl.BodyURLEncoded{},
 	}
 
-	// Split the curl command into lines, handling possible line continuations
-	lines := strings.Split(strings.ReplaceAll(curlStr, " \\\n", " "), "\n")
-	var method, url string
-	var hasDataFlag bool
+	// Normalize the curl command to handle multi-line input
+	normalizedCurl := normalizeCurlCommand(curlStr)
 
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
-		if i == 0 {
-			if !strings.HasPrefix(line, "curl") {
-				return CurlResolved{}, fmt.Errorf("invalid curl command")
-			}
+	// Validate that it's a curl command
+	if !strings.HasPrefix(strings.TrimSpace(normalizedCurl), "curl") {
+		return CurlResolved{}, fmt.Errorf("invalid curl command")
+	}
 
-			// Extract method and URL
-			parts := splitCurlCommand(line)
-			url = extractURL(parts)
-			method = extractMethod(parts)
-			if url == "" {
-				return CurlResolved{}, fmt.Errorf("URL not found in curl command")
-			}
+	// Generate IDs for the new API and example
+	exampleID := idwrap.NewNow()
+	apiID := idwrap.NewNow()
 
-			// Parse query parameters from URL
-			baseURL, queries := parseURLAndQueries(url)
-			url = baseURL
-			result.Queries = queries
+	// Extract URL
+	url := extractURL(normalizedCurl)
+	if url == "" {
+		return CurlResolved{}, fmt.Errorf("URL not found in curl command")
+	}
 
-			// Create API item
-			api := mitemapi.ItemApi{
-				Method: method,
-				Url:    url,
-			}
-			result.Apis = append(result.Apis, api)
+	// Parse query parameters from URL
+	baseURL, queries := parseURLAndQueries(url, exampleID)
+	result.Queries = queries
 
-			// Continue parsing other flags from the first line
-			parseCurlFlags(parts, &result, &hasDataFlag)
-			continue
-		}
+	// Extract method
+	method := extractMethod(normalizedCurl)
 
-		// Process flags in subsequent lines or remaining flags in first line
-		if i > 0 || strings.Contains(line, " -") {
-			if strings.Contains(line, " -H ") || strings.Contains(line, " --header ") {
-				fmt.Println("Header found", line)
-				header, err := parseHeader(line)
-				if err != nil {
-					return CurlResolved{}, err
-				}
-				result.Headers = append(result.Headers, header)
-			} else if strings.Contains(line, " --data ") || strings.Contains(line, " -d ") ||
-				strings.Contains(line, " --data-raw ") {
-				hasDataFlag = true
-				body, err := parseRawBody(line)
-				if err != nil {
-					return CurlResolved{}, err
-				}
-				result.RawBodies = append(result.RawBodies, body)
-			} else if strings.Contains(line, " --data-urlencode ") {
-				hasDataFlag = true
-				body, err := parseURLEncodedBody(line)
-				if err != nil {
-					return CurlResolved{}, err
-				}
-				result.UrlEncodedBodies = append(result.UrlEncodedBodies, body)
-			} else if strings.Contains(line, " --form ") || strings.Contains(line, " -F ") {
-				hasDataFlag = true
-				form, err := parseFormBody(line)
-				if err != nil {
-					return CurlResolved{}, err
-				}
-				result.FormBodies = append(result.FormBodies, form)
-			}
-		}
+	// Extract headers
+	headers := extractHeaders(normalizedCurl, exampleID)
+	result.Headers = headers
+
+	// Extract data bodies
+	hasDataFlag := false
+	rawBodies := extractRawBodies(normalizedCurl, exampleID, &hasDataFlag)
+	result.RawBodies = rawBodies
+
+	// Extract URL-encoded bodies
+	urlEncodedBodies := extractURLEncodedBodies(normalizedCurl, exampleID, &hasDataFlag)
+	result.UrlEncodedBodies = urlEncodedBodies
+
+	// Extract form bodies
+	formBodies := extractFormBodies(normalizedCurl, exampleID, &hasDataFlag)
+	result.FormBodies = formBodies
+
+	// Create API item
+	api := mitemapi.ItemApi{
+		ID:           apiID,
+		CollectionID: collectionID,
+		Method:       method,
+		Url:          baseURL,
+		Name:         fmt.Sprintf("CURL - %s", baseURL),
 	}
 
 	// If no explicit method was provided but we have data flags, assume POST
 	if method == "GET" && hasDataFlag {
-		if len(result.Apis) > 0 {
-			result.Apis[0].Method = "POST"
-		}
+		api.Method = "POST"
 	}
 
-	// Create example
-	if len(result.Apis) > 0 {
-		example := mitemapiexample.ItemApiExample{
-			ItemApiID: result.Apis[0].ID,
-			Name:      "Example from curl",
+	result.Apis = append(result.Apis, api)
+
+	// Create example and determine the BodyType based on what data is present
+	bodyType := mitemapiexample.BodyTypeNone
+	if len(result.RawBodies) > 0 {
+		bodyType = mitemapiexample.BodyTypeRaw
+	} else if len(result.FormBodies) > 0 {
+		bodyType = mitemapiexample.BodyTypeForm
+	} else if len(result.UrlEncodedBodies) > 0 {
+		bodyType = mitemapiexample.BodyTypeUrlencoded
+	}
+
+	example := mitemapiexample.ItemApiExample{
+		ID:           exampleID,
+		ItemApiID:    apiID,
+		Name:         "Example from curl",
+		CollectionID: collectionID,
+		IsDefault:    true,
+		BodyType:     bodyType,
+	}
+	result.Examples = append(result.Examples, example)
+
+	// Create empty raw body if there's no raw body but other body types exist
+	// SQL depends on having raw body entries
+	if len(result.RawBodies) == 0 && (len(result.FormBodies) > 0 || len(result.UrlEncodedBodies) > 0) {
+		emptyRawBody := mbodyraw.ExampleBodyRaw{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			Data:      []byte{}, // Empty data
 		}
-		result.Examples = append(result.Examples, example)
+		result.RawBodies = append(result.RawBodies, emptyRawBody)
 	}
 
 	return result, nil
 }
 
-// Helper functions for parsing curl commands
-func splitCurlCommand(cmd string) []string {
-	var parts []string
-	inQuote := false
-	var quoteChar rune
-	var current strings.Builder
+// Normalize a curl command to handle both single-line and multi-line formats
+func normalizeCurlCommand(curlStr string) string {
+	// Handle line continuations (\ at end of line)
+	curlStr = strings.ReplaceAll(curlStr, " \\\n", " ")
+	curlStr = strings.ReplaceAll(curlStr, "\\\n", " ")
 
-	for _, r := range cmd {
-		if (r == '\'' || r == '"') && (!inQuote || r == quoteChar) {
-			inQuote = !inQuote
-			quoteChar = r
+	// Remove newlines inside quoted strings
+	var normalized strings.Builder
+	inQuote := false
+	quoteChar := rune(0)
+
+	lines := strings.Split(curlStr, "\n")
+	for i, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+
+		// Skip empty lines
+		if trimmedLine == "" {
 			continue
 		}
 
-		if r == ' ' && !inQuote {
-			if current.Len() > 0 {
-				parts = append(parts, current.String())
-				current.Reset()
+		// If this is a new curl command and we already have content, stop here
+		if i > 0 && !inQuote && strings.HasPrefix(trimmedLine, "curl") && normalized.Len() > 0 {
+			break
+		}
+
+		// Add space between lines if needed
+		if normalized.Len() > 0 && !inQuote {
+			normalized.WriteRune(' ')
+		}
+
+		// Process each character
+		for _, char := range trimmedLine {
+			if char == '\'' || char == '"' {
+				if !inQuote {
+					inQuote = true
+					quoteChar = char
+				} else if char == quoteChar {
+					inQuote = false
+				}
 			}
-		} else {
-			current.WriteRune(r)
+			normalized.WriteRune(char)
 		}
 	}
 
-	if current.Len() > 0 {
-		parts = append(parts, current.String())
-	}
-
-	return parts
+	return normalized.String()
 }
 
-func extractURL(parts []string) string {
-	for i, part := range parts {
-		if !strings.HasPrefix(part, "-") && i > 0 && !strings.HasPrefix(parts[i-1], "-") {
-			return part
+func extractURL(curlStr string) string {
+	// Check for URLs in the curl command
+	urls := urlPattern.FindAllString(curlStr, -1)
+	if len(urls) > 0 {
+		// Return the first URL found
+		url := urls[0]
+		// Remove any trailing quotes or spaces
+		url = strings.TrimRight(url, "'\" ")
+		return url
+	}
+
+	// If no URL was found using the regex, try to extract it after the curl command
+	fields := strings.Fields(curlStr)
+	for i, field := range fields {
+		if i > 0 && field != "curl" && !strings.HasPrefix(field, "-") &&
+			fields[i-1] == "curl" || fields[i-1] == "-L" {
+			// Remove quotes if present
+			return removeQuotes(field)
 		}
 	}
+
 	return ""
 }
 
-func extractMethod(parts []string) string {
-	for i, part := range parts {
-		if (part == "-X" || part == "--request") && i+1 < len(parts) {
-			return parts[i+1]
+func extractMethod(curlStr string) string {
+	matches := methodPattern.FindStringSubmatch(curlStr)
+	if len(matches) >= 2 {
+		// Check each capture group (single quotes, double quotes, or no quotes)
+		for i := 1; i < len(matches); i++ {
+			if matches[i] != "" {
+				return matches[i]
+			}
 		}
 	}
-	return "GET" // Default to GET if method not specified
+	return "GET" // Default to GET if no method specified
 }
 
-func parseURLAndQueries(urlStr string) (string, []mexamplequery.Query) {
+func extractHeaders(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.Header {
+	var headers []mexampleheader.Header
+
+	matches := headerPattern.FindAllStringSubmatch(curlStr, -1)
+	for _, match := range matches {
+		// Check single quotes pattern (groups 1,2), double quotes pattern (groups 3,4), or no quotes pattern (groups 5,6)
+		var key, value string
+		if match[1] != "" {
+			key, value = match[1], match[2] // Single quotes
+		} else if match[3] != "" {
+			key, value = match[3], match[4] // Double quotes
+		} else {
+			key, value = match[5], match[6] // No quotes
+		}
+
+		header := mexampleheader.Header{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			HeaderKey: strings.TrimSpace(key),
+			Value:     strings.TrimSpace(value),
+		}
+		headers = append(headers, header)
+	}
+
+	return headers
+}
+
+func extractRawBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFlag *bool) []mbodyraw.ExampleBodyRaw {
+	var bodies []mbodyraw.ExampleBodyRaw
+
+	matches := dataPattern.FindAllStringSubmatch(curlStr, -1)
+	for _, match := range matches {
+		*hasDataFlag = true
+
+		// Check each capture group (single quotes, double quotes, or no quotes)
+		var content string
+		if match[1] != "" {
+			content = match[1] // Single quotes
+		} else if match[2] != "" {
+			content = match[2] // Double quotes
+		} else {
+			content = match[3] // No quotes
+		}
+
+		body := mbodyraw.ExampleBodyRaw{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			Data:      []byte(content),
+		}
+		bodies = append(bodies, body)
+	}
+
+	return bodies
+}
+
+func extractURLEncodedBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFlag *bool) []mbodyurl.BodyURLEncoded {
+	var bodies []mbodyurl.BodyURLEncoded
+
+	matches := dataUrlEncodePattern.FindAllStringSubmatch(curlStr, -1)
+	for _, match := range matches {
+		*hasDataFlag = true
+
+		// Check each capture group (single quotes, double quotes, or no quotes)
+		var key, value string
+		if match[1] != "" {
+			key, value = match[1], match[2] // Single quotes
+		} else if match[3] != "" {
+			key, value = match[3], match[4] // Double quotes
+		} else {
+			key, value = match[5], match[6] // No quotes
+		}
+
+		body := mbodyurl.BodyURLEncoded{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			BodyKey:   key,
+			Value:     value,
+		}
+		bodies = append(bodies, body)
+	}
+
+	return bodies
+}
+
+func extractFormBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFlag *bool) []mbodyform.BodyForm {
+	var forms []mbodyform.BodyForm
+
+	matches := formDataPattern.FindAllStringSubmatch(curlStr, -1)
+	for _, match := range matches {
+		*hasDataFlag = true
+
+		// Check each capture group (single quotes, double quotes, or no quotes)
+		var key, value string
+		if match[1] != "" {
+			key, value = match[1], match[2] // Single quotes
+		} else if match[3] != "" {
+			key, value = match[3], match[4] // Double quotes
+		} else {
+			key, value = match[5], match[6] // No quotes
+		}
+
+		form := mbodyform.BodyForm{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			BodyKey:   key,
+			Value:     value,
+		}
+		forms = append(forms, form)
+	}
+
+	return forms
+}
+
+func parseURLAndQueries(urlStr string, exampleID idwrap.IDWrap) (string, []mexamplequery.Query) {
 	parts := strings.SplitN(urlStr, "?", 2)
 	if len(parts) == 1 {
 		return urlStr, nil
@@ -183,12 +354,14 @@ func parseURLAndQueries(urlStr string) (string, []mexamplequery.Query) {
 	queryStr := parts[1]
 	var queries []mexamplequery.Query
 
-	for _, qp := range strings.Split(queryStr, "&") {
-		qparts := strings.SplitN(qp, "=", 2)
-		if len(qparts) == 2 {
+	matches := queryParamPattern.FindAllStringSubmatch(queryStr, -1)
+	for _, match := range matches {
+		if len(match) >= 3 {
 			query := mexamplequery.Query{
-				QueryKey: qparts[0],
-				Value:    qparts[1],
+				ID:        idwrap.NewNow(),
+				ExampleID: exampleID,
+				QueryKey:  match[1],
+				Value:     match[2],
 			}
 			queries = append(queries, query)
 		}
@@ -197,110 +370,11 @@ func parseURLAndQueries(urlStr string) (string, []mexamplequery.Query) {
 	return baseURL, queries
 }
 
-func parseHeader(line string) (mexampleheader.Header, error) {
-	headerStr := extractQuotedContent(line)
-	headerParts := strings.SplitN(headerStr, ":", 2)
-	if len(headerParts) != 2 {
-		return mexampleheader.Header{}, fmt.Errorf("invalid header format: %s", headerStr)
+func removeQuotes(s string) string {
+	s = strings.TrimSpace(s)
+	if (strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'")) ||
+		(strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) {
+		return s[1 : len(s)-1]
 	}
-
-	return mexampleheader.Header{
-		HeaderKey: strings.TrimSpace(headerParts[0]),
-		Value:     strings.TrimSpace(headerParts[1]),
-	}, nil
-}
-
-func parseRawBody(line string) (mbodyraw.ExampleBodyRaw, error) {
-	content := extractQuotedContent(line)
-	return mbodyraw.ExampleBodyRaw{
-		Data: []byte(content),
-	}, nil
-}
-
-func parseURLEncodedBody(line string) (mbodyurl.BodyURLEncoded, error) {
-	content := extractQuotedContent(line)
-	parts := strings.SplitN(content, "=", 2)
-	if len(parts) != 2 {
-		return mbodyurl.BodyURLEncoded{}, fmt.Errorf("invalid url-encoded parameter: %s", content)
-	}
-
-	return mbodyurl.BodyURLEncoded{
-		BodyKey: parts[0],
-		Value:   parts[1],
-	}, nil
-}
-
-func parseFormBody(line string) (mbodyform.BodyForm, error) {
-	content := extractQuotedContent(line)
-	parts := strings.SplitN(content, "=", 2)
-	if len(parts) != 2 {
-		return mbodyform.BodyForm{}, fmt.Errorf("invalid form parameter: %s", content)
-	}
-
-	return mbodyform.BodyForm{
-		BodyKey: parts[0],
-		Value:   parts[1],
-	}, nil
-}
-
-func extractQuotedContent(line string) string {
-	if strings.Contains(line, "'") {
-		parts := strings.Split(line, "'")
-		if len(parts) >= 3 {
-			return parts[1]
-		}
-	} else if strings.Contains(line, "\"") {
-		parts := strings.Split(line, "\"")
-		if len(parts) >= 3 {
-			return parts[1]
-		}
-	}
-	return ""
-}
-
-func parseCurlFlags(parts []string, result *CurlResolved, hasDataFlag *bool) {
-	for i := 1; i < len(parts); i++ {
-		// Skip the URL and method parts which were already handled
-		if !strings.HasPrefix(parts[i], "-") {
-			continue
-		}
-
-		switch parts[i] {
-		case "-H", "--header":
-			if i+1 < len(parts) {
-				header, err := parseHeader("--header '" + parts[i+1] + "'")
-				if err == nil {
-					result.Headers = append(result.Headers, header)
-				}
-				i++
-			}
-		case "-d", "--data", "--data-raw":
-			*hasDataFlag = true
-			if i+1 < len(parts) {
-				body, err := parseRawBody("--data-raw '" + parts[i+1] + "'")
-				if err == nil {
-					result.RawBodies = append(result.RawBodies, body)
-				}
-				i++
-			}
-		case "--data-urlencode":
-			*hasDataFlag = true
-			if i+1 < len(parts) {
-				body, err := parseURLEncodedBody("--data-urlencode '" + parts[i+1] + "'")
-				if err == nil {
-					result.UrlEncodedBodies = append(result.UrlEncodedBodies, body)
-				}
-				i++
-			}
-		case "-F", "--form":
-			*hasDataFlag = true
-			if i+1 < len(parts) {
-				form, err := parseFormBody("--form '" + parts[i+1] + "'")
-				if err == nil {
-					result.FormBodies = append(result.FormBodies, form)
-				}
-				i++
-			}
-		}
-	}
+	return s
 }

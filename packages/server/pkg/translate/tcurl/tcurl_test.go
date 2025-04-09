@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/translate/tcurl"
 )
 
@@ -27,7 +28,7 @@ var curlStr string = `curl 'http://localhost:8080/collection.item.v1.CollectionI
 `
 
 func TestCurl(t *testing.T) {
-	curlResolved, err := tcurl.ConvertCurl(curlStr)
+	curlResolved, err := tcurl.ConvertCurl(curlStr, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert curl command: %v", err)
 	}
@@ -39,7 +40,7 @@ func TestCurl(t *testing.T) {
 }
 
 func TestCurlHeaders(t *testing.T) {
-	curlResolved, err := tcurl.ConvertCurl(curlStr)
+	curlResolved, err := tcurl.ConvertCurl(curlStr, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert curl command: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestCurlHeaders(t *testing.T) {
 }
 
 func TestCurlRawBody(t *testing.T) {
-	curlResolved, err := tcurl.ConvertCurl(curlStr)
+	curlResolved, err := tcurl.ConvertCurl(curlStr, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert curl command: %v", err)
 	}
@@ -87,7 +88,7 @@ func TestCurlRawBody(t *testing.T) {
 func TestCurlHttpMethods(t *testing.T) {
 	// Test GET method (default)
 	getCurl := `curl 'http://example.com/api'`
-	getResolved, err := tcurl.ConvertCurl(getCurl)
+	getResolved, err := tcurl.ConvertCurl(getCurl, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert GET curl command: %v", err)
 	}
@@ -97,7 +98,7 @@ func TestCurlHttpMethods(t *testing.T) {
 
 	// Test POST method (explicit)
 	postCurl := `curl -X POST 'http://example.com/api'`
-	postResolved, err := tcurl.ConvertCurl(postCurl)
+	postResolved, err := tcurl.ConvertCurl(postCurl, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert POST curl command: %v", err)
 	}
@@ -107,7 +108,7 @@ func TestCurlHttpMethods(t *testing.T) {
 
 	// Test implicit POST method (with data flag)
 	implicitPostCurl := `curl 'http://example.com/api' -d 'data'`
-	implicitPostResolved, err := tcurl.ConvertCurl(implicitPostCurl)
+	implicitPostResolved, err := tcurl.ConvertCurl(implicitPostCurl, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert implicit POST curl command: %v", err)
 	}
@@ -118,7 +119,7 @@ func TestCurlHttpMethods(t *testing.T) {
 
 func TestCurlQueryParams(t *testing.T) {
 	curlWithQuery := `curl 'http://example.com/api?param1=value1&param2=value2'`
-	resolved, err := tcurl.ConvertCurl(curlWithQuery)
+	resolved, err := tcurl.ConvertCurl(curlWithQuery, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert curl command with query: %v", err)
 	}
@@ -156,7 +157,7 @@ func TestCurlQueryParams(t *testing.T) {
 
 func TestCurlFormBody(t *testing.T) {
 	curlWithForm := `curl 'http://example.com/api' -F 'field1=value1' -F 'field2=value2'`
-	resolved, err := tcurl.ConvertCurl(curlWithForm)
+	resolved, err := tcurl.ConvertCurl(curlWithForm, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert curl command with form data: %v", err)
 	}
@@ -187,7 +188,7 @@ func TestCurlFormBody(t *testing.T) {
 
 func TestCurlUrlEncodedBody(t *testing.T) {
 	curlWithUrlEncoded := `curl 'http://example.com/api' --data-urlencode 'param1=value1' --data-urlencode 'param2=value2'`
-	resolved, err := tcurl.ConvertCurl(curlWithUrlEncoded)
+	resolved, err := tcurl.ConvertCurl(curlWithUrlEncoded, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert curl command with url-encoded data: %v", err)
 	}
@@ -218,7 +219,7 @@ func TestCurlUrlEncodedBody(t *testing.T) {
 
 func TestInvalidCurl(t *testing.T) {
 	invalidCurl := `not a curl command`
-	_, err := tcurl.ConvertCurl(invalidCurl)
+	_, err := tcurl.ConvertCurl(invalidCurl, idwrap.NewNow())
 	if err == nil {
 		t.Error("Expected error for invalid curl command, got nil")
 	}
@@ -226,7 +227,7 @@ func TestInvalidCurl(t *testing.T) {
 
 func TestSimpleOneLine(t *testing.T) {
 	oneLinerCurl := `curl https://api.example.com/v1/data -H "Authorization: Bearer token123"`
-	resolved, err := tcurl.ConvertCurl(oneLinerCurl)
+	resolved, err := tcurl.ConvertCurl(oneLinerCurl, idwrap.NewNow())
 	if err != nil {
 		t.Errorf("Failed to convert one-line curl command: %v", err)
 	}
