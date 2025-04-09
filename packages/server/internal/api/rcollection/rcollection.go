@@ -94,10 +94,10 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 	}
 	collectionID := idwrap.NewNow()
 	collection := mcollection.Collection{
-		ID:      collectionID,
+		ID:          collectionID,
 		WorkspaceID: workspaceUlid,
-		Name:    name,
-		Updated: dbtime.DBNow(),
+		Name:        name,
+		Updated:     dbtime.DBNow(),
 	}
 	err = c.cs.CreateCollection(ctx, &collection)
 	if err != nil {
@@ -155,8 +155,8 @@ func (c *CollectionServiceRPC) CollectionUpdate(ctx context.Context, req *connec
 	}
 
 	collection := mcollection.Collection{
-		ID:      idWrap,
-		Name:    req.Msg.GetName(),
+		ID:          idWrap,
+		Name:        req.Msg.GetName(),
 		WorkspaceID: collectionOld.WorkspaceID,
 	}
 	err = c.cs.UpdateCollection(ctx, &collection)
@@ -221,7 +221,7 @@ func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID 
 }
 
 func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService, us suser.UserService, collectionID idwrap.IDWrap) (bool, error) {
-	workspaceID, err := cs.GetOwner(ctx, collectionID)
+	workspaceID, err := cs.GetWorkspaceID(ctx, collectionID)
 	if err != nil {
 		if err == scollection.ErrNoCollectionFound {
 			err = errors.New("collection not found")

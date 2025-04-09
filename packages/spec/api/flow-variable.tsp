@@ -45,6 +45,6 @@ interface FlowVariableService {
   FlowVariableList(...FlowVariableListRequest): FlowVariableListResponse;
   FlowVariableGet(...FlowVariableGetRequest): FlowVariableGetResponse;
   FlowVariableCreate(...FlowVariableCreateRequest): FlowVariableCreateResponse;
-  FLowVariableUpdate(...FlowVariableUpdateRequest): FlowVariableUpdateResponse;
+  FlowVariableUpdate(...FlowVariableUpdateRequest): FlowVariableUpdateResponse;
   FlowVariableDelete(...FlowVariableDeleteRequest): FlowVariableDeleteResponse;
 }
