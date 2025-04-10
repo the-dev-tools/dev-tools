@@ -3,6 +3,7 @@ import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, redirect, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import {
   Background,
   BackgroundVariant,
@@ -17,31 +18,41 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
+import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, use, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
-import { FiClock, FiMinus, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
+import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { FlowVariableListItem, FlowVariableListItemSchema } from '@the-dev-tools/spec/flowvariable/v1/flowvariable_pb';
+import {
+  flowVariableCreate,
+  flowVariableDelete,
+  flowVariableList,
+  flowVariableUpdate,
+} from '@the-dev-tools/spec/flowvariable/v1/flowvariable-FlowVariableService_connectquery';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
 import { useQueryNormalizer } from '~/api/normalizer';
+import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from '~form-table';
 
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
+import { FlowSearch } from './layout';
 import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -472,6 +483,83 @@ const ActionBar = () => {
   );
 };
 
+const variableColumnHelper = createColumnHelper<FormTableItem<FlowVariableListItem>>();
+
+const variableColumns = [
+  genericFormTableEnableColumn,
+  variableColumnHelper.accessor('data.name', {
+    cell: ({ row, table }) => (
+      <TextFieldRHF control={table.options.meta!.control!} name={`items.${row.index}.data.name`} variant='table-cell' />
+    ),
+    header: 'Name',
+    meta: { divider: false },
+  }),
+  variableColumnHelper.accessor('data.value', {
+    cell: ({ row, table }) => (
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.value`}
+        variant='table-cell'
+      />
+    ),
+    header: 'Value',
+  }),
+  variableColumnHelper.accessor('data.description', {
+    cell: ({ row, table }) => (
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        name={`items.${row.index}.data.description`}
+        variant='table-cell'
+      />
+    ),
+    header: 'Description',
+  }),
+  genericFormTableActionColumn,
+];
+
+const SettingsPanel = () => {
+  const { flowId } = flowRoute.useLoaderData();
+
+  const create = useConnectMutation(flowVariableCreate);
+  const delete$ = useConnectMutation(flowVariableDelete);
+  const update = useConnectMutation(flowVariableUpdate);
+
+  const {
+    data: { items },
+  } = useConnectSuspenseQuery(flowVariableList, { flowId });
+
+  const table = useFormTable({
+    columns: variableColumns as ColumnDef<FormTableItem<FlowVariableListItem>>[],
+    items,
+    onCreate: (_) => create.mutateAsync({ ...Struct.omit(_, '$typeName'), flowId }).then((_) => _.variableId),
+    onDelete: (_) => delete$.mutateAsync(Struct.omit(_, '$typeName')),
+    onUpdate: (_) => update.mutateAsync(Struct.omit(_, '$typeName')),
+    schema: FlowVariableListItemSchema,
+  });
+
+  return (
+    <>
+      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
+        <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Flow settings</div>
+
+        <div className={tw`flex-1`} />
+
+        <ButtonAsLink
+          className={tw`p-1`}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+          variant='ghost'
+        >
+          <FiX className={tw`size-5 text-slate-500`} />
+        </ButtonAsLink>
+      </div>
+
+      <div className={tw`m-5`}>
+        <DataTable table={table} />
+      </div>
+    </>
+  );
+};
+
 export const EditPanel = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { nodeId } = flowRoute.useLoaderData();
@@ -485,12 +573,13 @@ export const EditPanel = () => {
   if (Option.isNone(nodeId) || !nodeQuery.data) return null;
 
   const view = pipe(
-    Match.value(nodeQuery.data.kind),
-    Match.when(NodeKind.CONDITION, () => <ConditionPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.FOR_EACH, () => <ForEachPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.FOR, () => <ForPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.JS, () => <JavaScriptPanel node={nodeQuery.data} />),
-    Match.when(NodeKind.REQUEST, () => <RequestPanel node={nodeQuery.data} />),
+    Match.value(nodeQuery.data),
+    Match.when({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.START }, () => <SettingsPanel />),
+    Match.when({ kind: NodeKind.CONDITION }, () => <ConditionPanel node={nodeQuery.data} />),
+    Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachPanel node={nodeQuery.data} />),
+    Match.when({ kind: NodeKind.FOR }, () => <ForPanel node={nodeQuery.data} />),
+    Match.when({ kind: NodeKind.JS }, () => <JavaScriptPanel node={nodeQuery.data} />),
+    Match.when({ kind: NodeKind.REQUEST }, () => <RequestPanel node={nodeQuery.data} />),
     Match.orElse(() => null),
   );
 
