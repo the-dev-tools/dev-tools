@@ -627,7 +627,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 	}()
 
 	flowTime := time.Now()
-	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan)
+	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
 
 	// wait for the flow to finish
 	flowErr := <-done

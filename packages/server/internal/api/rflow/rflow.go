@@ -55,6 +55,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowtag"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/snode"
@@ -92,6 +93,7 @@ type FlowServiceRPC struct {
 	fs  sflow.FlowService
 	fts sflowtag.FlowTagService
 	fes sedge.EdgeService
+	fvs sflowvariable.FlowVariableService
 
 	// request
 	ias sitemapi.ItemApiService
@@ -124,7 +126,7 @@ type FlowServiceRPC struct {
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts stag.TagService,
 	// flow
-	fs sflow.FlowService, fts sflowtag.FlowTagService, fes sedge.EdgeService,
+	fs sflow.FlowService, fts sflowtag.FlowTagService, fes sedge.EdgeService, fvs sflowvariable.FlowVariableService,
 	// req
 	ias sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
 	// body
@@ -146,6 +148,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		fs:  fs,
 		fes: fes,
 		fts: fts,
+		fvs: fvs,
 
 		// request
 		ias: ias,
@@ -440,6 +443,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	flow, err := c.fs.GetFlow(ctx, flowID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	flowVars, err := c.fvs.GetFlowVariablesByFlowID(ctx, flowID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -843,7 +851,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan)
+	// TODO: move into translate packages
+	flowVarsMap := make(map[string]any, len(flowVars))
+	for _, flowVar := range flowVars {
+		if flowVar.Enabled {
+			flowVarsMap[flowVar.Name] = flowVar.Value
+		}
+	}
+
+	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
 
 	// wait for the flow to finish
 	flowErr := <-done

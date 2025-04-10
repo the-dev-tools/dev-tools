@@ -35,7 +35,7 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 	}
 }
 
-func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus) error {
+func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus, baseVars map[string]any) error {
 	defer close(flowNodeStatusChan)
 	defer close(flowStatusChan)
 	nextNodeID := &r.StartNodeID
@@ -65,8 +65,12 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		}
 	}
 
+	if baseVars == nil {
+		baseVars = make(map[string]any)
+	}
+
 	req := &node.FlowNodeRequest{
-		VarMap:           map[string]any{},
+		VarMap:           baseVars,
 		ReadWriteLock:    &sync.RWMutex{},
 		NodeMap:          r.FlowNodeMap,
 		EdgeSourceMap:    r.EdgesMap,

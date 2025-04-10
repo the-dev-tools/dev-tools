@@ -50,7 +50,7 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 		flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-		err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+		err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 		if err != nil {
 			t.Errorf("Expected err to be nil, but got %v", err)
 		}
@@ -63,7 +63,7 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 		flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-		err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+		err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 		if err != nil {
 			t.Errorf("Expected err to be nil, but got %v", err)
 		}
@@ -102,7 +102,7 @@ func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
 	}
@@ -141,7 +141,7 @@ func TestLocalFlowRunner_Run_Timeout(t *testing.T) {
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, timeout)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	if err == nil {
 		t.Errorf("Expected err to be not nil, but got %v", err)
 	}
@@ -186,7 +186,7 @@ func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, timeout)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
 	}
@@ -249,7 +249,7 @@ func TestLocalFlowRunner_Run_SplitAndMerge(t *testing.T) {
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
 	}
@@ -316,7 +316,7 @@ func TestLocalFlowRunner_Run_SplitAndMergeWithSubNodes(t *testing.T) {
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	if err != nil {
 		t.Errorf("Expected err to be nil, but got %v", err)
 	}
@@ -380,7 +380,7 @@ func TestRunNodeASync_IncompleteExecution(t *testing.T) {
 	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, node1ID, flowNodeMap, edgesMap, timeout)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	testutil.Assert(t, nil, err)
 
 	type nodeRunCounter struct {
@@ -446,7 +446,7 @@ func BenchmarkLinearFlow(b *testing.B) {
 		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 		flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-		_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+		_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	}
 }
 
@@ -486,7 +486,7 @@ func BenchmarkSplitAndMergeFlow(b *testing.B) {
 		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 		flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-		_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+		_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	}
 }
 
@@ -547,7 +547,7 @@ func BenchmarkComplexFlow(b *testing.B) {
 		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 		statusChan := make(chan runner.FlowNodeStatus, 100)
 		flowStatusChan := make(chan runner.FlowStatus, 10)
-		_ = runnerLocal.Run(context.Background(), statusChan, flowStatusChan)
+		_ = runnerLocal.Run(context.Background(), statusChan, flowStatusChan, nil)
 	}
 }
 
@@ -583,7 +583,7 @@ func BenchmarkDelayedNodes(b *testing.B) {
 		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Second)
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 		flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-		_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+		_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 	}
 }
 
@@ -618,7 +618,7 @@ func BenchmarkAsyncVsSync(b *testing.B) {
 			runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 			flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 			flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-			_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+			_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 		}
 	})
 
@@ -629,7 +629,7 @@ func BenchmarkAsyncVsSync(b *testing.B) {
 			runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, 0)
 			flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 			flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-			_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+			_ = runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 		}
 	})
 }
@@ -702,7 +702,7 @@ func TestMultipleIncomingEdges(t *testing.T) {
 			runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, tc.timeout)
 			flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 			flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
-			err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan)
+			err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
 			if err != nil {
 				t.Errorf("Expected err to be nil, but got %v", err)
 			}

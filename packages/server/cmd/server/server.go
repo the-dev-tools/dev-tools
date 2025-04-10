@@ -229,7 +229,7 @@ func main() {
 	// Flow Service
 	flowSrv := rflow.New(currentDB, workspaceService, userService, tagService,
 		// flow
-		flowService, flowTagService, flowEdgeService,
+		flowService, flowTagService, flowEdgeService, flowVariableService,
 		// req
 		endpointService, exampleService, exampleQueryService, exampleHeaderService,
 		// body

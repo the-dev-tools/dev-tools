@@ -27,6 +27,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowtag"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/snode"
@@ -61,6 +62,7 @@ func TestListFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
 
 	// req
 	ias := sitemapi.New(queries)
@@ -92,7 +94,7 @@ func TestListFlow(t *testing.T) {
 
 	serviceRPC := rflow.New(db, ws, us, ts,
 		// flow
-		fs, fts, fes,
+		fs, fts, fes, fvs,
 		// req
 		ias, es, qs, hs,
 		// body
@@ -224,6 +226,7 @@ func TestGetFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
 
 	// req
 	ias := sitemapi.New(queries)
@@ -255,7 +258,7 @@ func TestGetFlow(t *testing.T) {
 
 	serviceRPC := rflow.New(db, ws, us, ts,
 		// flow
-		fs, fts, fes,
+		fs, fts, fes, fvs,
 		// req
 		ias, es, qs, hs,
 		// body
@@ -344,6 +347,7 @@ func TestCreateFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
 
 	// req
 	ias := sitemapi.New(queries)
@@ -375,7 +379,7 @@ func TestCreateFlow(t *testing.T) {
 
 	serviceRPC := rflow.New(db, ws, us, ts,
 		// flow
-		fs, fts, fes,
+		fs, fts, fes, fvs,
 		// req
 		ias, es, qs, hs,
 		// body
@@ -451,6 +455,7 @@ func TestUpdateFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
 
 	// req
 	ias := sitemapi.New(queries)
@@ -482,7 +487,7 @@ func TestUpdateFlow(t *testing.T) {
 
 	serviceRPC := rflow.New(db, ws, us, ts,
 		// flow
-		fs, fts, fes,
+		fs, fts, fes, fvs,
 		// req
 		ias, es, qs, hs,
 		// body
@@ -560,6 +565,7 @@ func TestDeleteFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
 
 	// req
 	ias := sitemapi.New(queries)
@@ -591,7 +597,7 @@ func TestDeleteFlow(t *testing.T) {
 
 	serviceRPC := rflow.New(db, ws, us, ts,
 		// flow
-		fs, fts, fes,
+		fs, fts, fes, fvs,
 		// req
 		ias, es, qs, hs,
 		// body
@@ -667,6 +673,7 @@ func TestRunFlow(t *testing.T) {
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
 
 	// req
 	ias := sitemapi.New(queries)
@@ -698,7 +705,7 @@ func TestRunFlow(t *testing.T) {
 
 	serviceRPC := rflow.New(db, ws, us, ts,
 		// flow
-		fs, fts, fes,
+		fs, fts, fes, fvs,
 		// req
 		ias, es, qs, hs,
 		// body
