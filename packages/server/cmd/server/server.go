@@ -23,6 +23,7 @@ import (
 	"the-dev-tools/server/internal/api/resultapi"
 	"the-dev-tools/server/internal/api/rexport"
 	"the-dev-tools/server/internal/api/rflow"
+	"the-dev-tools/server/internal/api/rflowvariable"
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/internal/api/ritemapi"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -50,6 +51,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowtag"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -137,6 +139,7 @@ func main() {
 	flowService := sflow.New(queries)
 	flowTagService := sflowtag.New(queries)
 	flowEdgeService := sedge.New(queries)
+	flowVariableService := sflowvariable.New(queries)
 
 	// nodes
 	flowNodeService := snode.New(queries)
@@ -259,6 +262,9 @@ func main() {
 
 	importServiceRPC := rimport.New(currentDB, workspaceService, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService)
 	newServiceManager.AddService(rimport.CreateService(importServiceRPC, opitonsAll))
+
+	flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)
+	newServiceManager.AddService(rflowvariable.CreateService(flowServiceRPC, opitonsAll))
 
 	exportServiceRPC := rexport.New(
 		currentDB,

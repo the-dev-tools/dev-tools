@@ -590,3 +590,17 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ## flow_variable
+          ### id
+          - column: 'flow_variable.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ## flow_variable
+          ### flow_id
+          - column: 'flow_variable.flow_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'

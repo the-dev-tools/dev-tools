@@ -1053,8 +1053,8 @@ VALUES
 `
 
 type CreateFlowVariableParams struct {
-	ID          []byte
-	FlowID      []byte
+	ID          idwrap.IDWrap
+	FlowID      idwrap.IDWrap
 	Key         string
 	Value       string
 	Enabled     bool
@@ -1090,62 +1090,62 @@ VALUES
 `
 
 type CreateFlowVariableBulkParams struct {
-	ID             []byte
-	FlowID         []byte
+	ID             idwrap.IDWrap
+	FlowID         idwrap.IDWrap
 	Key            string
 	Value          string
 	Enabled        bool
 	Description    string
-	ID_2           []byte
-	FlowID_2       []byte
+	ID_2           idwrap.IDWrap
+	FlowID_2       idwrap.IDWrap
 	Key_2          string
 	Value_2        string
 	Enabled_2      bool
 	Description_2  string
-	ID_3           []byte
-	FlowID_3       []byte
+	ID_3           idwrap.IDWrap
+	FlowID_3       idwrap.IDWrap
 	Key_3          string
 	Value_3        string
 	Enabled_3      bool
 	Description_3  string
-	ID_4           []byte
-	FlowID_4       []byte
+	ID_4           idwrap.IDWrap
+	FlowID_4       idwrap.IDWrap
 	Key_4          string
 	Value_4        string
 	Enabled_4      bool
 	Description_4  string
-	ID_5           []byte
-	FlowID_5       []byte
+	ID_5           idwrap.IDWrap
+	FlowID_5       idwrap.IDWrap
 	Key_5          string
 	Value_5        string
 	Enabled_5      bool
 	Description_5  string
-	ID_6           []byte
-	FlowID_6       []byte
+	ID_6           idwrap.IDWrap
+	FlowID_6       idwrap.IDWrap
 	Key_6          string
 	Value_6        string
 	Enabled_6      bool
 	Description_6  string
-	ID_7           []byte
-	FlowID_7       []byte
+	ID_7           idwrap.IDWrap
+	FlowID_7       idwrap.IDWrap
 	Key_7          string
 	Value_7        string
 	Enabled_7      bool
 	Description_7  string
-	ID_8           []byte
-	FlowID_8       []byte
+	ID_8           idwrap.IDWrap
+	FlowID_8       idwrap.IDWrap
 	Key_8          string
 	Value_8        string
 	Enabled_8      bool
 	Description_8  string
-	ID_9           []byte
-	FlowID_9       []byte
+	ID_9           idwrap.IDWrap
+	FlowID_9       idwrap.IDWrap
 	Key_9          string
 	Value_9        string
 	Enabled_9      bool
 	Description_9  string
-	ID_10          []byte
-	FlowID_10      []byte
+	ID_10          idwrap.IDWrap
+	FlowID_10      idwrap.IDWrap
 	Key_10         string
 	Value_10       string
 	Enabled_10     bool
@@ -2799,7 +2799,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) DeleteFlowVariable(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteFlowVariable(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowVariableStmt, deleteFlowVariable, id)
 	return err
 }
@@ -4132,7 +4132,7 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetFlowVariable(ctx context.Context, id []byte) (FlowVariable, error) {
+func (q *Queries) GetFlowVariable(ctx context.Context, id idwrap.IDWrap) (FlowVariable, error) {
 	row := q.queryRow(ctx, q.getFlowVariableStmt, getFlowVariable, id)
 	var i FlowVariable
 	err := row.Scan(
@@ -4160,7 +4160,7 @@ WHERE
   flow_id = ?
 `
 
-func (q *Queries) GetFlowVariablesByFlowID(ctx context.Context, flowID []byte) ([]FlowVariable, error) {
+func (q *Queries) GetFlowVariablesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowVariable, error) {
 	rows, err := q.query(ctx, q.getFlowVariablesByFlowIDStmt, getFlowVariablesByFlowID, flowID)
 	if err != nil {
 		return nil, err
@@ -6236,7 +6236,7 @@ type UpdateFlowVariableParams struct {
 	Value       string
 	Enabled     bool
 	Description string
-	ID          []byte
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowVariable(ctx context.Context, arg UpdateFlowVariableParams) error {

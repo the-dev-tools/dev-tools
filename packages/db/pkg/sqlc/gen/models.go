@@ -184,8 +184,8 @@ type FlowTag struct {
 }
 
 type FlowVariable struct {
-	ID          []byte
-	FlowID      []byte
+	ID          idwrap.IDWrap
+	FlowID      idwrap.IDWrap
 	Key         string
 	Value       string
 	Enabled     bool
