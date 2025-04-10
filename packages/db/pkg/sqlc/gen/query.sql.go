@@ -1045,6 +1045,179 @@ func (q *Queries) CreateFlowTag(ctx context.Context, arg CreateFlowTagParams) er
 	return err
 }
 
+const createFlowVariable = `-- name: CreateFlowVariable :exec
+INSERT INTO
+  flow_variable (id, flow_id, key, value, enabled, description)
+VALUES
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateFlowVariableParams struct {
+	ID          []byte
+	FlowID      []byte
+	Key         string
+	Value       string
+	Enabled     bool
+	Description string
+}
+
+func (q *Queries) CreateFlowVariable(ctx context.Context, arg CreateFlowVariableParams) error {
+	_, err := q.exec(ctx, q.createFlowVariableStmt, createFlowVariable,
+		arg.ID,
+		arg.FlowID,
+		arg.Key,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
+	)
+	return err
+}
+
+const createFlowVariableBulk = `-- name: CreateFlowVariableBulk :exec
+INSERT INTO
+  flow_variable (id, flow_id, key, value, enabled, description)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateFlowVariableBulkParams struct {
+	ID             []byte
+	FlowID         []byte
+	Key            string
+	Value          string
+	Enabled        bool
+	Description    string
+	ID_2           []byte
+	FlowID_2       []byte
+	Key_2          string
+	Value_2        string
+	Enabled_2      bool
+	Description_2  string
+	ID_3           []byte
+	FlowID_3       []byte
+	Key_3          string
+	Value_3        string
+	Enabled_3      bool
+	Description_3  string
+	ID_4           []byte
+	FlowID_4       []byte
+	Key_4          string
+	Value_4        string
+	Enabled_4      bool
+	Description_4  string
+	ID_5           []byte
+	FlowID_5       []byte
+	Key_5          string
+	Value_5        string
+	Enabled_5      bool
+	Description_5  string
+	ID_6           []byte
+	FlowID_6       []byte
+	Key_6          string
+	Value_6        string
+	Enabled_6      bool
+	Description_6  string
+	ID_7           []byte
+	FlowID_7       []byte
+	Key_7          string
+	Value_7        string
+	Enabled_7      bool
+	Description_7  string
+	ID_8           []byte
+	FlowID_8       []byte
+	Key_8          string
+	Value_8        string
+	Enabled_8      bool
+	Description_8  string
+	ID_9           []byte
+	FlowID_9       []byte
+	Key_9          string
+	Value_9        string
+	Enabled_9      bool
+	Description_9  string
+	ID_10          []byte
+	FlowID_10      []byte
+	Key_10         string
+	Value_10       string
+	Enabled_10     bool
+	Description_10 string
+}
+
+func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVariableBulkParams) error {
+	_, err := q.exec(ctx, q.createFlowVariableBulkStmt, createFlowVariableBulk,
+		arg.ID,
+		arg.FlowID,
+		arg.Key,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
+		arg.ID_2,
+		arg.FlowID_2,
+		arg.Key_2,
+		arg.Value_2,
+		arg.Enabled_2,
+		arg.Description_2,
+		arg.ID_3,
+		arg.FlowID_3,
+		arg.Key_3,
+		arg.Value_3,
+		arg.Enabled_3,
+		arg.Description_3,
+		arg.ID_4,
+		arg.FlowID_4,
+		arg.Key_4,
+		arg.Value_4,
+		arg.Enabled_4,
+		arg.Description_4,
+		arg.ID_5,
+		arg.FlowID_5,
+		arg.Key_5,
+		arg.Value_5,
+		arg.Enabled_5,
+		arg.Description_5,
+		arg.ID_6,
+		arg.FlowID_6,
+		arg.Key_6,
+		arg.Value_6,
+		arg.Enabled_6,
+		arg.Description_6,
+		arg.ID_7,
+		arg.FlowID_7,
+		arg.Key_7,
+		arg.Value_7,
+		arg.Enabled_7,
+		arg.Description_7,
+		arg.ID_8,
+		arg.FlowID_8,
+		arg.Key_8,
+		arg.Value_8,
+		arg.Enabled_8,
+		arg.Description_8,
+		arg.ID_9,
+		arg.FlowID_9,
+		arg.Key_9,
+		arg.Value_9,
+		arg.Enabled_9,
+		arg.Description_9,
+		arg.ID_10,
+		arg.FlowID_10,
+		arg.Key_10,
+		arg.Value_10,
+		arg.Enabled_10,
+		arg.Description_10,
+	)
+	return err
+}
+
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
   example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
@@ -2620,6 +2793,17 @@ func (q *Queries) DeleteFlowTag(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const deleteFlowVariable = `-- name: DeleteFlowVariable :exec
+DELETE FROM flow_variable
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteFlowVariable(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteFlowVariableStmt, deleteFlowVariable, id)
+	return err
+}
+
 const deleteHeader = `-- name: DeleteHeader :exec
 DELETE FROM example_header
 WHERE
@@ -3920,6 +4104,79 @@ func (q *Queries) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) (
 	for rows.Next() {
 		var i FlowTag
 		if err := rows.Scan(&i.ID, &i.FlowID, &i.TagID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFlowVariable = `-- name: GetFlowVariable :one
+SELECT
+  id,
+  flow_id,
+  key,
+  value,
+  enabled,
+  description
+FROM
+  flow_variable
+WHERE
+  id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowVariable(ctx context.Context, id []byte) (FlowVariable, error) {
+	row := q.queryRow(ctx, q.getFlowVariableStmt, getFlowVariable, id)
+	var i FlowVariable
+	err := row.Scan(
+		&i.ID,
+		&i.FlowID,
+		&i.Key,
+		&i.Value,
+		&i.Enabled,
+		&i.Description,
+	)
+	return i, err
+}
+
+const getFlowVariablesByFlowID = `-- name: GetFlowVariablesByFlowID :many
+SELECT
+  id,
+  flow_id,
+  key,
+  value,
+  enabled,
+  description
+FROM
+  flow_variable
+WHERE
+  flow_id = ?
+`
+
+func (q *Queries) GetFlowVariablesByFlowID(ctx context.Context, flowID []byte) ([]FlowVariable, error) {
+	rows, err := q.query(ctx, q.getFlowVariablesByFlowIDStmt, getFlowVariablesByFlowID, flowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowVariable{}
+	for rows.Next() {
+		var i FlowVariable
+		if err := rows.Scan(
+			&i.ID,
+			&i.FlowID,
+			&i.Key,
+			&i.Value,
+			&i.Enabled,
+			&i.Description,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -5958,6 +6215,36 @@ func (q *Queries) UpdateFlowState(ctx context.Context, arg UpdateFlowStateParams
 		arg.State,
 		arg.StateData,
 		arg.StateDataCompressType,
+		arg.ID,
+	)
+	return err
+}
+
+const updateFlowVariable = `-- name: UpdateFlowVariable :exec
+UPDATE flow_variable
+SET
+  key = ?,
+  value = ?,
+  enabled = ?,
+  description = ?
+WHERE
+  id = ?
+`
+
+type UpdateFlowVariableParams struct {
+	Key         string
+	Value       string
+	Enabled     bool
+	Description string
+	ID          []byte
+}
+
+func (q *Queries) UpdateFlowVariable(ctx context.Context, arg UpdateFlowVariableParams) error {
+	_, err := q.exec(ctx, q.updateFlowVariableStmt, updateFlowVariable,
+		arg.Key,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
 		arg.ID,
 	)
 	return err

@@ -755,7 +755,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					ExampleId: requestNodeResp.Example.ID.Bytes(),
 				})
 				if err != nil {
-					log.Println("Error creating ExampleGetRequest")
+					log.Fatal("anypb examplev1.ExampleGetRequest cannot be created")
 					return
 				}
 
@@ -772,6 +772,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				RespRequest, err := anypb.New(&responsev1.ResponseGetRequest{
 					ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
 				})
+				if err != nil {
+					log.Fatal("anypb responsev1.ResponseGetRequest cannot be created")
+					return
+				}
 
 				changes = append(changes, &changev1.Change{
 					Kind:    &responseGetChangeKind,

@@ -424,3 +424,13 @@ CREATE TABLE migration (
   description TEXT NOT NULL,
   apply_at BIGINT NOT NULL
 );
+
+CREATE TABLE flow_variable (
+  id BLOB NOT NULL PRIMARY KEY,
+  flow_id BLOB NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  enabled BOOL NOT NULL,
+  description TEXT NOT NULL,
+  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
+);

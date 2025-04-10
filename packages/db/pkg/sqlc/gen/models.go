@@ -183,6 +183,15 @@ type FlowTag struct {
 	TagID  idwrap.IDWrap
 }
 
+type FlowVariable struct {
+	ID          []byte
+	FlowID      []byte
+	Key         string
+	Value       string
+	Enabled     bool
+	Description string
+}
+
 type ItemApi struct {
 	ID              idwrap.IDWrap
 	CollectionID    idwrap.IDWrap

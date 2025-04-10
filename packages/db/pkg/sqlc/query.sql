@@ -1985,3 +1985,66 @@ VALUES
 DELETE FROM migration
 WHERE
   id = ?;
+
+-- name: GetFlowVariable :one
+SELECT
+  id,
+  flow_id,
+  key,
+  value,
+  enabled,
+  description
+FROM
+  flow_variable
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetFlowVariablesByFlowID :many
+SELECT
+  id,
+  flow_id,
+  key,
+  value,
+  enabled,
+  description
+FROM
+  flow_variable
+WHERE
+  flow_id = ?;
+
+-- name: CreateFlowVariable :exec
+INSERT INTO
+  flow_variable (id, flow_id, key, value, enabled, description)
+VALUES
+  (?, ?, ?, ?, ?, ?);
+
+-- name: CreateFlowVariableBulk :exec
+INSERT INTO
+  flow_variable (id, flow_id, key, value, enabled, description)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateFlowVariable :exec
+UPDATE flow_variable
+SET
+  key = ?,
+  value = ?,
+  enabled = ?,
+  description = ?
+WHERE
+  id = ?;
+
+-- name: DeleteFlowVariable :exec
+DELETE FROM flow_variable
+WHERE
+  id = ?;

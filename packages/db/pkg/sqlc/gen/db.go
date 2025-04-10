@@ -99,6 +99,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowTagStmt, err = db.PrepareContext(ctx, createFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowTag: %w", err)
 	}
+	if q.createFlowVariableStmt, err = db.PrepareContext(ctx, createFlowVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowVariable: %w", err)
+	}
+	if q.createFlowVariableBulkStmt, err = db.PrepareContext(ctx, createFlowVariableBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowVariableBulk: %w", err)
+	}
 	if q.createHeaderStmt, err = db.PrepareContext(ctx, createHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHeader: %w", err)
 	}
@@ -206,6 +212,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowTagStmt, err = db.PrepareContext(ctx, deleteFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowTag: %w", err)
+	}
+	if q.deleteFlowVariableStmt, err = db.PrepareContext(ctx, deleteFlowVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowVariable: %w", err)
 	}
 	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
@@ -347,6 +356,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowTagsByTagIDStmt, err = db.PrepareContext(ctx, getFlowTagsByTagID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowTagsByTagID: %w", err)
+	}
+	if q.getFlowVariableStmt, err = db.PrepareContext(ctx, getFlowVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowVariable: %w", err)
+	}
+	if q.getFlowVariablesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowVariablesByFlowID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowVariablesByFlowID: %w", err)
 	}
 	if q.getFlowsByVersionParentIDStmt, err = db.PrepareContext(ctx, getFlowsByVersionParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByVersionParentID: %w", err)
@@ -528,6 +543,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowStateStmt, err = db.PrepareContext(ctx, updateFlowState); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowState: %w", err)
 	}
+	if q.updateFlowVariableStmt, err = db.PrepareContext(ctx, updateFlowVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowVariable: %w", err)
+	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
@@ -701,6 +719,16 @@ func (q *Queries) Close() error {
 	if q.createFlowTagStmt != nil {
 		if cerr := q.createFlowTagStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowTagStmt: %w", cerr)
+		}
+	}
+	if q.createFlowVariableStmt != nil {
+		if cerr := q.createFlowVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowVariableStmt: %w", cerr)
+		}
+	}
+	if q.createFlowVariableBulkStmt != nil {
+		if cerr := q.createFlowVariableBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowVariableBulkStmt: %w", cerr)
 		}
 	}
 	if q.createHeaderStmt != nil {
@@ -881,6 +909,11 @@ func (q *Queries) Close() error {
 	if q.deleteFlowTagStmt != nil {
 		if cerr := q.deleteFlowTagStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowTagStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowVariableStmt != nil {
+		if cerr := q.deleteFlowVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowVariableStmt: %w", cerr)
 		}
 	}
 	if q.deleteHeaderStmt != nil {
@@ -1116,6 +1149,16 @@ func (q *Queries) Close() error {
 	if q.getFlowTagsByTagIDStmt != nil {
 		if cerr := q.getFlowTagsByTagIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowTagsByTagIDStmt: %w", cerr)
+		}
+	}
+	if q.getFlowVariableStmt != nil {
+		if cerr := q.getFlowVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowVariableStmt: %w", cerr)
+		}
+	}
+	if q.getFlowVariablesByFlowIDStmt != nil {
+		if cerr := q.getFlowVariablesByFlowIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowVariablesByFlowIDStmt: %w", cerr)
 		}
 	}
 	if q.getFlowsByVersionParentIDStmt != nil {
@@ -1418,6 +1461,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowStateStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowVariableStmt != nil {
+		if cerr := q.updateFlowVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowVariableStmt: %w", cerr)
+		}
+	}
 	if q.updateHeaderStmt != nil {
 		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
@@ -1557,6 +1605,8 @@ type Queries struct {
 	createFlowNodeNoopStmt                                *sql.Stmt
 	createFlowNodeRequestStmt                             *sql.Stmt
 	createFlowTagStmt                                     *sql.Stmt
+	createFlowVariableStmt                                *sql.Stmt
+	createFlowVariableBulkStmt                            *sql.Stmt
 	createHeaderStmt                                      *sql.Stmt
 	createHeaderBulkStmt                                  *sql.Stmt
 	createItemApiStmt                                     *sql.Stmt
@@ -1593,6 +1643,7 @@ type Queries struct {
 	deleteFlowNodeNoopStmt                                *sql.Stmt
 	deleteFlowNodeRequestStmt                             *sql.Stmt
 	deleteFlowTagStmt                                     *sql.Stmt
+	deleteFlowVariableStmt                                *sql.Stmt
 	deleteHeaderStmt                                      *sql.Stmt
 	deleteItemApiStmt                                     *sql.Stmt
 	deleteItemApiExampleStmt                              *sql.Stmt
@@ -1640,6 +1691,8 @@ type Queries struct {
 	getFlowTagStmt                                        *sql.Stmt
 	getFlowTagsByFlowIDStmt                               *sql.Stmt
 	getFlowTagsByTagIDStmt                                *sql.Stmt
+	getFlowVariableStmt                                   *sql.Stmt
+	getFlowVariablesByFlowIDStmt                          *sql.Stmt
 	getFlowsByVersionParentIDStmt                         *sql.Stmt
 	getFlowsByWorkspaceIDStmt                             *sql.Stmt
 	getHeaderStmt                                         *sql.Stmt
@@ -1700,6 +1753,7 @@ type Queries struct {
 	updateFlowNodeJsStmt                                  *sql.Stmt
 	updateFlowNodeRequestStmt                             *sql.Stmt
 	updateFlowStateStmt                                   *sql.Stmt
+	updateFlowVariableStmt                                *sql.Stmt
 	updateHeaderStmt                                      *sql.Stmt
 	updateItemApiStmt                                     *sql.Stmt
 	updateItemApiExampleStmt                              *sql.Stmt
@@ -1746,6 +1800,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowNodeNoopStmt:                           q.createFlowNodeNoopStmt,
 		createFlowNodeRequestStmt:                        q.createFlowNodeRequestStmt,
 		createFlowTagStmt:                                q.createFlowTagStmt,
+		createFlowVariableStmt:                           q.createFlowVariableStmt,
+		createFlowVariableBulkStmt:                       q.createFlowVariableBulkStmt,
 		createHeaderStmt:                                 q.createHeaderStmt,
 		createHeaderBulkStmt:                             q.createHeaderBulkStmt,
 		createItemApiStmt:                                q.createItemApiStmt,
@@ -1782,6 +1838,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteFlowNodeNoopStmt:                           q.deleteFlowNodeNoopStmt,
 		deleteFlowNodeRequestStmt:                        q.deleteFlowNodeRequestStmt,
 		deleteFlowTagStmt:                                q.deleteFlowTagStmt,
+		deleteFlowVariableStmt:                           q.deleteFlowVariableStmt,
 		deleteHeaderStmt:                                 q.deleteHeaderStmt,
 		deleteItemApiStmt:                                q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                         q.deleteItemApiExampleStmt,
@@ -1829,6 +1886,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowTagStmt:                                   q.getFlowTagStmt,
 		getFlowTagsByFlowIDStmt:                          q.getFlowTagsByFlowIDStmt,
 		getFlowTagsByTagIDStmt:                           q.getFlowTagsByTagIDStmt,
+		getFlowVariableStmt:                              q.getFlowVariableStmt,
+		getFlowVariablesByFlowIDStmt:                     q.getFlowVariablesByFlowIDStmt,
 		getFlowsByVersionParentIDStmt:                    q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                        q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                                    q.getHeaderStmt,
@@ -1889,6 +1948,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeJsStmt:                                q.updateFlowNodeJsStmt,
 		updateFlowNodeRequestStmt:                           q.updateFlowNodeRequestStmt,
 		updateFlowStateStmt:                                 q.updateFlowStateStmt,
+		updateFlowVariableStmt:                              q.updateFlowVariableStmt,
 		updateHeaderStmt:                                    q.updateHeaderStmt,
 		updateItemApiStmt:                                   q.updateItemApiStmt,
 		updateItemApiExampleStmt:                            q.updateItemApiExampleStmt,
