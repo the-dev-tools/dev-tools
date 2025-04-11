@@ -3,6 +3,7 @@ package sflowvariable
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -14,7 +15,7 @@ type FlowVariableService struct {
 	queries *gen.Queries
 }
 
-var ErrNoFlowVariableFound = sql.ErrNoRows
+var ErrNoFlowVariableFound = errors.New("no flow variable find")
 
 func New(queries *gen.Queries) FlowVariableService {
 	return FlowVariableService{queries: queries}

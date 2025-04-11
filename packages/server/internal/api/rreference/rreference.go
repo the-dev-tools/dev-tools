@@ -21,11 +21,13 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/sort/sortenabled"
 	"the-dev-tools/server/pkg/zstdcompress"
 	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 	"the-dev-tools/spec/dist/buf/go/reference/v1/referencev1connect"
@@ -33,7 +35,7 @@ import (
 	"connectrpc.com/connect"
 )
 
-type NodeServiceRPC struct {
+type ReferenceServiceRPC struct {
 	DB *sql.DB
 
 	us suser.UserService
@@ -48,20 +50,21 @@ type NodeServiceRPC struct {
 	erhs sexamplerespheader.ExampleRespHeaderService
 
 	// flow
-	fs   sflow.FlowService
-	fns  snode.NodeService
-	frns snoderequest.NodeRequestService
-
-	edgeService sedge.EdgeService
+	fs                  sflow.FlowService
+	fns                 snode.NodeService
+	frns                snoderequest.NodeRequestService
+	flowVariableService sflowvariable.FlowVariableService
+	flowEdgeService     sedge.EdgeService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.WorkspaceService,
 	es senv.EnvService, vs svar.VarService,
 	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
 	fs sflow.FlowService, fns snode.NodeService, frns snoderequest.NodeRequestService,
+	flowVariableService sflowvariable.FlowVariableService,
 	edgeService sedge.EdgeService,
-) *NodeServiceRPC {
-	return &NodeServiceRPC{
+) *ReferenceServiceRPC {
+	return &ReferenceServiceRPC{
 		DB: db,
 
 		us: us,
@@ -73,15 +76,16 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 		ers:  ers,
 		erhs: erhs,
 
-		fs:   fs,
-		fns:  fns,
-		frns: frns,
+		fs:                  fs,
+		fns:                 fns,
+		frns:                frns,
+		flowVariableService: flowVariableService,
 
-		edgeService: edgeService,
+		flowEdgeService: edgeService,
 	}
 }
 
-func CreateService(srv *NodeServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+func CreateService(srv *ReferenceServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := referencev1connect.NewReferenceServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
@@ -93,7 +97,7 @@ var (
 	ErrEnvNotFound       = errors.New("env not found")
 )
 
-func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[referencev1.ReferenceGetRequest]) (*connect.Response[referencev1.ReferenceGetResponse], error) {
+func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[referencev1.ReferenceGetRequest]) (*connect.Response[referencev1.ReferenceGetResponse], error) {
 	var Items []*referencev1.Reference
 
 	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
@@ -208,7 +212,7 @@ func (c *NodeServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(response), nil
 }
 
-func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.Reference, error) {
+func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.Reference, error) {
 	nodeInst, err := c.fns.GetNode(ctx, nodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -219,8 +223,20 @@ func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) (
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	var nodeRefs []*referencev1.Reference
+	flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	sortenabled.GetAllWithState(&flowVars, true)
+	for _, flowVar := range flowVars {
+		flowVarRef := reference.NewReferenceFromInterfaceWithKey(flowVar.Value, flowVar.Name)
+		nodeRefs = append(nodeRefs, reference.ConvertPkgToRpc(flowVarRef))
+	}
+
 	// Edges
-	edges, err := c.edgeService.GetEdgesByFlowID(ctx, flowID)
+	edges, err := c.flowEdgeService.GetEdgesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -234,7 +250,6 @@ func (c *NodeServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) (
 		}
 	}
 
-	var nodeRefs []*referencev1.Reference
 	for _, node := range beforeNodes {
 		stateData := node.StateData
 		if json.Valid(stateData) {

@@ -257,7 +257,8 @@ func main() {
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
 	// Refernce Service
-	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService, flowService, flowNodeService, flowNodeRequestSevice, flowEdgeService)
+	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
+		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
 	importServiceRPC := rimport.New(currentDB, workspaceService, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService)

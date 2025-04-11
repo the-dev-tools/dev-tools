@@ -21,3 +21,7 @@ type FlowVariableUpdate struct {
 	Enabled     *bool         `json:"enabled"`
 	Description *string       `json:"description"`
 }
+
+func (fv FlowVariable) IsEnabled() bool {
+	return fv.Enabled
+}
