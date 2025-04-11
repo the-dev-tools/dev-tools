@@ -726,9 +726,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// this will fill on go routine and we will use to update db after run
-	var NodeRequestSideRespArr []nrequest.NodeRequestSideResp
-
 	done := make(chan error, 1)
 	updateNodeChan := make(chan mnnode.MNode, 1000)
 	go func() {
@@ -755,6 +752,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			select {
 			// TODO: move invalidation to a separate function so we can test it
 			case requestNodeResp := <-requestNodeRespChan:
+
+				err = c.HandleExampleChanges(ctx, requestNodeResp)
+				if err != nil {
+					log.Println("cannot update example on flow run", err)
+				}
+
 				HistoryChangesService := "collection.item.example.v1.ExampleService"
 				HistroyChangesMethod := "ExampleGet"
 				exampleGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
@@ -791,8 +794,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					Service: &HistroyChangesSubService,
 					Method:  &HistroyChangesSubMethod,
 				})
-
-				NodeRequestSideRespArr = append(NodeRequestSideRespArr, requestNodeResp)
 			default:
 			}
 
@@ -907,13 +908,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	if flowRunErr != nil {
 		return connect.NewError(connect.CodeInternal, flowRunErr)
-	}
-
-	for _, requestNodeResp := range NodeRequestSideRespArr {
-		err = c.HandleExampleChanges(ctx, requestNodeResp)
-		if err != nil {
-			return fmt.Errorf("handle example changes failed with: %s", err.Error())
-		}
 	}
 
 	return nil

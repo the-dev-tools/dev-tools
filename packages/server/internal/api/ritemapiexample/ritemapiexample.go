@@ -163,7 +163,7 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 
 	rpcErr := permcheck.CheckPerm(CheckOwnerExample(ctx, *c.iaes, *c.cs, *c.us, exampleIdWrap))
 	if rpcErr != nil {
-		return nil, err
+		return nil, rpcErr
 	}
 
 	example, err := c.iaes.GetApiExample(ctx, exampleIdWrap)

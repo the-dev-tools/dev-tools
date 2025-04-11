@@ -41,7 +41,7 @@ type Response struct {
 
 type ResponseVar struct {
 	StatusCode int               `json:"status"`
-	Body       interface{}       `json:"body"`
+	Body       any               `json:"body"`
 	Headers    map[string]string `json:"headers"`
 	Duration   int32             `json:"duration"`
 }

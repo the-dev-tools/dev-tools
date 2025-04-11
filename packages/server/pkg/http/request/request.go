@@ -26,7 +26,7 @@ import (
 type RequestResponseVar struct {
 	Headers map[string]string `json:"headers"`
 	Queries map[string]string `json:"queries"`
-	Body    []byte            `json:"body"`
+	Body    string            `json:"body"`
 }
 
 type RequestResponse struct {
@@ -44,7 +44,7 @@ func ConvertRequestToVar(r *httpclient.Request) RequestResponseVar {
 	for _, query := range r.Queries {
 		queriesMaps[query.QueryKey] = query.Value
 	}
-	return RequestResponseVar{Headers: headersMaps, Queries: queriesMaps, Body: r.Body}
+	return RequestResponseVar{Headers: headersMaps, Queries: queriesMaps, Body: string(r.Body)}
 }
 
 func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
