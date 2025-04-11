@@ -3,9 +3,11 @@ package httpclient
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
@@ -53,9 +55,9 @@ func ConvertResponseToVar(r Response) ResponseVar {
 	}
 
 	// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
-	var body interface{}
+	var body any
 	if json.Valid(r.Body) {
-		var jsonBody map[string]interface{}
+		var jsonBody map[string]any
 		// If unmarshaling works, use the decoded JSON.
 		if err := json.Unmarshal(r.Body, &jsonBody); err == nil {
 			body = jsonBody
@@ -78,6 +80,7 @@ func SendRequest(client HttpClient, req *Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	qNew := ConvertModelToQuery(req.Queries, reqRaw.URL.Query())
 	reqRaw.URL.RawQuery = qNew.Encode()
 	reqRaw.Header = ConvertModelToHeader(req.Headers)
@@ -93,6 +96,19 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return Response{}, err
+	}
+
+	encoding := resp.Header.Get("Content-Encoding")
+	switch encoding {
+	case "gzip":
+		data, err := compress.Decompress(body, compress.CompressTypeGzip)
+		if err != nil {
+			return Response{}, err
+		}
+		body = data
+	case "":
+	default:
+		return Response{}, fmt.Errorf("not support Content-Encoding: %s", encoding)
 	}
 
 	err = resp.Body.Close()
