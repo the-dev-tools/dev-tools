@@ -3,6 +3,7 @@ package sexampleheader
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"sort"
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -11,7 +12,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
-var ErrNoHeaderFound = sql.ErrNoRows
+var ErrNoHeaderFound = errors.New("not header found")
 
 type HeaderService struct {
 	queries *gen.Queries

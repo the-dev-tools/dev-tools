@@ -3,6 +3,7 @@ package sbodyform
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -14,7 +15,7 @@ type BodyFormService struct {
 	queries *gen.Queries
 }
 
-var ErrNoBodyFormFound = sql.ErrNoRows
+var ErrNoBodyFormFound = errors.New("no form body found")
 
 func SeralizeModeltoGen(body mbodyform.BodyForm) gen.ExampleBodyForm {
 	return gen.ExampleBodyForm{

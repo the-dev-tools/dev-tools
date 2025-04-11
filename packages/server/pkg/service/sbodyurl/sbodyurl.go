@@ -3,6 +3,7 @@ package sbodyurl
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -22,7 +23,7 @@ func (bues BodyURLEncodedService) TX(tx *sql.Tx) BodyURLEncodedService {
 	return BodyURLEncodedService{queries: bues.queries.WithTx(tx)}
 }
 
-var ErrNoBodyUrlEncodedFound = sql.ErrNoRows
+var ErrNoBodyUrlEncodedFound = errors.New("no url-encoded body found")
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {
 	queries, err := gen.Prepare(ctx, tx)

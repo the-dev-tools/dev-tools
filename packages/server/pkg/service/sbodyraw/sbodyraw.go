@@ -3,6 +3,7 @@ package sbodyraw
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -14,7 +15,7 @@ type BodyRawService struct {
 	queries *gen.Queries
 }
 
-var ErrNoBodyRawFound = sql.ErrNoRows
+var ErrNoBodyRawFound = errors.New("no raw body found")
 
 func ConvertModelToGen(body mbodyraw.ExampleBodyRaw) gen.ExampleBodyRaw {
 	return gen.ExampleBodyRaw{

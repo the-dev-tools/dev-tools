@@ -3,6 +3,7 @@ package sexamplequery
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"sort"
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -11,7 +12,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
-var ErrNoQueryFound = sql.ErrNoRows
+var ErrNoQueryFound = errors.New("no error query found")
 
 func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
 	return gen.ExampleQuery{

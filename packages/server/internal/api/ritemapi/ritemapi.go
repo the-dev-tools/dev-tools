@@ -9,10 +9,12 @@ import (
 	"the-dev-tools/server/internal/api/rcollection"
 	"the-dev-tools/server/internal/api/ritemfolder"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/permcheck"
+	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sitemapi"
@@ -127,6 +129,11 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		BodyType:     mitemapiexample.BodyTypeNone,
 	}
 
+	rawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: example.ID,
+	}
+
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -139,6 +146,11 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	}
 
 	txIaes, err := sitemapiexample.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txRawBodyService, err := sbodyraw.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -159,6 +171,10 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	err = txRawBodyService.CreateBodyRaw(ctx, rawBody)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

@@ -15,7 +15,7 @@ type ItemApiExampleService struct {
 	Queries *gen.Queries
 }
 
-var ErrNoItemApiExampleFound = sql.ErrNoRows
+var ErrNoItemApiExampleFound = errors.New("no example found")
 
 func New(queries *gen.Queries) ItemApiExampleService {
 	return ItemApiExampleService{Queries: queries}
