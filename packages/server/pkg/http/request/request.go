@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/sort/sortenabled"
 	"the-dev-tools/server/pkg/varsystem"
 	"time"
 
@@ -57,6 +58,12 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 	}
+
+	// get only enabled
+	sortenabled.GetAllWithState(&headers, true)
+	sortenabled.GetAllWithState(&queries, true)
+	sortenabled.GetAllWithState(&formBody, true)
+	sortenabled.GetAllWithState(&urlBody, true)
 
 	compressType := compress.CompressTypeNone
 	if varMap != nil {

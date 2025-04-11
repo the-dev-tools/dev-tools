@@ -13,3 +13,7 @@ type Query struct {
 	ID            idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
 }
+
+func (q Query) IsEnabled() bool {
+	return q.Enable
+}

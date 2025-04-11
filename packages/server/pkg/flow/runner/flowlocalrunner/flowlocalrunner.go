@@ -154,13 +154,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.NodeID = result.originalID
 			node := req.NodeMap[result.originalID]
 			status.Name = node.GetName()
+			status.RunDuration = time.Since(timeStart[status.NodeID])
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
 				statusLogFunc(status)
 				return result.err
 			}
 			status.State = mnnode.NODE_STATE_SUCCESS
-			status.RunDuration = time.Since(timeStart[status.NodeID])
 			outputData, ok := req.VarMap[node.GetName()]
 			if ok {
 				status.OutputData = outputData
@@ -253,6 +253,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.NodeID = result.originalID
 			node := req.NodeMap[result.originalID]
 			status.Name = node.GetName()
+			status.RunDuration = time.Since(timeStart[status.NodeID])
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
 				statusLogFunc(status)
@@ -265,7 +266,6 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			} else {
 				status.OutputData = nil
 			}
-			status.RunDuration = time.Since(timeStart[status.NodeID])
 			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {

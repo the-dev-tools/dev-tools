@@ -13,3 +13,7 @@ type Header struct {
 	DeltaParentID *idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
 }
+
+func (h Header) IsEnabled() bool {
+	return h.Enable
+}

@@ -11,3 +11,7 @@ type BodyForm struct {
 	ID            idwrap.IDWrap  `json:"id"`
 	ExampleID     idwrap.IDWrap  `json:"example_id"`
 }
+
+func (bf BodyForm) IsEnabled() bool {
+	return bf.Enable
+}

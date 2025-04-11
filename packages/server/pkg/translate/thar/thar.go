@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"the-dev-tools/server/pkg/compress"
@@ -288,10 +287,12 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			connected = true
 		}
 
-		for _, header := range entry.Response.Headers {
-			path := fmt.Sprintf("{{ %s.%s.%s.%s }}", requestName, "response", "headers", http.CanonicalHeaderKey(header.Name))
-			depFinder.AddVar(header.Value, depfinder.VarCouple{Path: path, NodeID: flowNodeID})
-		}
+		/*
+			for _, header := range entry.Response.Headers {
+				path := fmt.Sprintf("{{ %s.%s.%s.%s }}", requestName, "response", "headers", http.CanonicalHeaderKey(header.Name))
+				depFinder.AddVar(header.Value, depfinder.VarCouple{Path: path, NodeID: flowNodeID})
+			}
+		*/
 
 		node := mnnode.MNode{
 			ID:        flowNodeID,

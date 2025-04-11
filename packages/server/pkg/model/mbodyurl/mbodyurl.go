@@ -11,3 +11,7 @@ type BodyURLEncoded struct {
 	ID            idwrap.IDWrap  `json:"id"`
 	ExampleID     idwrap.IDWrap  `json:"example_id"`
 }
+
+func (bue BodyURLEncoded) IsEnabled() bool {
+	return bue.Enable
+}
