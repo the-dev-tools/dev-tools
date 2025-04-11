@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/goccy/go-json"
 )
 
 type RequestResponseVar struct {
@@ -127,16 +126,13 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	switch example.BodyType {
 	case mitemapiexample.BodyTypeRaw:
 		if len(rawBody.Data) > 0 {
-			if json.Valid(rawBody.Data) {
-				bodyStr := string(rawBody.Data)
-				bodyStr, err = varMap.ReplaceVars(bodyStr)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeNotFound, err)
-				}
-				rawBody.Data = []byte(bodyStr)
+			bodyStr := string(rawBody.Data)
+			bodyStr, err = varMap.ReplaceVars(bodyStr)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
+			rawBody.Data = []byte(bodyStr)
 		}
-
 		_, err = bodyBytes.Write(rawBody.Data)
 		if err != nil {
 			return nil, err
