@@ -52,6 +52,7 @@ type Log struct {
 
 type Entry struct {
 	StartedDateTime time.Time `json:"startedDateTime"`
+	ResourceType    string    `json:"_resourceType"`
 	Request         Request   `json:"request"`
 	Response        Response  `json:"response"`
 }
@@ -457,6 +458,11 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 
 // Helper: returns true if the HAR entry is for an XHR request.
 func IsXHRRequest(entry Entry) bool {
+	// Check if the entry has _resourceType set to xhr
+	if entry.ResourceType == "xhr" {
+		return true
+	}
+
 	// Check the X-Requested-With header – common for XHR.
 	for _, header := range entry.Request.Headers {
 		if strings.EqualFold(header.Name, "X-Requested-With") &&

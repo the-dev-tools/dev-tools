@@ -3,7 +3,6 @@ package httpclient
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -99,16 +98,11 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 	}
 
 	encoding := resp.Header.Get("Content-Encoding")
-	switch encoding {
-	case "gzip":
-		data, err := compress.Decompress(body, compress.CompressTypeGzip)
+	if encoding != "" {
+		body, err = compress.DecompressWithContentEncodeStr(body, encoding)
 		if err != nil {
 			return Response{}, err
 		}
-		body = data
-	case "":
-	default:
-		return Response{}, fmt.Errorf("not support Content-Encoding: %s", encoding)
 	}
 
 	err = resp.Body.Close()

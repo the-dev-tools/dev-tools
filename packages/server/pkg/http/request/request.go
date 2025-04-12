@@ -94,7 +94,9 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				compressType = compress.CompressTypeGzip
 			case "zstd":
 				compressType = compress.CompressTypeZstd
-			case "deflate", "br", "identity":
+			case "br":
+				compressType = compress.CompressTypeBr
+			case "deflate", "identity":
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
 			default:
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))

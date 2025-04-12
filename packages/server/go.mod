@@ -16,6 +16,7 @@ require (
 )
 
 require (
+	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
