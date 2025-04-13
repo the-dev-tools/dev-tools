@@ -278,6 +278,7 @@ const genericFormTableColumnsShared = [
         className='flex-1'
         control={table.options.meta!.control!}
         name={`items.${index}.data.key`}
+        placeholder="Enter key"
         variant='table-cell'
       />
     ),
@@ -290,6 +291,7 @@ const genericFormTableColumnsShared = [
         className='flex-1'
         control={table.options.meta!.control!}
         name={`items.${index}.data.value`}
+        placeholder="Enter value"
         variant='table-cell'
       />
     ),
@@ -300,6 +302,7 @@ const genericFormTableColumnsShared = [
       <TextFieldRHF
         control={table.options.meta!.control!}
         name={`items.${row.index}.data.description`}
+        placeholder="Enter description"
         variant='table-cell'
       />
     ),
