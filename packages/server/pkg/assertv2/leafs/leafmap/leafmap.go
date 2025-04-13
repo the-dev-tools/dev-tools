@@ -3,6 +3,7 @@ package leafmap
 import (
 	"context"
 	"errors"
+	"maps"
 	"the-dev-tools/server/pkg/assertv2"
 )
 
@@ -19,12 +20,15 @@ func (l *LeafMap) SelectGVal(ctx context.Context, k string) (interface{}, error)
 	return leaf, nil
 }
 
-func ConvertMapToLeafMap(a map[string]interface{}) *LeafMap {
-	for k, v := range a {
-		castedMap, ok := v.(map[string]interface{})
+func ConvertMapToLeafMap(oldMap map[string]any) *LeafMap {
+	newMap := make(map[string]any)
+	maps.Copy(newMap, oldMap)
+
+	for k, v := range newMap {
+		castedMap, ok := v.(map[string]any)
 		if ok {
-			a[k] = ConvertMapToLeafMap(castedMap)
+			newMap[k] = ConvertMapToLeafMap(castedMap)
 		}
 	}
-	return &LeafMap{Leafs: a}
+	return &LeafMap{Leafs: newMap}
 }

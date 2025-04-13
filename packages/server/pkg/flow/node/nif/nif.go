@@ -51,7 +51,9 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
+	req.ReadWriteLock.Lock()
 	leafmap := leafmap.ConvertMapToLeafMap(req.VarMap)
+	req.ReadWriteLock.Unlock()
 	root := assertv2.NewAssertRoot(leafmap)
 	assertSys := assertv2.NewAssertSystem(root)
 
