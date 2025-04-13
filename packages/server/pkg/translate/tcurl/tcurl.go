@@ -25,6 +25,7 @@ type CurlResolved struct {
 }
 
 // Regular expressions for parsing curl commands
+// Regular expressions for parsing curl commands
 var (
 	// URL pattern matches URLs in curl commands
 	urlPattern = regexp.MustCompile(`(?:https?://|www\.)[^\s'"]+`)
@@ -34,6 +35,9 @@ var (
 
 	// Header pattern matches -H or --header flags with their values
 	headerPattern = regexp.MustCompile(`(?:-H|--header)\s+(?:'([^:]+):([^']+)'|"([^:]+):([^"]+)"|([^:]+):([^'"\s]+))`)
+
+	// Cookie pattern matches -b or --cookie flags with their values
+	cookiePattern = regexp.MustCompile(`(?:-b|--cookie)\s+(?:'([^']*)'|"([^"]*)"|([^\s'"][^\s]*))`)
 
 	// Data patterns for different types of data
 	dataPattern          = regexp.MustCompile(`(?:-d|--data|--data-raw|--data-binary)\s+(?:'([^']*)'|"([^"]*)"|([^\s'"][^\s]*))`)
@@ -82,6 +86,11 @@ func ConvertCurl(curlStr string, collectionID idwrap.IDWrap) (CurlResolved, erro
 
 	// Extract headers
 	headers := extractHeaders(normalizedCurl, exampleID)
+
+	// Extract cookies and add them as headers
+	cookieHeaders := extractCookies(normalizedCurl, exampleID)
+	headers = append(headers, cookieHeaders...)
+
 	result.Headers = headers
 
 	// Extract data bodies
@@ -103,7 +112,7 @@ func ConvertCurl(curlStr string, collectionID idwrap.IDWrap) (CurlResolved, erro
 		CollectionID: collectionID,
 		Method:       method,
 		Url:          baseURL,
-		Name:         fmt.Sprintf("CURL - %s", baseURL),
+		Name:         baseURL,
 	}
 
 	// If no explicit method was provided but we have data flags, assume POST
@@ -126,7 +135,7 @@ func ConvertCurl(curlStr string, collectionID idwrap.IDWrap) (CurlResolved, erro
 	example := mitemapiexample.ItemApiExample{
 		ID:           exampleID,
 		ItemApiID:    apiID,
-		Name:         "Example from curl",
+		Name:         baseURL,
 		CollectionID: collectionID,
 		IsDefault:    true,
 		BodyType:     bodyType,
@@ -251,6 +260,7 @@ func extractHeaders(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.He
 			ExampleID: exampleID,
 			HeaderKey: strings.TrimSpace(key),
 			Value:     strings.TrimSpace(value),
+			Enable:    true,
 		}
 		headers = append(headers, header)
 	}
@@ -377,4 +387,33 @@ func removeQuotes(s string) string {
 		return s[1 : len(s)-1]
 	}
 	return s
+}
+
+// extractCookies extracts cookies from a curl command and converts them to Cookie headers
+func extractCookies(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.Header {
+	var cookieHeaders []mexampleheader.Header
+
+	matches := cookiePattern.FindAllStringSubmatch(curlStr, -1)
+	for _, match := range matches {
+		// Check each capture group (single quotes, double quotes, or no quotes)
+		var cookieContent string
+		if match[1] != "" {
+			cookieContent = match[1] // Single quotes
+		} else if match[2] != "" {
+			cookieContent = match[2] // Double quotes
+		} else {
+			cookieContent = match[3] // No quotes
+		}
+
+		cookieHeader := mexampleheader.Header{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			HeaderKey: "Cookie",
+			Value:     strings.TrimSpace(cookieContent),
+			Enable:    true,
+		}
+		cookieHeaders = append(cookieHeaders, cookieHeader)
+	}
+
+	return cookieHeaders
 }

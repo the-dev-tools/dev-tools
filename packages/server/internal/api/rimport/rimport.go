@@ -103,7 +103,11 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				return nil, err
 			}
 
-			changes, err := c.ImportCurl(ctx, wsUlid, collectionID, "curl", curlResolved)
+			if len(curlResolved.Apis) == 0 {
+				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no api found"))
+			}
+
+			changes, err := c.ImportCurl(ctx, wsUlid, collectionID, curlResolved.Apis[0].Url, curlResolved)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -201,8 +205,8 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 
 func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) ([]*changev1.Change, error) {
 	collection := mcollection.Collection{
-		ID:      CollectionID,
-		Name:    name,
+		ID:          CollectionID,
+		Name:        name,
 		WorkspaceID: workspaceID,
 	}
 
@@ -342,8 +346,8 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 
 func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) ([]*changev1.Change, error) {
 	collection := mcollection.Collection{
-		ID:      CollectionID,
-		Name:    name,
+		ID:          CollectionID,
+		Name:        name,
 		WorkspaceID: workspaceID,
 	}
 
@@ -505,8 +509,8 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	collectionData := mcollection.Collection{
-		ID:      CollectionID,
-		Name:    name,
+		ID:          CollectionID,
+		Name:        name,
 		WorkspaceID: workspaceID,
 	}
 
