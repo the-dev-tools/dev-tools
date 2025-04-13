@@ -1,6 +1,7 @@
+import { create } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import { createQueryOptions } from '@connectrpc/connect-query';
-import { useSuspenseQueries } from '@tanstack/react-query';
+import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
+import { useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
@@ -21,6 +22,7 @@ import {
   bodyRawUpdate,
   bodyUrlEncodedItemList,
 } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
+import { ExampleGetResponseSchema } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
   exampleGet,
   exampleUpdate,
@@ -48,11 +50,14 @@ interface BodyViewProps {
 }
 
 export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProps) => {
-  const query = useConnectSuspenseQuery(exampleGet, { exampleId });
-  const updateMutation = useConnectMutation(exampleUpdate);
+  const { transport } = useRouteContext({ from: '__root__' });
 
-  if (!query.isSuccess) return null;
-  const { bodyKind } = query.data;
+  const queryClient = useQueryClient();
+
+  const {
+    data: { bodyKind },
+  } = useConnectSuspenseQuery(exampleGet, { exampleId });
+  const updateMutation = useConnectMutation(exampleUpdate);
 
   return (
     <div className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
@@ -60,7 +65,23 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
         aria-label='Body type'
         className='h-7 justify-center'
         isReadOnly={isReadOnly ?? false}
-        onChange={(key) => void updateMutation.mutate({ bodyKind: parseInt(key), exampleId })}
+        onChange={async (key) => {
+          await updateMutation.mutateAsync({ bodyKind: parseInt(key), exampleId });
+
+          // TODO: remove manual update once optional field normalization is fixed
+          queryClient.setQueryData(
+            createConnectQueryKey({
+              cardinality: 'finite',
+              input: { exampleId },
+              schema: exampleGet,
+              transport,
+            }),
+            createProtobufSafeUpdater(exampleGet, (_) => ({
+              ...(_ ?? create(ExampleGetResponseSchema)),
+              bodyKind: parseInt(key),
+            })),
+          );
+        }}
         orientation='horizontal'
         value={bodyKind.toString()}
       >
