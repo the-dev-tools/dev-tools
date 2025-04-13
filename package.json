@@ -12,7 +12,7 @@
     "@the-dev-tools/eslint-config": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
     "@typespec/compiler": "1.0.0-rc.0",
-    "@typespec/prettier-plugin-typespec": "~0.68.0",
+    "@typespec/prettier-plugin-typespec": "1.0.0-rc.0",
     "eslint": "~9.24.0",
     "jiti": "~2.4.0",
     "nx": "~20.7.2",

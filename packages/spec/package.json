@@ -12,14 +12,14 @@
     "./meta/*": "./dist/meta/*"
   },
   "devDependencies": {
-    "@bufbuild/buf": "~1.52.0",
+    "@bufbuild/buf": "~1.52.1",
     "@bufbuild/protobuf": "~2.2.5",
     "@bufbuild/protoc-gen-es": "~2.2.5",
     "@connectrpc/protoc-gen-connect-query": "~2.0.1",
-    "@types/node": "~22.14.0",
+    "@types/node": "~22.14.1",
     "@typespec/protobuf": "~0.68.0",
     "@typespec/rest": "~0.68.0",
-    "effect": "~3.14.6",
+    "effect": "~3.14.8",
     "prettier": "~3.5.3",
     "rimraf": "~6.0.1",
     "typescript": "~5.8.3"
