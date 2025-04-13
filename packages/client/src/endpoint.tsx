@@ -801,11 +801,11 @@ interface ResponseBodyViewProps {
 const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
   const body = new TextDecoder().decode(bodyBytes);
 
-  // Start with Pretty tab selected
-  const [selectedKey, setSelectedKey] = useState('pretty');
-
   return (
-    <Tabs className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4' selectedKey={selectedKey} onSelectionChange={setSelectedKey}>
+    <Tabs
+      className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'
+      defaultSelectedKey='pretty'
+    >
       <TabList className='flex gap-1 self-start rounded-md border border-slate-100 bg-slate-100 p-0.5 text-xs leading-5 tracking-tight'>
         <Tab
           className={({ isSelected }) =>
@@ -846,7 +846,7 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <ResponseBodyPrettyView body={body} />
       </TabPanel>
 
-      <TabPanel className='col-span-full font-mono overflow-auto whitespace-pre' id='raw'>
+      <TabPanel className='col-span-full overflow-auto whitespace-pre font-mono' id='raw'>
         {body}
       </TabPanel>
 
@@ -862,62 +862,55 @@ interface ResponseBodyPrettyViewProps {
 }
 
 const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
-  // Auto-detect content type for better initial experience
-  const detectLanguage = (): CodeMirrorMarkupLanguage => {
-    try {
-      // Try to parse as JSON
-      JSON.parse(body);
-      return 'json';
-    } catch {
-      // Check for HTML tags
-      if (/<\/?[a-z][\s\S]*>/i.test(body)) {
-        return 'html';
-      }
-      // Check for XML structure
-      if (/<\?xml|<[a-z]+:[a-z]+/i.test(body)) {
-        return 'xml';
-      }
-      return 'text';
-    }
-  };
+  const initialLanguage = pipe(
+    Match.value(body),
+    Match.when(
+      (_) => pipe(_, Schema.decodeUnknownOption(Schema.parseJson()), Option.isSome),
+      (): CodeMirrorMarkupLanguage => 'json',
+    ),
+    Match.when(
+      (_) => /<\?xml|<[a-z]+:[a-z]+/i.test(_),
+      (): CodeMirrorMarkupLanguage => 'xml',
+    ),
+    Match.when(
+      (_) => /<\/?[a-z][\s\S]*>/i.test(_),
+      (): CodeMirrorMarkupLanguage => 'html',
+    ),
+    Match.orElse((): CodeMirrorMarkupLanguage => 'text'),
+  );
 
-  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>(detectLanguage());
+  const [language, setLanguage] = useState(initialLanguage);
 
-  const { data: prettierBody, isLoading } = useQuery({
-    initialData: '',
+  const { data: prettierBody } = useQuery({
+    initialData: 'Formatting...',
     queryFn: async () => {
       if (language === 'text') return body;
 
-      try {
-        const plugins = await pipe(
-          Match.value(language),
-          Match.when('json', () => [import('prettier/plugins/estree'), import('prettier/plugins/babel')]),
-          Match.when('html', () => [import('prettier/plugins/html')]),
-          Match.when('xml', () => [import('@prettier/plugin-xml')]),
-          Match.exhaustive,
-          Array.map((_) => _.then((_) => _.default)),
-          (_) => Promise.all(_),
-        );
+      const plugins = await pipe(
+        Match.value(language),
+        Match.when('json', () => [import('prettier/plugins/estree'), import('prettier/plugins/babel')]),
+        Match.when('html', () => [import('prettier/plugins/html')]),
+        Match.when('xml', () => [import('@prettier/plugin-xml')]),
+        Match.exhaustive,
+        Array.map((_) => _.then((_) => _.default)),
+        (_) => Promise.all(_),
+      );
 
-        const parser = pipe(
-          Match.value(language),
-          Match.when('json', () => 'json-stringify'),
-          Match.orElse((_) => _),
-        );
+      const parser = pipe(
+        Match.value(language),
+        Match.when('json', () => 'json-stringify'),
+        Match.orElse((_) => _),
+      );
 
-        return await prettierFormat(body, {
-          htmlWhitespaceSensitivity: 'ignore',
-          parser,
-          plugins,
-          printWidth: 100,
-          singleAttributePerLine: true,
-          tabWidth: 2,
-          xmlWhitespaceSensitivity: 'ignore',
-        });
-      } catch (error) {
-        console.error('Formatting error:', error);
-        return body;
-      }
+      return await prettierFormat(body, {
+        htmlWhitespaceSensitivity: 'ignore',
+        parser,
+        plugins,
+        printWidth: 100,
+        singleAttributePerLine: true,
+        tabWidth: 2,
+        xmlWhitespaceSensitivity: 'ignore',
+      }).catch(() => body);
     },
     queryKey: ['prettier', language, body],
   });
@@ -945,7 +938,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
         extensions={extensions}
         height='100%'
         readOnly
-        value={isLoading ? 'Formatting...' : prettierBody}
+        value={prettierBody}
       />
     </>
   );
