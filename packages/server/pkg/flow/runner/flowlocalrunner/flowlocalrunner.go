@@ -3,6 +3,7 @@ package flowlocalrunner
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -184,7 +185,16 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 	return nil
 }
 
-const goroutineCount = 10
+func MaxParallelism() int {
+	maxProcs := runtime.GOMAXPROCS(0)
+	numCPU := runtime.NumCPU()
+	if maxProcs < numCPU {
+		return maxProcs
+	}
+	return numCPU
+}
+
+var goroutineCount int = MaxParallelism()
 
 // RunNodeASync runs nodes with timeout handling
 func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,

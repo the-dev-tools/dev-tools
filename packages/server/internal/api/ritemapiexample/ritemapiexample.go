@@ -291,6 +291,7 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 }
 
 func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Request[examplev1.ExampleUpdateRequest]) (*connect.Response[examplev1.ExampleUpdateResponse], error) {
+
 	exampleIDWrap, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
@@ -305,14 +306,27 @@ func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found example"))
 	}
 
-	exRPC := req.Msg
-	ex := &mitemapiexample.ItemApiExample{
-		ID:       exampleIDWrap,
-		Name:     exRPC.GetName(),
-		BodyType: mitemapiexample.BodyType(exRPC.GetBodyKind()),
+	dbExample, err := c.iaes.GetApiExample(ctx, exampleIDWrap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = c.iaes.UpdateItemApiExample(ctx, ex)
+	var change bool
+	exRPC := req.Msg
+	if exRPC.Name != nil {
+		dbExample.Name = *exRPC.Name
+		change = true
+	}
+	if exRPC.BodyKind != nil {
+		dbExample.BodyType = mitemapiexample.BodyType(*exRPC.BodyKind)
+		change = true
+	}
+
+	if !change {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("all fields are null"))
+	}
+
+	err = c.iaes.UpdateItemApiExample(ctx, dbExample)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
