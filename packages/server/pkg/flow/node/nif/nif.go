@@ -57,7 +57,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	root := assertv2.NewAssertRoot(leafmap)
 	assertSys := assertv2.NewAssertSystem(root)
 
-	var val interface{}
+	var val any
 	// parse int, float or bool if all fails make it string
 	if v, err := strconv.ParseInt(n.Value, 0, 64); err == nil {
 		val = v
@@ -66,7 +66,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	} else if v, err := strconv.ParseBool(n.Value); err == nil {
 		val = v
 	} else {
-		val = n
+		val = n.Value
 	}
 
 	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, val)
@@ -96,7 +96,7 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	root := assertv2.NewAssertRoot(leafmap)
 	assertSys := assertv2.NewAssertSystem(root)
 
-	var val interface{}
+	var val any
 	// parse int, float or bool if all fails make it string
 	if v, err := strconv.ParseInt(n.Value, 0, 64); err == nil {
 		val = v
@@ -105,7 +105,7 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	} else if v, err := strconv.ParseBool(n.Value); err == nil {
 		val = v
 	} else {
-		val = n
+		val = n.Value
 	}
 	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, val)
 	if err != nil {

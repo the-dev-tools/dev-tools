@@ -214,7 +214,7 @@ func (s AssertSystem) EvalMap(ctx context.Context, expr string, extensions ...gv
 	return arr, nil
 }
 
-func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, path string, value interface{}) (bool, error) {
+func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, path string, value any) (bool, error) {
 	// Regex should not contain any special characters
 	// only dot (.) is allowed
 	// TODO: change the regex to allow only dot (.), underscore (_), and hyphen (-)
