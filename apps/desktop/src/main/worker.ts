@@ -8,7 +8,9 @@ import {
   HttpServerRequest,
   HttpServerResponse,
 } from '@effect/platform';
-import { NodeHttpServer, NodeHttpServerRequest, NodeRuntime } from '@effect/platform-node';
+import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
+import * as NodeHttpServerRequest from '@effect/platform-node/NodeHttpServerRequest';
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Array, Console, Effect, Layer, pipe, Stream } from 'effect';
 import { createServer, IncomingMessage } from 'http';
 

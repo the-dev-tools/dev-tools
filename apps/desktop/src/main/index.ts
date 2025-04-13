@@ -1,5 +1,6 @@
 import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
-import { NodeContext, NodeRuntime } from '@effect/platform-node';
+import * as NodeContext from '@effect/platform-node/NodeContext';
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';

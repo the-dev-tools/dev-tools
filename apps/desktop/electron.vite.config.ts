@@ -5,7 +5,7 @@ import TSConfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@effect/platform-node', 'electron-updater'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['electron-updater'] })],
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
