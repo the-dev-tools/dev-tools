@@ -124,9 +124,17 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
+	if ctx.Err() != nil {
+		return result
+	}
+
 	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
+		return result
+	}
+
+	if ctx.Err() != nil {
 		return result
 	}
 
@@ -157,6 +165,10 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, nr.ExampleRespHeader, nr.ExampleAsserts)
 	if err != nil {
 		result.Err = err
+		return result
+	}
+
+	if ctx.Err() != nil {
 		return result
 	}
 
@@ -194,10 +206,18 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
+	if ctx.Err() != nil {
+		return
+	}
+
 	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
+		return
+	}
+
+	if ctx.Err() != nil {
 		return
 	}
 
@@ -245,6 +265,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		UrlBody:  nr.UrlBody,
 
 		Resp: *respCreate,
+	}
+	if ctx.Err() != nil {
+		return
 	}
 
 	// TODO: add some functionality here

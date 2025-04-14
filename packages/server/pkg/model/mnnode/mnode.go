@@ -26,14 +26,15 @@ const (
 	NODE_STATE_RUNNING     NodeState = 1
 	NODE_STATE_SUCCESS     NodeState = 2
 	NODE_STATE_FAILURE     NodeState = 3
+	NODE_STATE_CANCELED    NodeState = 4
 )
 
 func StringNodeState(a NodeState) string {
-	return [...]string{"Unspecified", "Running", "Success", "Failure"}[a]
+	return [...]string{"Unspecified", "Running", "Success", "Failure", "Canceled"}[a]
 }
 
 func StringNodeStateWithIcons(a NodeState) string {
-	return [...]string{"🔄 Starting", "⏳ Running", "✅ Success", "❌ Failed"}[a]
+	return [...]string{"🔄 Starting", "⏳ Running", "✅ Success", "❌ Failed", "Canceled"}[a]
 }
 
 type MNode struct {

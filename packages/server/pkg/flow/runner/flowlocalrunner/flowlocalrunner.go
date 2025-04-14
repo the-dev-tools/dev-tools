@@ -106,6 +106,21 @@ func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest
 	return res.NextNodeID, res.Err
 }
 
+type FlowNodeStatusLocal struct {
+	StartTime time.Time
+}
+
+func MaxParallelism() int {
+	maxProcs := runtime.GOMAXPROCS(0)
+	numCPU := runtime.NumCPU()
+	if maxProcs < numCPU {
+		return maxProcs
+	}
+	return numCPU
+}
+
+var goroutineCount int = MaxParallelism()
+
 func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
 ) error {
@@ -120,24 +135,27 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		resultChan := make(chan processResult, processCount)
 
 		// TODO: can be done better
-		timeStart := make(map[idwrap.IDWrap]time.Time, processCount)
+		nodeStateMap := make(map[idwrap.IDWrap]FlowNodeStatusLocal, processCount)
+
+		subqueue := queue[:processCount]
 
 		wg.Add(processCount)
-		for i := range processCount {
-			id := queue[i]
+		FlowNodeCancelCtx, FlowNodeCancelCtxCancel := context.WithCancel(ctx)
+		defer FlowNodeCancelCtxCancel()
+		for _, flowNodeId := range subqueue {
 
-			status.NodeID = id
-			status.Name = req.NodeMap[id].GetName()
+			status.NodeID = flowNodeId
+			status.Name = req.NodeMap[flowNodeId].GetName()
 			status.State = mnnode.NODE_STATE_RUNNING
 			statusLogFunc(status)
-			currentNode, ok := req.NodeMap[id]
+			currentNode, ok := req.NodeMap[flowNodeId]
 			if !ok {
 				return fmt.Errorf("node not found: %v", currentNode)
 			}
-			timeStart[id] = time.Now()
+			nodeStateMap[flowNodeId] = FlowNodeStatusLocal{StartTime: time.Now()}
 			go func() {
 				defer wg.Done()
-				ids, localErr := processNode(ctx, currentNode, req)
+				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 				resultChan <- processResult{
 					originalID: currentNode.GetID(),
 					nextNodes:  ids,
@@ -149,17 +167,27 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		wg.Wait()
 
 		close(resultChan)
-		queue = queue[processCount:]
 
+		var lastNodeError error
 		for result := range resultChan {
 			status.NodeID = result.originalID
 			currentNode := req.NodeMap[result.originalID]
 			status.Name = currentNode.GetName()
-			status.RunDuration = time.Since(timeStart[status.NodeID])
+			nodeState := nodeStateMap[status.NodeID]
+			status.RunDuration = time.Since(nodeState.StartTime)
+			if FlowNodeCancelCtx.Err() != nil {
+				fmt.Println(FlowNodeCancelCtx.Err())
+				status.State = mnnode.NODE_STATE_CANCELED
+				statusLogFunc(status)
+				continue
+			}
+
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
 				statusLogFunc(status)
-				return result.err
+				lastNodeError = result.err
+				FlowNodeCancelCtxCancel()
+				continue
 			}
 
 			status.State = mnnode.NODE_STATE_SUCCESS
@@ -180,21 +208,17 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				}
 			}
 		}
+
+		if lastNodeError != nil {
+			return lastNodeError
+		}
+
+		// remove from queue
+		queue = queue[processCount:]
 	}
 
 	return nil
 }
-
-func MaxParallelism() int {
-	maxProcs := runtime.GOMAXPROCS(0)
-	numCPU := runtime.NumCPU()
-	if maxProcs < numCPU {
-		return maxProcs
-	}
-	return numCPU
-}
-
-var goroutineCount int = MaxParallelism()
 
 // RunNodeASync runs nodes with timeout handling
 func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
@@ -207,8 +231,8 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		processCount = min(goroutineCount, queueLen)
 
-		ctxTimed, cancelFn := context.WithDeadline(ctx, time.Now().Add(req.Timeout))
-		defer cancelFn()
+		ctxTimed, cancelTimeFn := context.WithDeadline(ctx, time.Now().Add(req.Timeout))
+		defer cancelTimeFn()
 
 		var wg sync.WaitGroup
 		resultChan := make(chan processResult, processCount)
@@ -217,6 +241,8 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 		timeStart := make(map[idwrap.IDWrap]time.Time, processCount)
 
 		wg.Add(processCount)
+		FlowNodeCancelCtx, FlowNodeCancelCtxCancelFn := context.WithCancel(ctxTimed)
+		defer FlowNodeCancelCtxCancelFn()
 		for i := range processCount {
 			id := queue[i]
 
@@ -233,7 +259,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 			go func() {
 				defer wg.Done()
-				ids, localErr := processNode(ctxTimed, currentNode, req)
+				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 				if ctxTimed.Err() != nil {
 					return
 				}
@@ -256,21 +282,28 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			<-waitCh
 			return ctxTimed.Err()
 		case <-waitCh:
-			cancelFn()
 		}
 
 		close(resultChan)
 		queue = queue[processCount:]
 
+		var lastNodeError error
 		for result := range resultChan {
 			status.NodeID = result.originalID
 			currentNode := req.NodeMap[result.originalID]
 			status.Name = currentNode.GetName()
 			status.RunDuration = time.Since(timeStart[status.NodeID])
+			if FlowNodeCancelCtx.Err() != nil {
+				status.State = mnnode.NODE_STATE_CANCELED
+				statusLogFunc(status)
+				continue
+			}
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
 				statusLogFunc(status)
-				return result.err
+				lastNodeError = result.err
+				FlowNodeCancelCtxCancelFn()
+				continue
 			}
 			status.State = mnnode.NODE_STATE_SUCCESS
 			outputData, err := node.ReadVarRaw(req, status.Name)
@@ -289,6 +322,10 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 					req.PendingAtmoicMap[id] = i - 1
 				}
 			}
+		}
+
+		if lastNodeError != nil {
+			return lastNodeError
 		}
 	}
 
