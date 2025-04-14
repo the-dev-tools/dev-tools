@@ -359,7 +359,6 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 	}
 
 	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
-	assert.Enable = true
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -367,11 +366,14 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if assert.Type == massert.AssertType(referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED) {
-		assert.Type = assertDB.Type
+	if assert.Type != massert.AssertType(referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED) {
+		assertDB.Type = assert.Type
 	}
 	if assert.Path != "" {
 		assertDB.Path = assert.Path
+	}
+	if assert.Value != "" {
+		assertDB.Value = assert.Value
 	}
 
 	err = c.as.UpdateAssert(ctx, *assertDB)
