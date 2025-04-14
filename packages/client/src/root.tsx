@@ -20,13 +20,14 @@ export interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: () => (
     <>
+      <ToastRegion />
+      <Outlet />
+
       <DevToolsProvider>
-        <ToastRegion />
         <TanStackRouterDevTools position='bottom-right' toggleButtonProps={{ class: tw`!bottom-3 !right-16` }} />
         <ReactQueryDevTools buttonPosition='bottom-right' />
         <ReactScanDevTools />
       </DevToolsProvider>
-      <Outlet />
     </>
   ),
   errorComponent: ErrorComponent,
