@@ -343,10 +343,21 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 }
 
 func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[requestv1.AssertUpdateRequest]) (*connect.Response[requestv1.AssertUpdateResponse], error) {
+	assertID, err := idwrap.NewFromBytes(req.Msg.GetAssertId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerAssert(ctx, c.as, c.iaes, c.cs, c.us, assertID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
 	rpcAssert := requestv1.Assert{
 		AssertId:  req.Msg.GetAssertId(),
 		Condition: req.Msg.GetCondition(),
 	}
+
 	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
 	assert.Enable = true
 	if err != nil {
@@ -365,11 +376,6 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 		if pathKey.GetKind() == referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED {
 			comp.Path[i].Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
 		}
-	}
-
-	rpcErr := permcheck.CheckPerm(CheckOwnerAssert(ctx, c.as, c.iaes, c.cs, c.us, assert.ID))
-	if rpcErr != nil {
-		return nil, rpcErr
 	}
 	err = c.as.UpdateAssert(ctx, assert)
 	if err != nil {

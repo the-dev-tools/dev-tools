@@ -123,6 +123,7 @@ enum NodeState {
   NODE_STATE_RUNNING: 1,
   NODE_STATE_SUCCESS: 2,
   NODE_STATE_FAILURE: 3,
+  NODE_STATE_CANCELED: 4,
 }
 
 @autoFields
