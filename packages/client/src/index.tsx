@@ -1,4 +1,6 @@
-import 'react-scan';
+import { scan } from 'react-scan';
+
+//* React Scan must be instantiated first
 import { TransportProvider } from '@connectrpc/connect-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -22,6 +24,8 @@ import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
 import './styles.css';
+
+scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 
 const makeRouter = Effect.gen(function* () {
   // TODO: create an Electron-related layer instead to better represent this logic

@@ -13,7 +13,7 @@ import {
   useState,
 } from 'react';
 import { Control, FieldValues } from 'react-hook-form';
-import { scan as reactScan, Options as ReactScanOptions } from 'react-scan';
+import { Options as ReactScanOptions, setOptions } from 'react-scan';
 import { twMerge } from 'tailwind-merge';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -89,7 +89,7 @@ export const ReactScanDevTools = (props: ReactScanOptions) => {
   const show = useContext(ShowDevToolsContext);
 
   useEffect(() => {
-    reactScan({ enabled: show, ...props });
+    setOptions({ enabled: false, showToolbar: show, ...props });
   }, [props, show]);
 
   return null;
