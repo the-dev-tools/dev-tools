@@ -14,6 +14,7 @@ import {
   useState,
 } from 'react';
 import { Control, FieldValues } from 'react-hook-form';
+import { scan as reactScan, Options as ReactScanOptions } from 'react-scan';
 import { twMerge } from 'tailwind-merge';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -77,4 +78,14 @@ export const RHFDevTools = <T extends FieldValues>({ className, control, id, ...
       </div>
     </Suspense>
   );
+};
+
+export const ReactScanDevTools = (props: ReactScanOptions) => {
+  const show = useContext(ShowDevToolsContext);
+
+  useEffect(() => {
+    reactScan({ enabled: show, ...props });
+  }, [props, show]);
+
+  return null;
 };

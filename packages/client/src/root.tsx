@@ -7,7 +7,7 @@ import { Runtime } from 'effect';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ToastRegion } from '@the-dev-tools/ui/toast';
 import { AuthTransport, MagicClient } from '~/api/auth';
-import { DevToolsProvider, ReactQueryDevTools, TanStackRouterDevTools } from '~dev-tools';
+import { DevToolsProvider, ReactQueryDevTools, ReactScanDevTools, TanStackRouterDevTools } from '~dev-tools';
 
 import { ErrorComponent } from './error';
 
@@ -24,6 +24,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         <ToastRegion />
         <TanStackRouterDevTools position='bottom-right' toggleButtonProps={{ class: tw`!bottom-3 !right-16` }} />
         <ReactQueryDevTools buttonPosition='bottom-right' />
+        <ReactScanDevTools />
       </DevToolsProvider>
       <Outlet />
     </>

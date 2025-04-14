@@ -1,3 +1,4 @@
+import 'react-scan';
 import { TransportProvider } from '@connectrpc/connect-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
