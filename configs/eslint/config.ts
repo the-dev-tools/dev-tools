@@ -8,6 +8,7 @@ import { flatConfigs as importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import perfectionistRaw from 'eslint-plugin-perfectionist';
 import react from 'eslint-plugin-react';
+import * as reactCompilerPlugin from 'eslint-plugin-react-compiler';
 import { configs as reactHooks } from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import { resolve } from 'node:path';
@@ -41,6 +42,11 @@ const settings: Linter.Config = {
     perfectionist: { partitionByComment: '^s*\\*.*' },
     react: { version: 'detect' },
   },
+};
+
+const reactCompiler: ConfigArray[number] = {
+  plugins: { 'react-compiler': reactCompilerPlugin },
+  rules: { 'react-compiler/react-compiler': 'error' },
 };
 
 const perfectionist = {
@@ -108,6 +114,7 @@ const config: ConfigArray = [
   react.configs.flat['recommended']!,
   react.configs.flat['jsx-runtime']!,
   reactHooks['recommended-latest'],
+  reactCompiler,
 
   jsxA11y.flatConfigs.recommended,
 

@@ -112,14 +112,14 @@ export const useFieldArrayTasks = <
   wait = 200,
 }: UseFieldArrayTasksProps<TFieldValues, TItemPath, TKey, TItem>) => {
   const isPending = useRef(false);
-  const tasks = useRef(new Map<TKey, Task<TItem>>()).current;
-  const ignoreChanges = useRef(new Set<TKey>()).current;
+  const tasks = useRef(new Map<TKey, Task<TItem>>());
+  const ignoreChanges = useRef(new Set<TKey>());
 
   const itemTransaction = useCallback(
     (key: TKey, callback: () => void) => {
-      ignoreChanges.add(key);
+      ignoreChanges.current.add(key);
       callback();
-      ignoreChanges.delete(key);
+      ignoreChanges.current.delete(key);
     },
     [ignoreChanges],
   );
@@ -130,12 +130,12 @@ export const useFieldArrayTasks = <
     isPending.current = true;
 
     await pipe(
-      Array.fromIterable(tasks),
+      Array.fromIterable(tasks.current),
       Array.map(async ([key, task]) => {
         await onTask(task);
-        const nextTask = tasks.get(key);
+        const nextTask = tasks.current.get(key);
         if (!nextTask) return;
-        if (nextTask.index === task.index && nextTask.type === task.type) tasks.delete(key);
+        if (nextTask.index === task.index && nextTask.type === task.type) tasks.current.delete(key);
       }),
       (_) => Promise.allSettled(_),
     );
@@ -148,9 +148,9 @@ export const useFieldArrayTasks = <
       const item = form.getValues(itemPath(index));
       const key = itemKey(item);
 
-      if (ignoreChanges.has(key)) return;
+      if (ignoreChanges.current.has(key)) return;
 
-      tasks.set(key, { index, item, type });
+      tasks.current.set(key, { index, item, type });
       void processTasks();
     },
     [form, ignoreChanges, itemKey, itemPath, processTasks, tasks],
