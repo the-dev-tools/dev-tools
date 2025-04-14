@@ -1,5 +1,27 @@
 package rrequest_test
 
+import (
+	"context"
+	"testing"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rrequest"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/service/sassert"
+	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/sexampleheader"
+	"the-dev-tools/server/pkg/service/sexamplequery"
+	"the-dev-tools/server/pkg/service/sitemapi"
+	"the-dev-tools/server/pkg/service/sitemapiexample"
+	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/testutil"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
+
+	"connectrpc.com/connect"
+)
+
 /*
 func TestRPCRequestHeaderCreate(t *testing.T) {
 	ctx := context.Background()
@@ -509,7 +531,6 @@ func TestRPCRequestAssertGet(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -596,7 +617,6 @@ func TestRPCRequestAssertUpdate(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -638,10 +658,14 @@ func TestRPCRequestAssertUpdate(t *testing.T) {
 	const updatedType = massert.AssertTypeEqual
 
 	req := connect.NewRequest(&requestv1.AssertUpdateRequest{
-		ExampleId: exampleID.Bytes(),
-		AssertId:  assert.ID.Bytes(),
-		Value:     updatedValue,
-		Type:      assertv1.AssertKind_ASSERT_KIND_EQUAL,
+		AssertId: assert.ID.Bytes(),
+		Condition: &conditionv1.Condition{
+			Comparison: &conditionv1.Comparison{
+				Path:  []*referencev1.ReferenceKey{},
+				Kind:  conditionv1.ComparisonKind_COMPARISON_KIND_EQUAL,
+				Value: "aaaa",
+			},
+		},
 	})
 
 	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
@@ -657,6 +681,7 @@ func TestRPCRequestAssertUpdate(t *testing.T) {
 	testutil.Assert(t, exampleID, updatedAssert.ExampleID)
 	testutil.Assert(t, assert.Enable, updatedAssert.Enable)
 }
+*/
 
 func TestRPCRequestAssertDelete(t *testing.T) {
 	ctx := context.Background()
@@ -688,7 +713,6 @@ func TestRPCRequestAssertDelete(t *testing.T) {
 		Url:          "test",
 		Method:       "GET",
 		CollectionID: CollectionID,
-		ParentID:     nil,
 	}
 
 	err := ias.CreateItemApi(ctx, item)
@@ -724,8 +748,7 @@ func TestRPCRequestAssertDelete(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 
 	req := connect.NewRequest(&requestv1.AssertDeleteRequest{
-		ExampleId: exampleID.Bytes(),
-		AssertId:  assert.ID.Bytes(),
+		AssertId: assert.ID.Bytes(),
 	})
 
 	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
@@ -738,4 +761,3 @@ func TestRPCRequestAssertDelete(t *testing.T) {
 	testutil.Assert(t, sassert.ErrNoAssertFound, err)
 	testutil.Assert(t, nil, updatedAssert)
 }
-*/

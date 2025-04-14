@@ -370,14 +370,11 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 	if assert.Type == massert.AssertType(referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED) {
 		assert.Type = assertDB.Type
 	}
-
-	comp := rpcAssert.Condition.Comparison
-	for i, pathKey := range comp.Path {
-		if pathKey.GetKind() == referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED {
-			comp.Path[i].Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
-		}
+	if assert.Path != "" {
+		assertDB.Path = assert.Path
 	}
-	err = c.as.UpdateAssert(ctx, assert)
+
+	err = c.as.UpdateAssert(ctx, *assertDB)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

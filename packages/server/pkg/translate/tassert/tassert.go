@@ -14,27 +14,29 @@ import (
 
 func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 	var pathKeys []*referencev1.ReferenceKey
-	str := strings.Split(a.Path, ".")
-	arrayRegex := regexp.MustCompile(`\[(\d+)\]`)
-	for _, s := range str {
-		pathKey := referencev1.ReferenceKey{
-			Key: &s,
-		}
-		arr := arrayRegex.MatchString(s)
-		if arr {
-			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
-			path := arrayRegex.FindStringSubmatch(s)[1]
-			pathInt, err := strconv.Atoi(path)
-			if err != nil {
-				return nil, err
+	if a.Path != "" {
+		str := strings.Split(a.Path, ".")
+		arrayRegex := regexp.MustCompile(`\[(\d+)\]`)
+		for _, s := range str {
+			pathKey := referencev1.ReferenceKey{
+				Key: &s,
 			}
-			index := int32(pathInt)
-			pathKey.Index = &index
+			arr := arrayRegex.MatchString(s)
+			if arr {
+				pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX
+				path := arrayRegex.FindStringSubmatch(s)[1]
+				pathInt, err := strconv.Atoi(path)
+				if err != nil {
+					return nil, err
+				}
+				index := int32(pathInt)
+				pathKey.Index = &index
+			}
+			if s != "any" {
+				pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY
+			}
+			pathKeys = append(pathKeys, &pathKey)
 		}
-		if s != "any" {
-			pathKey.Kind = referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY
-		}
-		pathKeys = append(pathKeys, &pathKey)
 	}
 
 	var deltaParentIDBytes []byte
