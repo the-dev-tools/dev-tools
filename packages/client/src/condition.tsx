@@ -65,7 +65,7 @@ export const ConditionField = <
           control={resolvedControl}
           isDisabled={isReadOnly ?? false}
           name={`${resolvedPath}.comparison.kind`}
-          triggerClassName={tw`h-full justify-between`}
+          triggerClassName={tw`h-8 justify-between`}
         >
           <ListBoxItem id={ComparisonKind.EQUAL}>is equal to</ListBoxItem>
           <ListBoxItem id={ComparisonKind.NOT_EQUAL}>is not equal to</ListBoxItem>
@@ -78,7 +78,7 @@ export const ConditionField = <
         </SelectRHF>
 
         <TextFieldRHF
-          className={tw`h-full flex-[2]`}
+          className={tw`h-8 flex-[2]`}
           control={resolvedControl}
           inputClassName={tw`h-full`}
           inputPlaceholder='Enter comparison value'

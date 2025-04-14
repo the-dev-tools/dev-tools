@@ -272,7 +272,7 @@ export const ReferenceField = ({ buttonClassName, isReadOnly, path, ...mixProps 
     <DialogTrigger>
       <Button
         {...props.button}
-        className={composeRenderPropsTW(buttonClassName, tw`justify-start`)}
+        className={composeRenderPropsTW(buttonClassName, tw`h-8 justify-start`)}
         isDisabled={isReadOnly ?? false}
       >
         {path.length > 0 ? <ReferencePath path={path} /> : <span className={tw`p-1`}>Select reference</span>}
