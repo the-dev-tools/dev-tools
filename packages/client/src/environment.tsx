@@ -289,6 +289,9 @@ interface VariablesTableProps {
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+
   const { transport } = useRouteContext({ from: '__root__' });
   const variableService = useMemo(() => createClient(VariableService, transport), [transport]);
 

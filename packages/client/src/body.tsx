@@ -133,6 +133,9 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 
@@ -219,6 +222,9 @@ interface UrlEncodedFormTableProps {
 }
 
 const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
 

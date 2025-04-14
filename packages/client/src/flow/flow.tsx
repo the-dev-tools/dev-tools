@@ -518,6 +518,8 @@ const variableColumns = [
 ];
 
 const SettingsPanel = () => {
+  'use no memo';
+
   const { flowId } = flowRoute.useLoaderData();
 
   const create = useConnectMutation(flowVariableCreate);

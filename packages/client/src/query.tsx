@@ -58,6 +58,9 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+
   const { transport } = useRouteContext({ from: '__root__' });
   const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
 

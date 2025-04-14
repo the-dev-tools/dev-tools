@@ -50,9 +50,11 @@ export const HidePlaceholderCell = ({
   row: { index },
   table: { getRowCount },
   ...props
-}: HidePlaceholderCellProps) => (
-  <div {...props} className={twJoin(className, index + 1 === getRowCount() && tw`invisible`)} />
-);
+}: HidePlaceholderCellProps) => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+  return <div {...props} className={twJoin(className, index + 1 === getRowCount() && tw`invisible`)} />;
+};
 
 interface FormWatchProps<
   TFieldValues extends FieldValues = FieldValues,
@@ -211,7 +213,6 @@ const genericDisplayTableColumns = [
   genericDisplayTableColumnHelper.accessor('enabled', {
     cell: ({ getValue }) => (
       <div className={tw`flex justify-center`}>
-        {' '}
         <Checkbox isReadOnly isSelected={getValue()} variant='table-cell' />
       </div>
     ),
