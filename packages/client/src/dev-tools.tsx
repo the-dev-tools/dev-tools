@@ -1,7 +1,6 @@
 import type { ReactQueryDevtools as ReactQueryDevtoolsType } from '@tanstack/react-query-devtools';
 import type { TanStackRouterDevtools as TanStackRouterDevtoolsType } from '@tanstack/react-router-devtools';
 
-import { Boolean } from 'effect';
 import {
   ComponentProps,
   createContext,
@@ -22,13 +21,19 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 const ShowDevToolsContext = createContext(false);
 
 export const DevToolsProvider = ({ children }: PropsWithChildren) => {
-  const [show, setShow] = useState(false);
+  const key = 'DEV_TOOLS_ENABLED';
+
+  const [show, setShow] = useState(!import.meta.env.PROD && Boolean(localStorage.getItem(key)));
 
   useEffect(() => {
     if (import.meta.env.PROD) return;
     // @ts-expect-error function to toggle dev tools via client console
-    window.toggleDevTools = () => void setShow(Boolean.not);
-  }, []);
+    window.toggleDevTools = () => {
+      if (show) localStorage.removeItem(key);
+      else localStorage.setItem(key, 'true');
+      setShow(!show);
+    };
+  }, [show]);
 
   return <ShowDevToolsContext value={show}>{children}</ShowDevToolsContext>;
 };
