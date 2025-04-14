@@ -12,6 +12,10 @@ export default defineConfig({
   },
   renderer: {
     envPrefix: 'PUBLIC_',
-    plugins: [TSConfigPaths(), ReactVite(), TailwindVite()],
+    plugins: [
+      TSConfigPaths(),
+      ReactVite({ babel: { plugins: [['babel-plugin-react-compiler', {}]] } }),
+      TailwindVite(),
+    ],
   },
 });
