@@ -50,11 +50,21 @@ export const ConditionField = <
           defaultValue={[]}
           name={`${resolvedPath}.comparison.path`}
           render={({ field }) => (
-            <ReferenceField
-              buttonClassName={tw`flex-[2]`}
-              isReadOnly={isReadOnly}
-              onSelect={field.onChange}
-              path={field.value}
+            <Controller
+              control={resolvedControl}
+              name={`${resolvedPath}.comparison.value`}
+              render={({ field: valueField }) => (
+                <ReferenceField
+                  buttonClassName={tw`flex-[2]`}
+                  isReadOnly={isReadOnly}
+                  onSelect={(keys, value) => {
+                    field.onChange(keys);
+                    // eslint-disable-next-line @typescript-eslint/no-base-to-string
+                    if (value) valueField.onChange(String(value));
+                  }}
+                  path={field.value}
+                />
+              )}
             />
           )}
         />

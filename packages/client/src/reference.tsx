@@ -35,10 +35,10 @@ import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
 
-export const makeReferenceTreeId = (keys: ReferenceKey[]) =>
+export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
   pipe(
     keys.map((_) => toJson(ReferenceKeySchema, _)),
-    JSON.stringify,
+    (_) => JSON.stringify([_, value]),
   );
 
 export interface ReferenceContextProps extends Partial<Omit<ReferenceGetRequest, keyof Message>> {}
@@ -46,7 +46,7 @@ export interface ReferenceContextProps extends Partial<Omit<ReferenceGetRequest,
 export const ReferenceContext = createContext<ReferenceContextProps>({});
 
 interface ReferenceTreeProps extends ReferenceContextProps {
-  onSelect?: (keys: ReferenceKey[]) => void;
+  onSelect?: (keys: ReferenceKey[], value: unknown) => void;
 }
 
 export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
@@ -62,14 +62,12 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
       items={items}
       onAction={(id) => {
         if (typeof id !== 'string') return;
-        const keys = pipe(
-          JSON.parse(id) as ReferenceKeyJson[],
-          Array.map((_) => fromJson(ReferenceKeySchema, _)),
-        );
-        onSelect?.(keys);
+        const [keysId, value] = JSON.parse(id) as [ReferenceKeyJson[], unknown];
+        const keys = Array.map(keysId, (_) => fromJson(ReferenceKeySchema, _));
+        onSelect?.(keys, value);
       }}
     >
-      {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} parentKeys={[]} reference={_} />}
+      {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
     </AriaTree>
   );
 };
@@ -188,7 +186,9 @@ export const ReferenceTreeItem = ({ id, parentKeys, reference }: ReferenceTreeIt
 
       {items && (
         <AriaCollection items={items}>
-          {(_) => <ReferenceTreeItem id={makeReferenceTreeId([...keys, _.key!])} parentKeys={keys} reference={_} />}
+          {(_) => (
+            <ReferenceTreeItem id={makeReferenceTreeId([...keys, _.key!], _.value)} parentKeys={keys} reference={_} />
+          )}
         </AriaCollection>
       )}
     </TreeItemRoot>
@@ -248,8 +248,8 @@ const ReferenceTreePopover = ({ onSelect, ...mixProps }: ReferenceTreePopoverPro
           >
             <ReferenceTree
               {...props.rest}
-              onSelect={(keys) => {
-                onSelect?.(keys);
+              onSelect={(keys, value) => {
+                onSelect?.(keys, value);
                 close();
               }}
             />

@@ -100,7 +100,7 @@ export const ForEachPanel = ({ node: { forEach, nodeId } }: NodePanelProps) => {
             <ReferenceField
               buttonClassName={tw`min-w-[30%] justify-self-start`}
               isReadOnly={isReadOnly}
-              onSelect={field.onChange}
+              onSelect={(keys) => void field.onChange(keys)}
               path={field.value}
             />
           )}

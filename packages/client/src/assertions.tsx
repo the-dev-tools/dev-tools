@@ -42,7 +42,10 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
   );
 
   useEffect(() => {
-    const subscription = form.watch(() => void assertUpdateCallback());
+    const subscription = form.watch((_, { name }) => {
+      if (!name) return;
+      void assertUpdateCallback();
+    });
     return () => void subscription.unsubscribe();
   }, [assertUpdateCallback, form]);
 

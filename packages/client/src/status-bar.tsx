@@ -158,7 +158,13 @@ export const StatusBar = () => {
                       </AriaTreeItemContent>
 
                       <AriaCollection items={_.references}>
-                        {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!])} parentKeys={[]} reference={_} />}
+                        {(_) => (
+                          <ReferenceTreeItem
+                            id={makeReferenceTreeId([_.key!], _.value)}
+                            parentKeys={[]}
+                            reference={_}
+                          />
+                        )}
                       </AriaCollection>
                     </TreeItemRoot>
                   </AriaTree>
