@@ -16,7 +16,7 @@ import { ReactNode, Suspense, use, useCallback, useRef } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
-import { TbAlertTriangle, TbRefresh } from 'react-icons/tb';
+import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -79,6 +79,7 @@ const nodeBaseStyles = tv({
   variants: {
     isSelected: { true: tw`bg-slate-300` },
     state: {
+      [NodeState.CANCELED]: tw`outline-slate-600`,
       [NodeState.FAILURE]: tw`outline-red-600`,
       [NodeState.RUNNING]: tw`outline-violet-600`,
       [NodeState.SUCCESS]: tw`outline-green-600`,
@@ -145,6 +146,7 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
             <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
           )),
           Match.when(NodeState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
+          Match.when(NodeState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
           Match.when(NodeState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
           Match.orElse(() => null),
         )}

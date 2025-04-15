@@ -123,6 +123,7 @@ const connectionLineStyles = tv({
   base: tw`fill-none stroke-1 transition-colors`,
   variants: {
     state: {
+      [NodeState.CANCELED]: tw`stroke-slate-400`,
       [NodeState.FAILURE]: tw`stroke-red-600`,
       [NodeState.RUNNING]: tw`stroke-violet-600`,
       [NodeState.SUCCESS]: tw`stroke-green-600`,

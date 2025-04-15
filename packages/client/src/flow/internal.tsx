@@ -28,6 +28,7 @@ const handleInnerStyles = tv({
   base: tw`pointer-events-none`,
   variants: {
     state: {
+      [NodeState.CANCELED]: tw`text-slate-400`,
       [NodeState.FAILURE]: tw`text-red-600`,
       [NodeState.RUNNING]: tw`text-violet-600`,
       [NodeState.SUCCESS]: tw`text-green-600`,
