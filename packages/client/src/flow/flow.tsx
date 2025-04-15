@@ -501,7 +501,12 @@ const variableColumns = [
   genericFormTableEnableColumn,
   variableColumnHelper.accessor('data.name', {
     cell: ({ row, table }) => (
-      <TextFieldRHF control={table.options.meta!.control!} name={`items.${row.index}.data.name`} variant='table-cell' />
+      <TextFieldRHF
+        control={table.options.meta!.control!}
+        inputPlaceholder='Enter name'
+        name={`items.${row.index}.data.name`}
+        variant='table-cell'
+      />
     ),
     header: 'Name',
     meta: { divider: false },
@@ -510,6 +515,7 @@ const variableColumns = [
     cell: ({ row, table }) => (
       <TextFieldRHF
         control={table.options.meta!.control!}
+        inputPlaceholder='Enter value'
         name={`items.${row.index}.data.value`}
         variant='table-cell'
       />
@@ -520,6 +526,7 @@ const variableColumns = [
     cell: ({ row, table }) => (
       <TextFieldRHF
         control={table.options.meta!.control!}
+        inputPlaceholder='Enter description'
         name={`items.${row.index}.data.description`}
         variant='table-cell'
       />
@@ -554,7 +561,7 @@ const SettingsPanel = () => {
   return (
     <>
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Flow settings</div>
+        <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Flow variables</div>
 
         <div className={tw`flex-1`} />
 
