@@ -3,7 +3,14 @@ import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } 
 import { makeUrl } from '@effect/platform/UrlParams';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { QueryErrorResetBoundary, useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, getRouteApi, redirect, useRouteContext } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  getRouteApi,
+  redirect,
+  useMatchRoute,
+  useNavigate,
+  useRouteContext,
+} from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
@@ -311,6 +318,9 @@ interface EndpointFormProps {
 export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const { transport } = Route.useRouteContext();
 
+  const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
+
   const [
     { data: endpoint },
     { data: example },
@@ -330,7 +340,18 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const endpointUpdateMutation = useConnectMutation(endpointUpdate);
   const exampleUpdateMutation = useConnectMutation(exampleUpdate);
   const exampleCreateMutation = useConnectMutation(exampleCreate);
-  const exampleDeleteMutation = useConnectMutation(exampleDelete);
+  const exampleDeleteMutation = useConnectMutation(exampleDelete, {
+    onSuccess: async () => {
+      if (
+        matchRoute({
+          params: { endpointIdCan: Ulid.construct(endpointId).toCanonical() },
+          to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+        })
+      ) {
+        await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
+      }
+    },
+  });
   const exampleRunMutation = useConnectMutation(exampleRun);
 
   const queryUpdateMutation = useConnectMutation(queryUpdate);

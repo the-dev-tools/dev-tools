@@ -1,6 +1,6 @@
 import { createQueryOptions, useTransport } from '@connectrpc/connect-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, ToOptions, useMatchRoute } from '@tanstack/react-router';
+import { getRouteApi, ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef, useState } from 'react';
@@ -354,10 +354,12 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
   const { exampleId, lastResponseId } = example;
 
   const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceIdCan } = workspaceRoute.useParams();
 
-  const { containerRef, navigate = false, showControls } = useContext(CollectionListTreeContext);
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const exampleIdCan = Ulid.construct(exampleId).toCanonical();
   const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
@@ -370,7 +372,18 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
 
   const exampleCreateMutation = useConnectMutation(exampleCreate);
   const endpointUpdateMutation = useConnectMutation(endpointUpdate);
-  const endpointDeleteMutation = useConnectMutation(endpointDelete);
+  const endpointDeleteMutation = useConnectMutation(endpointDelete, {
+    onSuccess: async () => {
+      if (
+        matchRoute({
+          params: { endpointIdCan },
+          to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+        })
+      ) {
+        await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
+      }
+    },
+  });
   const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
@@ -400,9 +413,9 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
       childItems={exampleListQuery.data?.items ?? []}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
-      href={navigate ? route : undefined!}
+      href={toNavigate ? route : undefined!}
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      isActive={navigate && matchRoute(route) !== false}
+      isActive={toNavigate && matchRoute(route) !== false}
       loading={exampleListQuery.isLoading}
       textValue={name}
       wrapperOnContextMenu={onContextMenu}
@@ -478,14 +491,27 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
 
   const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceIdCan } = workspaceRoute.useParams();
 
-  const { containerRef, navigate = false, showControls } = useContext(CollectionListTreeContext);
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
   const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
   const exampleUpdateMutation = useConnectMutation(exampleUpdate);
-  const exampleDeleteMutation = useConnectMutation(exampleDelete);
+  const exampleDeleteMutation = useConnectMutation(exampleDelete, {
+    onSuccess: async () => {
+      if (
+        matchRoute({
+          params: { exampleIdCan },
+          to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+        })
+      ) {
+        await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
+      }
+    },
+  });
   const exampleDuplicateMutation = useConnectMutation(exampleDuplicate, {
     onSuccess: invalidateCollectionListQuery,
   });
@@ -508,9 +534,9 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
   return (
     <TreeItem
-      href={navigate ? route : undefined!}
+      href={toNavigate ? route : undefined!}
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      isActive={navigate && matchRoute(route) !== false}
+      isActive={toNavigate && matchRoute(route) !== false}
       textValue={name}
       wrapperOnContextMenu={onContextMenu}
     >

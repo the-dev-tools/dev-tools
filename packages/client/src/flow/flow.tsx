@@ -310,9 +310,21 @@ export const TopBar = () => {
   const { zoom } = useViewport();
 
   const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
 
   const flowUpdateMutation = useConnectMutation(flowUpdate);
-  const flowDeleteMutation = useConnectMutation(flowDelete);
+  const flowDeleteMutation = useConnectMutation(flowDelete, {
+    onSuccess: async () => {
+      if (
+        matchRoute({
+          params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
+          to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+        })
+      ) {
+        await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
+      }
+    },
+  });
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 

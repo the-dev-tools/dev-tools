@@ -1,5 +1,5 @@
 import { createQueryOptions } from '@connectrpc/connect-query';
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
@@ -197,7 +197,16 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
   const { workspaceIdCan } = Route.useParams();
   const { workspaceId } = Route.useLoaderData();
 
-  const flowDeleteMutation = useConnectMutation(flowDelete);
+  const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
+
+  const flowDeleteMutation = useConnectMutation(flowDelete, {
+    onSuccess: async () => {
+      if (matchRoute({ params: { flowIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' })) {
+        await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
+      }
+    },
+  });
   const flowUpdateMutation = useConnectMutation(flowUpdate);
   const exportMutation = useConnectMutation(export$);
 
