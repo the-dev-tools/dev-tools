@@ -177,7 +177,7 @@ export const ImportDialog = () => {
         <FileImportIcon className={tw`size-4 text-slate-500`} />
       </Button>
 
-      <Modal modalSize='sm'>
+      <Modal modalStyle={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
         <Dialog className={tw`outline-hidden flex h-full flex-col overflow-auto`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>

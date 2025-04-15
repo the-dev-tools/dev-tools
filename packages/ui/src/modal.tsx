@@ -33,12 +33,13 @@ const modalStyles = tv({
 
 export interface ModalProps
   extends MixinProps<'modal', VariantProps<typeof modalStyles>>,
-    Omit<AriaModalOverlayProps, 'className'> {
+    Omit<AriaModalOverlayProps, 'className' | 'style'> {
   modalClassName?: AriaModalOverlayProps['className'];
+  modalStyle?: AriaModalOverlayProps['style'];
   overlayClassName?: AriaModalOverlayProps['className'];
 }
 
-export const Modal = ({ modalClassName, overlayClassName, ...props }: ModalProps) => {
+export const Modal = ({ modalClassName, modalStyle, overlayClassName, ...props }: ModalProps) => {
   const forwardedProps = splitProps(props, 'modal');
 
   return (
@@ -46,6 +47,7 @@ export const Modal = ({ modalClassName, overlayClassName, ...props }: ModalProps
       <AriaModal
         {...forwardedProps.rest}
         className={composeRenderPropsTV(modalClassName, modalStyles, forwardedProps.modal)}
+        style={modalStyle ?? {}}
       />
     </AriaModalOverlay>
   );
