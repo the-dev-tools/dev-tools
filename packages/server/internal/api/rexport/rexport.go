@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -57,9 +58,10 @@ type ExportRPC struct {
 	responseHeaderService sexamplerespheader.ExampleRespHeaderService
 	responseAssertService sassertres.AssertResultService
 
-	flowService     sflow.FlowService
-	flowNodeService snode.NodeService
-	flowEdgeService sedge.EdgeService
+	flowService         sflow.FlowService
+	flowNodeService     snode.NodeService
+	flowEdgeService     sedge.EdgeService
+	flowVariableService sflowvariable.FlowVariableService
 
 	flowRequestService   snoderequest.NodeRequestService
 	flowConditionService snodeif.NodeIfService
@@ -88,6 +90,8 @@ func New(
 	flowService sflow.FlowService,
 	flowNodeService snode.NodeService,
 	flowEdgeService sedge.EdgeService,
+	flowVariableService sflowvariable.FlowVariableService,
+
 	flowRequestService snoderequest.NodeRequestService,
 	flowConditionService snodeif.NodeIfService,
 	flowNoopService snodenoop.NodeNoopService,
@@ -114,6 +118,7 @@ func New(
 		flowService:           flowService,
 		flowNodeService:       flowNodeService,
 		flowEdgeService:       flowEdgeService,
+		flowVariableService:   flowVariableService,
 		flowRequestService:    flowRequestService,
 		flowConditionService:  flowConditionService,
 		flowNoopService:       flowNoopService,
@@ -179,6 +184,7 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		c.flowService,
 		c.flowNodeService,
 		c.flowEdgeService,
+		c.flowVariableService,
 		c.flowRequestService,
 		c.flowConditionService,
 		c.flowNoopService,

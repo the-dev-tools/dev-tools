@@ -276,7 +276,7 @@ func main() {
 		// flow
 		flowService,
 		// nodes
-		flowNodeService, flowEdgeService, flowNodeRequestSevice,
+		flowNodeService, flowEdgeService, flowVariableService, flowNodeRequestSevice,
 		*flowNodeCondition, flowNodeNoOpService,
 		flowNodeForService, flowNodeForeachService, flowNodeJsService,
 	)

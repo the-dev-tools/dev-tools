@@ -176,7 +176,6 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			nodeState := nodeStateMap[status.NodeID]
 			status.RunDuration = time.Since(nodeState.StartTime)
 			if FlowNodeCancelCtx.Err() != nil {
-				fmt.Println(FlowNodeCancelCtx.Err())
 				status.State = mnnode.NODE_STATE_CANCELED
 				statusLogFunc(status)
 				continue

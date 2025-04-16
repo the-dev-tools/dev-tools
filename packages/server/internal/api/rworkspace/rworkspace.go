@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -211,12 +211,7 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer func() {
-		localErr := tx.Rollback()
-		if localErr != nil {
-			fmt.Println(localErr)
-		}
-	}()
+	defer devtoolsdb.TxnRollback(tx)
 	workspaceServiceTX, err := sworkspace.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

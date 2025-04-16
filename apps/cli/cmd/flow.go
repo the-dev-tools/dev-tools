@@ -46,6 +46,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -64,13 +65,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type FLowServiceLocal struct {
+type FlowServiceLocal struct {
 	DB *sql.DB
 	ws sworkspace.WorkspaceService
 
 	// flow
 	fs  sflow.FlowService
 	fes sedge.EdgeService
+	fvs sflowvariable.FlowVariableService
 
 	// request
 	ias sitemapi.ItemApiService
@@ -133,6 +135,11 @@ var flowRunCmd = &cobra.Command{
 			return err
 		}
 
+		err = workspaceData.VerifyIds()
+		if err != nil {
+			return err
+		}
+
 		db, _, err := tursomem.NewTursoLocal(ctx)
 		if err != nil {
 			return err
@@ -163,6 +170,7 @@ var flowRunCmd = &cobra.Command{
 		flowConditionService := snodeif.New(queries)
 		flowNoopService := snodenoop.New(queries)
 		flowEdgeService := sedge.New(queries)
+		flowVariableService := sflowvariable.New(queries)
 		flowForService := snodefor.New(queries)
 		flowForEachService := snodeforeach.New(queries)
 		flowJSService := snodejs.New(queries)
@@ -187,6 +195,7 @@ var flowRunCmd = &cobra.Command{
 			flowService,
 			flowNodeService,
 			flowEdgeService,
+			flowVariableService,
 			flowRequestService,
 			*flowConditionService,
 			flowNoopService,
@@ -197,11 +206,12 @@ var flowRunCmd = &cobra.Command{
 
 		logMap := logconsole.NewLogChanMap()
 
-		flowServiceLocal := FLowServiceLocal{
+		flowServiceLocal := FlowServiceLocal{
 			DB:         db,
 			ws:         workspaceService,
 			fs:         flowService,
 			fes:        flowEdges,
+			fvs:        flowVariableService,
 			ias:        endpointService,
 			es:         exampleService,
 			qs:         exampleQueryService,
@@ -283,7 +293,7 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.2fh", d.Hours())
 }
 
-func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error {
+func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error {
 	latestFlowID := flowPtr.ID
 
 	nodes, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
@@ -296,6 +306,18 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
 	}
 	edgeMap := edge.NewEdgesMap(edges)
+
+	flowVars, err := c.fvs.GetFlowVariablesByFlowID(ctx, latestFlowID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
+	}
+
+	flowVarsMap := make(map[string]any, len(flowVars))
+	for _, flowVar := range flowVars {
+		if flowVar.Enabled {
+			flowVarsMap[flowVar.Name] = flowVar.Value
+		}
+	}
 
 	var requestNodes []mnrequest.MNRequest
 	var forNodes []mnfor.MNFor
@@ -627,7 +649,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FLowServiceLocal) error
 	}()
 
 	flowTime := time.Now()
-	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
+	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
 
 	// wait for the flow to finish
 	flowErr := <-done

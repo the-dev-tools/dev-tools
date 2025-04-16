@@ -41,6 +41,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -301,6 +302,7 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 	flowService := sflow.New(queries)
 	flowNodeService := snode.New(queries)
 	flowEdgeService := sedge.New(queries)
+	flowVariableService := sflowvariable.New(queries)
 	flowRequestService := snoderequest.New(queries)
 	flowConditionService := snodeif.New(queries)
 	flowNoopService := snodenoop.New(queries)
@@ -328,6 +330,7 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 		flowService,
 		flowNodeService,
 		flowEdgeService,
+		flowVariableService,
 		flowRequestService,
 		*flowConditionService,
 		flowNoopService,
@@ -728,5 +731,202 @@ func TestImportWorkspaceWithLongFlowName(t *testing.T) {
 	if flow.Name != longName {
 		t.Errorf("Flow name mismatch: expected long name of length %d, got name of length %d",
 			len(longName), len(flow.Name))
+	}
+}
+
+func TestExportWithExampleFilterIncludingFlowReferences(t *testing.T) {
+	ctx := context.Background()
+	ioWorkspaceService, _ := setupIOWorkspaceService(ctx, t)
+
+	// Create base test data
+	importData := createTestWorkspaceData()
+
+	// Add a second example to the same endpoint
+	secondExampleID := idwrap.NewNow()
+	secondExample := mitemapiexample.ItemApiExample{
+		ID:           secondExampleID,
+		ItemApiID:    importData.Endpoints[0].ID,
+		Name:         "Second Test Example",
+		CollectionID: importData.Collections[0].ID,
+		BodyType:     mitemapiexample.BodyTypeNone,
+	}
+	importData.Examples = append(importData.Examples, secondExample)
+	rawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: secondExampleID,
+	}
+	importData.Rawbodies = append(importData.Rawbodies, rawBody)
+
+	// Add a header for the second example
+	importData.ExampleHeaders = append(importData.ExampleHeaders, mexampleheader.Header{
+		ID:        idwrap.NewNow(),
+		ExampleID: secondExampleID,
+		HeaderKey: "X-Second-Example",
+		Value:     "true",
+		Enable:    true,
+	})
+
+	// Ensure the flow node references the *first* example
+	if len(importData.FlowNodes) > 0 && len(importData.FlowRequestNodes) > 0 {
+		firstExampleID := importData.Examples[0].ID
+		importData.FlowRequestNodes[0].ExampleID = &firstExampleID
+	} else {
+		t.Fatal("Test setup error: No flow or request node found in initial data")
+	}
+
+	// Import the modified data
+	err := ioWorkspaceService.ImportWorkspace(ctx, importData)
+	if err != nil {
+		t.Fatalf("ImportWorkspace failed: %v", err)
+	}
+
+	// Create a filter that explicitly requests *only* the second example
+	filterExampleIDs := []idwrap.IDWrap{secondExampleID}
+	filterExport := ioworkspace.FilterExport{
+		FilterExampleIds: &filterExampleIDs,
+		FilterFlowIds:    nil, // Include all flows
+	}
+
+	// Test ExportWorkspace with the filter
+	exportData, err := ioWorkspaceService.ExportWorkspace(ctx, importData.Workspace.ID, filterExport)
+	if err != nil {
+		t.Fatalf("ExportWorkspace failed: %v", err)
+	}
+
+	// --- Verification ---
+
+	// Verify both examples are present in the export
+	if len(exportData.Examples) != 2 {
+		t.Errorf("Expected 2 examples in export (1 filtered + 1 from flow), got %d", len(exportData.Examples))
+	}
+
+	foundFirstExample := false
+	foundSecondExample := false
+	for _, ex := range exportData.Examples {
+		if ex.ID == importData.Examples[0].ID {
+			foundFirstExample = true
+		}
+		if ex.ID == secondExampleID {
+			foundSecondExample = true
+		}
+	}
+	if !foundFirstExample {
+		t.Errorf("First example (referenced by flow) was not found in export")
+	}
+	if !foundSecondExample {
+		t.Errorf("Second example (explicitly filtered) was not found in export")
+	}
+
+	// Verify related data for both examples is present (e.g., headers)
+	if len(exportData.ExampleHeaders) < 2 { // Should have at least one header from each example
+		t.Errorf("Expected at least 2 example headers in export, got %d", len(exportData.ExampleHeaders))
+	}
+	// Add more checks for bodies, queries, asserts etc. if needed
+}
+
+func TestExportWithOrphanedFlowExample(t *testing.T) {
+	ctx := context.Background()
+	ioWorkspaceService, _ := setupIOWorkspaceService(ctx, t)
+
+	// Create base test data
+	importData := createTestWorkspaceData()
+
+	// Create an "orphaned" example (not directly linked to the main endpoint initially)
+	orphanedExampleID := idwrap.NewNow()
+	orphanedExample := mitemapiexample.ItemApiExample{
+		ID:           orphanedExampleID,
+		ItemApiID:    importData.Endpoints[0].ID, // Link to endpoint for DB consistency
+		Name:         "Orphaned Flow Example",
+		CollectionID: importData.Collections[0].ID,
+		BodyType:     mitemapiexample.BodyTypeRaw,
+	}
+	importData.Examples = append(importData.Examples, orphanedExample)
+
+	// Add some data for the orphaned example
+	importData.Rawbodies = append(importData.Rawbodies, mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: orphanedExampleID,
+		Data:      []byte(`{"orphaned": true}`),
+	})
+	importData.ExampleHeaders = append(importData.ExampleHeaders, mexampleheader.Header{
+		ID:        idwrap.NewNow(),
+		ExampleID: orphanedExampleID,
+		HeaderKey: "X-Orphaned",
+		Value:     "yes",
+		Enable:    true,
+	})
+
+	// Ensure the flow node references this *orphaned* example
+	if len(importData.FlowNodes) > 0 && len(importData.FlowRequestNodes) > 0 {
+		importData.FlowRequestNodes[0].ExampleID = &orphanedExampleID
+	} else {
+		t.Fatal("Test setup error: No flow or request node found in initial data")
+	}
+
+	// Import the modified data
+	err := ioWorkspaceService.ImportWorkspace(ctx, importData)
+	if err != nil {
+		t.Fatalf("ImportWorkspace failed: %v", err)
+	}
+
+	// Create a filter that explicitly requests *only* the *first* example
+	// The orphaned example should still be included because the flow needs it.
+	filterExampleIDs := []idwrap.IDWrap{importData.Examples[0].ID}
+	filterExport := ioworkspace.FilterExport{
+		FilterExampleIds: &filterExampleIDs,
+		FilterFlowIds:    nil, // Include all flows (which includes the one referencing the orphaned example)
+	}
+
+	// Test ExportWorkspace with the filter
+	exportData, err := ioWorkspaceService.ExportWorkspace(ctx, importData.Workspace.ID, filterExport)
+	if err != nil {
+		t.Fatalf("ExportWorkspace failed: %v", err)
+	}
+
+	// --- Verification ---
+
+	// Verify both examples are present in the export
+	if len(exportData.Examples) != 2 {
+		t.Errorf("Expected 2 examples in export (1 filtered + 1 orphaned from flow), got %d", len(exportData.Examples))
+	}
+
+	foundFirstExample := false
+	foundOrphanedExample := false
+	for _, ex := range exportData.Examples {
+		if ex.ID == importData.Examples[0].ID {
+			foundFirstExample = true
+		}
+		if ex.ID == orphanedExampleID {
+			foundOrphanedExample = true
+		}
+	}
+	if !foundFirstExample {
+		t.Errorf("First example (explicitly filtered) was not found in export")
+	}
+	if !foundOrphanedExample {
+		t.Errorf("Orphaned example (referenced by flow) was not found in export")
+	}
+
+	// Verify related data for the orphaned example is present
+	foundOrphanedHeader := false
+	for _, h := range exportData.ExampleHeaders {
+		if h.ExampleID == orphanedExampleID && h.HeaderKey == "X-Orphaned" {
+			foundOrphanedHeader = true
+			break
+		}
+	}
+	if !foundOrphanedHeader {
+		t.Errorf("Header for orphaned example was not found in export")
+	}
+
+	foundOrphanedBody := false
+	for _, b := range exportData.Rawbodies {
+		if b.ExampleID == orphanedExampleID {
+			foundOrphanedBody = true
+			break
+		}
+	}
+	if !foundOrphanedBody {
+		t.Errorf("Raw body for orphaned example was not found in export")
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mitemfolder"
@@ -41,6 +42,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -52,7 +54,6 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 
 	"gopkg.in/yaml.v3"
 )
@@ -81,8 +82,9 @@ type IOWorkspaceService struct {
 
 	flowService sflow.FlowService
 
-	flowNodeService snode.NodeService
-	flowEdgeService sedge.EdgeService
+	flowNodeService     snode.NodeService
+	flowEdgeService     sedge.EdgeService
+	flowVariableService sflowvariable.FlowVariableService
 
 	flowRequestService   snoderequest.NodeRequestService
 	flowConditionService snodeif.NodeIfService
@@ -114,6 +116,7 @@ func NewIOWorkspaceService(
 
 	flowNodeService snode.NodeService,
 	flowEdgeService sedge.EdgeService,
+	flowVariableService sflowvariable.FlowVariableService,
 
 	flowRequestService snoderequest.NodeRequestService,
 	flowConditionService snodeif.NodeIfService,
@@ -139,9 +142,11 @@ func NewIOWorkspaceService(
 		responseHeaderService: responseHeaderService,
 		responseAssertService: responseAssertService,
 
-		flowService:     flowService,
-		flowNodeService: flowNodeService,
-		flowEdgeService: flowEdgeService,
+		flowService: flowService,
+
+		flowNodeService:     flowNodeService,
+		flowEdgeService:     flowEdgeService,
+		flowVariableService: flowVariableService,
 
 		flowRequestService:   flowRequestService,
 		flowConditionService: flowConditionService,
@@ -180,8 +185,9 @@ type WorkspaceData struct {
 	Flows []mflow.Flow `yaml:"flows"`
 
 	// Root nodes
-	FlowNodes []mnnode.MNode `yaml:"flow_nodes"`
-	FlowEdges []edge.Edge    `yaml:"flow_edges"`
+	FlowNodes     []mnnode.MNode               `yaml:"flow_nodes"`
+	FlowEdges     []edge.Edge                  `yaml:"flow_edges"`
+	FlowVariables []mflowvariable.FlowVariable `yaml:"flow_variable"`
 
 	// Sub nodes
 	FlowRequestNodes   []mnrequest.MNRequest `yaml:"flow_request_nodes"`
@@ -223,6 +229,7 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	txFlowService := s.flowService.TX(tx)
 	txFlowNodeService := s.flowNodeService.TX(tx)
 	txFlowEdgeService := s.flowEdgeService.TX(tx)
+	txFlowVariableService := s.flowVariableService.TX(tx)
 
 	tdFlowRequestService := s.flowRequestService.TX(tx)
 	txFlowConditionService := s.flowConditionService.TX(tx)
@@ -308,6 +315,11 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 		return err
 	}
 
+	err = txFlowVariableService.CreateFlowVariableBulk(ctx, data.FlowVariables)
+	if err != nil {
+		return err
+	}
+
 	err = tdFlowRequestService.CreateNodeRequestBulk(ctx, data.FlowRequestNodes)
 	if err != nil {
 		return err
@@ -365,6 +377,14 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 	}
 	data.Workspace = *workspace
 
+	requiredExampleIDs := make(map[idwrap.IDWrap]struct{})
+	isFilteringExamples := FilterExport.FilterExampleIds != nil
+	if isFilteringExamples {
+		for _, id := range *FilterExport.FilterExampleIds {
+			requiredExampleIDs[id] = struct{}{}
+		}
+	}
+
 	collections, err := s.collectionService.ListCollections(ctx, workspace.ID)
 	if err != nil {
 		return nil, err
@@ -386,6 +406,12 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 
 		data.FlowNodes = append(data.FlowNodes, flowNodes...)
 
+		flowVariables, err := s.flowVariableService.GetFlowVariablesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, err
+		}
+		data.FlowVariables = append(data.FlowVariables, flowVariables...)
+
 		// flow edge
 		flowEdges, err := s.flowEdgeService.GetEdgesByFlowID(ctx, flow.ID)
 		if err != nil {
@@ -400,12 +426,16 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 				if err != nil {
 					return nil, err
 				}
-				if request.ExampleID != nil && FilterExport.FilterExampleIds != nil {
-					*FilterExport.FilterExampleIds = tgeneric.RemoveElement(*FilterExport.FilterExampleIds, *request.ExampleID)
+				// Add referenced example IDs to the required set if filtering is enabled
+				if isFilteringExamples {
+					if request.ExampleID != nil {
+						requiredExampleIDs[*request.ExampleID] = struct{}{}
+					}
+					if request.DeltaExampleID != nil {
+						requiredExampleIDs[*request.DeltaExampleID] = struct{}{}
+					}
 				}
-
 				data.FlowRequestNodes = append(data.FlowRequestNodes, *request)
-
 			case mnnode.NODE_KIND_CONDITION:
 				condition, err := s.flowConditionService.GetNodeIf(ctx, node.ID)
 				if err != nil {
@@ -454,33 +484,39 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 		}
 		data.Endpoints = append(data.Endpoints, endpoints...)
 
-		for _, endpoint := range endpoints {
-			examples, err := s.exampleService.GetApiExamples(ctx, endpoint.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			// filter
-			if FilterExport.FilterExampleIds != nil {
-
-				filterMap := make(map[idwrap.IDWrap]struct{})
-				for _, id := range *FilterExport.FilterExampleIds {
-					filterMap[id] = struct{}{}
+		// Filter examples if a filter list was provided
+		if isFilteringExamples && len(requiredExampleIDs) > 0 {
+			for exampleID := range requiredExampleIDs {
+				example, err := s.exampleService.GetApiExample(ctx, exampleID)
+				if err != nil {
+					if err == sql.ErrNoRows { // Skip if example doesn't exist
+						continue
+					}
+					return nil, err
 				}
-
-				var sortedExamples []mitemapiexample.ItemApiExample
-				for _, example := range examples {
-					if _, found := filterMap[example.ID]; found {
-						sortedExamples = append(sortedExamples, example)
+				// Add to examples list if not already included
+				found := false
+				for _, e := range data.Examples {
+					if e.ID == exampleID {
+						found = true
+						break
 					}
 				}
-				examples = sortedExamples
+				if !found {
+					data.Examples = append(data.Examples, *example)
+				}
+			}
+		} else {
+			examples, err := s.exampleService.GetApiExampleByCollection(ctx, collection.ID)
+			if err != nil {
+				return nil, err
 			}
 			data.Examples = append(data.Examples, examples...)
 		}
 
 	}
 
+	// Fetch details for the final list of examples
 	for _, example := range data.Examples {
 		// headers
 		exampleHeaders, err := s.exampleHeaderService.GetHeaderByExampleID(ctx, example.ID)
@@ -508,24 +544,30 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 
 		// raw
 		rawBody, err := s.rawBodyService.GetBodyRawByExampleID(ctx, example.ID)
-		if err != nil {
+		if err != nil && err != sql.ErrNoRows { // Ignore not found errors
 			return nil, err
 		}
-		data.Rawbodies = append(data.Rawbodies, *rawBody)
+		if err == nil && rawBody != nil { // Only append if found
+			data.Rawbodies = append(data.Rawbodies, *rawBody)
+		}
 
 		// form
 		formBodies, err := s.formBodyService.GetBodyFormsByExampleID(ctx, example.ID)
-		if err != nil {
+		if err != nil && err != sql.ErrNoRows { // Ignore not found errors
 			return nil, err
 		}
-		data.FormBodies = append(data.FormBodies, formBodies...)
+		if err == nil { // Append if found (might be an empty slice)
+			data.FormBodies = append(data.FormBodies, formBodies...)
+		}
 
 		// url
 		urlBodies, err := s.urlBodyService.GetBodyURLEncodedByExampleID(ctx, example.ID)
-		if err != nil {
+		if err != nil && err != sql.ErrNoRows { // Ignore not found errors
 			return nil, err
 		}
-		data.UrlBodies = append(data.UrlBodies, urlBodies...)
+		if err == nil { // Append if found (might be an empty slice)
+			data.UrlBodies = append(data.UrlBodies, urlBodies...)
+		}
 
 		// response
 		response, err := s.responseService.GetExampleRespByExampleID(ctx, example.ID)
@@ -565,6 +607,33 @@ func UnmarshalWorkspace(data []byte) (*WorkspaceData, error) {
 		return nil, fmt.Errorf("failed to unmarshal workspace: %w", err)
 	}
 	return &workspace, nil
+}
+
+func (wd WorkspaceData) VerifyIds() error {
+	exampleIds := make(map[idwrap.IDWrap]struct{}, len(wd.Examples))
+	for _, example := range wd.Examples {
+		exampleIds[example.ID] = struct{}{}
+	}
+
+	for _, requestNode := range wd.FlowRequestNodes {
+		exampleId := requestNode.ExampleID
+		deltaExampleID := requestNode.DeltaExampleID
+		if exampleId != nil {
+			_, ok := exampleIds[*exampleId]
+			if !ok {
+				return fmt.Errorf("request node %s referance %s example but it is not exists", requestNode.FlowNodeID, exampleId)
+			}
+		}
+		if deltaExampleID != nil {
+			_, ok := exampleIds[*deltaExampleID]
+			if !ok {
+				return fmt.Errorf("request node %s referance %s example but it is not exists", requestNode.FlowNodeID, deltaExampleID)
+			}
+		}
+
+	}
+
+	return nil
 }
 
 func MarshalWorkspace(workspace *WorkspaceData) ([]byte, error) {

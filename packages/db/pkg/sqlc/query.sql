@@ -252,7 +252,7 @@ FROM
   item_api_example
 WHERE
   collection_id = ? AND
-  version_parent_id = NULL;
+  version_parent_id is NULL;
 
 -- name: GetItemApiExampleByVersionParentID :many
 SELECT
