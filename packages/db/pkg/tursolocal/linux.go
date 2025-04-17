@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"the-dev-tools/db/pkg/sqlc"
@@ -42,8 +43,17 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sq
 	if os.IsNotExist(err) {
 		firstTime = true
 	}
-	dbFilePath = fmt.Sprintf("file:%s?mode=rwc&_journal_mode=WAL&_txlock=immediate&_busy_timeout=5000", dbFilePath)
-	db, err := sql.Open("libsql", dbFilePath)
+
+	connectionUrlParams := make(url.Values)
+	connectionUrlParams.Add("_txlock", "immediate")
+	connectionUrlParams.Add("_journal_mode", "WAL")
+	connectionUrlParams.Add("_busy_timeout", "5000")
+	connectionUrlParams.Add("_synchronous", "NORMAL")
+	connectionUrlParams.Add("_cache_size", "1000000000")
+	connectionUrlParams.Add("_foreign_keys", "true")
+
+	connectionUrl := fmt.Sprintf("file:%s?%s", dbFilePath, connectionUrlParams.Encode())
+	db, err := sql.Open("libsql", connectionUrl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
