@@ -12,6 +12,8 @@ DevTools is a powerful API testing tool that records your browser interactions, 
 With built-in CI integration, it streamlines API validation from development to deployment.
 </p>
 
+
+
 <details>
   <summary>Table of Contents</summary>
   <ol>
@@ -23,6 +25,12 @@ With built-in CI integration, it streamlines API validation from development to 
 </details>
 
 ## About the Project
+
+![image](https://github.com/user-attachments/assets/98eb84ae-843c-4bd3-80af-6622dd7b000a)
+
+![image](https://github.com/user-attachments/assets/ef9bbb76-3490-4a43-ad65-a75510501177)
+
+
 
 <!-- TODO: add build badges, description, screenshots -->
 
