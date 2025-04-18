@@ -46,6 +46,7 @@ The DevTools interface provides a familiar Postman-like experience for working w
 ![Flow builder with request chaining](https://github.com/user-attachments/assets/ef9bbb76-3490-4a43-ad65-a75510501177)
 
 The flow builder allows you to visually chain API requests and create complex test scenarios. Connect different nodes to build your workflow:
+
 - **Request nodes**: Execute API calls in sequence
 - **Conditional nodes**: Add if-statement logic based on response data
 - **Loop nodes**: Iterate through data sets with for-each loops
@@ -85,8 +86,8 @@ You may **not sell** the software **or** provide it (or any service whose value 
 
 **Permitted without a commercial licence**
 
-- Local development and personal use  
-- Internal business use (including self‑hosted CI/CD)  
+- Local development and personal use
+- Internal business use (including self‑hosted CI/CD)
 - Commercial products that run entirely on the customer's own machines (non‑SaaS)
 
 For hosted or managed‑service use, contact **licensing@dev.tools**.
