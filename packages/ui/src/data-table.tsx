@@ -1,5 +1,5 @@
-import { flexRender, RowData, Table as TanStackTable } from '@tanstack/react-table';
-import { ComponentProps } from 'react';
+import { flexRender, Row, RowData, Table as TanStackTable } from '@tanstack/react-table';
+import { ComponentProps, ReactNode } from 'react';
 import { twMerge } from 'tailwind-merge';
 
 import { MixinProps, splitProps } from './mixin-props';
@@ -30,16 +30,20 @@ export interface DataTableProps<T>
     Omit<MixinProps<'row', ComponentProps<'tr'>>, 'children'>,
     Omit<MixinProps<'cell', ComponentProps<'td'>>, 'children'>,
     Omit<MixinProps<'body', ComponentProps<'tbody'>>, 'children'> {
+  footer?: ReactNode;
+  rowRender?: (row: Row<T>, children: ReactNode) => ReactNode;
   table: TanStackTable<T>;
 }
 
 export const DataTable = <T,>({
   bodyClassName,
   cellClassName,
+  footer,
   headerCellClassName,
   headerCellStyle,
   headerClassName,
   rowClassName,
+  rowRender = (_row, _) => _,
   table,
   tableClassName,
   wrapperClassName,
@@ -59,7 +63,7 @@ export const DataTable = <T,>({
                   {...forwardedProps.headerCell}
                   className={twMerge(
                     tableStyles.headerCell,
-                    header.column.columnDef.meta?.divider === false && tw`!border-l-0`,
+                    header.column.columnDef.meta?.divider === false && tw`!border-r-0`,
                     headerCellClassName,
                   )}
                   style={{
@@ -76,22 +80,34 @@ export const DataTable = <T,>({
         <tbody {...forwardedProps.body} className={twMerge(tableStyles.body, bodyClassName)}>
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id} {...forwardedProps.row} className={twMerge(tableStyles.row, rowClassName)}>
-              {row.getVisibleCells().map((cell) => (
-                <td
-                  key={cell.id}
-                  {...forwardedProps.cell}
-                  className={twMerge(
-                    tableStyles.cell,
-                    cell.column.columnDef.meta?.divider === false && tw`!border-l-0`,
-                    cellClassName,
-                  )}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
+              {rowRender(
+                row,
+                row.getVisibleCells().map((cell) => (
+                  <td
+                    key={cell.id}
+                    {...forwardedProps.cell}
+                    className={twMerge(
+                      tableStyles.cell,
+                      cell.column.columnDef.meta?.divider === false && tw`!border-r-0`,
+                      cellClassName,
+                    )}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                )),
+              )}
             </tr>
           ))}
         </tbody>
+        {footer && (
+          <tfoot className={tw`border-inherit`}>
+            <tr className={tw`border-inherit`}>
+              <td className={tw`border-t border-inherit`} colSpan={table.getAllColumns().length}>
+                {footer}
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

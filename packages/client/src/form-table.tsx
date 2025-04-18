@@ -18,20 +18,24 @@ import {
   FieldPathValue,
   FieldPathValues,
   FieldValues,
+  FormProvider,
   Path,
   useFieldArray,
   useForm,
   UseFormGetValues,
+  UseFormHandleSubmit,
   UseFormSetValue,
   UseFormWatch,
   useWatch,
 } from 'react-hook-form';
+import { FiPlus } from 'react-icons/fi';
 import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@the-dev-tools/ui/button';
 import { Checkbox, CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { DataTableProps } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { inputStyles, TextFieldRHF } from '@the-dev-tools/ui/text-field';
@@ -517,4 +521,91 @@ export const useDeltaFormTable = <T extends Message>({
     getRowId: (_) => (_ as (typeof fieldArray.fields)[number]).id,
     meta: { control: form.control, queueTask },
   });
+};
+
+interface UseFormAutoSaveProps<TFieldValues extends FieldValues> {
+  handleSubmit: UseFormHandleSubmit<TFieldValues>;
+  onSubmit: (value: TFieldValues) => Promise<unknown>;
+  watch: UseFormWatch<TFieldValues>;
+}
+
+const useFormAutoSave = <TFieldValues extends FieldValues>({
+  handleSubmit,
+  onSubmit,
+  watch,
+}: UseFormAutoSaveProps<TFieldValues>) => {
+  const submit = useDebouncedCallback(async () => handleSubmit((value) => onSubmit(value))(), 200);
+
+  useEffect(
+    () =>
+      watch((_, { type }) => {
+        if (type === 'change') void submit();
+      }).unsubscribe,
+    [submit, watch],
+  );
+};
+
+interface FormTableRowProps<T extends FieldValues> {
+  children: ReactNode;
+  onUpdate: (value: T) => Promise<unknown>;
+  value: T;
+}
+
+const FormTableRow = <T extends FieldValues>({ children, onUpdate, value }: FormTableRowProps<T>) => {
+  const form = useForm({ values: value });
+  useFormAutoSave({ ...form, onSubmit: onUpdate });
+  return <FormProvider {...form}>{children}</FormProvider>;
+};
+
+interface UseFormTableProps1<TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>> {
+  createLabel?: ReactNode;
+  items: TFieldValues[];
+  onCreate: () => Promise<unknown>;
+  onUpdate: (value: TFieldValues) => Promise<unknown>;
+  primaryColumn?: TPrimaryName;
+}
+
+export const useFormTable1 = <TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>>({
+  createLabel = 'New item',
+  items,
+  onCreate,
+  onUpdate,
+  primaryColumn,
+}: UseFormTableProps1<TFieldValues, TPrimaryName>) => {
+  const lengthPrev = useRef<null | number>(null);
+
+  useEffect(() => {
+    if (!primaryColumn || !bodyRef.current || lengthPrev.current === null || lengthPrev.current === items.length)
+      return;
+
+    const lastRow = bodyRef.current.children.item(items.length - 1);
+    const primaryCell = lastRow?.querySelector(`[name="${primaryColumn}"]`);
+    if (primaryCell instanceof HTMLElement) primaryCell.focus();
+
+    lengthPrev.current = null;
+  });
+
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+
+  return {
+    bodyRef,
+    footer: (
+      <Button
+        className={tw`w-full justify-start rounded-none -outline-offset-4`}
+        onPress={async () => {
+          await onCreate();
+          lengthPrev.current = items.length;
+        }}
+        variant='ghost'
+      >
+        <FiPlus className={tw`size-4 text-slate-500`} />
+        {createLabel}
+      </Button>
+    ),
+    rowRender: (row, _) => (
+      <FormTableRow onUpdate={onUpdate} value={row.original}>
+        {_}
+      </FormTableRow>
+    ),
+  } satisfies Partial<DataTableProps<TFieldValues>>;
 };
