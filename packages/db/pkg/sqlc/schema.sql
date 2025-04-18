@@ -165,7 +165,8 @@ CREATE TABLE example_header (
 
 CREATE INDEX example_header_idx1 ON example_header (
   example_id,
-  header_key
+  header_key,
+  delta_parent_id
 );
 
 CREATE TABLE example_resp_header (
