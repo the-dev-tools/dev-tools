@@ -1,4 +1,4 @@
-import { create, Message } from '@bufbuild/protobuf';
+import { create, DescMessage, DescMethodUnary, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { GenMessage } from '@bufbuild/protobuf/codegenv1';
 import { useReactTable } from '@tanstack/react-table';
 import {
@@ -9,7 +9,7 @@ import {
   getCoreRowModel,
   RowData,
 } from '@tanstack/table-core';
-import { Array, HashMap, Option, pipe } from 'effect';
+import { Array, HashMap, Option, pipe, String } from 'effect';
 import { idEqual, Ulid } from 'id128';
 import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -22,6 +22,7 @@ import {
   Path,
   useFieldArray,
   useForm,
+  useFormContext,
   UseFormGetValues,
   UseFormHandleSubmit,
   UseFormSetValue,
@@ -40,6 +41,7 @@ import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { inputStyles, TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { getMessageId, setMessageId } from '~/api/meta';
+import { useConnectMutation } from '~api/connect-query';
 
 import { RHFDevTools } from './dev-tools';
 import { TextFieldWithReference } from './reference';
@@ -608,4 +610,89 @@ export const useFormTable1 = <TFieldValues extends FieldValues, TPrimaryName ext
       </FormTableRow>
     ),
   } satisfies Partial<DataTableProps<TFieldValues>>;
+};
+
+export const columnCheckboxField = <TFieldValues extends FieldValues>(
+  name: FieldPath<TFieldValues>,
+  props?: Partial<AccessorKeyColumnDef<TFieldValues>>,
+): AccessorKeyColumnDef<TFieldValues> => ({
+  accessorKey: name,
+  cell: function Cell() {
+    const { control } = useFormContext<TFieldValues>();
+    return (
+      <div className={tw`flex justify-center`}>
+        <CheckboxRHF control={control} name={name} variant='table-cell' />
+      </div>
+    );
+  },
+  header: '',
+  size: 0,
+  ...props,
+});
+
+export const columnTextFieldWithReference = <TFieldValues extends FieldValues>(
+  name: FieldPath<TFieldValues>,
+  { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
+): AccessorKeyColumnDef<TFieldValues> => ({
+  accessorKey: name,
+  cell: function Cell() {
+    const { control } = useFormContext<TFieldValues>();
+    return (
+      <TextFieldWithReference
+        className='flex-1'
+        control={control}
+        inputPlaceholder={`Enter ${title}`}
+        name={name}
+        variant='table-cell'
+      />
+    );
+  },
+  header: String.capitalize(title),
+  ...props,
+});
+
+export const columnTextField = <TFieldValues extends FieldValues>(
+  name: FieldPath<TFieldValues>,
+  { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
+): AccessorKeyColumnDef<TFieldValues> => ({
+  accessorKey: name,
+  cell: function Cell() {
+    const { control } = useFormContext<TFieldValues>();
+    return (
+      <TextFieldRHF
+        className='flex-1'
+        control={control}
+        inputPlaceholder={`Enter ${title}`}
+        name={name}
+        variant='table-cell'
+      />
+    );
+  },
+  header: String.capitalize(title),
+  ...props,
+});
+
+export const columnActions = <T,>({ cell, ...props }: Partial<DisplayColumnDef<T>>): DisplayColumnDef<T> => ({
+  cell: (props) => <div className={tw`flex justify-center`}>{typeof cell === 'function' ? cell(props) : cell}</div>,
+  header: '',
+  id: 'actions',
+  size: 0,
+  ...props,
+});
+
+interface ColumnActionDeleteProps<I extends DescMessage, O extends DescMessage> {
+  input: MessageInitShape<I>;
+  schema: DescMethodUnary<I, O>;
+}
+
+export const ColumnActionDelete = <I extends DescMessage, O extends DescMessage>({
+  input,
+  schema,
+}: ColumnActionDeleteProps<I, O>) => {
+  const delete$ = useConnectMutation(schema);
+  return (
+    <Button className={tw`text-red-700`} onPress={() => void delete$.mutateAsync(input)} variant='ghost'>
+      <LuTrash2 />
+    </Button>
+  );
 };
