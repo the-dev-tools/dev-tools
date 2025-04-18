@@ -3,7 +3,7 @@ import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { createFileRoute, redirect, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import {
   Background,
   BackgroundVariant,
@@ -18,7 +18,7 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record, Struct } from 'effect';
+import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, use, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
@@ -29,7 +29,7 @@ import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
-import { FlowVariableListItem, FlowVariableListItemSchema } from '@the-dev-tools/spec/flowvariable/v1/flowvariable_pb';
+import { FlowVariableListItem } from '@the-dev-tools/spec/flowvariable/v1/flowvariable_pb';
 import {
   flowVariableCreate,
   flowVariableDelete,
@@ -43,10 +43,17 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
 import { useQueryNormalizer } from '~/api/normalizer';
-import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from '~form-table';
+import {
+  ColumnActionDelete,
+  columnActions,
+  columnCheckboxField,
+  columnTextField,
+  columnTextFieldWithReference,
+  useFormTable,
+} from '~form-table';
 
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
@@ -495,67 +502,38 @@ const ActionBar = () => {
   );
 };
 
-const variableColumnHelper = createColumnHelper<FormTableItem<FlowVariableListItem>>();
-
-const variableColumns = [
-  genericFormTableEnableColumn,
-  variableColumnHelper.accessor('data.name', {
-    cell: ({ row, table }) => (
-      <TextFieldRHF
-        control={table.options.meta!.control!}
-        inputPlaceholder='Enter name'
-        name={`items.${row.index}.data.name`}
-        variant='table-cell'
-      />
-    ),
-    header: 'Name',
-    meta: { divider: false },
-  }),
-  variableColumnHelper.accessor('data.value', {
-    cell: ({ row, table }) => (
-      <TextFieldRHF
-        control={table.options.meta!.control!}
-        inputPlaceholder='Enter value'
-        name={`items.${row.index}.data.value`}
-        variant='table-cell'
-      />
-    ),
-    header: 'Value',
-  }),
-  variableColumnHelper.accessor('data.description', {
-    cell: ({ row, table }) => (
-      <TextFieldRHF
-        control={table.options.meta!.control!}
-        inputPlaceholder='Enter description'
-        name={`items.${row.index}.data.description`}
-        variant='table-cell'
-      />
-    ),
-    header: 'Description',
-  }),
-  genericFormTableActionColumn,
-];
-
 const SettingsPanel = () => {
-  'use no memo';
-
   const { flowId } = flowRoute.useLoaderData();
-
-  const create = useConnectMutation(flowVariableCreate);
-  const delete$ = useConnectMutation(flowVariableDelete);
-  const update = useConnectMutation(flowVariableUpdate);
 
   const {
     data: { items },
   } = useConnectSuspenseQuery(flowVariableList, { flowId });
 
-  const table = useFormTable({
-    columns: variableColumns as ColumnDef<FormTableItem<FlowVariableListItem>>[],
+  const { mutateAsync: create } = useConnectMutation(flowVariableCreate);
+  const { mutateAsync: update } = useConnectMutation(flowVariableUpdate);
+
+  const table = useReactTable({
+    columns: [
+      columnCheckboxField<FlowVariableListItem>('enabled', { meta: { divider: false } }),
+      columnTextFieldWithReference<FlowVariableListItem>('name'),
+      columnTextFieldWithReference<FlowVariableListItem>('value'),
+      columnTextField<FlowVariableListItem>('description', { meta: { divider: false } }),
+      columnActions<FlowVariableListItem>({
+        cell: ({ row }) => (
+          <ColumnActionDelete input={{ variableId: row.original.variableId }} schema={flowVariableDelete} />
+        ),
+      }),
+    ],
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const formTable = useFormTable({
+    createLabel: 'New variable',
     items,
-    onCreate: (_) => create.mutateAsync({ ...Struct.omit(_, '$typeName'), flowId }).then((_) => _.variableId),
-    onDelete: (_) => delete$.mutateAsync(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => update.mutateAsync(Struct.omit(_, '$typeName')),
-    schema: FlowVariableListItemSchema,
+    onCreate: () => create({ enabled: true, flowId, name: `FLOW_VARIABLE_${items.length}` }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    primaryColumn: 'name',
   });
 
   return (
@@ -575,7 +553,7 @@ const SettingsPanel = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable table={table} />
+        <DataTable {...formTable} table={table} />
       </div>
     </>
   );

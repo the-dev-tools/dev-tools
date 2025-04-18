@@ -1,11 +1,9 @@
-import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
-import { getRouteApi, useRouteContext } from '@tanstack/react-router';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
-import { Struct } from 'effect';
+import { getRouteApi } from '@tanstack/react-router';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Ulid } from 'id128';
-import { Suspense, useMemo } from 'react';
+import { Suspense } from 'react';
 import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
@@ -17,8 +15,13 @@ import {
   environmentList,
   environmentUpdate,
 } from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
-import { VariableListItem, VariableListItemSchema, VariableService } from '@the-dev-tools/spec/variable/v1/variable_pb';
-import { variableList } from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
+import { VariableListItem } from '@the-dev-tools/spec/variable/v1/variable_pb';
+import {
+  variableCreate,
+  variableDelete,
+  variableList,
+  variableUpdate,
+} from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
 import {
   workspaceGet,
   workspaceUpdate,
@@ -31,10 +34,17 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
-import { FormTableItem, genericFormTableActionColumn, genericFormTableEnableColumn, useFormTable } from './form-table';
+import {
+  ColumnActionDelete,
+  columnActions,
+  columnCheckboxField,
+  columnTextField,
+  columnTextFieldWithReference,
+  useFormTable,
+} from './form-table';
 import { ImportDialog } from './workspace/import';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -250,71 +260,41 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
   );
 };
 
-const variableColumnHelper = createColumnHelper<FormTableItem<VariableListItem>>();
-
-const variableColumns = [
-  genericFormTableEnableColumn,
-  variableColumnHelper.accessor('data.name', {
-    cell: ({ row, table }) => (
-      <TextFieldRHF
-        control={table.options.meta!.control!}
-        inputPlaceholder='Enter name'
-        name={`items.${row.index}.data.name`}
-        variant='table-cell'
-      />
-    ),
-    header: 'Name',
-    meta: { divider: false },
-  }),
-  variableColumnHelper.accessor('data.value', {
-    cell: ({ row, table }) => (
-      <TextFieldRHF
-        control={table.options.meta!.control!}
-        inputPlaceholder='Enter value'
-        name={`items.${row.index}.data.value`}
-        variant='table-cell'
-      />
-    ),
-    header: 'Value',
-  }),
-  variableColumnHelper.accessor('data.description', {
-    cell: ({ row, table }) => (
-      <TextFieldRHF
-        control={table.options.meta!.control!}
-        inputPlaceholder='Enter description'
-        name={`items.${row.index}.data.description`}
-        variant='table-cell'
-      />
-    ),
-    header: 'Description',
-  }),
-  genericFormTableActionColumn,
-];
-
 interface VariablesTableProps {
   environmentId: Uint8Array;
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
-  // eslint-disable-next-line react-compiler/react-compiler
-  'use no memo';
-
-  const { transport } = useRouteContext({ from: '__root__' });
-  const variableService = useMemo(() => createClient(VariableService, transport), [transport]);
-
   const {
     data: { items },
   } = useConnectSuspenseQuery(variableList, { environmentId });
 
-  const table = useFormTable({
-    columns: variableColumns as ColumnDef<FormTableItem<VariableListItem>>[],
-    items,
-    onCreate: (_) =>
-      variableService.variableCreate({ ...Struct.omit(_, '$typeName'), environmentId }).then((_) => _.variableId),
-    onDelete: (_) => variableService.variableDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => variableService.variableUpdate(Struct.omit(_, '$typeName')),
-    schema: VariableListItemSchema,
+  const { mutateAsync: create } = useConnectMutation(variableCreate);
+  const { mutateAsync: update } = useConnectMutation(variableUpdate);
+
+  const table = useReactTable({
+    columns: [
+      columnCheckboxField<VariableListItem>('enabled', { meta: { divider: false } }),
+      columnTextFieldWithReference<VariableListItem>('name'),
+      columnTextFieldWithReference<VariableListItem>('value'),
+      columnTextField<VariableListItem>('description', { meta: { divider: false } }),
+      columnActions<VariableListItem>({
+        cell: ({ row }) => (
+          <ColumnActionDelete input={{ variableId: row.original.variableId }} schema={variableDelete} />
+        ),
+      }),
+    ],
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} />;
+  const formTable = useFormTable({
+    createLabel: 'New variable',
+    items,
+    onCreate: () => create({ enabled: true, environmentId, name: `VARIABLE_${items.length}` }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    primaryColumn: 'name',
+  });
+
+  return <DataTable {...formTable} table={table} />;
 };

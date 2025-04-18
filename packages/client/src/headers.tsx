@@ -8,19 +8,27 @@ import { useMemo } from 'react';
 
 import {
   HeaderListItem,
-  HeaderListItemSchema,
-  RequestService,
+  RequestService
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import { headerList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
+import {
+  headerCreate,
+  headerDelete,
+  headerList,
+  headerUpdate,
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import {
+  ColumnActionDelete,
+  columnActions,
+  columnCheckboxField,
+  columnTextField,
+  columnTextFieldWithReference,
   makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
-  makeGenericFormTableColumns,
   useDeltaFormTable,
-  useFormTable,
+  useFormTable
 } from './form-table';
 
 interface HeaderTableProps {
@@ -58,26 +66,36 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
-  // eslint-disable-next-line react-compiler/react-compiler
-  'use no memo';
-
-  const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
-
   const {
     data: { items },
   } = useConnectSuspenseQuery(headerList, { exampleId });
 
-  const table = useFormTable({
-    columns: makeGenericFormTableColumns<HeaderListItem>(),
-    items,
-    onCreate: (_) => requestService.headerCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.headerId),
-    onDelete: (_) => requestService.headerDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
-    schema: HeaderListItemSchema,
+  const { mutateAsync: create } = useConnectMutation(headerCreate);
+  const { mutateAsync: update } = useConnectMutation(headerUpdate);
+
+  const table = useReactTable({
+    columns: [
+      columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
+      columnTextFieldWithReference<HeaderListItem>('key'),
+      columnTextFieldWithReference<HeaderListItem>('value'),
+      columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
+      columnActions<HeaderListItem>({
+        cell: ({ row }) => <ColumnActionDelete input={{ headerId: row.original.headerId }} schema={headerDelete} />,
+      }),
+    ],
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} />;
+  const formTable = useFormTable({
+    createLabel: 'New header',
+    items,
+    onCreate: () => create({ enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    primaryColumn: 'key',
+  });
+
+  return <DataTable {...formTable} table={table} />;
 };
 
 interface DeltaFormTableProps {

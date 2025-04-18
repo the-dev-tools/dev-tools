@@ -10,17 +10,21 @@ import { useMemo, useState } from 'react';
 
 import {
   BodyFormItemListItem,
-  BodyFormItemListItemSchema,
   BodyKind,
   BodyService,
   BodyUrlEncodedItemListItem,
-  BodyUrlEncodedItemListItemSchema,
 } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import {
+  bodyFormItemCreate,
+  bodyFormItemDelete,
   bodyFormItemList,
+  bodyFormItemUpdate,
   bodyRawGet,
   bodyRawUpdate,
+  bodyUrlEncodedItemCreate,
+  bodyUrlEncodedItemDelete,
   bodyUrlEncodedItemList,
+  bodyUrlEncodedItemUpdate,
 } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
 import { ExampleGetResponseSchema } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import {
@@ -36,9 +40,13 @@ import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query
 
 import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
 import {
+  ColumnActionDelete,
+  columnActions,
+  columnCheckboxField,
+  columnTextField,
+  columnTextFieldWithReference,
   makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
-  makeGenericFormTableColumns,
   useDeltaFormTable,
   useFormTable,
 } from './form-table';
@@ -133,27 +141,36 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
-  // eslint-disable-next-line react-compiler/react-compiler
-  'use no memo';
-
-  const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
-
   const {
     data: { items },
   } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
 
-  const table = useFormTable({
-    columns: makeGenericFormTableColumns<BodyFormItemListItem>(),
-    items,
-    onCreate: (_) =>
-      requestService.bodyFormItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
-    onDelete: (_) => requestService.bodyFormItemDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
-    schema: BodyFormItemListItemSchema,
+  const { mutateAsync: create } = useConnectMutation(bodyFormItemCreate);
+  const { mutateAsync: update } = useConnectMutation(bodyFormItemUpdate);
+
+  const table = useReactTable({
+    columns: [
+      columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
+      columnTextFieldWithReference<BodyFormItemListItem>('key'),
+      columnTextFieldWithReference<BodyFormItemListItem>('value'),
+      columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
+      columnActions<BodyFormItemListItem>({
+        cell: ({ row }) => <ColumnActionDelete input={{ bodyId: row.original.bodyId }} schema={bodyFormItemDelete} />,
+      }),
+    ],
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+  const formTable = useFormTable({
+    createLabel: 'New form data item',
+    items,
+    onCreate: () => create({ enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    primaryColumn: 'key',
+  });
+
+  return <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 interface FormDeltaDataTableProps {
@@ -222,27 +239,38 @@ interface UrlEncodedFormTableProps {
 }
 
 const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
-  // eslint-disable-next-line react-compiler/react-compiler
-  'use no memo';
-
-  const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
-
   const {
     data: { items },
   } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
 
-  const table = useFormTable({
-    columns: makeGenericFormTableColumns<BodyUrlEncodedItemListItem>(),
-    items,
-    onCreate: (_) =>
-      requestService.bodyUrlEncodedItemCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.bodyId),
-    onDelete: (_) => requestService.bodyUrlEncodedItemDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
-    schema: BodyUrlEncodedItemListItemSchema,
+  const { mutateAsync: create } = useConnectMutation(bodyUrlEncodedItemCreate);
+  const { mutateAsync: update } = useConnectMutation(bodyUrlEncodedItemUpdate);
+
+  const table = useReactTable({
+    columns: [
+      columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
+      columnTextFieldWithReference<BodyUrlEncodedItemListItem>('key'),
+      columnTextFieldWithReference<BodyUrlEncodedItemListItem>('value'),
+      columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
+      columnActions<BodyUrlEncodedItemListItem>({
+        cell: ({ row }) => (
+          <ColumnActionDelete input={{ bodyId: row.original.bodyId }} schema={bodyUrlEncodedItemDelete} />
+        ),
+      }),
+    ],
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+  const formTable = useFormTable({
+    createLabel: 'New URL encoded item',
+    items,
+    onCreate: () => create({ enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    primaryColumn: 'key',
+  });
+
+  return <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
 interface UrlEncodedDeltaFormTableProps {

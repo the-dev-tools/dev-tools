@@ -1,5 +1,4 @@
-import { create, DescMessage, DescMethodUnary, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { GenMessage } from '@bufbuild/protobuf/codegenv1';
+import { DescMessage, DescMethodUnary, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { useReactTable } from '@tanstack/react-table';
 import {
   AccessorKeyColumnDef,
@@ -373,78 +372,6 @@ const genericDeltaFormTableColumns = [
 export const makeGenericDeltaFormTableColumns = <T extends GenericFormTableItem>() =>
   genericDeltaFormTableColumns as AccessorKeyColumnDef<DeltaFormTableItem<T>>[];
 
-interface UseFormTableProps<T extends Message> {
-  columns: ColumnDef<FormTableItem<T>>[];
-  items: T[];
-  onCreate: (item: T) => Promise<Uint8Array>;
-  onDelete: (item: T) => Promise<unknown>;
-  onUpdate: (item: T) => Promise<unknown>;
-  schema: GenMessage<T>;
-}
-
-export const useFormTable = <T extends Message>({
-  columns,
-  items,
-  onCreate,
-  onDelete,
-  onUpdate,
-  schema,
-}: UseFormTableProps<T>) => {
-  const emptyItem = useCallback(
-    (): FormTableItem<T> => ({ data: create(schema, { enabled: true } as object) }),
-    [schema],
-  );
-
-  const values = useMemo((): FormTableData<FormTableItem<Message>> => {
-    return {
-      items: pipe(
-        Array.map(items, (_) => ({ data: _ })),
-        Array.append(emptyItem()),
-      ),
-    };
-  }, [emptyItem, items]);
-
-  const form = useForm({ values });
-  const fieldArray = useFieldArray({ control: form.control, name: 'items' });
-
-  const { itemTransaction, queueTask } = useFieldArrayTasks<
-    FormTableData<FormTableItem<Message>>,
-    `items.${number}`,
-    string,
-    FormTableItem<Message>
-  >({
-    form,
-    itemKey: (_) => pipe(getMessageId(_.data), Option.getOrThrow, (_) => Ulid.construct(_).toCanonical()),
-    itemPath: (index) => `items.${index}`,
-    onTask: async ({ index, item, type }) => {
-      const { data } = item as FormTableItem<T>;
-      const id = pipe(getMessageId(data), Option.getOrThrow);
-      if (type === 'change' && id.length === 0) {
-        const newId = await onCreate(data);
-        const newIdCan = Ulid.construct(newId).toCanonical();
-        itemTransaction(newIdCan, () => {
-          form.setValue(`items.${index}.data`, setMessageId(data, newId));
-          fieldArray.append(emptyItem());
-        });
-      } else if (type === 'change') {
-        await onUpdate(data);
-      } else if (type === 'delete') {
-        await onDelete(data);
-        itemTransaction(Ulid.construct(id).toCanonical(), () => void fieldArray.remove(index));
-      }
-    },
-  });
-
-  return useReactTable<FormTableItem<Message>>({
-    columns: columns as ColumnDef<FormTableItem<Message>>[],
-    data: fieldArray.fields,
-    defaultColumn: { minSize: 0 },
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (_) => (_ as (typeof fieldArray.fields)[number]).id,
-    meta: { control: form.control, queueTask },
-  });
-};
-
 interface UseDeltaFormTableProps<T extends Message> {
   columns: ColumnDef<DeltaFormTableItem<T>>[];
   deltaItems: T[];
@@ -559,7 +486,7 @@ const FormTableRow = <T extends FieldValues>({ children, onUpdate, value }: Form
   return <FormProvider {...form}>{children}</FormProvider>;
 };
 
-interface UseFormTableProps1<TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>> {
+interface UseFormTableProps<TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>> {
   createLabel?: ReactNode;
   items: TFieldValues[];
   onCreate: () => Promise<unknown>;
@@ -567,13 +494,13 @@ interface UseFormTableProps1<TFieldValues extends FieldValues, TPrimaryName exte
   primaryColumn?: TPrimaryName;
 }
 
-export const useFormTable1 = <TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>>({
+export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>>({
   createLabel = 'New item',
   items,
   onCreate,
   onUpdate,
   primaryColumn,
-}: UseFormTableProps1<TFieldValues, TPrimaryName>) => {
+}: UseFormTableProps<TFieldValues, TPrimaryName>) => {
   const lengthPrev = useRef<null | number>(null);
 
   useEffect(() => {

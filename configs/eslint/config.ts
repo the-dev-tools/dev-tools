@@ -80,7 +80,7 @@ const rules: Linter.Config = {
     '@typescript-eslint/no-meaningless-void-operator': 'off',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
-    '@typescript-eslint/no-unused-vars': ['error', { destructuredArrayIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
     '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
 
     'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved

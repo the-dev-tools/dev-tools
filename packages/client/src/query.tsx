@@ -6,19 +6,24 @@ import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Struct } from 'effect';
 import { useMemo } from 'react';
 
+import { QueryListItem, RequestService } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
-  QueryListItem,
-  QueryListItemSchema,
-  RequestService,
-} from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import { queryList } from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
+  queryCreate,
+  queryDelete,
+  queryList,
+  queryUpdate,
+} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import {
+  ColumnActionDelete,
+  columnActions,
+  columnCheckboxField,
+  columnTextField,
+  columnTextFieldWithReference,
   makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
-  makeGenericFormTableColumns,
   useDeltaFormTable,
   useFormTable,
 } from './form-table';
@@ -58,26 +63,36 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
-  // eslint-disable-next-line react-compiler/react-compiler
-  'use no memo';
-
-  const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
-
   const {
     data: { items },
   } = useConnectSuspenseQuery(queryList, { exampleId });
 
-  const table = useFormTable({
-    columns: makeGenericFormTableColumns<QueryListItem>(),
-    items,
-    onCreate: (_) => requestService.queryCreate({ ...Struct.omit(_, '$typeName'), exampleId }).then((_) => _.queryId),
-    onDelete: (_) => requestService.queryDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
-    schema: QueryListItemSchema,
+  const { mutateAsync: create } = useConnectMutation(queryCreate);
+  const { mutateAsync: update } = useConnectMutation(queryUpdate);
+
+  const table = useReactTable({
+    columns: [
+      columnCheckboxField<QueryListItem>('enabled', { meta: { divider: false } }),
+      columnTextFieldWithReference<QueryListItem>('key'),
+      columnTextFieldWithReference<QueryListItem>('value'),
+      columnTextField<QueryListItem>('description', { meta: { divider: false } }),
+      columnActions<QueryListItem>({
+        cell: ({ row }) => <ColumnActionDelete input={{ queryId: row.original.queryId }} schema={queryDelete} />,
+      }),
+    ],
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} />;
+  const formTable = useFormTable({
+    createLabel: 'New param',
+    items,
+    onCreate: () => create({ enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    primaryColumn: 'key',
+  });
+
+  return <DataTable {...formTable} table={table} />;
 };
 
 interface DeltaFormTableProps {
