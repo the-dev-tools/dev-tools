@@ -129,19 +129,19 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
   } satisfies Partial<DataTableProps<TFieldValues>>;
 };
 
-interface UseDeltaItemsProps<TFieldValues extends FieldValues> {
+interface MakeDeltaItemsProps<TFieldValues extends FieldValues> {
   getId: (item: TFieldValues) => string;
   getParentId: (item: TFieldValues) => string | undefined;
   itemsBase: TFieldValues[];
   itemsDelta: TFieldValues[];
 }
 
-export const useDeltaItems = <TFieldValues extends FieldValues>({
+export const makeDeltaItems = <TFieldValues extends FieldValues>({
   getId,
   getParentId,
   itemsBase,
   itemsDelta,
-}: UseDeltaItemsProps<TFieldValues>) => {
+}: MakeDeltaItemsProps<TFieldValues>) => {
   const deltaItemMap = pipe(
     itemsDelta.map((_) => [getParentId(_), _] as const),
     HashMap.fromIterable,
@@ -155,17 +155,17 @@ export const useDeltaItems = <TFieldValues extends FieldValues>({
   );
 };
 
-interface UseDeltaFormTableProps<TFieldValues extends FieldValues> {
+interface DeltaFormTableProps<TFieldValues extends FieldValues> {
   getParentId: (item: TFieldValues) => string | undefined;
   onCreate: (value: TFieldValues) => Promise<unknown>;
   onUpdate: (value: TFieldValues) => Promise<unknown>;
 }
 
-export const useDeltaFormTable = <TFieldValues extends FieldValues>({
+export const deltaFormTable = <TFieldValues extends FieldValues>({
   getParentId,
   onCreate,
   onUpdate,
-}: UseDeltaFormTableProps<TFieldValues>) =>
+}: DeltaFormTableProps<TFieldValues>) =>
   ({
     rowRender: (row, _) => (
       <FormTableRow

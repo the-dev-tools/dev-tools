@@ -44,10 +44,10 @@ import {
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
+  deltaFormTable,
   displayTable,
+  makeDeltaItems,
   ReactTableNoMemo,
-  useDeltaFormTable,
-  useDeltaItems,
   useFormTable,
 } from './form-table';
 
@@ -202,14 +202,14 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
     ],
   });
 
-  const items = useDeltaItems({
+  const items = makeDeltaItems({
     getId: (_) => _.bodyId.toString(),
     getParentId: (_) => _.parentBodyId?.toString(),
     itemsBase,
     itemsDelta,
   });
 
-  const formTable = useDeltaFormTable<BodyFormItemListItem>({
+  const formTable = deltaFormTable<BodyFormItemListItem>({
     getParentId: (_) => _.parentBodyId?.toString(),
     onCreate: ({ $typeName: _, bodyId, ...item }) =>
       create({ ...item, exampleId: deltaExampleId, parentBodyId: bodyId }),
@@ -325,14 +325,14 @@ const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDelta
     ],
   });
 
-  const items = useDeltaItems({
+  const items = makeDeltaItems({
     getId: (_) => _.bodyId.toString(),
     getParentId: (_) => _.parentBodyId?.toString(),
     itemsBase,
     itemsDelta,
   });
 
-  const formTable = useDeltaFormTable<BodyUrlEncodedItemListItem>({
+  const formTable = deltaFormTable<BodyUrlEncodedItemListItem>({
     getParentId: (_) => _.parentBodyId?.toString(),
     onCreate: ({ $typeName: _, bodyId, ...item }) =>
       create({ ...item, exampleId: deltaExampleId, parentBodyId: bodyId }),

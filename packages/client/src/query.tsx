@@ -20,10 +20,10 @@ import {
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
+  deltaFormTable,
   displayTable,
+  makeDeltaItems,
   ReactTableNoMemo,
-  useDeltaFormTable,
-  useDeltaItems,
   useFormTable,
 } from './form-table';
 
@@ -123,14 +123,14 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
     ],
   });
 
-  const items = useDeltaItems({
+  const items = makeDeltaItems({
     getId: (_) => _.queryId.toString(),
     getParentId: (_) => _.parentQueryId?.toString(),
     itemsBase,
     itemsDelta,
   });
 
-  const formTable = useDeltaFormTable<QueryListItem>({
+  const formTable = deltaFormTable<QueryListItem>({
     getParentId: (_) => _.parentQueryId?.toString(),
     onCreate: ({ $typeName: _, queryId, ...item }) =>
       create({ ...item, exampleId: deltaExampleId, parentQueryId: queryId }),
