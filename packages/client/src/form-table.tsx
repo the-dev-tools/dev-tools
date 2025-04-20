@@ -7,6 +7,8 @@ import {
   DisplayColumnDef,
   getCoreRowModel,
   RowData,
+  Table,
+  TableOptions,
 } from '@tanstack/table-core';
 import { Array, HashMap, Option, pipe, String } from 'effect';
 import { idEqual, Ulid } from 'id128';
@@ -452,6 +454,21 @@ export const useDeltaFormTable = <T extends Message>({
   });
 };
 
+interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
+  children: (table: Table<TData>) => React.ReactNode;
+}
+
+/**
+ * Workaround to make React Table work with React Compiler until it's officially supported
+ * @see https://github.com/TanStack/table/issues/5567
+ */
+export const ReactTableNoMemo = <TData extends RowData>({ children, ...props }: ReactTableNoMemoProps<TData>) => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  'use no memo';
+  const table = useReactTable(props);
+  return children(table);
+};
+
 interface UseFormAutoSaveProps<TFieldValues extends FieldValues> {
   handleSubmit: UseFormHandleSubmit<TFieldValues>;
   onSubmit: (value: TFieldValues) => Promise<unknown>;
@@ -539,6 +556,56 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
   } satisfies Partial<DataTableProps<TFieldValues>>;
 };
 
+interface UseDeltaItemsProps<TFieldValues extends FieldValues> {
+  getId: (item: TFieldValues) => string;
+  getParentId: (item: TFieldValues) => string | undefined;
+  itemsBase: TFieldValues[];
+  itemsDelta: TFieldValues[];
+}
+
+export const useDeltaItems = <TFieldValues extends FieldValues>({
+  getId,
+  getParentId,
+  itemsBase,
+  itemsDelta,
+}: UseDeltaItemsProps<TFieldValues>) => {
+  const deltaItemMap = pipe(
+    itemsDelta.map((_) => [getParentId(_), _] as const),
+    HashMap.fromIterable,
+  );
+
+  return itemsBase.map((_) =>
+    pipe(
+      HashMap.get(deltaItemMap, getId(_)),
+      Option.getOrElse(() => _),
+    ),
+  );
+};
+
+interface UseDeltaFormTableProps1<TFieldValues extends FieldValues> {
+  getParentId: (item: TFieldValues) => string | undefined;
+  onCreate: (value: TFieldValues) => Promise<unknown>;
+  onUpdate: (value: TFieldValues) => Promise<unknown>;
+}
+
+export const useDeltaFormTable1 = <TFieldValues extends FieldValues>({
+  getParentId,
+  onCreate,
+  onUpdate,
+}: UseDeltaFormTableProps1<TFieldValues>) => ({
+  rowRender: (row, _) => (
+    <FormTableRow
+      onUpdate={async (data) => {
+        if (getParentId(data) !== undefined) await onUpdate(data);
+        else await onCreate(data);
+      } }
+      value={row.original}
+    >
+      {_}
+    </FormTableRow>
+  ),
+} satisfies Partial<DataTableProps<TFieldValues>>);
+
 export const columnCheckboxField = <TFieldValues extends FieldValues>(
   name: FieldPath<TFieldValues>,
   props?: Partial<AccessorKeyColumnDef<TFieldValues>>,
@@ -620,6 +687,30 @@ export const ColumnActionDelete = <I extends DescMessage, O extends DescMessage>
   return (
     <Button className={tw`text-red-700`} onPress={() => void delete$.mutateAsync(input)} variant='ghost'>
       <LuTrash2 />
+    </Button>
+  );
+};
+
+interface ColumnActionUndoDeltaProps<I extends DescMessage, O extends DescMessage> {
+  hasDelta: boolean;
+  input: MessageInitShape<I>;
+  schema: DescMethodUnary<I, O>;
+}
+
+export const ColumnActionUndoDelta = <I extends DescMessage, O extends DescMessage>({
+  hasDelta,
+  input,
+  schema,
+}: ColumnActionUndoDeltaProps<I, O>) => {
+  const delete$ = useConnectMutation(schema);
+  return (
+    <Button
+      className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
+      isDisabled={!hasDelta}
+      onPress={() => void delete$.mutateAsync(input)}
+      variant='ghost'
+    >
+      <RedoIcon />
     </Button>
   );
 };
