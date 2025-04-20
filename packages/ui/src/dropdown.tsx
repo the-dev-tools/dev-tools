@@ -53,8 +53,8 @@ export const DropdownListBox = <T extends object>({ className, ...props }: Dropd
 // Item
 
 export const dropdownItemStyles = tv({
-  base: tw`rac-focus:bg-neutral-400 select-none rounded-sm px-3 py-2 text-sm leading-none`,
   extend: focusRingStyles,
+  base: tw`rac-focus:bg-neutral-400 select-none rounded-sm px-3 py-2 text-sm leading-none`,
   variants: {
     isDisabled: { false: tw`cursor-pointer` },
     variant: {

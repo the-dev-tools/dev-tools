@@ -8,18 +8,8 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
 export const addButtonStyles = tv({
-  base: tw`flex size-5 select-none items-center justify-center rounded-full border font-semibold`,
-  compoundVariants: [
-    { className: tw`border-slate-500 text-slate-600`, isHovered: true, variant: 'dark' },
-    { className: tw`border-slate-800 text-slate-900`, isPressed: true, variant: 'dark' },
-
-    { className: tw`border-white/40`, isHovered: true, variant: 'light' },
-    { className: tw`border-white`, isPressed: true, variant: 'light' },
-  ],
-  defaultVariants: {
-    variant: 'dark',
-  },
   extend: isFocusVisibleRingStyles,
+  base: tw`flex size-5 select-none items-center justify-center rounded-full border font-semibold`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isHovered: { false: null },
@@ -29,6 +19,16 @@ export const addButtonStyles = tv({
       light: tw`border-white/20 text-white`,
     },
   },
+  defaultVariants: {
+    variant: 'dark',
+  },
+  compoundVariants: [
+    { className: tw`border-slate-500 text-slate-600`, isHovered: true, variant: 'dark' },
+    { className: tw`border-slate-800 text-slate-900`, isPressed: true, variant: 'dark' },
+
+    { className: tw`border-white/40`, isHovered: true, variant: 'light' },
+    { className: tw`border-white`, isPressed: true, variant: 'light' },
+  ],
 });
 
 export const addButtonVariantKeys = pipe(

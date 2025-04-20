@@ -73,6 +73,19 @@ const sortRouterObject = pipe(
   }),
 );
 
+// Consistent Tailwind Variants order
+const sortTVObject = pipe(
+  ['extend', 'base', 'slot', 'variants', 'defaultVariants', 'compoundVariants', 'compoundSlots'],
+  (groups) => ({
+    customGroups: Array.map(groups, (name) => ({
+      elementNamePattern: name,
+      groupName: name,
+    })),
+    groups,
+    useConfigurationIf: { callingFunctionNamePattern: 'tv' },
+  }),
+);
+
 const rules: Linter.Config = {
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
@@ -87,7 +100,7 @@ const rules: Linter.Config = {
 
     'perfectionist/sort-imports': ['warn', { internalPattern: ['^@the-dev-tools/.*', '^~.*'] }],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
-    'perfectionist/sort-objects': ['warn', sortRouterObject],
+    'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject],
 
     'react/prop-types': 'off',
   },

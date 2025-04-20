@@ -16,11 +16,6 @@ interface SharedProps {
 
 export const avatarStyles = tv({
   base: tw`flex select-none items-center justify-center border font-semibold`,
-  defaultVariants: {
-    shape: 'circle',
-    size: 'sm',
-    variant: 'neutral',
-  },
   variants: {
     shape: {
       circle: tw`rounded-full`,
@@ -40,6 +35,11 @@ export const avatarStyles = tv({
       teal: tw`border-teal-400 bg-teal-100 text-teal-600`,
       violet: tw`border-violet-400 bg-violet-200 text-violet-600`,
     },
+  },
+  defaultVariants: {
+    shape: 'circle',
+    size: 'sm',
+    variant: 'neutral',
   },
 });
 
@@ -64,13 +64,13 @@ export const Avatar = ({ children, className, shorten = true, ...props }: Avatar
 // Button
 
 export const avatarButtonStyles = tv({
-  base: avatarStyles.base,
-  defaultVariants: avatarStyles.defaultVariants,
   extend: isFocusVisibleRingStyles,
+  base: avatarStyles.base,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     ...avatarStyles.variants,
   },
+  defaultVariants: avatarStyles.defaultVariants,
 });
 
 export const avatarButtonVariantKeys = pipe(

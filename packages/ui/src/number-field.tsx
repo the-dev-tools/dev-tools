@@ -23,8 +23,8 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 const groupStyles = tv({
-  base: tw`text-md flex rounded-md border border-slate-200 leading-5 text-slate-800`,
   extend: isFocusVisibleRingStyles,
+  base: tw`text-md flex rounded-md border border-slate-200 leading-5 text-slate-800`,
 });
 
 // Number field

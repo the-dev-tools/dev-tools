@@ -20,14 +20,14 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 const containerStyles = tv({
   base: tw`flex`,
-  defaultVariants: {
-    orientation: 'vertical',
-  },
   variants: {
     orientation: {
       horizontal: tw`gap-3`,
       vertical: tw`flex-col`,
     },
+  },
+  defaultVariants: {
+    orientation: 'vertical',
   },
 });
 
@@ -74,12 +74,8 @@ const itemStyles = tv({
 });
 
 const indicatorStyles = tv({
-  base: tw`size-4 rounded-full border`,
-  compoundVariants: [
-    { className: tw`border-slate-400`, isPressed: true, isSelected: false },
-    { className: tw`border-red-800`, isInvalid: true, isPressed: true },
-  ],
   extend: isFocusVisibleRingStyles,
+  base: tw`size-4 rounded-full border`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDisabled: { true: tw`border-slate-200 bg-slate-200` },
@@ -90,6 +86,10 @@ const indicatorStyles = tv({
       true: tw`border-violet-600 bg-violet-600`,
     },
   },
+  compoundVariants: [
+    { className: tw`border-slate-400`, isPressed: true, isSelected: false },
+    { className: tw`border-red-800`, isInvalid: true, isPressed: true },
+  ],
 });
 
 export interface RadioProps

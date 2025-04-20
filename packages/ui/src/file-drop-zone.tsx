@@ -13,8 +13,8 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, formatSize } from './utils';
 
 const dropZoneStyles = tv({
-  base: tw`flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white p-4`,
   extend: isFocusVisibleRingStyles,
+  base: tw`flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white p-4`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDropTarget: { true: twJoin(isFocusedStyle, tw`bg-violet-100`) },

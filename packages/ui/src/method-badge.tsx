@@ -9,14 +9,14 @@ type Method = 'CONNECT' | 'DELETE' | 'GET' | 'HEAD' | 'OPTION' | 'PATCH' | 'POST
 type MatchedMethod = [string, BadgeProps['color']];
 
 const styles = tv({
-  defaultVariants: {
-    size: 'default',
-  },
   variants: {
     size: {
       default: tw`w-10`,
       lg: tw`w-12`,
     },
+  },
+  defaultVariants: {
+    size: 'default',
   },
 });
 

@@ -12,8 +12,8 @@ import { tw } from './tailwind-literal';
 // Resize handle
 
 export const panelResizeHandleStyles = tv({
-  base: tw`bg-slate-200`,
   extend: focusRingStyles,
+  base: tw`bg-slate-200`,
   variants: {
     direction: {
       horizontal: tw`h-full w-px cursor-col-resize`,

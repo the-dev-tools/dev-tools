@@ -11,17 +11,8 @@ import { composeRenderPropsTV } from '@the-dev-tools/ui/utils';
 // Button
 
 export const buttonStyles = tv({
-  base: tw`flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
-  compoundVariants: [
-    {
-      className: tw`bg-neutral-400`,
-      isHovered: true,
-    },
-  ],
-  defaultVariants: {
-    variant: 'primary',
-  },
   extend: focusRingStyles,
+  base: tw`flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
   variants: {
     isHovered: { true: null },
     variant: {
@@ -30,6 +21,15 @@ export const buttonStyles = tv({
       'secondary gray': tw`border border-slate-200 bg-white text-black`,
     },
   },
+  defaultVariants: {
+    variant: 'primary',
+  },
+  compoundVariants: [
+    {
+      className: tw`bg-neutral-400`,
+      isHovered: true,
+    },
+  ],
 });
 
 export interface ButtonProps extends AriaButtonProps, VariantProps<typeof buttonStyles> {}

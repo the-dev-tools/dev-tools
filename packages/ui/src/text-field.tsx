@@ -23,10 +23,8 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 // Input
 
 export const inputStyles = tv({
-  base: tw`text-md rounded-md border border-slate-200 px-3 py-1.5 leading-5 text-slate-800`,
-  compoundVariants: [{ className: tw`bg-slate-100 opacity-50`, isDisabled: true, variant: 'default' }],
-  defaultVariants: { variant: 'default' },
   extend: isFocusVisibleRingStyles,
+  base: tw`text-md rounded-md border border-slate-200 px-3 py-1.5 leading-5 text-slate-800`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDisabled: { false: null },
@@ -35,6 +33,8 @@ export const inputStyles = tv({
       'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
     },
   },
+  defaultVariants: { variant: 'default' },
+  compoundVariants: [{ className: tw`bg-slate-100 opacity-50`, isDisabled: true, variant: 'default' }],
 });
 
 const inputVariantKeys = pipe(

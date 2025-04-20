@@ -5,14 +5,14 @@ import { tw } from './tailwind-literal';
 
 const styles = tv({
   base: tw`bg-slate-200`,
-  defaultVariants: {
-    orientation: 'horizontal',
-  },
   variants: {
     orientation: {
       horizontal: tw`h-px w-full`,
       vertical: tw`w-px`,
     },
+  },
+  defaultVariants: {
+    orientation: 'horizontal',
   },
 });
 

@@ -5,10 +5,6 @@ import { tw } from './tailwind-literal';
 
 export const badgeStyles = tv({
   base: tw`inline-flex items-center justify-center rounded-md text-xs font-semibold leading-4`,
-  defaultVariants: {
-    color: 'slate',
-    size: 'default',
-  },
   variants: {
     color: {
       amber: tw`border-amber-200 bg-amber-100 text-amber-600`,
@@ -24,6 +20,10 @@ export const badgeStyles = tv({
       default: tw`px-1 py-0.5`,
       lg: tw`p-1`,
     },
+  },
+  defaultVariants: {
+    color: 'slate',
+    size: 'default',
   },
 });
 
