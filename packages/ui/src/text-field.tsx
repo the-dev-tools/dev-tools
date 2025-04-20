@@ -24,13 +24,14 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 export const inputStyles = tv({
   base: tw`text-md rounded-md border border-slate-200 px-3 py-1.5 leading-5 text-slate-800`,
+  compoundVariants: [{ className: tw`bg-slate-100 opacity-50`, isDisabled: true, variant: 'default' }],
+  defaultVariants: { variant: 'default' },
   extend: isFocusVisibleRingStyles,
   variants: {
     ...isFocusVisibleRingStyles.variants,
-    isDisabled: {
-      true: tw`bg-slate-100 opacity-50`,
-    },
+    isDisabled: { false: null },
     variant: {
+      default: null,
       'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
     },
   },

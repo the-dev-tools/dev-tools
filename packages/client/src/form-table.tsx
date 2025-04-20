@@ -1,13 +1,6 @@
-import { DescMessage, DescMethodUnary, Message, MessageInitShape } from '@bufbuild/protobuf';
+import { DescMessage, DescMethodUnary, MessageInitShape } from '@bufbuild/protobuf';
 import { useReactTable } from '@tanstack/react-table';
-import {
-  AccessorKeyColumnDef,
-  createColumnHelper,
-  DisplayColumnDef,
-  RowData,
-  Table,
-  TableOptions,
-} from '@tanstack/table-core';
+import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table, TableOptions } from '@tanstack/table-core';
 import { HashMap, Option, pipe, String } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
 import {
@@ -25,51 +18,14 @@ import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@the-dev-tools/ui/button';
-import { Checkbox, CheckboxRHF } from '@the-dev-tools/ui/checkbox';
+import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTableProps } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { inputStyles, TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { useConnectMutation } from '~api/connect-query';
 
 import { TextFieldWithReference } from './reference';
-
-interface GenericFormTableItem extends Message {
-  description: string;
-  enabled: boolean;
-  key: string;
-  value: string;
-}
-
-const genericDisplayTableColumnHelper = createColumnHelper<GenericFormTableItem>();
-
-const genericDisplayTableColumns = [
-  genericDisplayTableColumnHelper.accessor('enabled', {
-    cell: ({ getValue }) => (
-      <div className={tw`flex justify-center`}>
-        <Checkbox isReadOnly isSelected={getValue()} variant='table-cell' />
-      </div>
-    ),
-    header: () => null,
-    size: 0,
-  }),
-  genericDisplayTableColumnHelper.accessor('key', {
-    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
-    header: 'Key',
-    meta: { divider: false },
-  }),
-  genericDisplayTableColumnHelper.accessor('value', {
-    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
-    header: 'Value',
-  }),
-  genericDisplayTableColumnHelper.accessor('description', {
-    cell: ({ getValue }) => <div className={inputStyles({ variant: 'table-cell' })}>{getValue()}</div>,
-    header: 'Description',
-  }),
-];
-
-export const makeGenericDisplayTableColumns = <T extends GenericFormTableItem>() =>
-  genericDisplayTableColumns as AccessorKeyColumnDef<T>[];
 
 interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
   children: (table: Table<TData>) => React.ReactNode;
@@ -223,6 +179,20 @@ export const useDeltaFormTable = <TFieldValues extends FieldValues>({
       </FormTableRow>
     ),
   }) satisfies Partial<DataTableProps<TFieldValues>>;
+
+interface DisplayFormTableRowProps<T extends FieldValues> {
+  children: ReactNode;
+  value: T;
+}
+
+const DisplayFormTableRow = <T extends FieldValues>({ children, value }: DisplayFormTableRowProps<T>) => {
+  const form = useForm({ disabled: true, values: value });
+  return <FormProvider {...form}>{children}</FormProvider>;
+};
+
+export const displayTable = {
+  rowRender: (row, _) => <DisplayFormTableRow value={row.original}>{_}</DisplayFormTableRow>,
+} satisfies Partial<DataTableProps<FieldValues>>;
 
 export const columnCheckboxField = <TFieldValues extends FieldValues>(
   name: FieldPath<TFieldValues>,

@@ -20,7 +20,7 @@ import {
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
-  makeGenericDisplayTableColumns,
+  displayTable,
   ReactTableNoMemo,
   useDeltaFormTable,
   useDeltaItems,
@@ -39,6 +39,13 @@ export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTab
   return <FormTable exampleId={exampleId} />;
 };
 
+const dataColumns = [
+  columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<HeaderListItem>('key'),
+  columnTextFieldWithReference<HeaderListItem>('value'),
+  columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
+];
+
 interface DisplayTableProps {
   exampleId: Uint8Array;
 }
@@ -49,20 +56,13 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
   } = useConnectSuspenseQuery(headerList, { exampleId });
 
   const table = useReactTable({
-    columns: makeGenericDisplayTableColumns<HeaderListItem>(),
+    columns: dataColumns,
     data: items,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} />;
+  return <DataTable {...displayTable} table={table} />;
 };
-
-const dataColumns = [
-  columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<HeaderListItem>('key'),
-  columnTextFieldWithReference<HeaderListItem>('value'),
-  columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
-];
 
 interface FormTableProps {
   exampleId: Uint8Array;

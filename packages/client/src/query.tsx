@@ -20,7 +20,7 @@ import {
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
-  makeGenericDisplayTableColumns,
+  displayTable,
   ReactTableNoMemo,
   useDeltaFormTable,
   useDeltaItems,
@@ -39,6 +39,13 @@ export const QueryTable = ({ deltaExampleId, exampleId, isReadOnly }: QueryTable
   return <FormTable exampleId={exampleId} />;
 };
 
+const dataColumns = [
+  columnCheckboxField<QueryListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<QueryListItem>('key'),
+  columnTextFieldWithReference<QueryListItem>('value'),
+  columnTextField<QueryListItem>('description', { meta: { divider: false } }),
+];
+
 interface DisplayTableProps {
   exampleId: Uint8Array;
 }
@@ -49,20 +56,13 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
   } = useConnectSuspenseQuery(queryList, { exampleId });
 
   const table = useReactTable({
-    columns: makeGenericDisplayTableColumns<QueryListItem>(),
+    columns: dataColumns,
     data: items,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} />;
+  return <DataTable {...displayTable} table={table} />;
 };
-
-const dataColumns = [
-  columnCheckboxField<QueryListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<QueryListItem>('key'),
-  columnTextFieldWithReference<QueryListItem>('value'),
-  columnTextField<QueryListItem>('description', { meta: { divider: false } }),
-];
 
 interface FormTableProps {
   exampleId: Uint8Array;

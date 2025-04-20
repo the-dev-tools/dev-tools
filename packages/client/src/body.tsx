@@ -44,7 +44,7 @@ import {
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
-  makeGenericDisplayTableColumns,
+  displayTable,
   ReactTableNoMemo,
   useDeltaFormTable,
   useDeltaItems,
@@ -118,6 +118,13 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
   );
 };
 
+const formDataColumns = [
+  columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<BodyFormItemListItem>('key'),
+  columnTextFieldWithReference<BodyFormItemListItem>('value'),
+  columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
+];
+
 interface FormDisplayTableProps {
   exampleId: Uint8Array;
 }
@@ -128,20 +135,13 @@ const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
   } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
 
   const table = useReactTable({
-    columns: makeGenericDisplayTableColumns<BodyFormItemListItem>(),
+    columns: formDataColumns,
     data: items,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+  return <DataTable {...displayTable} table={table} wrapperClassName={tw`col-span-full`} />;
 };
-
-const formDataColumns = [
-  columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<BodyFormItemListItem>('key'),
-  columnTextFieldWithReference<BodyFormItemListItem>('value'),
-  columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
-];
 
 interface FormDataTableProps {
   exampleId: Uint8Array;
@@ -239,6 +239,13 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
   );
 };
 
+const urlEncodedDataColumns = [
+  columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('key'),
+  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('value'),
+  columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
+];
+
 interface UrlEncodedDisplayTableProps {
   exampleId: Uint8Array;
 }
@@ -249,20 +256,13 @@ const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
   } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
 
   const table = useReactTable({
-    columns: makeGenericDisplayTableColumns<BodyUrlEncodedItemListItem>(),
+    columns: urlEncodedDataColumns,
     data: items,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+  return <DataTable {...displayTable} table={table} wrapperClassName={tw`col-span-full`} />;
 };
-
-const urlEncodedDataColumns = [
-  columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('key'),
-  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('value'),
-  columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
-];
 
 interface UrlEncodedFormTableProps {
   exampleId: Uint8Array;
