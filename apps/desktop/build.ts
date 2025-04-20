@@ -8,7 +8,7 @@ const config: Configuration = {
   artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
   asarUnpack: ['resources/**'],
   extraMetadata: {
-    name: 'dev-tools',
+    name: 'DevTools',
   },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
   icon: pipe(import.meta.resolve('@the-dev-tools/client/assets/favicon/favicon.png'), fileURLToPath),
