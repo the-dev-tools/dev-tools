@@ -1,15 +1,9 @@
-import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Struct } from 'effect';
-import { useMemo } from 'react';
 
-import {
-  HeaderListItem,
-  RequestService
-} from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import { HeaderListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
   headerCreate,
   headerDelete,
@@ -22,13 +16,15 @@ import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query
 import {
   ColumnActionDelete,
   columnActions,
+  ColumnActionUndoDelta,
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
-  makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
+  ReactTableNoMemo,
   useDeltaFormTable,
-  useFormTable
+  useDeltaItems,
+  useFormTable,
 } from './form-table';
 
 interface HeaderTableProps {
@@ -61,6 +57,13 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
   return <DataTable table={table} />;
 };
 
+const dataColumns = [
+  columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<HeaderListItem>('key'),
+  columnTextFieldWithReference<HeaderListItem>('value'),
+  columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
+];
+
 interface FormTableProps {
   exampleId: Uint8Array;
 }
@@ -75,10 +78,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
-      columnTextFieldWithReference<HeaderListItem>('key'),
-      columnTextFieldWithReference<HeaderListItem>('value'),
-      columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
+      ...dataColumns,
       columnActions<HeaderListItem>({
         cell: ({ row }) => <ColumnActionDelete input={{ headerId: row.original.headerId }} schema={headerDelete} />,
       }),
@@ -105,14 +105,16 @@ interface DeltaFormTableProps {
 
 const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
+
+  const { mutateAsync: create } = useConnectMutation(headerCreate);
+  const { mutateAsync: update } = useConnectMutation(headerUpdate);
 
   const [
     {
-      data: { items },
+      data: { items: itemsBase },
     },
     {
-      data: { items: deltaItems },
+      data: { items: itemsDelta },
     },
   ] = useSuspenseQueries({
     queries: [
@@ -121,22 +123,39 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
     ],
   });
 
-  const table = useDeltaFormTable({
-    columns: makeGenericDeltaFormTableColumns<HeaderListItem>(),
-    deltaItems,
-    getParentId: (_) => _.parentHeaderId!,
-    items,
-    onCreate: (_) =>
-      requestService
-        .headerCreate({
-          ...Struct.omit(_, '$typeName'),
-          exampleId: deltaExampleId,
-          parentHeaderId: _.headerId,
-        })
-        .then((_) => _.headerId),
-    onDelete: (_) => requestService.headerDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.headerUpdate(Struct.omit(_, '$typeName')),
+  const items = useDeltaItems({
+    getId: (_) => _.headerId.toString(),
+    getParentId: (_) => _.parentHeaderId?.toString(),
+    itemsBase,
+    itemsDelta,
   });
 
-  return <DataTable table={table} />;
+  const formTable = useDeltaFormTable<HeaderListItem>({
+    getParentId: (_) => _.parentHeaderId?.toString(),
+    onCreate: ({ $typeName: _, headerId, ...item }) =>
+      create({ ...item, exampleId: deltaExampleId, parentHeaderId: headerId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+  });
+
+  return (
+    <ReactTableNoMemo
+      columns={[
+        ...dataColumns,
+        columnActions<HeaderListItem>({
+          cell: ({ row }) => (
+            <ColumnActionUndoDelta
+              hasDelta={row.original.parentHeaderId !== undefined}
+              input={{ headerId: row.original.headerId }}
+              schema={headerDelete}
+            />
+          ),
+        }),
+      ]}
+      data={items}
+      getCoreRowModel={getCoreRowModel()}
+      getRowId={(_) => (_.parentHeaderId ?? _.headerId).toString()}
+    >
+      {(table) => <DataTable {...formTable} table={table} />}
+    </ReactTableNoMemo>
+  );
 };

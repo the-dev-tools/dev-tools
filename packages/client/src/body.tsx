@@ -1,17 +1,15 @@
 import { create } from '@bufbuild/protobuf';
-import { createClient } from '@connectrpc/connect';
 import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
 import { useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Match, pipe, Struct } from 'effect';
-import { useMemo, useState } from 'react';
+import { Match, pipe } from 'effect';
+import { useState } from 'react';
 
 import {
   BodyFormItemListItem,
   BodyKind,
-  BodyService,
   BodyUrlEncodedItemListItem,
 } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import {
@@ -42,12 +40,14 @@ import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExten
 import {
   ColumnActionDelete,
   columnActions,
+  ColumnActionUndoDelta,
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
-  makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
+  ReactTableNoMemo,
   useDeltaFormTable,
+  useDeltaItems,
   useFormTable,
 } from './form-table';
 
@@ -136,6 +136,13 @@ const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
+const formDataColumns = [
+  columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<BodyFormItemListItem>('key'),
+  columnTextFieldWithReference<BodyFormItemListItem>('value'),
+  columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
+];
+
 interface FormDataTableProps {
   exampleId: Uint8Array;
 }
@@ -150,10 +157,7 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
-      columnTextFieldWithReference<BodyFormItemListItem>('key'),
-      columnTextFieldWithReference<BodyFormItemListItem>('value'),
-      columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
+      ...formDataColumns,
       columnActions<BodyFormItemListItem>({
         cell: ({ row }) => <ColumnActionDelete input={{ bodyId: row.original.bodyId }} schema={bodyFormItemDelete} />,
       }),
@@ -180,14 +184,16 @@ interface FormDeltaDataTableProps {
 
 const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
+
+  const { mutateAsync: create } = useConnectMutation(bodyFormItemCreate);
+  const { mutateAsync: update } = useConnectMutation(bodyFormItemUpdate);
 
   const [
     {
-      data: { items },
+      data: { items: itemsBase },
     },
     {
-      data: { items: deltaItems },
+      data: { items: itemsDelta },
     },
   ] = useSuspenseQueries({
     queries: [
@@ -196,24 +202,41 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
     ],
   });
 
-  const table = useDeltaFormTable({
-    columns: makeGenericDeltaFormTableColumns<BodyFormItemListItem>(),
-    deltaItems,
-    getParentId: (_) => _.parentBodyId!,
-    items,
-    onCreate: (_) =>
-      requestService
-        .bodyFormItemCreate({
-          ...Struct.omit(_, '$typeName'),
-          exampleId: deltaExampleId,
-          parentBodyId: _.bodyId,
-        })
-        .then((_) => _.bodyId),
-    onDelete: (_) => requestService.bodyFormItemDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.bodyFormItemUpdate(Struct.omit(_, '$typeName')),
+  const items = useDeltaItems({
+    getId: (_) => _.bodyId.toString(),
+    getParentId: (_) => _.parentBodyId?.toString(),
+    itemsBase,
+    itemsDelta,
   });
 
-  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+  const formTable = useDeltaFormTable<BodyFormItemListItem>({
+    getParentId: (_) => _.parentBodyId?.toString(),
+    onCreate: ({ $typeName: _, bodyId, ...item }) =>
+      create({ ...item, exampleId: deltaExampleId, parentBodyId: bodyId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+  });
+
+  return (
+    <ReactTableNoMemo
+      columns={[
+        ...formDataColumns,
+        columnActions<BodyFormItemListItem>({
+          cell: ({ row }) => (
+            <ColumnActionUndoDelta
+              hasDelta={row.original.parentBodyId !== undefined}
+              input={{ bodyId: row.original.bodyId }}
+              schema={bodyFormItemDelete}
+            />
+          ),
+        }),
+      ]}
+      data={items}
+      getCoreRowModel={getCoreRowModel()}
+      getRowId={(_) => (_.parentBodyId ?? _.bodyId).toString()}
+    >
+      {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}
+    </ReactTableNoMemo>
+  );
 };
 
 interface UrlEncodedDisplayTableProps {
@@ -234,6 +257,13 @@ const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
   return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
 };
 
+const urlEncodedDataColumns = [
+  columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('key'),
+  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('value'),
+  columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
+];
+
 interface UrlEncodedFormTableProps {
   exampleId: Uint8Array;
 }
@@ -248,10 +278,7 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
-      columnTextFieldWithReference<BodyUrlEncodedItemListItem>('key'),
-      columnTextFieldWithReference<BodyUrlEncodedItemListItem>('value'),
-      columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
+      ...urlEncodedDataColumns,
       columnActions<BodyUrlEncodedItemListItem>({
         cell: ({ row }) => (
           <ColumnActionDelete input={{ bodyId: row.original.bodyId }} schema={bodyUrlEncodedItemDelete} />
@@ -280,14 +307,16 @@ interface UrlEncodedDeltaFormTableProps {
 
 const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(BodyService, transport), [transport]);
+
+  const { mutateAsync: create } = useConnectMutation(bodyUrlEncodedItemCreate);
+  const { mutateAsync: update } = useConnectMutation(bodyUrlEncodedItemUpdate);
 
   const [
     {
-      data: { items },
+      data: { items: itemsBase },
     },
     {
-      data: { items: deltaItems },
+      data: { items: itemsDelta },
     },
   ] = useSuspenseQueries({
     queries: [
@@ -296,24 +325,41 @@ const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDelta
     ],
   });
 
-  const table = useDeltaFormTable({
-    columns: makeGenericDeltaFormTableColumns<BodyUrlEncodedItemListItem>(),
-    deltaItems,
-    getParentId: (_) => _.parentBodyId!,
-    items,
-    onCreate: (_) =>
-      requestService
-        .bodyUrlEncodedItemCreate({
-          ...Struct.omit(_, '$typeName'),
-          exampleId: deltaExampleId,
-          parentBodyId: _.bodyId,
-        })
-        .then((_) => _.bodyId),
-    onDelete: (_) => requestService.bodyUrlEncodedItemDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.bodyUrlEncodedItemUpdate(Struct.omit(_, '$typeName')),
+  const items = useDeltaItems({
+    getId: (_) => _.bodyId.toString(),
+    getParentId: (_) => _.parentBodyId?.toString(),
+    itemsBase,
+    itemsDelta,
   });
 
-  return <DataTable table={table} wrapperClassName={tw`col-span-full`} />;
+  const formTable = useDeltaFormTable<BodyUrlEncodedItemListItem>({
+    getParentId: (_) => _.parentBodyId?.toString(),
+    onCreate: ({ $typeName: _, bodyId, ...item }) =>
+      create({ ...item, exampleId: deltaExampleId, parentBodyId: bodyId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+  });
+
+  return (
+    <ReactTableNoMemo
+      columns={[
+        ...urlEncodedDataColumns,
+        columnActions<BodyUrlEncodedItemListItem>({
+          cell: ({ row }) => (
+            <ColumnActionUndoDelta
+              hasDelta={row.original.parentBodyId !== undefined}
+              input={{ bodyId: row.original.bodyId }}
+              schema={bodyFormItemDelete}
+            />
+          ),
+        }),
+      ]}
+      data={items}
+      getCoreRowModel={getCoreRowModel()}
+      getRowId={(_) => (_.parentBodyId ?? _.bodyId).toString()}
+    >
+      {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}
+    </ReactTableNoMemo>
+  );
 };
 
 interface RawFormProps {

@@ -1,12 +1,9 @@
-import { createClient } from '@connectrpc/connect';
 import { createQueryOptions } from '@connectrpc/connect-query';
 import { useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { Struct } from 'effect';
-import { useMemo } from 'react';
 
-import { QueryListItem, RequestService } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import { QueryListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
   queryCreate,
   queryDelete,
@@ -19,12 +16,14 @@ import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query
 import {
   ColumnActionDelete,
   columnActions,
+  ColumnActionUndoDelta,
   columnCheckboxField,
   columnTextField,
   columnTextFieldWithReference,
-  makeGenericDeltaFormTableColumns,
   makeGenericDisplayTableColumns,
+  ReactTableNoMemo,
   useDeltaFormTable,
+  useDeltaItems,
   useFormTable,
 } from './form-table';
 
@@ -58,6 +57,13 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
   return <DataTable table={table} />;
 };
 
+const dataColumns = [
+  columnCheckboxField<QueryListItem>('enabled', { meta: { divider: false } }),
+  columnTextFieldWithReference<QueryListItem>('key'),
+  columnTextFieldWithReference<QueryListItem>('value'),
+  columnTextField<QueryListItem>('description', { meta: { divider: false } }),
+];
+
 interface FormTableProps {
   exampleId: Uint8Array;
 }
@@ -72,10 +78,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<QueryListItem>('enabled', { meta: { divider: false } }),
-      columnTextFieldWithReference<QueryListItem>('key'),
-      columnTextFieldWithReference<QueryListItem>('value'),
-      columnTextField<QueryListItem>('description', { meta: { divider: false } }),
+      ...dataColumns,
       columnActions<QueryListItem>({
         cell: ({ row }) => <ColumnActionDelete input={{ queryId: row.original.queryId }} schema={queryDelete} />,
       }),
@@ -102,14 +105,16 @@ interface DeltaFormTableProps {
 
 const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const { transport } = useRouteContext({ from: '__root__' });
-  const requestService = useMemo(() => createClient(RequestService, transport), [transport]);
+
+  const { mutateAsync: create } = useConnectMutation(queryCreate);
+  const { mutateAsync: update } = useConnectMutation(queryUpdate);
 
   const [
     {
-      data: { items },
+      data: { items: itemsBase },
     },
     {
-      data: { items: deltaItems },
+      data: { items: itemsDelta },
     },
   ] = useSuspenseQueries({
     queries: [
@@ -118,22 +123,39 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
     ],
   });
 
-  const table = useDeltaFormTable({
-    columns: makeGenericDeltaFormTableColumns<QueryListItem>(),
-    deltaItems,
-    getParentId: (_) => _.parentQueryId!,
-    items,
-    onCreate: (_) =>
-      requestService
-        .queryCreate({
-          ...Struct.omit(_, '$typeName'),
-          exampleId: deltaExampleId,
-          parentQueryId: _.queryId,
-        })
-        .then((_) => _.queryId),
-    onDelete: (_) => requestService.queryDelete(Struct.omit(_, '$typeName')),
-    onUpdate: (_) => requestService.queryUpdate(Struct.omit(_, '$typeName')),
+  const items = useDeltaItems({
+    getId: (_) => _.queryId.toString(),
+    getParentId: (_) => _.parentQueryId?.toString(),
+    itemsBase,
+    itemsDelta,
   });
 
-  return <DataTable table={table} />;
+  const formTable = useDeltaFormTable<QueryListItem>({
+    getParentId: (_) => _.parentQueryId?.toString(),
+    onCreate: ({ $typeName: _, queryId, ...item }) =>
+      create({ ...item, exampleId: deltaExampleId, parentQueryId: queryId }),
+    onUpdate: ({ $typeName: _, ...item }) => update(item),
+  });
+
+  return (
+    <ReactTableNoMemo
+      columns={[
+        ...dataColumns,
+        columnActions<QueryListItem>({
+          cell: ({ row }) => (
+            <ColumnActionUndoDelta
+              hasDelta={row.original.parentQueryId !== undefined}
+              input={{ queryId: row.original.queryId }}
+              schema={queryDelete}
+            />
+          ),
+        }),
+      ]}
+      data={items}
+      getCoreRowModel={getCoreRowModel()}
+      getRowId={(_) => (_.parentQueryId ?? _.queryId).toString()}
+    >
+      {(table) => <DataTable {...formTable} table={table} />}
+    </ReactTableNoMemo>
+  );
 };
