@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rcollection"
 	"the-dev-tools/server/internal/api/ritemapi"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/http/response"
 	"the-dev-tools/server/pkg/httpclient"
@@ -232,7 +233,7 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 		ID:            idwrap.NewNow(),
 		ExampleID:     ExampleID,
 		VisualizeMode: mbodyraw.VisualizeModeBinary,
-		CompressType:  mbodyraw.CompressTypeNone,
+		CompressType:  compress.CompressTypeNone,
 		Data:          []byte{},
 	}
 
@@ -548,7 +549,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 				ID:            idwrap.NewNow(),
 				ExampleID:     exampleUlid,
 				VisualizeMode: mbodyraw.VisualizeModeBinary,
-				CompressType:  mbodyraw.CompressTypeNone,
+				CompressType:  compress.CompressTypeNone,
 				Data:          []byte{},
 			}
 

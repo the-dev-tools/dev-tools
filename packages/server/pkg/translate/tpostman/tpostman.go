@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
@@ -269,7 +270,7 @@ func GetResponse(items []mresponse.Response, reqHeaders []mheader.Header, body *
 				ID:            idwrap.NewNow(),
 				ExampleID:     apiExampleID,
 				VisualizeMode: mbodyraw.VisualizeModeUndefined,
-				CompressType:  mbodyraw.CompressTypeNone,
+				CompressType:  compress.CompressTypeNone,
 				Data:          []byte{},
 			}
 			channels.BodyRaw <- bodyRaw
@@ -500,14 +501,14 @@ func GetBody(body *mbody.Body, exampleID, collectionID idwrap.IDWrap, channels *
 			VisualizeMode: mbodyraw.VisualizeModeUndefined,
 		}
 		if len(rawBytes) > zstdcompress.CompressThreshold {
-			bodyRaw.CompressType = mbodyraw.CompressTypeZstd
+			bodyRaw.CompressType = compress.CompressTypeZstd
 			bodyRaw.Data = zstdcompress.Compress(rawBytes)
 			if len(bodyRaw.Data) > len(rawBytes) {
-				bodyRaw.CompressType = mbodyraw.CompressTypeNone
+				bodyRaw.CompressType = compress.CompressTypeNone
 				bodyRaw.Data = rawBytes
 			}
 		} else {
-			bodyRaw.CompressType = mbodyraw.CompressTypeNone
+			bodyRaw.CompressType = compress.CompressTypeNone
 			bodyRaw.Data = rawBytes
 		}
 
@@ -520,7 +521,7 @@ func GetBody(body *mbody.Body, exampleID, collectionID idwrap.IDWrap, channels *
 		ID:            idwrap.NewNow(),
 		ExampleID:     exampleID,
 		VisualizeMode: mbodyraw.VisualizeModeUndefined,
-		CompressType:  mbodyraw.CompressTypeNone,
+		CompressType:  compress.CompressTypeNone,
 		Data:          []byte{},
 	}
 	channels.BodyRaw <- rawDefault

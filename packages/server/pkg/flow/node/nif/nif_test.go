@@ -2,6 +2,7 @@ package nif_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -42,6 +43,7 @@ func TestForNode_RunSync_true(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 	}
@@ -83,6 +85,7 @@ func TestForNode_RunSync_false(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 	}
@@ -126,6 +129,7 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 		VarMap: map[string]interface{}{
 			"a": 1,
 		},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 	}
@@ -169,6 +173,7 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 		VarMap: map[string]interface{}{
 			"a": 2,
 		},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/massert"
@@ -108,7 +109,7 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 	wsData.Rawbodies = append(wsData.Rawbodies, mbodyraw.ExampleBodyRaw{
 		Data:          []byte(`{"test": "data"}`),
 		VisualizeMode: mbodyraw.VisualizeModeJSON,
-		CompressType:  mbodyraw.CompressTypeNone,
+		CompressType:  compress.CompressTypeNone,
 		ID:            idwrap.NewNow(),
 		ExampleID:     exampleID,
 	})
@@ -152,7 +153,7 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 			ExampleID:     exampleID,
 			Data:          []byte(`{"test": "data"}`),
 			VisualizeMode: mbodyraw.VisualizeModeJSON,
-			CompressType:  mbodyraw.CompressTypeNone,
+			CompressType:  compress.CompressTypeNone,
 		},
 	}
 

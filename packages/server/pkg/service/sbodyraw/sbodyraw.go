@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/translate/tgeneric"
@@ -32,7 +33,7 @@ func ConvertGenToModel(body gen.ExampleBodyRaw) mbodyraw.ExampleBodyRaw {
 		ID:            body.ID,
 		ExampleID:     body.ExampleID,
 		VisualizeMode: mbodyraw.VisualizeMode(body.VisualizeMode),
-		CompressType:  mbodyraw.CompressType(body.CompressType),
+		CompressType:  compress.CompressType(body.CompressType),
 		Data:          body.Data,
 	}
 }

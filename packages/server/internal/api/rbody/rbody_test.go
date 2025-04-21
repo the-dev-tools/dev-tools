@@ -6,6 +6,7 @@ import (
 	"testing"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rbody"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
@@ -80,7 +81,7 @@ func TestGetBodyRaw(t *testing.T) {
 		ID:            idwrap.NewNow(),
 		VisualizeMode: mbodyraw.VisualizeModeHTML,
 		ExampleID:     itemExample.ID,
-		CompressType:  mbodyraw.CompressTypeNone,
+		CompressType:  compress.CompressTypeNone,
 		Data:          []byte("test body"),
 	}
 

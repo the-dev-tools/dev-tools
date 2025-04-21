@@ -320,7 +320,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			ID:            idwrap.NewNow(),
 			ExampleID:     exampleID,
 			Data:          []byte(""),
-			CompressType:  mbodyraw.CompressTypeNone,
+			CompressType:  compress.CompressTypeNone,
 			VisualizeMode: mbodyraw.VisualizeModeText,
 		}
 
@@ -376,7 +376,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 					}
 					if len(compressedData) < len(rawBody.Data) {
 						rawBody.Data = compressedData
-						rawBody.CompressType = mbodyraw.CompressTypeZstd
+						rawBody.CompressType = compress.CompressTypeZstd
 					}
 				}
 			}

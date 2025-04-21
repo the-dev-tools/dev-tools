@@ -72,6 +72,7 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap:        varMap,
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		Timeout:       timeOut,
@@ -144,6 +145,7 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap:        varMap,
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		LogPushFunc:   logMockFunc,
@@ -214,6 +216,7 @@ func TestForEachNode_RunSync_Map(t *testing.T) {
 				"c": "valueC",
 			},
 		},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		Timeout:       timeOut,
@@ -275,6 +278,7 @@ func TestForEachNode_RunAsync_Map(t *testing.T) {
 				"c": "valueC",
 			},
 		},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		LogPushFunc:   logMockFunc,

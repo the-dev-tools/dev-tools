@@ -10,7 +10,7 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
-type CompressType int8
+type CompressType = int8
 
 const (
 	CompressTypeNone CompressType = 0

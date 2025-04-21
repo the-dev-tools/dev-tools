@@ -128,6 +128,12 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	switch example.BodyType {
 	case mitemapiexample.BodyTypeRaw:
 		if len(rawBody.Data) > 0 {
+			if rawBody.CompressType != compress.CompressTypeNone {
+				rawBody.Data, err = compress.Decompress(rawBody.Data, rawBody.CompressType)
+				if err != nil {
+					return nil, err
+				}
+			}
 			bodyStr := string(rawBody.Data)
 			bodyStr, err = varMap.ReplaceVars(bodyStr)
 			if err != nil {

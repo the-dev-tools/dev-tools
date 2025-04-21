@@ -1,6 +1,9 @@
 package mbodyraw
 
-import "the-dev-tools/server/pkg/idwrap"
+import (
+	"the-dev-tools/server/pkg/compress"
+	"the-dev-tools/server/pkg/idwrap"
+)
 
 type VisualizeMode int8
 
@@ -14,18 +17,10 @@ const (
 	VisualizeModeBinary     VisualizeMode = 6
 )
 
-type CompressType int8
-
-const (
-	CompressTypeNone CompressType = 0
-	CompressTypeGzip CompressType = 1
-	CompressTypeZstd CompressType = 2
-)
-
 type ExampleBodyRaw struct {
 	Data          []byte
 	VisualizeMode VisualizeMode
-	CompressType  CompressType
+	CompressType  compress.CompressType
 	ID            idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
 }

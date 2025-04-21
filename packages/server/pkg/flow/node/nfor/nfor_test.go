@@ -2,6 +2,7 @@ package nfor_test
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -52,6 +53,7 @@ func TestForNode_RunSync(t *testing.T) {
 	}
 
 	req := &node.FlowNodeRequest{
+		ReadWriteLock: &sync.RWMutex{},
 		VarMap:        map[string]interface{}{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
@@ -106,6 +108,7 @@ func TestForNode_RunAsync(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		LogPushFunc:   logMockFunc,

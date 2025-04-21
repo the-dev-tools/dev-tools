@@ -6,6 +6,7 @@ import (
 	"errors"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/permcheck"
@@ -289,18 +290,18 @@ func (c BodyRPC) BodyRawGet(ctx context.Context, req *connect.Request[bodyv1.Bod
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	var bodyRawData []byte
-	if bodyRaw.CompressType == mbodyraw.CompressTypeNone {
+	if bodyRaw.CompressType == compress.CompressTypeNone {
 		bodyRawData = bodyRaw.Data
 	}
 	switch bodyRaw.CompressType {
-	case mbodyraw.CompressTypeNone:
+	case compress.CompressTypeNone:
 		bodyRawData = bodyRaw.Data
-	case mbodyraw.CompressTypeZstd:
+	case compress.CompressTypeZstd:
 		bodyRawData, err = zstdcompress.Decompress(bodyRaw.Data)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	case mbodyraw.CompressTypeGzip:
+	case compress.CompressTypeGzip:
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gzip not supported"))
 	}
 	return connect.NewResponse(&bodyv1.BodyRawGetResponse{Data: bodyRawData}), nil
@@ -322,11 +323,11 @@ func (c BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1.
 
 	rawBody := mbodyraw.ExampleBodyRaw{
 		ID:           bodyRawID.ID,
-		CompressType: mbodyraw.CompressTypeNone,
+		CompressType: compress.CompressTypeNone,
 		Data:         req.Msg.GetData(),
 	}
 	if len(rawBody.Data) > zstdcompress.CompressThreshold {
-		rawBody.CompressType = mbodyraw.CompressTypeZstd
+		rawBody.CompressType = compress.CompressTypeZstd
 		rawBody.Data = zstdcompress.Compress(rawBody.Data)
 	}
 
