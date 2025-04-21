@@ -66,7 +66,7 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		})
 
 		rpcVars := tgeneric.MassConvert(vars, tvar.SerializeModelToRPCItem)
-		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
+		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars, EnvironmentId: envIDRaw}), nil
 
 	} else if len(workspaceIDRaw) != 0 {
 		workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
