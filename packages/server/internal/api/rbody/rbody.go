@@ -73,7 +73,10 @@ func (c *BodyRPC) BodyFormItemList(ctx context.Context, req *connect.Request[bod
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	rpcBodyForms := tgeneric.MassConvert(bodyForms, tbodyform.SerializeFormModelToRPCItem)
-	return connect.NewResponse(&bodyv1.BodyFormItemListResponse{Items: rpcBodyForms}), nil
+	return connect.NewResponse(&bodyv1.BodyFormItemListResponse{
+		ExampleId: req.Msg.ExampleId,
+		Items:     rpcBodyForms,
+	}), nil
 }
 
 func (c BodyRPC) BodyFormItemCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemCreateRequest]) (*connect.Response[bodyv1.BodyFormItemCreateResponse], error) {
@@ -183,7 +186,7 @@ func (c *BodyRPC) BodyUrlEncodedItemList(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	rpcBodyURLs := tgeneric.MassConvert(bodyURLs, tbodyurl.SerializeURLModelToRPCItem)
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemListResponse{Items: rpcBodyURLs}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemListResponse{Items: rpcBodyURLs, ExampleId: req.Msg.ExampleId}), nil
 }
 
 func (c BodyRPC) BodyUrlEncodedItemCreate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemCreateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemCreateResponse], error) {

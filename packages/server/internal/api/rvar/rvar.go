@@ -97,7 +97,10 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 
 		rpcVars := tgeneric.MassConvert(vars, tvar.SerializeModelToRPCItem)
 
-		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars}), nil
+		return connect.NewResponse(&variablev1.VariableListResponse{
+			EnvironmentId: envIDRaw,
+			Items:         rpcVars,
+		}), nil
 	}
 	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("workspace id or env ID is required"))
 }
