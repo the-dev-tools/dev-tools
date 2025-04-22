@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/resultapi"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
@@ -33,8 +34,10 @@ func TestCreateResultApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	us := suser.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ws := sworkspace.New(queries)

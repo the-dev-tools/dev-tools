@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sitemapi"
@@ -31,9 +32,11 @@ func TestImportCurl(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	// Initialize services
 	ws := sworkspace.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	ifs := sitemfolder.New(queries)
 	ias := sitemapi.New(queries)

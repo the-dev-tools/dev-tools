@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -75,6 +76,27 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
+	var logLevel slog.Level
+	logLevelStr := os.Getenv("LOG_LEVEL")
+	switch logLevelStr {
+	case "DEBUG":
+		logLevel = slog.LevelDebug
+	case "INFO":
+		logLevel = slog.LevelInfo
+	case "WARNING":
+		logLevel = slog.LevelWarn
+	case "ERROR":
+		logLevel = slog.LevelError
+	default:
+		logLevel = slog.LevelError
+	}
+
+	loggerHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	})
+
+	logger := slog.New(loggerHandler)
+
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -115,7 +137,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	collectionService := scollection.New(queries)
+	collectionService := scollection.New(queries, logger)
 	workspaceService := sworkspace.New(queries)
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)

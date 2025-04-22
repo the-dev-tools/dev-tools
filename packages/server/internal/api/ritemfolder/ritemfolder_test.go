@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/ritemfolder"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -22,8 +23,9 @@ func TestCreateItemFolder(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 
 	workspaceID := idwrap.NewNow()
@@ -89,8 +91,10 @@ func TestUpdateItemFolder(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 
 	workspaceID := idwrap.NewNow()
@@ -155,8 +159,10 @@ func TestDeleteItemFolder(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 
 	workspaceID := idwrap.NewNow()

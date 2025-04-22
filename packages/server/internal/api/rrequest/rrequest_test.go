@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
@@ -689,9 +690,11 @@ func TestRPCRequestAssertDelete(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	ehs := sexampleheader.New(queries)
 	eqs := sexamplequery.New(queries)

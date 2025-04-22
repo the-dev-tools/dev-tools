@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/internal/api/rbody"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
@@ -32,8 +33,10 @@ func TestGetBodyRaw(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	us := suser.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 
@@ -121,8 +124,10 @@ func TestGetBodyForm(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	us := suser.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 
@@ -228,8 +233,10 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	us := suser.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 

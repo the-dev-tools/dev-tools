@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rcollectionitem"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -25,7 +26,9 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
-	cs := scollection.New(queries)
+	mockLogger := mocklogger.NewMockLogger()
+
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	ifs := sitemfolder.New(queries)
 	ias := sitemapi.New(queries)

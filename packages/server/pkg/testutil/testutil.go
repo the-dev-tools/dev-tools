@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/rcollection"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -49,7 +50,9 @@ func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
 
 func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	queries := c.Queries
-	cs := scollection.New(queries)
+
+	mockLogger := mocklogger.NewMockLogger()
+	cs := scollection.New(queries, mockLogger)
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
@@ -107,10 +110,10 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 	}
 
 	collectionData := mcollection.Collection{
-		ID:      collectionID,
+		ID:          collectionID,
 		WorkspaceID: wsID,
-		Name:    "test",
-		Updated: time.Now(),
+		Name:        "test",
+		Updated:     time.Now(),
 	}
 
 	err = cs.CreateCollection(ctx, &collectionData)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/tursomem"
@@ -125,6 +126,28 @@ var flowRunCmd = &cobra.Command{
 
 		ctx := cmd.Context()
 
+		// TODO: move into context
+		var logLevel slog.Level
+		logLevelStr := os.Getenv("LOG_LEVEL")
+		switch logLevelStr {
+		case "DEBUG":
+			logLevel = slog.LevelDebug
+		case "INFO":
+			logLevel = slog.LevelInfo
+		case "WARNING":
+			logLevel = slog.LevelWarn
+		case "ERROR":
+			logLevel = slog.LevelError
+		default:
+			logLevel = slog.LevelError
+		}
+
+		loggerHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: logLevel,
+		})
+
+		logger := slog.New(loggerHandler)
+
 		fileData, err := os.ReadFile(workspaceFilePath)
 		if err != nil {
 			return err
@@ -150,8 +173,8 @@ var flowRunCmd = &cobra.Command{
 			return err
 		}
 
+		collectionService := scollection.New(queries, logger)
 		workspaceService := sworkspace.New(queries)
-		collectionService := scollection.New(queries)
 		folderService := sitemfolder.New(queries)
 		endpointService := sitemapi.New(queries)
 		exampleService := sitemapiexample.New(queries)

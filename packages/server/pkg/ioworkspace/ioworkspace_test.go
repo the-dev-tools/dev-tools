@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
@@ -240,8 +241,8 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 			wsData.FlowRequestNodes = append(wsData.FlowRequestNodes, mnrequest.MNRequest{
 				FlowNodeID:     flowNode.ID,
 				DeltaExampleID: nil,
-				EndpointID:     nil,
-				ExampleID:      nil,
+				EndpointID:     &endpointID,
+				ExampleID:      &exampleID,
 			})
 		case mnnode.NODE_KIND_CONDITION:
 			wsData.FlowConditionNodes = append(wsData.FlowConditionNodes, mnif.MNIF{
@@ -285,9 +286,11 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 	db := base.DB
 	queries := base.Queries
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	// Create services
 	workspaceService := sworkspace.New(queries)
-	collectionService := scollection.New(queries)
+	collectionService := scollection.New(queries, mockLogger)
 	folderService := sitemfolder.New(queries)
 	endpointService := sitemapi.New(queries)
 	exampleService := sitemapiexample.New(queries)

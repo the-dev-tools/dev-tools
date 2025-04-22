@@ -3,6 +3,8 @@ package scollection
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"log/slog"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcollection"
@@ -13,6 +15,7 @@ var ErrNoCollectionFound = sql.ErrNoRows
 
 type CollectionService struct {
 	queries *gen.Queries
+	logger  *slog.Logger
 }
 
 func ConvertToDBCollection(collection mcollection.Collection) gen.Collection {
@@ -31,8 +34,11 @@ func ConvertToModelCollection(collection gen.Collection) *mcollection.Collection
 	}
 }
 
-func New(queries *gen.Queries) CollectionService {
-	return CollectionService{queries: queries}
+func New(queries *gen.Queries, logger *slog.Logger) CollectionService {
+	return CollectionService{
+		queries: queries,
+		logger:  logger,
+	}
 }
 
 func (cs CollectionService) TX(tx *sql.Tx) CollectionService {
@@ -48,10 +54,11 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {
 	return &service, nil
 }
 
-func (cs CollectionService) ListCollections(ctx context.Context, ownerID idwrap.IDWrap) ([]mcollection.Collection, error) {
-	rows, err := cs.queries.GetCollectionByWorkspaceID(ctx, ownerID)
+func (cs CollectionService) ListCollections(ctx context.Context, workspaceID idwrap.IDWrap) ([]mcollection.Collection, error) {
+	rows, err := cs.queries.GetCollectionByWorkspaceID(ctx, workspaceID)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			cs.logger.InfoContext(ctx, fmt.Sprintf("workspaceID: %s not found", workspaceID.String()))
 			return nil, ErrNoCollectionFound
 		}
 		return nil, err
@@ -72,6 +79,7 @@ func (cs CollectionService) GetCollection(ctx context.Context, id idwrap.IDWrap)
 	collection, err := cs.queries.GetCollection(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			cs.logger.DebugContext(ctx, fmt.Sprintf("CollectionID: %s not found", id.String()))
 			return nil, ErrNoCollectionFound
 		}
 		return nil, err

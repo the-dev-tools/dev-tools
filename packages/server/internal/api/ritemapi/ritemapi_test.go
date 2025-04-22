@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/ritemapi"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -24,10 +25,11 @@ func TestCreateItemApi(t *testing.T) {
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
 	db := base.DB
+	mockLogger := mocklogger.NewMockLogger()
 
 	ias := sitemapi.New(queries)
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)
@@ -107,9 +109,11 @@ func TestGetItemApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)
@@ -180,9 +184,11 @@ func TestUpdateItemApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)
@@ -265,9 +271,11 @@ func TestDeleteItemApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	ifs := sitemfolder.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)

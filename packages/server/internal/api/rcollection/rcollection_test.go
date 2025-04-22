@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rcollection"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/suser"
@@ -23,7 +24,9 @@ func TestCollectionGet(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
-	cs := scollection.New(queries)
+	mockLogger := mocklogger.NewMockLogger()
+
+	cs := scollection.New(queries, mockLogger)
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
@@ -38,10 +41,10 @@ func TestCollectionGet(t *testing.T) {
 
 	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
-		ID:      testCollectionID,
+		ID:          testCollectionID,
 		WorkspaceID: wsID,
-		Name:    "test",
-		Updated: time.Now(),
+		Name:        "test",
+		Updated:     time.Now(),
 	}
 
 	err := cs.CreateCollection(ctx, &collectionData)
@@ -90,7 +93,9 @@ func TestCollectionCreate(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
-	cs := scollection.New(queries)
+	mockLogger := mocklogger.NewMockLogger()
+
+	cs := scollection.New(queries, mockLogger)
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
@@ -145,7 +150,9 @@ func TestCollectionUpdate(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
-	cs := scollection.New(queries)
+	mockLogger := mocklogger.NewMockLogger()
+
+	cs := scollection.New(queries, mockLogger)
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
@@ -160,10 +167,10 @@ func TestCollectionUpdate(t *testing.T) {
 
 	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
-		ID:      testCollectionID,
+		ID:          testCollectionID,
 		WorkspaceID: wsID,
-		Name:    "test",
-		Updated: time.Now(),
+		Name:        "test",
+		Updated:     time.Now(),
 	}
 
 	err := cs.CreateCollection(ctx, &collectionData)
@@ -206,7 +213,9 @@ func TestCollectionDelete(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
-	cs := scollection.New(queries)
+	mockLogger := mocklogger.NewMockLogger()
+
+	cs := scollection.New(queries, mockLogger)
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 
@@ -221,10 +230,10 @@ func TestCollectionDelete(t *testing.T) {
 
 	testCollectionID := idwrap.NewNow()
 	collectionData := mcollection.Collection{
-		ID:      testCollectionID,
+		ID:          testCollectionID,
 		WorkspaceID: wsID,
-		Name:    "test",
-		Updated: time.Now(),
+		Name:        "test",
+		Updated:     time.Now(),
 	}
 
 	err := cs.CreateCollection(ctx, &collectionData)

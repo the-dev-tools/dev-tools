@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
@@ -40,10 +41,12 @@ func TestGetExampleApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ws := sworkspace.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
 	qs := sexamplequery.New(queries)
@@ -142,10 +145,12 @@ func TestCreateExampleApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ws := sworkspace.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
 	qs := sexamplequery.New(queries)
@@ -237,10 +242,12 @@ func TestUpdateExampleApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ws := sworkspace.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
 	qs := sexamplequery.New(queries)
@@ -342,10 +349,12 @@ func TestDeleteExampleApi(t *testing.T) {
 	queries := base.Queries
 	db := base.DB
 
+	mockLogger := mocklogger.NewMockLogger()
+
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ws := sworkspace.New(queries)
-	cs := scollection.New(queries)
+	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	hs := sexampleheader.New(queries)
 	qs := sexamplequery.New(queries)
