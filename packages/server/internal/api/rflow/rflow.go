@@ -409,6 +409,11 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 		return nil, err
 	}
 
+	err = c.fs.DeleteFlow(ctx, flowID)
+	if err != nil {
+		return nil, err
+	}
+
 	ws, err := c.ws.Get(ctx, flow.WorkspaceID)
 	if err != nil {
 		return nil, err
@@ -419,11 +424,6 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	err = c.fs.DeleteFlow(ctx, flowID)
-	if err != nil {
-		return nil, err
 	}
 	return connect.NewResponse(&flowv1.FlowDeleteResponse{}), nil
 }

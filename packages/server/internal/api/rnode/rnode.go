@@ -552,6 +552,21 @@ func (c *NodeServiceRPC) NodeDelete(ctx context.Context, req *connect.Request[no
 		return nil, rpcErr
 	}
 
+	node, err := c.ns.GetNode(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	if node.NodeKind == mnnode.NODE_KIND_NO_OP {
+		nodeNoop, err := c.nss.GetNodeNoop(ctx, node.ID)
+		if err != nil {
+			return nil, err
+		}
+		if nodeNoop.Type == mnnoop.NODE_NO_OP_KIND_START {
+			return nil, errors.New("cannot delete start node")
+		}
+	}
+
 	err = c.ns.DeleteNode(ctx, nodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
