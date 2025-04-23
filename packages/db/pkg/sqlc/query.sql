@@ -218,6 +218,23 @@ WHERE
   is_default is false AND
   version_parent_id is NULL;
 
+-- name: GetItemApiExamplesWithDefaults :many
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    version_parent_id,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  item_api_id = ? AND
+  version_parent_id is NULL;
+
 -- name: GetItemApiExampleDefault :one
 SELECT
     id,

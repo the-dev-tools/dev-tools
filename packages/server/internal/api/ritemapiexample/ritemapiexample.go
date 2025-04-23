@@ -312,18 +312,39 @@ func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var change bool
+	var changes []*changev1.Change
+
+	var updateChange bool
 	exRPC := req.Msg
 	if exRPC.Name != nil {
 		dbExample.Name = *exRPC.Name
-		change = true
+		updateChange = true
+
+		folderChange := itemv1.CollectionItem{
+			Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+			Example: &examplev1.ExampleListItem{
+				Name: dbExample.Name,
+			},
+		}
+
+		folderChangeAny, err := anypb.New(&folderChange)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
+		normalizationChange := &changev1.Change{
+			Kind: &kind,
+			Data: folderChangeAny,
+		}
+		changes = append(changes, normalizationChange)
 	}
 	if exRPC.BodyKind != nil {
 		dbExample.BodyType = mitemapiexample.BodyType(*exRPC.BodyKind)
-		change = true
+		updateChange = true
 	}
 
-	if !change {
+	if !updateChange {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("all fields are null"))
 	}
 
@@ -332,7 +353,9 @@ func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&examplev1.ExampleUpdateResponse{}), nil
+	return connect.NewResponse(&examplev1.ExampleUpdateResponse{
+		Changes: changes,
+	}), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Request[examplev1.ExampleDeleteRequest]) (*connect.Response[examplev1.ExampleDeleteResponse], error) {
@@ -453,6 +476,9 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	exampleIDBytes := res.Example.ID.Bytes()
+	exampleName := res.Example.Name
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -468,7 +494,55 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&examplev1.ExampleDuplicateResponse{}), nil
+	// TODO: refactor changes stuff
+	folderChange := itemv1.CollectionItem{
+		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+		Example: &examplev1.ExampleListItem{
+			ExampleId: exampleIDBytes,
+			Name:      exampleName,
+		},
+	}
+
+	folderChangeAny, err := anypb.New(&folderChange)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	a := &examplev1.ExampleListResponse{
+		EndpointId: exampleIDBytes,
+	}
+
+	changeAny, err := anypb.New(a)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+
+	listChanges := []*changev1.ListChange{
+		{
+			Kind:   changeKind,
+			Parent: changeAny,
+		},
+	}
+
+	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
+	change := &changev1.Change{
+		Kind: &kind,
+		List: listChanges,
+		Data: folderChangeAny,
+	}
+
+	changes := []*changev1.Change{
+		change,
+	}
+
+	resp := &examplev1.ExampleDuplicateResponse{
+		ExampleId: exampleIDBytes,
+		Changes:   changes,
+	}
+
+	return connect.NewResponse(resp), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request[examplev1.ExampleRunRequest]) (*connect.Response[examplev1.ExampleRunResponse], error) {

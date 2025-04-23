@@ -4664,6 +4664,57 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 	return items, nil
 }
 
+const getItemApiExamplesWithDefaults = `-- name: GetItemApiExamplesWithDefaults :many
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    version_parent_id,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  item_api_id = ? AND
+  version_parent_id is NULL
+`
+
+func (q *Queries) GetItemApiExamplesWithDefaults(ctx context.Context, itemApiID idwrap.IDWrap) ([]ItemApiExample, error) {
+	rows, err := q.query(ctx, q.getItemApiExamplesWithDefaultsStmt, getItemApiExamplesWithDefaults, itemApiID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ItemApiExample{}
+	for rows.Next() {
+		var i ItemApiExample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.IsDefault,
+			&i.BodyType,
+			&i.Name,
+			&i.VersionParentID,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getItemApiWorkspaceID = `-- name: GetItemApiWorkspaceID :one
 SELECT
   c.workspace_id

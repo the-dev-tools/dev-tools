@@ -396,6 +396,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemApiExamplesStmt, err = db.PrepareContext(ctx, getItemApiExamples); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExamples: %w", err)
 	}
+	if q.getItemApiExamplesWithDefaultsStmt, err = db.PrepareContext(ctx, getItemApiExamplesWithDefaults); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiExamplesWithDefaults: %w", err)
+	}
 	if q.getItemApiWorkspaceIDStmt, err = db.PrepareContext(ctx, getItemApiWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiWorkspaceID: %w", err)
 	}
@@ -1216,6 +1219,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemApiExamplesStmt: %w", cerr)
 		}
 	}
+	if q.getItemApiExamplesWithDefaultsStmt != nil {
+		if cerr := q.getItemApiExamplesWithDefaultsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiExamplesWithDefaultsStmt: %w", cerr)
+		}
+	}
 	if q.getItemApiWorkspaceIDStmt != nil {
 		if cerr := q.getItemApiWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiWorkspaceIDStmt: %w", cerr)
@@ -1704,6 +1712,7 @@ type Queries struct {
 	getItemApiExampleByVersionParentIDStmt                *sql.Stmt
 	getItemApiExampleDefaultStmt                          *sql.Stmt
 	getItemApiExamplesStmt                                *sql.Stmt
+	getItemApiExamplesWithDefaultsStmt                    *sql.Stmt
 	getItemApiWorkspaceIDStmt                             *sql.Stmt
 	getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt *sql.Stmt
 	getItemFolderStmt                                     *sql.Stmt
@@ -1899,6 +1908,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemApiExampleByVersionParentIDStmt:           q.getItemApiExampleByVersionParentIDStmt,
 		getItemApiExampleDefaultStmt:                     q.getItemApiExampleDefaultStmt,
 		getItemApiExamplesStmt:                           q.getItemApiExamplesStmt,
+		getItemApiExamplesWithDefaultsStmt:               q.getItemApiExamplesWithDefaultsStmt,
 		getItemApiWorkspaceIDStmt:                        q.getItemApiWorkspaceIDStmt,
 		getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt: q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt,
 		getItemFolderStmt: q.getItemFolderStmt,

@@ -85,6 +85,17 @@ func (iaes ItemApiExampleService) GetApiExamples(ctx context.Context, apiUlid id
 	return MassConvert(itemApiExamples, ConvertToModelItem), nil
 }
 
+func (iaes ItemApiExampleService) GetApiExamplesWithDefaults(ctx context.Context, endpointID idwrap.IDWrap) ([]mitemapiexample.ItemApiExample, error) {
+	itemApiExamples, err := iaes.Queries.GetItemApiExamplesWithDefaults(ctx, endpointID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mitemapiexample.ItemApiExample{}, ErrNoItemApiExampleFound
+		}
+		return nil, err
+	}
+	return MassConvert(itemApiExamples, ConvertToModelItem), nil
+}
+
 func (iaes ItemApiExampleService) GetDefaultApiExample(ctx context.Context, apiUlid idwrap.IDWrap) (*mitemapiexample.ItemApiExample, error) {
 	itemApiExample, err := iaes.Queries.GetItemApiExampleDefault(ctx, apiUlid)
 	if err != nil {
