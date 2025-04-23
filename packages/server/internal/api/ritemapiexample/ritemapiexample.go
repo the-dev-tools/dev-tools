@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/http/response"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
@@ -29,6 +30,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/permcheck"
+	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
 	"the-dev-tools/server/pkg/service/sbodyform"
@@ -85,31 +87,35 @@ type ItemAPIExampleRPC struct {
 	// assert
 	as  *sassert.AssertService
 	ars *sassertres.AssertResultService
+
+	logChanMap logconsole.LogChanMap
 }
 
 func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService,
 	ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
 	bfs sbodyform.BodyFormService, beus sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, erhs sexamplerespheader.ExampleRespHeaderService,
 	ers sexampleresp.ExampleRespService, es senv.EnvService, vs svar.VarService, as sassert.AssertService, ars sassertres.AssertResultService,
+	logChanMap logconsole.LogChanMap,
 ) ItemAPIExampleRPC {
 	return ItemAPIExampleRPC{
-		DB:   db,
-		iaes: &iaes,
-		ias:  &ias,
-		ws:   &ws,
-		cs:   &cs,
-		us:   &us,
-		hs:   &hs,
-		qs:   &qs,
-		bfs:  &bfs,
-		bues: &beus,
-		brs:  &brs,
-		erhs: &erhs,
-		ers:  &ers,
-		es:   es,
-		vs:   vs,
-		as:   &as,
-		ars:  &ars,
+		DB:         db,
+		iaes:       &iaes,
+		ias:        &ias,
+		ws:         &ws,
+		cs:         &cs,
+		us:         &us,
+		hs:         &hs,
+		qs:         &qs,
+		bfs:        &bfs,
+		bues:       &beus,
+		brs:        &brs,
+		erhs:       &erhs,
+		ers:        &ers,
+		es:         es,
+		vs:         vs,
+		as:         &as,
+		ars:        &ars,
+		logChanMap: logChanMap,
 	}
 }
 
@@ -546,6 +552,11 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	return connect.NewResponse(resp), nil
 }
 
+type ExampleRunLog struct {
+	Request  request.RequestResponseVar `json:"request"`
+	Response httpclient.ResponseVar     `json:"response"`
+}
+
 func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request[examplev1.ExampleRunRequest]) (*connect.Response[examplev1.ExampleRunResponse], error) {
 	exampleUlid, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
@@ -663,6 +674,20 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	requestResp, err := request.SendRequest(preparedRequest, example.ID, client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	// TODO: simplify this package deps
+	exampleRunLog := ExampleRunLog{
+		Request:  request.ConvertRequestToVar(preparedRequest),
+		Response: httpclient.ConvertResponseToVar(requestResp.HttpResp),
+	}
+
+	ref := reference.NewReferenceFromInterfaceWithKey(exampleRunLog, example.Name)
+	refs := []reference.Reference{ref}
+
+	err = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Request %s:%s", example.Name, example.ID.String()), refs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}

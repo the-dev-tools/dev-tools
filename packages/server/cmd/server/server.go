@@ -227,7 +227,7 @@ func main() {
 	// Api Item Example
 	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService,
 		workspaceService, collectionService, userService, exampleHeaderService, exampleQueryService, bodyFormService, bodyUrlService,
-		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService)
+		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService, logMap)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
 
 	requestSrv := rrequest.New(currentDB, collectionService, userService, exampleService, exampleHeaderService, exampleQueryService, assertService)

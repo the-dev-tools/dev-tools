@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -110,8 +111,10 @@ func TestGetExampleApi(t *testing.T) {
 		ExampleId: expectedID.Bytes(),
 	})
 
+	logChanMap := logconsole.NewLogChanMapWith(10000)
+
 	rpcExample := ritemapiexample.New(db, iaes, ias,
-		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleGet(authedCtx, req)
 	if err != nil {
@@ -196,8 +199,10 @@ func TestCreateExampleApi(t *testing.T) {
 		BodyKind:   expectedBodyType,
 	})
 
+	logChanMap := logconsole.NewLogChanMapWith(10000)
+
 	rpcExample := ritemapiexample.New(db, iaes, ias,
-		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleCreate(authedCtx, req)
 	if err != nil {
@@ -316,8 +321,10 @@ func TestUpdateExampleApi(t *testing.T) {
 		BodyKind:  &updatedBodyType,
 	})
 
+	logChanMap := logconsole.NewLogChanMapWith(10000)
+
 	rpcExample := ritemapiexample.New(db, iaes, ias,
-		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleUpdate(authedCtx, req)
 	if err != nil {
@@ -418,8 +425,10 @@ func TestDeleteExampleApi(t *testing.T) {
 		ExampleId: expectedID.Bytes(),
 	})
 
+	logChanMap := logconsole.NewLogChanMapWith(10000)
+
 	rpcExample := ritemapiexample.New(db, iaes, ias,
-		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars)
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleDelete(authedCtx, req)
 	if err != nil {

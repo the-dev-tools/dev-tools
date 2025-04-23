@@ -56,7 +56,7 @@ func ConvertResponseToVar(r Response) ResponseVar {
 	// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
 	var body any
 	if json.Valid(r.Body) {
-		var jsonBody map[string]any
+		var jsonBody any
 		// If unmarshaling works, use the decoded JSON.
 		if err := json.Unmarshal(r.Body, &jsonBody); err == nil {
 			body = jsonBody
