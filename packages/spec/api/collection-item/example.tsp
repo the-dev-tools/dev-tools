@@ -50,6 +50,7 @@ model ExampleDeleteRequest is Resource.Delete.Request<Example>;
 model ExampleDeleteResponse is Resource.Delete.Response<Example>;
 
 model ExampleDuplicateRequest is KeyOf<Example>;
+model ExampleDuplicateResponse is Resource.Create.Response<Example, ExampleListResponse>;
 
 model ExampleRunRequest is KeyOf<Example>;
 
@@ -67,7 +68,7 @@ interface ExampleService {
   ExampleUpdate(...ExampleUpdateRequest): ExampleUpdateResponse;
   ExampleDelete(...ExampleDeleteRequest): ExampleDeleteResponse;
 
-  ExampleDuplicate(...ExampleDuplicateRequest): {};
+  ExampleDuplicate(...ExampleDuplicateRequest): ExampleDuplicateResponse;
 
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
 }

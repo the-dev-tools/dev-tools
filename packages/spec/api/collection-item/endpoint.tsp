@@ -44,6 +44,7 @@ model EndpointDeleteRequest is Resource.Delete.Request<Endpoint>;
 model EndpointDeleteResponse is Resource.Delete.Response<Endpoint>;
 
 model EndpointDuplicateRequest is KeyOf<Endpoint>;
+model EndpointDuplicateResponse is Resource.Create.Response<Endpoint>;
 
 @Protobuf.service
 interface EndpointService {
@@ -52,5 +53,5 @@ interface EndpointService {
   EndpointUpdate(...EndpointUpdateRequest): EndpointUpdateResponse;
   EndpointDelete(...EndpointDeleteRequest): EndpointDeleteResponse;
 
-  EndpointDuplicate(...EndpointDuplicateRequest): {};
+  EndpointDuplicate(...EndpointDuplicateRequest): EndpointDuplicateResponse;
 }
