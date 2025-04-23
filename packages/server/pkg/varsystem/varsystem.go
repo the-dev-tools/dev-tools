@@ -23,6 +23,14 @@ func NewVarMap(vars []mvar.Var) VarMap {
 	return varMap
 }
 
+func NewVarMapWithPrefix(vars []mvar.Var, prefix string) VarMap {
+	varMap := make(VarMap)
+	for _, v := range vars {
+		varMap[prefix+v.VarKey] = v
+	}
+	return varMap
+}
+
 func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
 	vars := make([]mvar.Var, 0)
 	for k, v := range anyMap {

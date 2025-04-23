@@ -13,6 +13,8 @@ const (
 	EnvNormal EnvType = 2
 )
 
+const EnvVariablePrefix = "env."
+
 type Env struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
