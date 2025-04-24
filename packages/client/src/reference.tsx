@@ -14,15 +14,15 @@ import { LuLink } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import {
-  Reference,
-  ReferenceGetRequest,
   ReferenceKey,
   ReferenceKeyJson,
   ReferenceKeyKind,
   ReferenceKeySchema,
   ReferenceKind,
+  ReferenceTreeItem,
+  ReferenceTreeRequest,
 } from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { referenceGet } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
+import { referenceTree } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
 import { Button, ButtonProps } from '@the-dev-tools/ui/button';
 import { DropdownPopover, DropdownPopoverProps } from '@the-dev-tools/ui/dropdown';
 import { ChevronSolidDownIcon, Spinner } from '@the-dev-tools/ui/icons';
@@ -41,7 +41,7 @@ export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
     (_) => JSON.stringify([_, value]),
   );
 
-export interface ReferenceContextProps extends Partial<Omit<ReferenceGetRequest, keyof Message>> {}
+export interface ReferenceContextProps extends Partial<Omit<ReferenceTreeRequest, keyof Message>> {}
 
 export const ReferenceContext = createContext<ReferenceContextProps>({});
 
@@ -54,7 +54,7 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
 
   const {
     data: { items },
-  } = useConnectSuspenseQuery(referenceGet, { ...props, ...context });
+  } = useConnectSuspenseQuery(referenceTree, { ...props, ...context });
 
   return (
     <AriaTree
@@ -67,7 +67,7 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
         onSelect?.(keys, value);
       }}
     >
-      {(_) => <ReferenceTreeItem id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
+      {(_) => <ReferenceTreeItemView id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
     </AriaTree>
   );
 };
@@ -91,10 +91,10 @@ const getIndexText = (key: ReferenceKey) =>
 interface ReferenceTreeItemProps {
   id: string;
   parentKeys: ReferenceKey[];
-  reference: Reference;
+  reference: ReferenceTreeItem;
 }
 
-export const ReferenceTreeItem = ({ id, parentKeys, reference }: ReferenceTreeItemProps) => {
+export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTreeItemProps) => {
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
@@ -187,7 +187,11 @@ export const ReferenceTreeItem = ({ id, parentKeys, reference }: ReferenceTreeIt
       {items && (
         <AriaCollection items={items}>
           {(_) => (
-            <ReferenceTreeItem id={makeReferenceTreeId([...keys, _.key!], _.value)} parentKeys={keys} reference={_} />
+            <ReferenceTreeItemView
+              id={makeReferenceTreeId([...keys, _.key!], _.value)}
+              parentKeys={keys}
+              reference={_}
+            />
           )}
         </AriaCollection>
       )}

@@ -23,7 +23,7 @@ import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 
 import type { WorkspaceRouteSearch } from './workspace/layout';
 
-import { makeReferenceTreeId, ReferenceTreeItem } from './reference';
+import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -159,7 +159,7 @@ export const StatusBar = () => {
 
                       <AriaCollection items={_.references}>
                         {(_) => (
-                          <ReferenceTreeItem
+                          <ReferenceTreeItemView
                             id={makeReferenceTreeId([_.key!], _.value)}
                             parentKeys={[]}
                             reference={_}
