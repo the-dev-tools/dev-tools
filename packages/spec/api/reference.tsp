@@ -40,15 +40,15 @@ enum ReferenceKind {
 }
 
 @autoFields
-model Reference {
+model ReferenceTreeItem {
   kind: ReferenceKind;
   key: ReferenceKey;
 
   /** Child map references */
-  map?: Reference[];
+  map?: ReferenceTreeItem[];
 
   /** Child array references */
-  array?: Reference[];
+  array?: ReferenceTreeItem[];
 
   /** Primitive value as JSON string */
   value?: string;
@@ -58,18 +58,58 @@ model Reference {
 }
 
 @autoFields
-model ReferenceGetRequest {
+model ReferenceContext {
   workspaceId?: Resource.Id;
   exampleId?: Resource.Id;
   nodeId?: Resource.Id;
 }
 
+model ReferenceTreeRequest is ReferenceContext;
+
 @autoFields
-model ReferenceGetResponse {
-  items: Reference[];
+model ReferenceTreeResponse {
+  items: ReferenceTreeItem[];
+}
+
+@autoFields
+model ReferenceCompletion {
+  kind: ReferenceKind;
+  key: ReferenceKey;
+
+  /** End of the string to be completed, i.e. 'body' in 'response.|body' */
+  end: string;
+
+  /** Number of items when reference is a map or an array */
+  itemCount?: int32;
+
+  /** Environment names when reference is a variable */
+  environments?: string[];
+}
+
+@autoFields
+model ReferenceCompletionRequest is ReferenceContext {
+  /** Start of the string to be completed, i.e. 'response.' in 'response.|body' */
+  start: string;
+}
+
+@autoFields
+model ReferenceCompletionResponse {
+  items: ReferenceCompletion[];
+}
+
+@autoFields
+model ReferenceValueRequest is ReferenceContext {
+  path: string;
+}
+
+@autoFields
+model ReferenceValueResponse {
+  value: string;
 }
 
 @Protobuf.service
 interface ReferenceService {
-  ReferenceGet(...ReferenceGetRequest): ReferenceGetResponse;
+  ReferenceTree(...ReferenceTreeRequest): ReferenceTreeResponse;
+  ReferenceCompletion(...ReferenceCompletionRequest): ReferenceCompletionResponse;
+  ReferenceValue(...ReferenceValueRequest): ReferenceValueResponse;
 }

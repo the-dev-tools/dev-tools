@@ -18,7 +18,7 @@ namespace API.Log;
 model LogStreamResponse {
   @key logId: Resource.Id;
   value: string;
-  references: Reference.Reference[];
+  references: Reference.ReferenceTreeItem[];
 }
 
 @Protobuf.service
