@@ -76,8 +76,11 @@ model ReferenceCompletion {
   kind: ReferenceKind;
   key: ReferenceKey;
 
-  /** End of the string to be completed, i.e. 'body' in 'response.|body' */
-  end: string;
+  /** End token of the string to be completed, i.e. 'body' in 'response.bo|dy' */
+  endToken: string;
+
+  /** Index of the completion start in the end token, i.e. 2 in 'bo|dy' of 'response.bo|dy' */
+  endIndex: int32;
 
   /** Number of items when reference is a map or an array */
   itemCount?: int32;
@@ -88,7 +91,7 @@ model ReferenceCompletion {
 
 @autoFields
 model ReferenceCompletionRequest is ReferenceContext {
-  /** Start of the string to be completed, i.e. 'response.' in 'response.|body' */
+  /** Start of the string to be completed, i.e. 'response.bo' in 'response.bo|dy' */
   start: string;
 }
 
