@@ -193,6 +193,9 @@ importers:
         specifier: 2.7.1
         version: 2.7.1
     devDependencies:
+      '@lezer/generator':
+        specifier: ~1.7.3
+        version: 1.7.3
       '@tailwindcss/vite':
         specifier: ~4.1.3
         version: 4.1.3(vite@6.2.6(@types/node@22.14.1)(jiti@2.4.2)(less@4.3.0)(lightningcss@1.29.3)(sass@1.86.3)(tsx@4.19.3)(yaml@2.7.1))
@@ -334,6 +337,12 @@ importers:
       '@bufbuild/protobuf':
         specifier: 2.2.5
         version: 2.2.5
+      '@codemirror/autocomplete':
+        specifier: 6.18.6
+        version: 6.18.6
+      '@codemirror/commands':
+        specifier: 6.8.1
+        version: 6.8.1
       '@codemirror/lang-html':
         specifier: 6.4.9
         version: 6.4.9
@@ -346,6 +355,15 @@ importers:
       '@codemirror/lang-xml':
         specifier: 6.1.0
         version: 6.1.0
+      '@codemirror/language':
+        specifier: 6.11.0
+        version: 6.11.0
+      '@codemirror/state':
+        specifier: 6.5.2
+        version: 6.5.2
+      '@codemirror/view':
+        specifier: 6.36.5
+        version: 6.36.5
       '@connectrpc/connect':
         specifier: 2.0.2
         version: 2.0.2(@bufbuild/protobuf@2.2.5)
@@ -367,6 +385,12 @@ importers:
       '@hookform/resolvers':
         specifier: 5.0.1
         version: 5.0.1(react-hook-form@7.55.0(react@19.1.0))
+      '@lezer/highlight':
+        specifier: 1.2.1
+        version: 1.2.1
+      '@lezer/lr':
+        specifier: 1.4.2
+        version: 1.4.2
       '@normy/core':
         specifier: 0.12.0
         version: 0.12.0
@@ -2369,6 +2393,10 @@ packages:
 
   '@lezer/css@1.1.11':
     resolution: {integrity: sha512-FuAnusbLBl1SEAtfN8NdShxYJiESKw9LAFysfea1T96jD3ydBn12oYjaSG1a04BQRIUd93/0D8e5CV1cUMkmQg==}
+
+  '@lezer/generator@1.7.3':
+    resolution: {integrity: sha512-vAI2O1tPF8QMMgp+bdUeeJCneJNkOZvqsrtyb4ohnFVFdboSqPwBEacnt0HH4E+5h+qsIwTHUSAhffU4hzKl1A==}
+    hasBin: true
 
   '@lezer/highlight@1.2.1':
     resolution: {integrity: sha512-Z5duk4RN/3zuVO7Jq0pGLJ3qynpxUVsh7IbUbGj88+uV2ApSAn6kWg2au3iJb+0Zi7kKtqffIESgNcRXWZWmSA==}
@@ -11225,6 +11253,11 @@ snapshots:
       '@lezer/highlight': 1.2.1
       '@lezer/lr': 1.4.2
 
+  '@lezer/generator@1.7.3':
+    dependencies:
+      '@lezer/common': 1.2.3
+      '@lezer/lr': 1.4.2
+
   '@lezer/highlight@1.2.1':
     dependencies:
       '@lezer/common': 1.2.3
@@ -12064,7 +12097,7 @@ snapshots:
       browserslist: 4.24.4
       json5: 2.2.3
       nullthrows: 1.1.1
-      semver: 7.5.4
+      semver: 7.7.1
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12128,7 +12161,7 @@ snapshots:
       browserslist: 4.24.4
       nullthrows: 1.1.1
       regenerator-runtime: 0.13.11
-      semver: 7.5.4
+      semver: 7.7.1
 
   '@parcel/transformer-json@2.9.3(@parcel/core@2.9.3)':
     dependencies:
@@ -12154,7 +12187,7 @@ snapshots:
       clone: 2.1.2
       nullthrows: 1.1.1
       postcss-value-parser: 4.2.0
-      semver: 7.5.4
+      semver: 7.7.1
     transitivePeerDependencies:
       - '@parcel/core'
 
