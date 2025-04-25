@@ -1,12 +1,18 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
-import { Array, Match, pipe } from 'effect';
-import { createContext, useContext } from 'react';
+import { createClient } from '@connectrpc/connect';
+import { useTransport } from '@connectrpc/connect-query';
+import CodeMirror, { ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
+import { Array, Match, pipe, Struct } from 'effect';
+import { createContext, RefAttributes, use, useContext } from 'react';
+import { mergeProps } from 'react-aria';
 import {
   Collection as AriaCollection,
   Tree as AriaTree,
   TreeItemContent as AriaTreeItemContent,
 } from 'react-aria-components';
+import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { twJoin } from 'tailwind-merge';
+import { tv, VariantProps } from 'tailwind-variants';
 
 import {
   ReferenceContext as ReferenceContextMessage,
@@ -15,14 +21,18 @@ import {
   ReferenceKeyKind,
   ReferenceKeySchema,
   ReferenceKind,
+  ReferenceService,
   ReferenceTreeItem,
 } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { referenceTree } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
+import { controllerPropKeys, ControllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
+import { baseCodeMirrorExtensions } from '~code-mirror/extensions';
+import { useReactRender } from '~react-render';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
   pipe(
@@ -186,4 +196,67 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
       )}
     </TreeItemRoot>
   );
+};
+
+const fieldStyles = tv({
+  base: tw`text-md rounded-md border border-slate-200 px-3 py-0.5 text-slate-800`,
+  variants: {
+    variant: {
+      'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-0.5 -outline-offset-4`,
+    },
+  },
+});
+
+interface ReferenceFieldProps
+  extends ReactCodeMirrorProps,
+    RefAttributes<ReactCodeMirrorRef>,
+    VariantProps<typeof fieldStyles> {}
+
+export const ReferenceField = ({ className, extensions = [], ...forwardedProps }: ReferenceFieldProps) => {
+  const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
+  const variantProps = Struct.pick(forwardedProps, ...fieldStyles.variantKeys);
+
+  const transport = useTransport();
+  const client = createClient(ReferenceService, transport);
+
+  const context = use(ReferenceContext);
+
+  const reactRender = useReactRender();
+
+  return (
+    <CodeMirror
+      basicSetup={false}
+      className={fieldStyles({ className, ...variantProps })}
+      extensions={[...baseCodeMirrorExtensions({ client, context, reactRender }), ...extensions]}
+      height='100%'
+      {...props}
+    />
+  );
+};
+
+interface ReferenceFieldRHFProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> extends Omit<ReferenceFieldProps, ControllerPropKeys>,
+    UseControllerProps<TFieldValues, TName> {}
+
+export const ReferenceFieldRHF = <
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>(
+  props: ReferenceFieldRHFProps<TFieldValues, TName>,
+) => {
+  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
+  const controllerProps = Struct.pick(props, ...controllerPropKeys);
+
+  const { field } = useController({ defaultValue: '' as never, ...controllerProps });
+
+  const fieldProps: ReferenceFieldProps = {
+    onBlur: field.onBlur,
+    onChange: field.onChange,
+    readOnly: field.disabled ?? false,
+    value: field.value,
+  };
+
+  return <ReferenceField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
 };
