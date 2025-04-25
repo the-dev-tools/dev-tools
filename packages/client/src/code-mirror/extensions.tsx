@@ -1,5 +1,14 @@
-import { LanguageSupport, LRLanguage } from '@codemirror/language';
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
+import { history, historyKeymap, standardKeymap } from '@codemirror/commands';
+import {
+  bracketMatching,
+  defaultHighlightStyle,
+  LanguageSupport,
+  LRLanguage,
+  syntaxHighlighting,
+} from '@codemirror/language';
 import { Extension } from '@codemirror/state';
+import { keymap } from '@codemirror/view';
 import { styleTags, tags } from '@lezer/highlight';
 import { useQuery } from '@tanstack/react-query';
 import { Array, Match, pipe } from 'effect';
@@ -33,7 +42,7 @@ export const useCodeMirrorLanguageExtensions = (language: CodeMirrorLanguage): E
   return extensions;
 };
 
-export const language = () => {
+const language = () => {
   const lrl = LRLanguage.define({
     parser: parser.configure({
       props: [
@@ -48,3 +57,15 @@ export const language = () => {
 
   return new LanguageSupport(lrl);
 };
+
+const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap]);
+
+export const baseCodeMirrorExtensions = (): Extension[] => [
+  keymaps,
+  history(),
+  closeBrackets(),
+  autocompletion({ activateOnCompletion: () => true, selectOnOpen: false }),
+  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+  bracketMatching(),
+  language(),
+];
