@@ -5,7 +5,6 @@ import "../../lib";
 
 import "../condition.tsp";
 import "../flow.tsp";
-import "../reference.tsp";
 import "../resource.tsp";
 
 using TypeSpec.Protobuf;
@@ -84,7 +83,7 @@ model NodeFor {
 
 @autoFields
 model NodeForEach {
-  path: Reference.ReferenceKey[];
+  path: string;
   condition: Condition.Condition;
   errorHandling: ErrorHandling;
 }

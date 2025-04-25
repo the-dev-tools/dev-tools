@@ -43,6 +43,6 @@ enum ComparisonKind {
 @autoFields
 model Comparison {
   kind: ComparisonKind;
-  path: Reference.ReferenceKey[];
-  value: string;
+  left: string;
+  right: string;
 }

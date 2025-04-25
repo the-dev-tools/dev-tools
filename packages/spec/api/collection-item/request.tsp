@@ -4,7 +4,6 @@ import "@typespec/rest";
 import "../../lib";
 
 import "../condition.tsp";
-import "../reference.tsp";
 import "./example.tsp";
 
 using TypeSpec.Protobuf;
