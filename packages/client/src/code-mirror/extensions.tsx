@@ -1,5 +1,5 @@
+import { Extension } from '@codemirror/state';
 import { useQuery } from '@tanstack/react-query';
-import { Extension } from '@uiw/react-codemirror';
 import { Array, Match, pipe } from 'effect';
 
 export const CodeMirrorMarkupLanguages = ['text', 'json', 'html', 'xml'] as const;
@@ -8,7 +8,7 @@ export type CodeMirrorMarkupLanguage = (typeof CodeMirrorMarkupLanguages)[number
 export const CodeMirrorLanguages = [...CodeMirrorMarkupLanguages, 'javascript'] as const;
 export type CodeMirrorLanguage = (typeof CodeMirrorLanguages)[number];
 
-export const useCodeMirrorExtensions = (language: CodeMirrorLanguage): Extension[] => {
+export const useCodeMirrorLanguageExtensions = (language: CodeMirrorLanguage): Extension[] => {
   const { data: extensions } = useQuery({
     initialData: [],
     queryFn: async () => {

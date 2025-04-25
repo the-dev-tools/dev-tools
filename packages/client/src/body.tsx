@@ -35,8 +35,12 @@ import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import {
+  CodeMirrorMarkupLanguage,
+  CodeMirrorMarkupLanguages,
+  useCodeMirrorLanguageExtensions,
+} from '~code-mirror/extensions';
 
-import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
 import {
   ColumnActionDelete,
   columnActions,
@@ -378,7 +382,7 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
   const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
 
-  const extensions = useCodeMirrorExtensions(language);
+  const extensions = useCodeMirrorLanguageExtensions(language);
 
   return (
     <>

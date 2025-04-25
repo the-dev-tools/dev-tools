@@ -70,10 +70,14 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
 import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import {
+  CodeMirrorMarkupLanguage,
+  CodeMirrorMarkupLanguages,
+  useCodeMirrorLanguageExtensions,
+} from '~code-mirror/extensions';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
-import { CodeMirrorMarkupLanguage, CodeMirrorMarkupLanguages, useCodeMirrorExtensions } from './code-mirror';
 import { ErrorComponent } from './error';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
@@ -936,7 +940,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
     queryKey: ['prettier', language, body],
   });
 
-  const extensions = useCodeMirrorExtensions(language);
+  const extensions = useCodeMirrorLanguageExtensions(language);
 
   return (
     <>

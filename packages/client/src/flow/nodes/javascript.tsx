@@ -7,8 +7,8 @@ import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_co
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectMutation } from '~/api/connect-query';
+import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';
 
-import { useCodeMirrorExtensions } from '../../code-mirror';
 import { FlowContext, Handle } from '../internal';
 import { FlowSearch } from '../layout';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
@@ -39,7 +39,7 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
 
   const [value, setValue] = useState(code);
 
-  const extensions = useCodeMirrorExtensions('javascript');
+  const extensions = useCodeMirrorLanguageExtensions('javascript');
 
   return (
     <>
