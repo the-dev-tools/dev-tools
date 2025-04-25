@@ -50,8 +50,8 @@ import {
   ColumnActionDelete,
   columnActions,
   columnCheckboxField,
+  columnReferenceField,
   columnTextField,
-  columnTextFieldWithReference,
   useFormTable,
 } from '~form-table';
 
@@ -515,8 +515,8 @@ const SettingsPanel = () => {
   const table = useReactTable({
     columns: [
       columnCheckboxField<FlowVariableListItem>('enabled', { meta: { divider: false } }),
-      columnTextFieldWithReference<FlowVariableListItem>('name'),
-      columnTextFieldWithReference<FlowVariableListItem>('value'),
+      columnReferenceField<FlowVariableListItem>('name'),
+      columnReferenceField<FlowVariableListItem>('value'),
       columnTextField<FlowVariableListItem>('description', { meta: { divider: false } }),
       columnActions<FlowVariableListItem>({
         cell: ({ row }) => (

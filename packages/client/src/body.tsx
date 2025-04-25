@@ -46,8 +46,8 @@ import {
   columnActions,
   ColumnActionUndoDelta,
   columnCheckboxField,
+  columnReferenceField,
   columnTextField,
-  columnTextFieldWithReference,
   deltaFormTable,
   displayTable,
   makeDeltaItems,
@@ -124,8 +124,8 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
 
 const formDataColumns = [
   columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<BodyFormItemListItem>('key'),
-  columnTextFieldWithReference<BodyFormItemListItem>('value'),
+  columnReferenceField<BodyFormItemListItem>('key'),
+  columnReferenceField<BodyFormItemListItem>('value'),
   columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
 ];
 
@@ -245,8 +245,8 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
 
 const urlEncodedDataColumns = [
   columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('key'),
-  columnTextFieldWithReference<BodyUrlEncodedItemListItem>('value'),
+  columnReferenceField<BodyUrlEncodedItemListItem>('key'),
+  columnReferenceField<BodyUrlEncodedItemListItem>('value'),
   columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
 ];
 

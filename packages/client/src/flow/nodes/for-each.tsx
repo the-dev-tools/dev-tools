@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { use, useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -13,9 +13,9 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectMutation } from '~/api/connect-query';
+import { ReferenceFieldRHF } from '~reference';
 
 import { ConditionField } from '../../condition';
-import { ReferenceField } from '../../reference';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
 import { FlowSearch } from '../layout';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
@@ -92,18 +92,11 @@ export const ForEachPanel = ({ node: { forEach, nodeId } }: NodePanelProps) => {
 
       <div className={tw`m-5 grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
         <FieldLabel>Array to Loop</FieldLabel>
-        <Controller
+        <ReferenceFieldRHF
+          className={tw`min-w-[30%] justify-self-start`}
           control={control}
-          defaultValue={[]}
           name='path'
-          render={({ field }) => (
-            <ReferenceField
-              buttonClassName={tw`min-w-[30%] justify-self-start`}
-              isReadOnly={isReadOnly}
-              onSelect={(keys) => void field.onChange(keys)}
-              path={field.value}
-            />
-          )}
+          readOnly={isReadOnly}
         />
 
         <ConditionField

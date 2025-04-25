@@ -41,8 +41,8 @@ import {
   ColumnActionDelete,
   columnActions,
   columnCheckboxField,
+  columnReferenceField,
   columnTextField,
-  columnTextFieldWithReference,
   useFormTable,
 } from './form-table';
 import { ImportDialog } from './workspace/import';
@@ -275,8 +275,8 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   const table = useReactTable({
     columns: [
       columnCheckboxField<VariableListItem>('enabled', { meta: { divider: false } }),
-      columnTextFieldWithReference<VariableListItem>('name'),
-      columnTextFieldWithReference<VariableListItem>('value'),
+      columnReferenceField<VariableListItem>('name'),
+      columnReferenceField<VariableListItem>('value'),
       columnTextField<VariableListItem>('description', { meta: { divider: false } }),
       columnActions<VariableListItem>({
         cell: ({ row }) => (

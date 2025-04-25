@@ -24,8 +24,7 @@ import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
 import { useConnectMutation } from '~api/connect-query';
-
-import { TextFieldWithReference } from './reference';
+import { ReferenceFieldRHF } from '~reference';
 
 interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
   children: (table: Table<TData>) => React.ReactNode;
@@ -212,7 +211,7 @@ export const columnCheckboxField = <TFieldValues extends FieldValues>(
   ...props,
 });
 
-export const columnTextFieldWithReference = <TFieldValues extends FieldValues>(
+export const columnReferenceField = <TFieldValues extends FieldValues>(
   name: FieldPath<TFieldValues>,
   { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
 ): AccessorKeyColumnDef<TFieldValues> => ({
@@ -220,11 +219,11 @@ export const columnTextFieldWithReference = <TFieldValues extends FieldValues>(
   cell: function Cell() {
     const { control } = useFormContext<TFieldValues>();
     return (
-      <TextFieldWithReference
+      <ReferenceFieldRHF
         className='flex-1'
         control={control}
-        inputPlaceholder={`Enter ${title}`}
         name={name}
+        placeholder={`Enter ${title}`}
         variant='table-cell'
       />
     );

@@ -18,8 +18,8 @@ import {
   columnActions,
   ColumnActionUndoDelta,
   columnCheckboxField,
+  columnReferenceField,
   columnTextField,
-  columnTextFieldWithReference,
   deltaFormTable,
   displayTable,
   makeDeltaItems,
@@ -41,8 +41,8 @@ export const QueryTable = ({ deltaExampleId, exampleId, isReadOnly }: QueryTable
 
 const dataColumns = [
   columnCheckboxField<QueryListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<QueryListItem>('key'),
-  columnTextFieldWithReference<QueryListItem>('value'),
+  columnReferenceField<QueryListItem>('key'),
+  columnReferenceField<QueryListItem>('value'),
   columnTextField<QueryListItem>('description', { meta: { divider: false } }),
 ];
 

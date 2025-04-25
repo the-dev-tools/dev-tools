@@ -18,8 +18,8 @@ import {
   columnActions,
   ColumnActionUndoDelta,
   columnCheckboxField,
+  columnReferenceField,
   columnTextField,
-  columnTextFieldWithReference,
   deltaFormTable,
   displayTable,
   makeDeltaItems,
@@ -41,8 +41,8 @@ export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTab
 
 const dataColumns = [
   columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
-  columnTextFieldWithReference<HeaderListItem>('key'),
-  columnTextFieldWithReference<HeaderListItem>('value'),
+  columnReferenceField<HeaderListItem>('key'),
+  columnReferenceField<HeaderListItem>('value'),
   columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
 ];
 

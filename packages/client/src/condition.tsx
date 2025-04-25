@@ -1,5 +1,5 @@
 import { ComponentProps } from 'react';
-import { Control, Controller, FieldPathByValue, FieldValues } from 'react-hook-form';
+import { Control, FieldPathByValue, FieldValues } from 'react-hook-form';
 import { twMerge } from 'tailwind-merge';
 
 import { ComparisonKind, Condition } from '@the-dev-tools/spec/condition/v1/condition_pb';
@@ -8,9 +8,7 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { MixinProps, splitProps } from '@the-dev-tools/ui/mixin-props';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
-
-import { ReferenceField } from './reference';
+import { ReferenceFieldRHF } from '~reference';
 
 interface ConditionFieldProps<
   TFieldValues extends FieldValues,
@@ -45,28 +43,12 @@ export const ConditionField = <
       {label && <FieldLabel {...props.label}>{label}</FieldLabel>}
 
       <div className={twMerge(tw`flex items-center gap-2`, groupClassName)}>
-        <Controller
+        <ReferenceFieldRHF
+          className={tw`h-8 flex-[2]`}
           control={resolvedControl}
-          defaultValue={[]}
-          name={`${resolvedPath}.comparison.path`}
-          render={({ field }) => (
-            <Controller
-              control={resolvedControl}
-              name={`${resolvedPath}.comparison.value`}
-              render={({ field: valueField }) => (
-                <ReferenceField
-                  buttonClassName={tw`flex-[2]`}
-                  isReadOnly={isReadOnly}
-                  onSelect={(keys, value) => {
-                    field.onChange(keys);
-                    // eslint-disable-next-line @typescript-eslint/no-base-to-string
-                    if (value) valueField.onChange(String(value));
-                  }}
-                  path={field.value}
-                />
-              )}
-            />
-          )}
+          name={`${resolvedPath}.comparison.left`}
+          placeholder='Enter value to compare'
+          readOnly={isReadOnly ?? false}
         />
 
         <SelectRHF
@@ -87,13 +69,12 @@ export const ConditionField = <
           <ListBoxItem id={ComparisonKind.LESS_OR_EQUAL}>is less or equal to</ListBoxItem>
         </SelectRHF>
 
-        <TextFieldRHF
+        <ReferenceFieldRHF
           className={tw`h-8 flex-[2]`}
           control={resolvedControl}
-          inputClassName={tw`h-full`}
-          inputPlaceholder='Enter comparison value'
-          isReadOnly={isReadOnly ?? false}
-          name={`${resolvedPath}.comparison.value`}
+          name={`${resolvedPath}.comparison.right`}
+          placeholder='Enter comparison value'
+          readOnly={isReadOnly ?? false}
         />
       </div>
     </div>
