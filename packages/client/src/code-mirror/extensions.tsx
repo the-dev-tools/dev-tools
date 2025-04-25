@@ -6,6 +6,7 @@ import {
   completionKeymap,
   CompletionSource,
   ifIn,
+  startCompletion,
 } from '@codemirror/autocomplete';
 import { history, historyKeymap, standardKeymap } from '@codemirror/commands';
 import {
@@ -15,8 +16,8 @@ import {
   LRLanguage,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { Extension } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
+import { EditorSelection, Extension, Text } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
 import { Client } from '@connectrpc/connect';
 import { styleTags, tags } from '@lezer/highlight';
 import { useQuery } from '@tanstack/react-query';
@@ -197,6 +198,26 @@ const language = (props: LanguageProps) => {
   ]);
 };
 
+const expressionBracketSpacing = EditorView.updateListener.of((update) => {
+  if (update.changes.empty) return;
+
+  // {{|}} --> {{ | }}
+  update.changes.iterChanges((_fromA, _toA, fromB, toB, inserted) => {
+    const doc = update.state.doc;
+    if (
+      inserted.eq(Text.of(['{}'])) &&
+      doc.sliceString(fromB - 1, fromB) === '{' &&
+      doc.sliceString(toB, toB + 1) === '}'
+    ) {
+      update.view.dispatch({
+        changes: [{ from: fromB + 1, insert: '  ' }],
+        selection: EditorSelection.cursor(toB),
+      });
+      startCompletion(update.view);
+    }
+  });
+});
+
 const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap]);
 
 interface BaseCodeMirrorExtensionProps extends ReferenceCompletionsProps {}
@@ -207,6 +228,7 @@ export const baseCodeMirrorExtensions = (props: BaseCodeMirrorExtensionProps): E
   closeBrackets(),
   autocompletion({ activateOnCompletion: () => true, selectOnOpen: false }),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+  expressionBracketSpacing,
   bracketMatching(),
   language(props),
 ];
