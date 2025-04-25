@@ -1,38 +1,27 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
-import { Array, Match, pipe, Struct } from 'effect';
-import { createContext, Suspense, useContext } from 'react';
-import { mergeProps } from 'react-aria';
+import { Array, Match, pipe } from 'effect';
+import { createContext, useContext } from 'react';
 import {
   Collection as AriaCollection,
   Tree as AriaTree,
   TreeItemContent as AriaTreeItemContent,
-  Dialog,
-  DialogTrigger,
 } from 'react-aria-components';
-import { FieldPath, FieldValues, useController } from 'react-hook-form';
-import { LuLink } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 
 import {
+  ReferenceContext as ReferenceContextMessage,
   ReferenceKey,
   ReferenceKeyJson,
   ReferenceKeyKind,
   ReferenceKeySchema,
   ReferenceKind,
   ReferenceTreeItem,
-  ReferenceTreeRequest,
 } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { referenceTree } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
-import { Button, ButtonProps } from '@the-dev-tools/ui/button';
-import { DropdownPopover, DropdownPopoverProps } from '@the-dev-tools/ui/dropdown';
-import { ChevronSolidDownIcon, Spinner } from '@the-dev-tools/ui/icons';
-import { listBoxStyles } from '@the-dev-tools/ui/list-box';
-import { MixinProps, splitProps } from '@the-dev-tools/ui/mixin-props';
-import { controllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
+import { Button } from '@the-dev-tools/ui/button';
+import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, TextFieldProps, TextFieldRHFProps } from '@the-dev-tools/ui/text-field';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
-import { composeRenderPropsTW } from '@the-dev-tools/ui/utils';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
@@ -41,7 +30,7 @@ export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
     (_) => JSON.stringify([_, value]),
   );
 
-export interface ReferenceContextProps extends Partial<Omit<ReferenceTreeRequest, keyof Message>> {}
+export interface ReferenceContextProps extends Partial<Omit<ReferenceContextMessage, keyof Message>> {}
 
 export const ReferenceContext = createContext<ReferenceContextProps>({});
 
@@ -196,146 +185,5 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
         </AriaCollection>
       )}
     </TreeItemRoot>
-  );
-};
-
-interface ReferencePath {
-  path: ReferenceKey[];
-}
-
-export const ReferencePath = ({ path }: ReferencePath) => {
-  const keys = path.map((key, index) => {
-    const indexText = getIndexText(key);
-
-    if (indexText) {
-      return (
-        <span
-          className={tw`mx-0.5 flex-none rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
-          key={`${index} ${indexText}`}
-        >
-          entry {indexText}
-        </span>
-      );
-    }
-
-    const keyText = getGroupText(key);
-
-    if (keyText) {
-      return (
-        <span className={tw`text-md flex-none leading-5 tracking-tight text-slate-800`} key={`${index} ${keyText}`}>
-          {keyText}
-        </span>
-      );
-    }
-
-    return null;
-  });
-
-  return <div className={tw`flex flex-wrap items-center`}>{Array.intersperse(keys, '.')}</div>;
-};
-
-interface ReferenceTreePopoverProps extends MixinProps<'dropdown', DropdownPopoverProps>, ReferenceTreeProps {}
-
-const ReferenceTreePopover = ({ onSelect, ...mixProps }: ReferenceTreePopoverProps) => {
-  const props = splitProps(mixProps, 'dropdown');
-
-  return (
-    <DropdownPopover {...props.dropdown}>
-      <Dialog className={listBoxStyles({ className: tw`pointer-events-auto max-h-full w-96` })}>
-        {({ close }) => (
-          <Suspense
-            fallback={
-              <div className={tw`flex items-center justify-center py-4`}>
-                <Spinner className={tw`size-8`} />
-              </div>
-            }
-          >
-            <ReferenceTree
-              {...props.rest}
-              onSelect={(keys, value) => {
-                onSelect?.(keys, value);
-                close();
-              }}
-            />
-          </Suspense>
-        )}
-      </Dialog>
-    </DropdownPopover>
-  );
-};
-
-interface ReferenceFieldProps extends MixinProps<'button', ButtonProps>, ReferenceTreeProps {
-  isReadOnly?: boolean | undefined;
-  path: ReferenceKey[];
-}
-
-export const ReferenceField = ({ buttonClassName, isReadOnly, path, ...mixProps }: ReferenceFieldProps) => {
-  const props = splitProps(mixProps, 'button');
-
-  return (
-    <DialogTrigger>
-      <Button
-        {...props.button}
-        className={composeRenderPropsTW(buttonClassName, tw`h-8 justify-start`)}
-        isDisabled={isReadOnly ?? false}
-      >
-        {path.length > 0 ? <ReferencePath path={path} /> : <span className={tw`p-1`}>Select reference</span>}
-      </Button>
-      <ReferenceTreePopover dropdownPlacement='bottom left' {...props.rest} />
-    </DialogTrigger>
-  );
-};
-
-interface TextFieldWithReferenceProps<
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends TextFieldRHFProps<TFieldValues, TName> {
-  context?: ReferenceContextProps;
-}
-
-export const TextFieldWithReference = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->({
-  context,
-  ...props
-}: TextFieldWithReferenceProps<TFieldValues, TName>) => {
-  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
-  const controllerProps = Struct.pick(props, ...controllerPropKeys);
-
-  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
-
-  const fieldProps: TextFieldProps = {
-    error: fieldState.error?.message,
-    isDisabled: field.disabled ?? false,
-    isInvalid: fieldState.invalid,
-    name: field.name,
-    onBlur: field.onBlur,
-    onChange: field.onChange,
-    validationBehavior: 'aria',
-    value: field.value,
-  };
-
-  return (
-    <div className='flex'>
-      <TextField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />
-      <DialogTrigger>
-        <Button variant='ghost'>
-          <LuLink />
-        </Button>
-        <ReferenceTreePopover
-          {...context}
-          dropdownPlacement='bottom right'
-          onSelect={(path) => {
-            const pathString = pipe(
-              path,
-              Array.flatMapNullable((key) => getIndexText(key) ?? getGroupText(key)),
-              Array.join('.'),
-            );
-            field.onChange(`{{ ${pathString} }}`);
-          }}
-        />
-      </DialogTrigger>
-    </div>
   );
 };
