@@ -1,0 +1,27 @@
+@top Program { entity* }
+
+entity { text | referenceStatement }
+
+@tokens {
+  text { _ }
+
+  OpenMarker[closedBy=CloseMarker] { "{{" }
+}
+
+@local tokens {
+  CloseMarker[openedBy=OpenMarker] { "}}" }
+
+  closeMarkerMissing { ![}] | "}" ![}] | "}" @eof }
+
+  referenceUnfinished { closeMarkerMissing* @eof }
+
+  @else Reference
+}
+
+@skip {} {
+  referenceFinished { Reference? CloseMarker }
+
+  referenceStatement { OpenMarker (referenceFinished | referenceUnfinished) }
+}
+
+@detectDelim

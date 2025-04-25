@@ -1,6 +1,10 @@
+import { LanguageSupport, LRLanguage } from '@codemirror/language';
 import { Extension } from '@codemirror/state';
+import { styleTags, tags } from '@lezer/highlight';
 import { useQuery } from '@tanstack/react-query';
 import { Array, Match, pipe } from 'effect';
+
+import { parser } from './syntax.grammar';
 
 export const CodeMirrorMarkupLanguages = ['text', 'json', 'html', 'xml'] as const;
 export type CodeMirrorMarkupLanguage = (typeof CodeMirrorMarkupLanguages)[number];
@@ -27,4 +31,20 @@ export const useCodeMirrorLanguageExtensions = (language: CodeMirrorLanguage): E
   });
 
   return extensions;
+};
+
+export const language = () => {
+  const lrl = LRLanguage.define({
+    parser: parser.configure({
+      props: [
+        styleTags({
+          CloseMarker: tags.escape,
+          OpenMarker: tags.escape,
+          Reference: tags.string,
+        }),
+      ],
+    }),
+  });
+
+  return new LanguageSupport(lrl);
 };

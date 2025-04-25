@@ -8,6 +8,7 @@
     "mkhl.direnv",
     "nrwl.angular-console",
     "redhat.vscode-yaml",
+    "tamuratak.vscode-lezer",
     "typespec.typespec-vscode"
   ]
 }

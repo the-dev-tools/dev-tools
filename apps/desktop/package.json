@@ -28,6 +28,7 @@
     "yaml": "2.7.1"
   },
   "devDependencies": {
+    "@lezer/generator": "~1.7.3",
     "@tailwindcss/vite": "~4.1.3",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/react": "~19.1.1",
