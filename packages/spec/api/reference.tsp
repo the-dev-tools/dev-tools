@@ -74,7 +74,6 @@ model ReferenceTreeResponse {
 @autoFields
 model ReferenceCompletion {
   kind: ReferenceKind;
-  key: ReferenceKey;
 
   /** End token of the string to be completed, i.e. 'body' in 'response.bo|dy' */
   endToken: string;
