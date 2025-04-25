@@ -21,8 +21,15 @@ import { Client } from '@connectrpc/connect';
 import { styleTags, tags } from '@lezer/highlight';
 import { useQuery } from '@tanstack/react-query';
 import { Array, Match, pipe } from 'effect';
+import { Suspense } from 'react';
+import { LuClipboardCopy } from 'react-icons/lu';
 
-import { ReferenceKind, ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
+import { ReferenceCompletion, ReferenceKind, ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
+import { referenceValue } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
+import { Button } from '@the-dev-tools/ui/button';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useConnectSuspenseQuery } from '~api/connect-query';
+import { ReactRender } from '~react-render';
 import { ReferenceContextProps } from '~reference';
 
 import { parser } from './syntax.grammar';
@@ -54,13 +61,58 @@ export const useCodeMirrorLanguageExtensions = (language: CodeMirrorLanguage): E
   return extensions;
 };
 
+interface CompletionInfoProps {
+  completion: ReferenceCompletion;
+  context: ReferenceContextProps;
+  path: string;
+}
+
+const CompletionInfo = ({ completion, context, path }: CompletionInfoProps) => {
+  const {
+    data: { value },
+  } = useConnectSuspenseQuery(referenceValue, { ...context, path });
+
+  return (
+    <>
+      <div className={tw`flex items-center gap-1`}>
+        <div className={tw`font-semibold`}>Value:</div>
+
+        <div>{value}</div>
+
+        <Button
+          className={tw`p-0.5`}
+          onClick={async () => {
+            await navigator.permissions.query({ name: 'clipboard-write' as never });
+            await navigator.clipboard.writeText(value);
+          }}
+          variant='ghost'
+        >
+          <LuClipboardCopy className={tw`size-4 text-slate-500`} />
+        </Button>
+      </div>
+
+      {completion.kind === ReferenceKind.VARIABLE && (
+        <div>
+          <div className={tw`font-semibold`}>Variable defined in environments:</div>
+          <ul>
+            {completion.environments.map((name, index) => (
+              <li key={`${index} ${name}`}>{name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+};
+
 interface ReferenceCompletionsProps {
   client: Client<typeof ReferenceService>;
   context: ReferenceContextProps;
+  reactRender: ReactRender;
 }
 
 const referenceCompletions =
-  ({ client, context: referenceContext }: ReferenceCompletionsProps): CompletionSource =>
+  ({ client, context: referenceContext, reactRender }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
     const token = context.tokenBefore(['Reference']);
 
@@ -86,10 +138,24 @@ const referenceCompletions =
         );
 
         const label = _.endToken.substring(_.endIndex);
+        const path = token.text + label;
+
+        const info = () => {
+          if (![ReferenceKind.VALUE, ReferenceKind.VARIABLE].includes(_.kind)) return null;
+
+          return reactRender(
+            <div className={tw`w-60 text-sm`}>
+              <Suspense fallback='Loading...'>
+                <CompletionInfo completion={_} context={referenceContext} path={path} />
+              </Suspense>
+            </div>,
+          );
+        };
 
         return {
           detail,
           displayLabel: _.endToken,
+          info,
           label,
           type,
         };
