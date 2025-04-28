@@ -737,7 +737,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
 				go func() {
 					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, name)
-					refs := []reference.Reference{ref}
+					refs := []reference.ReferenceTreeItem{ref}
 
 					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr), refs)
 					if localErr != nil {

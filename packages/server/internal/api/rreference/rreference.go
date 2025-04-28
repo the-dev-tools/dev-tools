@@ -97,8 +97,8 @@ var (
 	ErrEnvNotFound       = errors.New("env not found")
 )
 
-func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Request[referencev1.ReferenceGetRequest]) (*connect.Response[referencev1.ReferenceGetResponse], error) {
-	var Items []*referencev1.Reference
+func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Request[referencev1.ReferenceTreeRequest]) (*connect.Response[referencev1.ReferenceTreeResponse], error) {
+	var Items []*referencev1.ReferenceTreeItem
 
 	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
 	msg := req.Msg
@@ -137,7 +137,7 @@ func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Req
 		}
 
 		present := make(map[string][]menv.Env)
-		envMap := make([]*referencev1.Reference, 0, len(envs))
+		envMap := make([]*referencev1.ReferenceTreeItem, 0, len(envs))
 		var allVars []mvar.Var
 
 		for _, env := range envs {
@@ -160,7 +160,7 @@ func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Req
 				containsEnv = append(containsEnv, env.Name)
 			}
 
-			envRef := &referencev1.Reference{
+			envRef := &referencev1.ReferenceTreeItem{
 				Key: &referencev1.ReferenceKey{
 					Kind: referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
 					Key:  &v.VarKey,
@@ -172,7 +172,7 @@ func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Req
 		}
 
 		groupStr := "env"
-		Items = append(Items, &referencev1.Reference{
+		Items = append(Items, &referencev1.ReferenceTreeItem{
 			Key: &referencev1.ReferenceKey{
 				Kind:  referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP,
 				Group: &groupStr,
@@ -192,7 +192,7 @@ func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Req
 				return nil, err
 			}
 		} else {
-			Items = append(Items, reference.ConvertPkgToRpc(*respRef))
+			Items = append(Items, reference.ConvertPkgToRpcTree(*respRef))
 		}
 
 	}
@@ -206,13 +206,13 @@ func (c *ReferenceServiceRPC) ReferenceGet(ctx context.Context, req *connect.Req
 		Items = append(Items, refs...)
 	}
 
-	response := &referencev1.ReferenceGetResponse{
+	response := &referencev1.ReferenceTreeResponse{
 		Items: Items,
 	}
 	return connect.NewResponse(response), nil
 }
 
-func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.Reference, error) {
+func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.ReferenceTreeItem, error) {
 	nodeInst, err := c.fns.GetNode(ctx, nodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -223,7 +223,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var nodeRefs []*referencev1.Reference
+	var nodeRefs []*referencev1.ReferenceTreeItem
 	flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -232,7 +232,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	sortenabled.GetAllWithState(&flowVars, true)
 	for _, flowVar := range flowVars {
 		flowVarRef := reference.NewReferenceFromInterfaceWithKey(flowVar.Value, flowVar.Name)
-		nodeRefs = append(nodeRefs, reference.ConvertPkgToRpc(flowVarRef))
+		nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(flowVarRef))
 	}
 
 	// Edges
@@ -260,14 +260,14 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			}
 
 			ref := reference.NewReferenceFromInterfaceWithKey(anyStateData, node.Name)
-			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpc(ref))
+			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(ref))
 		}
 	}
 
 	return nodeRefs, nil
 }
 
-func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.Reference, error) {
+func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.ReferenceTreeItem, error) {
 	resp, err := ers.GetExampleRespByExampleID(ctx, exID)
 	if err != nil {
 		return nil, err
@@ -336,4 +336,14 @@ func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleResp
 		return nil, err
 	}
 	return &localRef, nil
+}
+
+// ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
+func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CodeUnimplemented"))
+}
+
+// ReferenceValue calls reference.v1.ReferenceService.ReferenceValue.
+func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.Request[referencev1.ReferenceValueRequest]) (*connect.Response[referencev1.ReferenceValueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CodeUnimplemented"))
 }

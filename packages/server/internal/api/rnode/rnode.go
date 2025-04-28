@@ -24,7 +24,6 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
@@ -42,7 +41,6 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tcondition"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
@@ -475,13 +473,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				}
 			}
 
-			if RpcNodeUpdate.ForEach.Path != nil {
-				refs := tgeneric.MassConvert(RpcNodeUpdate.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
-				iterpath, err := reference.ConvertRefernceKeyArrayToStringPath(refs)
-				if err != nil {
-					return nil, err
-				}
-				forEachNode.IterPath = iterpath
+			if RpcNodeUpdate.ForEach.Path != "" {
+				forEachNode.IterPath = RpcNodeUpdate.ForEach.Path
 				anyUpdate = true
 			}
 
@@ -744,12 +737,6 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			return nil, err
 		}
 
-		refPaths, err := reference.ConvertStringPathToReferenceKeyArray(nodeForEach.IterPath)
-		if err != nil {
-			return nil, err
-		}
-		rpcRefs := tgeneric.MassConvert(refPaths, reference.ConvertPkgKeyToRpc)
-
 		nodeList := &nodev1.Node{
 			NodeId:   currentNode.ID.Bytes(),
 			Kind:     nodev1.NodeKind_NODE_KIND_FOR_EACH,
@@ -758,7 +745,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			ForEach: &nodev1.NodeForEach{
 				ErrorHandling: nodev1.ErrorHandling(nodeForEach.ErrorHandling),
 				Condition:     rpcCond,
-				Path:          rpcRefs,
+				Path:          nodeForEach.IterPath,
 			},
 		}
 		rpcNode = nodeList
@@ -925,12 +912,8 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		var iterpath string
 
 		forEach := rpcNode.ForEach
-		if forEach.Path != nil {
-			refs := tgeneric.MassConvert(rpcNode.ForEach.Path, reference.ConvertRpcKeyToPkgKey)
-			iterpath, err = reference.ConvertRefernceKeyArrayToStringPath(refs)
-			if err != nil {
-				return nil, err
-			}
+		if forEach.Path != "" {
+			iterpath = rpcNode.ForEach.Path
 		}
 
 		if forEach.Condition == nil {

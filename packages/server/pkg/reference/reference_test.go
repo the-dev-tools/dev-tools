@@ -7,7 +7,7 @@ import (
 	"the-dev-tools/server/pkg/reference"
 )
 
-func sortReferences(refs []reference.Reference) {
+func sortReferences(refs []reference.ReferenceTreeItem) {
 	sort.Slice(refs, func(i, j int) bool {
 		return refs[i].Key.Key < refs[j].Key.Key
 	})
@@ -18,10 +18,10 @@ func TestNewReferenceFromMap(t *testing.T) {
 		"key1": "value1",
 		"key2": 42,
 	}
-	expected := reference.Reference{
+	expected := reference.ReferenceTreeItem{
 		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-		Map: []reference.Reference{
+		Map: []reference.ReferenceTreeItem{
 			{
 				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "key1"},
 				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
@@ -46,10 +46,10 @@ func TestNewReferenceFromMap(t *testing.T) {
 func TestNewReferenceFromSlice(t *testing.T) {
 	mapA := map[string]any{"a": 1, "b": 2}
 	input := []any{"value1", 42, mapA}
-	expected := reference.Reference{
+	expected := reference.ReferenceTreeItem{
 		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_ARRAY,
-		Array: []reference.Reference{
+		Array: []reference.ReferenceTreeItem{
 			{
 				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 0},
 				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
@@ -63,7 +63,7 @@ func TestNewReferenceFromSlice(t *testing.T) {
 			{
 				Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 2},
 				Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-				Map: []reference.Reference{
+				Map: []reference.ReferenceTreeItem{
 					{
 						Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "a"},
 						Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
@@ -96,10 +96,10 @@ func TestNewReferenceFromStruct(t *testing.T) {
 		Field1: "value1",
 		Field2: []int{1, 2, 3},
 	}
-	expected := reference.Reference{
+	expected := reference.ReferenceTreeItem{
 		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-		Map: []reference.Reference{
+		Map: []reference.ReferenceTreeItem{
 			{
 				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field1"},
 				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
@@ -108,7 +108,7 @@ func TestNewReferenceFromStruct(t *testing.T) {
 			{
 				Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field2"},
 				Kind: reference.ReferenceKind_REFERENCE_KIND_ARRAY,
-				Array: []reference.Reference{
+				Array: []reference.ReferenceTreeItem{
 					{Key: reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 0}, Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE, Value: "1"},
 					{Key: reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 1}, Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE, Value: "2"},
 					{Key: reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: 2}, Kind: reference.ReferenceKind_REFERENCE_KIND_VALUE, Value: "3"},
@@ -147,14 +147,14 @@ func TestNewReferenceFromMapWithStruct(t *testing.T) {
 		},
 		"key2": "value2",
 	}
-	expected := reference.Reference{
+	expected := reference.ReferenceTreeItem{
 		Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-		Map: []reference.Reference{
+		Map: []reference.ReferenceTreeItem{
 			{
 				Key:  reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "key1"},
 				Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-				Map: []reference.Reference{
+				Map: []reference.ReferenceTreeItem{
 					{
 						Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "Field1"},
 						Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
@@ -240,10 +240,10 @@ func TestNewReferenceFromInterface(t *testing.T) {
 		"b": 2,
 	}
 
-	expected := reference.Reference{
+	expected := reference.ReferenceTreeItem{
 		Key:  reference.ReferenceKey{},
 		Kind: reference.ReferenceKind_REFERENCE_KIND_MAP,
-		Map: []reference.Reference{
+		Map: []reference.ReferenceTreeItem{
 			{
 				Key:   reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "a"},
 				Kind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,

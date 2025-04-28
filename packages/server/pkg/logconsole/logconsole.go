@@ -12,7 +12,7 @@ import (
 type LogMessage struct {
 	LogID idwrap.IDWrap
 	Value string
-	Refs  []reference.Reference
+	Refs  []reference.ReferenceTreeItem
 }
 
 type LogChanMap struct {
@@ -52,7 +52,7 @@ func (l *LogChanMap) DeleteLogChannel(userID idwrap.IDWrap) {
 	delete(l.chanMap, userID)
 }
 
-func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string, refs []reference.Reference) {
+func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string, refs []reference.ReferenceTreeItem) {
 	ch <- LogMessage{
 		LogID: logID,
 		Value: value,
@@ -60,7 +60,7 @@ func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string, refs 
 	}
 }
 
-func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, value string, refs []reference.Reference) error {
+func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, value string, refs []reference.ReferenceTreeItem) error {
 	logChannels.mt.Lock()
 	defer logChannels.mt.Unlock()
 	userID, err := mwauth.GetContextUserID(ctx)

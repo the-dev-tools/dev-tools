@@ -21,7 +21,7 @@ func TestSerializeAssertModelToRPC(t *testing.T) {
 	testutil.Assert(t, nil, err)
 	testutil.AssertNot(t, nil, result)
 	testutil.Assert(t, true, bytes.Equal(a.ID.Bytes(), result.AssertId))
-	testutil.Assert(t, "testValue", result.Condition.Comparison.Value)
+	testutil.Assert(t, "testValue", result.Condition.Comparison.Right)
 }
 
 func TestSerializeAssertModelToRPCItem(t *testing.T) {
@@ -36,7 +36,7 @@ func TestSerializeAssertModelToRPCItem(t *testing.T) {
 	testutil.Assert(t, nil, err)
 	testutil.AssertNot(t, nil, result)
 	testutil.Assert(t, true, bytes.Equal(a.ID.Bytes(), result.AssertId))
-	testutil.Assert(t, "testValue", result.Condition.Comparison.Value)
+	testutil.Assert(t, "testValue", result.Condition.Comparison.Right)
 }
 
 func TestSerializeAssertModelToRPCEmpty(t *testing.T) {
@@ -51,7 +51,7 @@ func TestSerializeAssertModelToRPCEmpty(t *testing.T) {
 	testutil.Assert(t, nil, err)
 	testutil.AssertNot(t, nil, result)
 	testutil.Assert(t, true, bytes.Equal(a.ID.Bytes(), result.AssertId))
-	pathSize := len(result.Condition.Comparison.Path)
+	pathSize := len(result.Condition.Comparison.Left)
 	testutil.Assert(t, pathSize, 0)
-	testutil.Assert(t, "testValue", result.Condition.Comparison.Value)
+	testutil.Assert(t, "testValue", result.Condition.Comparison.Right)
 }

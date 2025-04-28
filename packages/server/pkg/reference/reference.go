@@ -35,13 +35,13 @@ type ReferenceKey struct {
 	Index int32            `protobuf:"varint,15866608,opt,name=index,proto3,oneof" json:"index,omitempty"`
 }
 
-type Reference struct {
-	Kind     ReferenceKind `protobuf:"varint,9499794,opt,name=kind,proto3,enum=reference.v1.ReferenceKind" json:"kind,omitempty"`
-	Key      ReferenceKey  `protobuf:"bytes,1233330,opt,name=key,proto3" json:"key,omitempty"`
-	Map      []Reference   `protobuf:"bytes,15377576,rep,name=map,proto3" json:"map,omitempty"`           // Child map references
-	Array    []Reference   `protobuf:"bytes,885261,rep,name=array,proto3" json:"array,omitempty"`         // Child array references
-	Value    string        `protobuf:"bytes,24220210,opt,name=value,proto3,oneof" json:"value,omitempty"` // Primitive value as JSON string
-	Variable []string      `protobuf:"bytes,24548959,rep,name=variable,proto3" json:"variable,omitempty"` // Environment names containing the variable
+type ReferenceTreeItem struct {
+	Kind     ReferenceKind       `protobuf:"varint,9499794,opt,name=kind,proto3,enum=reference.v1.ReferenceKind" json:"kind,omitempty"`
+	Key      ReferenceKey        `protobuf:"bytes,1233330,opt,name=key,proto3" json:"key,omitempty"`
+	Map      []ReferenceTreeItem `protobuf:"bytes,15377576,rep,name=map,proto3" json:"map,omitempty"`           // Child map references
+	Array    []ReferenceTreeItem `protobuf:"bytes,885261,rep,name=array,proto3" json:"array,omitempty"`         // Child array references
+	Value    string              `protobuf:"bytes,24220210,opt,name=value,proto3,oneof" json:"value,omitempty"` // Primitive value as JSON string
+	Variable []string            `protobuf:"bytes,24548959,rep,name=variable,proto3" json:"variable,omitempty"` // Environment names containing the variable
 }
 
 var (
@@ -49,13 +49,13 @@ var (
 	ErrEmptyMap = errors.New("map is empty")
 )
 
-func ConvertMapToReference(m map[string]interface{}, key string) (Reference, error) {
-	var ref Reference
+func ConvertMapToReference(m map[string]interface{}, key string) (ReferenceTreeItem, error) {
+	var ref ReferenceTreeItem
 	if m == nil {
 		return ref, ErrNilMap
 	}
 
-	var subRefs []Reference
+	var subRefs []ReferenceTreeItem
 	for k, v := range m {
 		vMap, ok := v.(map[string]interface{})
 		key := ReferenceKey{
@@ -67,7 +67,7 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 			if !ok {
 				vStr = fmt.Sprintf("%v", v)
 			}
-			valueRef := Reference{
+			valueRef := ReferenceTreeItem{
 				Key:   key,
 				Kind:  ReferenceKind_REFERENCE_KIND_VALUE,
 				Value: vStr,
@@ -82,7 +82,7 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 		}
 	}
 
-	ref = Reference{
+	ref = ReferenceTreeItem{
 		Key: ReferenceKey{
 			Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY,
 			Key:  key,
@@ -94,8 +94,8 @@ func ConvertMapToReference(m map[string]interface{}, key string) (Reference, err
 	return ref, nil
 }
 
-func ConvertPkgToRpc(ref Reference) *referencev1.Reference {
-	return &referencev1.Reference{
+func ConvertPkgToRpcTree(ref ReferenceTreeItem) *referencev1.ReferenceTreeItem {
+	return &referencev1.ReferenceTreeItem{
 		Kind: referencev1.ReferenceKind(ref.Kind),
 		Key: &referencev1.ReferenceKey{
 			Kind:  referencev1.ReferenceKeyKind(ref.Key.Kind),
@@ -119,9 +119,9 @@ func ConvertPkgKeyToRpc(ref ReferenceKey) *referencev1.ReferenceKey {
 	}
 }
 
-func ConvertRpcToPkg(ref *referencev1.Reference) Reference {
-	mapRefs := make([]Reference, len(ref.Map))
-	arrayRefs := make([]Reference, len(ref.Array))
+func ConvertRpcToPkg(ref *referencev1.ReferenceTreeItem) ReferenceTreeItem {
+	mapRefs := make([]ReferenceTreeItem, len(ref.Map))
+	arrayRefs := make([]ReferenceTreeItem, len(ref.Array))
 	value := ""
 
 	for i, v := range ref.Map {
@@ -136,7 +136,7 @@ func ConvertRpcToPkg(ref *referencev1.Reference) Reference {
 		value = *ref.Value
 	}
 
-	return Reference{
+	return ReferenceTreeItem{
 		Kind:     ReferenceKind(ref.Kind),
 		Key:      ConvertRpcKeyToPkgKey(ref.Key),
 		Map:      mapRefs,
@@ -171,10 +171,10 @@ func ConvertRpcKeyToPkgKey(ref *referencev1.ReferenceKey) ReferenceKey {
 	}
 }
 
-func convertReferenceMap(refs []Reference) []*referencev1.Reference {
-	var result []*referencev1.Reference
+func convertReferenceMap(refs []ReferenceTreeItem) []*referencev1.ReferenceTreeItem {
+	var result []*referencev1.ReferenceTreeItem
 	for _, ref := range refs {
-		result = append(result, ConvertPkgToRpc(ref))
+		result = append(result, ConvertPkgToRpcTree(ref))
 	}
 	return result
 }
@@ -230,15 +230,15 @@ func ConvertStringPathToReferenceKeyArray(path string) ([]ReferenceKey, error) {
 	return refKeys, nil
 }
 
-func NewReferenceFromInterfaceWithKey(value any, key string) Reference {
+func NewReferenceFromInterfaceWithKey(value any, key string) ReferenceTreeItem {
 	return NewReferenceFromInterface(value, ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: key})
 }
 
-func NewReferenceFromInterface(value any, key ReferenceKey) Reference {
+func NewReferenceFromInterface(value any, key ReferenceKey) ReferenceTreeItem {
 	val := reflect.ValueOf(value)
 	switch val.Kind() {
 	case reflect.Map:
-		mapRefs := make([]Reference, 0, val.Len())
+		mapRefs := make([]ReferenceTreeItem, 0, val.Len())
 		keys := val.MapKeys()
 		for _, mapKey := range keys {
 			if mapKey.Kind() != reflect.String {
@@ -248,16 +248,16 @@ func NewReferenceFromInterface(value any, key ReferenceKey) Reference {
 			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: keyStr}
 			mapRefs = append(mapRefs, NewReferenceFromInterface(val.MapIndex(mapKey).Interface(), subKey))
 		}
-		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_MAP, Map: mapRefs}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_MAP, Map: mapRefs}
 	case reflect.Slice, reflect.Array:
-		arrayRefs := make([]Reference, val.Len())
+		arrayRefs := make([]ReferenceTreeItem, val.Len())
 		for i := range val.Len() {
 			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: int32(i)}
 			arrayRefs[i] = NewReferenceFromInterface(val.Index(i).Interface(), subKey)
 		}
-		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_ARRAY, Array: arrayRefs}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_ARRAY, Array: arrayRefs}
 	case reflect.Struct:
-		mapRefs := make([]Reference, 0, val.NumField())
+		mapRefs := make([]ReferenceTreeItem, 0, val.NumField())
 		for i := range val.NumField() {
 			field := val.Type().Field(i)
 			if !field.IsExported() {
@@ -267,16 +267,16 @@ func NewReferenceFromInterface(value any, key ReferenceKey) Reference {
 			fieldValue := NewReferenceFromInterface(val.Field(i).Interface(), subKey)
 			mapRefs = append(mapRefs, fieldValue)
 		}
-		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_MAP, Map: mapRefs}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_MAP, Map: mapRefs}
 	case reflect.String:
-		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: val.String()}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: val.String()}
 	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
-		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
 	case reflect.Ptr:
 		return NewReferenceFromInterface(val.Elem().Interface(), key)
 	case reflect.Int8:
-		return Reference{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
 	default:
-		return Reference{}
+		return ReferenceTreeItem{}
 	}
 }

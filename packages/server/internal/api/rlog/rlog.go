@@ -44,7 +44,7 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 	for {
 		select {
 		case logMessage := <-lmc:
-			rpcRefs := tgeneric.MassConvert(logMessage.Refs, reference.ConvertPkgToRpc)
+			rpcRefs := tgeneric.MassConvert(logMessage.Refs, reference.ConvertPkgToRpcTree)
 
 			b := &logv1.LogStreamResponse{
 				LogId:      logMessage.LogID.Bytes(),

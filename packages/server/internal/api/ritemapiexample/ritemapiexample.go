@@ -685,7 +685,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	}
 
 	ref := reference.NewReferenceFromInterfaceWithKey(exampleRunLog, example.Name)
-	refs := []reference.Reference{ref}
+	refs := []reference.ReferenceTreeItem{ref}
 
 	err = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Request %s:%s", example.Name, example.ID.String()), refs)
 	if err != nil {
