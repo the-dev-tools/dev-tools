@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -16,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/reference"
+	"the-dev-tools/server/pkg/referencecompletion"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -340,10 +342,154 @@ func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleResp
 
 // ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
 func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CodeUnimplemented"))
+
+	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
+	msg := req.Msg
+	if msg.WorkspaceId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		workspaceID = &tempID
+	}
+	if msg.ExampleId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.ExampleId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		exampleID = &tempID
+	}
+	if msg.NodeId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.NodeId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		nodeIDPtr = &tempID
+	}
+
+	fmt.Println(workspaceID, exampleID, nodeIDPtr)
+
+	creator := referencecompletion.NewReferenceCompletionCreator()
+
+	// Workspace
+	if workspaceID != nil {
+		wsID := *workspaceID
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		envs, err := c.es.GetByWorkspace(ctx, wsID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
+		}
+
+		envKeyValueMap := make(map[string]string, len(envs))
+
+		for _, env := range envs {
+			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
+			}
+
+			for _, v := range vars {
+				envKeyValueMap[v.VarKey] = v.Value
+			}
+		}
+
+		if len(envKeyValueMap) > 0 {
+			creator.Add(envKeyValueMap)
+			fmt.Println(envKeyValueMap)
+		}
+
+	}
+
+	fmt.Println(req.Msg.Start)
+	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
+	fmt.Println(items)
+
+	var Items []*referencev1.ReferenceCompletion
+
+	for _, item := range items {
+		Items = append(Items, &referencev1.ReferenceCompletion{
+			Kind:         referencev1.ReferenceKind(item.Kind),
+			EndToken:     item.EndToken,
+			ItemCount:    item.ItemCount,
+			Environments: item.Environments,
+		})
+		fmt.Println(item.EndToken)
+	}
+
+	response := &referencev1.ReferenceCompletionResponse{
+		Items: Items,
+	}
+
+	return connect.NewResponse(response), nil
 }
 
 // ReferenceValue calls reference.v1.ReferenceService.ReferenceValue.
 func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.Request[referencev1.ReferenceValueRequest]) (*connect.Response[referencev1.ReferenceValueResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CodeUnimplemented"))
+	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
+	msg := req.Msg
+	if msg.WorkspaceId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		workspaceID = &tempID
+	}
+	if msg.ExampleId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.ExampleId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		exampleID = &tempID
+	}
+	if msg.NodeId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.NodeId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		nodeIDPtr = &tempID
+	}
+
+	fmt.Println(workspaceID, exampleID, nodeIDPtr)
+
+	lookup := referencecompletion.NewReferenceCompletionLookup()
+
+	// Workspace
+	if workspaceID != nil {
+		wsID := *workspaceID
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		envs, err := c.es.GetByWorkspace(ctx, wsID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
+		}
+
+		envKeyValueMap := make(map[string]string, len(envs))
+
+		for _, env := range envs {
+			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
+			}
+
+			for _, v := range vars {
+				envKeyValueMap[v.VarKey] = v.Value
+			}
+		}
+
+		fmt.Println(envKeyValueMap)
+		lookup.Add(envKeyValueMap)
+	}
+
+	fmt.Println(req.Msg.Path)
+
+	response := &referencev1.ReferenceValueResponse{
+		Value: fmt.Sprint(lookup.GetValue(req.Msg.Path)),
+	}
+
+	return connect.NewResponse(response), nil
 }
