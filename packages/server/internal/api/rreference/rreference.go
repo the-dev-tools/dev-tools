@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleresp"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/permcheck"
@@ -301,9 +302,9 @@ func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleResp
 	}
 
 	// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
-	var body interface{}
+	var body any
 	if json.Valid(resp.Body) {
-		var jsonBody map[string]interface{}
+		var jsonBody map[string]any
 		// If unmarshaling works, use the decoded JSON.
 		if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
 			body = jsonBody
@@ -383,8 +384,6 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
 		}
 
-		envKeyValueMap := make(map[string]string, len(envs))
-
 		for _, env := range envs {
 			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
@@ -392,20 +391,134 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			}
 
 			for _, v := range vars {
-				envKeyValueMap[v.VarKey] = v.Value
+				creator.AddWithKey(v.VarKey, v.Value)
+			}
+		}
+	}
+
+	if exampleID != nil {
+		exID := *exampleID
+		resp, err := c.ers.GetExampleRespByExampleID(ctx, exID)
+		if err != nil {
+			return nil, err
+		}
+
+		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		headerMap := make(map[string]string)
+		for _, header := range respHeaders {
+			headerVal, ok := headerMap[header.HeaderKey]
+			if ok {
+				headerMap[header.HeaderKey] = headerVal + ", " + header.Value
+			} else {
+				headerMap[header.HeaderKey] = header.Value
 			}
 		}
 
-		if len(envKeyValueMap) > 0 {
-			creator.Add(envKeyValueMap)
-			fmt.Println(envKeyValueMap)
+		if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
+			if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
+				data, err := zstdcompress.Decompress(resp.Body)
+				if err != nil {
+					return nil, err
+				}
+				resp.Body = data
+			}
 		}
 
+		// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
+		var body any
+		if json.Valid(resp.Body) {
+			var jsonBody map[string]any
+			// If unmarshaling works, use the decoded JSON.
+			if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
+				body = jsonBody
+			} else {
+				body = string(resp.Body)
+			}
+		} else {
+			body = string(resp.Body)
+		}
+
+		// check if body seems like json
+
+		httpResp := httpclient.ResponseVar{
+			StatusCode: int(resp.Status),
+			Body:       body,
+			Headers:    headerMap,
+			Duration:   resp.Duration,
+		}
+
+		var m map[string]any
+		data, err := json.Marshal(httpResp)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(data, &m)
+		if err != nil {
+			return nil, err
+		}
+
+		creator.AddWithKey("response", m)
 	}
 
-	fmt.Println(req.Msg.Start)
+	if nodeIDPtr != nil {
+		nodeID := *nodeIDPtr
+		nodeInst, err := c.fns.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		flowID := nodeInst.FlowID
+		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+		if err != nil {
+			if err != sflowvariable.ErrNoFlowVariableFound {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			flowVars = []mflowvariable.FlowVariable{}
+		}
+
+		sortenabled.GetAllWithState(&flowVars, true)
+		for _, flowVar := range flowVars {
+			creator.AddWithKey(flowVar.Name, flowVar.Value)
+		}
+
+		// Edges
+		edges, err := c.flowEdgeService.GetEdgesByFlowID(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		edgesMap := edge.NewEdgesMap(edges)
+
+		beforeNodes := make([]mnnode.MNode, 0, len(nodes))
+		for _, node := range nodes {
+			if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
+				beforeNodes = append(beforeNodes, node)
+			}
+		}
+
+		for _, node := range beforeNodes {
+			stateData := node.StateData
+			if json.Valid(stateData) {
+				var anyStateData any
+				err = json.Unmarshal(stateData, &anyStateData)
+				if err != nil {
+					return nil, err
+				}
+				creator.AddWithKey(node.Name, anyStateData)
+			}
+
+		}
+	}
+
 	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
-	fmt.Println(items)
 
 	var Items []*referencev1.ReferenceCompletion
 
@@ -416,7 +529,6 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			ItemCount:    item.ItemCount,
 			Environments: item.Environments,
 		})
-		fmt.Println(item.EndToken)
 	}
 
 	response := &referencev1.ReferenceCompletionResponse{
@@ -468,8 +580,6 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
 		}
 
-		envKeyValueMap := make(map[string]string, len(envs))
-
 		for _, env := range envs {
 			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
@@ -477,18 +587,141 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			}
 
 			for _, v := range vars {
-				envKeyValueMap[v.VarKey] = v.Value
+				lookup.AddWithKey(v.VarKey, v.Value)
 			}
 		}
 
-		fmt.Println(envKeyValueMap)
-		lookup.Add(envKeyValueMap)
 	}
 
-	fmt.Println(req.Msg.Path)
+	if exampleID != nil {
+		exID := *exampleID
+		resp, err := c.ers.GetExampleRespByExampleID(ctx, exID)
+		if err != nil {
+			return nil, err
+		}
+
+		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		headerMap := make(map[string]string)
+		for _, header := range respHeaders {
+			headerVal, ok := headerMap[header.HeaderKey]
+			if ok {
+				headerMap[header.HeaderKey] = headerVal + ", " + header.Value
+			} else {
+				headerMap[header.HeaderKey] = header.Value
+			}
+		}
+
+		if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
+			if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
+				data, err := zstdcompress.Decompress(resp.Body)
+				if err != nil {
+					return nil, err
+				}
+				resp.Body = data
+			}
+		}
+
+		// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
+		var body any
+		if json.Valid(resp.Body) {
+			var jsonBody map[string]any
+			// If unmarshaling works, use the decoded JSON.
+			if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
+				body = jsonBody
+			} else {
+				body = string(resp.Body)
+			}
+		} else {
+			body = string(resp.Body)
+		}
+
+		// check if body seems like json
+
+		httpResp := httpclient.ResponseVar{
+			StatusCode: int(resp.Status),
+			Body:       body,
+			Headers:    headerMap,
+			Duration:   resp.Duration,
+		}
+
+		var m map[string]any
+		data, err := json.Marshal(httpResp)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(data, &m)
+		if err != nil {
+			return nil, err
+		}
+
+		lookup.AddWithKey("response", m)
+	}
+
+	if nodeIDPtr != nil {
+		nodeID := *nodeIDPtr
+		nodeInst, err := c.fns.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		flowID := nodeInst.FlowID
+		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+		if err != nil {
+			if err != sflowvariable.ErrNoFlowVariableFound {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			flowVars = []mflowvariable.FlowVariable{}
+		}
+
+		sortenabled.GetAllWithState(&flowVars, true)
+		for _, flowVar := range flowVars {
+			lookup.AddWithKey(flowVar.Name, flowVar.Value)
+		}
+
+		// Edges
+		edges, err := c.flowEdgeService.GetEdgesByFlowID(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		edgesMap := edge.NewEdgesMap(edges)
+
+		beforeNodes := make([]mnnode.MNode, 0, len(nodes))
+		for _, node := range nodes {
+			if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
+				beforeNodes = append(beforeNodes, node)
+			}
+		}
+
+		for _, node := range beforeNodes {
+			stateData := node.StateData
+			if json.Valid(stateData) {
+				var anyStateData any
+				err = json.Unmarshal(stateData, &anyStateData)
+				if err != nil {
+					return nil, err
+				}
+				lookup.AddWithKey(node.Name, anyStateData)
+			}
+
+		}
+	}
+
+	value, err := lookup.GetValue(req.Msg.Path)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	response := &referencev1.ReferenceValueResponse{
-		Value: fmt.Sprint(lookup.GetValue(req.Msg.Path)),
+		Value: fmt.Sprint(value),
 	}
 
 	return connect.NewResponse(response), nil

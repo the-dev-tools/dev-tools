@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/referencecompletion"
 )
 
@@ -42,6 +43,57 @@ func TestAddPaths(t *testing.T) {
 	}
 }
 
+func TestAddMultiple(t *testing.T) {
+	creator := referencecompletion.NewReferenceCompletionCreator()
+
+	// First data structure
+	data1 := map[string]any{
+		"user": map[string]any{
+			"name": "Alice",
+			"id":   123,
+		},
+		"items": []any{"apple", "banana"},
+	}
+	creator.Add(data1)
+
+	// Second data structure added with a key
+	data2 := map[string]any{
+		"status": "active",
+		"config": map[string]any{
+			"enabled": true,
+		},
+	}
+	creator.AddWithKey("system", data2)
+
+	// Third data structure (simple value)
+	creator.AddWithKey("version", "v1.0")
+
+	expectedPaths := []string{
+		"user",
+		"user.name",
+		"user.id",
+		"items",
+		"items[0]",
+		"items[1]",
+		"system", // Key provided in AddWithKey
+		"system.status",
+		"system.config",
+		"system.config.enabled",
+		"version", // Key provided in AddWithKey for a simple value
+	}
+	sort.Strings(expectedPaths)
+
+	actualPaths := make([]string, 0, len(creator.PathMap))
+	for path := range creator.PathMap {
+		actualPaths = append(actualPaths, path)
+	}
+	sort.Strings(actualPaths)
+
+	if !reflect.DeepEqual(expectedPaths, actualPaths) {
+		t.Errorf("PathMap mismatch after multiple adds:\nExpected: %v\nActual:   %v", expectedPaths, actualPaths)
+	}
+}
+
 func TestFindMatch(t *testing.T) {
 	creator := referencecompletion.NewReferenceCompletionCreator()
 
@@ -73,7 +125,7 @@ func TestFindMatch(t *testing.T) {
 		{
 			name:     "Nested match",
 			query:    "nested",
-			expected: []string{"deep.nested", "deep.nested.value"},
+			expected: []string{},
 		},
 		{
 			name:     "Full path match",
@@ -162,6 +214,134 @@ func TestFindMatchNoResults(t *testing.T) {
 	}
 }
 
+func TestFindMatchAndCalcCompletionData(t *testing.T) {
+	creator := referencecompletion.NewReferenceCompletionCreator()
+
+	// Add test data with different types
+	testData := map[string]any{
+		"users": map[string]any{
+			"admin": map[string]any{
+				"name":  "Admin User",
+				"roles": []string{"admin", "user"},
+			},
+			"guest": map[string]any{
+				"name":  "Guest User",
+				"roles": []string{"guest"},
+			},
+		},
+		"settings": map[string]any{
+			"theme":    "dark",
+			"language": "en",
+		},
+		"items": []any{
+			"item1",
+			"item2",
+			map[string]any{"name": "Complex Item"},
+		},
+	}
+	creator.Add(testData)
+
+	tests := []struct {
+		name          string
+		query         string
+		expectedCount int
+		expectedItems []struct {
+			kind     reference.ReferenceKind
+			endToken string
+			endIndex int32
+		}
+	}{
+		{
+			name:          "Empty query",
+			query:         "",
+			expectedCount: 0,
+		},
+		{
+			name:          "Simple prefix match",
+			query:         "use",
+			expectedCount: 1,
+			expectedItems: []struct {
+				kind     reference.ReferenceKind
+				endToken string
+				endIndex int32
+			}{
+				{
+					kind:     reference.ReferenceKind_REFERENCE_KIND_MAP,
+					endToken: "rs",
+					endIndex: 0,
+				},
+			},
+		},
+		{
+			name:          "Complete match",
+			query:         "users.admin.name",
+			expectedCount: 1,
+			expectedItems: []struct {
+				kind     reference.ReferenceKind
+				endToken string
+				endIndex int32
+			}{
+				{
+					kind:     reference.ReferenceKind_REFERENCE_KIND_VALUE,
+					endToken: "",
+					endIndex: 0,
+				},
+			},
+		},
+		{
+			name:          "Array path match",
+			query:         "items[0",
+			expectedCount: 1,
+			expectedItems: []struct {
+				kind     reference.ReferenceKind
+				endToken string
+				endIndex int32
+			}{
+				{
+					kind:     reference.ReferenceKind_REFERENCE_KIND_VALUE,
+					endToken: "]",
+					endIndex: 0,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := creator.FindMatchAndCalcCompletionData(tt.query)
+
+			if len(items) != tt.expectedCount {
+				t.Errorf("Expected %d items, got %d", tt.expectedCount, len(items))
+				return
+			}
+
+			// Skip detailed checks if we expect empty results
+			if tt.expectedCount == 0 {
+				return
+			}
+
+			// Check each expected item
+			for i, expected := range tt.expectedItems {
+				if i >= len(items) {
+					t.Errorf("Missing expected item at index %d", i)
+					continue
+				}
+
+				item := items[i]
+				if item.Kind != expected.kind {
+					t.Errorf("Item %d: expected Kind %v, got %v", i, expected.kind, item.Kind)
+				}
+				if item.EndToken != expected.endToken {
+					t.Errorf("Item %d: expected EndToken %q, got %q", i, expected.endToken, item.EndToken)
+				}
+				if item.EndIndex != expected.endIndex {
+					t.Errorf("Item %d: expected EndIndex %d, got %d", i, expected.endIndex, item.EndIndex)
+				}
+			}
+		})
+	}
+}
+
 func TestReferenceCompletionLookUp_Add(t *testing.T) {
 	lookup := referencecompletion.NewReferenceCompletionLookup()
 
@@ -220,30 +400,64 @@ func TestReferenceCompletionLookUp_Add(t *testing.T) {
 func TestReferenceCompletionLookUp_AddWithKey(t *testing.T) {
 	lookup := referencecompletion.NewReferenceCompletionLookup()
 
-	// Add data with specific key
+	// First object: user data
 	userData := map[string]any{
-		"name":  "John",
-		"email": "john@example.com",
+		"name": "John",
+		"profile": map[string]any{
+			"email": "john@example.com",
+			"age":   30,
+		},
+		"tags": []string{"admin", "active"},
 	}
-
 	lookup.AddWithKey("user", userData)
 
-	// Test if data was stored with the correct key
-	value, err := lookup.GetValue("user")
-	if err != nil {
-		t.Errorf("Failed to get value for 'user': %v", err)
+	// Second object: config settings
+	configData := map[string]any{
+		"theme": "dark",
+		"notifications": map[string]any{
+			"email":   true,
+			"browser": false,
+		},
 	}
-	if !reflect.DeepEqual(value, userData) {
-		t.Errorf("User data mismatch:\nExpected: %v\nActual:   %v", userData, value)
+	lookup.AddWithKey("settings", configData)
+
+	// Third item: simple value
+	lookup.AddWithKey("version", "1.0.2")
+
+	// Test retrieving values from first object
+	value, err := lookup.GetValue("user.profile.email")
+	if err != nil {
+		t.Errorf("Failed to get user email: %v", err)
+	}
+	if value != "john@example.com" {
+		t.Errorf("User email mismatch: expected 'john@example.com', got '%v'", value)
 	}
 
-	// Test nested values
-	email, err := lookup.GetValue("user.email")
+	// Test array access
+	value, err = lookup.GetValue("user.tags[0]")
 	if err != nil {
-		t.Errorf("Failed to get value for 'user.email': %v", err)
+		t.Errorf("Failed to get user tag: %v", err)
 	}
-	if email != "john@example.com" {
-		t.Errorf("Email mismatch: expected 'john@example.com', got '%v'", email)
+	if value != "admin" {
+		t.Errorf("User tag mismatch: expected 'admin', got '%v'", value)
+	}
+
+	// Test retrieving values from second object
+	value, err = lookup.GetValue("settings.notifications.email")
+	if err != nil {
+		t.Errorf("Failed to get notification setting: %v", err)
+	}
+	if value != true {
+		t.Errorf("Notification setting mismatch: expected true, got %v", value)
+	}
+
+	// Test retrieving simple value
+	value, err = lookup.GetValue("version")
+	if err != nil {
+		t.Errorf("Failed to get version: %v", err)
+	}
+	if value != "1.0.2" {
+		t.Errorf("Version mismatch: expected '1.0.2', got '%v'", value)
 	}
 }
 

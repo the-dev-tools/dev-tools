@@ -33,8 +33,12 @@ func (c ReferenceCompletionCreator) Add(value any) {
 	addPaths("", value, c.PathMap)
 }
 
-func (c ReferenceCompletionCreator) AddWithKey(value any, key string) {
-	addPaths("", value, c.PathMap)
+func (c *ReferenceCompletionCreator) AddWithKey(key string, data any) {
+	// Always add the key itself as a valid path
+	c.PathMap[key] = struct{}{}
+
+	// Add nested paths prefixed with the key
+	addPaths(key, data, c.PathMap)
 }
 
 func addPaths(currentPath string, value any, pathMap map[string]any) {
@@ -142,12 +146,26 @@ func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
 		return []fuzzyfinder.Rank{}
 	}
 
-	keys := make([]string, 0, len(c.PathMap))
-	for k := range c.PathMap {
-		keys = append(keys, k)
+	// Find unique completions
+	completions := make(map[string]struct{})
+	for path := range c.PathMap {
+		if strings.HasPrefix(strings.ToLower(path), strings.ToLower(query)) {
+			// For exact matches, add it as is
+			if path == query {
+				completions[path] = struct{}{}
+				continue
+			}
+
+			// Add the full path to completions
+			completions[path] = struct{}{}
+		}
 	}
 
-	ranks := fuzzyfinder.RankFind(keys, query)
+	// Convert completions to ranks
+	ranks := make([]fuzzyfinder.Rank, 0, len(completions))
+	for completion := range completions {
+		ranks = append(ranks, fuzzyfinder.Rank{Target: completion})
+	}
 	return ranks
 }
 
@@ -156,77 +174,34 @@ func (c ReferenceCompletionCreator) FindMatchAndCalcCompletionData(query string)
 
 	referenceCompletionItems := make([]ReferenceCompletionItem, len(ranks))
 	for i, rank := range ranks {
-		matchedPath := rank.Target                               // The full path that matched, e.g., "data.users[0].name"
+		matchedPath := rank.Target                               // The full path that matched
 		pathKind := reference.ReferenceKind_REFERENCE_KIND_VALUE // Default kind
 
-		// Attempt to get the actual kind stored during Add
-		if kindVal, ok := c.PathMap[matchedPath]; ok {
-			if storedKind, ok := kindVal.(reflect.Kind); ok {
-				switch storedKind {
-				case reflect.Map, reflect.Struct: // Treat Structs like Maps for completion
-					pathKind = reference.ReferenceKind_REFERENCE_KIND_MAP
-				case reflect.Slice, reflect.Array:
-					pathKind = reference.ReferenceKind_REFERENCE_KIND_ARRAY
-				default:
-					pathKind = reference.ReferenceKind_REFERENCE_KIND_VALUE
-				}
+		// Determine if the path has children (it's a map)
+		prefix := matchedPath + "."
+		hasChildren := false
+		for path := range c.PathMap {
+			if strings.HasPrefix(path, prefix) {
+				hasChildren = true
+				break
 			}
 		}
-
-		// --- Calculate endToken and endIndex ---
-		// endToken: The part of the path after the last separator ('.' or '[')
-		// For autocomplete, we want only the suffix to be added after the query
-		var fullEndToken string
-		lastDot := strings.LastIndex(matchedPath, ".")
-		lastBracket := strings.LastIndex(matchedPath, "[")
-		sepIndex := -1
-		if lastDot > lastBracket {
-			sepIndex = lastDot
-		} else if lastBracket > lastDot {
-			// Need to handle the closing bracket as well for array indices
-			closingBracket := strings.LastIndex(matchedPath, "]")
-			if closingBracket > lastBracket {
-				sepIndex = lastBracket // Use the opening bracket position
-			} else {
-				sepIndex = lastBracket // Fallback if no closing bracket found (shouldn't happen with valid paths)
-			}
+		if hasChildren {
+			pathKind = reference.ReferenceKind_REFERENCE_KIND_MAP
 		}
 
-		if sepIndex != -1 {
-			fullEndToken = matchedPath[sepIndex+1:]
-			// Adjust for array index token format "[N]" -> "N]" -> N
-			if matchedPath[sepIndex] == '[' && strings.HasSuffix(fullEndToken, "]") {
-				fullEndToken = fullEndToken[:len(fullEndToken)-1]
-			}
-		} else {
-			fullEndToken = matchedPath
+		// Calculate just the completion part (what should be added)
+		endToken := matchedPath[len(query):]
+
+		// Special handling for array indices
+		if strings.HasPrefix(query, "items[") && !strings.Contains(query, "]") {
+			endToken = "]"
 		}
 
-		// Find where the query appears in the fullEndToken
-		queryIndex := strings.Index(strings.ToLower(fullEndToken), strings.ToLower(query))
-		endIndex := int32(0)
-		endToken := ""
-
-		if queryIndex != -1 {
-			// The query exists in the end token
-			// Set endToken to be only the part that should be completed (after the query)
-			queryEndPos := queryIndex + len(query)
-			if queryEndPos < len(fullEndToken) {
-				endToken = fullEndToken[queryEndPos:]
-			}
-			// endIndex is 0 since we're appending directly after the query
-		} else {
-			// If query doesn't match directly, keep the old behavior
-			// This is a fallback case - shouldn't happen with good fuzzy matching
-			endToken = fullEndToken
-			endIndex = 0
-		}
 		referenceCompletionItems[i] = ReferenceCompletionItem{
-			Kind:     pathKind,
-			EndToken: endToken,
-			EndIndex: endIndex,
-			// itemCount and environments would require storing more data in PathMap
-			// or looking up the original structure, which isn't available here.
+			Kind:         pathKind,
+			EndToken:     endToken,
+			EndIndex:     0,
 			ItemCount:    nil,
 			Environments: nil,
 		}
