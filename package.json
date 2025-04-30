@@ -33,8 +33,9 @@
       }
     },
     "patchedDependencies": {
-      "@nx/eslint": "patches/@nx__eslint.patch",
-      "@typespec/protobuf": "patches/@typespec__protobuf.patch"
+      "@nx/eslint": "/home/Tomaszal/Documents/git/the-dev-tools/dev-tools/patches/@nx__eslint.patch",
+      "@typespec/protobuf": "/home/Tomaszal/Documents/git/the-dev-tools/dev-tools/patches/@typespec__protobuf.patch",
+      "@data-client/endpoint": "patches/@data-client__endpoint.patch"
     }
   }
 }

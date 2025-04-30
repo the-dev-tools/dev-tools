@@ -1,0 +1,12 @@
+diff --git a/lib/index.d.ts b/lib/index.d.ts
+index 0545cfea01cb032e1a8b4ce34c7940835cf1756b..62581a9e3fc278c521c2fae3412b98a9ae51f12d 100644
+--- a/lib/index.d.ts
++++ b/lib/index.d.ts
+@@ -3,6 +3,7 @@ export * as schema from './schema.js';
+ export type { Array, Invalidate, Collection, DefaultArgs } from './schema.js';
+ export { default as Entity } from './schemas/Entity.js';
+ export { default as EntityMixin } from './schemas/EntityMixin.js';
++export type { IEntityClass, IEntityInstance } from './schemas/EntityTypes.js';
+ export { default as validateRequired } from './validateRequired.js';
+ export { INVALID } from './special.js';
+ export type { EndpointInterface, ReadEndpoint, MutateEndpoint, Schema, SnapshotInterface, ExpiryStatusInterface, SchemaSimple, SchemaClass, PolymorphicInterface, Queryable, } from './interface.js';
