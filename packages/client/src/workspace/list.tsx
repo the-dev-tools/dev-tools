@@ -1,4 +1,5 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
+import { useController, useSuspense } from '@data-client/react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
@@ -6,30 +7,28 @@ import { MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
 
-import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
-import {
-  workspaceCreate,
-  workspaceDelete,
-  workspaceList,
-  workspaceUpdate,
-} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useMutate } from '~data-client/util';
+import {
+  workspaceCreate,
+  workspaceDelete,
+  WorkspaceEntity,
+  workspaceList,
+  workspaceUpdate,
+} from '~data-client/workspace';
 
 const makeRoute = createFileRoute('/_authorized/_dashboard/');
 
 export const Route = makeRoute({ component: Page });
 
 function Page() {
-  const {
-    data: { items: workspaces },
-  } = useConnectSuspenseQuery(workspaceList);
-  const workspaceCreateMutation = useConnectMutation(workspaceCreate);
+  const controller = useController();
+  const { items: workspaces } = useSuspense(workspaceList, {});
 
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
@@ -44,7 +43,7 @@ function Page() {
         <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
           {/* <Button>View All Workspaces</Button> */}
-          <Button onPress={() => void workspaceCreateMutation.mutate({ name: 'New Workspace' })} variant='primary'>
+          <Button onPress={() => void controller.fetch(workspaceCreate, { name: 'New Workspace' })} variant='primary'>
             Add Workspace
           </Button>
         </div>
@@ -64,19 +63,20 @@ function Page() {
 }
 
 interface RowProps {
-  workspace: WorkspaceListItem;
+  workspace: WorkspaceEntity;
   workspaceIdCan: string;
   workspaceUlid: Ulid;
 }
 
 const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspaceUlid }: RowProps) => {
-  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
-  const workspaceDeleteMutation = useConnectMutation(workspaceDelete);
+  const controller = useController();
+
+  const [update, updateLoading] = useMutate(workspaceUpdate);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => workspaceUpdateMutation.mutateAsync({ name: _, workspaceId }),
+    onSuccess: (_) => update({ name: _, workspaceId }),
     value: workspace.name,
   });
 
@@ -93,7 +93,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
           <TextField
             className={tw`justify-self-start`}
             inputClassName={tw`text-md -my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
-            isDisabled={workspaceUpdateMutation.isPending}
+            isDisabled={updateLoading}
             {...textFieldProps}
           />
         ) : (
@@ -151,7 +151,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
 
         <Menu {...menuProps}>
           <MenuItem onAction={() => void edit()}>Rename</MenuItem>
-          <MenuItem onAction={() => void workspaceDeleteMutation.mutate({ workspaceId })} variant='danger'>
+          <MenuItem onAction={() => void controller.fetch(workspaceDelete, { workspaceId })} variant='danger'>
             Delete
           </MenuItem>
         </Menu>
