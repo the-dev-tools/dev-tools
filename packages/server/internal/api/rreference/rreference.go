@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -368,8 +367,6 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		nodeIDPtr = &tempID
 	}
 
-	fmt.Println(workspaceID, exampleID, nodeIDPtr)
-
 	creator := referencecompletion.NewReferenceCompletionCreator()
 
 	// Workspace
@@ -526,6 +523,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		Items = append(Items, &referencev1.ReferenceCompletion{
 			Kind:         referencev1.ReferenceKind(item.Kind),
 			EndToken:     item.EndToken,
+			EndIndex:     item.EndIndex,
 			ItemCount:    item.ItemCount,
 			Environments: item.Environments,
 		})
@@ -563,8 +561,6 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		}
 		nodeIDPtr = &tempID
 	}
-
-	fmt.Println(workspaceID, exampleID, nodeIDPtr)
 
 	lookup := referencecompletion.NewReferenceCompletionLookup()
 
@@ -721,7 +717,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 	}
 
 	response := &referencev1.ReferenceValueResponse{
-		Value: fmt.Sprint(value),
+		Value: value,
 	}
 
 	return connect.NewResponse(response), nil

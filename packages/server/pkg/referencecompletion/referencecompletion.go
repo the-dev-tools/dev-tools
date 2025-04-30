@@ -1,31 +1,40 @@
 package referencecompletion
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"the-dev-tools/server/pkg/fuzzyfinder"
 	"the-dev-tools/server/pkg/reference"
 )
 
+const ArrayStringValuePrefix = "Array"
+const MapStringValuePrefix = "Map"
+
+type ReferenceCompletionDetails struct {
+	Count uint
+}
+
 type ReferenceCompletionCreator struct {
-	PathMap map[string]any
+	PathMap map[string]ReferenceCompletionDetails
 }
 
 type ReferenceCompletionLookUp struct {
-	LookUpMap map[string]any
+	LookUpMap map[string]string
 }
 
 func NewReferenceCompletionCreator() ReferenceCompletionCreator {
 	return ReferenceCompletionCreator{
-		PathMap: make(map[string]any, 0),
+		PathMap: make(map[string]ReferenceCompletionDetails, 0),
 	}
 }
 
 func NewReferenceCompletionLookup() ReferenceCompletionLookUp {
 	return ReferenceCompletionLookUp{
-		LookUpMap: make(map[string]any, 0),
+		LookUpMap: make(map[string]string, 0),
 	}
 }
 
@@ -34,14 +43,11 @@ func (c ReferenceCompletionCreator) Add(value any) {
 }
 
 func (c *ReferenceCompletionCreator) AddWithKey(key string, data any) {
-	// Always add the key itself as a valid path
-	c.PathMap[key] = struct{}{}
-
 	// Add nested paths prefixed with the key
 	addPaths(key, data, c.PathMap)
 }
 
-func addPaths(currentPath string, value any, pathMap map[string]any) {
+func addPaths(currentPath string, value any, pathMap map[string]ReferenceCompletionDetails) {
 	// Use reflection to inspect the value's type and structure.
 	v := reflect.ValueOf(value)
 
@@ -53,6 +59,8 @@ func addPaths(currentPath string, value any, pathMap map[string]any) {
 		v = v.Elem() // Get the value pointed to.
 	}
 
+	var count uint
+
 	// Based on the kind of the value, decide how to proceed.
 	switch v.Kind() {
 	case reflect.Map:
@@ -63,7 +71,6 @@ func addPaths(currentPath string, value any, pathMap map[string]any) {
 			val := iter.Value() // The map value.
 
 			// Convert the map key to a string representation.
-			// Using fmt.Sprintf ensures broad compatibility but might not be ideal for all key types.
 			keyStr := fmt.Sprintf("%v", k.Interface())
 
 			// Construct the path for the map entry.
@@ -76,67 +83,32 @@ func addPaths(currentPath string, value any, pathMap map[string]any) {
 				nextPath = currentPath + "." + keyStr
 			}
 
-			// Add the constructed path to the map. Store nil as we only need the path keys.
-			pathMap[nextPath] = nil
-
-			// Recursively call addPaths for the map value, but only if it's valid and potentially traversable.
-			if val.IsValid() && val.CanInterface() {
-				valInterface := val.Interface()
-				valReflect := reflect.ValueOf(valInterface)
-				// Dereference pointers again for the next level
-				if valReflect.Kind() == reflect.Ptr {
-					if valReflect.IsNil() {
-						continue // Skip nil pointers in recursion
-					}
-					valReflect = valReflect.Elem()
-				}
-				// Recurse only for nested maps, slices, or arrays.
-				switch valReflect.Kind() {
-				case reflect.Map, reflect.Slice, reflect.Array:
-					addPaths(nextPath, valInterface, pathMap)
-				}
-			}
+			// Recursively process the map value
+			addPaths(nextPath, val.Interface(), pathMap)
 		}
+		count = uint(v.Len())
+
 	case reflect.Slice, reflect.Array:
+		count = uint(v.Len())
+
 		// Iterate through the elements of the slice or array.
 		for i := 0; i < v.Len(); i++ {
 			elem := v.Index(i) // The element at index i.
 
 			// Construct the path for the array/slice element using bracket notation.
-			indexStr := strconv.Itoa(i)
-			var nextPath string
-			if currentPath == "" {
-				// Path for a root-level array/slice element: "[index]"
-				nextPath = "[" + indexStr + "]"
-			} else {
-				// Path for a nested array/slice element: "parent[index]"
-				nextPath = currentPath + "[" + indexStr + "]"
-			}
+			// Path for a nested array/slice element: "parent[index]"
+			nextPath := fmt.Sprintf("%s[%d]", currentPath, i)
 
-			// Add the constructed path to the map.
-			pathMap[nextPath] = nil
-
-			// Recursively call addPaths for the element, similar to map values.
-			if elem.IsValid() && elem.CanInterface() {
-				elemInterface := elem.Interface()
-				elemReflect := reflect.ValueOf(elemInterface)
-				// Dereference pointers again for the next level
-				if elemReflect.Kind() == reflect.Ptr {
-					if elemReflect.IsNil() {
-						continue // Skip nil pointers in recursion
-					}
-					elemReflect = elemReflect.Elem()
-				}
-				// Recurse only for nested maps, slices, or arrays.
-				switch elemReflect.Kind() {
-				case reflect.Map, reflect.Slice, reflect.Array:
-					addPaths(nextPath, elemInterface, pathMap)
-				}
-			}
+			// Recursively process the array element
+			addPaths(nextPath, elem.Interface(), pathMap)
 		}
-		// No default case needed: If the value is not a map, slice, or array,
-		// we don't need to traverse further down. The path *leading* to this value
-		// (if any) was already added by the caller.
+	}
+
+	if currentPath != "" {
+		// Store the details for the current path
+		pathMap[currentPath] = ReferenceCompletionDetails{
+			Count: count,
+		}
 	}
 }
 
@@ -146,17 +118,27 @@ func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
 		return []fuzzyfinder.Rank{}
 	}
 
-	// Find unique completions
+	// Check for exact matches first
+	exactMatches := make(map[string]struct{})
+	for path := range c.PathMap {
+		if strings.ToLower(path) == strings.ToLower(query) {
+			exactMatches[path] = struct{}{}
+		}
+	}
+
+	// If we have exact matches, only return those
+	if len(exactMatches) > 0 {
+		ranks := make([]fuzzyfinder.Rank, 0, len(exactMatches))
+		for match := range exactMatches {
+			ranks = append(ranks, fuzzyfinder.Rank{Target: match})
+		}
+		return ranks
+	}
+
+	// Otherwise find prefix matches
 	completions := make(map[string]struct{})
 	for path := range c.PathMap {
 		if strings.HasPrefix(strings.ToLower(path), strings.ToLower(query)) {
-			// For exact matches, add it as is
-			if path == query {
-				completions[path] = struct{}{}
-				continue
-			}
-
-			// Add the full path to completions
 			completions[path] = struct{}{}
 		}
 	}
@@ -166,6 +148,11 @@ func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
 	for completion := range completions {
 		ranks = append(ranks, fuzzyfinder.Rank{Target: completion})
 	}
+	// sort
+	sort.Slice(ranks, func(i int, j int) bool {
+		return ranks[i].Distance > ranks[j].Distance
+	})
+
 	return ranks
 }
 
@@ -190,19 +177,16 @@ func (c ReferenceCompletionCreator) FindMatchAndCalcCompletionData(query string)
 			pathKind = reference.ReferenceKind_REFERENCE_KIND_MAP
 		}
 
-		// Calculate just the completion part (what should be added)
-		endToken := matchedPath[len(query):]
+		endIndex := len(query)
 
-		// Special handling for array indices
-		if strings.HasPrefix(query, "items[") && !strings.Contains(query, "]") {
-			endToken = "]"
-		}
+		Details := c.PathMap[matchedPath]
+		itemCount := int32(Details.Count)
 
 		referenceCompletionItems[i] = ReferenceCompletionItem{
 			Kind:         pathKind,
-			EndToken:     endToken,
-			EndIndex:     0,
-			ItemCount:    nil,
+			EndToken:     matchedPath,
+			EndIndex:     int32(endIndex),
+			ItemCount:    &itemCount,
 			Environments: nil,
 		}
 	}
@@ -222,7 +206,7 @@ type ReferenceCompletionItem struct {
 	Environments []string
 }
 
-func (c ReferenceCompletionLookUp) GetValue(path string) (any, error) {
+func (c ReferenceCompletionLookUp) GetValue(path string) (string, error) {
 	if path == "" {
 		return c.LookUpMap[""], nil
 	}
@@ -232,62 +216,12 @@ func (c ReferenceCompletionLookUp) GetValue(path string) (any, error) {
 		return value, nil
 	}
 
-	// If not found directly, traverse the path step by step
-	segments := parsePath(path)
-	currentValue, exists := c.LookUpMap[""]
-	if !exists {
-		return nil, fmt.Errorf("no root data available in lookup map")
-	}
-
-	for _, segment := range segments {
-		// Handle array/slice index access [n]
-		if strings.HasPrefix(segment, "[") && strings.HasSuffix(segment, "]") {
-			indexStr := segment[1 : len(segment)-1]
-			index, err := strconv.Atoi(indexStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid array index in path: %s", segment)
-			}
-
-			v := reflect.ValueOf(currentValue)
-			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-			}
-
-			if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
-				return nil, fmt.Errorf("cannot use index on non-array/slice value at path segment: %s", segment)
-			}
-
-			if index < 0 || index >= v.Len() {
-				return nil, fmt.Errorf("array index out of bounds at path segment: %s", segment)
-			}
-
-			currentValue = v.Index(index).Interface()
-		} else {
-			// Handle map/struct field access
-			v := reflect.ValueOf(currentValue)
-			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-			}
-
-			if v.Kind() == reflect.Map {
-				mapKey := reflect.ValueOf(segment)
-				value := v.MapIndex(mapKey)
-				if !value.IsValid() {
-					return nil, fmt.Errorf("key not found in map at path segment: %s", segment)
-				}
-				currentValue = value.Interface()
-			} else {
-				return nil, fmt.Errorf("cannot access property on non-map value at path segment: %s", segment)
-			}
-		}
-	}
-
-	return currentValue, nil
+	return "", errors.New("not found")
 }
 
 func (c ReferenceCompletionLookUp) Add(value any) {
 	// Store the root value
-	c.LookUpMap[""] = value
+	c.LookUpMap[""] = fmt.Sprint(value)
 
 	// Add all paths from the value
 	addPathsWithValues("", value, c.LookUpMap)
@@ -295,16 +229,17 @@ func (c ReferenceCompletionLookUp) Add(value any) {
 
 func (c ReferenceCompletionLookUp) AddWithKey(key string, value any) {
 	// Store the value at the specified key
-	c.LookUpMap[key] = value
+	c.LookUpMap[key] = fmt.Sprint(value)
 
 	// Add all paths from this key
 	addPathsWithValues(key, value, c.LookUpMap)
 }
 
 // addPathsWithValues is similar to addPaths but stores the actual values
-func addPathsWithValues(currentPath string, value any, lookupMap map[string]any) {
+func addPathsWithValues(currentPath string, value any, lookupMap map[string]string) {
+
+	var strValue string
 	// Store the current value at its path
-	lookupMap[currentPath] = value
 
 	// Use reflection to inspect the value's type and structure
 	v := reflect.ValueOf(value)
@@ -320,6 +255,10 @@ func addPathsWithValues(currentPath string, value any, lookupMap map[string]any)
 	// Based on the kind of the value, decide how to proceed
 	switch v.Kind() {
 	case reflect.Map:
+		// Format map as Map[key_type]value_type
+		mapType := v.Type()
+		strValue = fmt.Sprintf("%s[%s]%s", MapStringValuePrefix, mapType.Key(), mapType.Elem())
+
 		// Iterate through the key-value pairs of the map
 		iter := v.MapRange()
 		for iter.Next() {
@@ -346,8 +285,12 @@ func addPathsWithValues(currentPath string, value any, lookupMap map[string]any)
 			}
 		}
 	case reflect.Slice, reflect.Array:
+		// Format array/slice as Array[size]
+		arrayType := v.Type()
+		strValue = fmt.Sprintf("%s[%d]", arrayType.Elem(), v.Len())
+
 		// Iterate through the elements of the slice or array
-		for i := 0; i < v.Len(); i++ {
+		for i := range v.Len() {
 			elem := v.Index(i) // The element at index i
 
 			// Construct the path for the array/slice element using bracket notation
@@ -367,48 +310,8 @@ func addPathsWithValues(currentPath string, value any, lookupMap map[string]any)
 				addPathsWithValues(nextPath, elemInterface, lookupMap)
 			}
 		}
+	default:
+		strValue = fmt.Sprint(v)
 	}
-}
-
-// parsePath splits a path string like "users[0].name" into segments ["users", "[0]", "name"]
-func parsePath(path string) []string {
-	var segments []string
-	var current strings.Builder
-
-	inBracket := false
-
-	for _, char := range path {
-		switch {
-		case char == '.' && !inBracket:
-			// If we encounter a dot and we're not inside brackets, end current segment
-			if current.Len() > 0 {
-				segments = append(segments, current.String())
-				current.Reset()
-			}
-		case char == '[' && !inBracket:
-			// Start of an array index
-			if current.Len() > 0 {
-				segments = append(segments, current.String())
-				current.Reset()
-			}
-			current.WriteRune(char)
-			inBracket = true
-		case char == ']' && inBracket:
-			// End of an array index
-			current.WriteRune(char)
-			segments = append(segments, current.String())
-			current.Reset()
-			inBracket = false
-		default:
-			// Add character to current segment
-			current.WriteRune(char)
-		}
-	}
-
-	// Add the last segment if any
-	if current.Len() > 0 {
-		segments = append(segments, current.String())
-	}
-
-	return segments
+	lookupMap[currentPath] = strValue
 }

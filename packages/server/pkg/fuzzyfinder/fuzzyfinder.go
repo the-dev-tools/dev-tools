@@ -17,7 +17,7 @@ type Rank struct {
 }
 
 func RankFind(keys []string, query string) []Rank {
-	ranksLib := fuzzy.RankFind(query, keys)
+	ranksLib := fuzzy.RankFindFold(query, keys)
 	ranks := make([]Rank, ranksLib.Len())
 	for i, r := range ranksLib {
 		ranks[i] = Rank{
