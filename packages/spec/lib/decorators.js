@@ -1,11 +1,11 @@
-import { getKeyName } from '@typespec/compiler';
+import { getFriendlyName, getKeyName } from '@typespec/compiler';
 import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
 import { Array, Hash, Number, Option, pipe, Record } from 'effect';
 
 import { $lib } from './lib.js';
 
-/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty, Type } from '@typespec/compiler' */
+/** @import { DecoratorApplication, DecoratorContext, Model, ModelProperty, Operation, Type, Namespace } from '@typespec/compiler' */
 
 /**
  * @param {DecoratorContext} context
@@ -197,4 +197,27 @@ export function $autoChange(context, target, value) {
   /** @type {Map<Type, unknown[]>} */
   const autoChangesMap = context.program.stateMap($lib.stateKeys.autoChanges);
   pipe(autoChangesMap.get(target) ?? [], Array.append(change), (_) => autoChangesMap.set(target, _));
+}
+
+/**
+ * @param {DecoratorContext} context
+ * @param {Model} target
+ * @param {Namespace | Model} from
+ * @param {Namespace | Model} to
+ */
+export function $move(context, target, from, to) {
+  const fromNamespace = from.kind === 'Namespace' ? from : from.namespace;
+  const toNamespace = to.kind === 'Namespace' ? to : to.namespace;
+
+  if (!toNamespace || target.namespace !== fromNamespace) return;
+
+  context.program.stateMap($lib.stateKeys.move).set(target, toNamespace);
+}
+
+/**
+ * @param {DecoratorContext} context
+ * @param {Operation} target
+ */
+export function $useFriendlyName(context, target) {
+  target.name = getFriendlyName(context.program, target) ?? target.name;
 }

@@ -4,9 +4,7 @@ import "../lib";
 
 import "./change.tsp";
 
-using TypeSpec.Protobuf;
 using TypeSpec.Reflection;
-using TypeSpec.Rest.Resource;
 
 namespace API.Resource;
 
@@ -37,30 +35,59 @@ model Change<Resource extends Model> {
   ...OptionalProperties<OmitKey<Resource>>;
 }
 
+interface CRUD<Resource extends Model>
+  extends List.Operation<Resource>,
+    Get.Operation<Resource>,
+    Create.Operation<Resource>,
+    Update.Operation<Resource>,
+    Delete.Operation<Resource> {}
+
 namespace List {
+  interface Operation<Resource extends Model> {
+    @useFriendlyName
+    @friendlyName("{name}List", Resource)
+    List(...Request<Resource>): Response<Resource>;
+  }
+
+  @move(List, Resource)
+  @friendlyName("{name}ListItem", Resource)
   @normalize(Resource)
   @withVisibility(Query.List)
   model Item<Resource extends Model> {
     ...Resource;
   }
 
-  model Request<Resource> {
+  @move(List, Resource)
+  @friendlyName("{name}ListRequest", Resource)
+  model Request<Resource extends Model> {
     ...ParentKeyOf<Resource>;
   }
 
+  @move(List, Resource)
+  @friendlyName("{name}ListResponse", Resource)
   @autoFields
   @normalize
-  model Response<Resource, Item = Resource> {
+  model Response<Resource extends Model, Item = List.Item<Resource>> {
     ...Request<Resource>;
     items: Item[];
   }
 }
 
 namespace Get {
-  model Request<Resource> {
+  interface Operation<Resource extends Model> {
+    @useFriendlyName
+    @friendlyName("{name}Get", Resource)
+    Get(...Request<Resource>): Response<Resource>;
+  }
+
+  @move(Get, Resource)
+  @friendlyName("{name}GetRequest", Resource)
+  model Request<Resource extends Model> {
     ...KeyOf<Resource>;
   }
 
+  @move(Get, Resource)
+  @friendlyName("{name}GetResponse", Resource)
   @normalize(Resource)
   @withVisibility(Query.Get)
   model Response<Resource extends Model> {
@@ -69,6 +96,14 @@ namespace Get {
 }
 
 namespace Create {
+  interface Operation<Resource extends Model> {
+    @useFriendlyName
+    @friendlyName("{name}Create", Resource)
+    Create(...Request<Resource>): Response<Resource>;
+  }
+
+  @move(Create, Resource)
+  @friendlyName("{name}CreateRequest", Resource)
   @normalize(Resource)
   @withVisibility(Mutation.Create)
   model Request<Resource extends Model> {
@@ -76,6 +111,8 @@ namespace Create {
     ...Resource;
   }
 
+  @move(Create, Resource)
+  @friendlyName("{name}CreateResponse", Resource)
   @autoChange({
     $data: {
       kind: API.Change.SourceKind.MERGE,
@@ -98,6 +135,14 @@ namespace Create {
 }
 
 namespace Update {
+  interface Operation<Resource extends Model> {
+    @useFriendlyName
+    @friendlyName("{name}Update", Resource)
+    Update(...Request<Resource>): Response<Resource>;
+  }
+
+  @move(Update, Resource)
+  @friendlyName("{name}UpdateRequest", Resource)
   @normalize(Resource)
   @withVisibility(Mutation.Update)
   model Request<Resource extends Model> {
@@ -105,6 +150,8 @@ namespace Update {
     ...OptionalProperties<OmitKey<Resource>>;
   }
 
+  @move(Update, Resource)
+  @friendlyName("{name}UpdateResponse", Resource)
   @autoChange({
     kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE,
     $data: {
@@ -118,11 +165,21 @@ namespace Update {
 }
 
 namespace Delete {
+  interface Operation<Resource extends Model> {
+    @useFriendlyName
+    @friendlyName("{name}Delete", Resource)
+    Delete(...Request<Resource>): Response<Resource>;
+  }
+
+  @move(Delete, Resource)
+  @friendlyName("{name}DeleteRequest", Resource)
   @normalize(Resource)
   model Request<Resource extends Model> {
     ...KeyOf<Resource>;
   }
 
+  @move(Delete, Resource)
+  @friendlyName("{name}DeleteResponse", Resource)
   @autoChange({
     kind: API.Change.ChangeKind.CHANGE_KIND_DELETE,
     $data: {
