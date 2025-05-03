@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"the-dev-tools/server/pkg/compress"
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/logger/mocklogger"
@@ -932,5 +933,269 @@ func TestExportWithOrphanedFlowExample(t *testing.T) {
 	}
 	if !foundOrphanedBody {
 		t.Errorf("Raw body for orphaned example was not found in export")
+	}
+}
+
+func TestUnmarshalWorkflowYAML(t *testing.T) {
+	// YAML workflow definition
+	yamlData := `
+workspace_name: Example Workflow Workspace
+
+flows:
+  - name: UserDataProcessingFlow
+    variables:
+      - name: auth_token
+        value: "bearer_token_123"
+      - name: base_url
+        value: "https://api.example.com"
+    steps:
+      # Request node - matches nrequest implementation
+      - request:
+          name: GetUser
+          url: "{{base_url}}/users/1"
+          method: GET
+          headers:
+            - name: Authorization
+              value: "Bearer {{auth_token}}"
+            - name: Accept
+              value: "application/json"
+          body:
+            body_json:
+                jsonRoot:
+                  - JsonArray1: "{{auth_token}}"
+                  - JsonArray2:
+                    - NestedArray1: 1
+                    - NestedArray2: 2
+      # If node - matches nif implementation
+      - if:
+          name: CheckUserStatus
+          path: "{{ GetUser-1.response.status }} == 200"
+          then: GetUserPosts
+          else: HandleError
+
+      # Request node that's a target of the if-then branch
+      - request:
+          name: GetUserPosts
+          url: "{{base_url}}/users/{{GetUser.response.body.id}}/posts"
+          method: GET
+          headers:
+            - name: Authorization
+              value: "Bearer {{auth_token}}"
+            - name: Accept
+              value: "application/json"
+
+      # JS node that's a target of the if-else branch
+      - js:
+          name: HandleError
+          code: |
+            console.error("Failed to get user data");
+            return { error: true, message: "User data fetch failed" };
+
+      # For loop node - matches nfor implementation
+      - for:
+          name: ProcessPosts
+          depends_on:
+            - GetUserPosts
+          # These match the actual nfor implementation
+          iter_count: 5  # Maps to IterCount
+          loop: ProcessSinglePost # Target node to execute in loop
+
+      # Request node that's executed inside the loop
+      - request:
+          name: ProcessSinglePost
+          url: "{{base_url}}/posts/something"
+          method: GET
+          headers:
+            - name: Authorization
+              value: "Bearer {{auth_token}}"
+          # This is the loop body - it runs repeatedly
+
+      # Final JS node
+      - js:
+          name: FinalSummary
+          depends_on:
+            - ProcessPosts
+          code: |
+            console.log("Flow completed successfully");
+            return {
+              status: "success",
+              processedCount: Math.min(5, {{GetUserPosts.response.body.length}})
+            };
+`
+
+	// Call the function to parse the YAML
+	workspaceData, err := ioworkspace.UnmarshalWorkflowYAML([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal workflow YAML: %v", err)
+	}
+
+	// Verify workspace structure
+	if workspaceData.Workspace.Name != "Example Workflow Workspace" {
+		t.Errorf("Expected workspace name 'Example Workflow Workspace', got '%s'", workspaceData.Workspace.Name)
+	}
+
+	// Verify collections
+	if len(workspaceData.Collections) != 1 {
+		t.Fatalf("Expected 1 collection, got %d", len(workspaceData.Collections))
+	}
+	if workspaceData.Collections[0].Name != "Workflow Collection" {
+		t.Errorf("Expected collection name 'Workflow Collection', got '%s'", workspaceData.Collections[0].Name)
+	}
+
+	// Verify flows
+	if len(workspaceData.Flows) != 1 {
+		t.Fatalf("Expected 1 flow, got %d", len(workspaceData.Flows))
+	}
+	if workspaceData.Flows[0].Name != "UserDataProcessingFlow" {
+		t.Errorf("Expected flow name 'UserDataProcessingFlow', got '%s'", workspaceData.Flows[0].Name)
+	}
+
+	// Verify flow variables
+	if len(workspaceData.FlowVariables) != 2 {
+		t.Fatalf("Expected 2 flow variables, got %d", len(workspaceData.FlowVariables))
+	}
+
+	// Map node IDs to names for easier testing
+	nodeNameToID := make(map[string]idwrap.IDWrap)
+	nodeIDToName := make(map[idwrap.IDWrap]string)
+	nodeTypes := make(map[string]mnnode.NodeKind)
+	for _, node := range workspaceData.FlowNodes {
+		nodeNameToID[node.Name] = node.ID
+		nodeIDToName[node.ID] = node.Name
+		nodeTypes[node.Name] = node.NodeKind
+	}
+
+	// Verify expected nodes exist
+	expectedNodes := map[string]mnnode.NodeKind{
+		"GetUser":           mnnode.NODE_KIND_REQUEST,
+		"CheckUserStatus":   mnnode.NODE_KIND_CONDITION,
+		"GetUserPosts":      mnnode.NODE_KIND_REQUEST,
+		"HandleError":       mnnode.NODE_KIND_JS,
+		"ProcessPosts":      mnnode.NODE_KIND_FOR,
+		"ProcessSinglePost": mnnode.NODE_KIND_REQUEST,
+		"FinalSummary":      mnnode.NODE_KIND_JS,
+	}
+	if len(workspaceData.FlowNodes) != len(expectedNodes) {
+		t.Fatalf("Expected %d nodes, got %d", len(expectedNodes), len(workspaceData.FlowNodes))
+	}
+	for nodeName, expectedType := range expectedNodes {
+		actualType, exists := nodeTypes[nodeName]
+		if !exists {
+			t.Errorf("Node '%s' not found", nodeName)
+		} else if actualType != expectedType {
+			t.Errorf("Node '%s' has type %v, expected %v", nodeName, actualType, expectedType)
+		}
+	}
+
+	// Test node connections (edges)
+	if len(workspaceData.FlowEdges) < 6 {
+		t.Errorf("Expected at least 6 edges, got %d", len(workspaceData.FlowEdges))
+	}
+
+	// Helper function to check if edge exists
+	edgeExists := func(sourceNode, targetNode string, handler edge.EdgeHandle) bool {
+		sourceID, sourceExists := nodeNameToID[sourceNode]
+		targetID, targetExists := nodeNameToID[targetNode]
+		if !sourceExists || !targetExists {
+			return false
+		}
+		for _, e := range workspaceData.FlowEdges {
+			if e.SourceID == sourceID && e.TargetID == targetID && e.SourceHandler == handler {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Check specific edges
+	if !edgeExists("CheckUserStatus", "GetUserPosts", edge.HandleThen) {
+		t.Errorf("Missing 'then' edge from CheckUserStatus to GetUserPosts")
+	}
+	if !edgeExists("CheckUserStatus", "HandleError", edge.HandleElse) {
+		t.Errorf("Missing 'else' edge from CheckUserStatus to HandleError")
+	}
+	if !edgeExists("ProcessPosts", "ProcessSinglePost", edge.HandleLoop) {
+		t.Errorf("Missing 'loop' edge from ProcessPosts to ProcessSinglePost")
+	}
+	if !edgeExists("GetUserPosts", "ProcessPosts", edge.HandleUnspecified) {
+		t.Errorf("Missing dependency edge from GetUserPosts to ProcessPosts")
+	}
+	if !edgeExists("ProcessPosts", "FinalSummary", edge.HandleUnspecified) {
+		t.Errorf("Missing dependency edge from ProcessPosts to FinalSummary")
+	}
+
+	// Check request nodes
+	requestCount := 0
+	for _, reqNode := range workspaceData.FlowRequestNodes {
+		requestCount++
+		nodeName := nodeIDToName[reqNode.FlowNodeID]
+
+		if reqNode.EndpointID == nil {
+			t.Errorf("Request node '%s' has no endpoint ID", nodeName)
+			continue
+		}
+
+		// Find corresponding endpoint
+		var endpoint *mitemapi.ItemApi
+		for i := range workspaceData.Endpoints {
+			if workspaceData.Endpoints[i].ID == *reqNode.EndpointID {
+				endpoint = &workspaceData.Endpoints[i]
+				break
+			}
+		}
+
+		if endpoint == nil {
+			t.Errorf("No endpoint found for request node '%s'", nodeName)
+			continue
+		}
+
+		// Check URL and method for specific nodes
+		switch nodeName {
+		case "GetUser":
+			if endpoint.Url != "{{base_url}}/users/1" || endpoint.Method != "GET" {
+				t.Errorf("GetUser endpoint incorrect: got URL '%s', method '%s'", endpoint.Url, endpoint.Method)
+			}
+		case "GetUserPosts":
+			if !strings.Contains(endpoint.Url, "{{base_url}}/users/") {
+				t.Errorf("GetUserPosts endpoint has incorrect URL: '%s'", endpoint.Url)
+			}
+		}
+	}
+	if requestCount != 3 {
+		t.Errorf("Expected 3 request nodes, got %d", requestCount)
+	}
+
+	// Check JS nodes
+	jsCount := 0
+	for _, jsNode := range workspaceData.FlowJSNodes {
+		jsCount++
+		nodeName := nodeIDToName[jsNode.FlowNodeID]
+
+		switch nodeName {
+		case "HandleError":
+			if !strings.Contains(string(jsNode.Code), "Failed to get user data") {
+				t.Errorf("HandleError code missing expected content")
+			}
+		case "FinalSummary":
+			if !strings.Contains(string(jsNode.Code), "Flow completed successfully") {
+				t.Errorf("FinalSummary code missing expected content")
+			}
+		}
+	}
+	if jsCount != 2 {
+		t.Errorf("Expected 2 JS nodes, got %d", jsCount)
+	}
+
+	// Check for loop node
+	forCount := 0
+	for _, forNode := range workspaceData.FlowForNodes {
+		forCount++
+		nodeName := nodeIDToName[forNode.FlowNodeID]
+		if nodeName == "ProcessPosts" && forNode.IterCount != 5 {
+			t.Errorf("ProcessPosts node has incorrect iteration count: got %d, expected 5", forNode.IterCount)
+		}
+	}
+	if forCount != 1 {
+		t.Errorf("Expected 1 for loop node, got %d", forCount)
 	}
 }
