@@ -121,7 +121,7 @@ func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
 	// Check for exact matches first
 	exactMatches := make(map[string]struct{})
 	for path := range c.PathMap {
-		if strings.ToLower(path) == strings.ToLower(query) {
+		if strings.EqualFold(path, query) {
 			exactMatches[path] = struct{}{}
 		}
 	}

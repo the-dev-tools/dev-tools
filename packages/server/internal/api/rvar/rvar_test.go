@@ -72,6 +72,7 @@ func TestCreateVar(t *testing.T) {
 	}
 	if resp == nil {
 		t.Fatal("resp is nil")
+		return
 	}
 	if resp.Msg == nil {
 		t.Fatal("resp.Msg is nil")
@@ -86,6 +87,7 @@ func TestCreateVar(t *testing.T) {
 	}
 	if dbVar == nil {
 		t.Fatal("dbVar is nil")
+		return
 	}
 	if dbVar.VarKey != varName {
 		t.Error("name is not same")
@@ -164,6 +166,7 @@ func TestGetVar(t *testing.T) {
 	}
 	if resp == nil {
 		t.Fatal("resp is nil")
+		return
 	}
 	if resp.Msg == nil {
 		t.Fatal("resp.Msg is nil")

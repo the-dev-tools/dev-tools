@@ -1219,3 +1219,285 @@ func (s *IOWorkspaceService) ImportWorkflowYAML(ctx context.Context, data []byte
 
 	return nil
 }
+
+// MarshalWorkflowYAML converts a WorkspaceData structure to the workflow-centric YAML format
+func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
+	if workspaceData == nil {
+		return nil, fmt.Errorf("workspace data cannot be nil")
+	}
+
+	// Create workflow format structure
+	workflow := WorkflowFormat{
+		WorkspaceName: workspaceData.Workspace.Name,
+		Flows:         make([]WorkflowFlow, 0, len(workspaceData.Flows)),
+	}
+
+	// Map node IDs to their details for easy lookup
+	nodeMap := make(map[idwrap.IDWrap]mnnode.MNode)
+	for _, node := range workspaceData.FlowNodes {
+		nodeMap[node.ID] = node
+	}
+
+	// Map for special node implementations
+	requestNodeMap := make(map[idwrap.IDWrap]mnrequest.MNRequest)
+	for _, n := range workspaceData.FlowRequestNodes {
+		requestNodeMap[n.FlowNodeID] = n
+	}
+
+	ifNodeMap := make(map[idwrap.IDWrap]mnif.MNIF)
+	for _, n := range workspaceData.FlowConditionNodes {
+		ifNodeMap[n.FlowNodeID] = n
+	}
+
+	forNodeMap := make(map[idwrap.IDWrap]mnfor.MNFor)
+	for _, n := range workspaceData.FlowForNodes {
+		forNodeMap[n.FlowNodeID] = n
+	}
+
+	jsNodeMap := make(map[idwrap.IDWrap]mnjs.MNJS)
+	for _, n := range workspaceData.FlowJSNodes {
+		jsNodeMap[n.FlowNodeID] = n
+	}
+
+	// Map edges by source node ID for dependency resolution
+	edgesBySource := make(map[idwrap.IDWrap][]edge.Edge)
+	for _, e := range workspaceData.FlowEdges {
+		edgesBySource[e.SourceID] = append(edgesBySource[e.SourceID], e)
+	}
+
+	// Map endpoints and examples for request steps
+	endpointMap := make(map[idwrap.IDWrap]mitemapi.ItemApi)
+	for _, e := range workspaceData.Endpoints {
+		endpointMap[e.ID] = e
+	}
+
+	exampleMap := make(map[idwrap.IDWrap]mitemapiexample.ItemApiExample)
+	for _, e := range workspaceData.Examples {
+		exampleMap[e.ID] = e
+	}
+
+	headersByExample := make(map[idwrap.IDWrap][]mexampleheader.Header)
+	for _, h := range workspaceData.ExampleHeaders {
+		headersByExample[h.ExampleID] = append(headersByExample[h.ExampleID], h)
+	}
+
+	bodiesByExample := make(map[idwrap.IDWrap]mbodyraw.ExampleBodyRaw)
+	for _, b := range workspaceData.Rawbodies {
+		bodiesByExample[b.ExampleID] = b
+	}
+
+	// Process each flow
+	for _, flow := range workspaceData.Flows {
+		workflowFlow := WorkflowFlow{
+			Name:      flow.Name,
+			Variables: make([]WorkflowVariable, 0),
+			Steps:     make([]WorkflowStep, 0),
+		}
+
+		// Extract variables
+		for _, v := range workspaceData.FlowVariables {
+			if v.FlowID == flow.ID {
+				workflowFlow.Variables = append(workflowFlow.Variables, WorkflowVariable{
+					Name:  v.Name,
+					Value: v.Value,
+				})
+			}
+		}
+
+		// Get all nodes for this flow
+		var flowNodes []mnnode.MNode
+		for _, node := range workspaceData.FlowNodes {
+			if node.FlowID == flow.ID {
+				flowNodes = append(flowNodes, node)
+			}
+		}
+
+		// Create a step map for YAML structure (using map to properly structure output)
+		stepMaps := make([]map[string]interface{}, 0, len(flowNodes))
+
+		// Convert nodes to steps
+		for _, node := range flowNodes {
+			// Get incoming edges to determine dependencies
+			var dependencies []string
+			for _, e := range workspaceData.FlowEdges {
+				if e.TargetID == node.ID && e.SourceHandler == edge.HandleUnspecified {
+					// This is a standard dependency
+					if sourceNode, ok := nodeMap[e.SourceID]; ok {
+						dependencies = append(dependencies, sourceNode.Name)
+					}
+				}
+			}
+
+			switch node.NodeKind {
+			case mnnode.NODE_KIND_REQUEST:
+				requestNode, ok := requestNodeMap[node.ID]
+				if !ok {
+					continue // Skip if node implementation not found
+				}
+
+				stepData := map[string]interface{}{
+					"name": node.Name,
+				}
+
+				if len(dependencies) > 0 {
+					stepData["depends_on"] = dependencies
+				}
+
+				// Add request details if available
+				if requestNode.EndpointID != nil {
+					if endpoint, ok := endpointMap[*requestNode.EndpointID]; ok {
+						stepData["method"] = endpoint.Method
+						stepData["url"] = endpoint.Url
+					}
+				}
+
+				// Add headers and body if available
+				if requestNode.ExampleID != nil {
+					exampleID := *requestNode.ExampleID
+
+					// Add headers
+					if headers, ok := headersByExample[exampleID]; ok && len(headers) > 0 {
+						headersData := make([]map[string]string, 0, len(headers))
+						for _, h := range headers {
+							headersData = append(headersData, map[string]string{
+								"name":  h.HeaderKey,
+								"value": h.Value,
+							})
+						}
+						stepData["headers"] = headersData
+					}
+
+					// Add body if available
+					if body, ok := bodiesByExample[exampleID]; ok {
+						bodyData := map[string]interface{}{}
+
+						// Try to unmarshal JSON body
+						var jsonBody map[string]interface{}
+						if err := json.Unmarshal(body.Data, &jsonBody); err == nil {
+							bodyData["body_json"] = jsonBody
+						}
+
+						if len(bodyData) > 0 {
+							stepData["body"] = bodyData
+						}
+					}
+				}
+
+				stepMaps = append(stepMaps, map[string]interface{}{
+					"request": stepData,
+				})
+
+			case mnnode.NODE_KIND_CONDITION:
+				ifNode, ok := ifNodeMap[node.ID]
+				if !ok {
+					continue // Skip if node implementation not found
+				}
+
+				stepData := map[string]interface{}{
+					"name": node.Name,
+					"path": ifNode.Condition.Comparisons.Path,
+				}
+
+				if len(dependencies) > 0 {
+					stepData["depends_on"] = dependencies
+				}
+
+				// Look for then/else targets
+				for _, e := range edgesBySource[node.ID] {
+					if e.SourceHandler == edge.HandleThen {
+						if targetNode, ok := nodeMap[e.TargetID]; ok {
+							stepData["then"] = targetNode.Name
+						}
+					} else if e.SourceHandler == edge.HandleElse {
+						if targetNode, ok := nodeMap[e.TargetID]; ok {
+							stepData["else"] = targetNode.Name
+						}
+					}
+				}
+
+				stepMaps = append(stepMaps, map[string]interface{}{
+					"if": stepData,
+				})
+
+			case mnnode.NODE_KIND_FOR:
+				forNode, ok := forNodeMap[node.ID]
+				if !ok {
+					continue // Skip if node implementation not found
+				}
+
+				stepData := map[string]interface{}{
+					"name":       node.Name,
+					"iter_count": forNode.IterCount,
+				}
+
+				if len(dependencies) > 0 {
+					stepData["depends_on"] = dependencies
+				}
+
+				// Look for loop target
+				for _, e := range edgesBySource[node.ID] {
+					if e.SourceHandler == edge.HandleLoop {
+						if targetNode, ok := nodeMap[e.TargetID]; ok {
+							stepData["loop"] = targetNode.Name
+						}
+					}
+				}
+
+				stepMaps = append(stepMaps, map[string]interface{}{
+					"for": stepData,
+				})
+
+			case mnnode.NODE_KIND_JS:
+				jsNode, ok := jsNodeMap[node.ID]
+				if !ok {
+					continue // Skip if node implementation not found
+				}
+
+				stepData := map[string]interface{}{
+					"name": node.Name,
+					"code": string(jsNode.Code),
+				}
+
+				if len(dependencies) > 0 {
+					stepData["depends_on"] = dependencies
+				}
+
+				stepMaps = append(stepMaps, map[string]interface{}{
+					"js": stepData,
+				})
+			}
+		}
+
+		// Add steps array to flow
+		workflowFlow.Steps = nil // Clear the typed field as we'll use the raw maps
+
+		// Custom marshalling structure with steps as a dynamic field
+		flowMap := map[string]interface{}{
+			"name":      workflowFlow.Name,
+			"variables": workflowFlow.Variables,
+			"steps":     stepMaps,
+		}
+
+		workflow.Flows = append(workflow.Flows, workflowFlow)
+		// Replace the last flow with our custom map to ensure proper YAML structure
+		rawFlows := make([]interface{}, 0, len(workflow.Flows))
+		for i, f := range workflow.Flows {
+			if i == len(workflow.Flows)-1 {
+				rawFlows = append(rawFlows, flowMap)
+			} else {
+				rawFlows = append(rawFlows, f)
+			}
+		}
+
+		// We need to create a raw structure for marshalling
+		rawWorkflow := map[string]interface{}{
+			"workspace_name": workflow.WorkspaceName,
+			"flows":          rawFlows,
+		}
+
+		return yaml.Marshal(rawWorkflow)
+	}
+
+	// If we have no flows, just marshal the empty structure
+	return yaml.Marshal(workflow)
+}

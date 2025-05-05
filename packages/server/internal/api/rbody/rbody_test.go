@@ -103,6 +103,7 @@ func TestGetBodyRaw(t *testing.T) {
 	resp, err := rpcBody.BodyRawGet(authedCtx, req)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	if resp == nil {

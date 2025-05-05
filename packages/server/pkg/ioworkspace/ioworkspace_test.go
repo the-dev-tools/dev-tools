@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mitemfolder"
@@ -1198,4 +1199,408 @@ flows:
 	if forCount != 1 {
 		t.Errorf("Expected 1 for loop node, got %d", forCount)
 	}
+}
+
+func TestMarshalWorkflowYAML(t *testing.T) {
+	// Create a workspace data structure with a flow and nodes
+	wsData := ioworkspace.WorkspaceData{}
+
+	// Setup workspace
+	wsID := idwrap.NewNow()
+	wsData.Workspace = mworkspace.Workspace{
+		ID:   wsID,
+		Name: "Test Workflow Workspace",
+	}
+
+	// Setup collection
+	collID := idwrap.NewNow()
+	wsData.Collections = []mcollection.Collection{
+		{
+			ID:          collID,
+			WorkspaceID: wsID,
+			Name:        "Test Collection",
+		},
+	}
+
+	// Setup flow
+	flowID := idwrap.NewNow()
+	wsData.Flows = []mflow.Flow{
+		{
+			ID:          flowID,
+			WorkspaceID: wsID,
+			Name:        "TestFlow",
+		},
+	}
+
+	// Add variables
+	wsData.FlowVariables = []mflowvariable.FlowVariable{
+		{
+			ID:     idwrap.NewNow(),
+			FlowID: flowID,
+			Name:   "api_url",
+			Value:  "https://api.example.com",
+		},
+		{
+			ID:     idwrap.NewNow(),
+			FlowID: flowID,
+			Name:   "auth_token",
+			Value:  "token123",
+		},
+	}
+
+	// Create nodes
+	requestNodeID := idwrap.NewNow()
+	ifNodeID := idwrap.NewNow()
+	jsNodeID := idwrap.NewNow()
+	forNodeID := idwrap.NewNow()
+	loopBodyNodeID := idwrap.NewNow()
+
+	// Add nodes to flow
+	wsData.FlowNodes = []mnnode.MNode{
+		{
+			ID:       requestNodeID,
+			FlowID:   flowID,
+			Name:     "GetData",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+		{
+			ID:       ifNodeID,
+			FlowID:   flowID,
+			Name:     "CheckResponse",
+			NodeKind: mnnode.NODE_KIND_CONDITION,
+		},
+		{
+			ID:       jsNodeID,
+			FlowID:   flowID,
+			Name:     "ProcessData",
+			NodeKind: mnnode.NODE_KIND_JS,
+		},
+		{
+			ID:       forNodeID,
+			FlowID:   flowID,
+			Name:     "ProcessItems",
+			NodeKind: mnnode.NODE_KIND_FOR,
+		},
+		{
+			ID:       loopBodyNodeID,
+			FlowID:   flowID,
+			Name:     "ProcessItem",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+	}
+
+	// Setup endpoint for request node
+	endpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	wsData.Endpoints = []mitemapi.ItemApi{
+		{
+			ID:           endpointID,
+			CollectionID: collID,
+			Name:         "TestEndpoint",
+			Method:       "GET",
+			Url:          "{{api_url}}/data",
+		},
+	}
+
+	// Setup example
+	wsData.Examples = []mitemapiexample.ItemApiExample{
+		{
+			ID:           exampleID,
+			ItemApiID:    endpointID,
+			CollectionID: collID,
+			Name:         "TestExample",
+			BodyType:     mitemapiexample.BodyTypeRaw,
+		},
+	}
+
+	// Add headers
+	wsData.ExampleHeaders = []mexampleheader.Header{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			HeaderKey: "Authorization",
+			Value:     "Bearer {{auth_token}}",
+			Enable:    true,
+		},
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			HeaderKey: "Content-Type",
+			Value:     "application/json",
+			Enable:    true,
+		},
+	}
+
+	// Add body
+	wsData.Rawbodies = []mbodyraw.ExampleBodyRaw{
+		{
+			ID:            idwrap.NewNow(),
+			ExampleID:     exampleID,
+			Data:          []byte(`{"query": "test"}`),
+			VisualizeMode: mbodyraw.VisualizeModeJSON,
+		},
+	}
+
+	// Setup request node
+	wsData.FlowRequestNodes = []mnrequest.MNRequest{
+		{
+			FlowNodeID: requestNodeID,
+			EndpointID: &endpointID,
+			ExampleID:  &exampleID,
+		},
+		{
+			FlowNodeID: loopBodyNodeID,
+			EndpointID: &endpointID,
+		},
+	}
+
+	// Setup condition node
+	wsData.FlowConditionNodes = []mnif.MNIF{
+		{
+			FlowNodeID: ifNodeID,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{
+					Kind:  mcondition.COMPARISON_KIND_EQUAL,
+					Path:  "GetData.response.status",
+					Value: "200",
+				},
+			},
+		},
+	}
+
+	// Setup JS node
+	wsData.FlowJSNodes = []mnjs.MNJS{
+		{
+			FlowNodeID: jsNodeID,
+			Code:       []byte(`console.log("Processing data"); return { processed: true };`),
+		},
+	}
+
+	// Setup for loop node
+	wsData.FlowForNodes = []mnfor.MNFor{
+		{
+			FlowNodeID: forNodeID,
+			IterCount:  3,
+		},
+	}
+
+	// Setup edges
+	wsData.FlowEdges = []edge.Edge{
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      requestNodeID,
+			TargetID:      ifNodeID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      ifNodeID,
+			TargetID:      jsNodeID,
+			SourceHandler: edge.HandleThen,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      jsNodeID,
+			TargetID:      forNodeID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      forNodeID,
+			TargetID:      loopBodyNodeID,
+			SourceHandler: edge.HandleLoop,
+		},
+	}
+
+	// Marshal to YAML
+	yamlData, err := ioworkspace.MarshalWorkflowYAML(&wsData)
+	if err != nil {
+		t.Fatalf("Failed to marshal workflow to YAML: %v", err)
+	}
+
+	// Verify YAML content
+	yamlStr := string(yamlData)
+
+	// Check for expected content
+	expectedParts := []string{
+		"workspace_name: Test Workflow Workspace",
+		"name: TestFlow",
+		"- name: api_url",
+		"value: https://api.example.com",
+		"- name: auth_token",
+		"value: token123",
+		"name: GetData",
+		"method: GET",
+		"url: '{{api_url}}/data'",
+		"name: Authorization",
+		"value: Bearer {{auth_token}}",
+		"name: CheckResponse",
+		"path: GetData.response.status",
+		"name: ProcessData",
+		"code: 'console.log(\"Processing data\"); return { processed: true };'",
+		"name: ProcessItems",
+		"iter_count: 3",
+	}
+
+	for _, part := range expectedParts {
+		if !strings.Contains(yamlStr, part) {
+			t.Errorf("Expected YAML to contain '%s', but it was not found", part)
+		}
+	}
+}
+
+func TestMarshalUnmarshalRoundTrip(t *testing.T) {
+	// Original YAML from TestUnmarshalWorkflowYAML
+	originalYAML := `
+workspace_name: Example Workflow Workspace
+
+flows:
+  - name: UserDataProcessingFlow
+    variables:
+      - name: auth_token
+        value: "bearer_token_123"
+      - name: base_url
+        value: "https://api.example.com"
+    steps:
+      - request:
+          name: GetUser
+          url: "{{base_url}}/users/1"
+          method: GET
+          headers:
+            - name: Authorization
+              value: "Bearer {{auth_token}}"
+            - name: Accept
+              value: "application/json"
+          body:
+            body_json:
+                jsonRoot:
+                  - JsonArray1: "{{auth_token}}"
+                  - JsonArray2:
+                    - NestedArray1: 1
+                    - NestedArray2: 2
+      - if:
+          name: CheckUserStatus
+          path: "{{ GetUser-1.response.status }} == 200"
+          then: GetUserPosts
+          else: HandleError
+
+      - request:
+          name: GetUserPosts
+          url: "{{base_url}}/users/{{GetUser.response.body.id}}/posts"
+          method: GET
+          headers:
+            - name: Authorization
+              value: "Bearer {{auth_token}}"
+            - name: Accept
+              value: "application/json"
+
+      - js:
+          name: HandleError
+          code: |
+            console.error("Failed to get user data");
+            return { error: true, message: "User data fetch failed" };
+
+      - for:
+          name: ProcessPosts
+          depends_on:
+            - GetUserPosts
+          iter_count: 5
+          loop: ProcessSinglePost
+
+      - request:
+          name: ProcessSinglePost
+          url: "{{base_url}}/posts/something"
+          method: GET
+          headers:
+            - name: Authorization
+              value: "Bearer {{auth_token}}"
+
+      - js:
+          name: FinalSummary
+          depends_on:
+            - ProcessPosts
+          code: |
+            console.log("Flow completed successfully");
+            return {
+              status: "success",
+              processedCount: Math.min(5, {{GetUserPosts.response.body.length}})
+            };
+`
+
+	// Step 1: Parse the YAML to WorkspaceData
+	wsData, err := ioworkspace.UnmarshalWorkflowYAML([]byte(originalYAML))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal workflow YAML: %v", err)
+	}
+
+	// Step 2: Marshal the WorkspaceData back to YAML
+	roundTripYAML, err := ioworkspace.MarshalWorkflowYAML(wsData)
+	if err != nil {
+		t.Fatalf("Failed to marshal workflow back to YAML: %v", err)
+	}
+
+	// Step 3: Parse the generated YAML again
+	roundTripData, err := ioworkspace.UnmarshalWorkflowYAML(roundTripYAML)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal round-trip YAML: %v", err)
+	}
+
+	// Step 4: Compare the original and round-trip data structures
+
+	// Check workspace
+	if wsData.Workspace.Name != roundTripData.Workspace.Name {
+		t.Errorf("Workspace name mismatch after round trip: original='%s', round trip='%s'",
+			wsData.Workspace.Name, roundTripData.Workspace.Name)
+	}
+
+	// Check flows
+	if len(wsData.Flows) != len(roundTripData.Flows) {
+		t.Errorf("Flow count mismatch after round trip: original=%d, round trip=%d",
+			len(wsData.Flows), len(roundTripData.Flows))
+	} else if len(wsData.Flows) > 0 {
+		if wsData.Flows[0].Name != roundTripData.Flows[0].Name {
+			t.Errorf("Flow name mismatch after round trip: original='%s', round trip='%s'",
+				wsData.Flows[0].Name, roundTripData.Flows[0].Name)
+		}
+	}
+
+	// Check variables
+	if len(wsData.FlowVariables) != len(roundTripData.FlowVariables) {
+		t.Errorf("Variable count mismatch after round trip: original=%d, round trip=%d",
+			len(wsData.FlowVariables), len(roundTripData.FlowVariables))
+	}
+
+	// Check nodes
+	if len(wsData.FlowNodes) != len(roundTripData.FlowNodes) {
+		t.Errorf("Node count mismatch after round trip: original=%d, round trip=%d",
+			len(wsData.FlowNodes), len(roundTripData.FlowNodes))
+	}
+
+	// Build node name maps for comparison
+	originalNodeNameMap := make(map[string]mnnode.NodeKind)
+	for _, node := range wsData.FlowNodes {
+		originalNodeNameMap[node.Name] = node.NodeKind
+	}
+
+	roundTripNodeNameMap := make(map[string]mnnode.NodeKind)
+	for _, node := range roundTripData.FlowNodes {
+		roundTripNodeNameMap[node.Name] = node.NodeKind
+	}
+
+	// Check that all original nodes exist with proper types
+	for name, kind := range originalNodeNameMap {
+		roundTripKind, exists := roundTripNodeNameMap[name]
+		if !exists {
+			t.Errorf("Node '%s' missing after round trip", name)
+		} else if roundTripKind != kind {
+			t.Errorf("Node '%s' kind mismatch: original=%v, round trip=%v",
+				name, kind, roundTripKind)
+		}
+	}
+
+	// Verify that the round trip data preserves essential flow structures
 }
