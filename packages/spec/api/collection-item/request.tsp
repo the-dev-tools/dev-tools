@@ -1,7 +1,7 @@
 import "@typespec/protobuf";
 import "@typespec/rest";
 
-import "../../lib";
+import "../lib.tsp";
 
 import "../condition.tsp";
 import "./example.tsp";

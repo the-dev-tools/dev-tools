@@ -1,6 +1,6 @@
 import "@typespec/protobuf";
 
-import "../lib";
+import "./lib.tsp";
 
 using TypeSpec.Protobuf;
 

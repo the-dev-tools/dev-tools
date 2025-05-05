@@ -1,6 +1,6 @@
 import "@typespec/protobuf";
 
-import "../lib";
+import "./lib.tsp";
 
 import "./resource.tsp";
 import "./flow.tsp";

@@ -6,6 +6,9 @@
       "path": "../ui"
     },
     {
+      "path": "../spec"
+    },
+    {
       "path": "../../configs/eslint"
     },
     {

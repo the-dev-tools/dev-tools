@@ -2,18 +2,13 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
-    "jsx": "react-jsx",
-    "types": ["vite/client"]
+    "jsx": "preserve",
+    "emitDeclarationOnly": false,
+    "allowImportingTsExtensions": false
   },
-  "include": ["."],
+  "include": ["lib"],
   "exclude": ["node_modules", "dist"],
   "references": [
-    {
-      "path": "../../packages/spec/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/client/tsconfig.lib.json"
-    },
     {
       "path": "../../configs/eslint/tsconfig.lib.json"
     }

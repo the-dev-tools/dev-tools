@@ -1,5 +1,5 @@
 output-dir: '{project-root}/dist'
 
 emit:
-  - ../lib
+  - ../dist/lib
   - '@typespec/protobuf'

@@ -1,15 +1,13 @@
+import { pipe } from 'effect';
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pipe } from 'effect';
 
-const dir = pipe('../dist/@typespec/protobuf/', import.meta.resolve, fileURLToPath);
+const dir = pipe('../@typespec/protobuf/', (_) => import.meta.resolve(_), fileURLToPath);
 const dirents = readdirSync(dir, { recursive: true, withFileTypes: true });
 
-/** @type {[string]} */
 const newPaths = [];
 
-/** @type {[[string,string]]}*/
 const importChanges = [];
 
 for (const dirent of dirents) {
@@ -25,7 +23,7 @@ for (const dirent of dirents) {
   const oldImport = oldPath.replace(dir, '').replaceAll(path.sep, path.posix.sep);
   const newImport = newPath.replace(dir, '').replaceAll(path.sep, path.posix.sep);
 
-  importChanges.push([oldImport, newImport]);
+  importChanges.push([oldImport, newImport] as const);
 
   mkdirSync(path.dirname(newPath), { recursive: true });
   renameSync(oldPath, newPath);

@@ -23,6 +23,9 @@
     },
     {
       "path": "./configs/gha-scripts"
+    },
+    {
+      "path": "./packages/spec"
     }
   ]
 }
