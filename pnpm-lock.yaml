@@ -538,7 +538,10 @@ importers:
         version: 2.3.0(@bufbuild/protobuf@2.3.0)
       '@connectrpc/protoc-gen-connect-query':
         specifier: ~2.0.1
-        version: 2.0.1(@bufbuild/protoc-gen-es@2.3.0(@bufbuild/protobuf@2.3.0))
+        version: 2.0.1(@bufbuild/protoc-gen-es@2.2.5(@bufbuild/protobuf@2.2.5))
+      '@the-dev-tools/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@types/node':
         specifier: ~22.15.12
         version: 22.15.12

@@ -9,6 +9,9 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
+      "path": "../../packages/spec"
+    },
+    {
       "path": "../../packages/client/tsconfig.lib.json"
     },
     {

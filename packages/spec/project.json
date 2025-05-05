@@ -20,10 +20,11 @@
         "parallel": false,
         "commands": [
           "rimraf dist",
+          "tsc --project tsconfig.lib.json",
           "pnpm tsp compile api",
-          "node lib/patch-paths.js",
+          "node dist/lib/patch-paths.js",
           "pnpm buf generate",
-          "node lib/collect-file-descriptors.js"
+          "node dist/lib/collect-file-descriptors.js"
         ]
       }
     },

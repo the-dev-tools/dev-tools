@@ -1,15 +1,13 @@
+import { pipe } from 'effect';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pipe } from 'effect';
 
-const dir = pipe('../dist/buf/typescript/', import.meta.resolve, fileURLToPath);
+const dir = pipe('../buf/typescript/', (_) => import.meta.resolve(_), fileURLToPath);
 const dirents = readdirSync(dir, { recursive: true, withFileTypes: true });
 
-/** @type {string[]}*/
 const imports = [];
 
-/** @type {string[]}*/
 const exports = [];
 
 for (const dirent of dirents) {
@@ -20,7 +18,7 @@ for (const dirent of dirents) {
   const data = readFileSync(file, { encoding: 'utf-8' });
 
   const importPath = file.replace(dir, './').replaceAll(path.sep, path.posix.sep);
-  const exportName = data.match(/(?<=export const )file_.*(?=: GenFile)/)?.[0];
+  const exportName = /(?<=export const )file_.*(?=: GenFile)/.exec(data)?.[0];
 
   if (exportName === undefined) continue;
 

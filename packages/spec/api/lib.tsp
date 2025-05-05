@@ -2,7 +2,7 @@ import "@typespec/protobuf";
 
 import "../api/change.tsp";
 
-import "./index.js";
+import "../dist/lib/index.js";
 
 using TypeSpec.Reflection;
 

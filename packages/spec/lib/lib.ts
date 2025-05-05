@@ -1,12 +1,12 @@
 import { createTypeSpecLibrary } from '@typespec/compiler';
 
 export const $lib = createTypeSpecLibrary({
-  name: 'meta',
   diagnostics: {},
+  name: 'meta',
   state: {
-    base: {},
-    normalKeys: {},
     autoChanges: {},
+    base: {},
     move: {},
+    normalKeys: {},
   },
 });

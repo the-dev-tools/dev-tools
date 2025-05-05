@@ -13,6 +13,9 @@
       "path": "../ui/tsconfig.lib.json"
     },
     {
+      "path": "../spec"
+    },
+    {
       "path": "../../configs/eslint/tsconfig.lib.json"
     }
   ]

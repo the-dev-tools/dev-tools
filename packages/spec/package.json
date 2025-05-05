@@ -16,6 +16,7 @@
     "@bufbuild/protobuf": "~2.3.0",
     "@bufbuild/protoc-gen-es": "~2.3.0",
     "@connectrpc/protoc-gen-connect-query": "~2.0.1",
+    "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "~22.15.12",
     "@typespec/protobuf": "~0.69.0",
     "@typespec/rest": "~0.69.0",
