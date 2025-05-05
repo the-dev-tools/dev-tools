@@ -237,6 +237,7 @@ func (s AssertSystem) AssertSimple(ctx context.Context, assertType AssertType, p
 }
 
 func (s AssertSystem) AssertComplex(ctx context.Context, expr string) (bool, error) {
+
 	return s.EvalBool(ctx, expr)
 }
 

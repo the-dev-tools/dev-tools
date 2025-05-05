@@ -775,13 +775,32 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 		// Process flow variables
 		for _, v := range wflow.Variables {
 			variable := mflowvariable.FlowVariable{
-				ID:     idwrap.NewNow(),
-				FlowID: flow.ID,
-				Name:   v.Name,
-				Value:  v.Value,
+				ID:      idwrap.NewNow(),
+				FlowID:  flow.ID,
+				Name:    v.Name,
+				Value:   v.Value,
+				Enabled: true,
 			}
 			workspaceData.FlowVariables = append(workspaceData.FlowVariables, variable)
 		}
+
+		startNodeID := idwrap.NewNow()
+
+		startNodeRoot := mnnode.MNode{
+			ID:       startNodeID,
+			FlowID:   flowID,
+			Name:     "Start Node",
+			NodeKind: mnnode.NODE_KIND_NO_OP,
+		}
+
+		workspaceData.FlowNodes = append(workspaceData.FlowNodes, startNodeRoot)
+
+		startNode := mnnoop.NoopNode{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		}
+
+		workspaceData.FlowNoopNodes = append(workspaceData.FlowNoopNodes, startNode)
 
 		// Process steps from raw data to correctly identify step types
 		rawFlows, ok := rawWorkflow["flows"].([]any)
@@ -869,6 +888,30 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 		}
 	}
 
+	// Set up linked list relationships for endpoints
+	for i := 0; i < len(workspaceData.Endpoints); i++ {
+		if i > 0 {
+			prev := &workspaceData.Endpoints[i-1].ID
+			workspaceData.Endpoints[i].Prev = prev
+		}
+		if i < len(workspaceData.Endpoints)-1 {
+			next := &workspaceData.Endpoints[i+1].ID
+			workspaceData.Endpoints[i].Next = next
+		}
+	}
+
+	// Set up linked list relationships for examples
+	for i := 0; i < len(workspaceData.Examples); i++ {
+		if i > 0 {
+			prev := &workspaceData.Examples[i-1].ID
+			workspaceData.Examples[i].Prev = prev
+		}
+		if i < len(workspaceData.Examples)-1 {
+			next := &workspaceData.Examples[i+1].ID
+			workspaceData.Examples[i].Next = next
+		}
+	}
+
 	return workspaceData, nil
 }
 
@@ -899,10 +942,11 @@ func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWr
 	exampleID := idwrap.NewNow()
 
 	endpoint := mitemapi.ItemApi{
-		ID:     endpointID,
-		Name:   fmt.Sprintf("%s Endpoint", nodeName), // Give endpoint a distinct name
-		Url:    url,
-		Method: method,
+		ID:           endpointID,
+		Name:         fmt.Sprintf("%s Endpoint", nodeName), // Give endpoint a distinct name
+		Url:          url,
+		Method:       method,
+		CollectionID: collectionID,
 		// WorkspaceID: workspaceData.Workspace.ID, // Assuming ItemApi needs WorkspaceID
 	}
 	workspaceData.Endpoints = append(workspaceData.Endpoints, endpoint)
@@ -937,27 +981,22 @@ func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWr
 	}
 	workspaceData.ExampleHeaders = append(workspaceData.ExampleHeaders, headers...)
 
+	bodyRaw := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+	}
 	// Process body
 	if bodyData, ok := data["body"].(map[string]any); ok {
-		bodyRaw := mbodyraw.ExampleBodyRaw{
-			ID:        idwrap.NewNow(),
-			ExampleID: exampleID,
-		}
-		processedBody := false
 		if bodyJSON, ok := bodyData["body_json"].(map[string]any); ok {
 			jsonData, err := json.Marshal(bodyJSON)
 			if err != nil {
 				return fmt.Errorf("failed to marshal body_json for node '%s': %w", nodeName, err)
 			}
 			bodyRaw.Data = jsonData
-			processedBody = true
 		}
 		// TODO: Add handling for other body types like text, form-data etc.
-
-		if processedBody {
-			workspaceData.Rawbodies = append(workspaceData.Rawbodies, bodyRaw)
-		}
 	}
+	workspaceData.Rawbodies = append(workspaceData.Rawbodies, bodyRaw)
 
 	requestNode := mnrequest.MNRequest{
 		FlowNodeID: nodeID, // This should be the MNode ID
@@ -1061,10 +1100,24 @@ func processJSStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, n
 	return nil
 }
 
+func findStartNodeID(workspaceData *WorkspaceData, flowID idwrap.IDWrap) idwrap.IDWrap {
+	for i, node := range workspaceData.FlowNodes {
+		if node.FlowID == flowID && node.NodeKind == mnnode.NODE_KIND_NO_OP {
+			for _, noopNode := range workspaceData.FlowNoopNodes {
+				if noopNode.FlowNodeID == node.ID && noopNode.Type == mnnoop.NODE_NO_OP_KIND_START {
+					return workspaceData.FlowNodes[i].ID
+				}
+			}
+		}
+	}
+	return idwrap.IDWrap{} // Should never happen if flow initialization is correct
+}
+
 // Helper function to process all edges and dependencies
 func processEdgesAndDependencies(workspaceData *WorkspaceData, flowID idwrap.IDWrap,
 	rawSteps []map[string]any, nodeNameToID map[string]idwrap.IDWrap, nodeIndex map[string]int) error {
 
+	startNodeID := findStartNodeID(workspaceData, flowID)
 	createdEdges := make(map[string]struct{}) // Track edges to avoid duplicates "sourceID->targetID"
 
 	addEdge := func(sourceID, targetID idwrap.IDWrap, sourceHandler edge.EdgeHandle) {
@@ -1177,6 +1230,12 @@ func processEdgesAndDependencies(workspaceData *WorkspaceData, flowID idwrap.IDW
 			// Or just connect the *first* previous node to the *first* current node without incoming?
 			// Let's connect *each* previous node to *each* current node *if* the current node has no incoming edge yet.
 			// This might create more edges than strictly necessary but ensures connectivity.
+
+			for _, nodeID := range nodeNameToID {
+				if !nodeHasIncomingEdge[nodeID] {
+					addEdge(startNodeID, nodeID, edge.HandleUnspecified)
+				}
+			}
 			for _, currentNodeID := range currentStepNodes {
 				if !nodeHasIncomingEdge[currentNodeID] {
 					// Find *a* node from the previous step to connect from.

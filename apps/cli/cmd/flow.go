@@ -107,6 +107,10 @@ type FlowServiceLocal struct {
 func init() {
 	rootCmd.AddCommand(flowCmd)
 	flowCmd.AddCommand(flowRunCmd)
+
+	// Add workspace and workflow subcommands to the flowRunCmd
+	flowRunCmd.AddCommand(workspaceRunCmd)
+	flowRunCmd.AddCommand(workflowRunCmd)
 }
 
 var flowCmd = &cobra.Command{
@@ -121,9 +125,18 @@ var flowCmd = &cobra.Command{
 var flowRunCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run Flow",
-	Long:  `Running Flow`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Long:  `Running Flow from workspace or workflow files`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
 
+var workspaceRunCmd = &cobra.Command{
+	Use:   "workspace [filepath] [flow-id-or-name]",
+	Short: "Run flow from workspace file",
+	Long:  `Running Flow from a workspace format file`,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
 		// TODO: move into context
@@ -147,6 +160,9 @@ var flowRunCmd = &cobra.Command{
 		})
 
 		logger := slog.New(loggerHandler)
+
+		workspaceFilePath := args[0]
+		nameOrID := args[1]
 
 		fileData, err := os.ReadFile(workspaceFilePath)
 		if err != nil {
@@ -265,12 +281,6 @@ var flowRunCmd = &cobra.Command{
 			return err
 		}
 
-		if len(args) < 1 {
-			return errors.New("args should be more then 0")
-		}
-
-		nameOrID := args[0]
-
 		var flowPtr *mflow.Flow
 		// check if id
 		id, err := idwrap.NewText(nameOrID)
@@ -300,6 +310,185 @@ var flowRunCmd = &cobra.Command{
 
 		log.Println("found flow", flowPtr.Name)
 		return flowRun(ctx, flowPtr, c)
+	},
+}
+
+var workflowRunCmd = &cobra.Command{
+	Use:   "workflow [filepath] [flow-name]",
+	Short: "Run flow from workflow file",
+	Long:  `Running Flow from a workflow format file`,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+
+		// TODO: move into context
+		var logLevel slog.Level
+		logLevelStr := os.Getenv("LOG_LEVEL")
+		switch logLevelStr {
+		case "DEBUG":
+			logLevel = slog.LevelDebug
+		case "INFO":
+			logLevel = slog.LevelInfo
+		case "WARNING":
+			logLevel = slog.LevelWarn
+		case "ERROR":
+			logLevel = slog.LevelError
+		default:
+			logLevel = slog.LevelError
+		}
+
+		loggerHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: logLevel,
+		})
+
+		logger := slog.New(loggerHandler)
+
+		workflowFilePath := args[0]
+		flowName := args[1]
+
+		fileData, err := os.ReadFile(workflowFilePath)
+		if err != nil {
+			return err
+		}
+
+		// Parse workflow YAML to workspace data
+		workspaceData, err := ioworkspace.UnmarshalWorkflowYAML(fileData)
+		if err != nil {
+			return err
+		}
+
+		err = workspaceData.VerifyIds()
+		if err != nil {
+			return err
+		}
+
+		db, _, err := tursomem.NewTursoLocal(ctx)
+		if err != nil {
+			return err
+		}
+
+		queries, err := gen.Prepare(ctx, db)
+		if err != nil {
+			return err
+		}
+
+		collectionService := scollection.New(queries, logger)
+		workspaceService := sworkspace.New(queries)
+		folderService := sitemfolder.New(queries)
+		endpointService := sitemapi.New(queries)
+		exampleService := sitemapiexample.New(queries)
+		exampleHeaderService := sexampleheader.New(queries)
+		exampleQueryService := sexamplequery.New(queries)
+		exampleAssertService := sassert.New(queries)
+		rawBodyService := sbodyraw.New(queries)
+		formBodyService := sbodyform.New(queries)
+		urlBodyService := sbodyurl.New(queries)
+		responseService := sexampleresp.New(queries)
+		responseHeaderService := sexamplerespheader.New(queries)
+		responseAssertService := sassertres.New(queries)
+		flowService := sflow.New(queries)
+		flowNodeService := snode.New(queries)
+		flowRequestService := snoderequest.New(queries)
+		flowConditionService := snodeif.New(queries)
+		flowNoopService := snodenoop.New(queries)
+		flowEdgeService := sedge.New(queries)
+		flowVariableService := sflowvariable.New(queries)
+		flowForService := snodefor.New(queries)
+		flowForEachService := snodeforeach.New(queries)
+		flowJSService := snodejs.New(queries)
+		flowEdges := sedge.New(queries)
+
+		ioWorkspaceService := ioworkspace.NewIOWorkspaceService(
+			db,
+			workspaceService,
+			collectionService,
+			folderService,
+			endpointService,
+			exampleService,
+			exampleHeaderService,
+			exampleQueryService,
+			exampleAssertService,
+			rawBodyService,
+			formBodyService,
+			urlBodyService,
+			responseService,
+			responseHeaderService,
+			responseAssertService,
+			flowService,
+			flowNodeService,
+			flowEdgeService,
+			flowVariableService,
+			flowRequestService,
+			*flowConditionService,
+			flowNoopService,
+			flowForService,
+			flowForEachService,
+			flowJSService,
+		)
+
+		logMap := logconsole.NewLogChanMap()
+
+		flowServiceLocal := FlowServiceLocal{
+			DB:         db,
+			ws:         workspaceService,
+			fs:         flowService,
+			fes:        flowEdges,
+			fvs:        flowVariableService,
+			ias:        endpointService,
+			es:         exampleService,
+			qs:         exampleQueryService,
+			hs:         exampleHeaderService,
+			brs:        rawBodyService,
+			bfs:        formBodyService,
+			bues:       urlBodyService,
+			ers:        responseService,
+			erhs:       responseHeaderService,
+			as:         exampleAssertService,
+			ars:        responseAssertService,
+			ns:         flowNodeService,
+			rns:        flowRequestService,
+			fns:        flowForService,
+			fens:       flowForEachService,
+			sns:        flowNoopService,
+			ins:        *flowConditionService,
+			jsns:       flowJSService,
+			logChanMap: logMap,
+		}
+
+		// Import the workspace data
+		err = ioWorkspaceService.ImportWorkspace(ctx, *workspaceData)
+		if err != nil {
+			return err
+		}
+
+		// Find the flow by name
+		workspaceID := workspaceData.Workspace.ID
+		c := flowServiceLocal
+
+		flows, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
+		if err != nil {
+			return err
+		}
+
+		var flowPtr *mflow.Flow
+		for _, flow := range flows {
+			if flowName == flow.Name {
+				flowPtr = &flow
+				break
+			}
+		}
+
+		if flowPtr == nil {
+			return fmt.Errorf("flow '%s' not found in the workflow file", flowName)
+		}
+
+		log.Println("found flow", flowPtr.Name)
+		err = flowRun(ctx, flowPtr, c)
+
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		return err
 	},
 }
 
@@ -623,9 +812,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	go func() {
 		defer close(done)
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
-			//id := flowNodeStatus.NodeID
 			name := flowNodeStatus.Name
-			//idStr := id.String()
 			stateStr := mnnode.StringNodeStateWithIcons(flowNodeStatus.State)
 
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
@@ -685,11 +872,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	fmt.Printf("Flow Duration: %v | Steps: %d/%d Successful\n", flowTimeLapse, successCount, totalNodes)
 
 	if flowErr != nil {
-		return err
+		return flowErr
 	}
 
 	if flowRunErr != nil {
-		return err
+		return flowRunErr
 	}
 
 	return nil

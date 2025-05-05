@@ -22,8 +22,7 @@ With built-in CI integration, it streamlines API validation from development to 
 }
 
 var (
-	cfgFilePath       string
-	workspaceFilePath string
+	cfgFilePath string
 )
 
 const (
@@ -43,7 +42,6 @@ func init() {
 
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFilePath, "config", cfgFilePath, "config file (default is $HOME/.devtools.yaml)")
-	rootCmd.PersistentFlags().StringVar(&workspaceFilePath, "workspaceFilePath", "", "")
 }
 
 func Execute() {
