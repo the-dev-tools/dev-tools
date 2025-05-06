@@ -1,5 +1,5 @@
 import { pipe, Record, Struct } from 'effect';
-import { Button as AriaButton, ButtonProps as AriaButtonProps } from 'react-aria-components';
+import { Button as AriaButton, ButtonProps as AriaButtonProps, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiPlus } from 'react-icons/fi';
 import { tv, VariantProps } from 'tailwind-variants';
 
@@ -39,15 +39,29 @@ export const addButtonVariantKeys = pipe(
 export interface AddButtonVariantProps
   extends Pick<VariantProps<typeof addButtonStyles>, (typeof addButtonVariantKeys)[number]> {}
 
-export interface AddButtonProps extends AddButtonVariantProps, Omit<AriaButtonProps, 'children'> {}
+export interface AddButtonProps extends AddButtonVariantProps, Omit<AriaButtonProps, 'children'> {
+  /** Text to show in the tooltip. If not provided, no tooltip will be shown. */
+  tooltipText?: string;
+}
 
-export const AddButton = ({ className, ...props }: AddButtonProps) => {
+export const AddButton = ({ className, tooltipText, ...props }: AddButtonProps) => {
   const forwardedProps = Struct.omit(props, ...addButtonVariantKeys);
   const variantProps = Struct.pick(props, ...addButtonVariantKeys);
 
-  return (
+  const button = (
     <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, addButtonStyles, variantProps)}>
       <FiPlus className='size-4 stroke-[1.2px]' />
     </AriaButton>
   );
+
+  if (tooltipText) {
+    return (
+      <TooltipTrigger delay={750}>
+        {button}
+        <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{tooltipText}</Tooltip>
+      </TooltipTrigger>
+    );
+  }
+
+  return button;
 };
