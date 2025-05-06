@@ -51,7 +51,6 @@ model Assert {
 }
 
 // Query
-model QueryChange is Resource.Change<Query>;
 model QueryListItem is Resource.List.Item<Query>;
 model QueryListRequest is Resource.List.Request<Query>;
 model QueryListResponse is Resource.List.Response<Query, QueryListItem>;
@@ -63,7 +62,6 @@ model QueryDeleteRequest is Resource.Delete.Request<Query>;
 model QueryDeleteResponse is Resource.Delete.Response<Query>;
 
 // Header
-model HeaderChange is Resource.Change<Header>;
 model HeaderListItem is Resource.List.Item<Header>;
 model HeaderListRequest is Resource.List.Request<Header>;
 model HeaderListResponse is Resource.List.Response<Header, HeaderListItem>;
@@ -75,7 +73,6 @@ model HeaderDeleteRequest is Resource.Delete.Request<Header>;
 model HeaderDeleteResponse is Resource.Delete.Response<Header>;
 
 // Assert
-model AssertChange is Resource.Change<Assert>;
 model AssertListItem is Resource.List.Item<Assert>;
 model AssertListRequest is Resource.List.Request<Assert>;
 model AssertListResponse is Resource.List.Response<Assert, AssertListItem>;

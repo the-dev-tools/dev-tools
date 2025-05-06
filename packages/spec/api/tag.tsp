@@ -38,7 +38,6 @@ model Tag {
   color: TagColor;
 }
 
-model TagChange is Resource.Change<Tag>;
 model TagListItem is Resource.List.Item<Tag>;
 model TagListRequest is Resource.List.Request<Tag>;
 model TagListResponse is Resource.List.Response<Tag, TagListItem>;

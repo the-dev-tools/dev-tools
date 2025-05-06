@@ -35,7 +35,6 @@ model ImportRequest {
 model ImportResponse {
   kind: ImportKind;
   filter?: string[];
-  ...API.Change.Changes;
 }
 
 @Protobuf.service

@@ -28,7 +28,6 @@ model Environment {
   @visibility(Resource.Mutation.None) isGlobal: boolean;
 }
 
-model EnvironmentChange is Resource.Change<Environment>;
 model EnvironmentListItem is Resource.List.Item<Environment>;
 model EnvironmentListRequest is Resource.List.Request<Environment>;
 model EnvironmentListResponse is Resource.List.Response<Environment, EnvironmentListItem>;

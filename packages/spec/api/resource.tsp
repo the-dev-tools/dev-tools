@@ -2,8 +2,6 @@ import "@typespec/protobuf";
 
 import "./lib.tsp";
 
-import "./change.tsp";
-
 using TypeSpec.Reflection;
 
 namespace API.Resource;
@@ -27,12 +25,6 @@ enum Mutation {
   None,
   Create,
   Update,
-}
-
-@normalize(Resource)
-model Change<Resource extends Model> {
-  ...KeyOf<Resource>;
-  ...OptionalProperties<OmitKey<Resource>>;
 }
 
 interface CRUD<Resource extends Model>
@@ -113,24 +105,8 @@ namespace Create {
 
   @move(Create, Resource)
   @friendlyName("{name}CreateResponse", Resource)
-  @autoChange({
-    $data: {
-      kind: API.Change.SourceKind.MERGE,
-      $type: Resource,
-    },
-    $list: [
-      {
-        kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND,
-        $parent: {
-          kind: API.Change.SourceKind.REQUEST,
-          $type: ListResponse,
-        },
-      }
-    ],
-  })
   model Response<Resource extends Model, ListResponse extends Model = Resource> {
     ...KeyOf<Resource>;
-    ...API.Change.Changes;
   }
 }
 
@@ -152,16 +128,7 @@ namespace Update {
 
   @move(Update, Resource)
   @friendlyName("{name}UpdateResponse", Resource)
-  @autoChange({
-    kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE,
-    $data: {
-      kind: API.Change.SourceKind.REQUEST,
-      $type: Resource,
-    },
-  })
-  model Response<Resource extends Model> {
-    ...API.Change.Changes;
-  }
+  model Response<Resource extends Model> {}
 }
 
 namespace Delete {
@@ -180,14 +147,5 @@ namespace Delete {
 
   @move(Delete, Resource)
   @friendlyName("{name}DeleteResponse", Resource)
-  @autoChange({
-    kind: API.Change.ChangeKind.CHANGE_KIND_DELETE,
-    $data: {
-      kind: API.Change.SourceKind.REQUEST,
-      $type: Resource,
-    },
-  })
-  model Response<Resource extends Model> {
-    ...API.Change.Changes;
-  }
+  model Response<Resource extends Model> {}
 }

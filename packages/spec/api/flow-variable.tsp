@@ -27,7 +27,6 @@ model FlowVariable {
   description: string;
 }
 
-model FlowVariableChange is Resource.Change<FlowVariable>;
 model FlowVariableListItem is Resource.List.Item<FlowVariable>;
 model FlowVariableListRequest is Resource.List.Request<FlowVariable>;
 model FlowVariableListResponse is Resource.List.Response<FlowVariable, FlowVariableListItem>;

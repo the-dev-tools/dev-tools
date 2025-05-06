@@ -54,7 +54,6 @@ model BodyRaw {
 }
 
 // Form Array
-model BodyFormItemChange is Resource.Change<BodyFormItem>;
 model BodyFormItemListItem is Resource.List.Item<BodyFormItem>;
 model BodyFormItemListRequest is Resource.List.Request<BodyFormItem>;
 model BodyFormItemListResponse is Resource.List.Response<BodyFormItem, BodyFormItemListItem>;
@@ -66,7 +65,6 @@ model BodyFormItemDeleteRequest is Resource.Delete.Request<BodyFormItem>;
 model BodyFormItemDeleteResponse is Resource.Delete.Response<BodyFormItem>;
 
 // URL Encoded Array
-model BodyUrlEncodedItemChange is Resource.Change<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemListItem is Resource.List.Item<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemListRequest is Resource.List.Request<BodyUrlEncodedItem>;
 model BodyUrlEncodedItemListResponse is Resource.List.Response<BodyUrlEncodedItem, BodyUrlEncodedItemListItem>;

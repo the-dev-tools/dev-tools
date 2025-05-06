@@ -98,7 +98,6 @@ model NodeJS {
   code: string;
 }
 
-model NodeChange is Resource.Change<Node>;
 model NodeListItem is Resource.List.Item<Node>;
 model NodeListRequest is Resource.List.Request<Node>;
 model NodeListResponse is Resource.List.Response<Node, NodeListItem>;
