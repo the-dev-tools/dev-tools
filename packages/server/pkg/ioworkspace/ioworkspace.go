@@ -1143,8 +1143,8 @@ func processEdgesAndDependencies(workspaceData *WorkspaceData, flowID idwrap.IDW
 				continue // Should not happen based on earlier checks
 			}
 
-			nodeName, _ := dataMap["name"].(string)   // Already validated
-			sourceNodeID, _ := nodeNameToID[nodeName] // Already validated
+			nodeName, _ := dataMap["name"].(string)   //nolint:all // Already validated
+			sourceNodeID, _ := nodeNameToID[nodeName] //nolint:all // Already validated
 
 			// Handle special connections based on step type
 			switch stepType {
@@ -1463,11 +1463,12 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 
 				// Look for then/else targets
 				for _, e := range edgesBySource[node.ID] {
-					if e.SourceHandler == edge.HandleThen {
+					switch e.SourceHandler {
+					case edge.HandleThen:
 						if targetNode, ok := nodeMap[e.TargetID]; ok {
 							stepData["then"] = targetNode.Name
 						}
-					} else if e.SourceHandler == edge.HandleElse {
+					case edge.HandleElse:
 						if targetNode, ok := nodeMap[e.TargetID]; ok {
 							stepData["else"] = targetNode.Name
 						}

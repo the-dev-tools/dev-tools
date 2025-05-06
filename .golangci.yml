@@ -12,3 +12,4 @@ linters:
         - "-ST1021"
         - "-ST1022"
         - "-S1016" ## False Positives
+        - "-SA5011" ## False Positives

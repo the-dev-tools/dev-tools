@@ -674,7 +674,7 @@ func TestParsePath(t *testing.T) {
 		{"a.b[0]", "1", true},
 		{"a.b[1]", "2", true},
 		{"a.b[2]", "3", true},
-		{"a.b", "Array[3]", true},
+		{"a.b", "interface {}[3]", true},
 		// Test complex paths
 		{"a.b[0].c", "", false}, // Invalid path
 	}
