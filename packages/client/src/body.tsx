@@ -1,6 +1,11 @@
 import { create } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions, useTransport } from '@connectrpc/connect-query';
+import {
+  createConnectQueryKey,
+  createProtobufSafeUpdater,
+  createQueryOptions,
+  useTransport,
+} from '@connectrpc/connect-query';
 import { useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
@@ -8,10 +13,6 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
 import { useContext, useState } from 'react';
 
-import { baseCodeMirrorExtensions } from '~code-mirror/extensions';
-import { ReferenceContext, ReferenceField } from './reference';
-import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { useReactRender } from '~react-render';
 import {
   BodyFormItemListItem,
   BodyKind,
@@ -34,6 +35,7 @@ import {
   exampleGet,
   exampleUpdate,
 } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
@@ -41,10 +43,12 @@ import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 import {
+  baseCodeMirrorExtensions,
   CodeMirrorMarkupLanguage,
   CodeMirrorMarkupLanguages,
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
+import { useReactRender } from '~react-render';
 
 import {
   ColumnActionDelete,
@@ -59,6 +63,7 @@ import {
   ReactTableNoMemo,
   useFormTable,
 } from './form-table';
+import { ReferenceContext } from './reference';
 
 interface BodyViewProps {
   deltaExampleId?: Uint8Array | undefined;
@@ -386,21 +391,19 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
 
   const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
-  
+
   // Get base language extensions
   const languageExtensions = useCodeMirrorLanguageExtensions(language);
-  
+
   // Get reference context and setup for variable autocompletion
   const context = useContext(ReferenceContext);
   const transport = useTransport();
   const client = createClient(ReferenceService, transport);
   const reactRender = useReactRender();
-  
+
+  // TODO: use pre-composed extensions instead of duplicating code here
   // Combine language extensions with reference extensions
-  const combinedExtensions = [
-    ...languageExtensions,
-    ...baseCodeMirrorExtensions({ client, context, reactRender })
-  ];
+  const combinedExtensions = [...languageExtensions, ...baseCodeMirrorExtensions({ client, context, reactRender })];
 
   return (
     <>
