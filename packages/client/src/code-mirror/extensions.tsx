@@ -115,7 +115,67 @@ interface ReferenceCompletionsProps {
 const referenceCompletions =
   ({ client, context: referenceContext, reactRender }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
-    const token = context.tokenBefore(['Reference']);
+    // Check for Reference token type first (works in text body)
+    let token = context.tokenBefore(['Reference']);
+    
+    // If no Reference token found, check if we have JSON string content with variables
+    if (!token) {
+      // Look for JSON string tokens that might contain variable references
+      const line = context.state.doc.lineAt(context.pos);
+      const lineText = line.text;
+      
+      // Find '{{' pattern in the current line before the cursor position
+      const cursorPosInLine = context.pos - line.from;
+      const beforeCursor = lineText.substring(0, cursorPosInLine);
+      const openBraceIndex = beforeCursor.lastIndexOf('{{');
+      
+      if (openBraceIndex >= 0) {
+        // Extract potential variable reference text
+        const referenceText = beforeCursor.substring(openBraceIndex + 2).trim();
+        
+        // Create a synthetic token for this JSON string reference
+        token = {
+          text: referenceText,
+          type: "Reference",
+          to: context.pos,
+          from: line.from + openBraceIndex + 2
+        };
+      }
+    }
+    
+    // Special handling for JSON string context
+    // Look for tokens of different types that might be inside a JSON string
+    if (!token) {
+      // Get the token at the current position
+      const tree = context.state.syntaxTree;
+      // Add null check to prevent TypeError
+      if (!tree) return null;
+      
+      const tokenAtCursor = tree.resolveInner(context.pos);
+      
+      // If we're in a string token (JSON or otherwise)
+      if (tokenAtCursor && /string/i.test(tokenAtCursor.type.name)) {
+        const stringContent = context.state.doc.sliceString(tokenAtCursor.from, tokenAtCursor.to);
+        const cursorOffsetInString = context.pos - tokenAtCursor.from;
+        const textBeforeCursor = stringContent.substring(0, cursorOffsetInString);
+        
+        // Check if there's a '{{' before the cursor in this string
+        const varStartIndex = textBeforeCursor.lastIndexOf('{{');
+        
+        if (varStartIndex >= 0) {
+          // Extract the variable reference text
+          const varText = textBeforeCursor.substring(varStartIndex + 2);
+          
+          // Create a synthetic token
+          token = {
+            text: varText,
+            type: "Reference",
+            to: context.pos,
+            from: tokenAtCursor.from + varStartIndex + 2
+          };
+        }
+      }
+    }
 
     if (!token) return null;
 
@@ -193,7 +253,8 @@ const language = (props: LanguageProps) => {
 
   return new LanguageSupport(lrl, [
     lrl.data.of({
-      autocomplete: ifIn(['Reference'], referenceCompletions(props)),
+      // Handle both direct Reference tokens and other contexts
+      autocomplete: referenceCompletions(props),
     }),
   ]);
 };
@@ -204,6 +265,8 @@ const expressionBracketSpacing = EditorView.updateListener.of((update) => {
   // {{|}} --> {{ | }}
   update.changes.iterChanges((_fromA, _toA, fromB, toB, inserted) => {
     const doc = update.state.doc;
+    
+    // Handle the typical variable template insertion
     if (
       inserted.eq(Text.of(['{}'])) &&
       doc.sliceString(fromB - 1, fromB) === '{' &&
@@ -215,6 +278,15 @@ const expressionBracketSpacing = EditorView.updateListener.of((update) => {
       });
       startCompletion(update.view);
     }
+    
+    // Handle when a user types '{{' in JSON or other content
+    // This will trigger autocompletion after typing '{{'
+    if (
+      inserted.eq(Text.of(['{'])) &&
+      doc.sliceString(fromB - 1, fromB) === '{'
+    ) {
+      startCompletion(update.view);
+    }
   });
 });
 
@@ -222,13 +294,52 @@ const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBrackets
 
 interface BaseCodeMirrorExtensionProps extends ReferenceCompletionsProps {}
 
+// Additional handler to trigger completions in JSON strings
+const jsonStringCompletionHandler = EditorView.updateListener.of((update) => {
+  if (!update.docChanged) return;
+  
+  // Look for typing "{{" in the current document
+  const pos = update.state.selection.main.head;
+  const line = update.state.doc.lineAt(pos);
+  const lineText = line.text;
+  
+  // Check if the cursor is after a "{{" pattern in the current line
+  const cursorPosInLine = pos - line.from;
+  const beforeCursor = lineText.substring(0, cursorPosInLine);
+  
+  // Trigger completion in two scenarios:
+  // 1. After typing '{{' anywhere
+  if (beforeCursor.endsWith('{{')) {
+    startCompletion(update.view);
+    return;
+  }
+  
+  // 2. When inside a JSON string that contains '{{'
+  const openBraceIndex = beforeCursor.lastIndexOf('{{');
+  if (openBraceIndex >= 0) {
+    // In a potential JSON string context if there's a quote before the {{
+    // and the {{ appears after the last quote
+    const lastQuoteIndex = beforeCursor.lastIndexOf('"');
+    if (lastQuoteIndex < openBraceIndex && 
+        // Make sure we're still inside the string (check for " after cursor)
+        lineText.indexOf('"', cursorPosInLine) > -1) {
+      startCompletion(update.view);
+    }
+  }
+});
+
 export const baseCodeMirrorExtensions = (props: BaseCodeMirrorExtensionProps): Extension[] => [
   keymaps,
   history(),
   closeBrackets(),
-  autocompletion({ activateOnCompletion: () => true, selectOnOpen: false }),
+  autocompletion({ 
+    activateOnCompletion: () => true, 
+    selectOnOpen: false,
+    override: [referenceCompletions(props)],
+  }),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
   expressionBracketSpacing,
+  jsonStringCompletionHandler,
   bracketMatching(),
   language(props),
 ];

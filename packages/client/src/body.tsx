@@ -1,12 +1,17 @@
 import { create } from '@bufbuild/protobuf';
-import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
+import { createClient } from '@connectrpc/connect';
+import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions, useTransport } from '@connectrpc/connect-query';
 import { useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 
+import { baseCodeMirrorExtensions } from '~code-mirror/extensions';
+import { ReferenceContext, ReferenceField } from './reference';
+import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
+import { useReactRender } from '~react-render';
 import {
   BodyFormItemListItem,
   BodyKind,
@@ -381,8 +386,21 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
 
   const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
-
-  const extensions = useCodeMirrorLanguageExtensions(language);
+  
+  // Get base language extensions
+  const languageExtensions = useCodeMirrorLanguageExtensions(language);
+  
+  // Get reference context and setup for variable autocompletion
+  const context = useContext(ReferenceContext);
+  const transport = useTransport();
+  const client = createClient(ReferenceService, transport);
+  const reactRender = useReactRender();
+  
+  // Combine language extensions with reference extensions
+  const combinedExtensions = [
+    ...languageExtensions,
+    ...baseCodeMirrorExtensions({ client, context, reactRender })
+  ];
 
   return (
     <>
@@ -402,7 +420,7 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
 
       <CodeMirror
         className='col-span-full self-stretch'
-        extensions={extensions}
+        extensions={combinedExtensions}
         height='100%'
         onBlur={() => void updateMutation.mutate({ data: new TextEncoder().encode(value), exampleId })}
         onChange={setValue}
