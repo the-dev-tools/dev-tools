@@ -4,7 +4,18 @@ import { getRouteApi } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Ulid } from 'id128';
 import { Suspense } from 'react';
-import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import {
+  Collection,
+  Dialog,
+  DialogTrigger,
+  MenuTrigger,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  Tooltip,
+  TooltipTrigger,
+} from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
@@ -104,9 +115,14 @@ export const EnvironmentsWidget = () => {
       <ImportDialog />
 
       <DialogTrigger>
-        <Button className={tw`p-1`} variant='ghost'>
-          <GlobalEnvironmentIcon className={tw`size-4 text-slate-500`} />
-        </Button>
+        <TooltipTrigger delay={750}>
+          <Button className={tw`p-1`} variant='ghost'>
+            <GlobalEnvironmentIcon className={tw`size-4 text-slate-500`} />
+          </Button>
+          <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+            Manage Variables & Environments
+          </Tooltip>
+        </TooltipTrigger>
 
         <Modal>
           <Dialog className={tw`outline-hidden h-full`}>
@@ -121,13 +137,18 @@ export const EnvironmentsWidget = () => {
                   <div className={tw`-order-1 mb-1 mt-3 flex items-center justify-between py-0.5`}>
                     <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
 
-                    <Button
-                      className={tw`bg-slate-200 p-0.5`}
-                      onPress={() => void environmentCreateMutation.mutate({ name: 'New Environment', workspaceId })}
-                      variant='ghost'
-                    >
-                      <FiPlus className={tw`size-4 text-slate-500`} />
-                    </Button>
+                    <TooltipTrigger delay={750}>
+                      <Button
+                        className={tw`bg-slate-200 p-0.5`}
+                        onPress={() => void environmentCreateMutation.mutate({ name: 'New Environment', workspaceId })}
+                        variant='ghost'
+                      >
+                        <FiPlus className={tw`size-4 text-slate-500`} />
+                      </Button>
+                      <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+                        Add New Environment
+                      </Tooltip>
+                    </TooltipTrigger>
                   </div>
 
                   <TabList className={tw`contents`} items={environments}>

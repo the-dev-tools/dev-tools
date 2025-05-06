@@ -11,6 +11,8 @@ import {
   Table,
   TableBody,
   TableHeader,
+  Tooltip,
+  TooltipTrigger,
 } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
@@ -173,9 +175,14 @@ export const ImportDialog = () => {
 
   return (
     <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
-      <Button className={tw`p-1`} variant='ghost'>
-        <FileImportIcon className={tw`size-4 text-slate-500`} />
-      </Button>
+      <TooltipTrigger delay={750}>
+        <Button className={tw`p-1`} variant='ghost'>
+          <FileImportIcon className={tw`size-4 text-slate-500`} />
+        </Button>
+        <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+          Import Collections and Flows
+        </Tooltip>
+      </TooltipTrigger>
 
       <Modal modalStyle={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
         <Dialog className={tw`outline-hidden flex h-full flex-col overflow-auto`}>

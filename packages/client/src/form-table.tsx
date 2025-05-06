@@ -3,6 +3,7 @@ import { useReactTable } from '@tanstack/react-table';
 import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table, TableOptions } from '@tanstack/table-core';
 import { HashMap, Option, pipe, String } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
+import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import {
   FieldPath,
   FieldValues,
@@ -272,9 +273,12 @@ export const ColumnActionDelete = <I extends DescMessage, O extends DescMessage>
 }: ColumnActionDeleteProps<I, O>) => {
   const delete$ = useConnectMutation(schema);
   return (
-    <Button className={tw`text-red-700`} onPress={() => void delete$.mutateAsync(input)} variant='ghost'>
-      <LuTrash2 />
-    </Button>
+    <TooltipTrigger delay={750}>
+      <Button className={tw`text-red-700`} onPress={() => void delete$.mutateAsync(input)} variant='ghost'>
+        <LuTrash2 />
+      </Button>
+      <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
+    </TooltipTrigger>
   );
 };
 
@@ -291,13 +295,16 @@ export const ColumnActionUndoDelta = <I extends DescMessage, O extends DescMessa
 }: ColumnActionUndoDeltaProps<I, O>) => {
   const delete$ = useConnectMutation(schema);
   return (
-    <Button
-      className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
-      isDisabled={!hasDelta}
-      onPress={() => void delete$.mutateAsync(input)}
-      variant='ghost'
-    >
-      <RedoIcon />
-    </Button>
+    <TooltipTrigger delay={750}>
+      <Button
+        className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
+        isDisabled={!hasDelta}
+        onPress={() => void delete$.mutateAsync(input)}
+        variant='ghost'
+      >
+        <RedoIcon />
+      </Button>
+      <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Undo changes</Tooltip>
+    </TooltipTrigger>
   );
 };

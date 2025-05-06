@@ -3,7 +3,7 @@ import { createFileRoute, Outlet, redirect, useMatchRoute, useNavigate } from '@
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
-import { ListBox, MenuTrigger, Text } from 'react-aria-components';
+import { ListBox, MenuTrigger, Text, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
@@ -128,13 +128,18 @@ function Layout() {
               <CollectionIcon className={tw`size-5 text-slate-500`} />
               <h2 className={tw`text-md flex-1 font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
 
-              <Button
-                className={tw`bg-slate-200 p-0.5`}
-                onPress={() => void collectionCreateMutation.mutate({ name: 'New collection', workspaceId })}
-                variant='ghost'
-              >
-                <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
-              </Button>
+              <TooltipTrigger delay={750}>
+                <Button
+                  className={tw`bg-slate-200 p-0.5`}
+                  onPress={() => void collectionCreateMutation.mutate({ name: 'New collection', workspaceId })}
+                  variant='ghost'
+                >
+                  <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+                </Button>
+                <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+                  Add New Collection
+                </Tooltip>
+              </TooltipTrigger>
             </div>
 
             <CollectionListTree navigate showControls />
@@ -166,13 +171,16 @@ const FlowList = () => {
         <FlowsIcon className={tw`size-5 text-slate-500`} />
         <h2 className={tw`text-md flex-1 font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
 
-        <Button
-          className={tw`bg-slate-200 p-0.5`}
-          onPress={() => void flowCreateMutation.mutate({ name: 'New flow', workspaceId })}
-          variant='ghost'
-        >
-          <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
-        </Button>
+        <TooltipTrigger delay={750}>
+          <Button
+            className={tw`bg-slate-200 p-0.5`}
+            onPress={() => void flowCreateMutation.mutate({ name: 'New flow', workspaceId })}
+            variant='ghost'
+          >
+            <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+          </Button>
+          <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Add New Flow</Tooltip>
+        </TooltipTrigger>
       </div>
 
       <div className={tw`relative`} ref={listRef}>

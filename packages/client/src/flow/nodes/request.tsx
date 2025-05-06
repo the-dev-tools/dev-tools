@@ -4,6 +4,7 @@ import { useSuspenseQueries } from '@tanstack/react-query';
 import { Position, useReactFlow } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use } from 'react';
+import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
 import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
@@ -159,13 +160,16 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
         <div className={tw`ml-2 mr-3 h-5 w-px shrink-0 bg-slate-300`} />
 
-        <ButtonAsLink
-          className={tw`p-1`}
-          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
-          variant='ghost'
-        >
-          <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
+        <TooltipTrigger delay={750}>
+          <ButtonAsLink
+            className={tw`p-1`}
+            href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
+            variant='ghost'
+          >
+            <FiX className={tw`size-5 text-slate-500`} />
+          </ButtonAsLink>
+          <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Close</Tooltip>
+        </TooltipTrigger>
       </div>
 
       <div className='shadow-xs m-5 mb-4 flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
