@@ -35,9 +35,7 @@
     "projects": ["apps/*"],
     "projectsRelationship": "independent",
     "version": {
-      "generatorOptions": {
-        "preserveLocalDependencyProtocols": true
-      }
+      "preserveLocalDependencyProtocols": true
     },
     "changelog": {
       "projectChangelogs": {
@@ -47,8 +45,6 @@
   },
 
   "plugins": [
-    "@nx-go/nx-go",
-
     {
       "plugin": "@nx/js/typescript",
       "options": {

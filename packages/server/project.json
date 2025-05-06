@@ -4,18 +4,21 @@
   "name": "server",
   "projectType": "application",
 
+  "implicitDependencies": ["db"],
+
   "targets": {
     "build": {
-      "executor": "@nx-go/nx-go:build",
+      "executor": "nx:run-commands",
       "options": {
-        "main": "{projectRoot}/cmd/server/server.go",
-        "outputPath": "{projectRoot}/dist/server"
+        "cwd": "{projectRoot}",
+        "command": "go build -o dist/server cmd/server/server.go"
       }
     },
     "dev": {
-      "executor": "@nx-go/nx-go:serve",
+      "executor": "nx:run-commands",
       "options": {
-        "main": "{projectRoot}/cmd/server/server.go"
+        "cwd": "{projectRoot}",
+        "command": "go run cmd/server/server.go"
       }
     },
     "test": {
@@ -34,12 +37,15 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "parallel": false,
-        "commands": ["golangci-lint run"]
+        "command": "golangci-lint run"
       }
     },
     "tidy": {
-      "executor": "@nx-go/nx-go:tidy"
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go mod tidy"
+      }
     }
   }
 }

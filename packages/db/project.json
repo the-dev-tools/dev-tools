@@ -18,10 +18,18 @@
       }
     },
     "lint": {
-      "executor": "@nx-go/nx-go:lint"
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go fmt"
+      }
     },
     "tidy": {
-      "executor": "@nx-go/nx-go:tidy"
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go mod tidy"
+      }
     }
   }
 }

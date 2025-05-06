@@ -6,25 +6,25 @@
     ".": "./config.ts"
   },
   "devDependencies": {
-    "@eslint/compat": "~1.2.8",
+    "@eslint/compat": "~1.2.9",
     "@eslint/eslintrc": "~3.3.1",
-    "@eslint/js": "~9.24.0",
+    "@eslint/js": "~9.26.0",
     "@types/eslint-config-prettier": "~6.11.3",
     "@types/eslint-plugin-jsx-a11y": "~6.10.0",
-    "@types/node": "~22.14.1",
-    "@typescript-eslint/parser": "~8.29.1",
-    "effect": "~3.14.8",
-    "eslint": "~9.24.0",
+    "@types/node": "~22.15.12",
+    "@typescript-eslint/parser": "~8.32.0",
+    "effect": "~3.14.19",
+    "eslint": "~9.26.0",
     "eslint-config-prettier": "~10.1.2",
-    "eslint-import-resolver-typescript": "~4.3.2",
-    "eslint-plugin-import-x": "~4.10.3",
+    "eslint-import-resolver-typescript": "~4.3.4",
+    "eslint-plugin-import-x": "~4.11.0",
     "eslint-plugin-jsx-a11y": "~6.10.2",
-    "eslint-plugin-perfectionist": "~4.11.0",
+    "eslint-plugin-perfectionist": "~4.12.3",
     "eslint-plugin-react": "~7.37.5",
-    "eslint-plugin-react-compiler": "19.0.0-beta-e993439-20250405",
+    "eslint-plugin-react-compiler": "19.1.0-rc.1",
     "eslint-plugin-react-hooks": "~5.2.0",
     "globals": "~16.0.0",
     "typescript": "~5.8.3",
-    "typescript-eslint": "~8.29.1"
+    "typescript-eslint": "~8.32.0"
   }
 }
