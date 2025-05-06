@@ -11,24 +11,7 @@ tasks:
   dev:desktop:
     desc: Start desktop app development servers
     interactive: true
-    cmd: >-
-      pnpm nx run-many --targets=dev \
-        --projects=client \
-        --projects=desktop \
-        --projects=server \
-        --projects=ui \
-        {{.CLI_ARGS}}
-
-  dev:web:
-    desc: Start web app development servers
-    interactive: true
-    cmd: >-
-      pnpm nx run-many --targets=dev \
-        --projects=client \
-        --projects=server \
-        --projects=ui \
-        --projects=web \
-        {{.CLI_ARGS}}
+    cmd: nx run desktop:dev {{.CLI_ARGS}}
 
   lint:
     desc: Check code for common problems
