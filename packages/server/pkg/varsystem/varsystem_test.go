@@ -2,6 +2,7 @@ package varsystem_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -177,5 +178,35 @@ func TestNewVarMapFromAnyMap(t *testing.T) {
 
 	if result["key5[2]"].Value != fmt.Sprint(input["key5"].([]any)[2]) {
 		t.Errorf("Expected %v, got %v", expected["key5[2]"].Value, result["key5[2]"].Value)
+	}
+}
+
+func TestFileReferenceReplace(t *testing.T) {
+	// Create a temporary file with test content
+	content := "test file content"
+	tempFile, err := os.CreateTemp("", "varsystem-test-*.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name()) // nolint
+
+	if _, err := tempFile.WriteString(content); err != nil {
+		t.Fatalf("Failed to write to temp file: %v", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
+	}
+
+	// Test string with file reference
+	testStr := fmt.Sprintf("Content from file: {{#file:%s}}", tempFile.Name())
+	expected := fmt.Sprintf("Content from file: %s", content)
+
+	result, err := varsystem.VarMap{}.ReplaceVars(testStr)
+	if err != nil {
+		t.Fatalf("Error replacing file reference: %v", err)
+	}
+
+	if result != expected {
+		t.Errorf("Expected: %q, got: %q", expected, result)
 	}
 }

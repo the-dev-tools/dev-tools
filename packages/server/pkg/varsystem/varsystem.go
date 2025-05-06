@@ -2,6 +2,7 @@ package varsystem
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -80,7 +81,21 @@ func (vm VarMap) ToSlice() []mvar.Var {
 }
 
 func (vm VarMap) Get(varKey string) (mvar.Var, bool) {
-	val, ok := vm[strings.TrimSpace(varKey)]
+	varKey = strings.TrimSpace(varKey)
+
+	// Check if this is a file reference
+	if IsFileReference(varKey) {
+		fileContent, err := ReadFileContent(varKey)
+		if err != nil {
+			return mvar.Var{}, false
+		}
+		return mvar.Var{
+			VarKey: varKey,
+			Value:  fileContent,
+		}, true
+	}
+
+	val, ok := vm[varKey]
 	if !ok {
 		return mvar.Var{}, false
 	}
@@ -134,6 +149,20 @@ func CheckStringHasAnyVarKey(raw string) bool {
 	return strings.Contains(raw, mvar.Prefix) && strings.Contains(raw, mvar.Suffix)
 }
 
+// IsFileReference checks if a variable key refers to a file (starts with "file:")
+func IsFileReference(key string) bool {
+	return strings.HasPrefix(strings.TrimSpace(key), "#file:")
+}
+
+// ReadFileContent reads the content of a file at the given path
+func ReadFileContent(filePath string) (string, error) {
+	data, err := os.ReadFile(strings.TrimPrefix(strings.TrimSpace(filePath), "#file:"))
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	return string(data), nil
+}
+
 // Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
 // returns google.com/api/v1/path
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
@@ -157,12 +186,22 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 
 		// Check if key is present in the map
 		key := GetVarKeyFromRaw(rawVar)
-		val, ok := vm.Get(key)
-		if !ok {
-			return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
+
+		// Check if this is a file reference
+		if IsFileReference(key) {
+			fileContent, err := ReadFileContent(key)
+			if err != nil {
+				return "", err
+			}
+			result += raw[:startIndex] + fileContent
+		} else {
+			val, ok := vm.Get(key)
+			if !ok {
+				return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
+			}
+			result += raw[:startIndex] + val.Value
 		}
 
-		result += raw[:startIndex] + val.Value
 		raw = raw[startIndex+len(rawVar):]
 	}
 
