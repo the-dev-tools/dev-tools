@@ -85,7 +85,7 @@ func (vm VarMap) Get(varKey string) (mvar.Var, bool) {
 
 	// Check if this is a file reference
 	if IsFileReference(varKey) {
-		fileContent, err := ReadFileContent(varKey)
+		fileContent, err := ReadFileContentAsString(varKey)
 		if err != nil {
 			return mvar.Var{}, false
 		}
@@ -154,13 +154,18 @@ func IsFileReference(key string) bool {
 	return strings.HasPrefix(strings.TrimSpace(key), "#file:")
 }
 
-// ReadFileContent reads the content of a file at the given path
-func ReadFileContent(filePath string) (string, error) {
+// ReadFileContentAsString reads the content of a file at the given path
+func ReadFileContentAsString(filePath string) (string, error) {
 	data, err := os.ReadFile(strings.TrimPrefix(strings.TrimSpace(filePath), "#file:"))
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 	return string(data), nil
+}
+
+func GetIsFileReferencePath(filePath string) string {
+	path := strings.TrimPrefix(strings.TrimSpace(filePath), "#file:")
+	return path
 }
 
 // Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
@@ -189,7 +194,7 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 
 		// Check if this is a file reference
 		if IsFileReference(key) {
-			fileContent, err := ReadFileContent(key)
+			fileContent, err := ReadFileContentAsString(key)
 			if err != nil {
 				return "", err
 			}

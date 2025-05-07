@@ -3,8 +3,12 @@ package request
 import (
 	"bytes"
 	"fmt"
+	"mime"
 	"mime/multipart"
+	"net/textproto"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/httpclient"
@@ -45,6 +49,13 @@ func ConvertRequestToVar(r *httpclient.Request) RequestResponseVar {
 		queriesMaps[query.QueryKey] = query.Value
 	}
 	return RequestResponseVar{Headers: headersMaps, Queries: queriesMaps, Body: string(r.Body)}
+}
+
+// quoteEscaper is used to escape quotes in MIME headers.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
+
+func escapeQuotes(s string) string {
+	return quoteEscaper.Replace(s)
 }
 
 func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
@@ -148,25 +159,79 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	case mitemapiexample.BodyTypeForm:
 		writer := multipart.NewWriter(bodyBytes)
 		for _, v := range formBody {
+			actualBodyKey := v.BodyKey
 			if varsystem.CheckIsVar(v.BodyKey) {
 				key := varsystem.GetVarKeyFromRaw(v.BodyKey)
 				if val, ok := varMap.Get(key); ok {
-					v.BodyKey = val.Value
+					actualBodyKey = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
+
+			resolvedValue := v.Value
+			isFileUpload := false
+			actualFilePathForUpload := ""
+
 			if varsystem.CheckIsVar(v.Value) {
-				key := varsystem.GetVarKeyFromRaw(v.Value)
-				if val, ok := varMap.Get(key); ok {
-					v.Value = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				variableKey := varsystem.GetVarKeyFromRaw(v.Value)
+				fmt.Println(variableKey)
+				if varsystem.IsFileReference(variableKey) { // Direct file reference: {{#file:path.txt}}
+					isFileUpload = true
+					actualFilePathForUpload = varsystem.GetIsFileReferencePath(variableKey)
+				} else { // Regular variable: {{my_var}}
+					if val, ok := varMap.Get(variableKey); ok {
+						if strings.HasPrefix(val.Value, "#file:") { // Variable contains file reference
+							isFileUpload = true
+							actualFilePathForUpload = strings.TrimPrefix(val.Value, "#file:")
+						} else { // Variable contains regular text
+							resolvedValue = val.Value
+						}
+					} else {
+						return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", variableKey))
+					}
 				}
 			}
-			if err := writer.WriteField(v.BodyKey, v.Value); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+
+			fmt.Println(isFileUpload)
+			fmt.Println(actualFilePathForUpload)
+
+			if isFileUpload {
+				fileContentBytes, err := os.ReadFile(actualFilePathForUpload)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", actualFilePathForUpload, err))
+				}
+
+				fileName := filepath.Base(actualFilePathForUpload)
+
+				h := make(textproto.MIMEHeader)
+				h.Set("Content-Disposition",
+					fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+						escapeQuotes(actualBodyKey), escapeQuotes(fileName)))
+
+				// Determine MIME type based on file extension
+				mimeType := mime.TypeByExtension(filepath.Ext(fileName))
+				if mimeType == "" {
+					mimeType = "application/octet-stream" // Default if type can't be determined
+				}
+				h.Set("Content-Type", mimeType)
+
+				partWriter, err := writer.CreatePart(h)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create form part: %w", err))
+				}
+
+				if _, err = partWriter.Write(fileContentBytes); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to write file content: %w", err))
+				}
+			} else {
+				if err := writer.WriteField(actualBodyKey, resolvedValue); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 			}
+		}
+		if err := writer.Close(); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
 		}
 	case mitemapiexample.BodyTypeUrlencoded:
 		urlVal := url.Values{}
