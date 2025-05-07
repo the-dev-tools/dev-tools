@@ -8,6 +8,6 @@ require (
 )
 
 require (
-	github.com/google/go-cmp v0.6.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
 )
