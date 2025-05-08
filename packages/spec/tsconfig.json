@@ -7,7 +7,7 @@
     "emitDeclarationOnly": false,
     "allowImportingTsExtensions": false
   },
-  "include": ["lib", "data-client"],
+  "include": ["."],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

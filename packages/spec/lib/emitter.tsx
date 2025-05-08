@@ -1,4 +1,3 @@
-/* eslint-disable react/jsx-key */
 import { code, For, Output, refkey, SourceDirectory, SourceDirectoryContext, useContext } from '@alloy-js/core';
 import {
   ClassDeclaration,
@@ -13,37 +12,34 @@ import {
   emitFile,
   getEffectiveModelType,
   getFriendlyName,
-  Interface,
   isType,
   Model,
-  Namespace,
   resolvePath,
-  Type,
 } from '@typespec/compiler';
 import { writeOutput } from '@typespec/emitter-framework';
 import { Array, Data, HashMap, Match, Option, pipe, Record, String } from 'effect';
 import path from 'node:path';
 
-import { $lib } from './lib.js';
-const protobufState = {
-  message: Symbol.for('@typespec/protobuf.message'),
-  package: Symbol.for('@typespec/protobuf.package'),
-  service: Symbol.for('@typespec/protobuf.service'),
-};
+import {
+  autoChangesMap,
+  baseMap,
+  keyMap,
+  messageSet,
+  moveMap,
+  normalKeysMap,
+  packageMap,
+  serviceSet,
+} from './state.js';
 
 function moveMessages({ program }: EmitContext) {
   // Get declared packages
-  const packages = pipe(
-    program.stateMap(protobufState.package) as Map<Namespace, Model>,
-    (_) => _.keys(),
-    Array.fromIterable,
-  );
+  const packages = pipe(packageMap(program).keys(), Array.fromIterable);
 
   // Get declared services
-  const services = program.stateSet(protobufState.service) as Set<Interface>;
+  const services = new Set(serviceSet(program));
 
   // Get declared messages
-  const messages = new Set(program.stateSet(protobufState.message)) as Set<Model>;
+  const messages = new Set(messageSet(program));
 
   // Get package messages and services
   packages.forEach((_) => {
@@ -94,10 +90,8 @@ function moveMessages({ program }: EmitContext) {
 
   pipe(Array.fromIterable(messages), Array.forEach(addNestedMessages));
 
-  const moves = program.stateMap($lib.stateKeys.move) as Map<Model, Namespace>;
-
   Array.fromIterable(messages).forEach((_) => {
-    const moveTo = moves.get(_);
+    const moveTo = moveMap(program).get(_);
     if (!moveTo || _.namespace === moveTo) return;
 
     const name = getFriendlyName(program, _) ?? _.name;
@@ -114,7 +108,7 @@ export async function $onEmit(context: EmitContext) {
   if (program.compilerOptions.noEmit) return;
 
   const modelKeyMap = pipe(
-    program.stateMap(Symbol.for('TypeSpec.key')) as Map<Type, string>,
+    keyMap(program),
     (_) => _.entries(),
     Array.fromIterable,
     Array.filterMap(([type, key]) => {
@@ -124,18 +118,11 @@ export async function $onEmit(context: EmitContext) {
     HashMap.fromIterable,
   );
 
-  // const keyMap = program.stateMap(Symbol.for('TypeSpec.key')) as Map<Type, string>;
-  const normalKeysMap = program.stateMap($lib.stateKeys.normalKeys) as Map<Model, string[]>;
-
-  const packageStateMap = program.stateMap(protobufState.package) as Map<Namespace, Model>;
-
   const getPackageName = (details: Model) => {
     const name = details.properties.get('name')?.type;
     if (name?.kind !== 'String') return null;
     return name.value;
   };
-
-  const bases = program.stateMap($lib.stateKeys.base) as Map<Model, Model>;
 
   interface Entity {
     key: string;
@@ -174,18 +161,18 @@ export async function $onEmit(context: EmitContext) {
   };
 
   pipe(
-    bases.entries(),
+    baseMap(program).entries(),
     Array.fromIterable,
     Array.forEach(([target, base]) => {
       if (!target.namespace) return;
-      const packageName = packageStateMap.get(target.namespace)?.properties.get('name')?.type;
+      const packageName = packageMap(program).get(target.namespace)?.properties.get('name')?.type;
       if (packageName?.kind !== 'String') return;
 
       const name = getFriendlyName(program, target) ?? target.name;
       const baseName = getFriendlyName(program, base) ?? base.name;
 
       const key = pipe(HashMap.get(modelKeyMap, target), Array.fromOption);
-      const normalKeys = normalKeysMap.get(target) ?? [];
+      const normalKeys = normalKeysMap(program).get(target) ?? [];
       const primaryKeys = [...key, ...normalKeys];
 
       const directory = getOrMakeDirectory(root, packageName.value.split('.'));
@@ -286,7 +273,7 @@ export async function $onEmit(context: EmitContext) {
   );
 
   const typeMap = pipe(
-    packageStateMap.entries(),
+    packageMap(program).entries(),
     Array.fromIterable,
     Array.flatMapNullable(([{ models }, details]) => {
       const packageName = details.properties.get('name')?.type;
@@ -300,14 +287,14 @@ export async function $onEmit(context: EmitContext) {
           const typeName = `${packageName.value}.${name}`;
 
           let meta: Record<string, unknown> = {
-            autoChanges: (program.stateMap($lib.stateKeys.autoChanges) as Map<Model, unknown>).get(model),
+            autoChanges: autoChangesMap(program).get(model),
           };
 
-          const baseModel = (program.stateMap($lib.stateKeys.base) as Map<Model, Model>).get(model);
+          const baseModel = baseMap(program).get(model);
           if (baseModel) {
             pipe(
               Option.fromNullable(baseModel.namespace),
-              Option.flatMapNullable((_) => packageStateMap.get(_)),
+              Option.flatMapNullable((_) => packageMap(program).get(_)),
               Option.flatMapNullable(getPackageName),
               Option.map((_) => {
                 meta = { ...meta, base: `${_}.${baseModel.name}` };
@@ -319,7 +306,7 @@ export async function $onEmit(context: EmitContext) {
             meta = {
               ...meta,
               key: pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined),
-              normalKeys: program.stateMap($lib.stateKeys.normalKeys).get(model),
+              normalKeys: normalKeysMap(program).get(model),
             };
           }
 
