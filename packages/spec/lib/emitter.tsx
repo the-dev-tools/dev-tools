@@ -1,5 +1,15 @@
-import { code, For, Output, refkey, SourceDirectory, SourceDirectoryContext, useContext } from '@alloy-js/core';
 import {
+  code,
+  createContext,
+  For,
+  Output,
+  refkey,
+  SourceDirectory,
+  SourceDirectoryContext,
+  useContext,
+} from '@alloy-js/core';
+import {
+  ArrayExpression,
   ClassDeclaration,
   CommaList,
   FunctionCallExpression,
@@ -8,7 +18,7 @@ import {
   SourceFile,
 } from '@alloy-js/typescript';
 import {
-  EmitContext,
+  type EmitContext,
   emitFile,
   getEffectiveModelType,
   getFriendlyName,
@@ -134,12 +144,16 @@ const getOrMakeDirectory = (root: Directory, path: string[]): Directory => {
   );
 };
 
+const EmitContext = createContext<EmitContext>();
+
 interface FileOutputProps {
   file: File;
   path: string;
 }
 
 const FileOutput = ({ file, path: name }: FileOutputProps) => {
+  const { program } = useContext(EmitContext)!;
+
   const directory = useContext(SourceDirectoryContext)?.path ?? '';
   const protobuf = path.relative(directory, `../buf/typescript/${directory}/${name}_pb`);
   const dataClient = path.relative(directory, '../../data-client');
@@ -162,27 +176,60 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
       <hardline />
 
       <For doubleHardline each={Record.toEntries(file.entities)}>
-        {([name, _]) => (
-          <ClassDeclaration
-            export
-            extends={
-              <FunctionCallExpression
-                args={[
-                  <ObjectExpression>
-                    <CommaList>
-                      <ObjectProperty name='schema' value={`${name}Schema`} />
-                      <ObjectProperty jsValue={_.key} name='key' />
-                      <ObjectProperty jsValue={_.primaryKeys} name='primaryKeys' />
-                    </CommaList>
-                  </ObjectExpression>,
-                ]}
-                target='makeEntity'
-              />
-            }
-            name={`${name}Entity`}
-            refkey={refkey(_.model)}
-          />
-        )}
+        {([name, _]) => {
+          const schema = pipe(
+            _.model.properties.values(),
+            Array.fromIterable,
+            Array.filterMap((_) => {
+              if (_.type.kind !== 'Model') return Option.none();
+
+              if (_.type.name === 'Array' && _.type.namespace?.name === 'TypeSpec') {
+                const type = _.type.templateMapper?.args[0];
+
+                if (!type || !isType(type) || type.kind !== 'Model' || !baseMap(program).has(type)) {
+                  return Option.none();
+                }
+
+                return Option.some(
+                  <ObjectProperty name={_.name} value={<ArrayExpression>{refkey(type)}</ArrayExpression>} />,
+                );
+              }
+
+              if (!baseMap(program).has(_.type)) return Option.none();
+              return Option.some(<ObjectProperty name={_.name} value={refkey(_.type)} />);
+            }),
+            Option.liftPredicate(Array.isNonEmptyArray),
+            Option.map((_) => (
+              <ObjectExpression>
+                <CommaList>{_}</CommaList>
+              </ObjectExpression>
+            )),
+            Option.getOrNull,
+          );
+
+          return (
+            <ClassDeclaration
+              export
+              extends={
+                <FunctionCallExpression
+                  args={[
+                    <ObjectExpression>
+                      <CommaList>
+                        <ObjectProperty name='message' value={`${name}Schema`} />
+                        <ObjectProperty jsValue={_.key} name='key' />
+                        <ObjectProperty jsValue={_.primaryKeys} name='primaryKeys' />
+                        {schema && <ObjectProperty name='schema' value={schema} />}
+                      </CommaList>
+                    </ObjectExpression>,
+                  ]}
+                  target='makeEntity'
+                />
+              }
+              name={`${name}Entity`}
+              refkey={refkey(_.model)}
+            />
+          );
+        }}
       </For>
     </SourceFile>
   );
@@ -277,7 +324,9 @@ export async function $onEmit(context: EmitContext) {
   await writeOutput(
     program,
     <Output>
-      <DirectoryOutput directory={root} path='.' />
+      <EmitContext.Provider value={context}>
+        <DirectoryOutput directory={root} path='.' />
+      </EmitContext.Provider>
     </Output>,
     emitterOutputDir,
   );
