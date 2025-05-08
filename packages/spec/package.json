@@ -12,17 +12,24 @@
     "./meta/*": "./dist/meta/*"
   },
   "devDependencies": {
+    "@alloy-js/cli": "^0.15.0",
+    "@alloy-js/core": "^0.15.0",
+    "@alloy-js/typescript": "^0.15.0",
     "@bufbuild/buf": "~1.52.1",
     "@bufbuild/protobuf": "~2.2.5",
     "@bufbuild/protoc-gen-es": "~2.2.5",
     "@connectrpc/protoc-gen-connect-query": "~2.0.1",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "~22.14.1",
+    "@typespec/emitter-framework": "^0.6.0",
     "@typespec/protobuf": "~0.68.0",
     "@typespec/rest": "~0.68.0",
     "effect": "~3.14.8",
     "prettier": "~3.5.3",
     "rimraf": "~6.0.1",
     "typescript": "~5.8.3"
+  },
+  "dependencies": {
+    "@data-client/endpoint": "0.14.25"
   }
 }

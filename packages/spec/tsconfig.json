@@ -1,12 +1,17 @@
 {
-  "extends": ["../../tsconfig.base.json"],
-  "files": [],
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "preserve",
+    "jsxImportSource": "@alloy-js/core",
+    "emitDeclarationOnly": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["lib", "data-client"],
+  "exclude": ["node_modules", "dist"],
   "references": [
     {
       "path": "../../configs/eslint"
-    },
-    {
-      "path": "./tsconfig.lib.json"
     }
   ]
 }
