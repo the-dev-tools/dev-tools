@@ -100,6 +100,112 @@ function moveMessages({ program }: EmitContext) {
   });
 }
 
+interface Entity {
+  key: string;
+  model: Model;
+  primaryKeys: string[];
+}
+
+class File extends Data.TaggedClass('File')<{
+  entities: Record<string, Entity>;
+}> {}
+
+class Directory extends Data.TaggedClass('Directory')<{
+  items: Record<string, Directory | File>;
+}> {}
+
+const getOrMakeDirectory = (root: Directory, path: string[]): Directory => {
+  const [pathNext, ...pathRest] = path;
+  if (!pathNext) return root;
+
+  return pipe(
+    // root.files.get(pathNext),
+    root.items[pathNext],
+    Match.value,
+    Match.when(undefined, () => {
+      const next = new Directory({ items: {} });
+      root.items[pathNext] = next;
+      // root.files.set(pathNext, next);
+      return getOrMakeDirectory(next, pathRest);
+    }),
+    Match.tag('Directory', (_) => getOrMakeDirectory(_, pathRest)),
+    Match.tag('File', () => root),
+    Match.exhaustive,
+  );
+};
+
+interface FileOutputProps {
+  file: File;
+  path: string;
+}
+
+const FileOutput = ({ file, path: name }: FileOutputProps) => {
+  const directory = useContext(SourceDirectoryContext)?.path ?? '';
+  const protobuf = path.relative(directory, `../buf/typescript/${directory}/${name}_pb`);
+  const dataClient = path.relative(directory, '../../data-client');
+
+  return (
+    <SourceFile path={`${name}.ts`}>
+      {code`
+        import { makeEntity } from "${dataClient}/utils";
+
+        import {
+          ${(
+            <For comma each={Record.keys(file.entities)} enderPunctuation hardline>
+              {(_) => `${_}Schema`}
+            </For>
+          )}
+        } from "${protobuf}";
+      `}
+
+      <hardline />
+      <hardline />
+
+      <For doubleHardline each={Record.toEntries(file.entities)}>
+        {([name, _]) => (
+          <ClassDeclaration
+            export
+            extends={
+              <FunctionCallExpression
+                args={[
+                  <ObjectExpression>
+                    <CommaList>
+                      <ObjectProperty name='schema' value={`${name}Schema`} />
+                      <ObjectProperty jsValue={_.key} name='key' />
+                      <ObjectProperty jsValue={_.primaryKeys} name='primaryKeys' />
+                    </CommaList>
+                  </ObjectExpression>,
+                ]}
+                target='makeEntity'
+              />
+            }
+            name={`${name}Entity`}
+            refkey={refkey(_.model)}
+          />
+        )}
+      </For>
+    </SourceFile>
+  );
+};
+
+interface DirectoryOutputProps {
+  directory: Directory;
+  path: string;
+}
+
+const DirectoryOutput = ({ directory, path }: DirectoryOutputProps) => {
+  const items = Record.map(directory.items, (item, path) =>
+    pipe(
+      Match.value(item),
+      Match.tag('Directory', (_) => <DirectoryOutput directory={_} path={path} />),
+      Match.tag('File', (_) => <FileOutput file={_} path={path} />),
+      Match.exhaustive,
+    ),
+  );
+
+  return <SourceDirectory path={path}>{Record.values(items)}</SourceDirectory>;
+};
+
 export async function $onEmit(context: EmitContext) {
   moveMessages(context);
 
@@ -124,41 +230,7 @@ export async function $onEmit(context: EmitContext) {
     return name.value;
   };
 
-  interface Entity {
-    key: string;
-    model: Model;
-    primaryKeys: string[];
-  }
-
-  class File extends Data.TaggedClass('File')<{
-    entities: Record<string, Entity>;
-  }> {}
-
-  class Directory extends Data.TaggedClass('Directory')<{
-    items: Record<string, Directory | File>;
-  }> {}
-
   const root = new Directory({ items: {} });
-
-  const getOrMakeDirectory = (root: Directory, path: string[]): Directory => {
-    const [pathNext, ...pathRest] = path;
-    if (!pathNext) return root;
-
-    return pipe(
-      // root.files.get(pathNext),
-      root.items[pathNext],
-      Match.value,
-      Match.when(undefined, () => {
-        const next = new Directory({ items: {} });
-        root.items[pathNext] = next;
-        // root.files.set(pathNext, next);
-        return getOrMakeDirectory(next, pathRest);
-      }),
-      Match.tag('Directory', (_) => getOrMakeDirectory(_, pathRest)),
-      Match.tag('File', () => root),
-      Match.exhaustive,
-    );
-  };
 
   pipe(
     baseMap(program).entries(),
@@ -201,68 +273,6 @@ export async function $onEmit(context: EmitContext) {
       };
     }),
   );
-
-  const FileOutput = ({ file, path: name }: { file: File; path: string }) => {
-    const directory = useContext(SourceDirectoryContext)?.path ?? '';
-    const protobuf = path.relative(directory, `../buf/typescript/${directory}/${name}_pb`);
-    const dataClient = path.relative(directory, '../../data-client');
-
-    return (
-      <SourceFile path={`${name}.ts`}>
-        {code`
-          import { makeEntity } from "${dataClient}/utils";
-
-          import {
-            ${(
-              <For comma each={Record.keys(file.entities)} enderPunctuation hardline>
-                {(_) => `${_}Schema`}
-              </For>
-            )}
-          } from "${protobuf}";
-        `}
-
-        <hardline />
-        <hardline />
-
-        <For doubleHardline each={Record.toEntries(file.entities)}>
-          {([name, _]) => (
-            <ClassDeclaration
-              export
-              extends={
-                <FunctionCallExpression
-                  args={[
-                    <ObjectExpression>
-                      <CommaList>
-                        <ObjectProperty name='schema' value={`${name}Schema`} />
-                        <ObjectProperty jsValue={_.key} name='key' />
-                        <ObjectProperty jsValue={_.primaryKeys} name='primaryKeys' />
-                      </CommaList>
-                    </ObjectExpression>,
-                  ]}
-                  target='makeEntity'
-                />
-              }
-              name={`${name}Entity`}
-              refkey={refkey(_.model)}
-            />
-          )}
-        </For>
-      </SourceFile>
-    );
-  };
-
-  const DirectoryOutput = ({ directory, path }: { directory: Directory; path: string }) => {
-    const items = Record.map(directory.items, (item, path) =>
-      pipe(
-        Match.value(item),
-        Match.tag('Directory', (_) => <DirectoryOutput directory={_} path={path} />),
-        Match.tag('File', (_) => <FileOutput file={_} path={path} />),
-        Match.exhaustive,
-      ),
-    );
-
-    return <SourceDirectory path={path}>{Record.values(items)}</SourceDirectory>;
-  };
 
   await writeOutput(
     program,

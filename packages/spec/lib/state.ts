@@ -1,6 +1,6 @@
 import { Interface, Model, Namespace, Program, Type } from '@typespec/compiler';
 
-import { $lib } from './lib';
+import { $lib } from './lib.js';
 
 // TypeSpec
 
