@@ -30,6 +30,7 @@
     "typescript": "~5.8.3"
   },
   "dependencies": {
+    "@connectrpc/connect": "2.0.2",
     "@data-client/endpoint": "0.14.25"
   }
 }

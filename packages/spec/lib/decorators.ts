@@ -15,6 +15,7 @@ import { getParentResource, getResourceTypeKey } from '@typespec/rest';
 import { Array, Hash, Number, Option, pipe, Record } from 'effect';
 
 import { $lib } from './lib.js';
+import { endpointSet, entityMap } from './state.js';
 
 export function $copyKey(context: DecoratorContext, target: Model) {
   const { program } = context;
@@ -179,4 +180,12 @@ export function $move(context: DecoratorContext, target: Model, from: Model | Na
 
 export function $useFriendlyName(context: DecoratorContext, target: Operation) {
   target.name = getFriendlyName(context.program, target) ?? target.name;
+}
+
+export function $entity({ program }: DecoratorContext, target: Model, base?: Model) {
+  entityMap(program).set(target, base ?? target);
+}
+
+export function $endpoint({ program }: DecoratorContext, target: Operation) {
+  endpointSet(program).add(target);
 }

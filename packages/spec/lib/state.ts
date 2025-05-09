@@ -1,4 +1,4 @@
-import { Interface, Model, Namespace, Program, Type } from '@typespec/compiler';
+import { Interface, Model, Namespace, Operation, Program, Type } from '@typespec/compiler';
 
 import { $lib } from './lib.js';
 
@@ -26,3 +26,7 @@ export const normalKeysMap = (program: Program) => program.stateMap($lib.stateKe
 export const baseMap = (program: Program) => program.stateMap($lib.stateKeys.base) as Map<Model, Model>;
 
 export const autoChangesMap = (program: Program) => program.stateMap($lib.stateKeys.autoChanges) as Map<Model, unknown>;
+
+export const entityMap = (program: Program) => program.stateMap($lib.stateKeys.entity) as Map<Model, Model>;
+
+export const endpointSet = (program: Program) => program.stateSet($lib.stateKeys.endpoint) as Set<Operation>;

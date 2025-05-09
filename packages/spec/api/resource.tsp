@@ -36,6 +36,7 @@ interface CRUD<Resource extends Model>
 
 namespace List {
   interface Operation<Resource extends Model> {
+    @endpoint
     @useFriendlyName
     @friendlyName("{name}List", Resource)
     List(...Request<Resource>): Response<Resource>;
@@ -43,6 +44,7 @@ namespace List {
 
   @move(List, Resource)
   @friendlyName("{name}ListItem", Resource)
+  @entity(Resource)
   @normalize(Resource)
   @withVisibility(Query.List)
   model Item<Resource extends Model> {
@@ -61,12 +63,15 @@ namespace List {
   @normalize
   model Response<Resource extends Model, Item = List.Item<Resource>> {
     ...Request<Resource>;
+    // @collection
+    // @argKeys(Request<Resource>)
     items: Item[];
   }
 }
 
 namespace Get {
   interface Operation<Resource extends Model> {
+    @endpoint
     @useFriendlyName
     @friendlyName("{name}Get", Resource)
     Get(...Request<Resource>): Response<Resource>;
@@ -81,6 +86,7 @@ namespace Get {
   @move(Get, Resource)
   @friendlyName("{name}GetResponse", Resource)
   @normalize(Resource)
+  @entity(Resource)
   @withVisibility(Query.Get)
   model Response<Resource extends Model> {
     ...Resource;
@@ -89,6 +95,7 @@ namespace Get {
 
 namespace Create {
   interface Operation<Resource extends Model> {
+    @endpoint
     @useFriendlyName
     @friendlyName("{name}Create", Resource)
     Create(...Request<Resource>): Response<Resource>;
@@ -96,7 +103,7 @@ namespace Create {
 
   @move(Create, Resource)
   @friendlyName("{name}CreateRequest", Resource)
-  @normalize(Resource)
+  // @normalize(Resource)
   @withVisibility(Mutation.Create)
   model Request<Resource extends Model> {
     ...ParentKeyOf<Resource>;
@@ -105,6 +112,7 @@ namespace Create {
 
   @move(Create, Resource)
   @friendlyName("{name}CreateResponse", Resource)
+  // @collectionPush(Request<Resource>)
   model Response<Resource extends Model, ListResponse extends Model = Resource> {
     ...KeyOf<Resource>;
   }
@@ -112,6 +120,7 @@ namespace Create {
 
 namespace Update {
   interface Operation<Resource extends Model> {
+    @endpoint
     @useFriendlyName
     @friendlyName("{name}Update", Resource)
     Update(...Request<Resource>): Response<Resource>;
@@ -119,7 +128,7 @@ namespace Update {
 
   @move(Update, Resource)
   @friendlyName("{name}UpdateRequest", Resource)
-  @normalize(Resource)
+  // @normalize(Resource)
   @withVisibility(Mutation.Update)
   model Request<Resource extends Model> {
     ...KeyOf<Resource>;
@@ -133,6 +142,7 @@ namespace Update {
 
 namespace Delete {
   interface Operation<Resource extends Model> {
+    @endpoint
     @useFriendlyName
     @friendlyName("{name}Delete", Resource)
     Delete(...Request<Resource>): Response<Resource>;
@@ -140,7 +150,7 @@ namespace Delete {
 
   @move(Delete, Resource)
   @friendlyName("{name}DeleteRequest", Resource)
-  @normalize(Resource)
+  // @normalize(Resource)
   model Request<Resource extends Model> {
     ...KeyOf<Resource>;
   }

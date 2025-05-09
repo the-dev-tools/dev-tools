@@ -545,6 +545,9 @@ importers:
 
   packages/spec:
     dependencies:
+      '@connectrpc/connect':
+        specifier: 2.0.2
+        version: 2.0.2(@bufbuild/protobuf@2.2.5)
       '@data-client/endpoint':
         specifier: 0.14.25
         version: 0.14.25(patch_hash=6edd7e5378ddb34f9725f7cacef5187baa3624e6353b11062d29afc042063988)

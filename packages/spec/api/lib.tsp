@@ -35,3 +35,7 @@ extern dec move(target: Model, from: Namespace | Model, to: Namespace | Model);
  * unsupported, f.e. operations in Protobuf emitter
  */
 extern dec useFriendlyName(target: Operation);
+
+extern dec entity(target: Model, base?: Model);
+
+extern dec endpoint(target: Operation);

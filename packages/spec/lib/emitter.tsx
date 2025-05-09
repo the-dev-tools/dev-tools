@@ -16,14 +16,18 @@ import {
   ObjectExpression,
   ObjectProperty,
   SourceFile,
+  VarDeclaration,
 } from '@alloy-js/typescript';
 import {
   type EmitContext,
   emitFile,
   getEffectiveModelType,
   getFriendlyName,
+  Interface,
   isType,
   Model,
+  Namespace,
+  Operation,
   resolvePath,
 } from '@typespec/compiler';
 import { writeOutput } from '@typespec/emitter-framework';
@@ -33,6 +37,8 @@ import path from 'node:path';
 import {
   autoChangesMap,
   baseMap,
+  endpointSet,
+  entityMap,
   keyMap,
   messageSet,
   moveMap,
@@ -116,7 +122,14 @@ interface Entity {
   primaryKeys: string[];
 }
 
+interface Endpoint {
+  key: string;
+  operation: Operation;
+  service: Interface;
+}
+
 class File extends Data.TaggedClass('File')<{
+  endpoints: Record<string, Endpoint>;
   entities: Record<string, Entity>;
 }> {}
 
@@ -124,24 +137,45 @@ class Directory extends Data.TaggedClass('Directory')<{
   items: Record<string, Directory | File>;
 }> {}
 
-const getOrMakeDirectory = (root: Directory, path: string[]): Directory => {
+const getDirectory = (root: Directory, path: string[]): Directory => {
   const [pathNext, ...pathRest] = path;
   if (!pathNext) return root;
 
   return pipe(
-    // root.files.get(pathNext),
     root.items[pathNext],
     Match.value,
     Match.when(undefined, () => {
       const next = new Directory({ items: {} });
       root.items[pathNext] = next;
-      // root.files.set(pathNext, next);
-      return getOrMakeDirectory(next, pathRest);
+      return getDirectory(next, pathRest);
     }),
-    Match.tag('Directory', (_) => getOrMakeDirectory(_, pathRest)),
+    Match.tag('Directory', (_) => getDirectory(_, pathRest)),
     Match.tag('File', () => root),
     Match.exhaustive,
   );
+};
+
+const getFile = (root: Directory, packageName: string) => {
+  const directory = getDirectory(root, packageName.split('.'));
+
+  const filename = pipe(
+    packageName,
+    String.split('.'),
+    Array.filter((_) => _ !== 'v1'),
+    Array.last,
+    Option.getOrElse(() => packageName),
+  );
+
+  let file = directory.items[filename];
+
+  if (file === undefined) {
+    file = new File({ endpoints: {}, entities: {} });
+    directory.items[filename] = file;
+  }
+
+  if (file._tag !== 'File') return;
+
+  return file;
 };
 
 const EmitContext = createContext<EmitContext>();
@@ -158,15 +192,27 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
   const protobuf = path.relative(directory, `../buf/typescript/${directory}/${name}_pb`);
   const dataClient = path.relative(directory, '../../data-client');
 
+  const services = pipe(
+    file.endpoints,
+    Record.values,
+    Array.map((_) => _.service.name),
+    Array.dedupe,
+  );
+
   return (
     <SourceFile path={`${name}.ts`}>
       {code`
-        import { makeEntity } from "${dataClient}/utils";
+        import { makeEndpoint, makeEntity } from "${dataClient}/utils";
 
         import {
           ${(
             <For comma each={Record.keys(file.entities)} enderPunctuation hardline>
               {(_) => `${_}Schema`}
+            </For>
+          )}
+          ${(
+            <For comma each={services} enderPunctuation hardline>
+              {(_) => _}
             </For>
           )}
         } from "${protobuf}";
@@ -186,7 +232,7 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
               if (_.type.name === 'Array' && _.type.namespace?.name === 'TypeSpec') {
                 const type = _.type.templateMapper?.args[0];
 
-                if (!type || !isType(type) || type.kind !== 'Model' || !baseMap(program).has(type)) {
+                if (!type || !isType(type) || type.kind !== 'Model' || !entityMap(program).has(type)) {
                   return Option.none();
                 }
 
@@ -195,7 +241,7 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
                 );
               }
 
-              if (!baseMap(program).has(_.type)) return Option.none();
+              if (!entityMap(program).has(_.type)) return Option.none();
               return Option.some(<ObjectProperty name={_.name} value={refkey(_.type)} />);
             }),
             Option.liftPredicate(Array.isNonEmptyArray),
@@ -230,6 +276,30 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
             />
           );
         }}
+      </For>
+
+      <hardline />
+      <hardline />
+
+      <For doubleHardline each={Record.toEntries(file.endpoints)}>
+        {([name, _]) => (
+          <VarDeclaration const export name={name}>
+            <FunctionCallExpression
+              args={[
+                <ObjectExpression>
+                  <CommaList>
+                    <ObjectProperty
+                      name='method'
+                      value={`${_.service.name}.method.${String.uncapitalize(_.operation.name)}`}
+                    />
+                    <ObjectProperty jsValue={_.key} name='name' />
+                  </CommaList>
+                </ObjectExpression>,
+              ]}
+              target='makeEndpoint'
+            />
+          </VarDeclaration>
+        )}
       </For>
     </SourceFile>
   );
@@ -271,8 +341,10 @@ export async function $onEmit(context: EmitContext) {
     HashMap.fromIterable,
   );
 
-  const getPackageName = (details: Model) => {
-    const name = details.properties.get('name')?.type;
+  const getPackageName = (namespace?: Namespace) => {
+    if (!namespace) return;
+    const details = packageMap(program).get(namespace);
+    const name = details?.properties.get('name')?.type;
     if (name?.kind !== 'String') return null;
     return name.value;
   };
@@ -280,12 +352,11 @@ export async function $onEmit(context: EmitContext) {
   const root = new Directory({ items: {} });
 
   pipe(
-    baseMap(program).entries(),
+    entityMap(program).entries(),
     Array.fromIterable,
     Array.forEach(([target, base]) => {
-      if (!target.namespace) return;
-      const packageName = packageMap(program).get(target.namespace)?.properties.get('name')?.type;
-      if (packageName?.kind !== 'String') return;
+      const packageName = getPackageName(target.namespace);
+      if (!packageName) return;
 
       const name = getFriendlyName(program, target) ?? target.name;
       const baseName = getFriendlyName(program, base) ?? base.name;
@@ -294,29 +365,35 @@ export async function $onEmit(context: EmitContext) {
       const normalKeys = normalKeysMap(program).get(target) ?? [];
       const primaryKeys = [...key, ...normalKeys];
 
-      const directory = getOrMakeDirectory(root, packageName.value.split('.'));
-
-      const filename = pipe(
-        packageName.value,
-        String.split('.'),
-        Array.filter((_) => _ !== 'v1'),
-        Array.last,
-        Option.getOrElse(() => packageName.value),
-      );
-
-      let file = directory.items[filename];
-
-      if (file === undefined) {
-        file = new File({ entities: {} });
-        directory.items[filename] = file;
-      }
-
-      if (file._tag !== 'File') return;
+      const file = getFile(root, packageName);
+      if (!file) return;
 
       file.entities[name] = {
-        key: `${packageName.value}.${baseName}`,
+        key: `${packageName}.${baseName}`,
         model: target,
         primaryKeys,
+      };
+    }),
+  );
+
+  pipe(
+    endpointSet(program).values(),
+    Array.fromIterable,
+    Array.forEach((_) => {
+      if (!_.interface) return;
+
+      const packageName = getPackageName(_.namespace);
+      if (!packageName) return;
+
+      const name = getFriendlyName(program, _) ?? _.name;
+
+      const file = getFile(root, packageName);
+      if (!file) return;
+
+      file.endpoints[name] = {
+        key: `${packageName}.${_.interface.name}/${name}`,
+        operation: _,
+        service: _.interface,
       };
     }),
   );
@@ -352,9 +429,8 @@ export async function $onEmit(context: EmitContext) {
           const baseModel = baseMap(program).get(model);
           if (baseModel) {
             pipe(
-              Option.fromNullable(baseModel.namespace),
-              Option.flatMapNullable((_) => packageMap(program).get(_)),
-              Option.flatMapNullable(getPackageName),
+              getPackageName(baseModel.namespace),
+              Option.fromNullable,
               Option.map((_) => {
                 meta = { ...meta, base: `${_}.${baseModel.name}` };
               }),
