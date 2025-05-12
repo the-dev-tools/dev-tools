@@ -284,8 +284,7 @@ CREATE TABLE assertion (
 
 CREATE INDEX assertion_idx1 ON assertion (
   example_id,
-  type,
-  path
+  expression
 );
 
 CREATE TABLE assertion_result (
