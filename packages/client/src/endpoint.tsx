@@ -1,4 +1,4 @@
-import { create, enumToJson } from '@bufbuild/protobuf';
+import { create } from '@bufbuild/protobuf';
 import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
@@ -55,7 +55,6 @@ import {
   responseGet,
   responseHeaderList,
 } from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
-import { ComparisonKindSchema } from '@the-dev-tools/spec/condition/v1/condition_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { Spinner } from '@the-dev-tools/ui/icons';
@@ -1006,7 +1005,7 @@ const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
       {items.map(({ assert, result }) => {
         if (!assert) return null;
         const assertIdCan = Ulid.construct(assert.assertId).toCanonical();
-        const { kind, left, right } = assert.condition!.comparison!;
+        const { expression } = assert.condition!.comparison!;
         return (
           <Fragment key={assertIdCan}>
             <div
@@ -1018,9 +1017,7 @@ const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
               {result ? 'Pass' : 'Fail'}
             </div>
 
-            <span>
-              {left} {enumToJson(ComparisonKindSchema, kind)} {right}
-            </span>
+            <span>{expression}</span>
           </Fragment>
         );
       })}
