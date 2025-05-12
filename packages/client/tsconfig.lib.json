@@ -13,7 +13,7 @@
       "path": "../ui/tsconfig.lib.json"
     },
     {
-      "path": "../spec"
+      "path": "../spec/tsconfig.lib.json"
     },
     {
       "path": "../../configs/eslint/tsconfig.lib.json"
