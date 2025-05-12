@@ -51,6 +51,14 @@ interface CRUD<Resource extends Model>
 
 namespace List {
   interface Operation<Resource extends Model> {
+    @move(List, Resource)
+    @endpoint(
+      "resource.js:list",
+      {
+        inputPrimaryKeys: PrimaryKeys<Request<Resource>>,
+        itemSchema: Schema<Item<Resource>>,
+      }
+    )
     @useFriendlyName
     @friendlyName("{name}List", Resource)
     List(...Request<Resource>): Response<Resource>;
@@ -58,6 +66,7 @@ namespace List {
 
   @move(List, Resource)
   @friendlyName("{name}ListItem", Resource)
+  @entity(Resource)
   @normalize(Resource)
   @withVisibility(Query.List)
   model Item<Resource extends Model> {
@@ -82,6 +91,13 @@ namespace List {
 
 namespace Get {
   interface Operation<Resource extends Model> {
+    @move(Get, Resource)
+    @endpoint(
+      "resource.js:get",
+      {
+        schema: Schema<Response<Resource>>,
+      }
+    )
     @useFriendlyName
     @friendlyName("{name}Get", Resource)
     Get(...Request<Resource>): Response<Resource>;
@@ -96,6 +112,7 @@ namespace Get {
   @move(Get, Resource)
   @friendlyName("{name}GetResponse", Resource)
   @normalize(Resource)
+  @entity(Resource)
   @withVisibility(Query.Get)
   model Response<Resource extends Model> {
     ...Resource;
@@ -104,6 +121,14 @@ namespace Get {
 
 namespace Create {
   interface Operation<Resource extends Model> {
+    @move(Create, Resource)
+    @endpoint(
+      "resource.js:create",
+      {
+        listInputPrimaryKeys: PrimaryKeys<List.Request<Resource>>,
+        listItemSchema: Schema<List.Item<Resource>>,
+      }
+    )
     @useFriendlyName
     @friendlyName("{name}Create", Resource)
     Create(...Request<Resource>): Response<Resource>;
@@ -143,6 +168,13 @@ namespace Create {
 
 namespace Update {
   interface Operation<Resource extends Model> {
+    @move(Update, Resource)
+    @endpoint(
+      "resource.js:update",
+      {
+        schema: Schema<Resource>,
+      }
+    )
     @useFriendlyName
     @friendlyName("{name}Update", Resource)
     Update(...Request<Resource>): Response<Resource>;
@@ -173,6 +205,13 @@ namespace Update {
 
 namespace Delete {
   interface Operation<Resource extends Model> {
+    @move(Delete, Resource)
+    @endpoint(
+      "resource.js:delete$",
+      {
+        schema: Schema<Resource>,
+      }
+    )
     @useFriendlyName
     @friendlyName("{name}Delete", Resource)
     Delete(...Request<Resource>): Response<Resource>;
