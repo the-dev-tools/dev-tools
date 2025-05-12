@@ -8,7 +8,7 @@ using TypeSpec.Protobuf;
 using TypeSpec.Reflection;
 
 @package({
-  name: "resources",
+  name: "resources.v1",
   options: {
     go_package: "the-dev-tools/spec/dist/buf/go/resources/v1;resourcesv1",
   },
