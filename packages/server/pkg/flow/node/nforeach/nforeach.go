@@ -2,15 +2,16 @@ package nforeach
 
 import (
 	"context"
-	"strconv"
-	"the-dev-tools/server/pkg/assertv2"
-	"the-dev-tools/server/pkg/assertv2/leafs/leafmock"
+	"fmt"
+	"iter"
+	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/varsystem"
 	"time"
 )
 
@@ -58,44 +59,34 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		NodeVarKey: req.VarMap,
 	}
 
-	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
-	}
-	root := assertv2.NewAssertRoot(rootLeaf)
-	assertSys := assertv2.NewAssertSystem(root)
-
-	var arr []interface{}
-	var mapInterface map[string]interface{}
-	var err error
-
-	arr, err = assertSys.EvalArray(ctx, nr.IterPath, assertv2.Langs...)
+	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
 	if err != nil {
-		mapInterface, err = assertSys.EvalMap(ctx, nr.IterPath, assertv2.Langs...)
-		if err != nil {
-			return node.FlowNodeResult{
-				Err: err,
-			}
+		return node.FlowNodeResult{
+			Err: err,
 		}
 	}
 
-	cond := nr.Condition
-	compare := cond.Comparisons
+	exprEnv := expression.NewEnv(a)
+	result, err := expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+	if err != nil {
+		return node.FlowNodeResult{
+			Err: err,
+		}
+	}
+
+	breakExpr := nr.Condition.Comparisons.Expression
+	normalizedExpressionBreak, err := expression.NormalizeExpression(ctx, breakExpr, varMap)
+	if err != nil {
+		return node.FlowNodeResult{
+			Err: err,
+		}
+	}
 
 	processNode := func() node.FlowNodeResult {
 		for _, nextNodeID := range loopID {
-			var val interface{}
-			if v, err := strconv.ParseInt(compare.Value, 0, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseFloat(compare.Value, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseBool(compare.Value); err == nil {
-				val = v
-			} else {
-				val = nr
-			}
-
-			if cond.Comparisons.Path != "" {
-				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(compare.Kind), compare.Path, val)
+			if breakExpr != "" {
+				ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
 				if err != nil {
 					return node.FlowNodeResult{
 						Err: err,
@@ -116,22 +107,26 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return node.FlowNodeResult{}
 	}
 
-	if len(arr) > 0 {
-		for range arr {
+	switch seq := result.(type) {
+	case iter.Seq[any]:
+		fmt.Println("Got a sequence (from a slice/array):")
+		for _ = range seq {
 			result := processNode()
 			if result.Err != nil {
 				return result
 			}
 		}
-	} else if len(mapInterface) > 0 {
-		for range mapInterface {
+	case iter.Seq2[string, any]:
+		fmt.Println("Got a key-value sequence (from a map):")
+		for _, _ = range seq {
 			result := processNode()
 			if result.Err != nil {
 				return result
 			}
 		}
+	default:
+		fmt.Println("Unexpected result type")
 	}
-
 	return node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
@@ -142,89 +137,91 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	a := map[string]interface{}{
+	// Create the expression environment
+	exprEnvMap := map[string]interface{}{
 		NodeVarKey: req.VarMap,
 	}
+	exprEnv := expression.NewEnv(exprEnvMap)
 
-	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
-	}
-	root := assertv2.NewAssertRoot(rootLeaf)
-	assertSys := assertv2.NewAssertSystem(root)
-
-	var arr []interface{}
-	var mapInterface map[string]interface{}
-	var err error
-
-	arr, err = assertSys.EvalArray(ctx, nr.IterPath, assertv2.Langs...)
+	// Normalize the iteration path expression
+	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
 	if err != nil {
-		mapInterface, err = assertSys.EvalMap(ctx, nr.IterPath, assertv2.Langs...)
+		resultChan <- node.FlowNodeResult{Err: err}
+		return
+	}
+
+	// Evaluate the iteration path expression to get an iterator
+	result, err := expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+	if err != nil {
+		resultChan <- node.FlowNodeResult{Err: err}
+		return
+	}
+
+	// Normalize the break condition expression
+	breakExpr := nr.Condition.Comparisons.Expression
+	var normalizedExpressionBreak string
+	if breakExpr != "" {
+		normalizedExpressionBreak, err = expression.NormalizeExpression(ctx, breakExpr, varMap)
 		if err != nil {
-			resultChan <- node.FlowNodeResult{
-				Err: err,
-			}
+			resultChan <- node.FlowNodeResult{Err: err}
 			return
 		}
 	}
 
-	cond := nr.Condition
-	compare := cond.Comparisons
-
+	// Define the function to process the child node(s) within the loop
 	processNode := func() node.FlowNodeResult {
 		for _, nextNodeID := range loopID {
-			var val interface{}
-			if v, err := strconv.ParseInt(compare.Value, 0, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseFloat(compare.Value, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseBool(compare.Value); err == nil {
-				val = v
-			} else {
-				val = nr
-			}
-
-			if compare.Path != "" {
-				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(compare.Kind), compare.Path, val)
+			// Evaluate the break condition if it exists
+			if breakExpr != "" {
+				ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
 				if err != nil {
-					return node.FlowNodeResult{
-						Err: err,
-					}
+					return node.FlowNodeResult{Err: err}
 				}
 				if !ok {
 					break
 				}
 			}
 
+			// Run the child node asynchronously
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
-				return node.FlowNodeResult{
-					Err: err,
-				}
+				return node.FlowNodeResult{Err: err}
 			}
 		}
 		return node.FlowNodeResult{}
 	}
 
-	if len(arr) > 0 {
-		for range arr {
-			result := processNode()
-			if result.Err != nil {
-				resultChan <- result
-				return
+	// Iterate over the sequence based on its type
+	switch seq := result.(type) {
+	case iter.Seq[any]:
+		// Handle slice/array sequence
+		go func() {
+			for range seq {
+				loopResult := processNode()
+				if loopResult.Err != nil {
+					resultChan <- loopResult
+					return // Stop processing on error
+				}
 			}
-		}
-	} else if len(mapInterface) > 0 {
-		for range mapInterface {
-			result := processNode()
-			if result.Err != nil {
-				resultChan <- result
-				return
+			// Send success result after loop finishes
+			resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+		}()
+	case iter.Seq2[string, any]:
+		// Handle map sequence
+		go func() {
+			for _, _ = range seq { // Iterate over map values (keys are ignored in range)
+				loopResult := processNode()
+				if loopResult.Err != nil {
+					resultChan <- loopResult
+					return // Stop processing on error
+				}
 			}
-		}
-	}
-
-	resultChan <- node.FlowNodeResult{
-		NextNodeID: nextID,
-		Err:        nil,
+			// Send success result after loop finishes
+			resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+		}()
+	default:
+		// Should not happen if ExpressionEvaluateAsIter works correctly
+		resultChan <- node.FlowNodeResult{Err: fmt.Errorf("unexpected iterator type: %T", result)}
 	}
 }

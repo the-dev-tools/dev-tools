@@ -143,10 +143,12 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 		{
 			ID:        idwrap.NewNow(),
 			ExampleID: exampleID,
-			Type:      massert.AssertTypeEqual,
-			Path:      "response",
-			Value:     "success",
-			Enable:    true,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{
+					Expression: "response == success",
+				},
+			},
+			Enable: true,
 		},
 	}
 
@@ -251,9 +253,7 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 				FlowNodeID: flowNode.ID,
 				Condition: mcondition.Condition{
 					Comparisons: mcondition.Comparison{
-						Kind:  mcondition.COMPARISON_KIND_EQUAL,
-						Path:  "response",
-						Value: "success",
+						Expression: `{{ response }} == "success"`,
 					},
 				},
 			})
@@ -268,8 +268,8 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 			})
 		case mnnode.NODE_KIND_FOR_EACH:
 			wsData.FlowForEachNodes = append(wsData.FlowForEachNodes, mnforeach.MNForEach{
-				FlowNodeID: flowNode.ID,
-				IterPath:   "array",
+				FlowNodeID:     flowNode.ID,
+				IterExpression: "array",
 			})
 		case mnnode.NODE_KIND_JS:
 			wsData.FlowJSNodes = append(wsData.FlowJSNodes, mnjs.MNJS{
@@ -1361,9 +1361,7 @@ func TestMarshalWorkflowYAML(t *testing.T) {
 			FlowNodeID: ifNodeID,
 			Condition: mcondition.Condition{
 				Comparisons: mcondition.Comparison{
-					Kind:  mcondition.COMPARISON_KIND_EQUAL,
-					Path:  "GetData.response.status",
-					Value: "200",
+					Expression: "{{ GetData.response.status }} == 200",
 				},
 			},
 		},

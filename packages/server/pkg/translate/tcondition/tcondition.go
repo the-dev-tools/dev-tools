@@ -5,42 +5,33 @@ import (
 	conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
 )
 
-func SeralizeConditionModelToRPC(c mcondition.Condition) (*conditionv1.Condition, error) {
-	comp, err := SerializeComparisonModelToRPC(c.Comparisons)
-	if err != nil {
-		return nil, err
-	}
-
+func SeralizeConditionModelToRPC(c mcondition.Condition) *conditionv1.Condition {
 	return &conditionv1.Condition{
-		Comparison: comp,
-	}, nil
-}
-
-func DeserializeConditionRPCToModel(c *conditionv1.Condition) (*mcondition.Condition, error) {
-	comp, err := DeserializeComparisonRPCToModel(c.Comparison)
-	if err != nil {
-		return nil, err
+		Comparison: SerializeComparisonModelToRPC(c.Comparisons),
 	}
-
-	return &mcondition.Condition{
-		Comparisons: *comp,
-	}, nil
 }
 
-func SerializeComparisonModelToRPC(c mcondition.Comparison) (*conditionv1.Comparison, error) {
+func DeserializeConditionRPCToModel(c *conditionv1.Condition) mcondition.Condition {
+	if c == nil {
+		return mcondition.Condition{}
+	}
+	return mcondition.Condition{
+		Comparisons: DeserializeComparisonRPCToModel(c.Comparison),
+	}
+}
+
+func SerializeComparisonModelToRPC(c mcondition.Comparison) *conditionv1.Comparison {
 
 	return &conditionv1.Comparison{
-		Kind:  conditionv1.ComparisonKind(c.Kind),
-		Left:  c.Path,
-		Right: c.Value,
-	}, nil
+		Expression: c.Expression,
+	}
 }
 
-func DeserializeComparisonRPCToModel(c *conditionv1.Comparison) (*mcondition.Comparison, error) {
-
-	return &mcondition.Comparison{
-		Kind:  mcondition.ComparisonKind(c.Kind),
-		Path:  c.Left,
-		Value: c.Right,
-	}, nil
+func DeserializeComparisonRPCToModel(c *conditionv1.Comparison) mcondition.Comparison {
+	if c == nil {
+		return mcondition.Comparison{}
+	}
+	return mcondition.Comparison{
+		Expression: c.Expression,
+	}
 }

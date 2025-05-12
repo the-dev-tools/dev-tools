@@ -38,9 +38,7 @@ func ConvertToDBNodeFor(nf mnfor.MNFor) gen.FlowNodeFor {
 		FlowNodeID:    nf.FlowNodeID,
 		IterCount:     nf.IterCount,
 		ErrorHandling: int8(nf.ErrorHandling),
-		ConditionType: int8(nf.Condition.Comparisons.Kind),
-		ConditionPath: nf.Condition.Comparisons.Path,
-		Value:         nf.Condition.Comparisons.Value,
+		Expression:    nf.Condition.Comparisons.Expression,
 	}
 }
 
@@ -51,9 +49,7 @@ func ConvertToModelNodeFor(nf gen.FlowNodeFor) *mnfor.MNFor {
 		ErrorHandling: mnfor.ErrorHandling(nf.ErrorHandling),
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
-				Kind:  mcondition.ComparisonKind(nf.ConditionType),
-				Path:  nf.ConditionPath,
-				Value: nf.Value,
+				Expression: nf.Expression,
 			},
 		},
 	}
@@ -72,9 +68,8 @@ func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) err
 	return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
 		FlowNodeID:    nodeFor.FlowNodeID,
 		IterCount:     nodeFor.IterCount,
-		ConditionType: nodeFor.ConditionType,
-		ConditionPath: nodeFor.ConditionPath,
-		Value:         nodeFor.Value,
+		ErrorHandling: nodeFor.ErrorHandling,
+		Expression:    nodeFor.Expression,
 	})
 }
 
@@ -94,9 +89,8 @@ func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) err
 	return nfs.queries.UpdateFlowNodeFor(ctx, gen.UpdateFlowNodeForParams{
 		FlowNodeID:    nodeFor.FlowNodeID,
 		IterCount:     nodeFor.IterCount,
-		ConditionType: nodeFor.ConditionType,
-		ConditionPath: nodeFor.ConditionPath,
-		Value:         nodeFor.Value,
+		ErrorHandling: nodeFor.ErrorHandling,
+		Expression:    nodeFor.Expression,
 	})
 }
 

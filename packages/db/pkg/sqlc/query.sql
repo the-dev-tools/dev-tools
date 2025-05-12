@@ -1422,9 +1422,7 @@ SELECT
   id,
   example_id,
   delta_parent_id,
-  type,
-  path,
-  value,
+  expression,
   enable,
   prev,
   next
@@ -1439,9 +1437,7 @@ SELECT
   id,
   example_id,
   delta_parent_id,
-  type,
-  path,
-  value,
+  expression,
   enable,
   prev,
   next
@@ -1452,16 +1448,14 @@ WHERE
 
 -- name: CreateAssert :exec
 INSERT INTO
-  assertion (id, example_id, delta_parent_id, type, path, value, enable, prev, next)
+  assertion (id, example_id, delta_parent_id, expression, enable, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateAssert :exec
 UPDATE assertion
 SET
-  type = ?,
-  path = ?,
-  value = ?,
+  expression = ?,
   enable = ?
 WHERE
   id = ?;
@@ -1788,9 +1782,7 @@ SELECT
   flow_node_id,
   iter_count,
   error_handling,
-  condition_path,
-  condition_type,
-  value
+  expression
 FROM
   flow_node_for
 WHERE
@@ -1799,18 +1791,16 @@ LIMIT 1;
 
 -- name: CreateFlowNodeFor :exec
 INSERT INTO
-  flow_node_for (flow_node_id, iter_count, error_handling, condition_path, condition_type, value)
+  flow_node_for (flow_node_id, iter_count, error_handling, expression)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeFor :exec
 UPDATE flow_node_for
 SET
   iter_count = ?,
   error_handling = ?,
-  condition_path = ?,
-  condition_type = ?,
-  value = ?
+  expression = ?
 WHERE
   flow_node_id = ?;
 
@@ -1822,11 +1812,9 @@ WHERE
 -- name: GetFlowNodeForEach :one
 SELECT
   flow_node_id,
-  iter_path,
+  iter_expression,
   error_handling,
-  condition_path,
-  condition_type,
-  value
+  expression
 FROM
   flow_node_for_each
 WHERE
@@ -1835,18 +1823,16 @@ LIMIT 1;
 
 -- name: CreateFlowNodeForEach :exec
 INSERT INTO
-  flow_node_for_each (flow_node_id, iter_path, error_handling, condition_path, condition_type, value)
+  flow_node_for_each (flow_node_id, iter_expression, error_handling, expression)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateFlowNodeForEach :exec
 UPDATE flow_node_for_each
 SET
-  iter_path = ?,
+  iter_expression = ?,
   error_handling = ?,
-  condition_path = ?,
-  condition_type = ?,
-  value = ?
+  expression = ?
 WHERE
   flow_node_id = ?;
 
@@ -1887,35 +1873,31 @@ DELETE FROM flow_node_request
 WHERE
   flow_node_id = ?;
 
--- name: GetFlowNodeIf :one
+-- name: GetFlowNodeCondition :one
 SELECT
   flow_node_id,
-  condition_type,
-  path,
-  value
+  expression
 FROM
-  flow_node_if
+  flow_node_condition
 WHERE
   flow_node_id = ?
 LIMIT 1;
 
--- name: CreateFlowNodeIf :exec
+-- name: CreateFlowNodeCondition :exec
 INSERT INTO
-  flow_node_if (flow_node_id, condition_type, path, value)
+  flow_node_condition (flow_node_id, expression)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?);
 
--- name: UpdateFlowNodeIf :exec
-UPDATE flow_node_if
+-- name: UpdateFlowNodeCondition :exec
+UPDATE flow_node_condition
 SET
-  condition_type = ?,
-  path = ?,
-  value = ?
+  expression = ?
 WHERE
   flow_node_id = ?;
 
--- name: DeleteFlowNodeIf :exec
-DELETE FROM flow_node_if
+-- name: DeleteFlowNodeCondition :exec
+DELETE FROM flow_node_condition
 WHERE
   flow_node_id = ?;
 

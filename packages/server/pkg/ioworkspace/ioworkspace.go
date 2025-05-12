@@ -1026,7 +1026,7 @@ func processIfStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, n
 		FlowNodeID: nodeID, // This should be the MNode ID
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
-				Path: path,
+				Expression: path,
 				// TODO: Add Operator and Value based on YAML structure if needed
 			},
 		},
@@ -1454,7 +1454,7 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 
 				stepData := map[string]interface{}{
 					"name": node.Name,
-					"path": ifNode.Condition.Comparisons.Path,
+					"path": ifNode.Condition.Comparisons.Expression,
 				}
 
 				if len(dependencies) > 0 {

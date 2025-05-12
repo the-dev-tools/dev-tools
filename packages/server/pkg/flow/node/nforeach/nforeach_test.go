@@ -41,13 +41,11 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 	id := idwrap.NewNow()
 	// iterCount := int64(3)
 
-	timeOut := time.Duration(0)
+	timeOut := time.Duration(time.Second)
 
 	condition := mcondition.Condition{
 		Comparisons: mcondition.Comparison{
-			Kind:  mcondition.COMPARISON_KIND_EQUAL,
-			Path:  "var.test",
-			Value: "test",
+			Expression: "var.test == 'test'",
 		},
 	}
 
@@ -65,7 +63,7 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 	logMockFunc := func(runner.FlowNodeStatus) {
 	}
 
-	varMap := map[string]interface{}{
+	varMap := map[string]any{
 		arrPath: []string{"a", "b", "c"},
 		"test":  "test",
 	}
@@ -119,13 +117,11 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	// iterCount := int64(3)
-	timeOut := time.Duration(0)
+	timeOut := time.Duration(time.Second)
 
 	condition := mcondition.Condition{
 		Comparisons: mcondition.Comparison{
-			Kind:  mcondition.COMPARISON_KIND_EQUAL,
-			Path:  "var.test",
-			Value: "test",
+			Expression: "var.test == 'test'",
 		},
 	}
 
@@ -138,7 +134,7 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 	logMockFunc := func(runner.FlowNodeStatus) {
 	}
 
-	varMap := map[string]interface{}{
+	varMap := map[string]any{
 		arrPath: []string{"a", "b", "c"},
 		"test":  "test",
 	}
@@ -149,6 +145,7 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgesMap,
 		LogPushFunc:   logMockFunc,
+		Timeout:       timeOut,
 	}
 
 	wg.Add(9) // Expect 9 runs
@@ -156,20 +153,38 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 	resultChan := make(chan node.FlowNodeResult, 1)
 	go nodeForEach.RunAsync(ctx, req, resultChan)
 
-	go func() {
-		wg.Wait()
-		close(resultChan) // Close the channel after all runs are done
-	}()
-
-	result := <-resultChan
-	if result.Err != nil {
-		t.Errorf("Expected err to be nil, but got %v", result.Err)
+	// Wait for the initial result from RunAsync (indicates loop setup is done or immediate error)
+	var result node.FlowNodeResult
+	select {
+	case result = <-resultChan:
+		// Got the result from RunAsync
+		if result.Err != nil {
+			// Use Fatalf to stop the test immediately on error
+			t.Fatalf("RunAsync returned an immediate error: %v", result.Err)
+		}
+	case <-time.After(1 * time.Second): // Short timeout for RunAsync to send its result
+		t.Fatalf("Timed out waiting for RunAsync result channel")
 	}
 
-	// TODO: fix this test
-	//if runCounter.Load() != 9 {
-	//	t.Errorf("Expected runCounter to be 9, but got %d", runCounter.Load())
-	//}
+	// Now, wait for all async operations triggered by the loop to complete
+	waitChan := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(waitChan)
+	}()
+
+	// Wait with a timeout to prevent hanging tests
+	select {
+	case <-waitChan:
+		// wg.Wait() completed successfully
+	case <-time.After(5 * time.Second): // Adjust timeout as needed for async tasks
+		t.Fatalf("Timed out waiting for WaitGroup (runCounter=%d)", runCounter.Load())
+	}
+
+	// Check the final count *after* waiting for the WaitGroup
+	if runCounter.Load() != 9 {
+		t.Errorf("Expected runCounter to be 9, but got %d", runCounter.Load())
+	}
 }
 
 func TestForEachNode_RunSync_Map(t *testing.T) {
@@ -309,9 +324,7 @@ func TestForEachNode_SetID(t *testing.T) {
 
 	condition := mcondition.Condition{
 		Comparisons: mcondition.Comparison{
-			Kind:  mcondition.COMPARISON_KIND_EQUAL,
-			Path:  "test",
-			Value: "test",
+			Expression: "test == 'test'",
 		},
 	}
 	nodeForEach := nforeach.New(id, "test", "test", timeOut, condition, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)

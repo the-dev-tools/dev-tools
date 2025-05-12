@@ -569,9 +569,9 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
               pointer: true
-          ## flow_node_if
+          ## flow_node_condition
           ### flow_node_id
-          - column: 'flow_node_if.flow_node_id'
+          - column: 'flow_node_condition.flow_node_id'
             go_type:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'

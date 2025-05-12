@@ -13,7 +13,6 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -426,12 +425,9 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			if RpcNodeUpdate.For.Condition != nil {
-				condition, err := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.For.Condition)
-				if err != nil {
-					return nil, err
-				}
+				condition := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.For.Condition)
 				anyUpdate = true
-				forNode.Condition = *condition
+				forNode.Condition = condition
 			}
 			if RpcNodeUpdate.For.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
 				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.For.ErrorHandling)
@@ -457,11 +453,11 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 
 			var anyUpdate bool
 			if RpcNodeUpdate.ForEach.Condition != nil {
-				condition, err := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.ForEach.Condition)
+				condition := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.ForEach.Condition)
 				if err != nil {
 					return nil, err
 				}
-				forEachNode.Condition = *condition
+				forEachNode.Condition = condition
 				anyUpdate = true
 			}
 
@@ -474,7 +470,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			}
 
 			if RpcNodeUpdate.ForEach.Path != "" {
-				forEachNode.IterPath = RpcNodeUpdate.ForEach.Path
+				forEachNode.IterExpression = RpcNodeUpdate.ForEach.Path
 				anyUpdate = true
 			}
 
@@ -494,11 +490,11 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			}
 
 			if RpcNodeUpdate.Condition.Condition != nil {
-				condition, err := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.Condition.Condition)
+				condition := tcondition.DeserializeConditionRPCToModel(RpcNodeUpdate.Condition.Condition)
 				if err != nil {
 					return nil, err
 				}
-				nodeIf.Condition = *condition
+				nodeIf.Condition = condition
 			}
 
 			err = c.nis.UpdateNodeIf(ctx, *nodeIf)
@@ -709,7 +705,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		if err != nil {
 			return nil, err
 		}
-		rpcCond, err := tcondition.SeralizeConditionModelToRPC(nodeFor.Condition)
+		rpcCond := tcondition.SeralizeConditionModelToRPC(nodeFor.Condition)
 		if err != nil {
 			return nil, err
 		}
@@ -732,7 +728,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			return nil, err
 		}
 
-		rpcCond, err := tcondition.SeralizeConditionModelToRPC(nodeForEach.Condition)
+		rpcCond := tcondition.SeralizeConditionModelToRPC(nodeForEach.Condition)
 		if err != nil {
 			return nil, err
 		}
@@ -745,7 +741,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			ForEach: &nodev1.NodeForEach{
 				ErrorHandling: nodev1.ErrorHandling(nodeForEach.ErrorHandling),
 				Condition:     rpcCond,
-				Path:          nodeForEach.IterPath,
+				Path:          nodeForEach.IterExpression,
 			},
 		}
 		rpcNode = nodeList
@@ -770,7 +766,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			return nil, err
 		}
 
-		rpcCondition, err := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
+		rpcCondition := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
 		if err != nil {
 			return nil, err
 		}
@@ -879,36 +875,17 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 
 		subNode = reqNode
 	case nodev1.NodeKind_NODE_KIND_FOR:
-		var condition *mcondition.Condition
-		var err error
-
 		forNode := rpcNode.For
-
-		if forNode.Condition == nil {
-			condition = mcondition.Default()
-		} else if forNode.Condition.Comparison == nil {
-			condition = mcondition.Default()
-		} else {
-			condition, err = tcondition.DeserializeConditionRPCToModel(forNode.Condition)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if condition == nil {
-			return nil, fmt.Errorf("condition is nil")
-		}
+		condition := tcondition.DeserializeConditionRPCToModel(forNode.Condition)
 
 		forNodeConverted := &mnfor.MNFor{
 			FlowNodeID:    nodeID,
 			IterCount:     int64(forNode.Iterations),
-			Condition:     *condition,
+			Condition:     condition,
 			ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
 		}
 		subNode = forNodeConverted
 	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
-		var condition *mcondition.Condition
-		var err error
 		var iterpath string
 
 		forEach := rpcNode.ForEach
@@ -916,26 +893,13 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 			iterpath = rpcNode.ForEach.Path
 		}
 
-		if forEach.Condition == nil {
-			condition = mcondition.Default()
-		} else if forEach.Condition.Comparison == nil {
-			condition = mcondition.Default()
-		} else {
-			condition, err = tcondition.DeserializeConditionRPCToModel(forEach.Condition)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if condition == nil {
-			return nil, fmt.Errorf("condition is nil")
-		}
+		condition := tcondition.DeserializeConditionRPCToModel(forEach.Condition)
 
 		forNode := &mnforeach.MNForEach{
-			FlowNodeID:    nodeID,
-			IterPath:      iterpath,
-			Condition:     *condition,
-			ErrorHandling: mnfor.ErrorHandling(forEach.ErrorHandling),
+			FlowNodeID:     nodeID,
+			IterExpression: iterpath,
+			Condition:      condition,
+			ErrorHandling:  mnfor.ErrorHandling(forEach.ErrorHandling),
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_NO_OP:
@@ -946,26 +910,12 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		}
 		subNode = noopNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:
-
-		var condition *mcondition.Condition
-		var err error
-
 		conditionNode := rpcNode.Condition
-
-		if conditionNode.Condition == nil {
-			condition = mcondition.Default()
-		} else if conditionNode.Condition.Comparison == nil {
-			condition = mcondition.Default()
-		} else {
-			condition, err = tcondition.DeserializeConditionRPCToModel(conditionNode.Condition)
-			if err != nil {
-				return nil, err
-			}
-		}
+		condition := tcondition.DeserializeConditionRPCToModel(conditionNode.Condition)
 
 		ifNode := &mnif.MNIF{
 			FlowNodeID: nodeID,
-			Condition:  *condition,
+			Condition:  condition,
 		}
 		subNode = ifNode
 	case nodev1.NodeKind_NODE_KIND_JS:

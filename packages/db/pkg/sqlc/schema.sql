@@ -274,9 +274,7 @@ CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
   delta_parent_id BLOB DEFAULT NULL,
-  type INT8 NOT NULL,
-  path TEXT NOT NULL,
-  value TEXT NOT NULL,
+  expression TEXT NOT NULL,
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   prev BLOB,
   next BLOB,
@@ -369,20 +367,16 @@ CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_count BIGINT NOT NULL,
   error_handling INT8 NOT NULL,
-  condition_path TEXT NOT NULL,
-  condition_type INT8 NOT NULL,
-  value text NOT NULL,
+  expression TEXT NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
 -- TODO: move conditions to new condition table
 CREATE TABLE flow_node_for_each (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  iter_path TEXT NOT NULL,
+  iter_expression TEXT NOT NULL,
   error_handling INT8 NOT NULL,
-  condition_path TEXT NOT NULL,
-  condition_type INT8 NOT NULL,
-  value text NOT NULL,
+  expression TEXT NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
@@ -398,11 +392,9 @@ CREATE TABLE flow_node_request (
 );
 
 -- TODO: move conditions to new condition table
-CREATE TABLE flow_node_if (
+CREATE TABLE flow_node_condition (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  condition_type INT8 NOT NULL,
-  path TEXT NOT NULL,
-  value text NOT NULL,
+  expression TEXT NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 

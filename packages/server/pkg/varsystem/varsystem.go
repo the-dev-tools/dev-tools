@@ -52,16 +52,21 @@ func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
 	reflectType := reflect.TypeOf(target)
 	switch reflectType.Kind() {
 	case reflect.Map:
-		castedMap, ok := target.(map[string]any)
-		if !ok {
-			return
-		}
-		for k, v := range castedMap {
-			HelperNewAny(vars, v, prefix+"."+k)
+		val := reflect.ValueOf(target)
+		if val.Kind() == reflect.Map {
+			for _, key := range val.MapKeys() {
+				// Convert key to string for the variable name
+				keyStr := fmt.Sprintf("%v", key.Interface())
+				value := val.MapIndex(key).Interface()
+				HelperNewAny(vars, value, prefix+"."+keyStr)
+			}
 		}
 	case reflect.Slice:
-		for i, v := range target.([]any) {
-			HelperNewAny(vars, v, fmt.Sprintf("%s[%d]", prefix, i))
+		val := reflect.ValueOf(target)
+		if val.Kind() == reflect.Slice {
+			for i := 0; i < val.Len(); i++ {
+				HelperNewAny(vars, val.Index(i).Interface(), fmt.Sprintf("%s[%d]", prefix, i))
+			}
 		}
 	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
 		*vars = append(*vars, mvar.Var{

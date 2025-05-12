@@ -1,6 +1,9 @@
 package massert
 
-import "the-dev-tools/server/pkg/idwrap"
+import (
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mcondition"
+)
 
 type AssertType int8
 
@@ -48,8 +51,7 @@ type Assert struct {
 	ID            idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
 	DeltaParentID *idwrap.IDWrap
-	Path          string
-	Value         string
-	Type          AssertType
-	Enable        bool
+	Condition     mcondition.Condition
+
+	Enable bool
 }

@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -20,10 +21,12 @@ func ConvertAssertDBToModel(assert gen.Assertion) massert.Assert {
 		ID:            assert.ID,
 		ExampleID:     assert.ExampleID,
 		DeltaParentID: assert.DeltaParentID,
-		Path:          assert.Path,
-		Value:         assert.Value,
-		Enable:        assert.Enable,
-		Type:          massert.AssertType(assert.Type),
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{
+				Expression: assert.Expression,
+			},
+		},
+		Enable: assert.Enable,
 	}
 }
 
@@ -32,9 +35,7 @@ func ConvertAssertModelToDB(assert massert.Assert) gen.Assertion {
 		ID:            assert.ID,
 		ExampleID:     assert.ExampleID,
 		DeltaParentID: assert.DeltaParentID,
-		Path:          assert.Path,
-		Value:         assert.Value,
-		Type:          int8(assert.Type),
+		Expression:    assert.Condition.Comparisons.Expression,
 		Enable:        assert.Enable,
 	}
 }
@@ -79,11 +80,9 @@ func (as AssertService) GetAssertByExampleID(ctx context.Context, id idwrap.IDWr
 func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
 	return as.queries.UpdateAssert(ctx, gen.UpdateAssertParams{
-		ID:     arg.ID,
-		Enable: arg.Enable,
-		Path:   arg.Path,
-		Value:  arg.Value,
-		Type:   arg.Type,
+		ID:         arg.ID,
+		Enable:     arg.Enable,
+		Expression: arg.Expression,
 	})
 }
 
@@ -94,9 +93,7 @@ func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert)
 		ExampleID:     arg.ExampleID,
 		DeltaParentID: arg.DeltaParentID,
 		Enable:        arg.Enable,
-		Value:         arg.Value,
-		Path:          arg.Path,
-		Type:          int8(arg.Type),
+		Expression:    assert.Condition.Comparisons.Expression,
 	})
 }
 

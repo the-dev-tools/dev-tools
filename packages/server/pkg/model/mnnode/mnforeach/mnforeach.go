@@ -7,8 +7,8 @@ import (
 )
 
 type MNForEach struct {
-	FlowNodeID    idwrap.IDWrap
-	IterPath      string
-	Condition     mcondition.Condition
-	ErrorHandling mnfor.ErrorHandling
+	FlowNodeID     idwrap.IDWrap
+	IterExpression string
+	Condition      mcondition.Condition
+	ErrorHandling  mnfor.ErrorHandling
 }

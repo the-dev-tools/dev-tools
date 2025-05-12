@@ -2,31 +2,26 @@ package nif
 
 import (
 	"context"
-	"strconv"
-	"the-dev-tools/server/pkg/assertv2"
-	"the-dev-tools/server/pkg/assertv2/leafs/leafmap"
+	"fmt"
+	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/varsystem"
 )
 
 type NodeIf struct {
-	FlowNodeID    idwrap.IDWrap
-	Name          string
-	ConditionType mcondition.ComparisonKind
-	// ConditionCustom string
-	Path  string
-	Value string
+	FlowNodeID idwrap.IDWrap
+	Name       string
+	Condition  mcondition.Condition
 }
 
-func New(id idwrap.IDWrap, name string, conditionType mcondition.ComparisonKind, path string, value string) *NodeIf {
+func New(id idwrap.IDWrap, name string, condition mcondition.Condition) *NodeIf {
 	return &NodeIf{
-		FlowNodeID:    id,
-		Name:          name,
-		ConditionType: conditionType,
-		Path:          path,
-		Value:         value,
+		FlowNodeID: id,
+		Name:       name,
+		Condition:  condition,
 	}
 }
 
@@ -47,33 +42,27 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
 	var result node.FlowNodeResult
 	if trueID == nil || falseID == nil {
-		result.Err = node.ErrNodeNotFound
+		result.Err = fmt.Errorf("%w: missing true or false branch for node %s", node.ErrNodeNotFound, n.FlowNodeID)
 		return result
 	}
+	exprEnv := expression.NewEnv(req.VarMap)
 
-	req.ReadWriteLock.Lock()
-	leafmap := leafmap.ConvertMapToLeafMap(req.VarMap)
-	req.ReadWriteLock.Unlock()
-	root := assertv2.NewAssertRoot(leafmap)
-	assertSys := assertv2.NewAssertSystem(root)
-
-	var val any
-	// parse int, float or bool if all fails make it string
-	if v, err := strconv.ParseInt(n.Value, 0, 64); err == nil {
-		val = v
-	} else if v, err := strconv.ParseFloat(n.Value, 64); err == nil {
-		val = v
-	} else if v, err := strconv.ParseBool(n.Value); err == nil {
-		val = v
-	} else {
-		val = n.Value
-	}
-
-	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, val)
+	// Normalize the condition expression
+	conditionExpr := n.Condition.Comparisons.Expression
+	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
 	if err != nil {
-		result.Err = err
+		result.Err = fmt.Errorf("failed to normalize condition expression '%s': %w", conditionExpr, err)
 		return result
 	}
+
+	// Evaluate the condition expression
+	ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	if err != nil {
+		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
+		return result
+	}
+
 	if ok {
 		result.NextNodeID = trueID
 	} else {
@@ -87,29 +76,27 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
 	var result node.FlowNodeResult
 	if trueID == nil || falseID == nil {
-		result.Err = node.ErrNodeNotFound
+		result.Err = fmt.Errorf("%w: missing true or false branch for node %s", node.ErrNodeNotFound, n.FlowNodeID)
 		resultChan <- result
 		return
 	}
 
-	leafmap := leafmap.ConvertMapToLeafMap(req.VarMap)
-	root := assertv2.NewAssertRoot(leafmap)
-	assertSys := assertv2.NewAssertSystem(root)
+	exprEnv := expression.NewEnv(req.VarMap)
 
-	var val any
-	// parse int, float or bool if all fails make it string
-	if v, err := strconv.ParseInt(n.Value, 0, 64); err == nil {
-		val = v
-	} else if v, err := strconv.ParseFloat(n.Value, 64); err == nil {
-		val = v
-	} else if v, err := strconv.ParseBool(n.Value); err == nil {
-		val = v
-	} else {
-		val = n.Value
-	}
-	ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(n.ConditionType), n.Path, val)
+	// Normalize the condition expression
+	conditionExpr := n.Condition.Comparisons.Expression
+	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
 	if err != nil {
-		result.Err = err
+		result.Err = fmt.Errorf("failed to normalize condition expression '%s': %w", conditionExpr, err)
+		resultChan <- result
+		return
+	}
+
+	// Evaluate the condition expression
+	ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	if err != nil {
+		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
 		resultChan <- result
 		return
 	}

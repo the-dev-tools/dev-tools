@@ -37,25 +37,21 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForEachService, error) {
 
 func ConvertToDBNodeFor(nf mnforeach.MNForEach) gen.FlowNodeForEach {
 	return gen.FlowNodeForEach{
-		FlowNodeID:    nf.FlowNodeID,
-		IterPath:      nf.IterPath,
-		ErrorHandling: int8(nf.ErrorHandling),
-		ConditionType: int8(nf.Condition.Comparisons.Kind),
-		ConditionPath: nf.Condition.Comparisons.Path,
-		Value:         nf.Condition.Comparisons.Value,
+		FlowNodeID:     nf.FlowNodeID,
+		IterExpression: nf.IterExpression,
+		ErrorHandling:  int8(nf.ErrorHandling),
+		Expression:     nf.Condition.Comparisons.Expression,
 	}
 }
 
 func ConvertToModelNodeFor(nf gen.FlowNodeForEach) *mnforeach.MNForEach {
 	return &mnforeach.MNForEach{
-		FlowNodeID:    nf.FlowNodeID,
-		IterPath:      nf.IterPath,
-		ErrorHandling: mnfor.ErrorHandling(nf.ErrorHandling),
+		FlowNodeID:     nf.FlowNodeID,
+		IterExpression: nf.IterExpression,
+		ErrorHandling:  mnfor.ErrorHandling(nf.ErrorHandling),
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
-				Kind:  mcondition.ComparisonKind(nf.ConditionType),
-				Path:  nf.ConditionPath,
-				Value: nf.Value,
+				Expression: nf.Expression,
 			},
 		},
 	}
@@ -72,12 +68,10 @@ func (nfs NodeForEachService) GetNodeForEach(ctx context.Context, id idwrap.IDWr
 func (nfs NodeForEachService) CreateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
 	nodeForEach := ConvertToDBNodeFor(nf)
 	return nfs.queries.CreateFlowNodeForEach(ctx, gen.CreateFlowNodeForEachParams{
-		FlowNodeID:    nodeForEach.FlowNodeID,
-		IterPath:      nodeForEach.IterPath,
-		ErrorHandling: nodeForEach.ErrorHandling,
-		ConditionType: nodeForEach.ConditionType,
-		ConditionPath: nodeForEach.ConditionPath,
-		Value:         nodeForEach.Value,
+		FlowNodeID:     nodeForEach.FlowNodeID,
+		IterExpression: nodeForEach.IterExpression,
+		ErrorHandling:  nodeForEach.ErrorHandling,
+		Expression:     nodeForEach.Expression,
 	})
 }
 
@@ -95,12 +89,10 @@ func (nfs NodeForEachService) CreateNodeForEachBulk(ctx context.Context, forEach
 func (nfs NodeForEachService) UpdateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
 	nodeForEach := ConvertToDBNodeFor(nf)
 	return nfs.queries.UpdateFlowNodeForEach(ctx, gen.UpdateFlowNodeForEachParams{
-		FlowNodeID:    nodeForEach.FlowNodeID,
-		IterPath:      nodeForEach.IterPath,
-		ErrorHandling: nodeForEach.ErrorHandling,
-		ConditionType: nodeForEach.ConditionType,
-		ConditionPath: nodeForEach.ConditionPath,
-		Value:         nodeForEach.Value,
+		FlowNodeID:     nodeForEach.FlowNodeID,
+		IterExpression: nodeForEach.IterExpression,
+		ErrorHandling:  nodeForEach.ErrorHandling,
+		Expression:     nodeForEach.Expression,
 	})
 }
 

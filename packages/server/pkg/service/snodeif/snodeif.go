@@ -33,30 +33,26 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeIfService, error) {
 	}, nil
 }
 
-func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeIf {
-	return gen.FlowNodeIf{
-		FlowNodeID:    ni.FlowNodeID,
-		ConditionType: int8(ni.Condition.Comparisons.Kind),
-		Path:          ni.Condition.Comparisons.Path,
-		Value:         ni.Condition.Comparisons.Value,
+func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeCondition {
+	return gen.FlowNodeCondition{
+		FlowNodeID: ni.FlowNodeID,
+		Expression: ni.Condition.Comparisons.Expression,
 	}
 }
 
-func ConvertToModelNodeIf(ni gen.FlowNodeIf) *mnif.MNIF {
+func ConvertToModelNodeIf(ni gen.FlowNodeCondition) *mnif.MNIF {
 	return &mnif.MNIF{
 		FlowNodeID: ni.FlowNodeID,
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
-				Kind:  mcondition.ComparisonKind(ni.ConditionType),
-				Path:  ni.Path,
-				Value: ni.Value,
+				Expression: ni.Expression,
 			},
 		},
 	}
 }
 
 func (nifs NodeIfService) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mnif.MNIF, error) {
-	nodeIf, err := nifs.queries.GetFlowNodeIf(ctx, id)
+	nodeIf, err := nifs.queries.GetFlowNodeCondition(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -65,11 +61,9 @@ func (nifs NodeIfService) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mni
 
 func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error {
 	nodeIf := ConvertToDBNodeIf(ni)
-	return nifs.queries.CreateFlowNodeIf(ctx, gen.CreateFlowNodeIfParams{
-		FlowNodeID:    nodeIf.FlowNodeID,
-		ConditionType: nodeIf.ConditionType,
-		Path:          nodeIf.Path,
-		Value:         nodeIf.Value,
+	return nifs.queries.CreateFlowNodeCondition(ctx, gen.CreateFlowNodeConditionParams{
+		FlowNodeID: nodeIf.FlowNodeID,
+		Expression: ni.Condition.Comparisons.Expression,
 	})
 }
 
@@ -86,14 +80,12 @@ func (nifs NodeIfService) CreateNodeIfBulk(ctx context.Context, conditionNodes [
 
 func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error {
 	nodeIf := ConvertToDBNodeIf(ni)
-	return nifs.queries.UpdateFlowNodeIf(ctx, gen.UpdateFlowNodeIfParams{
-		FlowNodeID:    nodeIf.FlowNodeID,
-		ConditionType: nodeIf.ConditionType,
-		Path:          nodeIf.Path,
-		Value:         nodeIf.Value,
+	return nifs.queries.UpdateFlowNodeCondition(ctx, gen.UpdateFlowNodeConditionParams{
+		FlowNodeID: nodeIf.FlowNodeID,
+		Expression: nodeIf.Expression,
 	})
 }
 
 func (nifs NodeIfService) DeleteNodeIf(ctx context.Context, id idwrap.IDWrap) error {
-	return nifs.queries.DeleteFlowNodeIf(ctx, id)
+	return nifs.queries.DeleteFlowNodeCondition(ctx, id)
 }

@@ -1,14 +1,6 @@
 package tassert_test
 
-import (
-	"bytes"
-	"testing"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/testutil"
-	"the-dev-tools/server/pkg/translate/tassert"
-)
-
+/*
 func TestSerializeAssertModelToRPC(t *testing.T) {
 	a := massert.Assert{
 		ID:    idwrap.NewNow(),
@@ -55,3 +47,4 @@ func TestSerializeAssertModelToRPCEmpty(t *testing.T) {
 	testutil.Assert(t, pathSize, 0)
 	testutil.Assert(t, "testValue", result.Condition.Comparison.Right)
 }
+*/

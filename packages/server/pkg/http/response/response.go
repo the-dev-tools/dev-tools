@@ -2,10 +2,7 @@ package response
 
 import (
 	"context"
-	"strconv"
-	"strings"
-	"the-dev-tools/server/pkg/assertv2"
-	"the-dev-tools/server/pkg/assertv2/leafs/leafjson"
+	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
@@ -13,6 +10,8 @@ import (
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
+	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/varsystem"
 	"the-dev-tools/server/pkg/zstdcompress"
 
 	"connectrpc.com/connect"
@@ -108,27 +107,18 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 	}{
 		Response: httpclient.ConvertResponseToVar(respHttp),
 	}
-	rootLeaf, err := leafjson.NewWithStruct(tempStruct)
+	exprEnv, err := expression.NewEnvFromStruct(tempStruct)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, assertion := range assertions {
 		if assertion.Enable {
-			root := assertv2.NewAssertRoot(rootLeaf)
-			assertSys := assertv2.NewAssertSystem(root)
-			val := assertion.Value
-			var value interface{}
-			if strings.Contains(val, ".") {
-				if feetFloat, err := strconv.ParseFloat(strings.TrimSpace(val), 64); err == nil {
-					value = feetFloat
-				}
-			} else if feetInt, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
-				value = feetInt
-			} else {
-				value = val
+			normalizedExprString, err := expression.NormalizeExpression(ctx, assertion.Condition.Comparisons.Expression, varsystem.NewVarMap([]mvar.Var{}))
+			if err != nil {
+				return nil, err
 			}
-
-			ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(assertion.Type), assertion.Path, value)
+			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExprString)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}

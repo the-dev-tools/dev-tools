@@ -6,7 +6,6 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/scollection"
@@ -15,12 +14,12 @@ import (
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tassert"
+	"the-dev-tools/server/pkg/translate/tcondition"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	"the-dev-tools/server/pkg/translate/theader"
 	"the-dev-tools/server/pkg/translate/tquery"
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/request/v1/requestv1connect"
-	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
 
 	"connectrpc.com/connect"
 )
@@ -366,14 +365,10 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if assert.Type != massert.AssertType(referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED) {
-		assertDB.Type = assert.Type
-	}
-	if assert.Path != "" {
-		assertDB.Path = assert.Path
-	}
-	if assert.Value != "" {
-		assertDB.Value = assert.Value
+	condition := tcondition.DeserializeConditionRPCToModel(req.Msg.Condition)
+	expr := condition.Comparisons.Expression
+	if expr != "" {
+		assert.Condition = condition
 	}
 
 	err = c.as.UpdateAssert(ctx, *assertDB)
