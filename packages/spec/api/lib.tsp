@@ -32,10 +32,17 @@ extern dec normalKey(target: ModelProperty);
 extern dec autoChange(target: TypeSpec.Reflection.Model, change: API.Change.AutoChange);
 
 /** Move model to specified namespace. Useful for collocating templated models */
-extern dec move(target: Model, from: Namespace | Model, to: Namespace | Model);
+extern dec move(target: Model | Operation, from: Namespace | Model, to: Namespace | Model);
 
 /**
  * Replace name with friendly name. Useful for when friendly names are
  * unsupported, f.e. operations in Protobuf emitter
  */
 extern dec useFriendlyName(target: Operation);
+
+extern dec entity(target: Model, base?: Model);
+
+extern dec endpoint(target: Operation, method: string, options?: Model);
+
+model Schema<Resource extends Model> {}
+model PrimaryKeys<Resource extends Model> {}

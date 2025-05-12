@@ -11,15 +11,23 @@
     "./*": "./dist/buf/typescript/*.ts",
     "./meta/*": "./dist/meta/*"
   },
+  "dependencies": {
+    "@connectrpc/connect": "2.0.2",
+    "@data-client/endpoint": "0.14.26"
+  },
   "devDependencies": {
+    "@alloy-js/cli": "~0.15.0",
+    "@alloy-js/core": "~0.15.0",
+    "@alloy-js/typescript": "~0.15.0",
     "@bufbuild/buf": "~1.53.0",
     "@bufbuild/protobuf": "~2.3.0",
     "@bufbuild/protoc-gen-es": "~2.3.0",
     "@connectrpc/protoc-gen-connect-query": "~2.0.1",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "~22.15.12",
-    "@typespec/protobuf": "~0.69.0",
-    "@typespec/rest": "~0.69.0",
+    "@typespec/emitter-framework": "~0.7.0",
+    "@typespec/protobuf": "~0.70.0",
+    "@typespec/rest": "~0.70.0",
     "effect": "~3.14.19",
     "prettier": "~3.5.3",
     "rimraf": "~6.0.1",

@@ -4,8 +4,15 @@ import "./lib.tsp";
 
 import "./change.tsp";
 
+using TypeSpec.Protobuf;
 using TypeSpec.Reflection;
 
+@package({
+  name: "resources",
+  options: {
+    go_package: "the-dev-tools/spec/dist/buf/go/resources/v1;resourcesv1",
+  },
+})
 namespace API.Resource;
 
 alias Id = bytes;

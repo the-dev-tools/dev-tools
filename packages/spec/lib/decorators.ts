@@ -8,17 +8,16 @@ import {
   ModelProperty,
   Namespace,
   Operation,
+  StringLiteral,
   Type,
 } from '@typespec/compiler';
 import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
 import { Array, Hash, Number, Option, pipe, Record } from 'effect';
 
-import { $lib } from './lib.js';
+import { autoChangesMap, baseMap, endpointMap, entityMap, moveMap, normalKeysMap, packageMap } from './state.js';
 
-export function $copyKey(context: DecoratorContext, target: Model) {
-  const { program } = context;
-
+export function $copyKey({ program }: DecoratorContext, target: Model) {
   const resourceType = target.templateMapper?.args[0];
   if (!resourceType || !isType(resourceType) || resourceType.kind !== 'Model') return;
 
@@ -32,9 +31,7 @@ export function $copyKey(context: DecoratorContext, target: Model) {
   target.properties.set(keyName, keyProperty);
 }
 
-export function $copyParentKey(context: DecoratorContext, target: Model) {
-  const { program } = context;
-
+export function $copyParentKey({ program }: DecoratorContext, target: Model) {
   const resourceType = target.templateMapper?.args[0];
   if (!resourceType || !isType(resourceType) || resourceType.kind !== 'Model') return;
 
@@ -59,9 +56,7 @@ export function $copyParentKey(context: DecoratorContext, target: Model) {
   target.properties.set(keyName, { ...keyProperty, decorators });
 }
 
-export function $omitKey(context: DecoratorContext, target: Model) {
-  const { program } = context;
-
+export function $omitKey({ program }: DecoratorContext, target: Model) {
   const resourceKey = getResourceTypeKey(program, target);
   if (!resourceKey) return;
 
@@ -118,25 +113,21 @@ export function $autoFields(context: DecoratorContext, target: Model) {
   });
 }
 
-export function $normalKey(context: DecoratorContext, target: ModelProperty) {
+export function $normalKey({ program }: DecoratorContext, target: ModelProperty) {
   if (!target.model) return;
 
-  const normalKeyMap = context.program.stateMap($lib.stateKeys.normalKeys) as Map<Type, string[]>;
+  if (!normalKeysMap(program).has(target.model)) normalKeysMap(program).set(target.model, []);
 
-  if (!normalKeyMap.has(target.model)) normalKeyMap.set(target.model, []);
-
-  const normalKeys = normalKeyMap.get(target.model);
+  const normalKeys = normalKeysMap(program).get(target.model);
 
   normalKeys?.push(target.name);
 }
 
-export function $normalize(context: DecoratorContext, target: Model, base?: Model) {
-  context.program.stateMap($lib.stateKeys.base).set(target, base ?? target);
+export function $normalize({ program }: DecoratorContext, target: Model, base?: Model) {
+  baseMap(program).set(target, base ?? target);
 }
 
-export function $autoChange(context: DecoratorContext, target: Model, value: Type) {
-  const packageStateMap = context.program.stateMap(Symbol.for('@typespec/protobuf.package')) as Map<Namespace, Model>;
-
+export function $autoChange({ program }: DecoratorContext, target: Model, value: Type) {
   function typeToJson(type: Type): unknown {
     if (type.kind === 'Model') {
       return pipe(
@@ -148,7 +139,7 @@ export function $autoChange(context: DecoratorContext, target: Model, value: Typ
 
           return pipe(
             Option.fromNullable(property.type.namespace),
-            Option.flatMapNullable((_) => packageStateMap.get(_)?.properties.get('name')?.type),
+            Option.flatMapNullable((_) => packageMap(program).get(_)?.properties.get('name')?.type),
             Option.flatMap((_) => {
               if (_.kind !== 'String') return Option.none();
               if (property.type.kind !== 'Model') return Option.none();
@@ -168,19 +159,31 @@ export function $autoChange(context: DecoratorContext, target: Model, value: Typ
 
   const change = typeToJson(value);
 
-  const autoChangesMap = context.program.stateMap($lib.stateKeys.autoChanges) as Map<Type, unknown[]>;
-  pipe(autoChangesMap.get(target) ?? [], Array.append(change), (_) => autoChangesMap.set(target, _));
+  pipe(autoChangesMap(program).get(target) ?? [], Array.append(change), (_) => autoChangesMap(program).set(target, _));
 }
 
-export function $move(context: DecoratorContext, target: Model, from: Model | Namespace, to: Model | Namespace) {
+export function $move(
+  { program }: DecoratorContext,
+  target: Model | Operation,
+  from: Model | Namespace,
+  to: Model | Namespace,
+) {
   const fromNamespace = from.kind === 'Namespace' ? from : from.namespace;
   const toNamespace = to.kind === 'Namespace' ? to : to.namespace;
 
   if (!toNamespace || target.namespace !== fromNamespace) return;
 
-  context.program.stateMap($lib.stateKeys.move).set(target, toNamespace);
+  moveMap(program).set(target, toNamespace);
 }
 
-export function $useFriendlyName(context: DecoratorContext, target: Operation) {
-  target.name = getFriendlyName(context.program, target) ?? target.name;
+export function $useFriendlyName({ program }: DecoratorContext, target: Operation) {
+  target.name = getFriendlyName(program, target) ?? target.name;
+}
+
+export function $entity({ program }: DecoratorContext, target: Model, base?: Model) {
+  entityMap(program).set(target, base ?? target);
+}
+
+export function $endpoint({ program }: DecoratorContext, target: Operation, method: StringLiteral, options?: Model) {
+  endpointMap(program).set(target, { method: method.value, options });
 }

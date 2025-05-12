@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "jsx": "preserve",
+    "jsxImportSource": "@alloy-js/core",
     "emitDeclarationOnly": false,
     "allowImportingTsExtensions": false
   },
