@@ -213,7 +213,7 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 			continue
 		}
 
-		requestName := fmt.Sprintf("request-%d", i)
+		requestName := fmt.Sprintf("request_%d", i)
 
 		var api *mitemapi.ItemApi
 

@@ -247,6 +247,21 @@ func TestExpressionEvaluteAsArray(t *testing.T) {
 			expectedOutput: nil,  // Output is nil on error
 			expectedError:  true, // Should cause a runtime error
 		},
+		{
+			name:       "Access nested field with hyphen and dot",
+			expression: `data.request_8.response.body`,
+			envVars: map[string]any{
+				"data": map[string]any{
+					"request_8": map[string]any{
+						"response": map[string]any{
+							"body": []any{"some body content"},
+						},
+					},
+				},
+			},
+			expectedOutput: []any{"some body content"},
+			expectedError:  false,
+		},
 	}
 
 	for _, tt := range tests {
