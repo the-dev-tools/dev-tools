@@ -19,30 +19,12 @@ namespace API.Collection;
 
 @autoFields
 @normalize
+@entity
 @parentResource(Workspace.Workspace)
 model Collection {
   @key collectionId: Resource.Id;
   name: string;
 }
 
-model CollectionChange is Resource.Change<Collection>;
-model CollectionListItem is Resource.List.Item<Collection>;
-model CollectionListRequest is Resource.List.Request<Collection>;
-model CollectionListResponse is Resource.List.Response<Collection, CollectionListItem>;
-model CollectionGetRequest is Resource.Get.Request<Collection>;
-model CollectionGetResponse is Resource.Get.Response<Collection>;
-model CollectionCreateRequest is Resource.Create.Request<Collection>;
-model CollectionCreateResponse is Resource.Create.Response<Collection, CollectionListResponse>;
-model CollectionUpdateRequest is Resource.Update.Request<Collection>;
-model CollectionUpdateResponse is Resource.Update.Response<Collection>;
-model CollectionDeleteRequest is Resource.Delete.Request<Collection>;
-model CollectionDeleteResponse is Resource.Delete.Response<Collection>;
-
 @Protobuf.service
-interface CollectionService {
-  CollectionList(...CollectionListRequest): CollectionListResponse;
-  CollectionGet(...CollectionGetRequest): CollectionGetResponse;
-  CollectionCreate(...CollectionCreateRequest): CollectionCreateResponse;
-  CollectionUpdate(...CollectionUpdateRequest): CollectionUpdateResponse;
-  CollectionDelete(...CollectionDeleteRequest): CollectionDeleteResponse;
-}
+interface CollectionService extends Resource.CRUD<Collection> {}

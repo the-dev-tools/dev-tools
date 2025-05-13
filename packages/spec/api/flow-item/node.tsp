@@ -36,6 +36,7 @@ enum NodeKind {
 
 @parentResource(Flow.Flow)
 @normalize
+@entity
 @autoFields
 model Node {
   @key nodeId: Resource.Id;
@@ -99,17 +100,6 @@ model NodeJS {
 }
 
 model NodeChange is Resource.Change<Node>;
-model NodeListItem is Resource.List.Item<Node>;
-model NodeListRequest is Resource.List.Request<Node>;
-model NodeListResponse is Resource.List.Response<Node, NodeListItem>;
-model NodeGetRequest is Resource.Get.Request<Node>;
-model NodeGetResponse is Resource.Get.Response<Node>;
-model NodeCreateRequest is Resource.Create.Request<Node>;
-model NodeCreateResponse is Resource.Create.Response<Node, NodeListResponse>;
-model NodeUpdateRequest is Resource.Update.Request<Node>;
-model NodeUpdateResponse is Resource.Update.Response<Node>;
-model NodeDeleteRequest is Resource.Delete.Request<Node>;
-model NodeDeleteResponse is Resource.Delete.Response<Node>;
 
 @autoFields
 model NodeRunRequest {
@@ -131,13 +121,7 @@ model NodeRunResponse {
 }
 
 @Protobuf.service
-interface NodeService {
-  NodeList(...NodeListRequest): NodeListResponse;
-  NodeGet(...NodeGetRequest): NodeGetResponse;
-  NodeCreate(...NodeCreateRequest): NodeCreateResponse;
-  NodeUpdate(...NodeUpdateRequest): NodeUpdateResponse;
-  NodeDelete(...NodeDeleteRequest): NodeDeleteResponse;
-
+interface NodeService extends Resource.CRUD<Node> {
   @stream(StreamMode.Out)
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }

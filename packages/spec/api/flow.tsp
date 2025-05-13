@@ -20,6 +20,7 @@ namespace API.Flow;
 
 @autoFields
 @normalize
+@entity
 @parentResource(Workspace.Workspace)
 model Flow {
   @key flowId: Resource.Id;
@@ -35,21 +36,9 @@ model FlowListRequest {
   @normalKey tagId?: Resource.Id;
 }
 
-model FlowListResponse is Resource.List.Response<{}, FlowListItem> {
-  ...FlowListRequest;
-}
-
 model FlowVersionsItem is Resource.List.Item<Flow>;
 model FlowVersionsRequest is KeyOf<Flow>;
-model FlowVersionsResponse is Resource.List.Response<Flow, FlowVersionsItem>;
-model FlowGetRequest is Resource.Get.Request<Flow>;
-model FlowGetResponse is Resource.Get.Response<Flow>;
-model FlowCreateRequest is Resource.Create.Request<Flow>;
-model FlowCreateResponse is Resource.Create.Response<Flow, FlowListResponse>;
-model FlowUpdateRequest is Resource.Update.Request<Flow>;
-model FlowUpdateResponse is Resource.Update.Response<Flow>;
-model FlowDeleteRequest is Resource.Delete.Request<Flow>;
-model FlowDeleteResponse is Resource.Delete.Response<Flow>;
+model FlowVersionsResponse is Resource.List.Response<Flow, TRequest = FlowVersionsRequest, TItem = FlowVersionsItem>;
 
 @autoFields
 model FlowRunRequest {
@@ -65,13 +54,13 @@ model FlowRunResponse {
 }
 
 @Protobuf.service
-interface FlowService {
-  FlowList(...FlowListRequest): FlowListResponse;
-  FlowVersions(...FlowVersionsRequest): FlowVersionsResponse;
-  FlowGet(...FlowGetRequest): FlowGetResponse;
-  FlowCreate(...FlowCreateRequest): FlowCreateResponse;
-  FlowUpdate(...FlowUpdateRequest): FlowUpdateResponse;
-  FlowDelete(...FlowDeleteRequest): FlowDeleteResponse;
+interface FlowService extends Resource.CRUD<Flow, TListRequest = FlowListRequest> {
+  FlowVersions is Resource.List.Operation<
+    Flow,
+    TItem = FlowVersionsItem,
+    TRequest = FlowVersionsRequest,
+    TResponse = FlowVersionsResponse
+  >;
 
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;

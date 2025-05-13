@@ -46,3 +46,8 @@ extern dec endpoint(target: Operation, method: string, options?: Model);
 
 model Schema<Resource extends Model> {}
 model PrimaryKeys<Resource extends Model> {}
+
+/**
+ * Workaround to allow comments before first interface
+ */
+interface BlankInterface {}

@@ -21,7 +21,7 @@ export const getMethod = (service: string, method: string) => HashMap.get(method
 type AutoChangeSourceKind = 'MERGE' | 'REQUEST' | 'RESPONSE';
 
 export interface AutoChangeSource {
-  $type: string;
+  $type?: string;
   kind: AutoChangeSourceKind;
 }
 

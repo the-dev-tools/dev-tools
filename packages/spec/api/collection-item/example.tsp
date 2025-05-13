@@ -22,6 +22,7 @@ namespace API.CollectionItem.Example;
 
 @autoFields
 @normalize
+@entity
 @parentResource(Endpoint.Endpoint)
 model Example {
   @key exampleId: Resource.Id;
@@ -33,24 +34,16 @@ model Example {
 
 model ExampleChange is Resource.Change<Example>;
 model ExampleListItem is Resource.List.Item<Example>;
-model ExampleListRequest is Resource.List.Request<Example>;
-model ExampleListResponse is Resource.List.Response<Example, ExampleListItem>;
+model ExampleListResponse is Resource.List.Response<Example, TItem = ExampleListItem>;
 model ExampleVersionsItem is Resource.List.Item<Example> {
   ...ParentKeyOf<Example>;
 }
 model ExampleVersionsRequest is KeyOf<Example>;
-model ExampleVersionsResponse is Resource.List.Response<Example, ExampleVersionsItem>;
-model ExampleGetRequest is Resource.Get.Request<Example>;
-model ExampleGetResponse is Resource.Get.Response<Example>;
-model ExampleCreateRequest is Resource.Create.Request<Example>;
-model ExampleCreateResponse is Resource.Create.Response<Example, ExampleListResponse>;
-model ExampleUpdateRequest is Resource.Update.Request<Example>;
-model ExampleUpdateResponse is Resource.Update.Response<Example>;
-model ExampleDeleteRequest is Resource.Delete.Request<Example>;
-model ExampleDeleteResponse is Resource.Delete.Response<Example>;
+model ExampleVersionsResponse
+  is Resource.List.Response<Example, TRequest = ExampleVersionsRequest, TItem = ExampleVersionsItem>;
 
 model ExampleDuplicateRequest is KeyOf<Example>;
-model ExampleDuplicateResponse is Resource.Create.Response<Example, ExampleListResponse>;
+model ExampleDuplicateResponse is Resource.Create.Response<Example>;
 
 model ExampleRunRequest is KeyOf<Example>;
 
@@ -60,15 +53,20 @@ model ExampleRunResponse is Resource.Get.Response<Response.Response> {
 }
 
 @Protobuf.service
-interface ExampleService {
-  ExampleList(...ExampleListRequest): ExampleListResponse;
-  ExampleVersions(...ExampleVersionsRequest): ExampleVersionsResponse;
-  ExampleGet(...ExampleGetRequest): ExampleGetResponse;
-  ExampleCreate(...ExampleCreateRequest): ExampleCreateResponse;
-  ExampleUpdate(...ExampleUpdateRequest): ExampleUpdateResponse;
-  ExampleDelete(...ExampleDeleteRequest): ExampleDeleteResponse;
+interface ExampleService
+  extends Resource.CRUD<Example, TListItem = ExampleListItem, TListResponse = ExampleListResponse> {
+  ExampleVersions is Resource.List.Operation<
+    Example,
+    TItem = ExampleVersionsItem,
+    TRequest = ExampleVersionsRequest,
+    TResponse = ExampleVersionsResponse
+  >;
 
-  ExampleDuplicate(...ExampleDuplicateRequest): ExampleDuplicateResponse;
+  ExampleDuplicate is Resource.Create.Operation<
+    Example,
+    TRequest = ExampleDuplicateRequest,
+    TResponse = ExampleDuplicateResponse
+  >;
 
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
 }

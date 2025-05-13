@@ -1322,19 +1322,14 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 		return nil, rpcErr
 	}
 
-	example, err := c.iaes.GetApiExample(ctx, versionParentID)
-	if err != nil {
-		return nil, err
-	}
-
 	exampleVersionItems, err := c.GetVersion(ctx, versionParentID)
 	if err != nil {
 		return nil, err
 	}
 
 	resp := &examplev1.ExampleVersionsResponse{
-		EndpointId: example.ItemApiID.Bytes(),
-		Items:      exampleVersionItems,
+		ExampleId: req.Msg.GetExampleId(),
+		Items:     exampleVersionItems,
 	}
 
 	return connect.NewResponse(resp), nil

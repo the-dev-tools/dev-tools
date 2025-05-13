@@ -26,6 +26,7 @@ enum Handle {
 
 @parentResource(Flow.Flow)
 @normalize
+@entity
 @autoFields
 model Edge {
   @key edgeId: Resource.Id;
@@ -35,23 +36,6 @@ model Edge {
 }
 
 model EdgeChange is Resource.Change<Edge>;
-model EdgeListItem is Resource.List.Item<Edge>;
-model EdgeListRequest is Resource.List.Request<Edge>;
-model EdgeListResponse is Resource.List.Response<Edge, EdgeListItem>;
-model EdgeGetRequest is Resource.Get.Request<Edge>;
-model EdgeGetResponse is Resource.Get.Response<Edge>;
-model EdgeCreateRequest is Resource.Create.Request<Edge>;
-model EdgeCreateResponse is Resource.Create.Response<Edge, EdgeListResponse>;
-model EdgeUpdateRequest is Resource.Update.Request<Edge>;
-model EdgeUpdateResponse is Resource.Update.Response<Edge>;
-model EdgeDeleteRequest is Resource.Delete.Request<Edge>;
-model EdgeDeleteResponse is Resource.Delete.Response<Edge>;
 
 @Protobuf.service
-interface EdgeService {
-  EdgeList(...EdgeListRequest): EdgeListResponse;
-  EdgeGet(...EdgeGetRequest): EdgeGetResponse;
-  EdgeCreate(...EdgeCreateRequest): EdgeCreateResponse;
-  EdgeUpdate(...EdgeUpdateRequest): EdgeUpdateResponse;
-  EdgeDelete(...EdgeDeleteRequest): EdgeDeleteResponse;
-}
+interface EdgeService extends Resource.CRUD<Edge> {}

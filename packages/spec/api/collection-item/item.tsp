@@ -41,9 +41,8 @@ model CollectionItemListRequest is Resource.List.Request<CollectionItem> {
   @normalKey folderId?: Resource.Id;
 }
 
-model CollectionItemListResponse is Resource.List.Response<{}, CollectionItem> {
-  ...CollectionItemListRequest;
-}
+model CollectionItemListResponse
+  is Resource.List.Response<CollectionItem, TRequest = CollectionItemListRequest, TItem = CollectionItem>;
 
 @autoFields
 model CollectionItemMoveRequest {

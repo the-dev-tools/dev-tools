@@ -19,6 +19,7 @@ namespace API.Workspace;
 
 @autoFields
 @normalize
+@entity
 model Workspace {
   @key workspaceId: Resource.Id;
   selectedEnvironmentId: Resource.Id;
@@ -27,6 +28,8 @@ model Workspace {
   @visibility(Resource.Mutation.None) collectionCount: int32;
   @visibility(Resource.Mutation.None) flowCount: int32;
 }
+
+model WorkspaceChange is Resource.Change<Workspace>;
 
 enum MemberRole {
   MEMBER_ROLE_UNSPECIFIED: 0,
@@ -37,6 +40,7 @@ enum MemberRole {
 
 @autoFields
 @normalize
+@entity
 @parentResource(Workspace)
 model WorkspaceMember {
   @key userID: Resource.Id;
@@ -44,48 +48,19 @@ model WorkspaceMember {
   role: MemberRole;
 }
 
-// Workspace
-model WorkspaceChange is Resource.Change<Workspace>;
-model WorkspaceListItem is Resource.List.Item<Workspace>;
-model WorkspaceListRequest is Resource.List.Request<Workspace>;
-model WorkspaceListResponse is Resource.List.Response<Workspace, WorkspaceListItem>;
-model WorkspaceGetRequest is Resource.Get.Request<Workspace>;
-model WorkspaceGetResponse is Resource.Get.Response<Workspace>;
-model WorkspaceCreateRequest is Resource.Create.Request<Workspace>;
-model WorkspaceCreateResponse is Resource.Create.Response<Workspace, WorkspaceListResponse>;
-model WorkspaceUpdateRequest is Resource.Update.Request<Workspace>;
-model WorkspaceUpdateResponse is Resource.Update.Response<Workspace>;
-model WorkspaceDeleteRequest is Resource.Delete.Request<Workspace>;
-model WorkspaceDeleteResponse is Resource.Delete.Response<Workspace>;
-
-// Member
 model WorkspaceMemberChange is Resource.Change<WorkspaceMember>;
-model WorkspaceMemberListItem is Resource.List.Item<WorkspaceMember>;
-model WorkspaceMemberListRequest is Resource.List.Request<WorkspaceMember>;
-model WorkspaceMemberListResponse is Resource.List.Response<WorkspaceMember, WorkspaceMemberListItem>;
-model WorkspaceMemberCreateRequest is Resource.Create.Request<WorkspaceMember>;
-model WorkspaceMemberCreateResponse is Resource.Create.Response<WorkspaceMember, WorkspaceMemberListResponse>;
+
 model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember> {
   ...ParentKeyOf<WorkspaceMember>;
 }
-model WorkspaceMemberUpdateResponse is Resource.Update.Response<WorkspaceMember>;
 model WorkspaceMemberDeleteRequest is Resource.Delete.Request<WorkspaceMember> {
   ...ParentKeyOf<WorkspaceMember>;
 }
-model WorkspaceMemberDeleteResponse is Resource.Delete.Response<WorkspaceMember>;
 
 @Protobuf.service
-interface WorkspaceService {
-  // Workspace
-  WorkspaceList(...WorkspaceListRequest): WorkspaceListResponse;
-  WorkspaceGet(...WorkspaceGetRequest): WorkspaceGetResponse;
-  WorkspaceCreate(...WorkspaceCreateRequest): WorkspaceCreateResponse;
-  WorkspaceUpdate(...WorkspaceUpdateRequest): WorkspaceUpdateResponse;
-  WorkspaceDelete(...WorkspaceDeleteRequest): WorkspaceDeleteResponse;
-
-  // Member
-  WorkspaceMemberList(...WorkspaceMemberListRequest): WorkspaceMemberListResponse;
-  WorkspaceMemberCreate(...WorkspaceMemberCreateRequest): WorkspaceMemberCreateResponse;
-  WorkspaceMemberUpdate(...WorkspaceMemberUpdateRequest): WorkspaceMemberUpdateResponse;
-  WorkspaceMemberDelete(...WorkspaceMemberDeleteRequest): WorkspaceMemberDeleteResponse;
-}
+interface WorkspaceService
+  extends Resource.CRUD<Workspace>,
+    Resource.List.Interface<WorkspaceMember>,
+    Resource.Create.Interface<WorkspaceMember>,
+    Resource.Update.Interface<WorkspaceMember, TRequest = WorkspaceMemberUpdateRequest>,
+    Resource.Delete.Interface<WorkspaceMember, TRequest = WorkspaceMemberDeleteRequest> {}

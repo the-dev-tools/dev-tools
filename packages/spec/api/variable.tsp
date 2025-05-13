@@ -19,6 +19,7 @@ namespace API.Variable;
 
 @autoFields
 @normalize
+@entity
 @parentResource(Environment.Environment)
 model Variable {
   @key variableId: Resource.Id;
@@ -29,29 +30,9 @@ model Variable {
 }
 
 model VariableChange is Resource.Change<Variable>;
-model VariableListItem is Resource.List.Item<Variable>;
 model VariableListRequest is Resource.List.Request<Variable> {
   @autoField @normalKey workspaceId?: Resource.Id;
 }
 
-model VariableListResponse is Resource.List.Response<{}, VariableListItem> {
-  ...VariableListRequest;
-}
-
-model VariableGetRequest is Resource.Get.Request<Variable>;
-model VariableGetResponse is Resource.Get.Response<Variable>;
-model VariableCreateRequest is Resource.Create.Request<Variable>;
-model VariableCreateResponse is Resource.Create.Response<Variable, VariableListResponse>;
-model VariableUpdateRequest is Resource.Update.Request<Variable>;
-model VariableUpdateResponse is Resource.Update.Response<Variable>;
-model VariableDeleteRequest is Resource.Delete.Request<Variable>;
-model VariableDeleteResponse is Resource.Delete.Response<Variable>;
-
 @Protobuf.service
-interface VariableService {
-  VariableList(...VariableListRequest): VariableListResponse;
-  VariableGet(...VariableGetRequest): VariableGetResponse;
-  VariableCreate(...VariableCreateRequest): VariableCreateResponse;
-  VariableUpdate(...VariableUpdateRequest): VariableUpdateResponse;
-  VariableDelete(...VariableDeleteRequest): VariableDeleteResponse;
-}
+interface VariableService extends Resource.CRUD<Variable, TListRequest = VariableListRequest> {}

@@ -18,6 +18,7 @@ namespace API.FlowVariable;
 
 @autoFields
 @normalize
+@entity
 @parentResource(Flow.Flow)
 model FlowVariable {
   @key variableId: Resource.Id;
@@ -28,23 +29,6 @@ model FlowVariable {
 }
 
 model FlowVariableChange is Resource.Change<FlowVariable>;
-model FlowVariableListItem is Resource.List.Item<FlowVariable>;
-model FlowVariableListRequest is Resource.List.Request<FlowVariable>;
-model FlowVariableListResponse is Resource.List.Response<FlowVariable, FlowVariableListItem>;
-model FlowVariableGetRequest is Resource.Get.Request<FlowVariable>;
-model FlowVariableGetResponse is Resource.Get.Response<FlowVariable>;
-model FlowVariableCreateRequest is Resource.Create.Request<FlowVariable>;
-model FlowVariableCreateResponse is Resource.Create.Response<FlowVariable, FlowVariableListResponse>;
-model FlowVariableUpdateRequest is Resource.Update.Request<FlowVariable>;
-model FlowVariableUpdateResponse is Resource.Update.Response<FlowVariable>;
-model FlowVariableDeleteRequest is Resource.Delete.Request<FlowVariable>;
-model FlowVariableDeleteResponse is Resource.Delete.Response<FlowVariable>;
 
 @Protobuf.service
-interface FlowVariableService {
-  FlowVariableList(...FlowVariableListRequest): FlowVariableListResponse;
-  FlowVariableGet(...FlowVariableGetRequest): FlowVariableGetResponse;
-  FlowVariableCreate(...FlowVariableCreateRequest): FlowVariableCreateResponse;
-  FlowVariableUpdate(...FlowVariableUpdateRequest): FlowVariableUpdateResponse;
-  FlowVariableDelete(...FlowVariableDeleteRequest): FlowVariableDeleteResponse;
-}
+interface FlowVariableService extends Resource.CRUD<FlowVariable> {}

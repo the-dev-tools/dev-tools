@@ -19,6 +19,7 @@ namespace API.CollectionItem.Response;
 
 @autoFields
 @normalize
+@entity
 @parentResource(Example.Example)
 model Response {
   @key responseId: Resource.Id;
@@ -31,6 +32,7 @@ model Response {
 
 @autoFields
 @normalize
+@entity
 @parentResource(Response)
 model ResponseHeader {
   @key responseHeaderId: Resource.Id;
@@ -46,21 +48,11 @@ model ResponseAssert {
 }
 
 model ResponseChange is Resource.Change<Response>;
-model ResponseGetRequest is Resource.Get.Request<Response>;
-model ResponseGetResponse is Resource.Get.Response<Response>;
 
 model ResponseHeaderChange is Resource.Change<ResponseHeader>;
-model ResponseHeaderListItem is Resource.List.Item<ResponseHeader>;
-model ResponseHeaderListRequest is Resource.List.Request<ResponseHeader>;
-model ResponseHeaderListResponse is Resource.List.Response<ResponseHeader, ResponseHeaderListItem>;
-
-model ResponseAssertListItem is Resource.List.Item<ResponseAssert>;
-model ResponseAssertListRequest is Resource.List.Request<ResponseAssert>;
-model ResponseAssertListResponse is Resource.List.Response<ResponseAssert, ResponseAssertListItem>;
 
 @Protobuf.service
-interface ResponseService {
-  ResponseGet(...ResponseGetRequest): ResponseGetResponse;
-  ResponseHeaderList(...ResponseHeaderListRequest): ResponseHeaderListResponse;
-  ResponseAssertList(...ResponseAssertListRequest): ResponseAssertListResponse;
-}
+interface ResponseService
+  extends Resource.Get.Interface<Response>,
+    Resource.List.Interface<ResponseHeader>,
+    Resource.List.Interface<ResponseAssert> {}

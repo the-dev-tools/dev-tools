@@ -31,6 +31,7 @@ enum TagColor {
 
 @autoFields
 @normalize
+@entity
 @parentResource(Workspace.Workspace)
 model Tag {
   @key tagId: Resource.Id;
@@ -39,23 +40,6 @@ model Tag {
 }
 
 model TagChange is Resource.Change<Tag>;
-model TagListItem is Resource.List.Item<Tag>;
-model TagListRequest is Resource.List.Request<Tag>;
-model TagListResponse is Resource.List.Response<Tag, TagListItem>;
-model TagGetRequest is Resource.Get.Request<Tag>;
-model TagGetResponse is Resource.Get.Response<Tag>;
-model TagCreateRequest is Resource.Create.Request<Tag>;
-model TagCreateResponse is Resource.Create.Response<Tag, TagListResponse>;
-model TagUpdateRequest is Resource.Update.Request<Tag>;
-model TagUpdateResponse is Resource.Update.Response<Tag>;
-model TagDeleteRequest is Resource.Delete.Request<Tag>;
-model TagDeleteResponse is Resource.Delete.Response<Tag>;
 
 @Protobuf.service
-interface TagService {
-  TagList(...TagListRequest): TagListResponse;
-  TagGet(...TagGetRequest): TagGetResponse;
-  TagCreate(...TagCreateRequest): TagCreateResponse;
-  TagUpdate(...TagUpdateRequest): TagUpdateResponse;
-  TagDelete(...TagDeleteRequest): TagDeleteResponse;
-}
+interface TagService extends Resource.CRUD<Tag> {}
