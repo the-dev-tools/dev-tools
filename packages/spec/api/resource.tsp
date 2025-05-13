@@ -42,18 +42,47 @@ model Change<Resource extends Model> {
   ...OptionalProperties<OmitKey<Resource>>;
 }
 
-interface CRUD<TResource extends Model>
-  extends List.Interface<TResource>,
-    Get.Interface<TResource>,
-    Create.Interface<TResource>,
-    Update.Interface<TResource>,
-    Delete.Interface<TResource> {}
+interface CRUD<
+  TResource extends Model,
+  // List
+  TListRequest extends Model = List.Request<TResource>,
+  TListItem extends Model = List.Item<TResource>,
+  TListResponse extends Model = List.Response<TResource, TRequest = TListRequest, TItem = TListItem>,
+  // Get
+  TGetRequest extends Model = Get.Request<TResource>,
+  TGetResponse extends Model = Get.Response<TResource>,
+  // Create
+  TCreateRequest extends Model = Create.Request<TResource>,
+  TCreateResponse extends Model = Create.Response<TResource, TListResponse = TListResponse>,
+  // Update
+  TUpdateRequest extends Model = Update.Request<TResource>,
+  TUpdateResponse extends Model = Update.Response<TResource>,
+  // Delete
+  TDeleteRequest extends Model = Delete.Request<TResource>,
+  TDeleteResponse extends Model = Delete.Response<TResource>
+>
+  extends List.Interface<TResource, TRequest = TListRequest, TResponse = TListResponse, TItem = TListItem>,
+    Get.Interface<TResource, TRequest = TGetRequest, TResponse = TGetResponse>,
+    Create.Interface<
+      TResource,
+      TRequest = TCreateRequest,
+      TResponse = TCreateResponse,
+      TListRequest = TListRequest,
+      TListItem = TListItem
+    >,
+    Update.Interface<TResource, TRequest = TUpdateRequest, TResponse = TUpdateResponse>,
+    Delete.Interface<TResource, TRequest = TDeleteRequest, TResponse = TDeleteResponse> {}
 
 namespace List {
-  interface Interface<TResource extends Model> {
+  interface Interface<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TItem extends Model = Item<TResource>,
+    TResponse extends Model = Response<TResource, TRequest = TRequest, TItem = TItem>
+  > {
     @useFriendlyName
     @friendlyName("{name}List", TResource)
-    List is Operation<TResource>;
+    List is Operation<TResource, TRequest = TRequest, TResponse = TResponse, TItem = TItem>;
   }
 
   @move(List, TResource)
@@ -67,8 +96,8 @@ namespace List {
   op Operation<
     TResource extends Model,
     TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>,
-    TItem extends Model = Item<TResource>
+    TItem extends Model = Item<TResource>,
+    TResponse extends Model = Response<TResource, TRequest = TRequest, TItem = TItem>
   >(...TRequest): TResponse;
 
   @move(List, TResource)
@@ -90,17 +119,25 @@ namespace List {
   @friendlyName("{name}ListResponse", TResource)
   @autoFields
   @normalize
-  model Response<TResource extends Model, TItem = List.Item<TResource>> {
-    ...Request<TResource>;
+  model Response<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TItem extends Model = List.Item<TResource>
+  > {
+    ...TRequest;
     items: TItem[];
   }
 }
 
 namespace Get {
-  interface Interface<TResource extends Model> {
+  interface Interface<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>
+  > {
     @useFriendlyName
     @friendlyName("{name}Get", TResource)
-    Get is Operation<TResource>;
+    Get is Operation<TResource, TRequest = TRequest, TResponse = TResponse>;
   }
 
   @move(Get, TResource)
@@ -133,10 +170,22 @@ namespace Get {
 }
 
 namespace Create {
-  interface Interface<TResource extends Model> {
+  interface Interface<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>,
+    TListRequest extends Model = List.Request<TResource>,
+    TListItem extends Model = List.Item<TResource>
+  > {
     @useFriendlyName
     @friendlyName("{name}Create", TResource)
-    Create is Operation<TResource>;
+    Create is Operation<
+      TResource,
+      TRequest = TRequest,
+      TResponse = TResponse,
+      TListRequest = TListRequest,
+      TListItem = TListItem
+    >;
   }
 
   @move(Create, TResource)
@@ -188,10 +237,14 @@ namespace Create {
 }
 
 namespace Update {
-  interface Interface<TResource extends Model> {
+  interface Interface<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>
+  > {
     @useFriendlyName
     @friendlyName("{name}Update", TResource)
-    Update is Operation<TResource>;
+    Update is Operation<TResource, TRequest = TRequest, TResponse = TResponse>;
   }
 
   @move(Update, TResource)
@@ -231,10 +284,14 @@ namespace Update {
 }
 
 namespace Delete {
-  interface Interface<TResource extends Model> {
+  interface Interface<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>
+  > {
     @useFriendlyName
     @friendlyName("{name}Delete", TResource)
-    Delete is Operation<TResource>;
+    Delete is Operation<TResource, TRequest = TRequest, TResponse = TResponse>;
   }
 
   @move(Delete, TResource)
