@@ -42,198 +42,231 @@ model Change<Resource extends Model> {
   ...OptionalProperties<OmitKey<Resource>>;
 }
 
-interface CRUD<Resource extends Model>
-  extends List.Operation<Resource>,
-    Get.Operation<Resource>,
-    Create.Operation<Resource>,
-    Update.Operation<Resource>,
-    Delete.Operation<Resource> {}
+interface CRUD<TResource extends Model>
+  extends List.Interface<TResource>,
+    Get.Interface<TResource>,
+    Create.Interface<TResource>,
+    Update.Interface<TResource>,
+    Delete.Interface<TResource> {}
 
 namespace List {
-  interface Operation<Resource extends Model> {
-    @move(List, Resource)
-    @endpoint(
-      "resource.js:list",
-      {
-        inputPrimaryKeys: PrimaryKeys<Request<Resource>>,
-        itemSchema: Schema<Item<Resource>>,
-      }
-    )
+  interface Interface<TResource extends Model> {
     @useFriendlyName
-    @friendlyName("{name}List", Resource)
-    List(...Request<Resource>): Response<Resource>;
+    @friendlyName("{name}List", TResource)
+    List is Operation<TResource>;
   }
 
-  @move(List, Resource)
-  @friendlyName("{name}ListItem", Resource)
-  @entity(Resource)
-  @normalize(Resource)
+  @move(List, TResource)
+  @endpoint(
+    "resource.js:list",
+    {
+      inputPrimaryKeys: PrimaryKeys<TRequest>,
+      itemSchema: Schema<TItem>,
+    }
+  )
+  op Operation<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>,
+    TItem extends Model = Item<TResource>
+  >(...TRequest): TResponse;
+
+  @move(List, TResource)
+  @friendlyName("{name}ListItem", TResource)
+  @entity(TResource)
+  @normalize(TResource)
   @withVisibility(Query.List)
-  model Item<Resource extends Model> {
-    ...Resource;
+  model Item<TResource extends Model> {
+    ...TResource;
   }
 
-  @move(List, Resource)
-  @friendlyName("{name}ListRequest", Resource)
-  model Request<Resource extends Model> {
-    ...ParentKeyOf<Resource>;
+  @move(List, TResource)
+  @friendlyName("{name}ListRequest", TResource)
+  model Request<TResource extends Model> {
+    ...ParentKeyOf<TResource>;
   }
 
-  @move(List, Resource)
-  @friendlyName("{name}ListResponse", Resource)
+  @move(List, TResource)
+  @friendlyName("{name}ListResponse", TResource)
   @autoFields
   @normalize
-  model Response<Resource extends Model, Item = List.Item<Resource>> {
-    ...Request<Resource>;
-    items: Item[];
+  model Response<TResource extends Model, TItem = List.Item<TResource>> {
+    ...Request<TResource>;
+    items: TItem[];
   }
 }
 
 namespace Get {
-  interface Operation<Resource extends Model> {
-    @move(Get, Resource)
-    @endpoint(
-      "resource.js:get",
-      {
-        schema: Schema<Response<Resource>>,
-      }
-    )
+  interface Interface<TResource extends Model> {
     @useFriendlyName
-    @friendlyName("{name}Get", Resource)
-    Get(...Request<Resource>): Response<Resource>;
+    @friendlyName("{name}Get", TResource)
+    Get is Operation<TResource>;
   }
 
-  @move(Get, Resource)
-  @friendlyName("{name}GetRequest", Resource)
-  model Request<Resource extends Model> {
-    ...KeyOf<Resource>;
+  @move(Get, TResource)
+  @endpoint(
+    "resource.js:get",
+    {
+      schema: Schema<TResponse>,
+    }
+  )
+  op Operation<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>
+  >(...TRequest): TResponse;
+
+  @move(Get, TResource)
+  @friendlyName("{name}GetRequest", TResource)
+  model Request<TResource extends Model> {
+    ...KeyOf<TResource>;
   }
 
-  @move(Get, Resource)
-  @friendlyName("{name}GetResponse", Resource)
-  @normalize(Resource)
-  @entity(Resource)
+  @move(Get, TResource)
+  @friendlyName("{name}GetResponse", TResource)
+  @normalize(TResource)
+  @entity(TResource)
   @withVisibility(Query.Get)
-  model Response<Resource extends Model> {
-    ...Resource;
+  model Response<TResource extends Model> {
+    ...TResource;
   }
 }
 
 namespace Create {
-  interface Operation<Resource extends Model> {
-    @move(Create, Resource)
-    @endpoint(
-      "resource.js:create",
-      {
-        listInputPrimaryKeys: PrimaryKeys<List.Request<Resource>>,
-        listItemSchema: Schema<List.Item<Resource>>,
-      }
-    )
+  interface Interface<TResource extends Model> {
     @useFriendlyName
-    @friendlyName("{name}Create", Resource)
-    Create(...Request<Resource>): Response<Resource>;
+    @friendlyName("{name}Create", TResource)
+    Create is Operation<TResource>;
   }
 
-  @move(Create, Resource)
-  @friendlyName("{name}CreateRequest", Resource)
-  @normalize(Resource)
+  @move(Create, TResource)
+  @endpoint(
+    "resource.js:create",
+    {
+      listInputPrimaryKeys: PrimaryKeys<TListRequest>,
+      listItemSchema: Schema<TListItem>,
+    }
+  )
+  op Operation<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>,
+    TListRequest extends Model = List.Request<TResource>,
+    TListItem extends Model = List.Item<TResource>
+  >(...TRequest): TResponse;
+
+  @move(Create, TResource)
+  @friendlyName("{name}CreateRequest", TResource)
+  @normalize(TResource)
   @withVisibility(Mutation.Create)
-  model Request<Resource extends Model> {
-    ...ParentKeyOf<Resource>;
-    ...Resource;
+  model Request<TResource extends Model> {
+    ...ParentKeyOf<TResource>;
+    ...TResource;
   }
 
-  @move(Create, Resource)
-  @friendlyName("{name}CreateResponse", Resource)
+  @move(Create, TResource)
+  @friendlyName("{name}CreateResponse", TResource)
   @autoChange({
     $data: {
       kind: API.Change.SourceKind.MERGE,
-      $type: Resource,
+      $type: TResource,
     },
     $list: [
       {
         kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND,
         $parent: {
           kind: API.Change.SourceKind.REQUEST,
-          $type: ListResponse,
+          $type: TListResponse,
         },
       }
     ],
   })
-  model Response<Resource extends Model, ListResponse extends Model = Resource> {
-    ...KeyOf<Resource>;
+  model Response<TResource extends Model, TListResponse extends Model = TResource> {
+    ...KeyOf<TResource>;
     ...API.Change.Changes;
   }
 }
 
 namespace Update {
-  interface Operation<Resource extends Model> {
-    @move(Update, Resource)
-    @endpoint(
-      "resource.js:update",
-      {
-        schema: Schema<Resource>,
-      }
-    )
+  interface Interface<TResource extends Model> {
     @useFriendlyName
-    @friendlyName("{name}Update", Resource)
-    Update(...Request<Resource>): Response<Resource>;
+    @friendlyName("{name}Update", TResource)
+    Update is Operation<TResource>;
   }
 
-  @move(Update, Resource)
-  @friendlyName("{name}UpdateRequest", Resource)
-  @normalize(Resource)
+  @move(Update, TResource)
+  @endpoint(
+    "resource.js:update",
+    {
+      schema: Schema<TResource>,
+    }
+  )
+  op Operation<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>
+  >(...TRequest): TResponse;
+
+  @move(Update, TResource)
+  @friendlyName("{name}UpdateRequest", TResource)
+  @normalize(TResource)
   @withVisibility(Mutation.Update)
-  model Request<Resource extends Model> {
-    ...KeyOf<Resource>;
-    ...OptionalProperties<OmitKey<Resource>>;
+  model Request<TResource extends Model> {
+    ...KeyOf<TResource>;
+    ...OptionalProperties<OmitKey<TResource>>;
   }
 
-  @move(Update, Resource)
-  @friendlyName("{name}UpdateResponse", Resource)
+  @move(Update, TResource)
+  @friendlyName("{name}UpdateResponse", TResource)
   @autoChange({
     kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE,
     $data: {
       kind: API.Change.SourceKind.REQUEST,
-      $type: Resource,
+      $type: TResource,
     },
   })
-  model Response<Resource extends Model> {
+  model Response<TResource extends Model> {
     ...API.Change.Changes;
   }
 }
 
 namespace Delete {
-  interface Operation<Resource extends Model> {
-    @move(Delete, Resource)
-    @endpoint(
-      "resource.js:delete$",
-      {
-        schema: Schema<Resource>,
-      }
-    )
+  interface Interface<TResource extends Model> {
     @useFriendlyName
-    @friendlyName("{name}Delete", Resource)
-    Delete(...Request<Resource>): Response<Resource>;
+    @friendlyName("{name}Delete", TResource)
+    Delete is Operation<TResource>;
   }
 
-  @move(Delete, Resource)
-  @friendlyName("{name}DeleteRequest", Resource)
-  @normalize(Resource)
-  model Request<Resource extends Model> {
-    ...KeyOf<Resource>;
+  @move(Delete, TResource)
+  @endpoint(
+    "resource.js:delete$",
+    {
+      schema: Schema<TResource>,
+    }
+  )
+  op Operation<
+    TResource extends Model,
+    TRequest extends Model = Request<TResource>,
+    TResponse extends Model = Response<TResource>
+  >(...TRequest): TResponse;
+
+  @move(Delete, TResource)
+  @friendlyName("{name}DeleteRequest", TResource)
+  @normalize(TResource)
+  model Request<TResource extends Model> {
+    ...KeyOf<TResource>;
   }
 
-  @move(Delete, Resource)
-  @friendlyName("{name}DeleteResponse", Resource)
+  @move(Delete, TResource)
+  @friendlyName("{name}DeleteResponse", TResource)
   @autoChange({
     kind: API.Change.ChangeKind.CHANGE_KIND_DELETE,
     $data: {
       kind: API.Change.SourceKind.REQUEST,
-      $type: Resource,
+      $type: TResource,
     },
   })
-  model Response<Resource extends Model> {
+  model Response<TResource extends Model> {
     ...API.Change.Changes;
   }
 }
