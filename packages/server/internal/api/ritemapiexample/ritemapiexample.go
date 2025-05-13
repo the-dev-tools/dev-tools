@@ -23,7 +23,6 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
@@ -611,7 +610,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		tempVarMap := varsystem.NewVarMapWithPrefix(varsystem.MergeVars(globalVars, currentVars), menv.EnvVariablePrefix)
+		tempVarMap := varsystem.NewVarMap(varsystem.MergeVars(globalVars, currentVars))
 		varMap = &tempVarMap
 	}
 

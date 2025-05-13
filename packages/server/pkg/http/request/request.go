@@ -83,7 +83,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				if val, ok := varMap.Get(key); ok {
 					queries[i].QueryKey = val.Value
 				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
 
@@ -92,7 +92,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				if val, ok := varMap.Get(key); ok {
 					queries[i].Value = val.Value
 				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
 		}
@@ -120,7 +120,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				if val, ok := varMap.Get(key); ok {
 					headers[i].HeaderKey = val.Value
 				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
 
@@ -129,7 +129,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				if val, ok := varMap.Get(key); ok {
 					headers[i].Value = val.Value
 				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variablot found", key))
 				}
 			}
 		}
@@ -175,7 +175,6 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 
 			if varsystem.CheckIsVar(v.Value) {
 				variableKey := varsystem.GetVarKeyFromRaw(v.Value)
-				fmt.Println(variableKey)
 				if varsystem.IsFileReference(variableKey) { // Direct file reference: {{#file:path.txt}}
 					isFileUpload = true
 					actualFilePathForUpload = varsystem.GetIsFileReferencePath(variableKey)
@@ -192,9 +191,6 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 					}
 				}
 			}
-
-			fmt.Println(isFileUpload)
-			fmt.Println(actualFilePathForUpload)
 
 			if isFileUpload {
 				fileContentBytes, err := os.ReadFile(actualFilePathForUpload)
