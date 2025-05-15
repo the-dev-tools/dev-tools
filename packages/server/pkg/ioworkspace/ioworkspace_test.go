@@ -970,7 +970,7 @@ flows:
       # If node - matches nif implementation
       - if:
           name: CheckUserStatus
-          path: "{{ GetUser-1.response.status }} == 200"
+          expression: "GetUser-1.response.status == 200"
           then: GetUserPosts
           else: HandleError
 
@@ -1098,15 +1098,37 @@ flows:
 	edgeExists := func(sourceNode, targetNode string, handler edge.EdgeHandle) bool {
 		sourceID, sourceExists := nodeNameToID[sourceNode]
 		targetID, targetExists := nodeNameToID[targetNode]
-		if !sourceExists || !targetExists {
+		if !sourceExists {
+			t.Errorf("Source node '%s' not found in nodeNameToID map", sourceNode)
 			return false
 		}
+		if !targetExists {
+			t.Errorf("Target node '%s' not found in nodeNameToID map", targetNode)
+			return false
+		}
+
+		found := false
 		for _, e := range workspaceData.FlowEdges {
 			if e.SourceID == sourceID && e.TargetID == targetID && e.SourceHandler == handler {
-				return true
+				found = true
+				break
 			}
 		}
-		return false
+
+		if !found {
+			t.Errorf("Expected edge from '%s' (%v) to '%s' (%v) with handler %v not found.",
+				sourceNode, sourceID, targetNode, targetID, handler)
+			// Print all edges from the source node for debugging
+			t.Logf("Edges from source node '%s' (%v):", sourceNode, sourceID)
+			for _, e := range workspaceData.FlowEdges {
+				if e.SourceID == sourceID {
+					targetName := nodeIDToName[e.TargetID]
+					t.Logf("  - Target: '%s' (%v), Handler: %v", targetName, e.TargetID, e.SourceHandler)
+				}
+			}
+		}
+
+		return found
 	}
 
 	// Check specific edges
@@ -1361,7 +1383,7 @@ func TestMarshalWorkflowYAML(t *testing.T) {
 			FlowNodeID: ifNodeID,
 			Condition: mcondition.Condition{
 				Comparisons: mcondition.Comparison{
-					Expression: "{{ GetData.response.status }} == 200",
+					Expression: "GetData.response.status == 200",
 				},
 			},
 		},
@@ -1438,7 +1460,7 @@ func TestMarshalWorkflowYAML(t *testing.T) {
 		"name: Authorization",
 		"value: Bearer {{auth_token}}",
 		"name: CheckResponse",
-		"path: GetData.response.status",
+		"expression: GetData.response.status == 200",
 		"name: ProcessData",
 		"code: 'console.log(\"Processing data\"); return { processed: true };'",
 		"name: ProcessItems",
@@ -1447,7 +1469,7 @@ func TestMarshalWorkflowYAML(t *testing.T) {
 
 	for _, part := range expectedParts {
 		if !strings.Contains(yamlStr, part) {
-			t.Errorf("Expected YAML to contain '%s', but it was not found", part)
+			t.Errorf("Expected YAML to contain '%s', but it was not found %s", part, yamlStr)
 		}
 	}
 }

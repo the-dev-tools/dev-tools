@@ -692,7 +692,7 @@ type RequestStepBody struct {
 type IfStep struct {
 	WorkflowStep `yaml:",inline"`
 	Name         string `yaml:"name"`
-	Path         string `yaml:"path"`
+	Expression   string `yaml:"expression"`
 	Then         string `yaml:"then,omitempty"`
 	Else         string `yaml:"else,omitempty"`
 }
@@ -1453,8 +1453,8 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 				}
 
 				stepData := map[string]interface{}{
-					"name": node.Name,
-					"path": ifNode.Condition.Comparisons.Expression,
+					"name":       node.Name,
+					"expression": ifNode.Condition.Comparisons.Expression, // Add double quotes
 				}
 
 				if len(dependencies) > 0 {
