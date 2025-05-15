@@ -18,7 +18,6 @@ import { createRoot } from 'react-dom/client';
 
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { LocalMode } from '~/api/local';
-import { QueryNormalizerProvider } from '~/api/normalizer';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 
 import { RouterContext } from './root';
@@ -83,7 +82,6 @@ export const app = Effect.gen(function* () {
     ),
     (_) => <DataProvider>{_}</DataProvider>,
     (_) => <QueryClientProvider client={queryClient}>{_}</QueryClientProvider>,
-    (_) => <QueryNormalizerProvider queryClient={queryClient}>{_}</QueryNormalizerProvider>,
     (_) => <TransportProvider transport={transport}>{_}</TransportProvider>,
     (_) => <StrictMode>{_}</StrictMode>,
     (_) => void createRoot(rootEl).render(_),

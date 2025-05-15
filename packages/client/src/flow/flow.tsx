@@ -45,7 +45,6 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useConnectQuery } from '~/api/connect-query';
-import { useQueryNormalizer } from '~/api/normalizer';
 import { useMutate } from '~data-client';
 import {
   ColumnActionDelete,
@@ -373,11 +372,10 @@ export const TopBar = () => {
 const ActionBar = () => {
   const { flowId } = use(FlowContext);
   const { transport } = useRouteContext({ from: '__root__' });
+  // TODO: switch to Data Client Endpoint
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
-
-  const normalizer = useQueryNormalizer();
 
   const makeNode = useMakeNode();
 
@@ -436,7 +434,7 @@ const ActionBar = () => {
             HashMap.fromIterable,
           );
 
-          for await (const { changes, nodeId, state } of flowRun({ flowId })) {
+          for await (const { nodeId, state } of flowRun({ flowId })) {
             const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
             flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
@@ -447,8 +445,6 @@ const ActionBar = () => {
               Array.flatten,
               Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
             );
-
-            await normalizer.setNormalizedData(changes);
           }
         }}
         variant='primary'

@@ -32,7 +32,6 @@
     "@hookform/resolvers": "5.0.1",
     "@lezer/highlight": "1.2.1",
     "@lezer/lr": "1.4.2",
-    "@normy/core": "0.12.0",
     "@prettier/plugin-xml": "3.4.1",
     "@react-aria/collections": "3.0.0-rc.0",
     "@tanstack/react-query": "5.76.0",
