@@ -24,6 +24,8 @@
     "@connectrpc/connect": "2.0.2",
     "@connectrpc/connect-query": "2.0.1",
     "@connectrpc/connect-web": "2.0.2",
+    "@data-client/endpoint": "0.14.26",
+    "@data-client/react": "0.14.25",
     "@effect/platform": "0.82.0",
     "@effect/platform-browser": "0.62.0",
     "@faker-js/faker": "9.7.0",

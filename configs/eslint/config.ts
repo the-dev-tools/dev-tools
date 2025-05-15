@@ -102,6 +102,14 @@ const rules: Linter.Config = {
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
     'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject],
 
+    'react-hooks/exhaustive-deps': [
+      'warn',
+      {
+        // https://dataclient.io/docs/api/useLoading#eslint
+        additionalHooks: '(useLoading)',
+      },
+    ],
+
     'react/prop-types': 'off',
   },
 };

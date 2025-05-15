@@ -11,9 +11,9 @@ interface MakeEntityProps<Desc extends DescMessage> extends EntityOptions {
 }
 
 export const makeEntity = <Desc extends DescMessage>({ message, primaryKeys, ...props }: MakeEntityProps<Desc>) => {
-  const MessageClass = function () {
-    return create(message);
-  } as unknown as new () => MessageShape<Desc>;
+  const MessageClass = function (init?: MessageInitShape<Desc>) {
+    return create(message, init);
+  } as unknown as new (init?: MessageInitShape<Desc>) => MessageShape<Desc>;
 
   const pk = (_: MessageShape<Desc>) => pipe(Struct.pick(_, ...primaryKeys), JSON.stringify);
 
@@ -64,8 +64,11 @@ export const createMethodKeyRecord = <I extends DescMessage, O extends DescMessa
     Record.map((_) => `${_}`),
   );
 
-export const fetchMethod = <I extends DescMessage, O extends DescMessage>(
+export const fetchMethod = async <I extends DescMessage, O extends DescMessage>(
   transport: Transport,
   method: DescMethodUnary<I, O>,
   input: MessageInitShape<I>,
-) => transport.unary(method, undefined, undefined, undefined, input);
+) => {
+  const response = await transport.unary(method, undefined, undefined, undefined, input);
+  return response.message;
+};

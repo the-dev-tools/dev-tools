@@ -1,3 +1,5 @@
+import { useTransport } from '@connectrpc/connect-query';
+import { useController } from '@data-client/react';
 import { Position } from '@xyflow/react';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -5,14 +7,13 @@ import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.js';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation } from '~/api/connect-query';
 import { ReferenceFieldRHF } from '~reference';
 
 import { ConditionField } from '../../condition';
@@ -55,14 +56,15 @@ export const ForEachNode = (props: NodeProps) => {
 };
 
 export const ForEachPanel = ({ node: { forEach, nodeId } }: NodePanelProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { control, handleSubmit, watch } = useForm({ values: forEach! });
   const { isReadOnly = false } = use(FlowContext);
 
-  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
-
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (forEach) => {
-      await nodeUpdateMutation.mutateAsync({ forEach, nodeId });
+      await controller.fetch(NodeUpdateEndpoint, transport, { forEach, nodeId });
     })();
   }, 200);
 

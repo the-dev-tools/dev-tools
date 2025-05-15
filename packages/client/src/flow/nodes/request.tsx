@@ -1,24 +1,23 @@
 import { create } from '@bufbuild/protobuf';
-import { createQueryOptions } from '@connectrpc/connect-query';
-import { useSuspenseQueries } from '@tanstack/react-query';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { Position, useReactFlow } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
-import { endpointGet } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
-import {
-  exampleCreate,
-  exampleGet,
-} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
-import { collectionGet } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { NodeRequest, NodeRequestSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { EndpointGetEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.ts';
+import {
+  ExampleCreateEndpoint,
+  ExampleGetEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.js';
+import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.js';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation } from '~/api/connect-query';
 
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponsePanel, useEndpointUrl } from '../../endpoint';
@@ -28,10 +27,11 @@ import { FlowSearch } from '../layout';
 import { NodeBase, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { data, id } = props;
   const { updateNodeData } = useReactFlow();
-
-  const exampleCreateMutation = useConnectMutation(exampleCreate);
 
   return (
     <>
@@ -43,7 +43,9 @@ export const RequestNode = (props: NodeProps) => {
             <CollectionListTree
               onAction={async ({ collectionId, endpointId, exampleId }) => {
                 if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
-                const { exampleId: deltaExampleId } = await exampleCreateMutation.mutateAsync({ endpointId });
+                const { exampleId: deltaExampleId } = await controller.fetch(ExampleCreateEndpoint, transport, {
+                  endpointId,
+                });
                 const request = create(NodeRequestSchema, {
                   ...data.request!,
                   collectionId,
@@ -71,23 +73,10 @@ interface RequestNodeSelectedProps {
 const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } }: RequestNodeSelectedProps) => {
   const { transport } = flowRoute.useRouteContext();
 
-  const [
-    {
-      data: { name: collectionName },
-    },
-    {
-      data: { method },
-    },
-    {
-      data: { name },
-    },
-  ] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(collectionGet, { collectionId }, { transport }),
-      createQueryOptions(endpointGet, { endpointId }, { transport }),
-      createQueryOptions(exampleGet, { exampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const { name: collectionName } = useSuspense(CollectionGetEndpoint, transport, { collectionId });
+  const { method } = useSuspense(EndpointGetEndpoint, transport, { endpointId });
+  const { name } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
 
   return (
     <div className={tw`space-y-1.5 p-2`}>
@@ -121,13 +110,10 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const [{ data: collection }, { data: endpoint }, { data: example }] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(collectionGet, { collectionId }, { transport }),
-      createQueryOptions(endpointGet, { endpointId }, { transport }),
-      createQueryOptions(exampleGet, { exampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const collection = useSuspense(CollectionGetEndpoint, transport, { collectionId });
+  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
+  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
 
   const url = useEndpointUrl({ endpointId, exampleId });
 

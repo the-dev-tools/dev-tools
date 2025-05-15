@@ -27,6 +27,7 @@ import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
+// TODO: improve data streaming
 export const useLogsQuery = () => {
   const { queryClient, transport } = workspaceRoute.useRouteContext();
 

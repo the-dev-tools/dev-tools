@@ -1,14 +1,15 @@
+import { useTransport } from '@connectrpc/connect-query';
+import { useController } from '@data-client/react';
 import { Position } from '@xyflow/react';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiPlus, FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.js';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation } from '~/api/connect-query';
 
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
@@ -60,14 +61,15 @@ export const ConditionNode = (props: NodeProps) => {
 };
 
 export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { control, handleSubmit, watch } = useForm({ values: condition! });
   const { isReadOnly = false } = use(FlowContext);
 
-  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
-
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (condition) => {
-      await nodeUpdateMutation.mutateAsync({ condition, nodeId });
+      await controller.fetch(NodeUpdateEndpoint, transport, { condition, nodeId });
     })();
   }, 200);
 

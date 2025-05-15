@@ -1,3 +1,5 @@
+import { useTransport } from '@connectrpc/connect-query';
+import { useSuspense } from '@data-client/react';
 import { createFileRoute } from '@tanstack/react-router';
 import { ReactFlowProvider } from '@xyflow/react';
 import { Ulid } from 'id128';
@@ -8,11 +10,10 @@ import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
 
 import { FlowVersionsItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { flowVersions } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+import { FlowVersionsEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.js';
 import { Spinner } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectSuspenseQuery } from '~/api/connect-query';
 
 import { StatusBar } from '../status-bar';
 import { EditPanel, Flow, TopBar } from './flow';
@@ -23,12 +24,12 @@ const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$
 export const Route = makeRoute({ component: RouteComponent });
 
 function RouteComponent() {
+  const transport = useTransport();
+
   const { flowIdCan } = Route.useParams();
   const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(flowVersions, { flowId });
+  const { items } = useSuspense(FlowVersionsEndpoint, transport, { flowId });
 
   const state = useTabListState({
     children: ({ flowId }) => (
@@ -45,7 +46,7 @@ function RouteComponent() {
               <ReactFlowProvider>
                 <TopBar />
                 <Panel className='flex h-full flex-col' id='flow' order={1}>
-                  <Flow flowId={flowId} key={Ulid.construct(flowId).toCanonical()} />
+                  <Flow key={Ulid.construct(flowId).toCanonical()} />
                 </Panel>
                 <EditPanel />
               </ReactFlowProvider>

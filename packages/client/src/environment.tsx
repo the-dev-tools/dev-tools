@@ -1,5 +1,5 @@
-import { createQueryOptions } from '@connectrpc/connect-query';
-import { useSuspenseQueries } from '@tanstack/react-query';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { getRouteApi } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Ulid } from 'id128';
@@ -21,22 +21,19 @@ import { twJoin } from 'tailwind-merge';
 
 import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
-  environmentCreate,
-  environmentDelete,
-  environmentList,
-  environmentUpdate,
-} from '@the-dev-tools/spec/environment/v1/environment-EnvironmentService_connectquery';
-import { VariableListItem } from '@the-dev-tools/spec/variable/v1/variable_pb';
+  EnvironmentCreateEndpoint,
+  EnvironmentDeleteEndpoint,
+  EnvironmentListEndpoint,
+  EnvironmentUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/environment/v1/environment.ts';
 import {
-  variableCreate,
-  variableDelete,
-  variableList,
-  variableUpdate,
-} from '@the-dev-tools/spec/variable/v1/variable-VariableService_connectquery';
-import {
-  workspaceGet,
-  workspaceUpdate,
-} from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+  VariableCreateEndpoint,
+  VariableDeleteEndpoint,
+  VariableListEndpoint,
+  VariableListItemEntity,
+  VariableUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/variable/v1/variable.ts';
+import { WorkspaceGetEndpoint, WorkspaceUpdateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.js';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, Spinner, VariableIcon } from '@the-dev-tools/ui/icons';
@@ -46,7 +43,7 @@ import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useMutate } from '~data-client';
 
 import {
   ColumnActionDelete,
@@ -61,21 +58,15 @@ import { ImportDialog } from './workspace/import';
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const EnvironmentsWidget = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { transport } = workspaceRoute.useRouteContext();
 
-  const [workspaceGetQuery, environmentListQuery] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(workspaceGet, { workspaceId }, { transport }),
-      createQueryOptions(environmentList, { workspaceId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const { selectedEnvironmentId } = useSuspense(WorkspaceGetEndpoint, transport, { workspaceId });
+  const { items: environments } = useSuspense(EnvironmentListEndpoint, transport, { workspaceId });
 
-  const workspaceUpdateMutation = useConnectMutation(workspaceUpdate);
-  const environmentCreateMutation = useConnectMutation(environmentCreate);
-
-  const environments = environmentListQuery.data.items;
-  const { selectedEnvironmentId } = workspaceGetQuery.data;
   const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
   return (
@@ -83,9 +74,9 @@ export const EnvironmentsWidget = () => {
       <Select
         aria-label='Environment'
         listBoxItems={environments}
-        onSelectionChange={(selectedEnvironmentIdCan) => {
+        onSelectionChange={async (selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
-          workspaceUpdateMutation.mutate({ selectedEnvironmentId, workspaceId });
+          await controller.fetch(WorkspaceUpdateEndpoint, transport, { selectedEnvironmentId, workspaceId });
         }}
         selectedKey={selectedEnvironmentIdCan}
         triggerClassName={tw`justify-start p-0`}
@@ -140,7 +131,12 @@ export const EnvironmentsWidget = () => {
                     <TooltipTrigger delay={750}>
                       <Button
                         className={tw`bg-slate-200 p-0.5`}
-                        onPress={() => void environmentCreateMutation.mutate({ name: 'New Environment', workspaceId })}
+                        onPress={() =>
+                          controller.fetch(EnvironmentCreateEndpoint, transport, {
+                            name: 'New Environment',
+                            workspaceId,
+                          })
+                        }
                         variant='ghost'
                       >
                         <FiPlus className={tw`size-4 text-slate-500`} />
@@ -214,13 +210,15 @@ interface EnvironmentPanelProps {
 }
 
 const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }: EnvironmentPanelProps) => {
-  const environmentUpdateMutation = useConnectMutation(environmentUpdate);
-  const environmentDeleteMutation = useConnectMutation(environmentDelete);
+  const transport = useTransport();
+  const controller = useController();
+
+  const [environmentUpdate, environmentUpdateLoading] = useMutate(EnvironmentUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => environmentUpdateMutation.mutateAsync({ environmentId, name: _ }),
+    onSuccess: (_) => environmentUpdate(transport, { environmentId, name: _ }),
     value: name,
   });
 
@@ -240,7 +238,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
         {isEditing ? (
           <TextField
             inputClassName={tw`-my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
-            isDisabled={environmentUpdateMutation.isPending}
+            isDisabled={environmentUpdateLoading}
             {...textFieldProps}
           />
         ) : (
@@ -260,7 +258,10 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
             <Menu {...menuProps}>
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-              <MenuItem onAction={() => void environmentDeleteMutation.mutate({ environmentId })} variant='danger'>
+              <MenuItem
+                onAction={() => controller.fetch(EnvironmentDeleteEndpoint, transport, { environmentId })}
+                variant='danger'
+              >
                 Delete
               </MenuItem>
             </Menu>
@@ -286,22 +287,24 @@ interface VariablesTableProps {
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(variableList, { environmentId });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(variableCreate);
-  const { mutateAsync: update } = useConnectMutation(variableUpdate);
+  const { items } = useSuspense(VariableListEndpoint, transport, { environmentId });
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<VariableListItem>('enabled', { meta: { divider: false } }),
-      columnReferenceField<VariableListItem>('name'),
-      columnReferenceField<VariableListItem>('value'),
-      columnTextField<VariableListItem>('description', { meta: { divider: false } }),
-      columnActions<VariableListItem>({
+      columnCheckboxField<VariableListItemEntity>('enabled', { meta: { divider: false } }),
+      columnReferenceField<VariableListItemEntity>('name'),
+      columnReferenceField<VariableListItemEntity>('value'),
+      columnTextField<VariableListItemEntity>('description', { meta: { divider: false } }),
+      columnActions<VariableListItemEntity>({
         cell: ({ row }) => (
-          <ColumnActionDelete input={{ variableId: row.original.variableId }} schema={variableDelete} />
+          <ColumnActionDelete
+            onAction={() =>
+              controller.fetch(VariableDeleteEndpoint, transport, { variableId: row.original.variableId })
+            }
+          />
         ),
       }),
     ],
@@ -312,8 +315,13 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New variable',
     items,
-    onCreate: () => create({ enabled: true, environmentId, name: `VARIABLE_${items.length}` }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    onCreate: () =>
+      controller.fetch(VariableCreateEndpoint, transport, {
+        enabled: true,
+        environmentId,
+        name: `VARIABLE_${items.length}`,
+      }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(VariableUpdateEndpoint, transport, item),
     primaryColumn: 'name',
   });
 

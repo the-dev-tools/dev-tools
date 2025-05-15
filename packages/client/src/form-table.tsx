@@ -1,4 +1,3 @@
-import { DescMessage, DescMethodUnary, MessageInitShape } from '@bufbuild/protobuf';
 import { useReactTable } from '@tanstack/react-table';
 import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table, TableOptions } from '@tanstack/table-core';
 import { HashMap, Option, pipe, String } from 'effect';
@@ -24,7 +23,6 @@ import { DataTableProps } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
-import { useConnectMutation } from '~api/connect-query';
 import { ReferenceFieldRHF } from '~reference';
 
 interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
@@ -262,49 +260,34 @@ export const columnActions = <T,>({ cell, ...props }: Partial<DisplayColumnDef<T
   ...props,
 });
 
-interface ColumnActionDeleteProps<I extends DescMessage, O extends DescMessage> {
-  input: MessageInitShape<I>;
-  schema: DescMethodUnary<I, O>;
+interface ColumnActionDeleteProps {
+  onAction: () => void;
 }
 
-export const ColumnActionDelete = <I extends DescMessage, O extends DescMessage>({
-  input,
-  schema,
-}: ColumnActionDeleteProps<I, O>) => {
-  const delete$ = useConnectMutation(schema);
-  return (
-    <TooltipTrigger delay={750}>
-      <Button className={tw`text-red-700`} onPress={() => void delete$.mutateAsync(input)} variant='ghost'>
-        <LuTrash2 />
-      </Button>
-      <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
-    </TooltipTrigger>
-  );
-};
+export const ColumnActionDelete = ({ onAction }: ColumnActionDeleteProps) => (
+  <TooltipTrigger delay={750}>
+    <Button className={tw`text-red-700`} onPress={onAction} variant='ghost'>
+      <LuTrash2 />
+    </Button>
+    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
+  </TooltipTrigger>
+);
 
-interface ColumnActionUndoDeltaProps<I extends DescMessage, O extends DescMessage> {
+interface ColumnActionUndoDeltaProps {
   hasDelta: boolean;
-  input: MessageInitShape<I>;
-  schema: DescMethodUnary<I, O>;
+  onAction: () => void;
 }
 
-export const ColumnActionUndoDelta = <I extends DescMessage, O extends DescMessage>({
-  hasDelta,
-  input,
-  schema,
-}: ColumnActionUndoDeltaProps<I, O>) => {
-  const delete$ = useConnectMutation(schema);
-  return (
-    <TooltipTrigger delay={750}>
-      <Button
-        className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
-        isDisabled={!hasDelta}
-        onPress={() => void delete$.mutateAsync(input)}
-        variant='ghost'
-      >
-        <RedoIcon />
-      </Button>
-      <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Undo changes</Tooltip>
-    </TooltipTrigger>
-  );
-};
+export const ColumnActionUndoDelta = ({ hasDelta, onAction }: ColumnActionUndoDeltaProps) => (
+  <TooltipTrigger delay={750}>
+    <Button
+      className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
+      isDisabled={!hasDelta}
+      onPress={onAction}
+      variant='ghost'
+    >
+      <RedoIcon />
+    </Button>
+    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Undo changes</Tooltip>
+  </TooltipTrigger>
+);

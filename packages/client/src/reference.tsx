@@ -51,6 +51,7 @@ interface ReferenceTreeProps extends ReferenceContextProps {
 export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
   const context = useContext(ReferenceContext);
 
+  // TODO: switch to Data Client Endpoint
   const {
     data: { items },
   } = useConnectSuspenseQuery(referenceTree, { ...props, ...context });

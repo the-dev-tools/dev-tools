@@ -1,19 +1,13 @@
 import { create } from '@bufbuild/protobuf';
-import { createConnectQueryKey, createProtobufSafeUpdater, createQueryOptions } from '@connectrpc/connect-query';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { makeUrl } from '@effect/platform/UrlParams';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
-import { QueryErrorResetBoundary, useQuery, useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
-import {
-  createFileRoute,
-  getRouteApi,
-  redirect,
-  useMatchRoute,
-  useNavigate,
-  useRouteContext,
-} from '@tanstack/react-router';
+import { QueryErrorResetBoundary, useQuery } from '@tanstack/react-query';
+import { createFileRoute, getRouteApi, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, Either, HashMap, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
+import { Array, Duration, Either, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
@@ -23,38 +17,36 @@ import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import {
-  endpointGet,
-  endpointUpdate,
-} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { ExampleVersionsItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import {
-  exampleCreate,
-  exampleDelete,
-  exampleGet,
-  exampleRun,
-  exampleUpdate,
-  exampleVersions,
-} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+import { exampleRun } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   QueryCreateRequest,
   QueryCreateRequestSchema,
-  QueryListItemSchema,
-  QueryListResponseSchema,
   QueryUpdateRequest,
   QueryUpdateRequestSchema,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import {
-  queryCreate,
-  queryList,
-  queryUpdate,
-} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
 import { ResponseHeaderListItem } from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
 import {
-  responseAssertList,
-  responseGet,
-  responseHeaderList,
-} from '@the-dev-tools/spec/collection/item/response/v1/response-ResponseService_connectquery';
+  EndpointGetEndpoint,
+  EndpointUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.js';
+import {
+  ExampleCreateEndpoint,
+  ExampleDeleteEndpoint,
+  ExampleGetEndpoint,
+  ExampleUpdateEndpoint,
+  ExampleVersionsEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.js';
+import {
+  QueryCreateEndpoint,
+  QueryListEndpoint,
+  QueryUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.ts';
+import {
+  ResponseAssertListEndpoint,
+  ResponseGetEndpoint,
+  ResponseHeaderListEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/response/v1/response.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { Spinner } from '@the-dev-tools/ui/icons';
@@ -68,12 +60,13 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
-import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectMutation } from '~/api/connect-query';
 import {
   CodeMirrorMarkupLanguage,
   CodeMirrorMarkupLanguages,
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
+import { useMutate } from '~data-client';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
@@ -94,37 +87,13 @@ const makeRoute = createFileRoute(
 export const Route = makeRoute({
   validateSearch: (_) => Schema.decodeSync(EndpointRouteSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
-  loader: async ({
-    context: { queryClient, transport },
-    deps: { responseIdCan },
-    params: { endpointIdCan, exampleIdCan, workspaceIdCan },
-  }) => {
+  loader: ({ deps: { responseIdCan }, params: { endpointIdCan, exampleIdCan } }) => {
     const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
     const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;
     const responseId = pipe(
       Option.fromNullable(responseIdCan),
       Option.map((_) => Ulid.fromCanonical(_).bytes),
     );
-
-    try {
-      await Promise.all([
-        queryClient.ensureQueryData(createQueryOptions(exampleGet, { exampleId }, { transport })),
-        queryClient.ensureQueryData(createQueryOptions(endpointGet, { endpointId }, { transport })),
-        queryClient.ensureQueryData(createQueryOptions(queryList, { exampleId }, { transport })),
-        ...pipe(
-          Option.map(responseId, (_) =>
-            queryClient.ensureQueryData(createQueryOptions(responseGet, { responseId: _ }, { transport })),
-          ),
-          Option.toArray,
-        ),
-      ]);
-    } catch {
-      redirect({
-        params: { workspaceIdCan },
-        throw: true,
-        to: '/workspace/$workspaceIdCan',
-      });
-    }
 
     return { endpointId, exampleId, responseId };
   },
@@ -142,11 +111,13 @@ export const Route = makeRoute({
 });
 
 function Page() {
+  const transport = useTransport();
+
   const { endpointId, exampleId } = Route.useLoaderData();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const { data: example } = useConnectSuspenseQuery(exampleGet, { exampleId });
+  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
 
   return (
     <Panel id='main' order={2}>
@@ -275,19 +246,11 @@ interface UseEndpointUrlProps {
 }
 
 export const useEndpointUrl = ({ endpointId, exampleId }: UseEndpointUrlProps) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const transport = useTransport();
 
-  const [
-    { data: endpoint },
-    {
-      data: { items: queries },
-    },
-  ] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(endpointGet, { endpointId }, { transport }),
-      createQueryOptions(queryList, { exampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
+  const { items: queries } = useSuspense(QueryListEndpoint, transport, { exampleId });
 
   return useMemo(() => {
     return pipe(
@@ -319,46 +282,21 @@ interface EndpointFormProps {
 }
 
 export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
-  const { transport } = Route.useRouteContext();
+  const transport = useTransport();
+  const controller = useController();
 
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
 
-  const [
-    { data: endpoint },
-    { data: example },
-    {
-      data: { items: queries },
-    },
-  ] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(endpointGet, { endpointId }, { transport }),
-      createQueryOptions(exampleGet, { exampleId }, { transport }),
-      createQueryOptions(queryList, { exampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
+  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const { items: queries } = useSuspense(QueryListEndpoint, transport, { exampleId });
 
-  const queryClient = useQueryClient();
+  const [exampleUpdate, exampleUpdateLoading] = useMutate(ExampleUpdateEndpoint);
 
-  const endpointUpdateMutation = useConnectMutation(endpointUpdate);
-  const exampleUpdateMutation = useConnectMutation(exampleUpdate);
-  const exampleCreateMutation = useConnectMutation(exampleCreate);
-  const exampleDeleteMutation = useConnectMutation(exampleDelete, {
-    onSuccess: async () => {
-      if (
-        matchRoute({
-          params: { endpointIdCan: Ulid.construct(endpointId).toCanonical() },
-          to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-        })
-      ) {
-        await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
-      }
-    },
-  });
+  // TODO: switch to Data Client Endpoint
   const exampleRunMutation = useConnectMutation(exampleRun);
-
-  const queryUpdateMutation = useConnectMutation(queryUpdate);
-  const queryCreateMutation = useConnectMutation(queryCreate);
 
   const url = useEndpointUrl({ endpointId, exampleId });
 
@@ -377,7 +315,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   const onSubmit = form.handleSubmit(async ({ method, url: urlString }) => {
     const { origin = '', pathname = '', searchParams = new URLSearchParams() } = !urlString ? {} : new URL(urlString);
 
-    endpointUpdateMutation.mutate({ endpointId, method, url: origin + pathname });
+    await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method, url: origin + pathname });
 
     const queryMap = pipe(
       searchParams.entries(),
@@ -406,52 +344,23 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
       );
     });
 
-    const queryIdIndexMap = pipe(
-      queries,
-      Array.map(({ queryId }, index) => [Ulid.construct(queryId).toRaw(), index] as const),
-      HashMap.fromIterable,
-    );
-
-    const newQueryList = Array.copy(queries);
     await pipe(
       Array.fromIterable(queryMap),
       Array.map(async ([_, query]) => {
         if (query.$typeName === 'collection.item.request.v1.QueryUpdateRequest') {
-          await queryUpdateMutation.mutateAsync(query);
-          const index = HashMap.unsafeGet(queryIdIndexMap, Ulid.construct(query.queryId).toRaw());
-          const oldQuery = newQueryList[index];
-          if (!oldQuery) return;
-          newQueryList[index] = create(QueryListItemSchema, {
-            ...oldQuery,
-            ...Struct.omit(query, '$typeName'),
-          });
+          await controller.fetch(QueryUpdateEndpoint, transport, query);
         } else {
-          const { queryId } = await queryCreateMutation.mutateAsync(query);
-          newQueryList.push(
-            create(QueryListItemSchema, {
-              ...Struct.omit(query, '$typeName'),
-              queryId,
-            }),
-          );
+          await controller.fetch(QueryCreateEndpoint, transport, query);
         }
       }),
       (_) => Promise.allSettled(_),
-    );
-
-    queryClient.setQueryData(
-      createConnectQueryKey({
-        cardinality: 'finite',
-        input: { exampleId },
-        schema: queryList,
-      }),
-      createProtobufSafeUpdater(queryList, () => create(QueryListResponseSchema, { items: newQueryList })),
     );
   });
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ exampleId, name: _ }),
+    onSuccess: (_) => exampleUpdate(transport, { exampleId, name: _ }),
     value: example.name,
   });
 
@@ -471,7 +380,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           {isEditing ? (
             <TextField
               inputClassName={tw`-my-1 py-1 leading-none text-slate-800`}
-              isDisabled={exampleUpdateMutation.isPending}
+              isDisabled={exampleUpdateLoading}
               {...textFieldProps}
             />
           ) : (
@@ -506,7 +415,9 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           </Button>
 
           <Menu {...menuProps}>
-            <MenuItem onAction={() => void exampleCreateMutation.mutate({ endpointId, name: 'New Example' })}>
+            <MenuItem
+              onAction={() => controller.fetch(ExampleCreateEndpoint, transport, { endpointId, name: 'New Example' })}
+            >
               Add example
             </MenuItem>
 
@@ -514,7 +425,20 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => void exampleDeleteMutation.mutate({ exampleId })} variant='danger'>
+            <MenuItem
+              onAction={async () => {
+                await controller.fetch(ExampleDeleteEndpoint, transport, { exampleId });
+                if (
+                  !matchRoute({
+                    params: { endpointIdCan: Ulid.construct(endpointId).toCanonical() },
+                    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+                  })
+                )
+                  return;
+                await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -547,22 +471,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           className={tw`px-6`}
           onPress={async () => {
             await onSubmit();
-            const { responseId } = await exampleRunMutation.mutateAsync({
-              exampleId,
-            });
-            // TODO: remove manual update once optional field normalization is fixed
-            queryClient.setQueryData(
-              createConnectQueryKey({
-                cardinality: 'finite',
-                input: { exampleId },
-                schema: exampleGet,
-                transport,
-              }),
-              createProtobufSafeUpdater(exampleGet, (old) => {
-                if (old === undefined) return undefined;
-                return { ...old, lastResponseId: responseId };
-              }),
-            );
+            await exampleRunMutation.mutateAsync({ exampleId });
           }}
           variant='primary'
         >
@@ -583,9 +492,9 @@ interface HistoryModalProps {
 }
 
 const HistoryModal = ({ exampleId }: HistoryModalProps) => {
-  const {
-    data: { items: versions },
-  } = useConnectSuspenseQuery(exampleVersions, { exampleId });
+  const transport = useTransport();
+
+  const { items: versions } = useSuspense(ExampleVersionsEndpoint, transport, { exampleId });
 
   return (
     <Modal isDismissable modalSize='lg'>
@@ -670,7 +579,9 @@ interface ExampleVersionsViewProps {
 }
 
 const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }: ExampleVersionsViewProps) => {
-  const { data: endpoint } = useConnectSuspenseQuery(endpointGet, { endpointId });
+  const transport = useTransport();
+
+  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
 
   const url = useEndpointUrl({ endpointId, exampleId });
 
@@ -705,7 +616,9 @@ interface ResponsePanelProps {
 }
 
 export const ResponsePanel = ({ className, fullWidth = false, responseId }: ResponsePanelProps) => {
-  const { data: response } = useConnectSuspenseQuery(responseGet, { responseId });
+  const transport = useTransport();
+
+  const response = useSuspense(ResponseGetEndpoint, transport, { responseId });
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
@@ -973,9 +886,9 @@ interface ResponseHeaderTableProps {
 }
 
 const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(responseHeaderList, { responseId });
+  const transport = useTransport();
+
+  const { items } = useSuspense(ResponseHeaderListEndpoint, transport, { responseId });
 
   const columns = useMemo(() => {
     const { accessor } = createColumnHelper<ResponseHeaderListItem>();
@@ -996,9 +909,9 @@ interface ResponseAssertTableProps {
 }
 
 const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(responseAssertList, { responseId });
+  const transport = useTransport();
+
+  const { items } = useSuspense(ResponseAssertListEndpoint, transport, { responseId });
 
   return (
     <div className={tw`grid grid-cols-[auto_1fr] items-center gap-2 text-sm`}>

@@ -1,12 +1,13 @@
+import { useTransport } from '@connectrpc/connect-query';
+import { useController } from '@data-client/react';
 import CodeMirror from '@uiw/react-codemirror';
 import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
 import { FiTerminal, FiX } from 'react-icons/fi';
 
-import { nodeUpdate } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation } from '~/api/connect-query';
 import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';
 
 import { FlowContext, Handle } from '../internal';
@@ -32,10 +33,11 @@ export const JavaScriptNode = (props: NodeProps) => (
 );
 
 export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { code } = js!;
   const { isReadOnly = false } = use(FlowContext);
-
-  const updateMutation = useConnectMutation(nodeUpdate);
 
   const [value, setValue] = useState(code);
 
@@ -64,7 +66,7 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
         className={tw`flex-1 overflow-auto`}
         extensions={extensions}
         height='100%'
-        onBlur={() => void updateMutation.mutate({ js: { code: value }, nodeId })}
+        onBlur={() => controller.fetch(NodeUpdateEndpoint, transport, { js: { code: value }, nodeId })}
         onChange={setValue}
         readOnly={isReadOnly}
         value={value}

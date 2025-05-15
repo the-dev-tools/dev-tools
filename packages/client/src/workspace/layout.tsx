@@ -1,4 +1,5 @@
-import { createQueryOptions } from '@connectrpc/connect-query';
+import { createQueryOptions, useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { createFileRoute, Outlet, redirect, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -8,15 +9,16 @@ import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 
-import { collectionCreate } from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { CollectionCreateEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.ts';
 import {
-  flowCreate,
-  flowDelete,
-  flowList,
-  flowUpdate,
-} from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
+  FlowCreateEndpoint,
+  FlowDeleteEndpoint,
+  FlowListEndpoint,
+  FlowUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/flow/v1/flow.ts';
+import { WorkspaceGetEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.js';
 import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
@@ -27,7 +29,8 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectMutation } from '~/api/connect-query';
+import { useMutate } from '~data-client';
 
 import { DashboardLayout } from '../authorized';
 import { CollectionListTree } from '../collection';
@@ -52,12 +55,13 @@ export const Route = makeRoute({
 });
 
 function Layout() {
+  const transport = useTransport();
+  const controller = useController();
+
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
-  const collectionCreateMutation = useConnectMutation(collectionCreate);
-
-  const { data: workspace } = useConnectSuspenseQuery(workspaceGet, { workspaceId });
+  const workspace = useSuspense(WorkspaceGetEndpoint, transport, { workspaceId });
 
   // Keep the query alive while in workspace
   useLogsQuery();
@@ -131,7 +135,9 @@ function Layout() {
               <TooltipTrigger delay={750}>
                 <Button
                   className={tw`bg-slate-200 p-0.5`}
-                  onPress={() => void collectionCreateMutation.mutate({ name: 'New collection', workspaceId })}
+                  onPress={() =>
+                    controller.fetch(CollectionCreateEndpoint, transport, { name: 'New collection', workspaceId })
+                  }
                   variant='ghost'
                 >
                   <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
@@ -155,13 +161,13 @@ function Layout() {
 }
 
 const FlowList = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { workspaceId } = Route.useLoaderData();
 
-  const {
-    data: { items: flows },
-  } = useConnectSuspenseQuery(flowList, { workspaceId });
-
-  const flowCreateMutation = useConnectMutation(flowCreate);
+  // TODO: fix <Unresolved Symbol> in schema
+  const { items: flows } = useSuspense(FlowListEndpoint, transport, { workspaceId });
 
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -174,7 +180,7 @@ const FlowList = () => {
         <TooltipTrigger delay={750}>
           <Button
             className={tw`bg-slate-200 p-0.5`}
-            onPress={() => void flowCreateMutation.mutate({ name: 'New flow', workspaceId })}
+            onPress={() => controller.fetch(FlowCreateEndpoint, transport, { name: 'New flow', workspaceId })}
             variant='ghost'
           >
             <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
@@ -202,20 +208,18 @@ interface FlowItemProps {
 }
 
 const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { workspaceIdCan } = Route.useParams();
   const { workspaceId } = Route.useLoaderData();
 
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
 
-  const flowDeleteMutation = useConnectMutation(flowDelete, {
-    onSuccess: async () => {
-      if (matchRoute({ params: { flowIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' })) {
-        await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
-      }
-    },
-  });
-  const flowUpdateMutation = useConnectMutation(flowUpdate);
+  const [flowUpdate, flowUpdateLoading] = useMutate(FlowUpdateEndpoint);
+
+  // TODO: switch to Data Client Endpoint
   const exportMutation = useConnectMutation(export$);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -223,7 +227,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
   const escape = useEscapePortal(listRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => flowUpdateMutation.mutateAsync({ flowId, name: _ }),
+    onSuccess: (_) => flowUpdate(transport, { flowId, name: _ }),
     value: name,
   });
 
@@ -245,7 +249,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
             <TextField
               className={tw`w-full`}
               inputClassName={tw`-my-1 py-1`}
-              isDisabled={flowUpdateMutation.isPending}
+              isDisabled={flowUpdateLoading}
               {...textFieldProps}
             />,
           )}
@@ -267,7 +271,14 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
               Export
             </MenuItem>
 
-            <MenuItem onAction={() => void flowDeleteMutation.mutate({ flowId })} variant='danger'>
+            <MenuItem
+              onAction={async () => {
+                await controller.fetch(FlowDeleteEndpoint, transport, { flowId });
+                if (!matchRoute({ params: { flowIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' })) return;
+                await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>

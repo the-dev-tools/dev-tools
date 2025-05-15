@@ -370,6 +370,12 @@ importers:
       '@connectrpc/connect-web':
         specifier: 2.0.2
         version: 2.0.2(@bufbuild/protobuf@2.4.0)(@connectrpc/connect@2.0.2(@bufbuild/protobuf@2.4.0))
+      '@data-client/endpoint':
+        specifier: 0.14.26
+        version: 0.14.26
+      '@data-client/react':
+        specifier: 0.14.25
+        version: 0.14.25(@types/react@19.1.3)(react@19.1.0)
       '@effect/platform':
         specifier: 0.82.0
         version: 0.82.0(effect@3.15.0)
@@ -1422,9 +1428,39 @@ packages:
       '@bufbuild/protoc-gen-es':
         optional: true
 
+  '@data-client/core@0.14.24':
+    resolution: {integrity: sha512-I0BKV1c4+R+D6VHt5Lyhx7g3ekcHKY7DTHKM4gOoApbPyVRL+yKW1djlYsHGTMelg1XyyP5YTz6onmOHcXNLCg==}
+    engines: {node: ^12.17 || ^13.7 || >=14}
+
   '@data-client/endpoint@0.14.26':
     resolution: {integrity: sha512-bS/9umQbtO93lEa6mEAL92PmaDlvztAwE41utpTPttlZgrCxVsQ2oH+pTphaO4GuxjYGKazg9EomvIRMeYiaNQ==}
     engines: {node: ^12.17 || ^13.7 || >=14}
+
+  '@data-client/normalizr@0.14.22':
+    resolution: {integrity: sha512-RK+KkmFSbXNVT4GRRjSriKmwS5PYRDEme0F066eXsESciYOXkPkRk3NUsCkpAj2ixfdvaqq82J3Qo6Ebs0e4iQ==}
+    engines: {node: ^12.17 || ^13.7 || >=14}
+
+  '@data-client/react@0.14.25':
+    resolution: {integrity: sha512-r+oKx+rYRBemupBKgV31dM0/VB/786KLF8Lb2M+vhtZ43l8RxvlGD7sqytlpiLKpYZkYzVqsjKPRkOgGkqhlDg==}
+    engines: {node: ^12.17 || ^13.7 || >=14}
+    peerDependencies:
+      '@react-navigation/native': ^6.0.0 || ^7.0.0
+      '@types/react': ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
+      react: ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
+    peerDependenciesMeta:
+      '@react-navigation/native':
+        optional: true
+      '@types/react':
+        optional: true
+
+  '@data-client/use-enhanced-reducer@0.1.14':
+    resolution: {integrity: sha512-/VrbDmaygmJSjja5cOxkkiCOnMpvMUdmZ6uDjTZgjCxTyDUI8ZbEJuCmiLntb2ak9a0wq2CC64R3b19huDiT6g==}
+    peerDependencies:
+      '@types/react': ^16.14.0 || ^17.0.0 || ^18.0.0-0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
+      react: ^16.14.0 || ^17.0.0 || ^18.0.0-0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   '@develar/schema-utils@2.6.5':
     resolution: {integrity: sha512-0cp4PsWQ/9avqTVMCtZ+GirikIA36ikvjtHweU4/j8yLtgObI0+JUPhYFScgwlteveGB1rt3Cm8UhN04XayDig==}
@@ -6483,6 +6519,9 @@ packages:
   flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
 
+  flux-standard-action@2.1.2:
+    resolution: {integrity: sha512-7vdgawlphCjzaMLdpZv8hlGC/FJCXu6sqE3Wuqe3HLZ22KcDiO4IFplxLDePDhEt6hgCrugt45RoUObuzZP6Kg==}
+
   follow-redirects@1.15.9:
     resolution: {integrity: sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==}
     engines: {node: '>=4.0'}
@@ -7545,6 +7584,12 @@ packages:
   lodash.isequal@4.5.0:
     resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
     deprecated: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+
+  lodash.isplainobject@4.0.6:
+    resolution: {integrity: sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==}
+
+  lodash.isstring@4.0.1:
+    resolution: {integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==}
 
   lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
@@ -10614,9 +10659,35 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@data-client/core@0.14.24':
+    dependencies:
+      '@babel/runtime': 7.27.1
+      '@data-client/normalizr': 0.14.22
+      flux-standard-action: 2.1.2
+
   '@data-client/endpoint@0.14.26':
     dependencies:
       '@babel/runtime': 7.27.1
+
+  '@data-client/normalizr@0.14.22':
+    dependencies:
+      '@babel/runtime': 7.27.1
+
+  '@data-client/react@0.14.25(@types/react@19.1.3)(react@19.1.0)':
+    dependencies:
+      '@babel/runtime': 7.27.1
+      '@data-client/core': 0.14.24
+      '@data-client/use-enhanced-reducer': 0.1.14(@types/react@19.1.3)(react@19.1.0)
+      react: 19.1.0
+    optionalDependencies:
+      '@types/react': 19.1.3
+
+  '@data-client/use-enhanced-reducer@0.1.14(@types/react@19.1.3)(react@19.1.0)':
+    dependencies:
+      '@babel/runtime': 7.27.1
+      react: 19.1.0
+    optionalDependencies:
+      '@types/react': 19.1.3
 
   '@develar/schema-utils@2.6.5':
     dependencies:
@@ -16851,6 +16922,11 @@ snapshots:
 
   flatted@3.3.3: {}
 
+  flux-standard-action@2.1.2:
+    dependencies:
+      lodash.isplainobject: 4.0.6
+      lodash.isstring: 4.0.1
+
   follow-redirects@1.15.9: {}
 
   for-each@0.3.5:
@@ -17878,6 +17954,10 @@ snapshots:
   lodash.escaperegexp@4.1.2: {}
 
   lodash.isequal@4.5.0: {}
+
+  lodash.isplainobject@4.0.6: {}
+
+  lodash.isstring@4.0.1: {}
 
   lodash.merge@4.6.2: {}
 

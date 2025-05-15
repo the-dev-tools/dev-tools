@@ -1,47 +1,36 @@
-import { create } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import {
-  createConnectQueryKey,
-  createProtobufSafeUpdater,
-  createQueryOptions,
-  useTransport,
-} from '@connectrpc/connect-query';
-import { useQueryClient, useSuspenseQueries } from '@tanstack/react-query';
-import { useRouteContext } from '@tanstack/react-router';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
 import { useContext, useState } from 'react';
 
+import { BodyKind } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
+import { bodyRawGet, bodyRawUpdate } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
 import {
-  BodyFormItemListItem,
-  BodyKind,
-  BodyUrlEncodedItemListItem,
-} from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
+  BodyFormItemCreateEndpoint,
+  BodyFormItemDeleteEndpoint,
+  BodyFormItemListEndpoint,
+  BodyFormItemListItemEntity,
+  BodyFormItemUpdateEndpoint,
+  BodyUrlEncodedItemCreateEndpoint,
+  BodyUrlEncodedItemDeleteEndpoint,
+  BodyUrlEncodedItemListEndpoint,
+  BodyUrlEncodedItemListItemEntity,
+  BodyUrlEncodedItemUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.ts';
 import {
-  bodyFormItemCreate,
-  bodyFormItemDelete,
-  bodyFormItemList,
-  bodyFormItemUpdate,
-  bodyRawGet,
-  bodyRawUpdate,
-  bodyUrlEncodedItemCreate,
-  bodyUrlEncodedItemDelete,
-  bodyUrlEncodedItemList,
-  bodyUrlEncodedItemUpdate,
-} from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
-import { ExampleGetResponseSchema } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import {
-  exampleGet,
-  exampleUpdate,
-} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
+  ExampleGetEndpoint,
+  ExampleUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectMutation, useConnectSuspenseQuery } from '~api/connect-query';
 import {
   baseCodeMirrorExtensions,
   CodeMirrorMarkupLanguage,
@@ -72,14 +61,10 @@ interface BodyViewProps {
 }
 
 export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProps) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const transport = useTransport();
+  const controller = useController();
 
-  const queryClient = useQueryClient();
-
-  const {
-    data: { bodyKind },
-  } = useConnectSuspenseQuery(exampleGet, { exampleId });
-  const updateMutation = useConnectMutation(exampleUpdate);
+  const { bodyKind } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
 
   return (
     <div className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
@@ -87,23 +72,8 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
         aria-label='Body type'
         className='h-7 justify-center'
         isReadOnly={isReadOnly ?? false}
-        onChange={async (key) => {
-          await updateMutation.mutateAsync({ bodyKind: parseInt(key), exampleId });
-
-          // TODO: remove manual update once optional field normalization is fixed
-          queryClient.setQueryData(
-            createConnectQueryKey({
-              cardinality: 'finite',
-              input: { exampleId },
-              schema: exampleGet,
-              transport,
-            }),
-            createProtobufSafeUpdater(exampleGet, (_) => ({
-              ...(_ ?? create(ExampleGetResponseSchema)),
-              bodyKind: parseInt(key),
-            })),
-          );
-        }}
+        // TODO: check if the endpoint schema is correct
+        onChange={(key) => controller.fetch(ExampleUpdateEndpoint, transport, { bodyKind: parseInt(key), exampleId })}
         orientation='horizontal'
         value={bodyKind.toString()}
       >
@@ -133,10 +103,10 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
 };
 
 const formDataColumns = [
-  columnCheckboxField<BodyFormItemListItem>('enabled', { meta: { divider: false } }),
-  columnReferenceField<BodyFormItemListItem>('key'),
-  columnReferenceField<BodyFormItemListItem>('value'),
-  columnTextField<BodyFormItemListItem>('description', { meta: { divider: false } }),
+  columnCheckboxField<BodyFormItemListItemEntity>('enabled', { meta: { divider: false } }),
+  columnReferenceField<BodyFormItemListItemEntity>('key'),
+  columnReferenceField<BodyFormItemListItemEntity>('value'),
+  columnTextField<BodyFormItemListItemEntity>('description', { meta: { divider: false } }),
 ];
 
 interface FormDisplayTableProps {
@@ -144,9 +114,9 @@ interface FormDisplayTableProps {
 }
 
 const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
+  const transport = useTransport();
+
+  const { items } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId });
 
   const table = useReactTable({
     columns: formDataColumns,
@@ -162,18 +132,20 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(bodyFormItemList, { exampleId });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(bodyFormItemCreate);
-  const { mutateAsync: update } = useConnectMutation(bodyFormItemUpdate);
+  const { items } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId });
 
   const table = useReactTable({
     columns: [
       ...formDataColumns,
-      columnActions<BodyFormItemListItem>({
-        cell: ({ row }) => <ColumnActionDelete input={{ bodyId: row.original.bodyId }} schema={bodyFormItemDelete} />,
+      columnActions<BodyFormItemListItemEntity>({
+        cell: ({ row }) => (
+          <ColumnActionDelete
+            onAction={() => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })}
+          />
+        ),
       }),
     ],
     data: items,
@@ -183,8 +155,8 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New form data item',
     items,
-    onCreate: () => create({ enabled: true, exampleId }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    onCreate: () => controller.fetch(BodyFormItemCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormItemUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
 
@@ -197,24 +169,12 @@ interface FormDeltaDataTableProps {
 }
 
 const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTableProps) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(bodyFormItemCreate);
-  const { mutateAsync: update } = useConnectMutation(bodyFormItemUpdate);
-
-  const [
-    {
-      data: { items: itemsBase },
-    },
-    {
-      data: { items: itemsDelta },
-    },
-  ] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(bodyFormItemList, { exampleId }, { transport }),
-      createQueryOptions(bodyFormItemList, { exampleId: deltaExampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const { items: itemsBase } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId });
+  const { items: itemsDelta } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId: deltaExampleId });
 
   const items = makeDeltaItems({
     getId: (_) => _.bodyId.toString(),
@@ -223,23 +183,26 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
     itemsDelta,
   });
 
-  const formTable = deltaFormTable<BodyFormItemListItem>({
+  const formTable = deltaFormTable<BodyFormItemListItemEntity>({
     getParentId: (_) => _.parentBodyId?.toString(),
     onCreate: ({ $typeName: _, bodyId, ...item }) =>
-      create({ ...item, exampleId: deltaExampleId, parentBodyId: bodyId }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+      controller.fetch(BodyFormItemCreateEndpoint, transport, {
+        ...item,
+        exampleId: deltaExampleId,
+        parentBodyId: bodyId,
+      }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormItemUpdateEndpoint, transport, item),
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...formDataColumns,
-        columnActions<BodyFormItemListItem>({
+        columnActions<BodyFormItemListItemEntity>({
           cell: ({ row }) => (
             <ColumnActionUndoDelta
               hasDelta={row.original.parentBodyId !== undefined}
-              input={{ bodyId: row.original.bodyId }}
-              schema={bodyFormItemDelete}
+              onAction={() => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })}
             />
           ),
         }),
@@ -254,10 +217,10 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
 };
 
 const urlEncodedDataColumns = [
-  columnCheckboxField<BodyUrlEncodedItemListItem>('enabled', { meta: { divider: false } }),
-  columnReferenceField<BodyUrlEncodedItemListItem>('key'),
-  columnReferenceField<BodyUrlEncodedItemListItem>('value'),
-  columnTextField<BodyUrlEncodedItemListItem>('description', { meta: { divider: false } }),
+  columnCheckboxField<BodyUrlEncodedItemListItemEntity>('enabled', { meta: { divider: false } }),
+  columnReferenceField<BodyUrlEncodedItemListItemEntity>('key'),
+  columnReferenceField<BodyUrlEncodedItemListItemEntity>('value'),
+  columnTextField<BodyUrlEncodedItemListItemEntity>('description', { meta: { divider: false } }),
 ];
 
 interface UrlEncodedDisplayTableProps {
@@ -265,9 +228,9 @@ interface UrlEncodedDisplayTableProps {
 }
 
 const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
+  const transport = useTransport();
+
+  const { items } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId });
 
   const table = useReactTable({
     columns: urlEncodedDataColumns,
@@ -283,19 +246,21 @@ interface UrlEncodedFormTableProps {
 }
 
 const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(bodyUrlEncodedItemList, { exampleId });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(bodyUrlEncodedItemCreate);
-  const { mutateAsync: update } = useConnectMutation(bodyUrlEncodedItemUpdate);
+  const { items } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId });
 
   const table = useReactTable({
     columns: [
       ...urlEncodedDataColumns,
-      columnActions<BodyUrlEncodedItemListItem>({
+      columnActions<BodyUrlEncodedItemListItemEntity>({
         cell: ({ row }) => (
-          <ColumnActionDelete input={{ bodyId: row.original.bodyId }} schema={bodyUrlEncodedItemDelete} />
+          <ColumnActionDelete
+            onAction={() =>
+              controller.fetch(BodyUrlEncodedItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })
+            }
+          />
         ),
       }),
     ],
@@ -306,8 +271,8 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New URL encoded item',
     items,
-    onCreate: () => create({ enabled: true, exampleId }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    onCreate: () => controller.fetch(BodyUrlEncodedItemCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedItemUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
 
@@ -320,24 +285,12 @@ interface UrlEncodedDeltaFormTableProps {
 }
 
 const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDeltaFormTableProps) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(bodyUrlEncodedItemCreate);
-  const { mutateAsync: update } = useConnectMutation(bodyUrlEncodedItemUpdate);
-
-  const [
-    {
-      data: { items: itemsBase },
-    },
-    {
-      data: { items: itemsDelta },
-    },
-  ] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(bodyUrlEncodedItemList, { exampleId }, { transport }),
-      createQueryOptions(bodyUrlEncodedItemList, { exampleId: deltaExampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const { items: itemsBase } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId });
+  const { items: itemsDelta } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId: deltaExampleId });
 
   const items = makeDeltaItems({
     getId: (_) => _.bodyId.toString(),
@@ -346,23 +299,26 @@ const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDelta
     itemsDelta,
   });
 
-  const formTable = deltaFormTable<BodyUrlEncodedItemListItem>({
+  const formTable = deltaFormTable<BodyUrlEncodedItemListItemEntity>({
     getParentId: (_) => _.parentBodyId?.toString(),
     onCreate: ({ $typeName: _, bodyId, ...item }) =>
-      create({ ...item, exampleId: deltaExampleId, parentBodyId: bodyId }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+      controller.fetch(BodyUrlEncodedItemCreateEndpoint, transport, {
+        ...item,
+        exampleId: deltaExampleId,
+        parentBodyId: bodyId,
+      }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedItemUpdateEndpoint, transport, item),
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...urlEncodedDataColumns,
-        columnActions<BodyUrlEncodedItemListItem>({
+        columnActions<BodyUrlEncodedItemListItemEntity>({
           cell: ({ row }) => (
             <ColumnActionUndoDelta
               hasDelta={row.original.parentBodyId !== undefined}
-              input={{ bodyId: row.original.bodyId }}
-              schema={bodyFormItemDelete}
+              onAction={() => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })}
             />
           ),
         }),
@@ -382,6 +338,7 @@ interface RawFormProps {
 }
 
 const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
+  // TODO: switch to Data Client Endpoints
   const {
     data: { data },
   } = useConnectSuspenseQuery(bodyRawGet, { exampleId });

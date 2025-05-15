@@ -1,7 +1,7 @@
 import { scan } from 'react-scan';
-
 //* React Scan must be instantiated first
 import { TransportProvider } from '@connectrpc/connect-query';
+import { DataProvider } from '@data-client/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createBrowserHistory,
@@ -22,8 +22,8 @@ import { QueryNormalizerProvider } from '~/api/normalizer';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 
 import { RouterContext } from './root';
-import { routeTree } from './router-tree';
 import './styles.css';
+import { routeTree } from './router-tree';
 
 scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 
@@ -81,6 +81,7 @@ export const app = Effect.gen(function* () {
         {_}
       </AriaRouterProvider>
     ),
+    (_) => <DataProvider>{_}</DataProvider>,
     (_) => <QueryClientProvider client={queryClient}>{_}</QueryClientProvider>,
     (_) => <QueryNormalizerProvider queryClient={queryClient}>{_}</QueryNormalizerProvider>,
     (_) => <TransportProvider transport={transport}>{_}</TransportProvider>,

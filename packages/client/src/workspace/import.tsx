@@ -42,6 +42,7 @@ export const ImportDialog = () => {
 
   const isFilterSelected = selectedFilters === 'all' || selectedFilters.size > 0;
 
+  // TODO: switch to Data Client Endpoint
   const importMutation = useConnectMutation(import$);
 
   const onOpenChange = (isOpen: boolean) => {

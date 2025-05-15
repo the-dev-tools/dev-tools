@@ -1,8 +1,8 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import { createQueryOptions } from '@connectrpc/connect-query';
-import { useSuspenseQueries } from '@tanstack/react-query';
-import { createFileRoute, redirect, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
+import { createFileRoute, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import {
   Background,
@@ -20,7 +20,7 @@ import {
 } from '@xyflow/react';
 import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, Suspense, use, useCallback, useMemo } from 'react';
+import { PropsWithChildren, Suspense, use, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -28,14 +28,14 @@ import { Panel, PanelGroup } from 'react-resizable-panels';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { flowDelete, flowGet, flowUpdate } from '@the-dev-tools/spec/flow/v1/flow-FlowService_connectquery';
-import { FlowVariableListItem } from '@the-dev-tools/spec/flowvariable/v1/flowvariable_pb';
+import { FlowDeleteEndpoint, FlowGetEndpoint, FlowUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.ts';
 import {
-  flowVariableCreate,
-  flowVariableDelete,
-  flowVariableList,
-  flowVariableUpdate,
-} from '@the-dev-tools/spec/flowvariable/v1/flowvariable-FlowVariableService_connectquery';
+  FlowVariableCreateEndpoint,
+  FlowVariableDeleteEndpoint,
+  FlowVariableListEndpoint,
+  FlowVariableListItemEntity,
+  FlowVariableUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.ts';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
@@ -44,8 +44,9 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectQuery } from '~/api/connect-query';
 import { useQueryNormalizer } from '~/api/normalizer';
+import { useMutate } from '~data-client';
 import {
   ColumnActionDelete,
   columnActions,
@@ -57,10 +58,10 @@ import {
 
 import { ReferenceContext } from '../reference';
 import { StatusBar } from '../status-bar';
-import { ConnectionLine, Edge, edgesQueryOptions, edgeTypes, useMakeEdge, useOnEdgesChange } from './edge';
+import { ConnectionLine, Edge, edgeTypes, useEdgeStateSynced, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
 import { FlowSearch } from './layout';
-import { Node, nodesQueryOptions, useMakeNode, useOnNodesChange } from './node';
+import { Node, useMakeNode, useNodeStateSynced } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
 import { ForEachNode, ForEachPanel } from './nodes/for-each';
@@ -71,25 +72,6 @@ import { RequestNode, RequestPanel } from './nodes/request';
 const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/');
 
 export const Route = makeRoute({
-  loader: async ({ context: { queryClient, transport }, parentMatchPromise }) => {
-    const { loaderData } = await parentMatchPromise;
-    if (!loaderData) return;
-    const { flowId } = loaderData;
-
-    try {
-      await Promise.all([
-        queryClient.ensureQueryData(createQueryOptions(flowGet, { flowId }, { transport })),
-        queryClient.ensureQueryData(edgesQueryOptions({ flowId, transport })),
-        queryClient.ensureQueryData(nodesQueryOptions({ flowId, transport })),
-      ]);
-    } catch {
-      redirect({
-        from: Route.fullPath,
-        throw: true,
-        to: '/workspace/$workspaceIdCan',
-      });
-    }
-  },
   component: RouteComponent,
   pendingComponent: () => (
     <div className={tw`flex h-full items-center justify-center`}>
@@ -125,7 +107,7 @@ function RouteComponent() {
             <ReactFlowProvider>
               <TopBar />
               <Panel className='flex h-full flex-col' id='flow' order={1}>
-                <Flow flowId={flowId} key={Ulid.construct(flowId).toCanonical()}>
+                <Flow key={Ulid.construct(flowId).toCanonical()}>
                   <ActionBar />
                 </Flow>
               </Panel>
@@ -139,43 +121,17 @@ function RouteComponent() {
   );
 }
 
-interface FlowProps {
-  children?: ReactNode;
-  flowId: Uint8Array;
-}
-
-export const Flow = ({ children, flowId }: FlowProps) => {
-  const { transport } = useRouteContext({ from: '__root__' });
-
-  const [edgesQuery, nodesQuery] = useSuspenseQueries({
-    queries: [edgesQueryOptions({ flowId, transport }), nodesQueryOptions({ flowId, transport })],
-  });
-
-  return (
-    <FlowView edges={edgesQuery.data} nodes={nodesQuery.data}>
-      {children}
-    </FlowView>
-  );
-};
-
-interface FlowViewProps {
-  children?: ReactNode;
-  edges: Edge[];
-  isReadOnly?: boolean;
-  nodes: Node[];
-}
-
 const minZoom = 0.5;
 const maxZoom = 2;
 
-const FlowView = ({ children, edges, nodes }: FlowViewProps) => {
+export const Flow = ({ children }: PropsWithChildren) => {
   const { addEdges, addNodes, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
   const { isReadOnly = false } = use(FlowContext);
 
   const navigate = useNavigate();
 
-  const onEdgesChange = useOnEdgesChange();
-  const onNodesChange = useOnNodesChange();
+  const [edges, _setEdges, onEdgesChange] = useEdgeStateSynced();
+  const [nodes, _setNodes, onNodesChange] = useNodeStateSynced();
 
   const makeNode = useMakeNode();
   const makeEdge = useMakeEdge();
@@ -307,11 +263,12 @@ const FlowView = ({ children, edges, nodes }: FlowViewProps) => {
 };
 
 export const TopBar = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { flowId } = flowRoute.useLoaderData();
 
-  const {
-    data: { name },
-  } = useConnectSuspenseQuery(flowGet, { flowId });
+  const { name } = useSuspense(FlowGetEndpoint, transport, { flowId });
 
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
@@ -319,24 +276,12 @@ export const TopBar = () => {
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
 
-  const flowUpdateMutation = useConnectMutation(flowUpdate);
-  const flowDeleteMutation = useConnectMutation(flowDelete, {
-    onSuccess: async () => {
-      if (
-        matchRoute({
-          params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
-          to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
-        })
-      ) {
-        await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
-      }
-    },
-  });
+  const [flowUpdate, flowUpdateLoading] = useMutate(FlowUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => flowUpdateMutation.mutateAsync({ flowId, name: _ }),
+    onSuccess: (_) => flowUpdate(transport, { flowId, name: _ }),
     value: name,
   });
 
@@ -345,7 +290,7 @@ export const TopBar = () => {
       {isEditing ? (
         <TextField
           inputClassName={tw`text-md -my-1 py-1 font-medium leading-none tracking-tight text-slate-800`}
-          isDisabled={flowUpdateMutation.isPending}
+          isDisabled={flowUpdateLoading}
           {...textFieldProps}
         />
       ) : (
@@ -403,7 +348,20 @@ export const TopBar = () => {
 
           <Separator />
 
-          <MenuItem onAction={() => void flowDeleteMutation.mutate({ flowId })} variant='danger'>
+          <MenuItem
+            onAction={async () => {
+              await controller.fetch(FlowDeleteEndpoint, transport, { flowId });
+              if (
+                !matchRoute({
+                  params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
+                  to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+                })
+              )
+                return;
+              await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
+            }}
+            variant='danger'
+          >
             Delete
           </MenuItem>
         </Menu>
@@ -503,24 +461,26 @@ const ActionBar = () => {
 };
 
 const SettingsPanel = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { flowId } = flowRoute.useLoaderData();
 
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(flowVariableList, { flowId });
-
-  const { mutateAsync: create } = useConnectMutation(flowVariableCreate);
-  const { mutateAsync: update } = useConnectMutation(flowVariableUpdate);
+  const { items } = useSuspense(FlowVariableListEndpoint, transport, { flowId });
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<FlowVariableListItem>('enabled', { meta: { divider: false } }),
-      columnReferenceField<FlowVariableListItem>('name'),
-      columnReferenceField<FlowVariableListItem>('value'),
-      columnTextField<FlowVariableListItem>('description', { meta: { divider: false } }),
-      columnActions<FlowVariableListItem>({
+      columnCheckboxField<FlowVariableListItemEntity>('enabled', { meta: { divider: false } }),
+      columnReferenceField<FlowVariableListItemEntity>('name'),
+      columnReferenceField<FlowVariableListItemEntity>('value'),
+      columnTextField<FlowVariableListItemEntity>('description', { meta: { divider: false } }),
+      columnActions<FlowVariableListItemEntity>({
         cell: ({ row }) => (
-          <ColumnActionDelete input={{ variableId: row.original.variableId }} schema={flowVariableDelete} />
+          <ColumnActionDelete
+            onAction={() =>
+              controller.fetch(FlowVariableDeleteEndpoint, transport, { variableId: row.original.variableId })
+            }
+          />
         ),
       }),
     ],
@@ -531,8 +491,13 @@ const SettingsPanel = () => {
   const formTable = useFormTable({
     createLabel: 'New variable',
     items,
-    onCreate: () => create({ enabled: true, flowId, name: `FLOW_VARIABLE_${items.length}` }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    onCreate: () =>
+      controller.fetch(FlowVariableCreateEndpoint, transport, {
+        enabled: true,
+        flowId,
+        name: `FLOW_VARIABLE_${items.length}`,
+      }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(FlowVariableUpdateEndpoint, transport, item),
     primaryColumn: 'name',
   });
 
@@ -563,6 +528,7 @@ export const EditPanel = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { nodeId } = flowRoute.useLoaderData();
 
+  // TODO: switch to Data Client Endpoint
   const nodeQuery = useConnectQuery(
     nodeGet,
     { nodeId: Option.getOrUndefined(nodeId)! },

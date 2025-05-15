@@ -1,11 +1,12 @@
+import { useTransport } from '@connectrpc/connect-query';
+import { useController } from '@data-client/react';
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
-import { workspaceMemberCreate } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
+import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
-import { useConnectMutation } from '~/api/connect-query';
 
 const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/members');
 
@@ -21,7 +22,8 @@ function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { runtime } = workspaceRoute.useRouteContext();
 
-  const workspaceMemberCreateMutation = useConnectMutation(workspaceMemberCreate);
+  const transport = useTransport();
+  const controller = useController();
 
   return (
     <div className='p-4'>
@@ -38,7 +40,7 @@ function Page() {
               Schema.decode(InviteForm),
             );
 
-            workspaceMemberCreateMutation.mutate({ email, workspaceId });
+            void controller.fetch(WorkspaceMemberCreateEndpoint, transport, { email, workspaceId });
           }).pipe(Runtime.runPromise(runtime))
         }
       >

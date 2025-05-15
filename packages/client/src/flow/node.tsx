@@ -1,13 +1,11 @@
 import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { Transport } from '@connectrpc/connect';
-import { callUnaryMethod, createConnectQueryKey } from '@connectrpc/connect-query';
-import { queryOptions, useQueryClient } from '@tanstack/react-query';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import {
-  applyNodeChanges,
   getConnectedEdges,
   Node as NodeCore,
   NodeProps as NodePropsCore,
-  OnNodesChange,
+  useNodesState,
   useReactFlow,
 } from '@xyflow/react';
 import { Array, HashMap, Match, Option, pipe, Struct } from 'effect';
@@ -26,25 +24,24 @@ import {
   NodeGetResponse,
   NodeKind,
   NodeKindSchema,
-  NodeListRequestSchema,
   NodeState,
   PositionSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
-  nodeCreate,
-  nodeDelete,
-  nodeList,
-  nodeUpdate,
-} from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
+  NodeCreateEndpoint,
+  NodeDeleteEndpoint,
+  NodeListEndpoint,
+  NodeUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/flow/node/v1/node.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useConnectMutation } from '~/api/connect-query';
+import { useMutate } from '~data-client';
 
-import { FlowContext, flowRoute } from './internal';
+import { FlowContext } from './internal';
 import { FlowSearch } from './layout';
 
 export { type NodeDTO, NodeDTOSchema };
@@ -95,10 +92,12 @@ interface NodeBaseProps extends NodeProps {
 
 // TODO: add node name
 export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }: NodeBaseProps) => {
+  const transport = useTransport();
+
   const { deleteElements, getEdges, getNode, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
 
-  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+  const [nodeUpdate, nodeUpdateLoading] = useMutate(NodeUpdateEndpoint);
 
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -106,7 +105,7 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
   const escape = useEscapePortal(ref);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => nodeUpdateMutation.mutateAsync({ name: _, nodeId: Ulid.fromCanonical(id).bytes }),
+    onSuccess: (_) => nodeUpdate(transport, { name: _, nodeId: Ulid.fromCanonical(id).bytes }),
     value: name,
   });
 
@@ -134,7 +133,7 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
               aria-label='New node name'
               className={tw`w-full`}
               inputClassName={tw`-my-1 py-1`}
-              isDisabled={nodeUpdateMutation.isPending}
+              isDisabled={nodeUpdateLoading}
               {...textFieldProps}
             />,
             getZoom(),
@@ -199,65 +198,59 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
 };
 
 export const useMakeNode = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { flowId } = use(FlowContext);
-  const nodeCreateMutation = useConnectMutation(nodeCreate);
+
   return useCallback(
     async (data: Omit<MessageInitShape<typeof NodeDTOSchema>, keyof Message>) => {
-      const { nodeId } = await nodeCreateMutation.mutateAsync({ flowId, ...data });
+      const { nodeId } = await controller.fetch(NodeCreateEndpoint, transport, { flowId, ...data });
       return create(NodeDTOSchema, { nodeId, ...data });
     },
-    [flowId, nodeCreateMutation],
+    [controller, flowId, transport],
   );
 };
 
-export const nodesQueryOptions = ({
-  transport,
-  ...input
-}: MessageInitShape<typeof NodeListRequestSchema> & { transport: Transport }) =>
-  queryOptions({
-    queryFn: async () => pipe(await callUnaryMethod(transport, nodeList, input), (_) => _.items.map(Node.fromDTO)),
-    queryKey: pipe(
-      createConnectQueryKey({ cardinality: 'finite', input, schema: nodeList, transport }),
-      Array.append('react-flow'),
-    ),
-  });
+export const useNodeStateSynced = () => {
+  const transport = useTransport();
+  const controller = useController();
 
-export const useOnNodesChange = () => {
-  const { transport } = flowRoute.useRouteContext();
   const { flowId, isReadOnly = false } = use(FlowContext);
 
-  const queryClient = useQueryClient();
+  const { items: nodesServer } = useSuspense(NodeListEndpoint, transport, { flowId });
 
-  const nodeCreateMutation = useConnectMutation(nodeCreate);
-  const nodeDeleteMutation = useConnectMutation(nodeDelete);
-  const nodeUpdateMutation = useConnectMutation(nodeUpdate);
+  const [nodesClient, setNodesClient, onNodesChange] = useNodesState(nodesServer.map(Node.fromDTO));
 
-  const oldNodes = useRef<Node[]>(undefined);
-  const saveNodes = useDebouncedCallback(async (newNodes: Node[]) => {
-    const oldNodeMap = pipe(
-      oldNodes.current ?? [],
-      Array.map((_) => [_.id, Node.toDTO(_)] as const),
+  const sync = useDebouncedCallback(async () => {
+    const nodeServerMap = pipe(
+      nodesServer.map((_) => {
+        const id = Ulid.construct(_.nodeId).toCanonical();
+        const value = create(NodeDTOSchema, Struct.omit(_, '$typeName'));
+        return [id, value] as const;
+      }),
       HashMap.fromIterable,
     );
 
-    const newNodeMap = pipe(
-      newNodes.map((_) => [_.id, Node.toDTO(_)] as const),
+    const nodeClientMap = pipe(
+      nodesClient.map((_) => {
+        const value = create(NodeDTOSchema, Node.toDTO(_));
+        return [_.id, value] as const;
+      }),
       HashMap.fromIterable,
     );
 
     const nodes: Record<string, [string, ReturnType<typeof Node.toDTO>][]> = pipe(
-      HashMap.union(oldNodeMap, newNodeMap),
+      HashMap.union(nodeServerMap, nodeClientMap),
       HashMap.entries,
       Array.groupBy(([id]) => {
-        const oldNode = HashMap.get(oldNodeMap, id);
-        const newNode = HashMap.get(newNodeMap, id);
+        const nodeServer = HashMap.get(nodeServerMap, id);
+        const nodeClient = HashMap.get(nodeClientMap, id);
 
-        if (Option.isNone(oldNode)) return 'create';
-        if (Option.isNone(newNode)) return 'delete';
+        if (Option.isNone(nodeServer)) return 'create';
+        if (Option.isNone(nodeClient)) return 'delete';
 
-        return equals(NodeDTOSchema, create(NodeDTOSchema, oldNode.value), create(NodeDTOSchema, newNode.value))
-          ? 'ignore'
-          : 'update';
+        return equals(NodeDTOSchema, nodeServer.value, nodeClient.value) ? 'ignore' : 'update';
       }),
     );
 
@@ -266,7 +259,7 @@ export const useOnNodesChange = () => {
       Array.filterMap(([_id, node]) =>
         pipe(
           Option.liftPredicate(node, (_) => !_.nodeId.length),
-          Option.map(nodeCreateMutation.mutateAsync),
+          Option.map((node) => controller.fetch(NodeCreateEndpoint, transport, node)),
         ),
       ),
       (_) => Promise.allSettled(_),
@@ -274,31 +267,22 @@ export const useOnNodesChange = () => {
 
     await pipe(
       nodes['delete'] ?? [],
-      Array.map(([_id, node]) => nodeDeleteMutation.mutateAsync(node)),
+      Array.map(([_id, node]) => controller.fetch(NodeDeleteEndpoint, transport, node)),
       (_) => Promise.allSettled(_),
     );
 
     await pipe(
       nodes['update'] ?? [],
-      Array.map(([_id, node]) => nodeUpdateMutation.mutateAsync(node)),
+      Array.map(([_id, node]) => controller.fetch(NodeUpdateEndpoint, transport, node)),
       (_) => Promise.allSettled(_),
     );
-
-    oldNodes.current = undefined;
   }, 500);
 
-  const nodesQueryKey = nodesQueryOptions({ flowId, transport }).queryKey;
+  const onNodesChangeSync: typeof onNodesChange = (changes) => {
+    onNodesChange(changes);
+    if (isReadOnly) return;
+    void sync();
+  };
 
-  return useCallback<OnNodesChange<Node>>(
-    async (changes) => {
-      const newNodes = queryClient.setQueryData<Node[]>(nodesQueryKey, (nodes) => {
-        if (nodes === undefined) return undefined;
-        oldNodes.current ??= nodes;
-        return applyNodeChanges(changes, nodes);
-      });
-
-      if (newNodes && !isReadOnly) await saveNodes(newNodes);
-    },
-    [isReadOnly, nodesQueryKey, queryClient, saveNodes],
-  );
+  return [nodesClient, setNodesClient, onNodesChangeSync] as const;
 };

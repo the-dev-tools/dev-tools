@@ -1,17 +1,15 @@
-import { createQueryOptions } from '@connectrpc/connect-query';
-import { useSuspenseQueries } from '@tanstack/react-query';
-import { useRouteContext } from '@tanstack/react-router';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 
-import { HeaderListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
-  headerCreate,
-  headerDelete,
-  headerList,
-  headerUpdate,
-} from '@the-dev-tools/spec/collection/item/request/v1/request-RequestService_connectquery';
+  HeaderCreateEndpoint,
+  HeaderDeleteEndpoint,
+  HeaderListEndpoint,
+  HeaderListItemEntity,
+  HeaderUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.ts';
 import { DataTable } from '@the-dev-tools/ui/data-table';
-import { useConnectMutation, useConnectSuspenseQuery } from '~/api/connect-query';
 
 import {
   ColumnActionDelete,
@@ -40,10 +38,10 @@ export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTab
 };
 
 const dataColumns = [
-  columnCheckboxField<HeaderListItem>('enabled', { meta: { divider: false } }),
-  columnReferenceField<HeaderListItem>('key'),
-  columnReferenceField<HeaderListItem>('value'),
-  columnTextField<HeaderListItem>('description', { meta: { divider: false } }),
+  columnCheckboxField<HeaderListItemEntity>('enabled', { meta: { divider: false } }),
+  columnReferenceField<HeaderListItemEntity>('key'),
+  columnReferenceField<HeaderListItemEntity>('value'),
+  columnTextField<HeaderListItemEntity>('description', { meta: { divider: false } }),
 ];
 
 interface DisplayTableProps {
@@ -51,9 +49,9 @@ interface DisplayTableProps {
 }
 
 const DisplayTable = ({ exampleId }: DisplayTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(headerList, { exampleId });
+  const transport = useTransport();
+
+  const { items } = useSuspense(HeaderListEndpoint, transport, { exampleId });
 
   const table = useReactTable({
     columns: dataColumns,
@@ -69,18 +67,20 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
-  const {
-    data: { items },
-  } = useConnectSuspenseQuery(headerList, { exampleId });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(headerCreate);
-  const { mutateAsync: update } = useConnectMutation(headerUpdate);
+  const { items } = useSuspense(HeaderListEndpoint, transport, { exampleId });
 
   const table = useReactTable({
     columns: [
       ...dataColumns,
-      columnActions<HeaderListItem>({
-        cell: ({ row }) => <ColumnActionDelete input={{ headerId: row.original.headerId }} schema={headerDelete} />,
+      columnActions<HeaderListItemEntity>({
+        cell: ({ row }) => (
+          <ColumnActionDelete
+            onAction={() => controller.fetch(HeaderDeleteEndpoint, transport, { headerId: row.original.headerId })}
+          />
+        ),
       }),
     ],
     data: items,
@@ -90,8 +90,8 @@ const FormTable = ({ exampleId }: FormTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New header',
     items,
-    onCreate: () => create({ enabled: true, exampleId }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+    onCreate: () => controller.fetch(HeaderCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
 
@@ -104,24 +104,12 @@ interface DeltaFormTableProps {
 }
 
 const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const transport = useTransport();
+  const controller = useController();
 
-  const { mutateAsync: create } = useConnectMutation(headerCreate);
-  const { mutateAsync: update } = useConnectMutation(headerUpdate);
-
-  const [
-    {
-      data: { items: itemsBase },
-    },
-    {
-      data: { items: itemsDelta },
-    },
-  ] = useSuspenseQueries({
-    queries: [
-      createQueryOptions(headerList, { exampleId }, { transport }),
-      createQueryOptions(headerList, { exampleId: deltaExampleId }, { transport }),
-    ],
-  });
+  // TODO: fetch in parallel
+  const { items: itemsBase } = useSuspense(HeaderListEndpoint, transport, { exampleId });
+  const { items: itemsDelta } = useSuspense(HeaderListEndpoint, transport, { exampleId: deltaExampleId });
 
   const items = makeDeltaItems({
     getId: (_) => _.headerId.toString(),
@@ -130,23 +118,26 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
     itemsDelta,
   });
 
-  const formTable = deltaFormTable<HeaderListItem>({
+  const formTable = deltaFormTable<HeaderListItemEntity>({
     getParentId: (_) => _.parentHeaderId?.toString(),
     onCreate: ({ $typeName: _, headerId, ...item }) =>
-      create({ ...item, exampleId: deltaExampleId, parentHeaderId: headerId }),
-    onUpdate: ({ $typeName: _, ...item }) => update(item),
+      controller.fetch(HeaderCreateEndpoint, transport, {
+        ...item,
+        exampleId: deltaExampleId,
+        parentHeaderId: headerId,
+      }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderUpdateEndpoint, transport, item),
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...dataColumns,
-        columnActions<HeaderListItem>({
+        columnActions<HeaderListItemEntity>({
           cell: ({ row }) => (
             <ColumnActionUndoDelta
               hasDelta={row.original.parentHeaderId !== undefined}
-              input={{ headerId: row.original.headerId }}
-              schema={headerDelete}
+              onAction={() => controller.fetch(HeaderDeleteEndpoint, transport, { headerId: row.original.headerId })}
             />
           ),
         }),

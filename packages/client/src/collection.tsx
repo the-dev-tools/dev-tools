@@ -1,5 +1,5 @@
-import { createQueryOptions, useTransport } from '@connectrpc/connect-query';
-import { useQueryClient } from '@tanstack/react-query';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import { getRouteApi, ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -10,35 +10,35 @@ import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 
 import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
-import {
-  endpointCreate,
-  endpointDelete,
-  endpointDuplicate,
-  endpointUpdate,
-} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint-EndpointService_connectquery';
 import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import {
-  exampleCreate,
-  exampleDelete,
-  exampleDuplicate,
-  exampleList,
-  exampleUpdate,
-} from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import { Folder, FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
-import {
-  folderCreate,
-  folderDelete,
-  folderUpdate,
-} from '@the-dev-tools/spec/collection/item/folder/v1/folder-FolderService_connectquery';
 import { CollectionItem, ItemKind, ItemKindSchema } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
-import {
-  collectionDelete,
-  collectionList,
-  collectionUpdate,
-} from '@the-dev-tools/spec/collection/v1/collection-CollectionService_connectquery';
 import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
+import {
+  EndpointCreateEndpoint,
+  EndpointDeleteEndpoint,
+  EndpointDuplicateEndpoint,
+  EndpointUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.ts';
+import {
+  ExampleCreateEndpoint,
+  ExampleDeleteEndpoint,
+  ExampleDuplicateEndpoint,
+  ExampleListEndpoint,
+  ExampleUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.ts';
+import {
+  FolderCreateEndpoint,
+  FolderDeleteEndpoint,
+  FolderUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/folder/v1/folder.ts';
+import {
+  CollectionDeleteEndpoint,
+  CollectionListEndpoint,
+  CollectionUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/collection/v1/collection.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -47,18 +47,11 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useConnectMutation, useConnectQuery, useConnectSuspenseQuery } from '~/api/connect-query';
+import { useConnectMutation, useConnectQuery } from '~/api/connect-query';
 import { enumToString } from '~/api/utils';
+import { useMutate } from '~data-client';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-
-const useInvalidateCollectionListQuery = () => {
-  const { workspaceId } = workspaceRoute.useLoaderData();
-  const queryClient = useQueryClient();
-  const transport = useTransport();
-  const collectionListQueryOptions = createQueryOptions(collectionList, { workspaceId }, { transport });
-  return () => queryClient.invalidateQueries(collectionListQueryOptions);
-};
 
 interface CollectionListTreeContext {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -80,11 +73,11 @@ interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'conta
 }
 
 export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
+  const transport = useTransport();
+
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const {
-    data: { items: collections },
-  } = useConnectSuspenseQuery(collectionList, { workspaceId });
+  const { items: collections } = useSuspense(CollectionListEndpoint, transport, { workspaceId });
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -120,24 +113,24 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
 
+  // TODO: switch to Data Client Endpoint
   const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
-  const collectionDeleteMutation = useConnectMutation(collectionDelete);
-  const collectionUpdateMutation = useConnectMutation(collectionUpdate);
-
-  const folderCreateMutation = useConnectMutation(folderCreate);
-  const endpointCreateMutation = useConnectMutation(endpointCreate);
+  const [collectionUpdate, collectionUpdateLoading] = useMutate(CollectionUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => collectionUpdateMutation.mutateAsync({ collectionId, name: _ }),
+    onSuccess: (_) => collectionUpdate(transport, { collectionId, name: _ }),
     value: collection.name,
   });
 
@@ -170,7 +163,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
           <TextField
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
-            isDisabled={collectionUpdateMutation.isPending}
+            isDisabled={collectionUpdateLoading}
             {...textFieldProps}
           />,
         )}
@@ -184,15 +177,24 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => void endpointCreateMutation.mutate({ collectionId, name: 'New API call' })}>
+            <MenuItem
+              onAction={() =>
+                controller.fetch(EndpointCreateEndpoint, transport, { collectionId, name: 'New API call' })
+              }
+            >
               Add Request
             </MenuItem>
 
-            <MenuItem onAction={() => void folderCreateMutation.mutate({ collectionId, name: 'New folder' })}>
+            <MenuItem
+              onAction={() => controller.fetch(FolderCreateEndpoint, transport, { collectionId, name: 'New folder' })}
+            >
               Add Folder
             </MenuItem>
 
-            <MenuItem onAction={() => void collectionDeleteMutation.mutate({ collectionId })} variant='danger'>
+            <MenuItem
+              onAction={() => controller.fetch(CollectionDeleteEndpoint, transport, { collectionId })}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -229,6 +231,9 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolderId }: FolderTreeProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
   const [enabled, setEnabled] = useState(false);
@@ -244,11 +249,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
     [collectionItemListQuery.data?.items],
   );
 
-  const folderCreateMutation = useConnectMutation(folderCreate);
-  const folderUpdateMutation = useConnectMutation(folderUpdate);
-  const folderDeleteMutation = useConnectMutation(folderDelete);
-
-  const endpointCreateMutation = useConnectMutation(endpointCreate);
+  const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -256,7 +257,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) =>
-      folderUpdateMutation.mutateAsync({
+      folderUpdate(transport, {
         folderId,
         name: _,
         parentFolderId: parentFolderId!,
@@ -292,7 +293,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
               <TextField
                 className={tw`w-full`}
                 inputClassName={tw`-my-1 py-1`}
-                isDisabled={folderUpdateMutation.isPending}
+                isDisabled={folderUpdateLoading}
                 {...textFieldProps}
               />,
             )}
@@ -308,7 +309,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
                 <MenuItem
                   onAction={() =>
-                    void endpointCreateMutation.mutate({
+                    controller.fetch(EndpointCreateEndpoint, transport, {
                       collectionId,
                       name: 'New API call',
                       parentFolderId: folderId,
@@ -320,7 +321,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
                 <MenuItem
                   onAction={() =>
-                    void folderCreateMutation.mutate({
+                    controller.fetch(FolderCreateEndpoint, transport, {
                       collectionId,
                       name: 'New folder',
                       parentFolderId: folderId,
@@ -330,7 +331,10 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                   Add Folder
                 </MenuItem>
 
-                <MenuItem onAction={() => void folderDeleteMutation.mutate({ folderId })} variant='danger'>
+                <MenuItem
+                  onAction={() => controller.fetch(FolderDeleteEndpoint, transport, { folderId })}
+                  variant='danger'
+                >
                   Delete
                 </MenuItem>
               </Menu>
@@ -350,6 +354,9 @@ interface EndpointTreeProps {
 }
 
 const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: EndpointTreeProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { endpointId, method, name } = endpoint;
   const { exampleId, lastResponseId } = example;
 
@@ -366,27 +373,12 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
 
   const [enabled, setEnabled] = useState(false);
 
-  const exampleListQuery = useConnectQuery(exampleList, { endpointId }, { enabled });
+  // TODO: enable only when open
+  const { items } = useSuspense(ExampleListEndpoint, transport, { endpointId });
 
-  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
+  const [endpointUpdate, endpointUpdateLoading] = useMutate(EndpointUpdateEndpoint);
 
-  const exampleCreateMutation = useConnectMutation(exampleCreate);
-  const endpointUpdateMutation = useConnectMutation(endpointUpdate);
-  const endpointDeleteMutation = useConnectMutation(endpointDelete, {
-    onSuccess: async () => {
-      if (
-        matchRoute({
-          params: { endpointIdCan },
-          to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-        })
-      ) {
-        await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
-      }
-    },
-  });
-  const endpointDuplicateMutation = useConnectMutation(endpointDuplicate, {
-    onSuccess: invalidateCollectionListQuery,
-  });
+  // TODO: switch to Data Client Endpoint
   const exportMutation = useConnectMutation(export$);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -394,7 +386,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => endpointUpdateMutation.mutateAsync({ endpointId, name: _ }),
+    onSuccess: (_) => endpointUpdate(transport, { endpointId, name: _ }),
     value: endpoint.name,
   });
 
@@ -410,13 +402,13 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
         return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
       }}
-      childItems={exampleListQuery.data?.items ?? []}
+      childItems={items}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       href={toNavigate ? route : undefined!}
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       isActive={toNavigate && matchRoute(route) !== false}
-      loading={exampleListQuery.isLoading}
+      // loading={exampleListQuery.isLoading}
       textValue={name}
       wrapperOnContextMenu={onContextMenu}
     >
@@ -431,7 +423,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
           <TextField
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
-            isDisabled={endpointUpdateMutation.isPending}
+            isDisabled={endpointUpdateLoading}
             {...textFieldProps}
           />,
         )}
@@ -447,7 +439,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
 
             <MenuItem
               onAction={() =>
-                void exampleCreateMutation.mutate({
+                controller.fetch(ExampleCreateEndpoint, transport, {
                   endpointId,
                   name: 'New Example',
                 })
@@ -456,7 +448,9 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
               Add Example
             </MenuItem>
 
-            <MenuItem onAction={() => void endpointDuplicateMutation.mutate({ endpointId })}>Duplicate</MenuItem>
+            <MenuItem onAction={() => controller.fetch(EndpointDuplicateEndpoint, transport, { endpointId })}>
+              Duplicate
+            </MenuItem>
 
             <MenuItem
               onAction={async () => {
@@ -467,7 +461,20 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
               Export
             </MenuItem>
 
-            <MenuItem onAction={() => void endpointDeleteMutation.mutate({ endpointId })} variant='danger'>
+            <MenuItem
+              onAction={async () => {
+                await controller.fetch(EndpointDeleteEndpoint, transport, { endpointId });
+                if (
+                  !matchRoute({
+                    params: { endpointIdCan },
+                    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+                  })
+                )
+                  return;
+                await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -485,6 +492,9 @@ interface ExampleItemProps {
 }
 
 const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: ExampleItemProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { exampleId, lastResponseId, name } = example;
 
   const endpointIdCan = Ulid.construct(endpointId).toCanonical();
@@ -498,23 +508,9 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
-  const invalidateCollectionListQuery = useInvalidateCollectionListQuery();
-  const exampleUpdateMutation = useConnectMutation(exampleUpdate);
-  const exampleDeleteMutation = useConnectMutation(exampleDelete, {
-    onSuccess: async () => {
-      if (
-        matchRoute({
-          params: { exampleIdCan },
-          to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-        })
-      ) {
-        await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
-      }
-    },
-  });
-  const exampleDuplicateMutation = useConnectMutation(exampleDuplicate, {
-    onSuccess: invalidateCollectionListQuery,
-  });
+  const [exampleUpdate, exampleUpdateLoading] = useMutate(ExampleUpdateEndpoint);
+
+  // TODO: switch to Data Client Endpoint
   const exportMutation = useConnectMutation(export$);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -522,7 +518,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => exampleUpdateMutation.mutateAsync({ exampleId, name: _ }),
+    onSuccess: (_) => exampleUpdate(transport, { exampleId, name: _ }),
     value: name,
   });
 
@@ -551,7 +547,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
           <TextField
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
-            isDisabled={exampleUpdateMutation.isPending}
+            isDisabled={exampleUpdateLoading}
             {...textFieldProps}
           />,
         )}
@@ -565,7 +561,9 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => void exampleDuplicateMutation.mutate({ exampleId })}>Duplicate</MenuItem>
+            <MenuItem onAction={() => controller.fetch(ExampleDuplicateEndpoint, transport, { exampleId })}>
+              Duplicate
+            </MenuItem>
 
             <MenuItem
               onAction={async () => {
@@ -576,7 +574,20 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
               Export
             </MenuItem>
 
-            <MenuItem onAction={() => void exampleDeleteMutation.mutate({ exampleId })} variant='danger'>
+            <MenuItem
+              onAction={async () => {
+                await controller.fetch(ExampleDeleteEndpoint, transport, { exampleId });
+                if (
+                  !matchRoute({
+                    params: { exampleIdCan },
+                    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+                  })
+                )
+                  return;
+                await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>

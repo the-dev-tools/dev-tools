@@ -1,39 +1,35 @@
 import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { Transport } from '@connectrpc/connect';
-import { callUnaryMethod, createConnectQueryKey } from '@connectrpc/connect-query';
-import { queryOptions, useQueryClient } from '@tanstack/react-query';
+import { useTransport } from '@connectrpc/connect-query';
+import { useController, useSuspense } from '@data-client/react';
 import {
-  applyEdgeChanges,
   ConnectionLineComponentProps,
   Edge as EdgeCore,
   EdgeProps as EdgePropsCore,
   getSmoothStepPath,
-  OnEdgesChange,
+  useEdgesState,
 } from '@xyflow/react';
 import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { use, useCallback, useRef } from 'react';
+import { use, useCallback } from 'react';
 import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Edge as EdgeDTO,
   EdgeSchema as EdgeDTOSchema,
-  EdgeListRequestSchema,
   Handle as HandleKind,
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import {
-  edgeCreate,
-  edgeDelete,
-  edgeList,
-  edgeUpdate,
-} from '@the-dev-tools/spec/flow/edge/v1/edge-EdgeService_connectquery';
 import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import {
+  EdgeCreateEndpoint,
+  EdgeDeleteEndpoint,
+  EdgeListEndpoint,
+  EdgeUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/flow/edge/v1/edge.ts';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation } from '~/api/connect-query';
 
-import { FlowContext, flowRoute } from './internal';
+import { FlowContext } from './internal';
 
 export { type EdgeDTO, EdgeDTOSchema };
 
@@ -79,28 +75,19 @@ export const Edge = {
 };
 
 export const useMakeEdge = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { flowId } = use(FlowContext);
-  const edgeCreateMutation = useConnectMutation(edgeCreate);
+
   return useCallback(
     async (data: Omit<MessageInitShape<typeof EdgeDTOSchema>, keyof Message>) => {
-      const { edgeId } = await edgeCreateMutation.mutateAsync({ flowId, ...data });
+      const { edgeId } = await controller.fetch(EdgeCreateEndpoint, transport, { flowId, ...data });
       return create(EdgeDTOSchema, { edgeId, ...data });
     },
-    [edgeCreateMutation, flowId],
+    [controller, flowId, transport],
   );
 };
-
-export const edgesQueryOptions = ({
-  transport,
-  ...input
-}: MessageInitShape<typeof EdgeListRequestSchema> & { transport: Transport }) =>
-  queryOptions({
-    queryFn: async () => pipe(await callUnaryMethod(transport, edgeList, input), (_) => _.items.map(Edge.fromDTO)),
-    queryKey: pipe(
-      createConnectQueryKey({ cardinality: 'finite', input, schema: edgeList, transport }),
-      Array.append('react-flow'),
-    ),
-  });
 
 const DefaultEdge = ({ data, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: EdgeProps) => (
   <ConnectionLine
@@ -162,82 +149,77 @@ export const ConnectionLine = ({
   return <path className={connectionLineStyles({ state })} d={edgePath} strokeDasharray={connected ? undefined : 4} />;
 };
 
-export const useOnEdgesChange = () => {
-  const { transport } = flowRoute.useRouteContext();
+export const useEdgeStateSynced = () => {
+  const transport = useTransport();
+  const controller = useController();
+
   const { flowId, isReadOnly = false } = use(FlowContext);
 
-  const queryClient = useQueryClient();
+  const { items: edgesServer } = useSuspense(EdgeListEndpoint, transport, { flowId });
 
-  const edgeCreateMutation = useConnectMutation(edgeCreate);
-  const edgeDeleteMutation = useConnectMutation(edgeDelete);
-  const edgeUpdateMutation = useConnectMutation(edgeUpdate);
+  const [edgesClient, setEdgesClient, onEdgesChange] = useEdgesState(edgesServer.map(Edge.fromDTO));
 
-  const oldEdges = useRef<Edge[]>(undefined);
-  const saveEdges = useDebouncedCallback(async (newEdges: Edge[]) => {
-    const oldEdgeMap = pipe(
-      oldEdges.current ?? [],
-      Array.map((_) => [_.id, Edge.toDTO(_)] as const),
+  const sync = useDebouncedCallback(async () => {
+    const edgeServerMap = pipe(
+      edgesServer.map((_) => {
+        const id = Ulid.construct(_.edgeId).toCanonical();
+        const value = create(EdgeDTOSchema, Struct.omit(_, '$typeName'));
+        return [id, value] as const;
+      }),
       HashMap.fromIterable,
     );
 
-    const newEdgeMap = pipe(
-      newEdges.map((_) => [_.id, Edge.toDTO(_)] as const),
+    const edgeClientMap = pipe(
+      edgesClient.map((_) => {
+        const value = create(EdgeDTOSchema, Edge.toDTO(_));
+        return [_.id, value] as const;
+      }),
       HashMap.fromIterable,
     );
 
-    const edges: Record<string, [string, ReturnType<typeof Edge.toDTO>][]> = pipe(
-      HashMap.union(oldEdgeMap, newEdgeMap),
+    const changes: Record<string, [string, ReturnType<typeof Edge.toDTO>][]> = pipe(
+      HashMap.union(edgeServerMap, edgeClientMap),
       HashMap.entries,
       Array.groupBy(([id]) => {
-        const oldEdge = HashMap.get(oldEdgeMap, id);
-        const newEdge = HashMap.get(newEdgeMap, id);
+        const edgeServer = HashMap.get(edgeServerMap, id);
+        const edgeClient = HashMap.get(edgeClientMap, id);
 
-        if (Option.isNone(oldEdge)) return 'create';
-        if (Option.isNone(newEdge)) return 'delete';
+        if (Option.isNone(edgeServer)) return 'create';
+        if (Option.isNone(edgeClient)) return 'delete';
 
-        return equals(EdgeDTOSchema, create(EdgeDTOSchema, oldEdge.value), create(EdgeDTOSchema, newEdge.value))
-          ? 'ignore'
-          : 'update';
+        return equals(EdgeDTOSchema, edgeServer.value, edgeClient.value) ? 'ignore' : 'update';
       }),
     );
 
     await pipe(
-      edges['create'] ?? [],
+      changes['create'] ?? [],
       Array.filterMap(([_id, edge]) =>
         pipe(
           Option.liftPredicate(edge, (_) => !_.edgeId.length),
-          Option.map(edgeCreateMutation.mutateAsync),
+          Option.map((edge) => controller.fetch(EdgeCreateEndpoint, transport, edge)),
         ),
       ),
       (_) => Promise.allSettled(_),
     );
 
     await pipe(
-      edges['delete'] ?? [],
-      Array.map(([_id, edge]) => edgeDeleteMutation.mutateAsync(edge)),
+      changes['delete'] ?? [],
+      Array.map(([_id, edge]) => controller.fetch(EdgeDeleteEndpoint, transport, edge)),
       (_) => Promise.allSettled(_),
     );
 
     await pipe(
-      edges['update'] ?? [],
-      Array.map(([_id, edge]) => edgeUpdateMutation.mutateAsync(edge)),
+      changes['update'] ?? [],
+      Array.map(([_id, edge]) => controller.fetch(EdgeUpdateEndpoint, transport, edge)),
       (_) => Promise.allSettled(_),
     );
-
-    oldEdges.current = undefined;
   }, 500);
 
-  const edgesQueryKey = edgesQueryOptions({ flowId, transport }).queryKey;
-  return useCallback<OnEdgesChange<Edge>>(
-    async (changes) => {
-      const newEdges = queryClient.setQueryData<Edge[]>(edgesQueryKey, (edges) => {
-        if (edges === undefined) return undefined;
-        oldEdges.current ??= edges;
-        return applyEdgeChanges(changes, edges);
-      });
+  const onEdgesChangeSync: typeof onEdgesChange = (changes) => {
+    onEdgesChange(changes);
+    if (isReadOnly) return;
+    void sync();
+  };
 
-      if (newEdges && !isReadOnly) await saveEdges(newEdges);
-    },
-    [edgesQueryKey, isReadOnly, queryClient, saveEdges],
-  );
+  return [edgesClient, setEdgesClient, onEdgesChangeSync] as const;
 };
