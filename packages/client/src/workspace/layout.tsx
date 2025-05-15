@@ -1,6 +1,6 @@
-import { createQueryOptions, useTransport } from '@connectrpc/connect-query';
+import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
-import { createFileRoute, Outlet, redirect, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
@@ -19,7 +19,6 @@ import {
   FlowUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/v1/flow.ts';
 import { WorkspaceGetEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.js';
-import { workspaceGet } from '@the-dev-tools/spec/workspace/v1/workspace-WorkspaceService_connectquery';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
@@ -45,10 +44,8 @@ const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan');
 
 export const Route = makeRoute({
   validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
-  loader: async ({ context: { queryClient, transport }, params: { workspaceIdCan } }) => {
+  loader: ({ params: { workspaceIdCan } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
-    const options = createQueryOptions(workspaceGet, { workspaceId }, { transport });
-    await queryClient.ensureQueryData(options).catch(() => redirect({ throw: true, to: '/' }));
     return { workspaceId };
   },
   component: Layout,
