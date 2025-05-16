@@ -148,13 +148,13 @@ interface Endpoint {
   service: Interface;
 }
 
-class File extends Data.TaggedClass('File')<{
+class Package extends Data.TaggedClass('Package')<{
   endpoints: Record<string, Endpoint>;
   entities: Record<string, Entity>;
 }> {}
 
 class Directory extends Data.TaggedClass('Directory')<{
-  items: Record<string, Directory | File>;
+  items: Record<string, Directory | Package>;
 }> {}
 
 const getDirectory = (root: Directory, path: string[]): Directory => {
@@ -170,15 +170,15 @@ const getDirectory = (root: Directory, path: string[]): Directory => {
       return getDirectory(next, pathRest);
     }),
     Match.tag('Directory', (_) => getDirectory(_, pathRest)),
-    Match.tag('File', () => root),
+    Match.tag('Package', () => root),
     Match.exhaustive,
   );
 };
 
-const getFile = (root: Directory, packageName: string) => {
+const getPackage = (root: Directory, packageName: string) => {
   const directory = getDirectory(root, packageName.split('.'));
 
-  const filename = pipe(
+  const name = pipe(
     packageName,
     String.split('.'),
     Array.filter((_) => _ !== 'v1'),
@@ -186,16 +186,16 @@ const getFile = (root: Directory, packageName: string) => {
     Option.getOrElse(() => packageName),
   );
 
-  let file = directory.items[filename];
+  let package$ = directory.items[name];
 
-  if (file === undefined) {
-    file = new File({ endpoints: {}, entities: {} });
-    directory.items[filename] = file;
+  if (package$ === undefined) {
+    package$ = new Package({ endpoints: {}, entities: {} });
+    directory.items[name] = package$;
   }
 
-  if (file._tag !== 'File') return;
+  if (package$._tag !== 'Package') return;
 
-  return file;
+  return package$;
 };
 
 const EmitContext = createContext<EmitContext>();
@@ -238,18 +238,7 @@ const schemaOutput = ({ origin, program, type }: SchemaOutputProps): Option.Opti
   );
 };
 
-interface FileOutputProps {
-  file: File;
-  path: string;
-}
-
-const FileOutput = ({ file, path: name }: FileOutputProps) => {
-  const { program } = useContext(EmitContext)!;
-
-  const directory = useContext(SourceDirectoryContext)?.path ?? '';
-  const protobuf = path.relative(directory, `../buf/typescript/${directory}/${name}_pb`);
-  const dataClient = path.relative(directory, '../../data-client');
-
+const makeImports = () => {
   const imports = new Map<string, Set<string>>();
 
   const addImport = (path: string, name: string) => {
@@ -261,35 +250,59 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
     pathImports.add(name);
   };
 
-  addImport(path.join(dataClient, 'utils'), 'makeEntity');
+  return [imports, addImport] as const;
+};
 
-  Record.values(file.endpoints).forEach((_) => {
-    addImport(protobuf, _.service.name);
-    addImport(path.join(dataClient, _.methodImport), _.method);
-  });
+interface ImportsOutputProps {
+  imports: Map<string, Set<string>>;
+}
 
-  Record.keys(file.entities).forEach((_) => {
+const ImportsOutput = ({ imports }: ImportsOutputProps) => (
+  <For doubleHardline each={imports.entries()}>
+    {([path, imports]) => code`
+      import {
+        ${(
+          <For comma each={Array.fromIterable(imports)} enderPunctuation>
+            {(_) => _}
+          </For>
+        )}
+      } from "${path}";
+    `}
+  </For>
+);
+
+const useRoot = () => {
+  const directory = useContext(SourceDirectoryContext)?.path ?? '';
+  return path.relative(directory, '../..');
+};
+
+const useProtobuf = (name: string) => {
+  const directory = useContext(SourceDirectoryContext)?.path ?? '';
+  return path.relative(directory, `../buf/typescript/${directory}/${name}_pb.js`);
+};
+
+interface PackageOutputProps {
+  name: string;
+  package$: Package;
+}
+
+const EntitiesOutput = ({ name, package$ }: PackageOutputProps) => {
+  const { program } = useContext(EmitContext)!;
+
+  const root = useRoot();
+  const protobuf = useProtobuf(name);
+
+  const [imports, addImport] = makeImports();
+
+  addImport(path.join(root, 'data-client/utils.js'), 'makeEntity');
+
+  Record.keys(package$.entities).forEach((_) => {
     addImport(protobuf, `${_}Schema`);
   });
 
   return (
-    <SourceFile path={`${name}.ts`}>
-      <For doubleHardline each={imports.entries()}>
-        {([path, imports]) => code`
-          import {
-            ${(
-              <For comma each={Array.fromIterable(imports)} enderPunctuation>
-                {(_) => _}
-              </For>
-            )}
-          } from "${path}";
-        `}
-      </For>
-
-      <hardline />
-      <hardline />
-
-      <For doubleHardline each={Record.toEntries(file.entities)}>
+    <SourceFile header={<ImportsOutput imports={imports} />} path={`${name}.entities.ts`}>
+      <For doubleHardline each={Record.toEntries(package$.entities)}>
         {([name, _]) => (
           <ClassDeclaration
             export
@@ -317,11 +330,26 @@ const FileOutput = ({ file, path: name }: FileOutputProps) => {
           />
         )}
       </For>
+    </SourceFile>
+  );
+};
 
-      <hardline />
-      <hardline />
+const EndpointsOutput = ({ name, package$ }: PackageOutputProps) => {
+  const { program } = useContext(EmitContext)!;
 
-      <For doubleHardline each={Record.toEntries(file.endpoints)}>
+  const root = useRoot();
+  const protobuf = useProtobuf(name);
+
+  const [imports, addImport] = makeImports();
+
+  Record.values(package$.endpoints).forEach((_) => {
+    addImport(path.join(root, 'data-client', _.methodImport), _.method);
+    addImport(protobuf, _.service.name);
+  });
+
+  return (
+    <SourceFile header={<ImportsOutput imports={imports} />} path={`${name}.endpoints.ts`}>
+      <For doubleHardline each={Record.toEntries(package$.endpoints)}>
         {([name, _]) => (
           <VarDeclaration const export name={`${name}Endpoint`}>
             <FunctionCallExpression
@@ -373,7 +401,12 @@ const DirectoryOutput = ({ directory, path }: DirectoryOutputProps) => {
     pipe(
       Match.value(item),
       Match.tag('Directory', (_) => <DirectoryOutput directory={_} path={path} />),
-      Match.tag('File', (_) => <FileOutput file={_} path={path} />),
+      Match.tag('Package', (_) => (
+        <>
+          <EntitiesOutput name={path} package$={_} />
+          <EndpointsOutput name={path} package$={_} />
+        </>
+      )),
       Match.exhaustive,
     ),
   );
@@ -423,10 +456,10 @@ export async function $onEmit(context: EmitContext) {
       const normalKeys = normalKeysMap(program).get(target) ?? [];
       const primaryKeys = [...key, ...normalKeys];
 
-      const file = getFile(root, packageName);
-      if (!file) return;
+      const package$ = getPackage(root, packageName);
+      if (!package$) return;
 
-      file.entities[name] = {
+      package$.entities[name] = {
         key: `${packageName}.${baseName}`,
         model: target,
         primaryKeys,
@@ -445,8 +478,8 @@ export async function $onEmit(context: EmitContext) {
 
       const name = getFriendlyName(program, operation) ?? operation.name;
 
-      const file = getFile(root, packageName);
-      if (!file) return;
+      const package$ = getPackage(root, packageName);
+      if (!package$) return;
 
       const [methodImport, method] = meta.method.split(':');
       if (!methodImport || !method) return;
@@ -473,7 +506,7 @@ export async function $onEmit(context: EmitContext) {
         }),
       );
 
-      file.endpoints[name] = {
+      package$.endpoints[name] = {
         key: `${packageName}.${operation.interface.name}/${name}`,
         method,
         methodImport,
