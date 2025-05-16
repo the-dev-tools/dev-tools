@@ -29,24 +29,24 @@ import { ResponseHeaderListItem } from '@the-dev-tools/spec/collection/item/resp
 import {
   EndpointGetEndpoint,
   EndpointUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.js';
+} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleDeleteEndpoint,
   ExampleGetEndpoint,
   ExampleUpdateEndpoint,
   ExampleVersionsEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.js';
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import {
   QueryCreateEndpoint,
   QueryListEndpoint,
   QueryUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.ts';
+} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
 import {
   ResponseAssertListEndpoint,
   ResponseGetEndpoint,
   ResponseHeaderListEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/response/v1/response.ts';
+} from '@the-dev-tools/spec/meta/collection/item/response/v1/response.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { Spinner } from '@the-dev-tools/ui/icons';

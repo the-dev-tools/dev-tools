@@ -26,7 +26,7 @@ import {
   EdgeDeleteEndpoint,
   EdgeListEndpoint,
   EdgeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/edge/v1/edge.ts';
+} from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { FlowContext } from './internal';

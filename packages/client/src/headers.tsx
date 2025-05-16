@@ -6,9 +6,9 @@ import {
   HeaderCreateEndpoint,
   HeaderDeleteEndpoint,
   HeaderListEndpoint,
-  HeaderListItemEntity,
   HeaderUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.ts';
+} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
+import { HeaderListItemEntity } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.entities.ts';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 
 import {

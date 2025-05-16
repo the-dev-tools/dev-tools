@@ -28,14 +28,18 @@ import { Panel, PanelGroup } from 'react-resizable-panels';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { FlowDeleteEndpoint, FlowGetEndpoint, FlowUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.ts';
+import {
+  FlowDeleteEndpoint,
+  FlowGetEndpoint,
+  FlowUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
 import {
   FlowVariableCreateEndpoint,
   FlowVariableDeleteEndpoint,
   FlowVariableListEndpoint,
-  FlowVariableListItemEntity,
   FlowVariableUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.ts';
+} from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.endpoints.ts';
+import { FlowVariableListItemEntity } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.entities.ts';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';

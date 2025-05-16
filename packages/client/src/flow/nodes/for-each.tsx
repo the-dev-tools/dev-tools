@@ -7,7 +7,7 @@ import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.js';
+import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';

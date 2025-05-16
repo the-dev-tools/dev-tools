@@ -5,7 +5,7 @@ import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
 import { FiTerminal, FiX } from 'react-icons/fi';
 
-import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.ts';
+import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';

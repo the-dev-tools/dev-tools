@@ -21,24 +21,24 @@ import {
   EndpointDeleteEndpoint,
   EndpointDuplicateEndpoint,
   EndpointUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.ts';
+} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleDeleteEndpoint,
   ExampleDuplicateEndpoint,
   ExampleListEndpoint,
   ExampleUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.ts';
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import {
   FolderCreateEndpoint,
   FolderDeleteEndpoint,
   FolderUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/folder/v1/folder.ts';
+} from '@the-dev-tools/spec/meta/collection/item/folder/v1/folder.endpoints.ts';
 import {
   CollectionDeleteEndpoint,
   CollectionListEndpoint,
   CollectionUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/v1/collection.ts';
+} from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';

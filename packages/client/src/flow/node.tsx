@@ -32,7 +32,7 @@ import {
   NodeDeleteEndpoint,
   NodeListEndpoint,
   NodeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/node/v1/node.ts';
+} from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';

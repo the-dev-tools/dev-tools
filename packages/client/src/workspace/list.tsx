@@ -13,7 +13,7 @@ import {
   WorkspaceDeleteEndpoint,
   WorkspaceListEndpoint,
   WorkspaceUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/workspace/v1/workspace.ts';
+} from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';

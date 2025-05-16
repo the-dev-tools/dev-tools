@@ -10,7 +10,7 @@ import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
 
 import { FlowVersionsItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { FlowVersionsEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.js';
+import { FlowVersionsEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
 import { Spinner } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';

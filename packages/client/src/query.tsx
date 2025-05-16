@@ -6,9 +6,9 @@ import {
   QueryCreateEndpoint,
   QueryDeleteEndpoint,
   QueryListEndpoint,
-  QueryListItemEntity,
   QueryUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.js';
+} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
+import { QueryListItemEntity } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.entities.ts';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 
 import {

@@ -12,18 +12,20 @@ import {
   BodyFormItemCreateEndpoint,
   BodyFormItemDeleteEndpoint,
   BodyFormItemListEndpoint,
-  BodyFormItemListItemEntity,
   BodyFormItemUpdateEndpoint,
   BodyUrlEncodedItemCreateEndpoint,
   BodyUrlEncodedItemDeleteEndpoint,
   BodyUrlEncodedItemListEndpoint,
-  BodyUrlEncodedItemListItemEntity,
   BodyUrlEncodedItemUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.ts';
+} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.endpoints.ts';
+import {
+  BodyFormItemListItemEntity,
+  BodyUrlEncodedItemListItemEntity,
+} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.entities.ts';
 import {
   ExampleGetEndpoint,
   ExampleUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.ts';
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';

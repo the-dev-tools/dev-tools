@@ -11,7 +11,7 @@ import {
   AssertDeleteEndpoint,
   AssertListEndpoint,
   AssertUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.ts';
+} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 

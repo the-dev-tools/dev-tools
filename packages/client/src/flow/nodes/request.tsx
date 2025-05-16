@@ -8,12 +8,12 @@ import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
 import { NodeRequest, NodeRequestSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { EndpointGetEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.ts';
+import { EndpointGetEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleGetEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.js';
-import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.js';
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
+import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';

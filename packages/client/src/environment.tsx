@@ -25,15 +25,18 @@ import {
   EnvironmentDeleteEndpoint,
   EnvironmentListEndpoint,
   EnvironmentUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/environment/v1/environment.ts';
+} from '@the-dev-tools/spec/meta/environment/v1/environment.endpoints.ts';
 import {
   VariableCreateEndpoint,
   VariableDeleteEndpoint,
   VariableListEndpoint,
-  VariableListItemEntity,
   VariableUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/variable/v1/variable.ts';
-import { WorkspaceGetEndpoint, WorkspaceUpdateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.js';
+} from '@the-dev-tools/spec/meta/variable/v1/variable.endpoints.ts';
+import { VariableListItemEntity } from '@the-dev-tools/spec/meta/variable/v1/variable.entities.ts';
+import {
+  WorkspaceGetEndpoint,
+  WorkspaceUpdateEndpoint,
+} from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, Spinner, VariableIcon } from '@the-dev-tools/ui/icons';
