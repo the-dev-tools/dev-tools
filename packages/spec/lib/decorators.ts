@@ -15,7 +15,7 @@ import { $field } from '@typespec/protobuf';
 import { getParentResource, getResourceTypeKey } from '@typespec/rest';
 import { Array, Hash, Number, Option, pipe, Record } from 'effect';
 
-import { autoChangesMap, baseMap, endpointMap, entityMap, moveMap, normalKeysMap, packageMap } from './state.js';
+import { autoChangesMap, baseMap, endpointMap, entityMap, moveMap, normalKeySet, packageMap } from './state.js';
 
 export function $copyKey({ program }: DecoratorContext, target: Model) {
   const resourceType = target.templateMapper?.args[0];
@@ -114,13 +114,7 @@ export function $autoFields(context: DecoratorContext, target: Model) {
 }
 
 export function $normalKey({ program }: DecoratorContext, target: ModelProperty) {
-  if (!target.model) return;
-
-  if (!normalKeysMap(program).has(target.model)) normalKeysMap(program).set(target.model, []);
-
-  const normalKeys = normalKeysMap(program).get(target.model);
-
-  normalKeys?.push(target.name);
+  normalKeySet(program).add(target);
 }
 
 export function $normalize({ program }: DecoratorContext, target: Model, base?: Model) {

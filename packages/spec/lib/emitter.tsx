@@ -34,7 +34,7 @@ import {
   Type,
 } from '@typespec/compiler';
 import { writeOutput } from '@typespec/emitter-framework';
-import { Array, Data, HashMap, Match, Option, pipe, Record, String } from 'effect';
+import { Array, Data, Match, Option, pipe, Record, String } from 'effect';
 import path from 'node:path';
 
 import {
@@ -45,7 +45,7 @@ import {
   keyMap,
   messageSet,
   moveMap,
-  normalKeysMap,
+  normalKeySet,
   packageMap,
   serviceSet,
 } from './state.js';
@@ -421,16 +421,16 @@ export async function $onEmit(context: EmitContext) {
 
   if (program.compilerOptions.noEmit) return;
 
-  const modelKeyMap = pipe(
-    keyMap(program),
-    (_) => _.entries(),
-    Array.fromIterable,
-    Array.filterMap(([type, key]) => {
-      if (type.kind !== 'ModelProperty') return Option.none();
-      return Option.some([type.model, key] as const);
-    }),
-    HashMap.fromIterable,
-  );
+  const getPrimaryKeys = (model: Model): string[] =>
+    pipe(
+      model.properties.values(),
+      Array.fromIterable,
+      Array.flatMapNullable((_) => {
+        if (keyMap(program).has(_)) return _.name;
+        if (normalKeySet(program).has(_)) return _.name;
+        return undefined;
+      }),
+    );
 
   const getPackageName = (namespace?: Namespace) => {
     if (!namespace) return;
@@ -451,10 +451,7 @@ export async function $onEmit(context: EmitContext) {
 
       const name = getFriendlyName(program, target) ?? target.name;
       const baseName = getFriendlyName(program, base) ?? base.name;
-
-      const key = pipe(HashMap.get(modelKeyMap, target), Array.fromOption);
-      const normalKeys = normalKeysMap(program).get(target) ?? [];
-      const primaryKeys = [...key, ...normalKeys];
+      const primaryKeys = getPrimaryKeys(target);
 
       const package$ = getPackage(root, packageName);
       if (!package$) return;
@@ -496,11 +493,8 @@ export async function $onEmit(context: EmitContext) {
 
           if (template.name === 'Schema') return Option.some(new Schema({ type }));
 
-          if (template.name === 'PrimaryKeys' && type.kind === 'Model') {
-            const key = pipe(HashMap.get(modelKeyMap, type), Array.fromOption);
-            const normalKeys = normalKeysMap(program).get(type) ?? [];
-            return Option.some(new PrimaryKeys({ keys: [...key, ...normalKeys] }));
-          }
+          if (template.name === 'PrimaryKeys' && type.kind === 'Model')
+            return Option.some(new PrimaryKeys({ keys: getPrimaryKeys(type) }));
 
           return Option.none();
         }),
@@ -554,14 +548,6 @@ export async function $onEmit(context: EmitContext) {
                 meta = { ...meta, base: `${_}.${baseModel.name}` };
               }),
             );
-          }
-
-          if (baseModel === model) {
-            meta = {
-              ...meta,
-              key: pipe(HashMap.get(modelKeyMap, model), Option.getOrUndefined),
-              normalKeys: normalKeysMap(program).get(model),
-            };
           }
 
           return [typeName, meta] as const;

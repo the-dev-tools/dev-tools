@@ -1,4 +1,4 @@
-import { Interface, Model, Namespace, Operation, Program, Type } from '@typespec/compiler';
+import { Interface, Model, ModelProperty, Namespace, Operation, Program, Type } from '@typespec/compiler';
 
 import { $lib } from './lib.js';
 
@@ -21,7 +21,7 @@ export const serviceSet = (program: Program) =>
 
 export const moveMap = (program: Program) => program.stateMap($lib.stateKeys.move) as Map<Model | Operation, Namespace>;
 
-export const normalKeysMap = (program: Program) => program.stateMap($lib.stateKeys.normalKeys) as Map<Model, string[]>;
+export const normalKeySet = (program: Program) => program.stateSet($lib.stateKeys.normalKeys) as Set<ModelProperty>;
 
 export const baseMap = (program: Program) => program.stateMap($lib.stateKeys.base) as Map<Model, Model>;
 
