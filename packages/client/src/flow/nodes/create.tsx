@@ -84,7 +84,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
             onAction={async () => {
               const node = await makeNode({
                 kind: NodeKind.REQUEST,
-                name: `request-${getNodes().length}`,
+                name: `request_${getNodes().length}`,
                 position: getPosition(),
                 request: {},
               });
@@ -114,7 +114,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
               const node = await makeNode({
                 js: {},
                 kind: NodeKind.JS,
-                name: `js-${getNodes().length}`,
+                name: `js_${getNodes().length}`,
                 position: getPosition(),
               });
               const edges = Option.isNone(sourceId)
@@ -140,7 +140,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                 makeNode({
                   condition: {},
                   kind: NodeKind.CONDITION,
-                  name: `condition-${getNodes().length}`,
+                  name: `condition_${getNodes().length}`,
                   position,
                 }),
                 makeNode({
@@ -193,7 +193,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                 makeNode({
                   for: {},
                   kind: NodeKind.FOR,
-                  name: `for-${getNodes().length}`,
+                  name: `for_${getNodes().length}`,
                   position,
                 }),
                 makeNode({
@@ -240,7 +240,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                 makeNode({
                   forEach: {},
                   kind: NodeKind.FOR_EACH,
-                  name: `foreach-${getNodes().length}`,
+                  name: `foreach_${getNodes().length}`,
                   position,
                 }),
                 makeNode({
