@@ -32,7 +32,6 @@ model Example {
   @visibility(Resource.Query.Get) bodyKind: Body.BodyKind;
 }
 
-model ExampleChange is Resource.Change<Example>;
 model ExampleListItem is Resource.List.Item<Example>;
 model ExampleListResponse is Resource.List.Response<Example, TItem = ExampleListItem>;
 model ExampleVersionsItem is Resource.List.Item<Example> {
@@ -51,9 +50,7 @@ model ExampleDuplicateResponse is Resource.Create.Response<Example>;
 model ExampleRunRequest is KeyOf<Example>;
 
 @autoFields
-model ExampleRunResponse is Resource.Get.Response<Response.Response> {
-  ...Change.Changes;
-}
+model ExampleRunResponse is Resource.Get.Response<Response.Response>;
 
 @Protobuf.service
 interface ExampleService

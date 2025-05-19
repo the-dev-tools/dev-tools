@@ -35,7 +35,5 @@ model Edge {
   sourceHandle: Handle;
 }
 
-model EdgeChange is Resource.Change<Edge>;
-
 @Protobuf.service
 interface EdgeService extends Resource.CRUD<Edge> {}

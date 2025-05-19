@@ -99,8 +99,6 @@ model NodeJS {
   code: string;
 }
 
-model NodeChange is Resource.Change<Node>;
-
 @autoFields
 model NodeRunRequest {
   nodeId: Resource.Id;

@@ -29,7 +29,5 @@ model Environment {
   @visibility(Resource.Mutation.None) isGlobal: boolean;
 }
 
-model EnvironmentChange is Resource.Change<Environment>;
-
 @Protobuf.service
 interface EnvironmentService extends Resource.CRUD<Environment> {}

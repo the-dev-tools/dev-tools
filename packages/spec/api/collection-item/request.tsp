@@ -53,12 +53,6 @@ model Assert {
   condition: Condition.Condition;
 }
 
-model QueryChange is Resource.Change<Query>;
-
-model HeaderChange is Resource.Change<Header>;
-
-model AssertChange is Resource.Change<Assert>;
-
 @Protobuf.service
 interface RequestService
   extends BlankInterface,

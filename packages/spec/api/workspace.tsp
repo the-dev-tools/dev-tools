@@ -29,8 +29,6 @@ model Workspace {
   @visibility(Resource.Mutation.None) flowCount: int32;
 }
 
-model WorkspaceChange is Resource.Change<Workspace>;
-
 enum MemberRole {
   MEMBER_ROLE_UNSPECIFIED: 0,
   MEMBER_ROLE_BASIC: 1,
@@ -47,8 +45,6 @@ model WorkspaceMember {
   @visibility(Resource.Mutation.Create) email: string;
   role: MemberRole;
 }
-
-model WorkspaceMemberChange is Resource.Change<WorkspaceMember>;
 
 model WorkspaceMemberUpdateRequest is Resource.Update.Request<WorkspaceMember> {
   ...ParentKeyOf<WorkspaceMember>;

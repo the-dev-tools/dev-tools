@@ -39,7 +39,5 @@ model Tag {
   color: TagColor;
 }
 
-model TagChange is Resource.Change<Tag>;
-
 @Protobuf.service
 interface TagService extends Resource.CRUD<Tag> {}

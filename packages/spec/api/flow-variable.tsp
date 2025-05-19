@@ -28,7 +28,5 @@ model FlowVariable {
   description: string;
 }
 
-model FlowVariableChange is Resource.Change<FlowVariable>;
-
 @Protobuf.service
 interface FlowVariableService extends Resource.CRUD<FlowVariable> {}

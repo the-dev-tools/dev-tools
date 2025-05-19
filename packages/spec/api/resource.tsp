@@ -2,8 +2,6 @@ import "@typespec/protobuf";
 
 import "./lib.tsp";
 
-import "./change.tsp";
-
 using TypeSpec.Protobuf;
 using TypeSpec.Reflection;
 
@@ -34,12 +32,6 @@ enum Mutation {
   None,
   Create,
   Update,
-}
-
-@normalize(Resource)
-model Change<Resource extends Model> {
-  ...KeyOf<Resource>;
-  ...OptionalProperties<OmitKey<Resource>>;
 }
 
 interface CRUD<
@@ -103,7 +95,6 @@ namespace List {
   @move(List, TResource)
   @friendlyName("{name}ListItem", TResource)
   @entity(TResource)
-  @normalize(TResource)
   @withVisibility(Query.List)
   model Item<TResource extends Model> {
     ...TResource;
@@ -118,7 +109,6 @@ namespace List {
   @move(List, TResource)
   @friendlyName("{name}ListResponse", TResource)
   @autoFields
-  @normalize
   model Response<
     TResource extends Model,
     TRequest extends Model = Request<TResource>,
@@ -161,7 +151,6 @@ namespace Get {
 
   @move(Get, TResource)
   @friendlyName("{name}GetResponse", TResource)
-  @normalize(TResource)
   @entity(TResource)
   @withVisibility(Query.Get)
   model Response<TResource extends Model> {
@@ -206,7 +195,6 @@ namespace Create {
 
   @move(Create, TResource)
   @friendlyName("{name}CreateRequest", TResource)
-  @normalize(TResource)
   @withVisibility(Mutation.Create)
   model Request<TResource extends Model> {
     ...ParentKeyOf<TResource>;
@@ -215,24 +203,8 @@ namespace Create {
 
   @move(Create, TResource)
   @friendlyName("{name}CreateResponse", TResource)
-  @autoChange({
-    $data: {
-      kind: API.Change.SourceKind.MERGE,
-      $type: TResource,
-    },
-    $list: [
-      {
-        kind: API.Change.ListChangeKind.LIST_CHANGE_KIND_APPEND,
-        $parent: {
-          kind: API.Change.SourceKind.REQUEST,
-          $type: TListResponse,
-        },
-      }
-    ],
-  })
   model Response<TResource extends Model, TListResponse extends Model = TResource> {
     ...KeyOf<TResource>;
-    ...API.Change.Changes;
   }
 }
 
@@ -262,7 +234,6 @@ namespace Update {
 
   @move(Update, TResource)
   @friendlyName("{name}UpdateRequest", TResource)
-  @normalize(TResource)
   @withVisibility(Mutation.Update)
   model Request<TResource extends Model> {
     ...KeyOf<TResource>;
@@ -271,16 +242,7 @@ namespace Update {
 
   @move(Update, TResource)
   @friendlyName("{name}UpdateResponse", TResource)
-  @autoChange({
-    kind: API.Change.ChangeKind.CHANGE_KIND_UPDATE,
-    $data: {
-      kind: API.Change.SourceKind.REQUEST,
-      $type: TResource,
-    },
-  })
-  model Response<TResource extends Model> {
-    ...API.Change.Changes;
-  }
+  model Response<TResource extends Model> {}
 }
 
 namespace Delete {
@@ -309,21 +271,11 @@ namespace Delete {
 
   @move(Delete, TResource)
   @friendlyName("{name}DeleteRequest", TResource)
-  @normalize(TResource)
   model Request<TResource extends Model> {
     ...KeyOf<TResource>;
   }
 
   @move(Delete, TResource)
   @friendlyName("{name}DeleteResponse", TResource)
-  @autoChange({
-    kind: API.Change.ChangeKind.CHANGE_KIND_DELETE,
-    $data: {
-      kind: API.Change.SourceKind.REQUEST,
-      $type: TResource,
-    },
-  })
-  model Response<TResource extends Model> {
-    ...API.Change.Changes;
-  }
+  model Response<TResource extends Model> {}
 }

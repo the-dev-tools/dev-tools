@@ -47,10 +47,6 @@ model ResponseAssert {
   result: boolean;
 }
 
-model ResponseChange is Resource.Change<Response>;
-
-model ResponseHeaderChange is Resource.Change<ResponseHeader>;
-
 @Protobuf.service
 interface ResponseService
   extends Resource.Get.Interface<Response>,

@@ -27,8 +27,6 @@ model Flow {
   name: string;
 }
 
-model FlowChange is Resource.Change<Flow>;
-
 @autoFields
 model FlowListRequest is Resource.List.Request<Flow> {
   tagId?: Resource.Id;
@@ -48,7 +46,6 @@ model FlowRunRequest {
 model FlowRunResponse {
   ...KeyOf<FlowItem.Node.Node>;
   state: FlowItem.Node.NodeState;
-  ...API.Change.Changes;
 }
 
 @Protobuf.service

@@ -32,7 +32,6 @@ model Endpoint {
   @visibility(Resource.Query.Get) url: string;
 }
 
-model EndpointChange is Resource.Change<Endpoint>;
 model EndpointListItem is Resource.List.Item<Endpoint>;
 model EndpointCreateRequest is Resource.Create.Request<Endpoint>;
 model EndpointCreateResponse is KeyOf<Endpoint> {

@@ -29,7 +29,6 @@ model Variable {
   description: string;
 }
 
-model VariableChange is Resource.Change<Variable>;
 model VariableCreateRequest is Resource.Create.Request<Variable> {
   @autoField @normalKey workspaceId?: Resource.Id;
 }
