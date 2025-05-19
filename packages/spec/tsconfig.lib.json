@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "dist"
   },
-  "files": ["eslint.config.ts"],
+  "include": ["*.ts", "data-client", "dist/buf", "dist/meta"],
   "references": [
     {
       "path": "../../configs/eslint/tsconfig.lib.json"

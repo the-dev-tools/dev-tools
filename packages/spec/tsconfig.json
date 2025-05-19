@@ -7,8 +7,8 @@
     "emitDeclarationOnly": false,
     "allowImportingTsExtensions": false
   },
-  "include": ["."],
-  "exclude": ["node_modules", "dist", "*.ts"],
+  "include": ["lib"],
+  "exclude": ["node_modules", "*.ts"],
   "references": [
     {
       "path": "../../configs/eslint"
