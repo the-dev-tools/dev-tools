@@ -15,13 +15,10 @@ import (
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tfolder"
-	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/folder/v1/folderv1connect"
-	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ItemFolderRPC struct {
@@ -118,55 +115,8 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// INFO: this part added with new normalisation stuff
-	// should be removed after spec api change to auto do this
-	folderChange := itemv1.CollectionItem{
-		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
-		Folder: &folderv1.FolderListItem{
-			FolderId:       ID.Bytes(),
-			ParentFolderId: req.Msg.ParentFolderId,
-			Name:           reqFolder.Name,
-		},
-	}
-
-	folderChangeAny, err := anypb.New(&folderChange)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	listChangeRaw := &itemv1.CollectionItemListResponse{
-		CollectionId: collectionID.Bytes(),
-		FolderId:     req.Msg.ParentFolderId,
-	}
-
-	changeListAny, err := anypb.New(listChangeRaw)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
-
-	listChanges := []*changev1.ListChange{
-		{
-			Kind:   changeKind,
-			Parent: changeListAny,
-		},
-	}
-
-	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
-	change := &changev1.Change{
-		Kind: &kind,
-		List: listChanges,
-		Data: folderChangeAny,
-	}
-
-	changes := []*changev1.Change{
-		change,
-	}
-
 	respRaw := &folderv1.FolderCreateResponse{
 		FolderId: ID.Bytes(),
-		Changes:  changes,
 	}
 	return connect.NewResponse(respRaw), nil
 }

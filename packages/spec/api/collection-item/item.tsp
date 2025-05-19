@@ -38,11 +38,13 @@ model CollectionItem {
 
 @autoFields
 model CollectionItemListRequest is Resource.List.Request<CollectionItem> {
-  @normalKey folderId?: Resource.Id;
+  @normalKey parentFolderId?: Resource.Id;
 }
 
-model CollectionItemListResponse
-  is Resource.List.Response<CollectionItem, TRequest = CollectionItemListRequest, TItem = CollectionItem>;
+@autoFields
+model CollectionItemListResponse {
+  items: CollectionItem[];
+}
 
 @autoFields
 model CollectionItemMoveRequest {
@@ -56,6 +58,7 @@ model CollectionItemMoveRequest {
 
 @Protobuf.service
 interface CollectionItemService {
+  @endpoint("collection-item.js:list")
   CollectionItemList(...CollectionItemListRequest): CollectionItemListResponse;
   CollectionItemMove(...CollectionItemMoveRequest): {};
 }

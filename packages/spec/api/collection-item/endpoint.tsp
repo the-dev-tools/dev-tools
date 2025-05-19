@@ -6,6 +6,7 @@ import "../lib.tsp";
 import "../collection.tsp";
 import "../resource.tsp";
 import "./example.tsp";
+import "./item.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -33,22 +34,21 @@ model Endpoint {
 
 model EndpointChange is Resource.Change<Endpoint>;
 model EndpointListItem is Resource.List.Item<Endpoint>;
-model EndpointCreateResponse is Resource.Create.Response<Endpoint> {
+model EndpointCreateRequest is Resource.Create.Request<Endpoint>;
+model EndpointCreateResponse is KeyOf<Endpoint> {
   ...KeyOf<Example.Example>;
 }
 
-model EndpointDuplicateRequest is KeyOf<Endpoint>;
-model EndpointDuplicateResponse is Resource.Create.Response<Endpoint>;
+model EndpointDuplicateRequest is EndpointCreateRequest;
+model EndpointDuplicateResponse is EndpointCreateResponse;
 
 @Protobuf.service
 interface EndpointService
   extends Resource.Get.Interface<Endpoint>,
-    Resource.Create.Interface<Endpoint, TResponse = EndpointCreateResponse>,
     Resource.Update.Interface<Endpoint>,
     Resource.Delete.Interface<Endpoint> {
-  EndpointDuplicate is Resource.Create.Operation<
-    Endpoint,
-    TRequest = EndpointDuplicateRequest,
-    TResponse = EndpointDuplicateResponse
-  >;
+  @endpoint("collection-item.js:createEndpoint")
+  EndpointCreate(...EndpointCreateRequest): EndpointCreateResponse;
+  @endpoint("collection-item.js:createEndpoint")
+  EndpointDuplicate(...EndpointDuplicateRequest): EndpointDuplicateResponse;
 }

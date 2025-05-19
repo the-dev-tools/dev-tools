@@ -5,11 +5,14 @@ import { Equivalence, Record } from 'effect';
 
 import { createMethodKey, createMethodKeyRecord, fetchMethod } from './utils';
 
-interface ListProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
-  inputPrimaryKeys: (keyof MessageShape<I>)[];
-  itemSchema: S;
+export interface EndpointProps<I extends DescMessage, O extends DescMessage> {
   method: DescMethodUnary<I, O>;
   name: string;
+}
+
+interface ListProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
+  inputPrimaryKeys: (keyof MessageShape<I>)[];
+  itemSchema: S;
 }
 
 export const list = <I extends DescMessage, O extends DescMessage, S extends Schema>({
@@ -31,9 +34,7 @@ export const list = <I extends DescMessage, O extends DescMessage, S extends Sch
   return new Endpoint(fetchFunction, { key, name, schema: { items } });
 };
 
-interface GetProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
-  method: DescMethodUnary<I, O>;
-  name: string;
+interface GetProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
   schema: S;
 }
 
@@ -50,11 +51,9 @@ export const get = <I extends DescMessage, O extends DescMessage, S extends Sche
   return new Endpoint(fetchFunction, { key, name, schema });
 };
 
-interface CreateProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
+interface CreateProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
   listInputPrimaryKeys: (keyof MessageShape<I>)[];
   listItemSchema: S;
-  method: DescMethodUnary<I, O>;
-  name: string;
 }
 
 export const create = <I extends DescMessage, O extends DescMessage, S extends Schema>({
@@ -81,9 +80,7 @@ export const create = <I extends DescMessage, O extends DescMessage, S extends S
   return new Endpoint(fetchFunction, { name, schema: list.push, sideEffect: true });
 };
 
-interface UpdateProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
-  method: DescMethodUnary<I, O>;
-  name: string;
+interface UpdateProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
   schema: S;
 }
 
@@ -100,9 +97,7 @@ export const update = <I extends DescMessage, O extends DescMessage, S extends S
   return new Endpoint(fetchFunction, { name, schema, sideEffect: true });
 };
 
-interface DeleteProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
-  method: DescMethodUnary<I, O>;
-  name: string;
+interface DeleteProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
   schema: S;
 }
 

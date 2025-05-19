@@ -184,8 +184,6 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	// should be removed after spec api change to auto do this
 
 	a := &itemv1.CollectionItemListResponse{
-		CollectionId: collectionID.Bytes(),
-		FolderId:     req.Msg.ParentFolderId,
 		Items: []*itemv1.CollectionItem{
 			{
 				Kind:    itemv1.ItemKind_ITEM_KIND_UNSPECIFIED,

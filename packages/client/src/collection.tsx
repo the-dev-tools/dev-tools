@@ -1,19 +1,23 @@
+import { MessageInitShape } from '@bufbuild/protobuf';
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
 import { getRouteApi, ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
-import { Array, Match, Option, pipe, Schema } from 'effect';
+import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { createContext, RefObject, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, RefObject, useContext, useRef, useState } from 'react';
 import { MenuTrigger, Text, Tree } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 
-import { Endpoint, EndpointListItem } from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
+import {
+  Endpoint,
+  EndpointCreateRequestSchema,
+  EndpointListItem,
+} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
 import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { Folder, FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
-import { CollectionItem, ItemKind, ItemKindSchema } from '@the-dev-tools/spec/collection/item/v1/item_pb';
-import { collectionItemList } from '@the-dev-tools/spec/collection/item/v1/item-CollectionItemService_connectquery';
+import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
 import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import {
@@ -34,6 +38,7 @@ import {
   FolderDeleteEndpoint,
   FolderUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/folder/v1/folder.endpoints.ts';
+import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.ts';
 import {
   CollectionDeleteEndpoint,
   CollectionListEndpoint,
@@ -47,8 +52,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useConnectMutation, useConnectQuery } from '~/api/connect-query';
-import { enumToString } from '~/api/utils';
+import { useConnectMutation } from '~/api/connect-query';
 import { useMutate } from '~data-client';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -121,8 +125,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
 
-  // TODO: switch to Data Client Endpoint
-  const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId }, { enabled });
+  // TODO: enable only when open
+  const { items } = useSuspense(CollectionItemListEndpoint, transport, { collectionId });
   const [collectionUpdate, collectionUpdateLoading] = useMutate(CollectionUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -134,23 +138,13 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
     value: collection.name,
   });
 
-  const childItems = useMemo(
-    () =>
-      Array.filterMap(collectionItemListQuery.data?.items ?? [], (_) => {
-        const kind = enumToString(ItemKindSchema, 'ITEM_KIND', _.kind);
-        return Option.liftPredicate(_, (_) => _[kind] !== undefined);
-      }),
-    [collectionItemListQuery.data?.items],
-  );
-
   return (
     <TreeItem
       childItem={mapCollectionItemTree(collectionId)}
-      childItems={childItems}
+      childItems={items}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      loading={collectionItemListQuery.isLoading}
       textValue={collection.name}
       wrapperOnContextMenu={onContextMenu}
     >
@@ -217,7 +211,13 @@ const mapCollectionItemTree =
       Match.when({ kind: ItemKind.ENDPOINT }, (_) => {
         const endpointIdCan = Ulid.construct(_.endpoint!.endpointId).toCanonical();
         return (
-          <EndpointTree collectionId={collectionId} endpoint={_.endpoint!} example={_.example!} id={endpointIdCan} />
+          <EndpointTree
+            collectionId={collectionId}
+            endpoint={_.endpoint!}
+            example={_.example!}
+            id={endpointIdCan}
+            parentFolderId={parentFolderId}
+          />
         );
       }),
       Match.orElse(() => null),
@@ -238,16 +238,8 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
   const [enabled, setEnabled] = useState(false);
 
-  const collectionItemListQuery = useConnectQuery(collectionItemList, { collectionId, folderId }, { enabled });
-
-  const childItems = useMemo(
-    () =>
-      Array.filterMap(collectionItemListQuery.data?.items ?? [], (_) => {
-        const kind = enumToString(ItemKindSchema, 'ITEM_KIND', _.kind);
-        return Option.liftPredicate(_, (_) => _[kind] !== undefined);
-      }),
-    [collectionItemListQuery.data?.items],
-  );
+  // TODO: enable only when open
+  const { items } = useSuspense(CollectionItemListEndpoint, transport, { collectionId, parentFolderId: folderId });
 
   const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
 
@@ -268,11 +260,10 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
   return (
     <TreeItem
       childItem={mapCollectionItemTree(collectionId, folderId)}
-      childItems={childItems}
+      childItems={items}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      loading={collectionItemListQuery.isLoading}
       textValue={folder.name}
       wrapperOnContextMenu={onContextMenu}
     >
@@ -351,9 +342,10 @@ interface EndpointTreeProps {
   endpoint: EndpointListItem;
   example: ExampleListItem;
   id: string;
+  parentFolderId?: Uint8Array | undefined;
 }
 
-const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: EndpointTreeProps) => {
+const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, parentFolderId }: EndpointTreeProps) => {
   const transport = useTransport();
   const controller = useController();
 
@@ -408,7 +400,6 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
       href={toNavigate ? route : undefined!}
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       isActive={toNavigate && matchRoute(route) !== false}
-      // loading={exampleListQuery.isLoading}
       textValue={name}
       wrapperOnContextMenu={onContextMenu}
     >
@@ -448,7 +439,13 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan }: En
               Add Example
             </MenuItem>
 
-            <MenuItem onAction={() => controller.fetch(EndpointDuplicateEndpoint, transport, { endpointId })}>
+            <MenuItem
+              onAction={() => {
+                const input: MessageInitShape<typeof EndpointCreateRequestSchema> = { collectionId, endpointId };
+                if (parentFolderId) input.parentFolderId = parentFolderId;
+                return controller.fetch(EndpointDuplicateEndpoint, transport, input);
+              }}
+            >
               Duplicate
             </MenuItem>
 

@@ -69,8 +69,8 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 	}
 
 	var folderidPtr *idwrap.IDWrap = nil
-	if req.Msg.FolderId != nil {
-		folderID, err := idwrap.NewFromBytes(req.Msg.FolderId)
+	if req.Msg.ParentFolderId != nil {
+		folderID, err := idwrap.NewFromBytes(req.Msg.ParentFolderId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -172,9 +172,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 	}
 
 	resp := &itemv1.CollectionItemListResponse{
-		Items:        items,
-		CollectionId: req.Msg.CollectionId,
-		FolderId:     req.Msg.FolderId,
+		Items: items,
 	}
 	return connect.NewResponse(resp), nil
 }

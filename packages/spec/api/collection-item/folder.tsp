@@ -5,6 +5,7 @@ import "../lib.tsp";
 
 import "../collection.tsp";
 import "../resource.tsp";
+import "./item.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -29,9 +30,11 @@ model Folder {
 
 model FolderChange is Resource.Change<Folder>;
 model FolderListItem is Resource.List.Item<Folder>;
+model FolderCreateRequest is Resource.Create.Request<Folder>;
+model FolderCreateResponse is KeyOf<Folder>;
 
 @Protobuf.service
-interface FolderService
-  extends Resource.Create.Interface<Folder>,
-    Resource.Update.Interface<Folder>,
-    Resource.Delete.Interface<Folder> {}
+interface FolderService extends Resource.Update.Interface<Folder>, Resource.Delete.Interface<Folder> {
+  @endpoint("collection-item.js:createFolder")
+  FolderCreate(...FolderCreateRequest): FolderCreateResponse;
+}

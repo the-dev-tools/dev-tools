@@ -33,8 +33,6 @@ function Page() {
 
   const { items: workspaces } = useSuspense(WorkspaceListEndpoint, transport, {});
 
-  console.log(workspaces)
-
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
       <div className={tw`col-span-full`}>

@@ -163,7 +163,6 @@ const FlowList = () => {
 
   const { workspaceId } = Route.useLoaderData();
 
-  // TODO: fix <Unresolved Symbol> in schema
   const { items: flows } = useSuspense(FlowListEndpoint, transport, { workspaceId });
 
   const listRef = useRef<HTMLDivElement>(null);

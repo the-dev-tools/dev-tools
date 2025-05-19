@@ -42,7 +42,10 @@ model ExampleVersionsRequest is KeyOf<Example>;
 model ExampleVersionsResponse
   is Resource.List.Response<Example, TRequest = ExampleVersionsRequest, TItem = ExampleVersionsItem>;
 
-model ExampleDuplicateRequest is KeyOf<Example>;
+model ExampleDuplicateRequest {
+  ...KeyOf<Example>;
+  ...ParentKeyOf<Example>;
+}
 model ExampleDuplicateResponse is Resource.Create.Response<Example>;
 
 model ExampleRunRequest is KeyOf<Example>;
@@ -65,7 +68,8 @@ interface ExampleService
   ExampleDuplicate is Resource.Create.Operation<
     Example,
     TRequest = ExampleDuplicateRequest,
-    TResponse = ExampleDuplicateResponse
+    TResponse = ExampleDuplicateResponse,
+    TListItem = ExampleListItem
   >;
 
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
