@@ -28,11 +28,9 @@ model Flow {
 }
 
 model FlowChange is Resource.Change<Flow>;
-model FlowListItem is Resource.List.Item<Flow>;
 
 @autoFields
-model FlowListRequest {
-  ...Resource.List.Request<Flow>;
+model FlowListRequest is Resource.List.Request<Flow> {
   @normalKey tagId?: Resource.Id;
 }
 
