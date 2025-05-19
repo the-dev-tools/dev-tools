@@ -30,7 +30,7 @@ import { NodeKind, NodeListResponseSchema, NodeNoOpKind } from '@the-dev-tools/s
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
-import { registry } from './meta';
+import { registry } from './registry';
 import { AnyFnEffect, ApiTransport, effectInterceptor, errorInterceptor, Request } from './transport';
 
 export class Faker extends Context.Tag('Faker')<Faker, FakerClass>() {}

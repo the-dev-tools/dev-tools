@@ -4,7 +4,7 @@ import { Magic } from 'magic-sdk';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { LocalMode } from './local';
-import { registry } from './meta';
+import { registry } from './registry';
 import { ApiTransport, effectInterceptor, errorInterceptor } from './transport';
 
 const baseTransportOptions = Effect.gen(function* () {

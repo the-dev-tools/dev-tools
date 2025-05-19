@@ -21,7 +21,6 @@ import {
 } from '@alloy-js/typescript';
 import {
   type EmitContext,
-  emitFile,
   getEffectiveModelType,
   getFriendlyName,
   Interface,
@@ -30,25 +29,13 @@ import {
   Namespace,
   Operation,
   Program,
-  resolvePath,
   Type,
 } from '@typespec/compiler';
 import { writeOutput } from '@typespec/emitter-framework';
 import { Array, Data, Match, Option, pipe, Record, String } from 'effect';
 import path from 'node:path';
 
-import {
-  autoChangesMap,
-  baseMap,
-  endpointMap,
-  entityMap,
-  keyMap,
-  messageSet,
-  moveMap,
-  normalKeySet,
-  packageMap,
-  serviceSet,
-} from './state.js';
+import { endpointMap, entityMap, keyMap, messageSet, moveMap, normalKeySet, packageMap, serviceSet } from './state.js';
 
 function moveMessages({ program }: EmitContext) {
   // Get declared packages
@@ -520,46 +507,4 @@ export async function $onEmit(context: EmitContext) {
     </Output>,
     emitterOutputDir,
   );
-
-  const typeMap = pipe(
-    packageMap(program).entries(),
-    Array.fromIterable,
-    Array.flatMapNullable(([{ models }, details]) => {
-      const packageName = details.properties.get('name')?.type;
-      if (packageName?.kind !== 'String') return null;
-
-      return pipe(
-        models.values(),
-        Array.fromIterable,
-        Array.map((model) => {
-          const name = getFriendlyName(program, model) ?? model.name;
-          const typeName = `${packageName.value}.${name}`;
-
-          let meta: Record<string, unknown> = {
-            autoChanges: autoChangesMap(program).get(model),
-          };
-
-          const baseModel = baseMap(program).get(model);
-          if (baseModel) {
-            pipe(
-              getPackageName(baseModel.namespace),
-              Option.fromNullable,
-              Option.map((_) => {
-                meta = { ...meta, base: `${_}.${baseModel.name}` };
-              }),
-            );
-          }
-
-          return [typeName, meta] as const;
-        }),
-      );
-    }),
-    Array.flatten,
-    Record.fromEntries,
-  );
-
-  await emitFile(program, {
-    content: JSON.stringify(typeMap, undefined, 2),
-    path: resolvePath(emitterOutputDir, 'meta.json'),
-  });
 }
