@@ -30,9 +30,13 @@ model Variable {
 }
 
 model VariableChange is Resource.Change<Variable>;
+model VariableCreateRequest is Resource.Create.Request<Variable> {
+  @autoField @normalKey workspaceId?: Resource.Id;
+}
 model VariableListRequest is Resource.List.Request<Variable> {
   @autoField @normalKey workspaceId?: Resource.Id;
 }
 
 @Protobuf.service
-interface VariableService extends Resource.CRUD<Variable, TListRequest = VariableListRequest> {}
+interface VariableService
+  extends Resource.CRUD<Variable, TCreateRequest = VariableCreateRequest, TListRequest = VariableListRequest> {}

@@ -31,7 +31,7 @@ model FlowChange is Resource.Change<Flow>;
 
 @autoFields
 model FlowListRequest is Resource.List.Request<Flow> {
-  @normalKey tagId?: Resource.Id;
+  tagId?: Resource.Id;
 }
 
 model FlowVersionsItem is Resource.List.Item<Flow>;
