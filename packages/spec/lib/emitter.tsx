@@ -225,6 +225,7 @@ const schemaOutput = ({ origin, program, type }: SchemaOutputProps): Option.Opti
   );
 };
 
+// TODO: would be much better to handle imports natively with Alloy if possible
 const makeImports = () => {
   const imports = new Map<string, Set<string>>();
 
@@ -281,9 +282,8 @@ const EntitiesOutput = ({ name, package$ }: PackageOutputProps) => {
 
   const [imports, addImport] = makeImports();
 
-  addImport(path.join(root, 'data-client/utils.js'), 'makeEntity');
-
   Record.keys(package$.entities).forEach((_) => {
+    addImport(path.join(root, 'data-client/utils.js'), 'makeEntity');
     addImport(protobuf, `${_}Schema`);
   });
 
