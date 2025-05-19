@@ -20,7 +20,8 @@ export const list = <I extends DescMessage, O extends DescMessage, S extends Sch
 }: ListProps<I, O, S>) => {
   const fetchFunction = (transport: Transport, input: MessageInitShape<I>) => fetchMethod(transport, method, input);
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) => createMethodKey(transport, method, input);
+  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    name + ':' + createMethodKey(transport, method, input);
 
   const argsKey = (...[transport, input]: Parameters<typeof fetchFunction>) =>
     createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
@@ -43,7 +44,8 @@ export const get = <I extends DescMessage, O extends DescMessage, S extends Sche
 }: GetProps<I, O, S>) => {
   const fetchFunction = (transport: Transport, input: MessageInitShape<I>) => fetchMethod(transport, method, input);
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) => createMethodKey(transport, method, input);
+  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    name + ':' + createMethodKey(transport, method, input);
 
   return new Endpoint(fetchFunction, { key, name, schema });
 };
@@ -66,8 +68,6 @@ export const create = <I extends DescMessage, O extends DescMessage, S extends S
     return { ...input, ...output };
   };
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) => createMethodKey(transport, method, input);
-
   const createCollectionFilter =
     (...[transport, input]: Parameters<typeof fetchFunction>) =>
     (collectionKey: Record<string, string>) => {
@@ -78,7 +78,7 @@ export const create = <I extends DescMessage, O extends DescMessage, S extends S
 
   const list = new schema.Collection([listItemSchema], { createCollectionFilter });
 
-  return new Endpoint(fetchFunction, { key, name, schema: list.push, sideEffect: true });
+  return new Endpoint(fetchFunction, { name, schema: list.push, sideEffect: true });
 };
 
 interface UpdateProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
@@ -97,9 +97,7 @@ export const update = <I extends DescMessage, O extends DescMessage, S extends S
     return input;
   };
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) => createMethodKey(transport, method, input);
-
-  return new Endpoint(fetchFunction, { key, name, schema, sideEffect: true });
+  return new Endpoint(fetchFunction, { name, schema, sideEffect: true });
 };
 
 interface DeleteProps<I extends DescMessage, O extends DescMessage, S extends Schema> {
@@ -122,9 +120,7 @@ export const delete$ = <
     return input;
   };
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) => createMethodKey(transport, method, input);
-
   const invalidate = new schema.Invalidate(entitySchema);
 
-  return new Endpoint(fetchFunction, { key, name, schema: invalidate, sideEffect: true });
+  return new Endpoint(fetchFunction, { name, schema: invalidate, sideEffect: true });
 };
