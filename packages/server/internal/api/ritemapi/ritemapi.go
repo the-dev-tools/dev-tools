@@ -21,13 +21,11 @@ import (
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/translate/texample"
 	"the-dev-tools/server/pkg/translate/titemapi"
 	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1/endpointv1connect"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
-	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -180,66 +178,9 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// INFO: this part added with new normalisation stuff
-	// should be removed after spec api change to auto do this
-
-	a := &itemv1.CollectionItemListResponse{
-		Items: []*itemv1.CollectionItem{
-			{
-				Kind:    itemv1.ItemKind_ITEM_KIND_UNSPECIFIED,
-				Example: texample.SerializeModelToRPCItem(*example, nil),
-			},
-		},
-	}
-
-	changeAny, err := anypb.New(a)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
-	listChanges := []*changev1.ListChange{
-		{
-			Kind:   changeKind,
-			Parent: changeAny,
-		},
-	}
-
-	endpointChange := itemv1.CollectionItem{
-		Kind: itemv1.ItemKind_ITEM_KIND_ENDPOINT,
-		Endpoint: &endpointv1.EndpointListItem{
-			EndpointId:     ID.Bytes(),
-			ParentFolderId: req.Msg.ParentFolderId,
-			Name:           req.Msg.Name,
-			Method:         itemApiReq.Method,
-		},
-		Example: &examplev1.ExampleListItem{
-			ExampleId:      example.ID.Bytes(),
-			LastResponseId: nil,
-			Name:           exampleNanem,
-		},
-	}
-
-	endpointChangeAny, err := anypb.New(&endpointChange)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
-	change := &changev1.Change{
-		Kind: &kind,
-		List: listChanges,
-		Data: endpointChangeAny,
-	}
-
-	changes := []*changev1.Change{
-		change,
-	}
-
 	respRaw := &endpointv1.EndpointCreateResponse{
 		EndpointId: itemApiReq.ID.Bytes(),
 		ExampleId:  example.ID.Bytes(),
-		Changes:    changes,
 	}
 
 	return connect.NewResponse(respRaw), nil

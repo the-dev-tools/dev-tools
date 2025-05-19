@@ -81,8 +81,8 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	t.Run("Root items", func(t *testing.T) {
 		reqData := &itemv1.CollectionItemListRequest{
-			CollectionId: CollectionID.Bytes(),
-			FolderId:     nil,
+			CollectionId:   CollectionID.Bytes(),
+			ParentFolderId: nil,
 		}
 		req := connect.NewRequest(reqData)
 
@@ -123,8 +123,8 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 
 	t.Run("Nested items", func(t *testing.T) {
 		reqData := &itemv1.CollectionItemListRequest{
-			CollectionId: CollectionID.Bytes(),
-			FolderId:     lastFolderID.ID.Bytes(),
+			CollectionId:   CollectionID.Bytes(),
+			ParentFolderId: lastFolderID.ID.Bytes(),
 		}
 		req := connect.NewRequest(reqData)
 
