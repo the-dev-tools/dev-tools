@@ -26,6 +26,9 @@
     },
     {
       "path": "./packages/spec"
+    },
+    {
+      "path": "./packages/worker-js"
     }
   ]
 }

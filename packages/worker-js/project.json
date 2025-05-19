@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+
+  "name": "worker-js",
+  "projectType": "library",
+
+  "targets": {
+    "pre-dev": {
+      "dependsOn": ["build"]
+    }
+  }
+}

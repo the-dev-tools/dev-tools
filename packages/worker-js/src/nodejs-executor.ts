@@ -1,6 +1,6 @@
-import { fromJson, JsonValue, toJson } from '@bufbuild/protobuf';
+import { fromJson, type JsonValue, toJson } from '@bufbuild/protobuf';
 import { ValueSchema } from '@bufbuild/protobuf/wkt';
-import { Code, ConnectError, ConnectRouter } from '@connectrpc/connect';
+import { Code, ConnectError, type ConnectRouter } from '@connectrpc/connect';
 import { SourceTextModule } from 'node:vm';
 
 import { NodeJSExecutorService as NodeJSExecutorServiceSchema } from '@the-dev-tools/spec/nodejs_executor/v1/nodejs_executor_pb';
@@ -29,6 +29,8 @@ export const NodeJSExecutorService = (router: ConnectRouter) =>
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         result = result(context);
       }
+
+      result = await Promise.resolve(result);
 
       return { result: fromJson(ValueSchema, result as JsonValue) };
     },

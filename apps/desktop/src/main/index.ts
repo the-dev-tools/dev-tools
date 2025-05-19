@@ -6,8 +6,6 @@ import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
 import { CustomUpdateProvider, UpdateOptions } from './update';
-// eslint-disable-next-line import-x/default
-import workerPath from './worker?modulePath';
 
 const createWindow = Effect.gen(function* () {
   const path = yield* Path.Path;
@@ -68,13 +66,23 @@ const server = pipe(
   Effect.ensuring(Console.log('Server exited')),
 );
 
-const worker = pipe(
-  Command.make(process.execPath, '--experimental-vm-modules', '--disable-warning=ExperimentalWarning', workerPath),
-  Command.env({ ELECTRON_RUN_AS_NODE: '1' }),
-  Command.stdout('inherit'),
-  Command.stderr('inherit'),
-  Command.start,
-);
+const worker = Effect.gen(function* () {
+  const path = yield* Path.Path;
+
+  const bundle = yield* pipe(
+    import.meta.resolve('@the-dev-tools/worker-js'),
+    Url.fromString,
+    Effect.flatMap(path.fromFileUrl),
+  );
+
+  return yield* pipe(
+    Command.make(process.execPath, '--experimental-vm-modules', '--disable-warning=ExperimentalWarning', bundle),
+    Command.env({ ELECTRON_RUN_AS_NODE: '1' }),
+    Command.stdout('inherit'),
+    Command.stderr('inherit'),
+    Command.start,
+  );
+});
 
 const onReady = Effect.gen(function* () {
   autoUpdater.setFeedURL({

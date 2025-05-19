@@ -3,7 +3,7 @@
   "files": [],
   "references": [
     {
-      "path": "../../packages/spec"
+      "path": "../../packages/worker-js"
     },
     {
       "path": "../../packages/client"

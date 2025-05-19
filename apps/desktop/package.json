@@ -19,6 +19,7 @@
     "@effect/platform-node": "0.81.0",
     "@the-dev-tools/client": "workspace:^",
     "@the-dev-tools/server": "workspace:^",
+    "@the-dev-tools/worker-js": "workspace:^",
     "@vitejs/plugin-react": "4.4.1",
     "builder-util-runtime": "9.3.1",
     "effect": "3.15.2",

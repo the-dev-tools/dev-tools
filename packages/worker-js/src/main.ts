@@ -1,5 +1,5 @@
 import { cors as connectCors, createConnectRouter } from '@connectrpc/connect';
-import { UniversalHandler } from '@connectrpc/connect/protocol';
+import { type UniversalHandler } from '@connectrpc/connect/protocol';
 import {
   HttpMethod,
   HttpMiddleware,
@@ -14,7 +14,7 @@ import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Array, Console, Effect, Layer, pipe, Stream } from 'effect';
 import { createServer, IncomingMessage } from 'http';
 
-import { NodeJSExecutorService } from './nodejs-executor';
+import { NodeJSExecutorService } from './nodejs-executor.ts';
 
 const connectRouter = createConnectRouter();
 
