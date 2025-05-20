@@ -40,7 +40,7 @@ declare module '@tanstack/react-router' {
 
 declare module 'react-aria-components' {
   interface RouterConfig {
-    href: string | ToOptions;
+    href: ToOptions;
     routerOptions: Omit<NavigateOptions, keyof ToOptions>;
   }
 }
@@ -68,14 +68,8 @@ export const app = Effect.gen(function* () {
     (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
     (_) => (
       <AriaRouterProvider
-        navigate={(to, options) => {
-          if (typeof to === 'string') return;
-          return router.navigate({ ...to, ...options });
-        }}
-        useHref={(to) => {
-          if (typeof to === 'string') return to;
-          return router.buildLocation(to).href;
-        }}
+        navigate={(href, options) => router.navigate({ ...href, ...options })}
+        useHref={(href) => router.buildLocation(href).href}
       >
         {_}
       </AriaRouterProvider>
