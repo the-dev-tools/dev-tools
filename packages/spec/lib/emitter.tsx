@@ -246,8 +246,9 @@ interface ImportsOutputProps {
 }
 
 const ImportsOutput = ({ imports }: ImportsOutputProps) => (
-  <For doubleHardline each={imports.entries()}>
-    {([path, imports]) => code`
+  <>
+    <For doubleHardline each={imports.entries()} ender>
+      {([path, imports]) => code`
       import {
         ${(
           <For comma each={Array.fromIterable(imports)} enderPunctuation>
@@ -256,7 +257,10 @@ const ImportsOutput = ({ imports }: ImportsOutputProps) => (
         )}
       } from "${path}";
     `}
-  </For>
+    </For>
+
+    {code`import type * as _ from '@data-client/endpoint';`}
+  </>
 );
 
 const useRoot = () => {
