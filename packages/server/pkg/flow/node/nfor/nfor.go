@@ -92,7 +92,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				}
 			}
 
-			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:

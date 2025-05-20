@@ -1,0 +1,11 @@
+{
+  "name": "@the-dev-tools/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist",
+  "dependencies": {
+    "@the-dev-tools/worker-js": "workspace:^",
+    "@the-dev-tools/spec": "workspace:^"
+  }
+}

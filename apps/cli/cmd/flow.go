@@ -8,6 +8,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/exec"
+	"strings"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/tursomem"
 	"the-dev-tools/server/pkg/compress"
@@ -606,7 +608,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, time.Second)
 	}
 
-	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
+	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes)*100)
 	for _, requestNode := range requestNodes {
 
 		// Base Request
@@ -765,12 +767,41 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	}
 
 	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
-	for i, jsNode := range jsNodes {
-		if i == 0 {
-			client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
-			clientPtr = &client
+	if len(jsNodes) > 0 {
+		// Attempt to start the NodeJS worker if node is available
+		nodePath, err := exec.LookPath("node")
+		if err != nil {
+			slog.Warn("node binary not found in PATH, assuming worker-js is already running or not needed")
+		} else {
+			slog.Info("node binary found", "path", nodePath)
+			// TODO: Make this path configurable
+			scriptPath := "./node_modules/@the-dev-tools/worker-js/dist/main.cjs"
+			cmd := exec.CommandContext(ctx, nodePath, "--experimental-vm-modules", "--disable-warning=ExperimentalWarning", scriptPath)
+			// TODO: Optionally pipe stdout/stderr of the node process
+			// cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err := cmd.Start()
+			if err != nil {
+				slog.Error("failed to start worker-js", "error", err)
+			} else {
+				defer cmd.Cancel()
+				slog.Info("worker-js process started", "pid", cmd.Process.Pid)
+				go func() {
+					err := cmd.Wait()
+					if err != nil {
+						slog.Error("worker-js process exited with error", "error", err)
+					} else {
+						slog.Info("worker-js process exited successfully")
+					}
+				}()
+			}
 		}
 
+		client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
+		clientPtr = &client
+	}
+
+	for _, jsNode := range jsNodes {
 		if jsNode.CodeCompressType != compress.CompressTypeNone {
 			jsNode.Code, err = compress.Decompress(jsNode.Code, jsNode.CodeCompressType)
 			if err != nil {
@@ -796,17 +827,46 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	totalNodes := len(flowNodeMap)
 
 	flowTitle := flowPtr.Name
-	const maxTitleLenght = 64
-	if len(flowTitle) > maxTitleLenght {
-		flowTitle = flowTitle[:maxTitleLenght]
-		flowTitle += "..."
+
+	// Calculate max step name length
+	maxStepNameLen := len("Step") // Default to header length
+	for _, name := range nodeNameMap {
+		if len(name) > maxStepNameLen {
+			maxStepNameLen = len(name)
+		}
 	}
 
-	fmt.Println("=================================================================")
-	fmt.Printf("| Flow: %s\n", flowTitle)
-	fmt.Println("─────────────────────────────────────────────────────────────────")
-	fmt.Println("| Timestamp           | Step           | Duration | Status      |")
-	fmt.Println("─────────────────────────────────────────────────────────────────")
+	tableWidth := 2 + 20 + 3 + maxStepNameLen + 3 + 8 + 3 + 11 + 2 // Total = maxStepNameLen + 52
+
+	topBottomBorder := strings.Repeat("=", tableWidth)
+	separatorBorder := strings.Repeat("─", tableWidth)
+	tableRowFmt := fmt.Sprintf("| %%-20s | %%-%ds | %%-8s | %%-11s |\n", maxStepNameLen)
+
+	// Format Flow title line to fit within the table width
+	displayTitleContent := fmt.Sprintf(" Flow: %s", flowTitle) // Use original flowTitle
+	maxContentWidthInTitle := tableWidth - 2                   // Available space between '|' and '|'
+
+	if len(displayTitleContent) > maxContentWidthInTitle {
+		if maxContentWidthInTitle > 3 { // Check if space for "..."
+			displayTitleContent = displayTitleContent[:maxContentWidthInTitle-3] + "..."
+		} else if maxContentWidthInTitle >= 0 { // Only truncate if non-negative space
+			displayTitleContent = displayTitleContent[:maxContentWidthInTitle]
+		} else {
+			displayTitleContent = "" // Not enough space for anything
+		}
+	}
+
+	paddingLength := maxContentWidthInTitle - len(displayTitleContent)
+	if paddingLength < 0 {
+		paddingLength = 0
+	}
+
+	fmt.Println(topBottomBorder)
+	fmt.Printf("|%s%s|", displayTitleContent, strings.Repeat(" ", paddingLength))
+	fmt.Println() // Ensure newline before separator
+	fmt.Println(separatorBorder)
+	fmt.Printf(tableRowFmt, "Timestamp", "Step", "Duration", "Status") // tableRowFmt includes a newline
+	fmt.Println(separatorBorder)
 
 	done := make(chan error, 1)
 	go func() {
@@ -816,8 +876,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 			stateStr := mnnode.StringNodeStateWithIcons(flowNodeStatus.State)
 
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
-
-				fmt.Printf("| %-20s | %-14s | %-8s | %-10s |\n",
+				fmt.Printf(tableRowFmt, // tableRowFmt includes a newline
 					time.Now().Format("2006-01-02 15:04:05"),
 					name,
 					formatDuration(flowNodeStatus.RunDuration),
@@ -868,7 +927,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 
 	close(requestNodeRespChan)
 
-	fmt.Println("=================================================================")
+	fmt.Println(topBottomBorder) // Use dynamic border
 	fmt.Printf("Flow Duration: %v | Steps: %d/%d Successful\n", flowTimeLapse, successCount, totalNodes)
 
 	if flowErr != nil {

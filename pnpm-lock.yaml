@@ -142,6 +142,15 @@ importers:
         specifier: ~8.32.0
         version: 8.32.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.8.3)
 
+  apps/cli:
+    dependencies:
+      '@the-dev-tools/spec':
+        specifier: workspace:^
+        version: link:../../packages/spec
+      '@the-dev-tools/worker-js':
+        specifier: workspace:^
+        version: link:../../packages/worker-js
+
   apps/desktop:
     dependencies:
       '@bufbuild/protobuf':

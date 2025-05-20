@@ -1020,14 +1020,13 @@ func processIfStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, n
 	workspaceData.FlowNodes = append(workspaceData.FlowNodes, node)
 
 	// Process if specific fields
-	path, _ := data["path"].(string) // Allow empty path for now, validation might be needed elsewhere
+	path, _ := data["expression"].(string) // Allow empty path for now, validation might be needed elsewhere
 
 	ifNode := mnif.MNIF{
 		FlowNodeID: nodeID, // This should be the MNode ID
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
 				Expression: path,
-				// TODO: Add Operator and Value based on YAML structure if needed
 			},
 		},
 	}
