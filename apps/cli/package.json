@@ -5,7 +5,7 @@
   "type": "module",
   "exports": "./dist",
   "dependencies": {
-    "@the-dev-tools/worker-js": "workspace:^",
-    "@the-dev-tools/spec": "workspace:^"
+    "@the-dev-tools/spec": "workspace:^",
+    "@the-dev-tools/worker-js": "workspace:^"
   }
 }
