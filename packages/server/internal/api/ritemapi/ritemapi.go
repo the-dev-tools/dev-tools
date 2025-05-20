@@ -22,13 +22,10 @@ import (
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/titemapi"
-	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1/endpointv1connect"
-	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ItemApiRPC struct {
@@ -340,34 +337,37 @@ func (c *ItemApiRPC) EndpointUpdate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	examples, err := c.iaes.GetApiExamplesWithDefaults(ctx, endpoint.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	var changes []*changev1.Change
-	if apiCall.Name != "" {
-		endpoint.Name = apiCall.Name
-
-		HistoryChangesService := "collection.item.example.v1"
-		HistroyChangesMethod := "ExampleGet"
-		for _, example := range examples {
-			exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-			listRequest, err := anypb.New(&examplev1.ExampleGetRequest{
-				ExampleId: example.ID.Bytes(),
-			})
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			changes = append(changes, &changev1.Change{
-				Kind:    &exampleVersionChangeKind,
-				Data:    listRequest,
-				Service: &HistoryChangesService,
-				Method:  &HistroyChangesMethod,
-			})
-
+	/*
+		examples, err := c.iaes.GetApiExamplesWithDefaults(ctx, endpoint.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-	}
+
+			var changes []*changev1.Change
+			if apiCall.Name != "" {
+				endpoint.Name = apiCall.Name
+
+				HistoryChangesService := "collection.item.example.v1"
+				HistroyChangesMethod := "ExampleGet"
+				for _, example := range examples {
+					exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+					listRequest, err := anypb.New(&examplev1.ExampleGetRequest{
+						ExampleId: example.ID.Bytes(),
+					})
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+					changes = append(changes, &changev1.Change{
+						Kind:    &exampleVersionChangeKind,
+						Data:    listRequest,
+						Service: &HistoryChangesService,
+						Method:  &HistroyChangesMethod,
+					})
+
+				}
+			}
+	*/
+
 	if apiCall.Method != "" {
 		endpoint.Method = apiCall.Method
 	}
@@ -383,9 +383,7 @@ func (c *ItemApiRPC) EndpointUpdate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := &endpointv1.EndpointUpdateResponse{
-		Changes: changes,
-	}
+	resp := &endpointv1.EndpointUpdateResponse{}
 
 	return connect.NewResponse(resp), nil
 }

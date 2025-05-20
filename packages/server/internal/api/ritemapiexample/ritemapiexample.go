@@ -5,9 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
-	"strings"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rcollection"
@@ -49,16 +47,12 @@ import (
 	"the-dev-tools/server/pkg/translate/tassert"
 	"the-dev-tools/server/pkg/translate/texample"
 	"the-dev-tools/server/pkg/varsystem"
-	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
-	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -249,51 +243,54 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 	}
 
 	// TODO: refactor changes stuff
-	folderChange := itemv1.CollectionItem{
-		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
-		Example: &examplev1.ExampleListItem{
-			ExampleId: ExampleID.Bytes(),
-			Name:      req.Msg.Name,
-		},
-	}
+	/*
+		folderChange := itemv1.CollectionItem{
+			Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+			Example: &examplev1.ExampleListItem{
+				ExampleId: ExampleID.Bytes(),
+				Name:      req.Msg.Name,
+			},
+		}
 
-	folderChangeAny, err := anypb.New(&folderChange)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+			folderChangeAny, err := anypb.New(&folderChange)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 
-	a := &examplev1.ExampleListResponse{
-		EndpointId: ExampleID.Bytes(),
-	}
+			a := &examplev1.ExampleListResponse{
+				EndpointId: ExampleID.Bytes(),
+			}
 
-	changeAny, err := anypb.New(a)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+			changeAny, err := anypb.New(a)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+	*/
 
-	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+	/*
+		changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
 
-	listChanges := []*changev1.ListChange{
-		{
-			Kind:   changeKind,
-			Parent: changeAny,
-		},
-	}
+		listChanges := []*changev1.ListChange{
+			{
+				Kind:   changeKind,
+				Parent: changeAny,
+			},
+		}
 
-	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
-	change := &changev1.Change{
-		Kind: &kind,
-		List: listChanges,
-		Data: folderChangeAny,
-	}
+		kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
+		change := &changev1.Change{
+			Kind: &kind,
+			List: listChanges,
+			Data: folderChangeAny,
+		}
 
-	changes := []*changev1.Change{
-		change,
-	}
+		changes := []*changev1.Change{
+			change,
+		}
+	*/
 
 	return connect.NewResponse(&examplev1.ExampleCreateResponse{
 		ExampleId: ExampleID.Bytes(),
-		Changes:   changes,
 	}), nil
 }
 
@@ -318,7 +315,7 @@ func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var changes []*changev1.Change
+	// var changes []*changev1.Change
 
 	var updateChange bool
 	exRPC := req.Msg
@@ -326,24 +323,26 @@ func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Requ
 		dbExample.Name = *exRPC.Name
 		updateChange = true
 
-		folderChange := itemv1.CollectionItem{
-			Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
-			Example: &examplev1.ExampleListItem{
-				Name: dbExample.Name,
-			},
-		}
+		/*
+			folderChange := itemv1.CollectionItem{
+				Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+				Example: &examplev1.ExampleListItem{
+					Name: dbExample.Name,
+				},
+			}
 
-		folderChangeAny, err := anypb.New(&folderChange)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+				folderChangeAny, err := anypb.New(&folderChange)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 
-		kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
-		normalizationChange := &changev1.Change{
-			Kind: &kind,
-			Data: folderChangeAny,
-		}
-		changes = append(changes, normalizationChange)
+					kind := changev1.ChangeKind_CHANGE_KIND_UPDATE
+					normalizationChange := &changev1.Change{
+						Kind: &kind,
+						Data: folderChangeAny,
+					}
+					changes = append(changes, normalizationChange)
+		*/
 	}
 	if exRPC.BodyKind != nil {
 		dbExample.BodyType = mitemapiexample.BodyType(*exRPC.BodyKind)
@@ -359,9 +358,7 @@ func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&examplev1.ExampleUpdateResponse{
-		Changes: changes,
-	}), nil
+	return connect.NewResponse(&examplev1.ExampleUpdateResponse{}), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Request[examplev1.ExampleDeleteRequest]) (*connect.Response[examplev1.ExampleDeleteResponse], error) {
@@ -432,28 +429,28 @@ func (c *ItemAPIExampleRPC) ExampleDelete(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	/*
 
-	a := &examplev1.ExampleChange{
-		ExampleId: exampleUlid.Bytes(),
-	}
+		a := &examplev1.ExampleChange{
+			ExampleId: exampleUlid.Bytes(),
+		}
 
-	changeAny, err := anypb.New(a)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		changeAny, err := anypb.New(a)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	changeKind := changev1.ChangeKind_CHANGE_KIND_DELETE
+		changeKind := changev1.ChangeKind_CHANGE_KIND_DELETE
 
-	changes := []*changev1.Change{
-		{
-			Kind: &changeKind,
-			Data: changeAny,
-		},
-	}
+		changes := []*changev1.Change{
+			{
+				Kind: &changeKind,
+				Data: changeAny,
+			},
+		}
+	*/
 
-	resp := &examplev1.ExampleDeleteResponse{
-		Changes: changes,
-	}
+	resp := &examplev1.ExampleDeleteResponse{}
 
 	return connect.NewResponse(resp), nil
 }
@@ -484,7 +481,7 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	}
 
 	exampleIDBytes := res.Example.ID.Bytes()
-	exampleName := res.Example.Name
+	//	exampleName := res.Example.Name
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -499,53 +496,54 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	/*
 
-	// TODO: refactor changes stuff
-	folderChange := itemv1.CollectionItem{
-		Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
-		Example: &examplev1.ExampleListItem{
-			ExampleId: exampleIDBytes,
-			Name:      exampleName,
-		},
-	}
+		// TODO: refactor changes stuff
+		folderChange := itemv1.CollectionItem{
+			Kind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+			Example: &examplev1.ExampleListItem{
+				ExampleId: exampleIDBytes,
+				Name:      exampleName,
+			},
+		}
 
-	folderChangeAny, err := anypb.New(&folderChange)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		folderChangeAny, err := anypb.New(&folderChange)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	a := &examplev1.ExampleListResponse{
-		EndpointId: exampleIDBytes,
-	}
+		a := &examplev1.ExampleListResponse{
+			EndpointId: exampleIDBytes,
+		}
 
-	changeAny, err := anypb.New(a)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		changeAny, err := anypb.New(a)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
+		changeKind := changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND
 
-	listChanges := []*changev1.ListChange{
-		{
-			Kind:   changeKind,
-			Parent: changeAny,
-		},
-	}
+		listChanges := []*changev1.ListChange{
+			{
+				Kind:   changeKind,
+				Parent: changeAny,
+			},
+		}
 
-	kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
-	change := &changev1.Change{
-		Kind: &kind,
-		List: listChanges,
-		Data: folderChangeAny,
-	}
+		kind := changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED
+		change := &changev1.Change{
+			Kind: &kind,
+			List: listChanges,
+			Data: folderChangeAny,
+		}
 
-	changes := []*changev1.Change{
-		change,
-	}
+		changes := []*changev1.Change{
+			change,
+		}
+	*/
 
 	resp := &examplev1.ExampleDuplicateResponse{
 		ExampleId: exampleIDBytes,
-		Changes:   changes,
 	}
 
 	return connect.NewResponse(resp), nil
@@ -691,11 +689,11 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
-	isExampleRespExists := true
+	// isExampleRespExists := true
 	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
 	if err != nil {
 		if err == sexampleresp.ErrNoRespFound {
-			isExampleRespExists = false
+			// isExampleRespExists = false
 			exampleRespTemp := mexampleresp.ExampleResp{
 				ID:        idwrap.NewNow(),
 				ExampleID: exampleUlid,
@@ -801,7 +799,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to copy endpoint"))
 	}
 
-	exampleVersionID := example.ID
+	// exampleVersionID := example.ID
 	example.VersionParentID = &example.ID
 
 	res, err := PrepareCopyExample(ctx, endpointNewID, *example, *c.hs, *c.qs, *c.brs, *c.bfs, *c.bues, *c.ers, *c.erhs, *c.as, *c.ars)
@@ -824,32 +822,35 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	var changes []*changev1.Change
-	if isExampleRespExists {
-		exampleResp.Body = responseOutput.BodyRaw
-		changes, err = HandleResponseUpdate(exampleResp, assertions, assertResults, requestResp.HttpResp.Headers)
-	} else {
-		changes, err = HandleResponseCreate(example.ID, exampleResp.ID)
-	}
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	exampleVersionRequest, err := anypb.New(&examplev1.ExampleVersionsRequest{
-		ExampleId: exampleVersionID.Bytes(),
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	/*
 
-	HistoryChangesService := "collection.item.example.v1.ExampleService"
-	HistroyChangesMethod := "ExampleVersions"
-	exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-	changes = append(changes, &changev1.Change{
-		Kind:    &exampleVersionChangeKind,
-		Data:    exampleVersionRequest,
-		Service: &HistoryChangesService,
-		Method:  &HistroyChangesMethod,
-	})
+		var changes []*changev1.Change
+		if isExampleRespExists {
+			exampleResp.Body = responseOutput.BodyRaw
+			changes, err = HandleResponseUpdate(exampleResp, assertions, assertResults, requestResp.HttpResp.Headers)
+		} else {
+			changes, err = HandleResponseCreate(example.ID, exampleResp.ID)
+		}
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		exampleVersionRequest, err := anypb.New(&examplev1.ExampleVersionsRequest{
+			ExampleId: exampleVersionID.Bytes(),
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+			HistoryChangesService := "collection.item.example.v1.ExampleService"
+			HistroyChangesMethod := "ExampleVersions"
+			exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+			changes = append(changes, &changev1.Change{
+				Kind:    &exampleVersionChangeKind,
+				Data:    exampleVersionRequest,
+				Service: &HistoryChangesService,
+				Method:  &HistroyChangesMethod,
+			})
+	*/
 
 	size := int32(len(responseOutput.BodyRaw))
 
@@ -859,7 +860,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Body:       responseOutput.BodyRaw,
 		Time:       timestamppb.New(time.Now()),
 		Duration:   exampleResp.Duration,
-		Changes:    changes,
 		Size:       size,
 	}), nil
 }
@@ -1009,6 +1009,7 @@ func PrepareCopyExample(ctx context.Context, itemApi idwrap.IDWrap, example mite
 }
 
 // Changes
+/*
 func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.ResponseChange, error) {
 	changeStatus := int32(exampleResp.Status)
 	size := int32(len(exampleResp.Body))
@@ -1022,6 +1023,7 @@ func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.Re
 		Size:       &size,
 	}, nil
 }
+*/
 
 func createAssertResponse(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult) (*responsev1.ResponseAssertListResponse, error) {
 	response := &responsev1.ResponseAssertListResponse{
@@ -1131,6 +1133,7 @@ func PrepareCopyExampleNoService(ctx context.Context, itemApi idwrap.IDWrap, exa
 	return result, nil
 }
 
+/*
 func createHeaderResponse(exampleResp *mexampleresp.ExampleResp, headers []mexamplerespheader.ExampleRespHeader) *responsev1.ResponseHeaderListResponse {
 	response := &responsev1.ResponseHeaderListResponse{
 		ResponseId: exampleResp.ID.Bytes(),
@@ -1150,7 +1153,9 @@ func createHeaderResponse(exampleResp *mexampleresp.ExampleResp, headers []mexam
 	}
 	return response
 }
+*/
 
+/*
 func createChange(data proto.Message, kind changev1.ChangeKind) (*changev1.Change, error) {
 	anyData, err := anypb.New(data)
 	if err != nil {
@@ -1161,7 +1166,9 @@ func createChange(data proto.Message, kind changev1.ChangeKind) (*changev1.Chang
 		Data: anyData,
 	}, nil
 }
+*/
 
+/*
 func HandleResponseUpdate(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult, headers []mexamplerespheader.ExampleRespHeader) ([]*changev1.Change, error) {
 	// Create and add change response
 	changeResp, err := createChangeResponse(exampleResp)
@@ -1206,6 +1213,7 @@ func HandleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.C
 
 	return []*changev1.Change{createExampleChange}, nil
 }
+*/
 
 // TODO: make this transaction
 func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult) error {

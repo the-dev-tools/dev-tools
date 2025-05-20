@@ -34,14 +34,10 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
-	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
-	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
-	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // TODO: this is need be switch to id based system later
@@ -107,12 +103,14 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no api found"))
 			}
 
-			changes, err := c.ImportCurl(ctx, wsUlid, collectionID, curlResolved.Apis[0].Url, curlResolved)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
+			/*
+				changes, err := c.ImportCurl(ctx, wsUlid, collectionID, curlResolved.Apis[0].Url, curlResolved)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 
-			resp.Changes = changes
+				resp.Changes = changes
+			*/
 			return connect.NewResponse(resp), nil
 		}
 
@@ -182,9 +180,9 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	lastHar.Log.Entries = filteredEntries
 
 	// Try to import as HAR
-	changes, err := c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
+	_, err = c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
 	if err == nil {
-		resp.Changes = changes
+		// resp.Changes = changes
 		return connect.NewResponse(resp), nil
 	}
 
@@ -194,16 +192,16 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return nil, err
 	}
 
-	changes, err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
+	_, err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
 	if err == nil {
-		resp.Changes = changes
+		// resp.Changes = changes
 		return connect.NewResponse(resp), nil
 	}
 
 	return nil, errors.New("invalid file")
 }
 
-func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) ([]*changev1.Change, error) {
+func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) ([]any, error) {
 	collection := mcollection.Collection{
 		ID:          CollectionID,
 		Name:        name,
@@ -308,43 +306,46 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	}
 
 	// Changes
-	collectionListItem := &collectionv1.CollectionListItem{
-		CollectionId: CollectionID.Bytes(),
-		Name:         name,
-	}
+	/*
+		collectionListItem := &collectionv1.CollectionListItem{
+			CollectionId: CollectionID.Bytes(),
+			Name:         name,
+		}
 
-	changeCollectionListResp := collectionv1.CollectionListResponse{
-		WorkspaceId: workspaceID.Bytes(),
-		Items:       []*collectionv1.CollectionListItem{collectionListItem},
-	}
+		changeCollectionListResp := collectionv1.CollectionListResponse{
+			WorkspaceId: workspaceID.Bytes(),
+			Items:       []*collectionv1.CollectionListItem{collectionListItem},
+		}
 
-	changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+			changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 
-	listCollectionChanges := []*changev1.ListChange{
-		{
-			Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-			Parent: changeCollectionListRespAny,
-		},
-	}
+				listCollectionChanges := []*changev1.ListChange{
+					{
+						Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
+						Parent: changeCollectionListRespAny,
+					},
+				}
 
-	collectionChangeAnyData, err := anypb.New(collectionListItem)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+				collectionChangeAnyData, err := anypb.New(collectionListItem)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 
-	changeCollection := &changev1.Change{
-		Kind: new(changev1.ChangeKind),
-		List: listCollectionChanges,
-		Data: collectionChangeAnyData,
-	}
+				changeCollection := &changev1.Change{
+					Kind: new(changev1.ChangeKind),
+					List: listCollectionChanges,
+					Data: collectionChangeAnyData,
+				}
+	*/
 
-	return []*changev1.Change{changeCollection}, nil
+	// return []*changev1.Change{changeCollection}, nil
+	return []any{}, nil
 }
 
-func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) ([]*changev1.Change, error) {
+func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) ([]any, error) {
 	collection := mcollection.Collection{
 		ID:          CollectionID,
 		Name:        name,
@@ -462,43 +463,47 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	}
 
 	// Changes
-	collectionListItem := &collectionv1.CollectionListItem{
-		CollectionId: CollectionID.Bytes(),
-		Name:         name,
-	}
+	/*
+		collectionListItem := &collectionv1.CollectionListItem{
+			CollectionId: CollectionID.Bytes(),
+			Name:         name,
+		}
 
-	changeCollectionListResp := collectionv1.CollectionListResponse{
-		WorkspaceId: workspaceID.Bytes(),
-		Items:       []*collectionv1.CollectionListItem{collectionListItem},
-	}
+		changeCollectionListResp := collectionv1.CollectionListResponse{
+			WorkspaceId: workspaceID.Bytes(),
+			Items:       []*collectionv1.CollectionListItem{collectionListItem},
+		}
 
-	changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	listCollectionChanges := []*changev1.ListChange{
-		{
-			Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-			Parent: changeCollectionListRespAny,
-		},
-	}
+		listCollectionChanges := []*changev1.ListChange{
+			{
+				Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
+				Parent: changeCollectionListRespAny,
+			},
+		}
 
-	collectionChangeAnyData, err := anypb.New(collectionListItem)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		collectionChangeAnyData, err := anypb.New(collectionListItem)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	changeCollection := &changev1.Change{
-		Kind: new(changev1.ChangeKind),
-		List: listCollectionChanges,
-		Data: collectionChangeAnyData,
-	}
+		changeCollection := &changev1.Change{
+			Kind: new(changev1.ChangeKind),
+			List: listCollectionChanges,
+			Data: collectionChangeAnyData,
+		}
 
-	return []*changev1.Change{changeCollection}, nil
+
+		return []*changev1.Change{changeCollection}, nil
+	*/
+	return []any{}, nil
 }
 
-func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) ([]*changev1.Change, error) {
+func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) ([]any, error) {
 	resolved, err := thar.ConvertHAR(harData, CollectionID, workspaceID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -653,71 +658,75 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	// Changes
-	collectionListItem := &collectionv1.CollectionListItem{
-		CollectionId: CollectionID.Bytes(),
-		Name:         name,
-	}
+	/*
+		collectionListItem := &collectionv1.CollectionListItem{
+			CollectionId: CollectionID.Bytes(),
+			Name:         name,
+		}
 
-	changeCollectionListResp := collectionv1.CollectionListResponse{
-		WorkspaceId: workspaceID.Bytes(),
-		Items:       []*collectionv1.CollectionListItem{collectionListItem},
-	}
+		changeCollectionListResp := collectionv1.CollectionListResponse{
+			WorkspaceId: workspaceID.Bytes(),
+			Items:       []*collectionv1.CollectionListItem{collectionListItem},
+		}
 
-	flowListItem := &flowv1.FlowListItem{
-		FlowId: resolved.Flow.ID.Bytes(),
-		Name:   resolved.Flow.Name,
-	}
+		flowListItem := &flowv1.FlowListItem{
+			FlowId: resolved.Flow.ID.Bytes(),
+			Name:   resolved.Flow.Name,
+		}
 
-	changeFlowListResp := &flowv1.FlowListResponse{
-		WorkspaceId: workspaceID.Bytes(),
-		Items:       []*flowv1.FlowListItem{flowListItem},
-	}
+		changeFlowListResp := &flowv1.FlowListResponse{
+			WorkspaceId: workspaceID.Bytes(),
+			Items:       []*flowv1.FlowListItem{flowListItem},
+		}
 
-	changeFlowListRespAny, err := anypb.New(changeFlowListResp)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
-	changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+			changeFlowListRespAny, err := anypb.New(changeFlowListResp)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 
-	listFlowChanges := []*changev1.ListChange{
-		{
-			Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-			Parent: changeFlowListRespAny,
-		},
-	}
+			changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 
-	listCollectionChanges := []*changev1.ListChange{
-		{
-			Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-			Parent: changeCollectionListRespAny,
-		},
-	}
 
-	flowChangeAnyData, err := anypb.New(flowListItem)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+				listFlowChanges := []*changev1.ListChange{
+					{
+						Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
+						Parent: changeFlowListRespAny,
+					},
+				}
 
-	collectionChangeAnyData, err := anypb.New(collectionListItem)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+				listCollectionChanges := []*changev1.ListChange{
+					{
+						Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
+						Parent: changeCollectionListRespAny,
+					},
+				}
 
-	changeFlow := &changev1.Change{
-		Kind: new(changev1.ChangeKind),
-		List: listFlowChanges,
-		Data: flowChangeAnyData,
-	}
+				flowChangeAnyData, err := anypb.New(flowListItem)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 
-	changeCollection := &changev1.Change{
-		Kind: new(changev1.ChangeKind),
-		List: listCollectionChanges,
-		Data: collectionChangeAnyData,
-	}
+				collectionChangeAnyData, err := anypb.New(collectionListItem)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+
+				changeFlow := &changev1.Change{
+					Kind: new(changev1.ChangeKind),
+					List: listFlowChanges,
+					Data: flowChangeAnyData,
+				}
+
+				changeCollection := &changev1.Change{
+					Kind: new(changev1.ChangeKind),
+					List: listCollectionChanges,
+					Data: collectionChangeAnyData,
+				}
+	*/
 
 	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
@@ -731,7 +740,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	changes := []*changev1.Change{changeFlow, changeCollection}
+	// changes := []*changev1.Change{changeFlow, changeCollection}
 
-	return changes, nil
+	return []any{}, nil
 }

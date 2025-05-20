@@ -70,9 +70,6 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tflow"
 	"the-dev-tools/server/pkg/translate/tgeneric"
-	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
-	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
-	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
@@ -80,7 +77,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type FlowServiceRPC struct {
@@ -747,7 +743,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}()
 			}
 
-			var changes []*changev1.Change
+			// var changes []*changev1.Change
 
 			select {
 			// TODO: move invalidation to a separate function so we can test it
@@ -758,49 +754,51 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					log.Println("cannot update example on flow run", err)
 				}
 
-				HistoryChangesService := "collection.item.example.v1.ExampleService"
-				HistroyChangesMethod := "ExampleGet"
-				exampleGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+				/*
+					HistoryChangesService := "collection.item.example.v1.ExampleService"
+					HistroyChangesMethod := "ExampleGet"
+					exampleGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
 
-				exampleGetRequest, err := anypb.New(&examplev1.ExampleGetRequest{
-					ExampleId: requestNodeResp.Example.ID.Bytes(),
-				})
-				if err != nil {
-					log.Fatal("anypb examplev1.ExampleGetRequest cannot be created")
-					return
-				}
+					exampleGetRequest, err := anypb.New(&examplev1.ExampleGetRequest{
+						ExampleId: requestNodeResp.Example.ID.Bytes(),
+					})
+					if err != nil {
+						log.Fatal("anypb examplev1.ExampleGetRequest cannot be created")
+						return
+					}
 
-				changes = append(changes, &changev1.Change{
-					Kind:    &exampleGetChangeKind,
-					Data:    exampleGetRequest,
-					Service: &HistoryChangesService,
-					Method:  &HistroyChangesMethod,
-				})
+					changes = append(changes, &changev1.Change{
+						Kind:    &exampleGetChangeKind,
+						Data:    exampleGetRequest,
+						Service: &HistoryChangesService,
+						Method:  &HistroyChangesMethod,
+					})
 
-				HistroyChangesSubService := "collection.item.response.v1.ResponseService"
-				HistroyChangesSubMethod := "ResponseGet"
-				responseGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-				RespRequest, err := anypb.New(&responsev1.ResponseGetRequest{
-					ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
-				})
-				if err != nil {
-					log.Fatal("anypb responsev1.ResponseGetRequest cannot be created")
-					return
-				}
+					HistroyChangesSubService := "collection.item.response.v1.ResponseService"
+					HistroyChangesSubMethod := "ResponseGet"
+					responseGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+					RespRequest, err := anypb.New(&responsev1.ResponseGetRequest{
+						ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
+					})
+					if err != nil {
+						log.Fatal("anypb responsev1.ResponseGetRequest cannot be created")
+						return
+					}
 
-				changes = append(changes, &changev1.Change{
-					Kind:    &responseGetChangeKind,
-					Data:    RespRequest,
-					Service: &HistroyChangesSubService,
-					Method:  &HistroyChangesSubMethod,
-				})
+					changes = append(changes, &changev1.Change{
+						Kind:    &responseGetChangeKind,
+						Data:    RespRequest,
+						Service: &HistroyChangesSubService,
+						Method:  &HistroyChangesSubMethod,
+					})
+				*/
 			default:
 			}
 
 			resp := &flowv1.FlowRunResponse{
-				NodeId:  flowNodeStatus.NodeID.Bytes(),
-				State:   nodev1.NodeState(flowNodeStatus.State),
-				Changes: changes,
+				NodeId: flowNodeStatus.NodeID.Bytes(),
+				State:  nodev1.NodeState(flowNodeStatus.State),
+				// Changes: changes,
 			}
 
 			data, localErr := json.Marshal(flowNodeStatus.OutputData)

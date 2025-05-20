@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rflow"
@@ -21,7 +20,6 @@ import (
 
 	"the-dev-tools/server/pkg/translate/tflowvariable"
 
-	changev1 "the-dev-tools/spec/dist/buf/go/change/v1"
 	flowvariablev1 "the-dev-tools/spec/dist/buf/go/flowvariable/v1"
 	"the-dev-tools/spec/dist/buf/go/flowvariable/v1/flowvariablev1connect"
 )
@@ -139,30 +137,32 @@ func (c *FlowVariableServiceRPC) FlowVariableCreate(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create flow variable: %w", err))
 	}
+	/*
 
-	// Create an invalidation change for the flow variables list
-	service := "flowvariable.v1.FlowVariableService"
-	method := "FlowVariableList"
-	changeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-	listRequest, err := anypb.New(&flowvariablev1.FlowVariableListRequest{
-		FlowId: flowID.Bytes(),
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		// Create an invalidation change for the flow variables list
+		service := "flowvariable.v1.FlowVariableService"
+		method := "FlowVariableList"
+		changeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+		listRequest, err := anypb.New(&flowvariablev1.FlowVariableListRequest{
+			FlowId: flowID.Bytes(),
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	changes := []*changev1.Change{
-		{
-			Kind:    &changeKind,
-			Service: &service,
-			Method:  &method,
-			Data:    listRequest,
-		},
-	}
+			changes := []*changev1.Change{
+				{
+					Kind:    &changeKind,
+					Service: &service,
+					Method:  &method,
+					Data:    listRequest,
+				},
+			}
+	*/
 
 	response := &flowvariablev1.FlowVariableCreateResponse{
 		VariableId: variableID.Bytes(),
-		Changes:    changes,
+		// Changes:    changes,
 	}
 
 	return connect.NewResponse(response), nil
@@ -202,43 +202,46 @@ func (c *FlowVariableServiceRPC) FlowVariableUpdate(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update flow variable: %w", err))
 	}
 
-	// TODO: should be just update one not invalidation all list
-	// Create an invalidation change for the list and get
-	service := "flowvariable.v1.FlowVariableService"
-	listMethod := "FlowVariableList"
-	changeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-	listRequest, err := anypb.New(&flowvariablev1.FlowVariableListRequest{
-		FlowId: variable.FlowID.Bytes(),
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	/*
 
-	getMethod := "FlowVariableGet"
-	getRequest, err := anypb.New(&flowvariablev1.FlowVariableGetRequest{
-		VariableId: variableID.Bytes(),
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+		// TODO: should be just update one not invalidation all list
+		// Create an invalidation change for the list and get
+		service := "flowvariable.v1.FlowVariableService"
+		listMethod := "FlowVariableList"
+		changeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+		listRequest, err := anypb.New(&flowvariablev1.FlowVariableListRequest{
+			FlowId: variable.FlowID.Bytes(),
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
-	changes := []*changev1.Change{
-		{
-			Kind:    &changeKind,
-			Service: &service,
-			Method:  &listMethod,
-			Data:    listRequest,
-		},
-		{
-			Kind:    &changeKind,
-			Service: &service,
-			Method:  &getMethod,
-			Data:    getRequest,
-		},
-	}
+		getMethod := "FlowVariableGet"
+		getRequest, err := anypb.New(&flowvariablev1.FlowVariableGetRequest{
+			VariableId: variableID.Bytes(),
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
+		changes := []*changev1.Change{
+			{
+				Kind:    &changeKind,
+				Service: &service,
+				Method:  &listMethod,
+				Data:    listRequest,
+			},
+			{
+				Kind:    &changeKind,
+				Service: &service,
+				Method:  &getMethod,
+				Data:    getRequest,
+			},
+		}
+
+	*/
 	response := &flowvariablev1.FlowVariableUpdateResponse{
-		Changes: changes,
+		// 	Changes: changes,
 	}
 
 	return connect.NewResponse(response), nil
@@ -265,28 +268,31 @@ func (c *FlowVariableServiceRPC) FlowVariableDelete(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete flow variable: %w", err))
 	}
 
-	// Create an invalidation change for the flow variables list
-	service := "flowvariable.v1.FlowVariableService"
-	method := "FlowVariableList"
-	changeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-	listRequest, err := anypb.New(&flowvariablev1.FlowVariableListRequest{
-		FlowId: variable.FlowID.Bytes(),
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	/*
 
-	changes := []*changev1.Change{
-		{
-			Kind:    &changeKind,
-			Service: &service,
-			Method:  &method,
-			Data:    listRequest,
-		},
-	}
+		// Create an invalidation change for the flow variables list
+		service := "flowvariable.v1.FlowVariableService"
+		method := "FlowVariableList"
+		changeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
+		listRequest, err := anypb.New(&flowvariablev1.FlowVariableListRequest{
+			FlowId: variable.FlowID.Bytes(),
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		changes := []*changev1.Change{
+			{
+				Kind:    &changeKind,
+				Service: &service,
+				Method:  &method,
+				Data:    listRequest,
+			},
+		}
+	*/
 
 	response := &flowvariablev1.FlowVariableDeleteResponse{
-		Changes: changes,
+		// Changes: changes,
 	}
 
 	return connect.NewResponse(response), nil
