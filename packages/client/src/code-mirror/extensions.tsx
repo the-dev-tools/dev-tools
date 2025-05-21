@@ -5,6 +5,7 @@ import {
   Completion,
   completionKeymap,
   CompletionSource,
+  pickedCompletion,
   startCompletion,
 } from '@codemirror/autocomplete';
 import { history, historyKeymap, standardKeymap } from '@codemirror/commands';
@@ -188,7 +189,30 @@ const referenceCompletions =
 
     const startToken = token.text.trimStart();
 
-    const options = pipe(
+    const options: Completion[] = [];
+
+    const fileToken = 'file:';
+    if (fileToken.startsWith(startToken)) {
+      options.push({
+        apply: async (view, completion, from) => {
+          const { filePaths } = await window.electron.dialog('showOpenDialog', {});
+          const path = filePaths[0];
+          if (!path) return;
+
+          const insert = completion.label + path;
+
+          view.dispatch({
+            annotations: pickedCompletion.of(completion),
+            changes: [{ from, insert }],
+            selection: { anchor: from + insert.length },
+          });
+        },
+        displayLabel: fileToken,
+        label: fileToken.replace(startToken, ''),
+      });
+    }
+
+    pipe(
       (await client.referenceCompletion({ ...referenceContext, start: startToken })).items,
       Array.map((_): Completion => {
         const type = pipe(
@@ -230,6 +254,7 @@ const referenceCompletions =
           type,
         };
       }),
+      Array.appendAll(options),
     );
 
     return {

@@ -9,6 +9,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({ exclude: ['electron-updater'] })],
   },
   preload: {
+    build: { rollupOptions: { output: { format: 'cjs' } } },
     plugins: [externalizeDepsPlugin()],
   },
   renderer: {

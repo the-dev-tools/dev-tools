@@ -2,7 +2,7 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, Dialog, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
 import { CustomUpdateProvider, UpdateOptions } from './update';
@@ -20,7 +20,7 @@ const createWindow = Effect.gen(function* () {
     ),
     title: 'DevTools',
     webPreferences: {
-      preload: path.join(import.meta.dirname, '../preload/index.mjs'),
+      preload: path.join(import.meta.dirname, '../preload/index.cjs'),
     },
     width: 800,
   });
@@ -97,6 +97,11 @@ const onReady = Effect.gen(function* () {
   yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());
 
   yield* createWindow;
+
+  ipcMain.handle('dialog', <T extends keyof Dialog>(_event: unknown, method: T, ...options: Parameters<Dialog[T]>) => {
+    const methodFunction = dialog[method] as (...options: Parameters<Dialog[T]>) => ReturnType<Dialog[T]>;
+    return methodFunction(...options);
+  });
 });
 
 const onActivate = Effect.gen(function* () {

@@ -71,6 +71,7 @@
     "@types/react": "~19.1.4",
     "@types/react-dom": "~19.1.5",
     "@types/react-timeago": "~4.1.7",
+    "electron": "~36.2.1",
     "eslint": "~9.27.0",
     "globals": "~16.1.0",
     "typescript": "~5.8.3",
