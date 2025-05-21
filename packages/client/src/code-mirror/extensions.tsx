@@ -186,8 +186,10 @@ const referenceCompletions =
 
     if (!token) return null;
 
+    const startToken = token.text.trimStart();
+
     const options = pipe(
-      (await client.referenceCompletion({ ...referenceContext, start: token.text })).items,
+      (await client.referenceCompletion({ ...referenceContext, start: startToken })).items,
       Array.map((_): Completion => {
         const type = pipe(
           Match.value(_.kind),
@@ -206,7 +208,7 @@ const referenceCompletions =
         );
 
         const label = _.endToken.substring(_.endIndex);
-        const path = token.text + label;
+        const path = startToken + label;
 
         const info = () => {
           if (![ReferenceKind.VALUE, ReferenceKind.VARIABLE].includes(_.kind)) return null;
