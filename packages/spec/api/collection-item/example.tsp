@@ -3,10 +3,15 @@ import "@typespec/rest";
 
 import "../lib.tsp";
 
-import "./body.tsp";
+import "../collection.tsp";
+import "./folder.tsp";
 import "./endpoint.tsp";
+import "./example.tsp";
+
+import "./body.tsp";
 import "./request.tsp";
 import "./response.tsp";
+// import "./breadcrumb.tsp";
 
 using TypeSpec.Protobuf;
 using TypeSpec.Rest;
@@ -28,8 +33,25 @@ model Example {
   @key exampleId: Resource.Id;
   lastResponseId?: Resource.Id;
   name: string;
-  @visibility(Resource.Mutation.None, Resource.Query.Get) breadcrumbs: string[];
+  @visibility(Resource.Mutation.None, Resource.Query.Get) breadcrumbs: ExampleBreadcrumb[];
   @visibility(Resource.Query.Get) bodyKind: Body.BodyKind;
+}
+
+enum ExampleBreadcrumbKind {
+  EXAMPLE_BREADCRUMB_KIND_UNSPECIFIED: 0,
+  EXAMPLE_BREADCRUMB_KIND_COLLECTION: 1,
+  EXAMPLE_BREADCRUMB_KIND_FOLDER: 2,
+  EXAMPLE_BREADCRUMB_KIND_ENDPOINT: 3,
+  EXAMPLE_BREADCRUMB_KIND_EXAMPLE: 4,
+}
+
+@autoFields
+model ExampleBreadcrumb {
+  kind: ExampleBreadcrumbKind;
+  collection?: Collection.CollectionListItem;
+  folder?: Folder.FolderListItem;
+  endpoint?: Endpoint.EndpointListItem;
+  example?: ExampleListItem;
 }
 
 model ExampleListItem is Resource.List.Item<Example>;

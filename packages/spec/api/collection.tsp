@@ -26,5 +26,7 @@ model Collection {
   name: string;
 }
 
+model CollectionListItem is Resource.List.Item<Collection>;
+
 @Protobuf.service
-interface CollectionService extends Resource.CRUD<Collection> {}
+interface CollectionService extends Resource.CRUD<Collection, TListItem = CollectionListItem> {}

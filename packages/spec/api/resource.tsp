@@ -96,6 +96,7 @@ namespace List {
   @friendlyName("{name}ListItem", TResource)
   @entity(TResource)
   @withVisibility(Query.List)
+  @autoFields
   model Item<TResource extends Model> {
     ...TResource;
   }
