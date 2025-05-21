@@ -64,6 +64,8 @@ import (
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
 	"time"
 
+	"the-dev-tools/cli/embeded/embededJS"
+
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 )
@@ -774,9 +776,9 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 			slog.Warn("node binary not found in PATH, assuming worker-js is already running or not needed")
 		} else {
 			slog.Info("node binary found", "path", nodePath)
-			// TODO: Make this path configurable
-			scriptPath := "./node_modules/@the-dev-tools/worker-js/dist/main.cjs"
-			cmd := exec.CommandContext(ctx, nodePath, "--experimental-vm-modules", "--disable-warning=ExperimentalWarning", scriptPath)
+			cmd := exec.CommandContext(ctx, nodePath, "--experimental-vm-modules", "--disable-warning=ExperimentalWarning", "-")
+
+			cmd.Stdin = strings.NewReader(embededJS.WorkerJS) // Pipe the embedded script content
 			// TODO: Optionally pipe stdout/stderr of the node process
 			// cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
