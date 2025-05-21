@@ -41,11 +41,14 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
+	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tassert"
+	"the-dev-tools/server/pkg/translate/tbreadcrumbs"
 	"the-dev-tools/server/pkg/translate/texample"
+	"the-dev-tools/server/pkg/translate/tgeneric"
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
@@ -60,6 +63,7 @@ type ItemAPIExampleRPC struct {
 	DB   *sql.DB
 	iaes *sitemapiexample.ItemApiExampleService
 	ias  *sitemapi.ItemApiService
+	ifs  *sitemfolder.ItemFolderService
 
 	ws *sworkspace.WorkspaceService
 	cs *scollection.CollectionService
@@ -84,7 +88,7 @@ type ItemAPIExampleRPC struct {
 	logChanMap logconsole.LogChanMap
 }
 
-func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService,
+func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.ItemApiService, ifs sitemfolder.ItemFolderService,
 	ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService, hs sexampleheader.HeaderService, qs sexamplequery.ExampleQueryService,
 	bfs sbodyform.BodyFormService, beus sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService, erhs sexamplerespheader.ExampleRespHeaderService,
 	ers sexampleresp.ExampleRespService, es senv.EnvService, vs svar.VarService, as sassert.AssertService, ars sassertres.AssertResultService,
@@ -94,6 +98,7 @@ func New(db *sql.DB, iaes sitemapiexample.ItemApiExampleService, ias sitemapi.It
 		DB:         db,
 		iaes:       &iaes,
 		ias:        &ias,
+		ifs:        &ifs,
 		ws:         &ws,
 		cs:         &cs,
 		us:         &us,
@@ -172,7 +177,7 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	exampleBreadcrumbs, err := c.iaes.GetExampleAllParentsNames(ctx, exampleIdWrap)
+	exampleBreadcrumbs, err := c.iaes.GetExampleAllParents(ctx, exampleIdWrap, *c.cs, *c.ifs, *c.ias)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -186,7 +191,10 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 	if exampleResp != nil {
 		respIdPtr = &exampleResp.ID
 	}
-	rpcExample := texample.SerializeModelToRPC(*example, respIdPtr, *exampleBreadcrumbs)
+
+	rpcBreadcrumbs := tgeneric.MassConvert(exampleBreadcrumbs, tbreadcrumbs.SerializeModelToRPC)
+
+	rpcExample := texample.SerializeModelToRPC(*example, respIdPtr, rpcBreadcrumbs)
 	resp := &examplev1.ExampleGetResponse{
 		ExampleId:      rpcExample.ExampleId,
 		LastResponseId: rpcExample.LastResponseId,

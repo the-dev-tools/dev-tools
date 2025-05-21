@@ -26,6 +26,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
+	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -46,6 +47,7 @@ func TestGetExampleApi(t *testing.T) {
 
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ifs := sitemfolder.New(queries)
 	ws := sworkspace.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
@@ -113,7 +115,7 @@ func TestGetExampleApi(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	rpcExample := ritemapiexample.New(db, iaes, ias,
+	rpcExample := ritemapiexample.New(db, iaes, ias, ifs,
 		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleGet(authedCtx, req)
@@ -152,6 +154,7 @@ func TestCreateExampleApi(t *testing.T) {
 
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ifs := sitemfolder.New(queries)
 	ws := sworkspace.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
@@ -201,7 +204,7 @@ func TestCreateExampleApi(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	rpcExample := ritemapiexample.New(db, iaes, ias,
+	rpcExample := ritemapiexample.New(db, iaes, ias, ifs,
 		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleCreate(authedCtx, req)
@@ -251,6 +254,7 @@ func TestUpdateExampleApi(t *testing.T) {
 
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ifs := sitemfolder.New(queries)
 	ws := sworkspace.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
@@ -323,7 +327,7 @@ func TestUpdateExampleApi(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	rpcExample := ritemapiexample.New(db, iaes, ias,
+	rpcExample := ritemapiexample.New(db, iaes, ias, ifs,
 		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleUpdate(authedCtx, req)
@@ -360,6 +364,7 @@ func TestDeleteExampleApi(t *testing.T) {
 
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
+	ifs := sitemfolder.New(queries)
 	ws := sworkspace.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
@@ -427,7 +432,7 @@ func TestDeleteExampleApi(t *testing.T) {
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
-	rpcExample := ritemapiexample.New(db, iaes, ias,
+	rpcExample := ritemapiexample.New(db, iaes, ias, ifs,
 		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.ExampleDelete(authedCtx, req)

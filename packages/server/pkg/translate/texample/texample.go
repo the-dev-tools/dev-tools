@@ -1,28 +1,14 @@
 package texample
 
 import (
-	"strings"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 )
 
-func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp *idwrap.IDWrap, exampleBreadcrumbs mitemapiexample.ExampleBreadcrumbs) *examplev1.Example {
+func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp *idwrap.IDWrap, exampleBreadcrumbs []*examplev1.ExampleBreadcrumb) *examplev1.Example {
 	// Split folder path into an array of folder names
-
-	breadcrumbs := []string{exampleBreadcrumbs.CollectionName}
-
-	// Add folder path elements if they exist
-	if exampleBreadcrumbs.FolderPath != nil {
-		folderPathStrArr := strings.Split(*exampleBreadcrumbs.FolderPath, "/")
-		if len(folderPathStrArr) > 0 && folderPathStrArr[0] != "" {
-			breadcrumbs = append(breadcrumbs, folderPathStrArr...)
-		}
-	}
-
-	// Add API name and example name
-	breadcrumbs = append(breadcrumbs, exampleBreadcrumbs.ApiName)
 
 	var lastResponseBytes []byte
 	if lastResp != nil {
@@ -34,7 +20,7 @@ func SerializeModelToRPC(ex mitemapiexample.ItemApiExample, lastResp *idwrap.IDW
 		Name:           ex.Name,
 		BodyKind:       bodyv1.BodyKind(ex.BodyType),
 		LastResponseId: lastResponseBytes,
-		Breadcrumbs:    breadcrumbs,
+		Breadcrumbs:    exampleBreadcrumbs,
 	}
 }
 

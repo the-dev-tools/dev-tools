@@ -225,7 +225,7 @@ func main() {
 	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
 
 	// Api Item Example
-	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService,
+	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService, folderService,
 		workspaceService, collectionService, userService, exampleHeaderService, exampleQueryService, bodyFormService, bodyUrlService,
 		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService, logMap)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))

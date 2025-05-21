@@ -8,7 +8,12 @@ import (
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mexamplebreadcrumb"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mitemfolder"
+	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/sitemapi"
+	"the-dev-tools/server/pkg/service/sitemfolder"
 )
 
 type ItemApiExampleService struct {
@@ -119,32 +124,55 @@ func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id idwrap.I
 	return ConvertToModelItem(itemApiExample), nil
 }
 
-func (iaes ItemApiExampleService) GetExampleAllParentsNames(ctx context.Context, id idwrap.IDWrap) (*mitemapiexample.ExampleBreadcrumbs, error) {
-	arg := gen.GetExampleAllParentsNamesParams{
-		ID:   id,
-		ID_2: id,
-	}
+func (iaes ItemApiExampleService) GetExampleAllParents(ctx context.Context, id idwrap.IDWrap, collectionService scollection.CollectionService, folderService sitemfolder.ItemFolderService, endpointService sitemapi.ItemApiService) ([]mexamplebreadcrumb.ExampleBreadcrumb, error) {
 
-	names, err := iaes.Queries.GetExampleAllParentsNames(ctx, arg)
+	example, err := iaes.GetApiExample(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	var folderPathPtr *string
-	if names.FolderPath != nil {
-		path, ok := names.FolderPath.(string)
-		if !ok {
-			return nil, errors.New("folderPath type is not string")
-		}
-		folderPathPtr = &path
+	endpoint, err := endpointService.GetItemApi(ctx, example.ItemApiID)
+	if err != nil {
+		return nil, err
 	}
 
-	breadcrumbs := mitemapiexample.ExampleBreadcrumbs{
-		CollectionName: names.CollectionName,
-		ApiName:        names.ApiName,
-		ExampleName:    names.ExampleName,
-		FolderPath:     folderPathPtr,
+	collection, err := collectionService.GetCollection(ctx, example.CollectionID)
+	if err != nil {
+		return nil, err
 	}
-	return &breadcrumbs, nil
+
+	folderID := endpoint.FolderID
+	var folders []mitemfolder.ItemFolder
+	for folderID != nil {
+		folder, err := folderService.GetFolder(ctx, *folderID)
+		if err != nil {
+			return nil, err
+		}
+		folders = append(folders, *folder)
+		folderID = folder.ParentID
+	}
+
+	var crumbs []mexamplebreadcrumb.ExampleBreadcrumb
+
+	crumbs = append(crumbs, mexamplebreadcrumb.ExampleBreadcrumb{
+		Kind:       mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_COLLECTION,
+		Collection: collection,
+	})
+	for _, folder := range folders {
+		crumbs = append(crumbs, mexamplebreadcrumb.ExampleBreadcrumb{
+			Kind:   mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_FOLDER,
+			Folder: &folder,
+		})
+	}
+	crumbs = append(crumbs, mexamplebreadcrumb.ExampleBreadcrumb{
+		Kind:     mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_ENDPOINT,
+		Endpoint: endpoint,
+	})
+	crumbs = append(crumbs, mexamplebreadcrumb.ExampleBreadcrumb{
+		Kind:    mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_EXAMPLE,
+		Example: example,
+	})
+
+	return crumbs, nil
 }
 
 func (iaes ItemApiExampleService) GetApiExampleByCollection(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemapiexample.ItemApiExample, error) {

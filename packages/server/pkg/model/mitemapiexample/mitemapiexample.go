@@ -37,10 +37,3 @@ type ItemApiExample struct {
 func (i ItemApiExample) GetCreatedTime() time.Time {
 	return i.ID.Time()
 }
-
-type ExampleBreadcrumbs struct {
-	CollectionName string
-	ApiName        string
-	ExampleName    string
-	FolderPath     *string
-}
