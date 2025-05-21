@@ -17,7 +17,10 @@ import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { ExampleVersionsItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
+import {
+  ExampleBreadcrumbKindSchema,
+  ExampleVersionsItem,
+} from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { exampleRun } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   QueryCreateRequest,
@@ -61,6 +64,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
+import { enumToString } from '~api/utils';
 import {
   CodeMirrorMarkupLanguage,
   CodeMirrorMarkupLanguages,
@@ -370,12 +374,17 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
         <div
           className={tw`text-md flex min-w-0 flex-1 select-none gap-1 font-medium leading-5 tracking-tight text-slate-400`}
         >
-          {example.breadcrumbs.map((_, index) => (
-            <Fragment key={`${index} ${_}`}>
-              <span>{_}</span>
-              <span>/</span>
-            </Fragment>
-          ))}
+          {example.breadcrumbs.map((_, index) => {
+            // TODO: add links to breadcrumbs
+            const key = enumToString(ExampleBreadcrumbKindSchema, 'EXAMPLE_BREADCRUMB_KIND', _.kind);
+            const name = _[key]?.name;
+            return (
+              <Fragment key={`${index} ${name}`}>
+                <span>{name}</span>
+                <span>/</span>
+              </Fragment>
+            );
+          })}
 
           {isEditing ? (
             <TextField
