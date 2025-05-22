@@ -191,7 +191,7 @@ const referenceCompletions =
 
     const options: Completion[] = [];
 
-    const fileToken = 'file:';
+    const fileToken = '#file:';
     if (fileToken.startsWith(startToken)) {
       options.push({
         apply: async (view, completion, from) => {
