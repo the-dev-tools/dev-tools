@@ -115,13 +115,8 @@ export const Route = makeRoute({
 });
 
 function Page() {
-  const transport = useTransport();
-
   const { endpointId, exampleId } = Route.useLoaderData();
-
   const { workspaceId } = workspaceRoute.useLoaderData();
-
-  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
 
   return (
     <Panel id='main' order={2}>
@@ -140,14 +135,7 @@ function Page() {
               <EndpointRequestView exampleId={exampleId} />
             </ReferenceContext>
           </Panel>
-          {example.lastResponseId && (
-            <>
-              <PanelResizeHandle direction='vertical' />
-              <Panel defaultSize={40} id='response' order={2}>
-                <ResponsePanel fullWidth responseId={example.lastResponseId} />
-              </Panel>
-            </>
-          )}
+          <ResponsePanel />
           <StatusBar />
         </PanelGroup>
       </Suspense>
@@ -611,7 +599,7 @@ const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }
         <>
           <PanelResizeHandle direction='vertical' />
           <Panel>
-            <ResponsePanel fullWidth responseId={lastResponseId} />
+            <ResponseTabs fullWidth responseId={lastResponseId} />
           </Panel>
         </>
       )}
@@ -619,13 +607,31 @@ const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }
   );
 };
 
-interface ResponsePanelProps {
+const ResponsePanel = () => {
+  const transport = useTransport();
+  const { exampleId } = Route.useLoaderData();
+
+  const { lastResponseId } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+
+  if (!lastResponseId) return null;
+
+  return (
+    <>
+      <PanelResizeHandle direction='vertical' />
+      <Panel defaultSize={40} id='response' order={2}>
+        <ResponseTabs fullWidth responseId={lastResponseId} />
+      </Panel>
+    </>
+  );
+};
+
+interface ResponseTabsProps {
   className?: string;
   fullWidth?: boolean;
   responseId: Uint8Array;
 }
 
-export const ResponsePanel = ({ className, fullWidth = false, responseId }: ResponsePanelProps) => {
+export const ResponseTabs = ({ className, fullWidth = false, responseId }: ResponseTabsProps) => {
   const transport = useTransport();
 
   const response = useSuspense(ResponseGetEndpoint, transport, { responseId });

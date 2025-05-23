@@ -20,7 +20,7 @@ import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from '../../collection';
-import { EndpointRequestView, ResponsePanel, useEndpointUrl } from '../../endpoint';
+import { EndpointRequestView, ResponseTabs, useEndpointUrl } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
 import { FlowContext, flowRoute, Handle, workspaceRoute } from '../internal';
 import { FlowSearch } from '../layout';
@@ -189,7 +189,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
             Response
           </div>
 
-          <ResponsePanel className={tw`p-5 pt-3`} responseId={lastResponseId} />
+          <ResponseTabs className={tw`p-5 pt-3`} responseId={lastResponseId} />
         </div>
       )}
     </>
