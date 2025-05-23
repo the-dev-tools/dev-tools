@@ -292,6 +292,7 @@ export const TopBar = () => {
     <div className={tw`flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5`}>
       {isEditing ? (
         <TextField
+          aria-label='Flow name'
           inputClassName={tw`text-md -my-1 py-1 font-medium leading-none tracking-tight text-slate-800`}
           isDisabled={flowUpdateLoading}
           {...textFieldProps}

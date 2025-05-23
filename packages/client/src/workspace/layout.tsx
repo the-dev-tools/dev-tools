@@ -243,6 +243,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
         {isEditing &&
           escape.render(
             <TextField
+              aria-label='Flow name'
               className={tw`w-full`}
               inputClassName={tw`-my-1 py-1`}
               isDisabled={flowUpdateLoading}

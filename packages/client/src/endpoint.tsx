@@ -388,6 +388,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
           {isEditing ? (
             <TextField
+              aria-label='Example name'
               inputClassName={tw`-my-1 py-1 leading-none text-slate-800`}
               isDisabled={exampleUpdateLoading}
               {...textFieldProps}

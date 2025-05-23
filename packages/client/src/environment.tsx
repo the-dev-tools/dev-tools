@@ -240,6 +240,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
 
         {isEditing ? (
           <TextField
+            aria-label='Environment name'
             inputClassName={tw`-my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
             isDisabled={environmentUpdateLoading}
             {...textFieldProps}

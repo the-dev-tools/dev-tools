@@ -155,6 +155,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       {isEditing &&
         escape.render(
           <TextField
+            aria-label='Collection name'
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
             isDisabled={collectionUpdateLoading}
@@ -282,6 +283,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
           {isEditing &&
             escape.render(
               <TextField
+                aria-label='Folder name'
                 className={tw`w-full`}
                 inputClassName={tw`-my-1 py-1`}
                 isDisabled={folderUpdateLoading}
@@ -412,6 +414,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
       {isEditing &&
         escape.render(
           <TextField
+            aria-label='Endpoint name'
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
             isDisabled={endpointUpdateLoading}
@@ -542,6 +545,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
       {isEditing &&
         escape.render(
           <TextField
+            aria-label='Example name'
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
             isDisabled={exampleUpdateLoading}

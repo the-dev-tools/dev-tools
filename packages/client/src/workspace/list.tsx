@@ -98,6 +98,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
       >
         {isEditing ? (
           <TextField
+            aria-label='Workspace name'
             className={tw`justify-self-start`}
             inputClassName={tw`text-md -my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
             isDisabled={workspaceUpdateLoading}
