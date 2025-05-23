@@ -3,7 +3,6 @@ package mexamplebreadcrumb
 import (
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 )
 
@@ -14,7 +13,6 @@ const (
 	EXAMPLE_BREADCRUMB_KIND_COLLECTION
 	EXAMPLE_BREADCRUMB_KIND_FOLDER
 	EXAMPLE_BREADCRUMB_KIND_ENDPOINT
-	EXAMPLE_BREADCRUMB_KIND_EXAMPLE
 )
 
 type ExampleBreadcrumb struct {
@@ -22,5 +20,4 @@ type ExampleBreadcrumb struct {
 	Collection *mcollection.Collection
 	Folder     *mitemfolder.ItemFolder
 	Endpoint   *mitemapi.ItemApi
-	Example    *mitemapiexample.ItemApiExample
 }

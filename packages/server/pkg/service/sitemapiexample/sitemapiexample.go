@@ -167,10 +167,6 @@ func (iaes ItemApiExampleService) GetExampleAllParents(ctx context.Context, id i
 		Kind:     mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_ENDPOINT,
 		Endpoint: endpoint,
 	})
-	crumbs = append(crumbs, mexamplebreadcrumb.ExampleBreadcrumb{
-		Kind:    mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_EXAMPLE,
-		Example: example,
-	})
 
 	return crumbs, nil
 }

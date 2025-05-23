@@ -42,7 +42,6 @@ enum ExampleBreadcrumbKind {
   EXAMPLE_BREADCRUMB_KIND_COLLECTION: 1,
   EXAMPLE_BREADCRUMB_KIND_FOLDER: 2,
   EXAMPLE_BREADCRUMB_KIND_ENDPOINT: 3,
-  EXAMPLE_BREADCRUMB_KIND_EXAMPLE: 4,
 }
 
 @autoFields
@@ -51,7 +50,6 @@ model ExampleBreadcrumb {
   collection?: Collection.CollectionListItem;
   folder?: Folder.FolderListItem;
   endpoint?: Endpoint.EndpointListItem;
-  example?: ExampleListItem;
 }
 
 model ExampleListItem is Resource.List.Item<Example>;

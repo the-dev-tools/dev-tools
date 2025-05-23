@@ -5,7 +5,6 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplebreadcrumb"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/translate/tcollection"
-	"the-dev-tools/server/pkg/translate/texample"
 	"the-dev-tools/server/pkg/translate/tfolder"
 	"the-dev-tools/server/pkg/translate/titemapi"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
@@ -24,9 +23,6 @@ func SerializeModelToRPC(breadCrumb mexamplebreadcrumb.ExampleBreadcrumb) *examp
 		rpcBreadcrumb.Folder = tfolder.SeralizeModelToRPCItem(*breadCrumb.Folder)
 	case mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_ENDPOINT:
 		rpcBreadcrumb.Endpoint = titemapi.SeralizeModelToRPCItem(breadCrumb.Endpoint)
-	case mexamplebreadcrumb.EXAMPLE_BREADCRUMB_KIND_EXAMPLE:
-		example := breadCrumb.Example
-		rpcBreadcrumb.Example = texample.SerializeModelToRPCItem(*example, nil)
 	}
 
 	return rpcBreadcrumb
