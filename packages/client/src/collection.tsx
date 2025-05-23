@@ -1,6 +1,6 @@
 import { MessageInitShape } from '@bufbuild/protobuf';
 import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useController, useDLE, useSuspense } from '@data-client/react';
 import { getRouteApi, ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -125,8 +125,10 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const { collectionId } = collection;
   const [enabled, setEnabled] = useState(false);
 
-  // TODO: enable only when open
-  const { items } = useSuspense(CollectionItemListEndpoint, transport, { collectionId });
+  const {
+    data: { items },
+    loading,
+  } = useDLE(CollectionItemListEndpoint, ...(enabled ? [transport, { collectionId }] : [null]));
   const [collectionUpdate, collectionUpdateLoading] = useMutate(CollectionUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -141,10 +143,11 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   return (
     <TreeItem
       childItem={mapCollectionItemTree(collectionId)}
-      childItems={items}
+      childItems={items ?? []}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      loading={loading}
       textValue={collection.name}
       wrapperOnContextMenu={onContextMenu}
     >
@@ -239,8 +242,13 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
   const [enabled, setEnabled] = useState(false);
 
-  // TODO: enable only when open
-  const { items } = useSuspense(CollectionItemListEndpoint, transport, { collectionId, parentFolderId: folderId });
+  const {
+    data: { items },
+    loading,
+  } = useDLE(
+    CollectionItemListEndpoint,
+    ...(enabled ? [transport, { collectionId, parentFolderId: folderId }] : [null]),
+  );
 
   const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
 
@@ -261,10 +269,11 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
   return (
     <TreeItem
       childItem={mapCollectionItemTree(collectionId, folderId)}
-      childItems={items}
+      childItems={items ?? []}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      loading={loading}
       textValue={folder.name}
       wrapperOnContextMenu={onContextMenu}
     >
@@ -367,8 +376,10 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
   const [enabled, setEnabled] = useState(false);
 
-  // TODO: enable only when open
-  const { items } = useSuspense(ExampleListEndpoint, transport, { endpointId });
+  const {
+    data: { items },
+    loading,
+  } = useDLE(ExampleListEndpoint, ...(enabled ? [transport, { endpointId }] : [null]));
 
   const [endpointUpdate, endpointUpdateLoading] = useMutate(EndpointUpdateEndpoint);
 
@@ -396,12 +407,13 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
         return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
       }}
-      childItems={items}
+      childItems={items ?? []}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       href={toNavigate ? route : undefined!}
       id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       isActive={toNavigate && matchRoute(route) !== false}
+      loading={loading}
       textValue={name}
       wrapperOnContextMenu={onContextMenu}
     >
