@@ -72,7 +72,10 @@ model ExampleDuplicateResponse is Resource.Create.Response<Example>;
 model ExampleRunRequest is KeyOf<Example>;
 
 @autoFields
-model ExampleRunResponse is Resource.Get.Response<Response.Response>;
+model ExampleRunResponse {
+  response: Resource.Get.Response<Response.Response>;
+  version: ExampleVersionsItem;
+}
 
 @Protobuf.service
 interface ExampleService

@@ -32,6 +32,8 @@ model FlowListRequest is Resource.List.Request<Flow> {
   tagId?: Resource.Id;
 }
 
+model FlowListItem is Resource.List.Item<Flow>;
+
 model FlowVersionsItem is Resource.List.Item<Flow>;
 model FlowVersionsRequest is KeyOf<Flow>;
 model FlowVersionsResponse is Resource.List.Response<Flow, TRequest = FlowVersionsRequest, TItem = FlowVersionsItem>;
@@ -43,13 +45,19 @@ model FlowRunRequest {
 }
 
 @autoFields
-model FlowRunResponse {
+model FlowRunNodeResponse {
   ...KeyOf<FlowItem.Node.Node>;
   state: FlowItem.Node.NodeState;
 }
 
+@autoFields
+model FlowRunResponse {
+  node?: FlowRunNodeResponse;
+  version?: FlowVersionsItem;
+}
+
 @Protobuf.service
-interface FlowService extends Resource.CRUD<Flow, TListRequest = FlowListRequest> {
+interface FlowService extends Resource.CRUD<Flow, TListItem = FlowListItem, TListRequest = FlowListRequest> {
   FlowVersions is Resource.List.Operation<
     Flow,
     TItem = FlowVersionsItem,
