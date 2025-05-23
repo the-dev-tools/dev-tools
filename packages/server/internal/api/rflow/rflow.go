@@ -69,6 +69,7 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tflow"
+	"the-dev-tools/server/pkg/translate/tflowversion"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
@@ -795,9 +796,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			default:
 			}
 
-			resp := &flowv1.FlowRunResponse{
+			nodeResp := &flowv1.FlowRunNodeResponse{
 				NodeId: flowNodeStatus.NodeID.Bytes(),
 				State:  nodev1.NodeState(flowNodeStatus.State),
+			}
+
+			resp := &flowv1.FlowRunResponse{
+				Node: nodeResp,
 				// Changes: changes,
 			}
 
@@ -898,6 +903,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	resp := &flowv1.FlowRunResponse{
+		Version: tflowversion.ModelToRPC(res.Flow),
+	}
+
+	err = stream.Send(resp)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	if flowErr != nil {
@@ -1214,13 +1228,7 @@ func (c *FlowServiceRPC) FlowVersions(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	translateFunc := func(flow mflow.Flow) *flowv1.FlowVersionsItem {
-		return &flowv1.FlowVersionsItem{
-			FlowId: flow.ID.Bytes(),
-			Name:   flow.Name,
-		}
-	}
-	translatedFlows := tgeneric.MassConvert(flows, translateFunc)
+	translatedFlows := tgeneric.MassConvert(flows, tflowversion.ModelToRPC)
 	resp := &flowv1.FlowVersionsResponse{
 		Items: translatedFlows,
 	}

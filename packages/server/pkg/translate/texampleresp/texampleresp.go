@@ -39,3 +39,23 @@ func SeralizeModelToRPC(e mexampleresp.ExampleResp) (*responsev1.Response, error
 		Duration:   e.Duration,
 	}, nil
 }
+
+func SeralizeModelToRPCGetResponse(e mexampleresp.ExampleResp) (*responsev1.ResponseGetResponse, error) {
+	body := e.Body
+	if e.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
+		var err error
+		body, err = zstdcompress.Decompress(body)
+		if err != nil {
+			return nil, errors.Join(ErrDecompress, err)
+		}
+	}
+
+	return &responsev1.ResponseGetResponse{
+		ResponseId: e.ID.Bytes(),
+		Status:     int32(e.Status),
+		Body:       body,
+		Time:       timestamppb.New(e.ID.Time()),
+		Duration:   e.Duration,
+		Size:       int32(len(body)),
+	}, nil
+}

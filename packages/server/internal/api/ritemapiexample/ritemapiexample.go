@@ -48,15 +48,15 @@ import (
 	"the-dev-tools/server/pkg/translate/tassert"
 	"the-dev-tools/server/pkg/translate/tbreadcrumbs"
 	"the-dev-tools/server/pkg/translate/texample"
+	"the-dev-tools/server/pkg/translate/texampleresp"
+	"the-dev-tools/server/pkg/translate/texampleversion"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
-	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ItemAPIExampleRPC struct {
@@ -860,15 +860,14 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			})
 	*/
 
-	size := int32(len(responseOutput.BodyRaw))
+	rpcResponseGet, err := texampleresp.SeralizeModelToRPCGetResponse(*exampleResp)
+	if err != nil {
+		return nil, err
+	}
 
 	return connect.NewResponse(&examplev1.ExampleRunResponse{
-		ResponseId: exampleResp.ID.Bytes(),
-		Status:     int32(exampleResp.Status),
-		Body:       responseOutput.BodyRaw,
-		Time:       timestamppb.New(time.Now()),
-		Duration:   exampleResp.Duration,
-		Size:       size,
+		Response: rpcResponseGet,
+		Version:  texampleversion.ModelToRPC(*example, &res.Resp.ID),
 	}), nil
 }
 
