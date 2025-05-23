@@ -1,7 +1,7 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useController, useDLE, useSuspense } from '@data-client/react';
 import { createFileRoute, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import {
@@ -26,12 +26,19 @@ import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi'
 import { Panel, PanelGroup } from 'react-resizable-panels';
 
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { nodeGet } from '@the-dev-tools/spec/flow/node/v1/node-NodeService_connectquery';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { ExampleVersionsEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
+import {
+  ExampleEntity,
+  ExampleVersionsItemEntity,
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
+import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
+import { NodeEntity } from '@the-dev-tools/spec/meta/flow/node/v1/node.entities.js';
 import {
   FlowDeleteEndpoint,
   FlowGetEndpoint,
   FlowUpdateEndpoint,
+  FlowVersionsEndpoint,
 } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
 import {
   FlowVariableCreateEndpoint,
@@ -48,7 +55,6 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useConnectQuery } from '~/api/connect-query';
 import { useMutate } from '~data-client';
 import {
   ColumnActionDelete,
@@ -376,8 +382,8 @@ export const TopBar = () => {
 
 const ActionBar = () => {
   const { flowId } = use(FlowContext);
+  const controller = useController();
   const { transport } = useRouteContext({ from: '__root__' });
-  // TODO: switch to Data Client Endpoint
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
@@ -439,17 +445,38 @@ const ActionBar = () => {
             HashMap.fromIterable,
           );
 
-          for await (const { nodeId, state } of flowRun({ flowId })) {
-            const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+          for await (const { example, node, version } of flowRun({ flowId })) {
+            if (version) await controller.set(FlowVersionsEndpoint.schema.items.unshift, { flowId }, version);
 
-            flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
+            if (example) {
+              const { exampleId, responseId, versionId } = example;
 
-            pipe(
-              HashMap.get(sourceEdges, nodeIdCan),
-              Array.fromOption,
-              Array.flatten,
-              Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
-            );
+              await controller.set(ExampleEntity, { exampleId }, {
+                exampleId,
+                lastResponseId: responseId,
+              } satisfies Partial<ExampleEntity>);
+
+              await controller.set(ExampleVersionsEndpoint.schema.items.unshift, { exampleId }, {
+                exampleId: versionId,
+                lastResponseId: responseId,
+              } satisfies Partial<ExampleVersionsItemEntity>);
+            }
+
+            if (node) {
+              const { nodeId, state } = node;
+              const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+              flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
+
+              pipe(
+                HashMap.get(sourceEdges, nodeIdCan),
+                Array.fromOption,
+                Array.flatten,
+                Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
+              );
+
+              await controller.set(NodeEntity, { nodeId }, node);
+            }
           }
         }}
         variant='primary'
@@ -526,26 +553,23 @@ const SettingsPanel = () => {
 };
 
 export const EditPanel = () => {
+  const transport = useTransport();
+
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { nodeId } = flowRoute.useLoaderData();
 
-  // TODO: switch to Data Client Endpoint
-  const nodeQuery = useConnectQuery(
-    nodeGet,
-    { nodeId: Option.getOrUndefined(nodeId)! },
-    { enabled: Option.isSome(nodeId) },
-  );
+  const { data } = useDLE(NodeGetEndpoint, ...(Option.isSome(nodeId) ? [transport, { nodeId: nodeId.value }] : [null]));
 
-  if (Option.isNone(nodeId) || !nodeQuery.data) return null;
+  if (Option.isNone(nodeId) || !data) return null;
 
   const view = pipe(
-    Match.value(nodeQuery.data),
+    Match.value(data),
     Match.when({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.START }, () => <SettingsPanel />),
-    Match.when({ kind: NodeKind.CONDITION }, () => <ConditionPanel node={nodeQuery.data} />),
-    Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachPanel node={nodeQuery.data} />),
-    Match.when({ kind: NodeKind.FOR }, () => <ForPanel node={nodeQuery.data} />),
-    Match.when({ kind: NodeKind.JS }, () => <JavaScriptPanel node={nodeQuery.data} />),
-    Match.when({ kind: NodeKind.REQUEST }, () => <RequestPanel node={nodeQuery.data} />),
+    Match.when({ kind: NodeKind.CONDITION }, () => <ConditionPanel node={data} />),
+    Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachPanel node={data} />),
+    Match.when({ kind: NodeKind.FOR }, () => <ForPanel node={data} />),
+    Match.when({ kind: NodeKind.JS }, () => <JavaScriptPanel node={data} />),
+    Match.when({ kind: NodeKind.REQUEST }, () => <RequestPanel node={data} />),
     Match.orElse(() => null),
   );
 

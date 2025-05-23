@@ -794,12 +794,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					})
 				*/
 
-				nodeResp := &flowv1.FlowRunNodeResponse{
-					ExampleID: requestNodeResp.Example.ID.Bytes(),
+				example := &flowv1.FlowRunExampleResponse{
+					ExampleId:  requestNodeResp.Example.ID.Bytes(),
+					ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
 				}
 
 				resp := &flowv1.FlowRunResponse{
-					Node: nodeResp,
+					Example: example,
 				}
 
 				localErr := stream.Send(resp)

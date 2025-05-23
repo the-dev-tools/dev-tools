@@ -48,13 +48,20 @@ model FlowRunRequest {
 model FlowRunNodeResponse {
   ...KeyOf<FlowItem.Node.Node>;
   state: FlowItem.Node.NodeState;
-  exampleID?: Resource.Id;
+}
+
+@autoFields
+model FlowRunExampleResponse {
+  exampleId: Resource.Id;
+  responseId: Resource.Id;
+  versionId: Resource.Id;
 }
 
 @autoFields
 model FlowRunResponse {
   node?: FlowRunNodeResponse;
   version?: FlowVersionsItem;
+  example?: FlowRunExampleResponse;
 }
 
 @Protobuf.service
