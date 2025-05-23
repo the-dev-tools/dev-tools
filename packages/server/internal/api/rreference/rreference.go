@@ -270,7 +270,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 }
 
 func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.ReferenceTreeItem, error) {
-	resp, err := ers.GetExampleRespByExampleID(ctx, exID)
+	resp, err := ers.GetExampleRespByExampleIDLatest(ctx, exID)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +591,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 	if exampleID != nil {
 		exID := *exampleID
-		resp, err := c.ers.GetExampleRespByExampleID(ctx, exID)
+		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, exID)
 		if err != nil {
 			return nil, err
 		}

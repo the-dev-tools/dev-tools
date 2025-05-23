@@ -3496,74 +3496,6 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 	return items, nil
 }
 
-const getExampleAllParentsNames = `-- name: GetExampleAllParentsNames :one
-WITH RECURSIVE folder_path AS (
-  SELECT
-    f.id,
-    f.name,
-    f.parent_id,
-    f.collection_id,
-    1 AS level,
-    f.name AS path
-  FROM
-    item_folder f
-  WHERE
-    f.id = (SELECT folder_id FROM item_api WHERE item_api.id = (SELECT item_api_id FROM item_api_example WHERE item_api_example.id = ?))
-    AND f.id IS NOT NULL
-
-  UNION ALL
-
-  SELECT
-    f.id,
-    f.name,
-    f.parent_id,
-    f.collection_id,
-    fp.level + 1,
-    fp.path || '/' || f.name
-  FROM
-    item_folder f
-  JOIN
-    folder_path fp ON f.id = fp.parent_id
-)
-SELECT
-  c.name AS collection_name,
-  a.name AS api_name,
-  e.name AS example_name,
-  COALESCE((SELECT path FROM folder_path WHERE parent_id IS NULL ORDER BY level DESC LIMIT 1), '') AS folder_path
-FROM
-  item_api_example e
-JOIN
-  item_api a ON e.item_api_id = a.id
-JOIN
-  collections c ON e.collection_id = c.id
-WHERE
-  e.id = ?
-`
-
-type GetExampleAllParentsNamesParams struct {
-	ID   idwrap.IDWrap
-	ID_2 idwrap.IDWrap
-}
-
-type GetExampleAllParentsNamesRow struct {
-	CollectionName string
-	ApiName        string
-	ExampleName    string
-	FolderPath     interface{}
-}
-
-func (q *Queries) GetExampleAllParentsNames(ctx context.Context, arg GetExampleAllParentsNamesParams) (GetExampleAllParentsNamesRow, error) {
-	row := q.queryRow(ctx, q.getExampleAllParentsNamesStmt, getExampleAllParentsNames, arg.ID, arg.ID_2)
-	var i GetExampleAllParentsNamesRow
-	err := row.Scan(
-		&i.CollectionName,
-		&i.ApiName,
-		&i.ExampleName,
-		&i.FolderPath,
-	)
-	return i, err
-}
-
 const getExampleResp = `-- name: GetExampleResp :one
 SELECT
     id, example_id, status, body, body_compress_type, duration
@@ -3576,6 +3508,55 @@ LIMIT 1
 
 func (q *Queries) GetExampleResp(ctx context.Context, id idwrap.IDWrap) (ExampleResp, error) {
 	row := q.queryRow(ctx, q.getExampleRespStmt, getExampleResp, id)
+	var i ExampleResp
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.Status,
+		&i.Body,
+		&i.BodyCompressType,
+		&i.Duration,
+	)
+	return i, err
+}
+
+const getExampleRespByExampleID = `-- name: GetExampleRespByExampleID :one
+SELECT
+    id, example_id, status, body, body_compress_type, duration
+FROM
+  example_resp
+WHERE
+  example_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetExampleRespByExampleID(ctx context.Context, exampleID idwrap.IDWrap) (ExampleResp, error) {
+	row := q.queryRow(ctx, q.getExampleRespByExampleIDStmt, getExampleRespByExampleID, exampleID)
+	var i ExampleResp
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.Status,
+		&i.Body,
+		&i.BodyCompressType,
+		&i.Duration,
+	)
+	return i, err
+}
+
+const getExampleRespByExampleIDLatest = `-- name: GetExampleRespByExampleIDLatest :one
+SELECT
+    id, example_id, status, body, body_compress_type, duration
+FROM
+  example_resp
+WHERE
+  example_id = ?
+ORDER BY id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetExampleRespByExampleIDLatest(ctx context.Context, exampleID idwrap.IDWrap) (ExampleResp, error) {
+	row := q.queryRow(ctx, q.getExampleRespByExampleIDLatestStmt, getExampleRespByExampleIDLatest, exampleID)
 	var i ExampleResp
 	err := row.Scan(
 		&i.ID,
@@ -3655,30 +3636,6 @@ func (q *Queries) GetExampleRespHeadersByRespID(ctx context.Context, exampleResp
 		return nil, err
 	}
 	return items, nil
-}
-
-const getExampleRespsByExampleID = `-- name: GetExampleRespsByExampleID :one
-SELECT
-    id, example_id, status, body, body_compress_type, duration
-FROM
-  example_resp
-WHERE
-  example_id = ?
-LIMIT 1
-`
-
-func (q *Queries) GetExampleRespsByExampleID(ctx context.Context, exampleID idwrap.IDWrap) (ExampleResp, error) {
-	row := q.queryRow(ctx, q.getExampleRespsByExampleIDStmt, getExampleRespsByExampleID, exampleID)
-	var i ExampleResp
-	err := row.Scan(
-		&i.ID,
-		&i.ExampleID,
-		&i.Status,
-		&i.Body,
-		&i.BodyCompressType,
-		&i.Duration,
-	)
-	return i, err
 }
 
 const getFlow = `-- name: GetFlow :one

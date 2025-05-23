@@ -300,20 +300,20 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceID: %w", err)
 	}
-	if q.getExampleAllParentsNamesStmt, err = db.PrepareContext(ctx, getExampleAllParentsNames); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleAllParentsNames: %w", err)
-	}
 	if q.getExampleRespStmt, err = db.PrepareContext(ctx, getExampleResp); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleResp: %w", err)
+	}
+	if q.getExampleRespByExampleIDStmt, err = db.PrepareContext(ctx, getExampleRespByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleRespByExampleID: %w", err)
+	}
+	if q.getExampleRespByExampleIDLatestStmt, err = db.PrepareContext(ctx, getExampleRespByExampleIDLatest); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExampleRespByExampleIDLatest: %w", err)
 	}
 	if q.getExampleRespHeaderStmt, err = db.PrepareContext(ctx, getExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleRespHeader: %w", err)
 	}
 	if q.getExampleRespHeadersByRespIDStmt, err = db.PrepareContext(ctx, getExampleRespHeadersByRespID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleRespHeadersByRespID: %w", err)
-	}
-	if q.getExampleRespsByExampleIDStmt, err = db.PrepareContext(ctx, getExampleRespsByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespsByExampleID: %w", err)
 	}
 	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
@@ -1059,14 +1059,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
-	if q.getExampleAllParentsNamesStmt != nil {
-		if cerr := q.getExampleAllParentsNamesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleAllParentsNamesStmt: %w", cerr)
-		}
-	}
 	if q.getExampleRespStmt != nil {
 		if cerr := q.getExampleRespStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getExampleRespStmt: %w", cerr)
+		}
+	}
+	if q.getExampleRespByExampleIDStmt != nil {
+		if cerr := q.getExampleRespByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleRespByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getExampleRespByExampleIDLatestStmt != nil {
+		if cerr := q.getExampleRespByExampleIDLatestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExampleRespByExampleIDLatestStmt: %w", cerr)
 		}
 	}
 	if q.getExampleRespHeaderStmt != nil {
@@ -1077,11 +1082,6 @@ func (q *Queries) Close() error {
 	if q.getExampleRespHeadersByRespIDStmt != nil {
 		if cerr := q.getExampleRespHeadersByRespIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getExampleRespHeadersByRespIDStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespsByExampleIDStmt != nil {
-		if cerr := q.getExampleRespsByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespsByExampleIDStmt: %w", cerr)
 		}
 	}
 	if q.getFlowStmt != nil {
@@ -1680,11 +1680,11 @@ type Queries struct {
 	getCollectionWorkspaceIDStmt                          *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt                      *sql.Stmt
-	getExampleAllParentsNamesStmt                         *sql.Stmt
 	getExampleRespStmt                                    *sql.Stmt
+	getExampleRespByExampleIDStmt                         *sql.Stmt
+	getExampleRespByExampleIDLatestStmt                   *sql.Stmt
 	getExampleRespHeaderStmt                              *sql.Stmt
 	getExampleRespHeadersByRespIDStmt                     *sql.Stmt
-	getExampleRespsByExampleIDStmt                        *sql.Stmt
 	getFlowStmt                                           *sql.Stmt
 	getFlowEdgeStmt                                       *sql.Stmt
 	getFlowEdgesByFlowIDStmt                              *sql.Stmt
@@ -1876,11 +1876,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionWorkspaceIDStmt:                     q.getCollectionWorkspaceIDStmt,
 		getEnvironmentStmt:                               q.getEnvironmentStmt,
 		getEnvironmentsByWorkspaceIDStmt:                 q.getEnvironmentsByWorkspaceIDStmt,
-		getExampleAllParentsNamesStmt:                    q.getExampleAllParentsNamesStmt,
 		getExampleRespStmt:                               q.getExampleRespStmt,
+		getExampleRespByExampleIDStmt:                    q.getExampleRespByExampleIDStmt,
+		getExampleRespByExampleIDLatestStmt:              q.getExampleRespByExampleIDLatestStmt,
 		getExampleRespHeaderStmt:                         q.getExampleRespHeaderStmt,
 		getExampleRespHeadersByRespIDStmt:                q.getExampleRespHeadersByRespIDStmt,
-		getExampleRespsByExampleIDStmt:                   q.getExampleRespsByExampleIDStmt,
 		getFlowStmt:                                      q.getFlowStmt,
 		getFlowEdgeStmt:                                  q.getFlowEdgeStmt,
 		getFlowEdgesByFlowIDStmt:                         q.getFlowEdgesByFlowIDStmt,

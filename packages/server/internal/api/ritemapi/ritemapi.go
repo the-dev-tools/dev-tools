@@ -216,7 +216,7 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 
 	var exampleResps []mexampleresp.ExampleResp
 	for i, v := range examples {
-		resp, err := c.ers.GetExampleRespByExampleID(ctx, v.ID)
+		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, v.ID)
 		if err != nil {
 			if err != sexampleresp.ErrNoRespFound {
 				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get example response"))

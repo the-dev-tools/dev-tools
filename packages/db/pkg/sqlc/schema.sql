@@ -143,7 +143,6 @@ CREATE TABLE example_resp (
   body BLOB,
   body_compress_type INT8 NOT NULL DEFAULT FALSE,
   duration INT NOT NULL,
-  UNIQUE (example_id),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 

@@ -1281,13 +1281,23 @@ WHERE
   id = ?
 LIMIT 1;
 
--- name: GetExampleRespsByExampleID :one
+-- name: GetExampleRespByExampleID :one
 SELECT
     *
 FROM
   example_resp
 WHERE
   example_id = ?
+LIMIT 1;
+
+-- name: GetExampleRespByExampleIDLatest :one
+SELECT
+    *
+FROM
+  example_resp
+WHERE
+  example_id = ?
+ORDER BY id DESC
 LIMIT 1;
 
 -- name: CreateExampleResp :exec

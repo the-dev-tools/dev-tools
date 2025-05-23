@@ -581,7 +581,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			return connect.NewError(connect.CodeInternal, err)
 		}
 
-		exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
 		if err != nil {
 			if err == sexampleresp.ErrNoRespFound {
 				exampleResp = &mexampleresp.ExampleResp{

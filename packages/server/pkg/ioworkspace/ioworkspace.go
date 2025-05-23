@@ -572,7 +572,7 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 		}
 
 		// response
-		response, err := s.responseService.GetExampleRespByExampleID(ctx, example.ID)
+		response, err := s.responseService.GetExampleRespByExampleIDLatest(ctx, example.ID)
 		if err != nil {
 			if err == sexampleresp.ErrNoRespFound {
 				// didn't find response so there will be no resp header etc...

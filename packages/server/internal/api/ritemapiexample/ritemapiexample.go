@@ -140,7 +140,7 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 
 	var respsRpc []*examplev1.ExampleListItem
 	for _, example := range examples {
-		exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
 		var exampleRespID *idwrap.IDWrap
 		if err != nil {
 			if err != sql.ErrNoRows {
@@ -184,7 +184,7 @@ func (c *ItemAPIExampleRPC) ExampleGet(ctx context.Context, req *connect.Request
 
 	// TODO: this can fail fix this
 	var respIdPtr *idwrap.IDWrap
-	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleIdWrap)
+	exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, exampleIdWrap)
 	if err != nil && err != sexampleresp.ErrNoRespFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -697,23 +697,13 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
-	// isExampleRespExists := true
-	exampleResp, err := c.ers.GetExampleRespByExampleID(ctx, exampleUlid)
-	if err != nil {
-		if err == sexampleresp.ErrNoRespFound {
-			// isExampleRespExists = false
-			exampleRespTemp := mexampleresp.ExampleResp{
-				ID:        idwrap.NewNow(),
-				ExampleID: exampleUlid,
-			}
-			exampleResp = &exampleRespTemp
+	exampleResp := mexampleresp.ExampleResp{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleUlid,
+	}
 
-			if err := c.ers.CreateExampleResp(ctx, exampleRespTemp); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		} else {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	if err := c.ers.CreateExampleResp(ctx, exampleResp); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	currentRespHeaders, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
@@ -726,12 +716,12 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	responseOutput, err := response.ResponseCreate(ctx, *requestResp, *exampleResp, currentRespHeaders, assertions)
+	responseOutput, err := response.ResponseCreate(ctx, *requestResp, exampleResp, currentRespHeaders, assertions)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	exampleResp = &responseOutput.ExampleResp
+	exampleResp = responseOutput.ExampleResp
 
 	err = c.ers.UpdateExampleResp(ctx, responseOutput.ExampleResp)
 	if err != nil {
@@ -860,7 +850,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 			})
 	*/
 
-	rpcResponseGet, err := texampleresp.SeralizeModelToRPCGetResponse(*exampleResp)
+	rpcResponseGet, err := texampleresp.SeralizeModelToRPCGetResponse(exampleResp)
 	if err != nil {
 		return nil, err
 	}
@@ -977,7 +967,7 @@ func PrepareCopyExample(ctx context.Context, itemApi idwrap.IDWrap, example mite
 	}
 	result.Assertions = assertions
 
-	resp, err := ers.GetExampleRespByExampleID(ctx, example.ID)
+	resp, err := ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
 	if err != nil && err != sexampleresp.ErrNoRespFound {
 		return result, err
 	}
@@ -1368,7 +1358,7 @@ func (c *ItemAPIExampleRPC) GetVersion(ctx context.Context, versionParentID idwr
 
 		a.EndpointId = example.ItemApiID.Bytes()
 		a.ExampleId = example.ID.Bytes()
-		resp, err := c.ers.GetExampleRespByExampleID(ctx, example.ID)
+		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
 		if err != nil {
 			continue
 		}

@@ -64,7 +64,19 @@ func (s ExampleRespService) GetExampleResp(ctx context.Context, respID idwrap.ID
 }
 
 func (s ExampleRespService) GetExampleRespByExampleID(ctx context.Context, exampleID idwrap.IDWrap) (*mexampleresp.ExampleResp, error) {
-	exampleResp, err := s.Queries.GetExampleRespsByExampleID(ctx, exampleID)
+	exampleResp, err := s.Queries.GetExampleRespByExampleIDLatest(ctx, exampleID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoRespFound
+		}
+		return nil, err
+	}
+	a := ConvertToModelExampleResp(exampleResp)
+	return &a, nil
+}
+
+func (s ExampleRespService) GetExampleRespByExampleIDLatest(ctx context.Context, exampleID idwrap.IDWrap) (*mexampleresp.ExampleResp, error) {
+	exampleResp, err := s.Queries.GetExampleRespByExampleIDLatest(ctx, exampleID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNoRespFound

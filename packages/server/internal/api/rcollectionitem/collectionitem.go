@@ -115,7 +115,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
-				resp, err := c.res.GetExampleRespByExampleID(ctx, ex.ID)
+				resp, err := c.res.GetExampleRespByExampleIDLatest(ctx, ex.ID)
 				var respID *idwrap.IDWrap = nil
 
 				if err != nil {
@@ -150,7 +150,7 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
-				resp, err := c.res.GetExampleRespByExampleID(ctx, ex.ID)
+				resp, err := c.res.GetExampleRespByExampleIDLatest(ctx, ex.ID)
 				var respID *idwrap.IDWrap = nil
 				if err != nil {
 					if err != sql.ErrNoRows {
