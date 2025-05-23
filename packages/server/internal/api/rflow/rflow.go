@@ -793,6 +793,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						Method:  &HistroyChangesSubMethod,
 					})
 				*/
+
+				nodeResp := &flowv1.FlowRunNodeResponse{
+					ExampleID: requestNodeResp.Example.ID.Bytes(),
+				}
+
+				resp := &flowv1.FlowRunResponse{
+					Node: nodeResp,
+				}
+
+				localErr := stream.Send(resp)
+				if localErr != nil {
+					done <- localErr
+					return
+				}
+
 			default:
 			}
 
@@ -803,7 +818,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 			resp := &flowv1.FlowRunResponse{
 				Node: nodeResp,
-				// Changes: changes,
 			}
 
 			data, localErr := json.Marshal(flowNodeStatus.OutputData)

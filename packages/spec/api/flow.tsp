@@ -48,6 +48,7 @@ model FlowRunRequest {
 model FlowRunNodeResponse {
   ...KeyOf<FlowItem.Node.Node>;
   state: FlowItem.Node.NodeState;
+  exampleID?: Resource.Id;
 }
 
 @autoFields
