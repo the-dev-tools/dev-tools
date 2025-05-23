@@ -15,7 +15,8 @@ export const makeEntity = <Desc extends DescMessage>({ message, primaryKeys, ...
     return create(message, init);
   } as unknown as new (init?: MessageInitShape<Desc>) => MessageShape<Desc>;
 
-  const pk = (_: MessageShape<Desc>) => pipe(Struct.pick(_, ...primaryKeys), JSON.stringify);
+  const pk = (value: MessageInitShape<Desc> | undefined) =>
+    pipe(create(message, value), (_) => toJson(message, _), Struct.pick(...primaryKeys), JSON.stringify);
 
   return EntityMixin(MessageClass, { pk, ...props });
 };
