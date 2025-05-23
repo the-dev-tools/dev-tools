@@ -1,3 +1,5 @@
+import { useTransport } from '@connectrpc/connect-query';
+import { useController } from '@data-client/react';
 import { getRouteApi } from '@tanstack/react-router';
 import { Array, Option, pipe } from 'effect';
 import { useState } from 'react';
@@ -18,7 +20,7 @@ import { FiInfo, FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
 import { ImportKind } from '@the-dev-tools/spec/import/v1/import_pb';
-import { import$ } from '@the-dev-tools/spec/import/v1/import-ImportService_connectquery';
+import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { tableStyles } from '@the-dev-tools/ui/data-table';
@@ -27,11 +29,13 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
-import { useConnectMutation } from '~/api/connect-query';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const ImportDialog = () => {
+  const controller = useController();
+  const transport = useTransport();
+
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const [isOpen, setOpen] = useState(false);
@@ -41,9 +45,6 @@ export const ImportDialog = () => {
   const [selectedFilters, setSelectedFilters] = useState<Selection>(new Set());
 
   const isFilterSelected = selectedFilters === 'all' || selectedFilters.size > 0;
-
-  // TODO: switch to Data Client Endpoint
-  const importMutation = useConnectMutation(import$);
 
   const onOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
@@ -87,7 +88,7 @@ export const ImportDialog = () => {
     <Button
       isDisabled={!files?.length && !text}
       onPress={async () => {
-        const result = await importMutation.mutateAsync({
+        const result = await controller.fetch(ImportEndpoint, transport, {
           data: (await data) ?? new Uint8Array(),
           name: file?.name ?? '',
           textData: text,
@@ -157,7 +158,7 @@ export const ImportDialog = () => {
                 Array.filterMap((_) => Option.fromNullable(filters[_ as number])),
               );
 
-        await importMutation.mutateAsync({
+        await controller.fetch(ImportEndpoint, transport, {
           data: (await data) ?? new Uint8Array(),
           filter: finalFilters,
           kind: ImportKind.FILTER,

@@ -41,5 +41,6 @@ model ImportResponse {
 
 @Protobuf.service
 interface ImportService {
+  @endpoint("import.js:import$")
   Import(...ImportRequest): ImportResponse;
 }

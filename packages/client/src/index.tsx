@@ -56,7 +56,6 @@ const managers = getDefaultManagers({
         return value;
       },
     },
-    trace: true,
   },
 });
 
