@@ -31,6 +31,12 @@ const createWindow = Effect.gen(function* () {
 
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
+
+    // Install dev extensions
+    const { installExtension, REDUX_DEVTOOLS } = yield* Effect.tryPromise(() => import('electron-devtools-installer'));
+    yield* Effect.tryPromise(() =>
+      installExtension(REDUX_DEVTOOLS, { loadExtensionOptions: { allowFileAccess: true } }),
+    );
   } else {
     void mainWindow.loadFile(path.resolve(import.meta.dirname, '../renderer/index.html'));
   }

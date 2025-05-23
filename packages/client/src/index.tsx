@@ -1,7 +1,7 @@
 import { scan } from 'react-scan';
 //* React Scan must be instantiated first
 import { TransportProvider } from '@connectrpc/connect-query';
-import { DataProvider } from '@data-client/react';
+import { DataProvider, getDefaultManagers } from '@data-client/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createBrowserHistory,
@@ -11,7 +11,7 @@ import {
   RouterProvider,
   ToOptions,
 } from '@tanstack/react-router';
-import { Effect, Layer, Option, pipe, Runtime } from 'effect';
+import { Effect, Layer, Option, pipe, Predicate, Runtime, Schema } from 'effect';
 import { StrictMode } from 'react';
 import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
@@ -47,6 +47,19 @@ declare module 'react-aria-components' {
 
 const toastQueue = makeToastQueue();
 
+const managers = getDefaultManagers({
+  devToolsManager: {
+    serialize: {
+      replacer: (_key, value) => {
+        if (typeof value === 'bigint') return value.toString();
+        if (Predicate.isUint8Array(value)) return Schema.encodeSync(Schema.Uint8ArrayFromBase64)(value);
+        return value;
+      },
+    },
+    trace: true,
+  },
+});
+
 export const ApiErrorHandlerLive = Layer.succeed(
   ApiErrorHandler,
   (error) => void toastQueue.add({ title: error.message }),
@@ -80,7 +93,11 @@ export const app = Effect.gen(function* () {
         {_}
       </AriaRouterProvider>
     ),
-    (_) => <DataProvider>{_}</DataProvider>,
+    (_) => (
+      <DataProvider devButton={null} managers={managers}>
+        {_}
+      </DataProvider>
+    ),
     (_) => <QueryClientProvider client={queryClient}>{_}</QueryClientProvider>,
     (_) => <TransportProvider transport={transport}>{_}</TransportProvider>,
     (_) => <StrictMode>{_}</StrictMode>,
