@@ -32,7 +32,15 @@ export const list = <I extends DescMessage, O extends DescMessage, S extends Sch
     return createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
   };
 
-  const items = new schema.Collection([itemSchema], { argsKey });
+  const createCollectionFilter =
+    (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    (collectionKey: Record<string, string>) => {
+      const argsKey = createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
+      const compare = Record.getEquivalence(Equivalence.string);
+      return compare(argsKey, collectionKey);
+    };
+
+  const items = new schema.Collection([itemSchema], { argsKey, createCollectionFilter });
 
   return new Endpoint(fetchFunction, { key, name, schema: { items } });
 };
