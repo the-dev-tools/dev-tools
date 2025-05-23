@@ -46,8 +46,11 @@ export const list = ({
   const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
     name + ':' + createMethodKey(transport, method, input);
 
-  const argsKey = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    createMethodKeyRecord(transport, method, input, listKeys);
+  const argsKey = (...args: [null] | Parameters<typeof fetchFunction>) => {
+    if (args[0] === null) return {};
+    const [transport, input] = args;
+    return createMethodKeyRecord(transport, method, input, listKeys);
+  };
 
   const items = new schema.Collection([itemSchema], { argsKey });
 

@@ -26,8 +26,11 @@ export const list = <I extends DescMessage, O extends DescMessage, S extends Sch
   const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
     [name, createMethodKey(transport, method, input)].join(' ');
 
-  const argsKey = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
+  const argsKey = (...args: [null] | Parameters<typeof fetchFunction>) => {
+    if (args[0] === null) return {};
+    const [transport, input] = args;
+    return createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
+  };
 
   const items = new schema.Collection([itemSchema], { argsKey });
 
