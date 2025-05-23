@@ -11,8 +11,9 @@ interface MakeEntityProps<Desc extends DescMessage> extends EntityOptions {
 }
 
 export const makeEntity = <Desc extends DescMessage>({ message, primaryKeys, ...props }: MakeEntityProps<Desc>) => {
-  const MessageClass = function (init?: MessageInitShape<Desc>) {
-    return create(message, init);
+  const MessageClass = function (this: MessageShape<Desc>, init?: MessageInitShape<Desc>) {
+    const value = create(message, init);
+    Object.assign(this, value);
   } as unknown as new (init?: MessageInitShape<Desc>) => MessageShape<Desc>;
 
   const pk = (value: MessageInitShape<Desc> | undefined) =>
