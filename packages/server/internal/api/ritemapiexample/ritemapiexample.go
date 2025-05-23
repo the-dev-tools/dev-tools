@@ -1356,7 +1356,6 @@ func (c *ItemAPIExampleRPC) GetVersion(ctx context.Context, versionParentID idwr
 		a := &examplev1.ExampleVersionsItem{}
 		items[i] = a
 
-		a.EndpointId = example.ItemApiID.Bytes()
 		a.ExampleId = example.ID.Bytes()
 		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
 		if err != nil {

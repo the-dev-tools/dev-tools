@@ -10,6 +10,10 @@ import {
   EndpointDuplicateResponseSchema,
 } from '../dist/buf/typescript/collection/item/endpoint/v1/endpoint_pb';
 import {
+  ExampleRunRequestSchema,
+  ExampleRunResponseSchema,
+} from '../dist/buf/typescript/collection/item/example/v1/example_pb';
+import {
   FolderCreateRequestSchema,
   FolderCreateResponseSchema,
 } from '../dist/buf/typescript/collection/item/folder/v1/folder_pb';
@@ -22,8 +26,13 @@ import {
   ItemKind,
 } from '../dist/buf/typescript/collection/item/v1/item_pb';
 import { EndpointListItemEntity } from '../dist/meta/collection/item/endpoint/v1/endpoint.entities';
-import { ExampleListItemEntity } from '../dist/meta/collection/item/example/v1/example.entities';
+import {
+  ExampleEntity,
+  ExampleListItemEntity,
+  ExampleVersionsItemEntity,
+} from '../dist/meta/collection/item/example/v1/example.entities';
 import { FolderListItemEntity } from '../dist/meta/collection/item/folder/v1/folder.entities';
+import { ResponseGetResponseEntity } from '../dist/meta/collection/item/response/v1/response.entities';
 import { EndpointProps } from './resource';
 import { createMethodKey, createMethodKeyRecord, fetchMethod } from './utils';
 
@@ -67,6 +76,9 @@ export const createFolder = ({
     return create(CollectionItemSchema, { folder, kind: ItemKind.FOLDER });
   };
 
+  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    name + ':' + createMethodKey(transport, method, input);
+
   const createCollectionFilter =
     (...[transport, input]: Parameters<typeof fetchFunction>) =>
     (collectionKey: Record<string, string>) => {
@@ -77,7 +89,7 @@ export const createFolder = ({
 
   const list = new schema.Collection([itemSchema], { createCollectionFilter });
 
-  return new Endpoint(fetchFunction, { name, schema: list.push, sideEffect: true });
+  return new Endpoint(fetchFunction, { key, name, schema: list.push, sideEffect: true });
 };
 
 export const createEndpoint = ({
@@ -93,6 +105,9 @@ export const createEndpoint = ({
     return create(CollectionItemSchema, { endpoint, kind: ItemKind.ENDPOINT });
   };
 
+  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    name + ':' + createMethodKey(transport, method, input);
+
   const createCollectionFilter =
     (...[transport, input]: Parameters<typeof fetchFunction>) =>
     (collectionKey: Record<string, string>) => {
@@ -103,5 +118,45 @@ export const createEndpoint = ({
 
   const list = new schema.Collection([itemSchema], { createCollectionFilter });
 
-  return new Endpoint(fetchFunction, { name, schema: list.push, sideEffect: true });
+  return new Endpoint(fetchFunction, { key, name, schema: list.push, sideEffect: true });
+};
+
+export const runExample = ({
+  method,
+  name,
+}: EndpointProps<typeof ExampleRunRequestSchema, typeof ExampleRunResponseSchema>) => {
+  const fetchFunction = async (transport: Transport, input: MessageInitShape<typeof ExampleRunRequestSchema>) => {
+    const output = await fetchMethod(transport, method, input);
+
+    const example = {
+      exampleId: input.exampleId,
+      lastResponseId: output.response?.responseId,
+    };
+
+    return { ...output, example };
+  };
+
+  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    name + ':' + createMethodKey(transport, method, input);
+
+  const createCollectionFilter =
+    (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    (collectionKey: Record<string, string>) => {
+      const argsKey = createMethodKeyRecord(transport, method, input, ['exampleId']);
+      const compare = Record.getEquivalence(Equivalence.string);
+      return compare(argsKey, collectionKey);
+    };
+
+  const versions = new schema.Collection([ExampleVersionsItemEntity], { createCollectionFilter });
+
+  return new Endpoint(fetchFunction, {
+    key,
+    name,
+    schema: {
+      example: ExampleEntity,
+      response: ResponseGetResponseEntity,
+      version: versions.unshift,
+    },
+    sideEffect: true,
+  });
 };

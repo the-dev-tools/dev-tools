@@ -12,7 +12,6 @@ func ModelToRPC(example mitemapiexample.ItemApiExample, responseID *idwrap.IDWra
 		responseIDBytes = responseID.Bytes()
 	}
 	return &examplev1.ExampleVersionsItem{
-		EndpointId:     example.ItemApiID.Bytes(),
 		ExampleId:      example.ID.Bytes(),
 		LastResponseId: responseIDBytes,
 	}

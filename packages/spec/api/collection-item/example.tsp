@@ -54,9 +54,7 @@ model ExampleBreadcrumb {
 
 model ExampleListItem is Resource.List.Item<Example>;
 model ExampleListResponse is Resource.List.Response<Example, TItem = ExampleListItem>;
-model ExampleVersionsItem is Resource.List.Item<Example> {
-  ...ParentKeyOf<Example>;
-}
+model ExampleVersionsItem is Resource.List.Item<Example>;
 model ExampleVersionsRequest is KeyOf<Example>;
 model ExampleVersionsResponse
   is Resource.List.Response<Example, TRequest = ExampleVersionsRequest, TItem = ExampleVersionsItem>;
@@ -92,5 +90,6 @@ interface ExampleService
     TListItem = ExampleListItem
   >;
 
+  @endpoint("collection-item.js:runExample")
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
 }

@@ -21,7 +21,6 @@ import {
   ExampleBreadcrumbKindSchema,
   ExampleVersionsItem,
 } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import { exampleRun } from '@the-dev-tools/spec/collection/item/example/v1/example-ExampleService_connectquery';
 import {
   QueryCreateRequest,
   QueryCreateRequestSchema,
@@ -37,6 +36,7 @@ import {
   ExampleCreateEndpoint,
   ExampleDeleteEndpoint,
   ExampleGetEndpoint,
+  ExampleRunEndpoint,
   ExampleUpdateEndpoint,
   ExampleVersionsEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
@@ -63,7 +63,6 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
-import { useConnectMutation } from '~/api/connect-query';
 import { enumToString } from '~api/utils';
 import {
   CodeMirrorMarkupLanguage,
@@ -287,9 +286,6 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
   const [exampleUpdate, exampleUpdateLoading] = useMutate(ExampleUpdateEndpoint);
 
-  // TODO: switch to Data Client Endpoint
-  const exampleRunMutation = useConnectMutation(exampleRun);
-
   const url = useEndpointUrl({ endpointId, exampleId });
 
   const values = useMemo(() => {
@@ -393,7 +389,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
             <FiClock className={tw`size-4 text-slate-500`} /> Response History
           </Button>
 
-          <HistoryModal exampleId={exampleId} />
+          <HistoryModal endpointId={endpointId} exampleId={exampleId} />
         </DialogTrigger>
 
         {/* TODO: implement copy link */}
@@ -469,7 +465,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           className={tw`px-6`}
           onPress={async () => {
             await onSubmit();
-            await exampleRunMutation.mutateAsync({ exampleId });
+            await controller.fetch(ExampleRunEndpoint, transport, { exampleId });
           }}
           variant='primary'
         >
@@ -480,16 +476,12 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   );
 };
 
-class HistoryTabId extends Schema.Class<HistoryTabId>('HistoryTabId')({
-  endpointId: Schema.Uint8Array,
-  exampleId: Schema.Uint8Array,
-}) {}
-
 interface HistoryModalProps {
+  endpointId: Uint8Array;
   exampleId: Uint8Array;
 }
 
-const HistoryModal = ({ exampleId }: HistoryModalProps) => {
+const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
   const transport = useTransport();
 
   const { items: versions } = useSuspense(ExampleVersionsEndpoint, transport, { exampleId });
@@ -537,7 +529,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
                         isSelected && tw`bg-slate-200`,
                       )
                     }
-                    id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
+                    id={Ulid.construct(item.exampleId).toCanonical()}
                   >
                     {Ulid.construct(item.exampleId).time.toLocaleString()}
                   </Tab>
@@ -549,10 +541,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
           <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
             <Collection items={versions}>
               {(item) => (
-                <TabPanel
-                  className={tw`h-full`}
-                  id={pipe(item, Schema.encodeSync(HistoryTabId), (_) => JSON.stringify(_))}
-                >
+                <TabPanel className={tw`h-full`} id={Ulid.construct(item.exampleId).toCanonical()}>
                   <Suspense
                     fallback={
                       <div className={tw`flex h-full items-center justify-center`}>
@@ -560,7 +549,7 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
                       </div>
                     }
                   >
-                    <ExampleVersionsView item={item} />
+                    <ExampleVersionsView endpointId={endpointId} item={item} />
                   </Suspense>
                 </TabPanel>
               )}
@@ -573,10 +562,11 @@ const HistoryModal = ({ exampleId }: HistoryModalProps) => {
 };
 
 interface ExampleVersionsViewProps {
+  endpointId: Uint8Array;
   item: ExampleVersionsItem;
 }
 
-const ExampleVersionsView = ({ item: { endpointId, exampleId, lastResponseId } }: ExampleVersionsViewProps) => {
+const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }: ExampleVersionsViewProps) => {
   const transport = useTransport();
 
   const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
