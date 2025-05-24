@@ -101,9 +101,12 @@ export const createEndpoint = ({
   typeof EndpointCreateResponseSchema | typeof EndpointDuplicateResponseSchema
 >) => {
   const fetchFunction = async (transport: Transport, input: MessageInitShape<typeof EndpointCreateRequestSchema>) => {
-    const output = await fetchMethod(transport, method, input);
-    const endpoint = Struct.omit({ ...input, ...output }, '$typeName');
-    return create(CollectionItemSchema, { endpoint, kind: ItemKind.ENDPOINT });
+    const { endpointId, exampleId } = await fetchMethod(transport, method, input);
+    return create(CollectionItemSchema, {
+      endpoint: Struct.omit({ endpointId, method: 'GET', ...input }, '$typeName'),
+      example: { exampleId },
+      kind: ItemKind.ENDPOINT,
+    });
   };
 
   const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
