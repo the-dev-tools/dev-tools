@@ -45,7 +45,6 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/translate/tassert"
 	"the-dev-tools/server/pkg/translate/tbreadcrumbs"
 	"the-dev-tools/server/pkg/translate/texample"
 	"the-dev-tools/server/pkg/translate/texampleresp"
@@ -54,7 +53,6 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
-	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 
 	"connectrpc.com/connect"
 )
@@ -728,10 +726,10 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var assertResults []massertres.AssertResult
-	for _, assertion := range responseOutput.AssertCouples {
-		assertResults = append(assertResults, assertion.AssertRes)
-	}
+	// var assertResults []massertres.AssertResult
+	// for _, assertion := range responseOutput.AssertCouples {
+	// 	assertResults = append(assertResults, assertion.AssertRes)
+	// }
 
 	taskCreateHeaders := responseOutput.CreateHeaders
 	taskUpdateHeaders := responseOutput.UpdateHeaders
@@ -1022,24 +1020,24 @@ func createChangeResponse(exampleResp *mexampleresp.ExampleResp) (*responsev1.Re
 }
 */
 
-func createAssertResponse(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult) (*responsev1.ResponseAssertListResponse, error) {
-	response := &responsev1.ResponseAssertListResponse{
-		ResponseId: exampleResp.ID.Bytes(),
-		Items:      make([]*responsev1.ResponseAssertListItem, len(assertions)),
-	}
+// func createAssertResponse(exampleResp *mexampleresp.ExampleResp, assertions []massert.Assert, resultArr []massertres.AssertResult) (*responsev1.ResponseAssertListResponse, error) {
+// 	response := &responsev1.ResponseAssertListResponse{
+// 		ResponseId: exampleResp.ID.Bytes(),
+// 		Items:      make([]*responsev1.ResponseAssertListItem, len(assertions)),
+// 	}
 
-	for i := range assertions {
-		rpcAssert, err := tassert.SerializeAssertModelToRPC(assertions[i])
-		if err != nil {
-			return nil, err
-		}
-		response.Items[i] = &responsev1.ResponseAssertListItem{
-			Assert: rpcAssert,
-			Result: resultArr[i].Result,
-		}
-	}
-	return response, nil
-}
+// 	for i := range assertions {
+// 		rpcAssert, err := tassert.SerializeAssertModelToRPC(assertions[i])
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		response.Items[i] = &responsev1.ResponseAssertListItem{
+// 			Assert: rpcAssert,
+// 			Result: resultArr[i].Result,
+// 		}
+// 	}
+// 	return response, nil
+// }
 
 func PrepareCopyExampleNoService(ctx context.Context, itemApi idwrap.IDWrap, example mitemapiexample.ItemApiExample,
 	queries []mexamplequery.Query, headers []mexampleheader.Header, assertions []massert.Assert,
