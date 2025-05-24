@@ -152,7 +152,7 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
 
         {!isReadOnly && (
           <MenuTrigger {...menuTriggerProps}>
-            <Button className={tw`p-0.5`} variant='ghost'>
+            <Button className={tw`nodrag p-0.5`} variant='ghost'>
               <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
             </Button>
 
