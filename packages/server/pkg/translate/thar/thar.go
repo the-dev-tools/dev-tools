@@ -460,12 +460,78 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				path := fmt.Sprintf("%s.%s.%s", requestName, "response", "body")
 				nodeID := flowNodeID
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
-				var bodyObj map[string]interface{}
+				var bodyObj interface{}
 				if err := json.Unmarshal(repsonseBodyBytes, &bodyObj); err == nil {
-					for k, v := range bodyObj {
-						if strVal, ok := v.(string); ok {
-							if _, err := (*depFinder).FindVar(strVal); err == depfinder.ErrNotFound {
-								(*depFinder).AddVar(strVal, depfinder.VarCouple{Path: path + "." + k, NodeID: nodeID})
+					// Process the response body to find IDs and other values
+					switch v := bodyObj.(type) {
+					case map[string]interface{}:
+						// Handle single object response
+						for k, val := range v {
+							// Special handling for ID fields
+							if strings.HasSuffix(strings.ToLower(k), "id") {
+								if id, ok := val.(float64); ok {
+									(*depFinder).AddVar(int(id), depfinder.VarCouple{Path: path + "." + k, NodeID: nodeID})
+									// Create an edge from this node to any node that uses this ID
+									for _, node := range result.Nodes {
+										if node.ID != nodeID {
+											// Check if this node's request body uses the ID
+											for _, body := range result.RawBodies {
+												if body.ExampleID == node.ID {
+													bodyStr := string(body.Data)
+													if strings.Contains(bodyStr, fmt.Sprintf("%d", int(id))) {
+														result.Edges = append(result.Edges, edge.Edge{
+															SourceID: nodeID,
+															TargetID: node.ID,
+														})
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+							// Handle other string values
+							if strVal, ok := val.(string); ok {
+								if _, err := (*depFinder).FindVar(strVal); err == depfinder.ErrNotFound {
+									(*depFinder).AddVar(strVal, depfinder.VarCouple{Path: path + "." + k, NodeID: nodeID})
+								}
+							}
+						}
+					case []interface{}:
+						// Handle array response
+						for i, item := range v {
+							if itemMap, ok := item.(map[string]interface{}); ok {
+								for k, val := range itemMap {
+									// Special handling for ID fields
+									if strings.HasSuffix(strings.ToLower(k), "id") {
+										if id, ok := val.(float64); ok {
+											(*depFinder).AddVar(int(id), depfinder.VarCouple{Path: fmt.Sprintf("%s[%d].%s", path, i, k), NodeID: nodeID})
+											// Create an edge from this node to any node that uses this ID
+											for _, node := range result.Nodes {
+												if node.ID != nodeID {
+													// Check if this node's request body uses the ID
+													for _, body := range result.RawBodies {
+														if body.ExampleID == node.ID {
+															bodyStr := string(body.Data)
+															if strings.Contains(bodyStr, fmt.Sprintf("%d", int(id))) {
+																result.Edges = append(result.Edges, edge.Edge{
+																	SourceID: nodeID,
+																	TargetID: node.ID,
+																})
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+									// Handle other string values
+									if strVal, ok := val.(string); ok {
+										if _, err := (*depFinder).FindVar(strVal); err == depfinder.ErrNotFound {
+											(*depFinder).AddVar(strVal, depfinder.VarCouple{Path: fmt.Sprintf("%s[%d].%s", path, i, k), NodeID: nodeID})
+										}
+									}
+								}
 							}
 						}
 					}

@@ -63,7 +63,7 @@ func (d DepFinder) addJsonValue(value any, couple VarCouple) {
 
 			// Only add primitive values to the vars map
 			switch val.(type) {
-			case string, float64, bool:
+			case string, float64, bool, int, int64:
 				d.AddVar(val, VarCouple{Path: newPath, NodeID: couple.NodeID})
 				continue
 			}
@@ -76,7 +76,7 @@ func (d DepFinder) addJsonValue(value any, couple VarCouple) {
 
 			// Only add primitive values to the vars map
 			switch val.(type) {
-			case string, float64, bool:
+			case string, float64, bool, int, int64:
 				d.AddVar(val, VarCouple{Path: newPath, NodeID: couple.NodeID})
 				continue
 			}
@@ -241,6 +241,13 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 					}
 				}
 			}
+		}
+		return v, false, nil
+
+	case int, int64, float64:
+		// Handle numeric values
+		if couple, err := d.FindVar(v); err == nil {
+			return fmt.Sprintf("{{ %s }}", couple.Path), true, []VarCouple{couple}
 		}
 		return v, false, nil
 

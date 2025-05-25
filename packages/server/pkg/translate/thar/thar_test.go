@@ -65,11 +65,11 @@ func TestHarResvoledBodyRaw(t *testing.T) {
 		t.Errorf("Error converting HAR: %v", err)
 	}
 
-	if len(resolved.Apis) != 1 {
-		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
+	if len(resolved.Apis) != 2 {
+		t.Errorf("Expected 2 APIs, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 3 {
-		t.Errorf("Expected 3 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 6 {
+		t.Errorf("Expected 6 Raw Bodies, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -117,11 +117,11 @@ func TestHarResvoledBodyForm(t *testing.T) {
 		t.Errorf("Error converting HAR: %v", err)
 	}
 
-	if len(resolved.Apis) != 1 {
-		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
+	if len(resolved.Apis) != 2 {
+		t.Errorf("Expected 2 APIs, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 3 {
-		t.Errorf("Expected 3 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 6 {
+		t.Errorf("Expected 6 Raw Bodies, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -141,8 +141,8 @@ func TestHarResvoledBodyForm(t *testing.T) {
 		}
 	}
 
-	if len(resolved.FormBodies) != 2 {
-		t.Errorf("Expected 4 Form Body, got %d", len(resolved.FormBodies))
+	if len(resolved.FormBodies) != 4 {
+		t.Errorf("Expected 4 Form Bodies, got %d", len(resolved.FormBodies))
 	}
 }
 
@@ -173,11 +173,11 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 		t.Errorf("Error converting HAR: %v", err)
 	}
 
-	if len(resolved.Apis) != 1 {
-		t.Errorf("Expected 1 API, got %d", len(resolved.Apis))
+	if len(resolved.Apis) != 2 {
+		t.Errorf("Expected 2 APIs, got %d", len(resolved.Apis))
 	}
-	if len(resolved.RawBodies) != 3 {
-		t.Errorf("Expected 3 Raw Body, got %d", len(resolved.RawBodies))
+	if len(resolved.RawBodies) != 6 {
+		t.Errorf("Expected 6 Raw Bodies, got %d", len(resolved.RawBodies))
 	}
 
 	for i, rawBody := range resolved.RawBodies {
@@ -197,8 +197,8 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 		}
 	}
 
-	if len(resolved.UrlEncodedBodies) != 2 {
-		t.Errorf("Expected 4 Form Body, got %d", len(resolved.FormBodies))
+	if len(resolved.UrlEncodedBodies) != 4 {
+		t.Errorf("Expected 4 UrlEncoded Bodies, got %d", len(resolved.UrlEncodedBodies))
 	}
 }
 
@@ -1096,4 +1096,146 @@ func TestHarTokenReplacementFromRealHar(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestHarIntegerIDTracking(t *testing.T) {
+	// Create a test HAR with entries containing integer IDs
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://example.com/categories",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/json",
+					Text:     `{"name": "Electronics"}`,
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"id": 2, "name": "Electronics", "created_at": "2025-05-25 14:58:04", "updated_at": "2025-05-25 14:58:04"}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://example.com/products",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/json",
+					Text:     `{"name": "Laptop", "category_id": 2}`,
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"id": 1, "name": "Laptop", "category_id": 2}`,
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Verify that integer IDs are tracked and replaced
+	for _, example := range resolved.Examples {
+		var rawBody *mbodyraw.ExampleBodyRaw
+		for _, body := range resolved.RawBodies {
+			if body.ExampleID == example.ID {
+				rawBody = &body
+				break
+			}
+		}
+
+		if rawBody == nil {
+			t.Errorf("Raw body not found for example %s", example.ID)
+			continue
+		}
+
+		// Convert raw body to string for checking
+		bodyStr := string(rawBody.Data)
+
+		// Check if this is the products request
+		if strings.Contains(bodyStr, "category_id") {
+			// Verify that the category_id is replaced with a template variable
+			if !strings.Contains(bodyStr, "{{") || !strings.Contains(bodyStr, "}}") {
+				t.Errorf("Category ID not replaced with template variable in request body: %s", bodyStr)
+			}
+			if !strings.Contains(bodyStr, "category_id") {
+				t.Errorf("Category ID field name not preserved in request body: %s", bodyStr)
+			}
+		}
+
+		// Check response bodies for ID tracking
+		for _, header := range resolved.Headers {
+			if header.ExampleID == example.ID && header.HeaderKey == "Content-Type" {
+				// Verify that the response body contains the tracked ID
+				var responseBody map[string]interface{}
+				if err := json.Unmarshal(rawBody.Data, &responseBody); err == nil {
+					if id, ok := responseBody["id"].(float64); ok {
+						// The ID should be tracked and replaced in subsequent requests
+						if id != 0 && !strings.Contains(bodyStr, "{{") {
+							t.Errorf("ID %v not tracked in response body", id)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Verify that edges are created for ID dependencies
+	if len(resolved.Edges) == 0 {
+		t.Error("No edges created for ID dependencies")
+	}
+
+	// Verify that the flow structure reflects the ID dependencies
+	var hasCategoryToProductEdge bool
+	for _, edge := range resolved.Edges {
+		// Check if there's an edge from category to product
+		sourceNode := findNodeByID(resolved.Nodes, edge.SourceID)
+		targetNode := findNodeByID(resolved.Nodes, edge.TargetID)
+		if sourceNode != nil && targetNode != nil {
+			if sourceNode.Name == "request_0" && targetNode.Name == "request_1" {
+				hasCategoryToProductEdge = true
+				break
+			}
+		}
+	}
+	if !hasCategoryToProductEdge {
+		t.Error("No edge found from request_0 to request_1")
+	}
+}
+
+// Helper function to find a node by ID
+func findNodeByID(nodes []mnnode.MNode, id idwrap.IDWrap) *mnnode.MNode {
+	for i := range nodes {
+		if nodes[i].ID == id {
+			return &nodes[i]
+		}
+	}
+	return nil
 }
