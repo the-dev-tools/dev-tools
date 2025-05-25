@@ -189,9 +189,6 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		y float64
 	}
 
-	// Use a map to merge equivalent XHR entries.
-	apiMap := make(map[string]*mitemapi.ItemApi)
-
 	if depFinder == nil {
 		newFinder := depfinder.NewDepFinder()
 		depFinder = &newFinder
@@ -208,28 +205,17 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			continue
 		}
 
-		// Build a key based on method + URL.
-		key := entry.Request.URL
-
-		// Check if the API endpoint already exists.
-		if _, ok := apiMap[key]; ok {
-			continue
-		}
-
 		requestName := fmt.Sprintf("request_%d", i)
 
-		var api *mitemapi.ItemApi
-
-		// Create Endpoint/api for first occurrence.
+		// Create Endpoint/api for each entry
 		apiID := idwrap.NewNow()
-		api = &mitemapi.ItemApi{
+		api := &mitemapi.ItemApi{
 			ID:           apiID,
-			Name:         key,
+			Name:         entry.Request.URL,
 			Url:          entry.Request.URL,
 			Method:       entry.Request.Method,
 			CollectionID: collectionID,
 		}
-		apiMap[key] = api
 		result.Apis = append(result.Apis, *api)
 
 		// Create an example for this entry.
@@ -237,7 +223,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		example := mitemapiexample.ItemApiExample{
 			ID:           exampleID,
 			CollectionID: collectionID,
-			Name:         key,
+			Name:         entry.Request.URL,
 			BodyType:     mitemapiexample.BodyTypeRaw,
 			ItemApiID:    apiID,
 		}
@@ -247,7 +233,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		exampleDefault := mitemapiexample.ItemApiExample{
 			ID:           defaultExampleID,
 			CollectionID: collectionID,
-			Name:         key,
+			Name:         entry.Request.URL,
 			BodyType:     mitemapiexample.BodyTypeRaw,
 			IsDefault:    true,
 			ItemApiID:    apiID,
@@ -255,7 +241,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		deltaExampleID := idwrap.NewNow()
 		deltaExample := mitemapiexample.ItemApiExample{
 			ID:           deltaExampleID,
-			Name:         fmt.Sprintf("%s (Delta)", key),
+			Name:         fmt.Sprintf("%s (Delta)", entry.Request.URL),
 			CollectionID: collectionID,
 			ItemApiID:    apiID,
 		}
