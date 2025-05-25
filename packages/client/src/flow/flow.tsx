@@ -33,7 +33,6 @@ import {
   ExampleVersionsItemEntity,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
 import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
-import { NodeEntity } from '@the-dev-tools/spec/meta/flow/node/v1/node.entities.js';
 import {
   FlowDeleteEndpoint,
   FlowGetEndpoint,
@@ -446,17 +445,17 @@ const ActionBar = () => {
           );
 
           for await (const { example, node, version } of flowRun({ flowId })) {
-            if (version) await controller.set(FlowVersionsEndpoint.schema.items.unshift, { flowId }, version);
+            if (version) void controller.set(FlowVersionsEndpoint.schema.items.unshift, { flowId }, version);
 
             if (example) {
               const { exampleId, responseId, versionId } = example;
 
-              await controller.set(ExampleEntity, { exampleId }, {
+              void controller.set(ExampleEntity, { exampleId }, {
                 exampleId,
                 lastResponseId: responseId,
               } satisfies Partial<ExampleEntity>);
 
-              await controller.set(ExampleVersionsEndpoint.schema.items.unshift, { exampleId }, {
+              void controller.set(ExampleVersionsEndpoint.schema.items.unshift, { exampleId }, {
                 exampleId: versionId,
                 lastResponseId: responseId,
               } satisfies Partial<ExampleVersionsItemEntity>);
@@ -474,8 +473,6 @@ const ActionBar = () => {
                 Array.flatten,
                 Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
               );
-
-              await controller.set(NodeEntity, { nodeId }, node);
             }
           }
         }}
