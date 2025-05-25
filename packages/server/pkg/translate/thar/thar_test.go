@@ -2,9 +2,14 @@ package thar_test
 
 import (
 	"bytes"
+	"encoding/json"
+	"strings"
 	"testing"
+	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -340,7 +345,7 @@ func TestHarDiverseEntries(t *testing.T) {
 	}
 
 	if len(resolved.UrlEncodedBodies) != 2 {
-		t.Errorf("Expected 2 UrlEncoded Bodies, got %d", len(resolved.UrlEncodedBodies))
+		t.Errorf("Expected 2 UrlEncoded Bodies, got %d", len(resolved.FormBodies))
 	}
 }
 
@@ -890,4 +895,205 @@ func TestPositionNodesWithDifferentTopologies(t *testing.T) {
 				nodeMap["Start"].PositionX, nodeMap["Node1"].PositionX, nodeMap["Node2"].PositionX, nodeMap["Node3"].PositionX)
 		}
 	})
+}
+
+func TestHarTokenMatching(t *testing.T) {
+	// Create a test HAR with entries containing tokens
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/api1",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://example.com/api2",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/json",
+					Text:     `{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q"}`,
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Verify headers were processed correctly
+	for _, example := range resolved.Examples {
+		var authHeader *mexampleheader.Header
+		for _, header := range resolved.Headers {
+			if header.ExampleID == example.ID && header.HeaderKey == "Authorization" {
+				authHeader = &header
+				break
+			}
+		}
+
+		if authHeader == nil {
+			t.Errorf("Authorization header not found for example %s", example.ID)
+			continue
+		}
+
+		// Verify the header value contains the template variable
+		if !strings.Contains(authHeader.Value, "{{") || !strings.Contains(authHeader.Value, "}}") {
+			t.Errorf("Authorization header value does not contain template variable: %s", authHeader.Value)
+		}
+
+		// Verify Bearer prefix is preserved
+		if !strings.HasPrefix(authHeader.Value, "Bearer {{") {
+			t.Errorf("Authorization header value does not preserve Bearer prefix: %s", authHeader.Value)
+		}
+	}
+
+	// Verify request body was processed correctly
+	for _, example := range resolved.Examples {
+		var rawBody *mbodyraw.ExampleBodyRaw
+		for _, body := range resolved.RawBodies {
+			if body.ExampleID == example.ID {
+				rawBody = &body
+				break
+			}
+		}
+
+		if rawBody == nil {
+			t.Errorf("Raw body not found for example %s", example.ID)
+			continue
+		}
+
+		// Convert raw body to string for checking
+		bodyStr := string(rawBody.Data)
+		if strings.Contains(bodyStr, "token") {
+			// Verify the token value contains the template variable
+			if !strings.Contains(bodyStr, "{{") || !strings.Contains(bodyStr, "}}") {
+				t.Errorf("Request body does not contain template variable: %s", bodyStr)
+			}
+		}
+	}
+}
+
+func TestHarTokenReplacementFromRealHar(t *testing.T) {
+	// Use a dummy HAR JSON for testing
+	dummyHAR := `{
+		"log": {
+			"entries": [
+				{
+					"startedDateTime": "2023-01-01T00:00:00.000Z",
+					"request": {
+						"method": "POST",
+						"url": "http://example.com/login",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{ "name": "Content-Type", "value": "application/json" }
+						],
+						"postData": {
+							"mimeType": "application/json",
+							"text": "{\"username\":\"user\",\"password\":\"pass\"}"
+						}
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{ "name": "Content-Type", "value": "application/json" }
+						],
+						"content": {
+							"size": 100,
+							"mimeType": "application/json",
+							"text": "{\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q\"}"
+						}
+					}
+				},
+				{
+					"startedDateTime": "2023-01-01T00:00:01.000Z",
+					"request": {
+						"method": "GET",
+						"url": "http://example.com/api",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{ "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q" }
+						]
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{ "name": "Content-Type", "value": "application/json" }
+						],
+						"content": {
+							"size": 50,
+							"mimeType": "application/json",
+							"text": "{\"data\":\"success\"}"
+						}
+					}
+				}
+			]
+		}
+	}`
+
+	var har thar.HAR
+	if err := json.Unmarshal([]byte(dummyHAR), &har); err != nil {
+		t.Fatalf("Failed to unmarshal dummy HAR: %v", err)
+	}
+
+	// Add the known token to depFinder
+	depFinder := depfinder.NewDepFinder()
+	token := "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q"
+	path := "auth.token"
+	nodeID := idwrap.NewNow()
+	couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
+	depFinder.AddVar(token, couple)
+	// Also add the raw token without 'Bearer ' prefix
+	rawToken := strings.TrimPrefix(token, "Bearer ")
+	rawToken = strings.TrimSpace(rawToken)
+	depFinder.AddVar(rawToken, couple)
+
+	// Convert HAR with token replacement
+	result, err := thar.ConvertHARWithDepFinder(&har, idwrap.NewNow(), idwrap.NewNow(), &depFinder)
+	if err != nil {
+		t.Fatalf("Failed to convert HAR: %v", err)
+	}
+
+	// Check all headers for token replacement
+	for _, header := range result.Headers {
+		if strings.ToLower(header.HeaderKey) == "authorization" {
+			if !strings.Contains(header.Value, "{{ auth.token }}") {
+				t.Errorf("Token not replaced in Authorization header: %s", header.Value)
+			}
+		}
+	}
+
+	// Check all response bodies for token replacement
+	for _, body := range result.RawBodies {
+		var bodyObj map[string]interface{}
+		if err := json.Unmarshal(body.Data, &bodyObj); err == nil {
+			if tokenVal, ok := bodyObj["token"].(string); ok && !strings.Contains(tokenVal, "{{ auth.token }}") {
+				t.Errorf("Token not replaced in response body: %s", tokenVal)
+			}
+		}
+	}
 }

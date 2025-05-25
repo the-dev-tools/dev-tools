@@ -145,8 +145,8 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 	return result
 }
 
-// TODO: refactor this function to make it more readable
-func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
+// ConvertHARWithDepFinder allows injecting a custom depFinder (for testing)
+func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder) (HarResvoled, error) {
 	result := HarResvoled{}
 
 	if len(har.Log.Entries) == 0 {
@@ -192,7 +192,10 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	// Use a map to merge equivalent XHR entries.
 	apiMap := make(map[string]*mitemapi.ItemApi)
 
-	depFinder := depfinder.NewDepFinder()
+	if depFinder == nil {
+		newFinder := depfinder.NewDepFinder()
+		depFinder = &newFinder
+	}
 	nodePosMap := make(map[idwrap.IDWrap]mpos)
 
 	slotIndex := 0
@@ -269,7 +272,26 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		var connected bool
 
 		for i, header := range entry.Request.Headers {
-			couple, err := depFinder.FindVar(header.Value)
+			// Special handling for Authorization headers with Bearer tokens
+			if strings.EqualFold(header.Name, "Authorization") && strings.HasPrefix(header.Value, "Bearer ") {
+				token := strings.TrimPrefix(header.Value, "Bearer ")
+				couple, err := (*depFinder).FindVar(token)
+				if err == nil {
+					entry.Request.Headers[i].Value = fmt.Sprintf("Bearer {{ %s }}", couple.Path)
+					result.Edges = append(result.Edges, edge.Edge{
+						ID:            idwrap.NewNow(),
+						FlowID:        flowID,
+						SourceID:      couple.NodeID,
+						TargetID:      flowNodeID,
+						SourceHandler: edge.HandleUnspecified,
+					})
+					connected = true
+					continue
+				}
+			}
+
+			// Regular header processing
+			couple, err := (*depFinder).FindVar(header.Value)
 			if err != nil {
 				if err == depfinder.ErrNotFound {
 					continue
@@ -310,10 +332,32 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 		result.Headers = append(result.Headers, headers...)
 		result.Headers = append(result.Headers, headersDefault...)
 
-		queries := extractQueryParams(entry.Request.QueryString, exampleID)
-		queriesDefault := extractQueryParams(entry.Request.QueryString, defaultExampleID)
-		result.Queries = append(result.Queries, queries...)
-		result.Queries = append(result.Queries, queriesDefault...)
+		queries := make([]Query, len(entry.Request.QueryString))
+		for i, query := range entry.Request.QueryString {
+			// Replace tokens in query values
+			val := query.Value
+			var replaced bool
+			// If the value is valid JSON, parse and template it
+			var jsonObj interface{}
+			if err := json.Unmarshal([]byte(val), &jsonObj); err == nil {
+				// Recursively process JSON structure
+				processedObj := processJSONForTokens(jsonObj, *depFinder)
+				if marshaled, err := json.Marshal(processedObj); err == nil {
+					val = string(marshaled)
+					replaced = true
+				}
+			}
+			if !replaced {
+				if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
+					val = newVal.(string)
+				}
+			}
+			queries[i] = Query{Name: query.Name, Value: val}
+		}
+		queriesApi := extractQueryParams(queries, exampleID)
+		queriesDefaultApi := extractQueryParams(queries, defaultExampleID)
+		result.Queries = append(result.Queries, queriesApi...)
+		result.Queries = append(result.Queries, queriesDefaultApi...)
 
 		// Handle the request body.
 		rawBody := mbodyraw.ExampleBodyRaw{
@@ -346,13 +390,12 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 				bodyBytes := []byte(postData.Text)
 
 				if json.Valid(bodyBytes) {
-					resultDep := depFinder.TemplateJSON(bodyBytes)
+					resultDep := (*depFinder).TemplateJSON(bodyBytes)
 					if resultDep.Err != nil {
 						fmt.Println("Error 4: ", resultDep.Err, postData.Text)
 					} else {
 						if resultDep.FindAny {
 							connected = true
-
 							for _, couple := range resultDep.Couples {
 								result.Edges = append(result.Edges, edge.Edge{
 									ID:            idwrap.NewNow(),
@@ -365,18 +408,47 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 							bodyBytes = resultDep.NewJson
 						}
 					}
-				}
-
-				rawBody.Data = bodyBytes
-				example.BodyType = mitemapiexample.BodyTypeRaw
-				if len(rawBody.Data) > 1024 {
-					compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
-					if err != nil {
-						return result, err
+					rawBody.Data = bodyBytes
+					example.BodyType = mitemapiexample.BodyTypeRaw
+					if len(rawBody.Data) > 1024 {
+						compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
+						if err != nil {
+							return result, err
+						}
+						if len(compressedData) < len(rawBody.Data) {
+							rawBody.Data = compressedData
+							rawBody.CompressType = compress.CompressTypeZstd
+						}
 					}
-					if len(compressedData) < len(rawBody.Data) {
-						rawBody.Data = compressedData
-						rawBody.CompressType = compress.CompressTypeZstd
+				} else {
+					// For non-JSON bodies, try to replace tokens in the string
+					val := postData.Text
+					var replaced bool
+					var jsonObj interface{}
+					if err := json.Unmarshal([]byte(val), &jsonObj); err == nil {
+						// Recursively process JSON structure
+						processedObj := processJSONForTokens(jsonObj, *depFinder)
+						if marshaled, err := json.Marshal(processedObj); err == nil {
+							val = string(marshaled)
+							replaced = true
+						}
+					}
+					if !replaced {
+						if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
+							val = newVal.(string)
+						}
+					}
+					rawBody.Data = []byte(val)
+					example.BodyType = mitemapiexample.BodyTypeRaw
+					if len(rawBody.Data) > 1024 {
+						compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
+						if err != nil {
+							return result, err
+						}
+						if len(compressedData) < len(rawBody.Data) {
+							rawBody.Data = compressedData
+							rawBody.CompressType = compress.CompressTypeZstd
+						}
 					}
 				}
 			}
@@ -402,7 +474,17 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 				path := fmt.Sprintf("%s.%s.%s", requestName, "response", "body")
 				nodeID := flowNodeID
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
-				err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
+				var bodyObj map[string]interface{}
+				if err := json.Unmarshal(repsonseBodyBytes, &bodyObj); err == nil {
+					for k, v := range bodyObj {
+						if strVal, ok := v.(string); ok {
+							if _, err := (*depFinder).FindVar(strVal); err == depfinder.ErrNotFound {
+								(*depFinder).AddVar(strVal, depfinder.VarCouple{Path: path + "." + k, NodeID: nodeID})
+							}
+						}
+					}
+				}
+				err := (*depFinder).AddJsonBytes(repsonseBodyBytes, couple)
 				if err != nil {
 					fmt.Println("Error 3: ", err, entry.Response.Content.Text)
 				}
@@ -454,6 +536,11 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 	}
 
 	return result, nil
+}
+
+// ConvertHAR uses a new depFinder (for production)
+func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
+	return ConvertHARWithDepFinder(har, collectionID, workspaceID, nil)
 }
 
 // Helper: returns true if the HAR entry is for an XHR request.
@@ -610,5 +697,30 @@ func PositionNodes(
 		childX := startX + float64(i)*horizontalSpacing
 		childY := y + verticalSpacing
 		PositionNodes(childID, outgoingEdges, nodeMap, visited, childX, childY, horizontalSpacing, verticalSpacing)
+	}
+}
+
+func processJSONForTokens(obj interface{}, depFinder depfinder.DepFinder) interface{} {
+	switch v := obj.(type) {
+	case map[string]interface{}:
+		// Process map values recursively
+		for key, val := range v {
+			v[key] = processJSONForTokens(val, depFinder)
+		}
+		return v
+	case []interface{}:
+		// Process array elements recursively
+		for i, val := range v {
+			v[i] = processJSONForTokens(val, depFinder)
+		}
+		return v
+	case string:
+		// Try to replace tokens in string values
+		if newVal, found, _ := depFinder.ReplaceWithPaths(v); found {
+			return newVal
+		}
+		return v
+	default:
+		return v
 	}
 }

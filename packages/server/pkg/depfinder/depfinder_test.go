@@ -280,3 +280,49 @@ func TestTemplateJSONWithSubstringValues(t *testing.T) {
 		t.Errorf("Expected 'id' to remain unchanged, got %v", propertiesMap["id"])
 	}
 }
+
+func TestDepFinderPartialTokenAndRecursiveJSON(t *testing.T) {
+	df := depfinder.NewDepFinder()
+
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzQ4MTg1MDkwLCJleHAiOjE3NDgyNzE0OTB9.TG4reOVX09bjGnB04xuYH0HrdfMcKn9vq03mG2aGa7Q"
+	path := "auth.token"
+	df.AddVar(token, depfinder.VarCouple{Path: path})
+
+	// 1. Test Bearer header replacement
+	header := "Bearer " + token
+	templated, _, _ := df.ReplaceWithPaths(header)
+	if templated != "Bearer {{ auth.token }}" {
+		t.Errorf("Expected Bearer token to be templated, got: %v", templated)
+	}
+
+	// 2. Test query parameter replacement
+	query := "?token=" + token
+	templated, _, _ = df.ReplaceWithPaths(query)
+	if templated != "?token={{ auth.token }}" {
+		t.Errorf("Expected query token to be templated, got: %v", templated)
+	}
+
+	// 3. Test nested JSON replacement
+	jsonData := []byte(`{"user": {"auth": {"token": "` + token + `"}}}`)
+	result := df.TemplateJSON(jsonData)
+	if result.Err != nil {
+		t.Fatalf("Failed to template JSON: %v", result.Err)
+	}
+	var resultMap map[string]any
+	if err := json.Unmarshal(result.NewJson, &resultMap); err != nil {
+		t.Fatalf("Failed to parse templated JSON: %v", err)
+	}
+	userMap := resultMap["user"].(map[string]any)
+	authMap := userMap["auth"].(map[string]any)
+	tokenVal := authMap["token"]
+	if tokenVal != "{{ auth.token }}" {
+		t.Errorf("Expected nested JSON token to be templated, got: %v", tokenVal)
+	}
+
+	// 4. Test that unrelated values are not replaced
+	unrelated := "no-token-here"
+	templated, _, _ = df.ReplaceWithPaths(unrelated)
+	if templated != unrelated {
+		t.Errorf("Expected unrelated value to remain unchanged, got: %v", templated)
+	}
+}
