@@ -54,7 +54,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useMutate } from '~data-client';
+import { setQueryChild, useMutate } from '~data-client';
 import {
   ColumnActionDelete,
   columnActions,
@@ -445,7 +445,16 @@ const ActionBar = () => {
           );
 
           for await (const { example, node, version } of flowRun({ flowId })) {
-            if (version) void controller.set(FlowVersionsEndpoint.schema.items.unshift, { flowId }, version);
+            if (version) {
+              void setQueryChild(
+                controller,
+                FlowVersionsEndpoint.schema.items,
+                'unshift',
+                transport,
+                { flowId },
+                version,
+              );
+            }
 
             if (example) {
               const { exampleId, responseId, versionId } = example;
@@ -455,10 +464,14 @@ const ActionBar = () => {
                 lastResponseId: responseId,
               } satisfies Partial<ExampleEntity>);
 
-              void controller.set(ExampleVersionsEndpoint.schema.items.unshift, { exampleId }, {
-                exampleId: versionId,
-                lastResponseId: responseId,
-              } satisfies Partial<ExampleVersionsItemEntity>);
+              void setQueryChild(
+                controller,
+                ExampleVersionsEndpoint.schema.items,
+                'unshift',
+                transport,
+                { exampleId },
+                { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
+              );
             }
 
             if (node) {
