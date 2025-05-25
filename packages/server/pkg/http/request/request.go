@@ -124,13 +124,13 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				}
 			}
 
-			if varsystem.CheckIsVar(header.Value) {
-				key := varsystem.GetVarKeyFromRaw(header.Value)
-				if val, ok := varMap.Get(key); ok {
-					headers[i].Value = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variablot found", key))
+			if varsystem.CheckStringHasAnyVarKey(header.Value) {
+				// Use varsystem's ReplaceVars for any string containing variables
+				replacedValue, err := varMap.ReplaceVars(header.Value)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				headers[i].Value = replacedValue
 			}
 		}
 	}
