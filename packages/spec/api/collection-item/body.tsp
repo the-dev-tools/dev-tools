@@ -3,6 +3,7 @@ import "@typespec/rest";
 
 import "../lib.tsp";
 
+import "../delta.tsp";
 import "./example.tsp";
 
 using TypeSpec.Protobuf;
@@ -29,7 +30,8 @@ enum BodyKind {
 @parentResource(Example.Example)
 model BodyFormItem {
   @key bodyId: Resource.Id;
-  @visibility(Resource.Mutation.Create) parentBodyId?: Resource.Id;
+  @visibility(Resource.Mutation.None) origin?: BodyFormItem;
+  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -42,7 +44,8 @@ model BodyFormItem {
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
   @key bodyId: Resource.Id;
-  @visibility(Resource.Mutation.Create) parentBodyId?: Resource.Id;
+  @visibility(Resource.Mutation.None) origin?: BodyUrlEncodedItem;
+  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
