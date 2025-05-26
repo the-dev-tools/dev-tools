@@ -3,6 +3,7 @@ import "@typespec/rest";
 
 import "../lib.tsp";
 
+import "../delta.tsp";
 import "../condition.tsp";
 import "./example.tsp";
 
@@ -23,7 +24,8 @@ namespace API.CollectionItem.Request;
 @parentResource(Example.Example)
 model Query {
   @key queryId: Resource.Id;
-  @visibility(Resource.Mutation.Create) parentQueryId?: Resource.Id;
+  @visibility(Resource.Mutation.None) origin?: Query;
+  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -36,7 +38,8 @@ model Query {
 @parentResource(Example.Example)
 model Header {
   @key headerId: Resource.Id;
-  @visibility(Resource.Mutation.Create) parentHeaderId?: Resource.Id;
+  @visibility(Resource.Mutation.None) origin?: Header;
+  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -49,7 +52,8 @@ model Header {
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.Id;
-  @visibility(Resource.Mutation.Create) parentAssertId?: Resource.Id;
+  @visibility(Resource.Mutation.None) origin?: Assert;
+  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   condition: Condition.Condition;
 }
 

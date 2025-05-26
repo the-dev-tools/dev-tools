@@ -66,7 +66,6 @@ model NodeRequest {
   collectionId: bytes;
   endpointId: bytes;
   exampleId: bytes;
-  deltaExampleId: bytes;
 }
 
 enum ErrorHandling {
