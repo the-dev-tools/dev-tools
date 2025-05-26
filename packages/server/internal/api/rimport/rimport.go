@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/postman/v21/mpostmancollection"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -34,6 +35,8 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
+	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
+	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
 
@@ -103,14 +106,16 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no api found"))
 			}
 
-			/*
-				changes, err := c.ImportCurl(ctx, wsUlid, collectionID, curlResolved.Apis[0].Url, curlResolved)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+			err = c.ImportCurl(ctx, wsUlid, collectionID, req.Msg.Name, curlResolved)
+			if err != nil {
+				return nil, err
+			}
 
-				resp.Changes = changes
-			*/
+			// Set collection in response (curl imports only create collections, not flows)
+			resp.Collection = &collectionv1.CollectionListItem{
+				CollectionId: collectionID.Bytes(),
+				Name:         req.Msg.Name,
+			}
 			return connect.NewResponse(resp), nil
 		}
 
@@ -180,9 +185,22 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	lastHar.Log.Entries = filteredEntries
 
 	// Try to import as HAR
-	_, err = c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
+	flow, err := c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
 	if err == nil {
-		// resp.Changes = changes
+		// Set collection in response
+		resp.Collection = &collectionv1.CollectionListItem{
+			CollectionId: collectionID.Bytes(),
+			Name:         req.Msg.Name,
+		}
+
+		// For HAR imports, we also create a flow
+		if flow != nil {
+			resp.Flow = &flowv1.FlowListItem{
+				FlowId: flow.ID.Bytes(),
+				Name:   flow.Name,
+			}
+		}
+
 		return connect.NewResponse(resp), nil
 	}
 
@@ -192,16 +210,20 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return nil, err
 	}
 
-	_, err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
+	err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
 	if err == nil {
-		// resp.Changes = changes
+		// Set collection in response (Postman imports only create collections, not flows)
+		resp.Collection = &collectionv1.CollectionListItem{
+			CollectionId: collectionID.Bytes(),
+			Name:         req.Msg.Name,
+		}
 		return connect.NewResponse(resp), nil
 	}
 
 	return nil, errors.New("invalid file")
 }
 
-func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) ([]any, error) {
+func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) error {
 	collection := mcollection.Collection{
 		ID:          CollectionID,
 		Name:        name,
@@ -210,142 +232,105 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 
 	tx, err := c.DB.Begin()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer devtoolsdb.TxnRollback(tx)
 
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txCollectionService.CreateCollection(ctx, &collection)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txItemApiService.CreateItemApiBulk(ctx, resolvedCurl.Apis)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolvedCurl.Examples)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	// START BODY
 	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolvedCurl.RawBodies)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyFormService.CreateBulkBodyForm(ctx, resolvedCurl.FormBodies)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolvedCurl.UrlEncodedBodies)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	// END BODY
 
 	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txHeaderService.CreateBulkHeader(ctx, resolvedCurl.Headers)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = txQueriesService.CreateBulkQuery(ctx, resolvedCurl.Queries)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	ws.CollectionCount++
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Changes
-	/*
-		collectionListItem := &collectionv1.CollectionListItem{
-			CollectionId: CollectionID.Bytes(),
-			Name:         name,
-		}
-
-		changeCollectionListResp := collectionv1.CollectionListResponse{
-			WorkspaceId: workspaceID.Bytes(),
-			Items:       []*collectionv1.CollectionListItem{collectionListItem},
-		}
-
-			changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-
-				listCollectionChanges := []*changev1.ListChange{
-					{
-						Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-						Parent: changeCollectionListRespAny,
-					},
-				}
-
-				collectionChangeAnyData, err := anypb.New(collectionListItem)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
-				changeCollection := &changev1.Change{
-					Kind: new(changev1.ChangeKind),
-					List: listCollectionChanges,
-					Data: collectionChangeAnyData,
-				}
-	*/
-
-	// return []*changev1.Change{changeCollection}, nil
-	return []any{}, nil
+	return nil
 }
 
-func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) ([]any, error) {
+func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) error {
 	collection := mcollection.Collection{
 		ID:          CollectionID,
 		Name:        name,
@@ -354,156 +339,118 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 
 	items, err := tpostman.ConvertPostmanCollection(collectionData, CollectionID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	tx, err := c.DB.Begin()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txCollectionService.CreateCollection(ctx, &collection)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txItemFolderService.CreateItemFolderBulk(ctx, items.Folders)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txItemApiService.CreateItemApiBulk(ctx, items.Apis)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExamples)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	// START BODY
 	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, items.BodyRaw)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyFormService.CreateBulkBodyForm(ctx, items.BodyForm)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, items.BodyUrlEncoded)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	// END BODY
 
 	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txHeaderService.CreateBulkHeader(ctx, items.Headers)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
 	if err != nil {
-		return nil, err
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txQueriesService.CreateBulkQuery(ctx, items.Queries)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	ws.CollectionCount++
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Changes
-	/*
-		collectionListItem := &collectionv1.CollectionListItem{
-			CollectionId: CollectionID.Bytes(),
-			Name:         name,
-		}
-
-		changeCollectionListResp := collectionv1.CollectionListResponse{
-			WorkspaceId: workspaceID.Bytes(),
-			Items:       []*collectionv1.CollectionListItem{collectionListItem},
-		}
-
-		changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		listCollectionChanges := []*changev1.ListChange{
-			{
-				Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-				Parent: changeCollectionListRespAny,
-			},
-		}
-
-		collectionChangeAnyData, err := anypb.New(collectionListItem)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		changeCollection := &changev1.Change{
-			Kind: new(changev1.ChangeKind),
-			List: listCollectionChanges,
-			Data: collectionChangeAnyData,
-		}
-
-
-		return []*changev1.Change{changeCollection}, nil
-	*/
-	return []any{}, nil
+	return nil
 }
 
-func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) ([]any, error) {
+func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) (*mflow.Flow, error) {
 	resolved, err := thar.ConvertHAR(harData, CollectionID, workspaceID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -601,8 +548,6 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	// Flow Creation
-	//
-	// Flow
 	txFlowService, err := sflow.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -657,77 +602,6 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Changes
-	/*
-		collectionListItem := &collectionv1.CollectionListItem{
-			CollectionId: CollectionID.Bytes(),
-			Name:         name,
-		}
-
-		changeCollectionListResp := collectionv1.CollectionListResponse{
-			WorkspaceId: workspaceID.Bytes(),
-			Items:       []*collectionv1.CollectionListItem{collectionListItem},
-		}
-
-		flowListItem := &flowv1.FlowListItem{
-			FlowId: resolved.Flow.ID.Bytes(),
-			Name:   resolved.Flow.Name,
-		}
-
-		changeFlowListResp := &flowv1.FlowListResponse{
-			WorkspaceId: workspaceID.Bytes(),
-			Items:       []*flowv1.FlowListItem{flowListItem},
-		}
-
-
-			changeFlowListRespAny, err := anypb.New(changeFlowListResp)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-
-			changeCollectionListRespAny, err := anypb.New(&changeCollectionListResp)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-
-
-				listFlowChanges := []*changev1.ListChange{
-					{
-						Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-						Parent: changeFlowListRespAny,
-					},
-				}
-
-				listCollectionChanges := []*changev1.ListChange{
-					{
-						Kind:   changev1.ListChangeKind_LIST_CHANGE_KIND_APPEND,
-						Parent: changeCollectionListRespAny,
-					},
-				}
-
-				flowChangeAnyData, err := anypb.New(flowListItem)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
-				collectionChangeAnyData, err := anypb.New(collectionListItem)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
-				changeFlow := &changev1.Change{
-					Kind: new(changev1.ChangeKind),
-					List: listFlowChanges,
-					Data: flowChangeAnyData,
-				}
-
-				changeCollection := &changev1.Change{
-					Kind: new(changev1.ChangeKind),
-					List: listCollectionChanges,
-					Data: collectionChangeAnyData,
-				}
-	*/
-
 	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
 		return nil, err
@@ -740,7 +614,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// changes := []*changev1.Change{changeFlow, changeCollection}
-
-	return []any{}, nil
+	// Return a pointer to the Flow
+	flow := resolved.Flow
+	return &flow, nil
 }
