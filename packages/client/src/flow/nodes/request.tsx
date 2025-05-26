@@ -1,19 +1,19 @@
-import { create } from '@bufbuild/protobuf';
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
-import { Position, useReactFlow } from '@xyflow/react';
+import { Position } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
-import { NodeRequest, NodeRequestSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeRequest } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { EndpointGetEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleGetEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
+import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
@@ -24,45 +24,51 @@ import { EndpointRequestView, ResponseTabs, useEndpointUrl } from '../../endpoin
 import { ReferenceContext } from '../../reference';
 import { FlowContext, flowRoute, Handle, workspaceRoute } from '../internal';
 import { FlowSearch } from '../layout';
-import { NodeBase, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
-export const RequestNode = (props: NodeProps) => {
+export const RequestNode = (props: NodeProps) => (
+  <NodeContainer
+    {...props}
+    handles={
+      <>
+        <Handle position={Position.Top} type='target' />
+        <Handle position={Position.Bottom} type='source' />
+      </>
+    }
+  >
+    <RequestNodeBody {...props} />
+  </NodeContainer>
+);
+
+const RequestNodeBody = (props: NodeProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const { data, id } = props;
-  const { updateNodeData } = useReactFlow();
+  const nodeId = Ulid.fromCanonical(props.id).bytes;
+
+  const { request } = useSuspense(NodeGetEndpoint, transport, { nodeId });
 
   return (
-    <>
-      <NodeBase {...props} Icon={SendRequestIcon}>
-        <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
-          {data.request?.exampleId.length !== 0 ? (
-            <RequestNodeSelected request={data.request!} />
-          ) : (
-            <CollectionListTree
-              onAction={async ({ collectionId, endpointId, exampleId }) => {
-                if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
-                const { exampleId: deltaExampleId } = await controller.fetch(ExampleCreateEndpoint, transport, {
-                  endpointId,
-                });
-                const request = create(NodeRequestSchema, {
-                  ...data.request!,
-                  collectionId,
-                  deltaExampleId,
-                  endpointId,
-                  exampleId,
-                });
-                updateNodeData(id, { ...data, request });
-              }}
-            />
-          )}
-        </div>
-      </NodeBase>
-
-      <Handle position={Position.Top} type='target' />
-      <Handle position={Position.Bottom} type='source' />
-    </>
+    <NodeBody {...props} Icon={SendRequestIcon}>
+      <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
+        {request?.exampleId.length !== 0 ? (
+          <RequestNodeSelected request={request!} />
+        ) : (
+          <CollectionListTree
+            onAction={async ({ collectionId, endpointId, exampleId }) => {
+              if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
+              const { exampleId: deltaExampleId } = await controller.fetch(ExampleCreateEndpoint, transport, {
+                endpointId,
+              });
+              await controller.fetch(NodeUpdateEndpoint, transport, {
+                nodeId,
+                request: { ...request, collectionId, deltaExampleId, endpointId, exampleId },
+              });
+            }}
+          />
+        )}
+      </div>
+    </NodeBody>
   );
 };
 

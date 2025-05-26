@@ -135,16 +135,11 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			return nil, err
 		}
 		convertedItem := &nodev1.NodeListItem{
-			Name:      node.Name,
-			NodeId:    node.ID.Bytes(),
-			State:     rpcNode.State,
-			Position:  rpcNode.Position,
-			Kind:      rpcNode.Kind,
-			NoOp:      rpcNode.NoOp,
-			Request:   rpcNode.Request,
-			For:       rpcNode.For,
-			ForEach:   rpcNode.ForEach,
-			Condition: rpcNode.Condition,
+			NodeId:   node.ID.Bytes(),
+			State:    rpcNode.State,
+			Position: rpcNode.Position,
+			Kind:     rpcNode.Kind,
+			NoOp:     rpcNode.NoOp,
 		}
 		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
 			if rpcNode.Request.ExampleId != nil {
@@ -190,10 +185,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	resp := nodev1.NodeGetResponse{
 		Name:      node.Name,
 		NodeId:    node.ID.Bytes(),
-		State:     rpcNode.State,
-		Position:  rpcNode.Position,
 		Kind:      rpcNode.Kind,
-		NoOp:      rpcNode.NoOp,
 		Request:   rpcNode.Request,
 		For:       rpcNode.For,
 		ForEach:   rpcNode.ForEach,

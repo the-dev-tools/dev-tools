@@ -7,14 +7,15 @@ import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
-import { NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
+import { NodeKind, NodeListItem, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import { Edge, EdgeDTO, useMakeEdge } from '../edge';
+import { Edge, useMakeEdge } from '../edge';
 import { Handle, HandleKind } from '../internal';
-import { Node, NodeDTO, NodeProps, useMakeNode } from '../node';
+import { Node, NodeProps, useMakeNode } from '../node';
 
 const CreateNodeHeader = (props: Omit<ComponentProps<'div'>, 'className'>) => (
   <Header {...props} className={tw`px-3 pt-2 text-xs font-semibold leading-5 tracking-tight text-slate-500`} />
@@ -51,7 +52,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
   const sourceId = useMemo(() => Option.map(edge, (_) => Ulid.fromCanonical(_.source).bytes), [edge]);
 
   const add = useCallback(
-    async (nodes: NodeDTO[], edges: EdgeDTO[]) => {
+    async (nodes: NodeListItem[], edges: EdgeListItem[]) => {
       await deleteElements({ edges: Option.toArray(edge), nodes: [{ id }] });
 
       pipe(nodes.map(Node.fromDTO), addNodes);

@@ -15,8 +15,8 @@ import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  Edge as EdgeDTO,
-  EdgeSchema as EdgeDTOSchema,
+  EdgeListItem,
+  EdgeListItemSchema,
   Handle as HandleKind,
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
@@ -31,8 +31,6 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { FlowContext } from './internal';
 
-export { type EdgeDTO, EdgeDTOSchema };
-
 export interface EdgeData extends Record<string, unknown> {
   state: NodeState;
 }
@@ -40,7 +38,7 @@ export interface Edge extends EdgeCore<EdgeData> {}
 export interface EdgeProps extends EdgePropsCore<Edge> {}
 
 export const Edge = {
-  fromDTO: (edge: Message & Omit<EdgeDTO, keyof Message>): Edge => ({
+  fromDTO: (edge: Message & Omit<EdgeListItem, keyof Message>): Edge => ({
     data: { state: NodeState.UNSPECIFIED },
     id: Ulid.construct(edge.edgeId).toCanonical(),
     source: Ulid.construct(edge.sourceId).toCanonical(),
@@ -48,9 +46,9 @@ export const Edge = {
     target: Ulid.construct(edge.targetId).toCanonical(),
   }),
 
-  toDTO: (_: Partial<Edge>): Omit<EdgeDTO, keyof Message> =>
+  toDTO: (_: Partial<Edge>): Omit<EdgeListItem, keyof Message> =>
     pipe(
-      create(EdgeDTOSchema, {
+      create(EdgeListItemSchema, {
         edgeId: pipe(
           Option.fromNullable(_.id),
           Option.map((_) => Ulid.fromCanonical(_).bytes),
@@ -81,9 +79,9 @@ export const useMakeEdge = () => {
   const { flowId } = use(FlowContext);
 
   return useCallback(
-    async (data: Omit<MessageInitShape<typeof EdgeDTOSchema>, keyof Message>) => {
+    async (data: Omit<MessageInitShape<typeof EdgeListItemSchema>, keyof Message>) => {
       const { edgeId } = await controller.fetch(EdgeCreateEndpoint, transport, { flowId, ...data });
-      return create(EdgeDTOSchema, { edgeId, ...data });
+      return create(EdgeListItemSchema, { edgeId, ...data });
     },
     [controller, flowId, transport],
   );
@@ -163,7 +161,7 @@ export const useEdgeStateSynced = () => {
     const edgeServerMap = pipe(
       edgesServer.map((_) => {
         const id = Ulid.construct(_.edgeId).toCanonical();
-        const value = create(EdgeDTOSchema, Struct.omit(_, '$typeName'));
+        const value = create(EdgeListItemSchema, Struct.omit(_, '$typeName'));
         return [id, value] as const;
       }),
       HashMap.fromIterable,
@@ -171,7 +169,7 @@ export const useEdgeStateSynced = () => {
 
     const edgeClientMap = pipe(
       edgesClient.map((_) => {
-        const value = create(EdgeDTOSchema, Edge.toDTO(_));
+        const value = create(EdgeListItemSchema, Edge.toDTO(_));
         return [_.id, value] as const;
       }),
       HashMap.fromIterable,
@@ -187,7 +185,7 @@ export const useEdgeStateSynced = () => {
         if (Option.isNone(edgeServer)) return 'create';
         if (Option.isNone(edgeClient)) return 'delete';
 
-        return equals(EdgeDTOSchema, edgeServer.value, edgeClient.value) ? 'ignore' : 'update';
+        return equals(EdgeListItemSchema, edgeServer.value, edgeClient.value) ? 'ignore' : 'update';
       }),
     );
 

@@ -18,39 +18,48 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
 import { FlowSearch } from '../layout';
-import { NodeBase, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
-export const ForNode = (props: NodeProps) => {
+export const ForNode = (props: NodeProps) => (
+  <NodeContainer
+    {...props}
+    handles={
+      <>
+        <Handle position={Position.Top} type='target' />
+        <Handle
+          id={'HANDLE_LOOP' satisfies HandleKindJson}
+          isConnectable={false}
+          position={Position.Bottom}
+          type='source'
+        />
+        <Handle
+          id={'HANDLE_THEN' satisfies HandleKindJson}
+          isConnectable={false}
+          position={Position.Bottom}
+          type='source'
+        />
+      </>
+    }
+  >
+    <ForNodeBody {...props} />
+  </NodeContainer>
+);
+
+const ForNodeBody = (props: NodeProps) => {
   const { id } = props;
 
   return (
-    <>
-      <NodeBase {...props} Icon={ForIcon}>
-        <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
-          <ButtonAsLink
-            className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800`}
-            href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}
-          >
-            <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-            <span>Edit Loop</span>
-          </ButtonAsLink>
-        </div>
-      </NodeBase>
-
-      <Handle position={Position.Top} type='target' />
-      <Handle
-        id={'HANDLE_LOOP' satisfies HandleKindJson}
-        isConnectable={false}
-        position={Position.Bottom}
-        type='source'
-      />
-      <Handle
-        id={'HANDLE_THEN' satisfies HandleKindJson}
-        isConnectable={false}
-        position={Position.Bottom}
-        type='source'
-      />
-    </>
+    <NodeBody {...props} Icon={ForIcon}>
+      <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
+        <ButtonAsLink
+          className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-slate-800`}
+          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}
+        >
+          <CheckListAltIcon className={tw`size-5 text-slate-500`} />
+          <span>Edit Loop</span>
+        </ButtonAsLink>
+      </div>
+    </NodeBody>
   );
 };
 

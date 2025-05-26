@@ -26,7 +26,7 @@ import {
   AuthService,
 } from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
-import { NodeKind, NodeListResponseSchema, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
@@ -153,7 +153,6 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, dep
           {
             kind: NodeKind.NO_OP,
             nodeId: new Uint8Array(),
-            noOp: NodeNoOpKind.START,
             position: { x: 0, y: 0 },
           },
         ],

@@ -12,24 +12,33 @@ import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';
 
 import { FlowContext, Handle } from '../internal';
 import { FlowSearch } from '../layout';
-import { NodeBase, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const JavaScriptNode = (props: NodeProps) => (
-  <>
-    <NodeBase {...props} Icon={FiTerminal}>
-      <div className={tw`shadow-xs overflow-auto rounded-md border border-slate-200`}>
-        <div className={tw`shadow-xs border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white`}>
-          JavaScript
-        </div>
-        <div className={tw`bg-slate-800 px-3 py-5 text-center font-mono text-xs leading-4 text-slate-400`}>
-          Double click to start writing code
-        </div>
-      </div>
-    </NodeBase>
+  <NodeContainer
+    {...props}
+    handles={
+      <>
+        <Handle position={Position.Top} type='target' />
+        <Handle position={Position.Bottom} type='source' />
+      </>
+    }
+  >
+    <JavaScriptNodeBody {...props} />
+  </NodeContainer>
+);
 
-    <Handle position={Position.Top} type='target' />
-    <Handle position={Position.Bottom} type='source' />
-  </>
+const JavaScriptNodeBody = (props: NodeProps) => (
+  <NodeBody {...props} Icon={FiTerminal}>
+    <div className={tw`shadow-xs overflow-auto rounded-md border border-slate-200`}>
+      <div className={tw`shadow-xs border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white`}>
+        JavaScript
+      </div>
+      <div className={tw`bg-slate-800 px-3 py-5 text-center font-mono text-xs leading-4 text-slate-400`}>
+        Double click to start writing code
+      </div>
+    </div>
+  </NodeBody>
 );
 
 export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {

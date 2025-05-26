@@ -40,16 +40,16 @@ enum NodeKind {
 @autoFields
 model Node {
   @key nodeId: Resource.Id;
-  position: Position;
-  name: string;
-  @visibility(Resource.Mutation.None) state: NodeState;
   kind: NodeKind;
-  noOp?: NodeNoOpKind;
-  request?: NodeRequest;
-  condition?: NodeCondition;
-  for?: NodeFor;
-  forEach?: NodeForEach;
-  js?: NodeJS;
+  @visibility(Resource.Query.List) position: Position;
+  @visibility(Resource.Query.List) noOp?: NodeNoOpKind;
+  @visibility(Resource.Query.List, Resource.Mutation.None) state: NodeState;
+  @visibility(Resource.Query.Get) name: string;
+  @visibility(Resource.Query.Get) request?: NodeRequest;
+  @visibility(Resource.Query.Get) condition?: NodeCondition;
+  @visibility(Resource.Query.Get) for?: NodeFor;
+  @visibility(Resource.Query.Get) forEach?: NodeForEach;
+  @visibility(Resource.Query.Get) js?: NodeJS;
 }
 
 enum NodeNoOpKind {

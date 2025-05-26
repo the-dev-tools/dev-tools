@@ -19,17 +19,19 @@ import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  Node as NodeDTO,
-  NodeSchema as NodeDTOSchema,
   NodeGetResponse,
   NodeKind,
   NodeKindSchema,
+  NodeListItem,
+  NodeListItemSchema,
+  NodeSchema,
   NodeState,
   PositionSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   NodeCreateEndpoint,
   NodeDeleteEndpoint,
+  NodeGetEndpoint,
   NodeListEndpoint,
   NodeUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
@@ -44,9 +46,7 @@ import { useMutate } from '~data-client';
 import { FlowContext } from './internal';
 import { FlowSearch } from './layout';
 
-export { type NodeDTO, NodeDTOSchema };
-
-export interface NodeData extends Omit<NodeDTO, 'kind' | 'nodeId' | 'position' | keyof Message> {}
+export interface NodeData extends Pick<NodeListItem, 'noOp' | 'state'> {}
 export interface Node extends NodeCore<NodeData> {}
 export interface NodeProps extends NodePropsCore<Node> {}
 
@@ -55,15 +55,15 @@ export interface NodePanelProps {
 }
 
 export const Node = {
-  fromDTO: ({ kind, nodeId, position, ...data }: Message & Omit<NodeDTO, keyof Message>): Node => ({
-    data: Struct.omit(data, '$typeName', '$unknown'),
+  fromDTO: ({ kind, nodeId, position, ...data }: Message & Omit<NodeListItem, keyof Message>): Node => ({
+    data: Struct.pick(data, 'noOp', 'state'),
     id: Ulid.construct(nodeId).toCanonical(),
     origin: [0.5, 0],
     position: Struct.pick(position!, 'x', 'y'),
     type: enumToJson(NodeKindSchema, kind),
   }),
 
-  toDTO: (_: Node): Omit<NodeDTO, 'state' | keyof Message> => ({
+  toDTO: (_: Node): Omit<NodeListItem, 'state' | keyof Message> => ({
     ...Struct.omit(_.data, 'state'),
     kind: isEnumJson(NodeKindSchema, _.type) ? enumFromJson(NodeKindSchema, _.type) : NodeKind.UNSPECIFIED,
     nodeId: Ulid.fromCanonical(_.id).bytes,
@@ -71,7 +71,7 @@ export const Node = {
   }),
 };
 
-const nodeBaseStyles = tv({
+const nodeContainerStyles = tv({
   base: tw`nopan shadow-xs relative w-80 rounded-lg bg-slate-200 p-1 outline-1 transition-colors`,
   variants: {
     isSelected: { true: tw`bg-slate-300` },
@@ -85,14 +85,38 @@ const nodeBaseStyles = tv({
   },
 });
 
-interface NodeBaseProps extends NodeProps {
+interface NodeContainerProps extends NodeProps {
+  children: ReactNode;
+  handles?: ReactNode;
+}
+
+export const NodeContainer = ({ children, data: { state }, handles, selected }: NodeContainerProps) => (
+  <div className={nodeContainerStyles({ isSelected: selected, state })}>
+    <Suspense
+      fallback={
+        <div className={tw`flex h-full items-center justify-center`}>
+          <Spinner className={tw`size-8`} />
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+
+    {handles}
+  </div>
+);
+
+interface NodeBodyProps extends NodeProps {
   children: ReactNode;
   Icon: IconType;
 }
 
-// TODO: add node name
-export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }: NodeBaseProps) => {
+export const NodeBody = ({ children, data: { state }, Icon, id }: NodeBodyProps) => {
   const transport = useTransport();
+
+  const nodeId = Ulid.fromCanonical(id).bytes;
+
+  const { name } = useSuspense(NodeGetEndpoint, transport, { nodeId });
 
   const { deleteElements, getEdges, getNode, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
@@ -105,12 +129,12 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
   const escape = useEscapePortal(ref);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => nodeUpdate(transport, { name: _, nodeId: Ulid.fromCanonical(id).bytes }),
+    onSuccess: (_) => nodeUpdate(transport, { name: _, nodeId }),
     value: name,
   });
 
   return (
-    <div className={nodeBaseStyles({ isSelected: selected, state })} ref={ref}>
+    <>
       <div
         className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}
         onContextMenu={(event) => {
@@ -118,6 +142,7 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
           if (!offset) return;
           onContextMenu(event, offset, getZoom());
         }}
+        ref={ref}
       >
         <Icon className={tw`size-5 text-slate-500`} />
 
@@ -132,7 +157,7 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
             <TextField
               aria-label='New node name'
               className={tw`w-full`}
-              inputClassName={tw`-my-1 py-1`}
+              inputClassName={tw`py-0.75 -mx-2 mt-2 bg-white`}
               isDisabled={nodeUpdateLoading}
               {...textFieldProps}
             />,
@@ -184,16 +209,8 @@ export const NodeBase = ({ children, data: { name, state }, Icon, id, selected }
         )}
       </div>
 
-      <Suspense
-        fallback={
-          <div className={tw`flex h-full items-center justify-center`}>
-            <Spinner className={tw`size-8`} />
-          </div>
-        }
-      >
-        {children}
-      </Suspense>
-    </div>
+      {children}
+    </>
   );
 };
 
@@ -204,9 +221,9 @@ export const useMakeNode = () => {
   const { flowId } = use(FlowContext);
 
   return useCallback(
-    async (data: Omit<MessageInitShape<typeof NodeDTOSchema>, keyof Message>) => {
+    async (data: Omit<MessageInitShape<typeof NodeSchema>, keyof Message>) => {
       const { nodeId } = await controller.fetch(NodeCreateEndpoint, transport, { flowId, ...data });
-      return create(NodeDTOSchema, { nodeId, ...data });
+      return create(NodeListItemSchema, { nodeId, ...data });
     },
     [controller, flowId, transport],
   );
@@ -226,7 +243,7 @@ export const useNodeStateSynced = () => {
     const nodeServerMap = pipe(
       nodesServer.map((_) => {
         const id = Ulid.construct(_.nodeId).toCanonical();
-        const value = create(NodeDTOSchema, Struct.omit(_, '$typeName'));
+        const value = create(NodeListItemSchema, Struct.omit(_, '$typeName'));
         return [id, value] as const;
       }),
       HashMap.fromIterable,
@@ -234,7 +251,7 @@ export const useNodeStateSynced = () => {
 
     const nodeClientMap = pipe(
       nodesClient.map((_) => {
-        const value = create(NodeDTOSchema, Node.toDTO(_));
+        const value = create(NodeListItemSchema, Node.toDTO(_));
         return [_.id, value] as const;
       }),
       HashMap.fromIterable,
@@ -250,7 +267,7 @@ export const useNodeStateSynced = () => {
         if (Option.isNone(nodeServer)) return 'create';
         if (Option.isNone(nodeClient)) return 'delete';
 
-        return equals(NodeDTOSchema, nodeServer.value, nodeClient.value) ? 'ignore' : 'update';
+        return equals(NodeListItemSchema, nodeServer.value, nodeClient.value) ? 'ignore' : 'update';
       }),
     );
 
