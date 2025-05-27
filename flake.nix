@@ -1,5 +1,6 @@
 {
   inputs = {
+    cache-nix-action.url = "github:nix-community/cache-nix-action";
     flake-parts.url = "github:hercules-ci/flake-parts";
     gha-nix-develop.url = "github:nicknovitski/nix-develop";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -8,18 +9,28 @@
     # Follows
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
     gha-nix-develop.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Meta
+    cache-nix-action.flake = false;
   };
 
   outputs = inputs @ {flake-parts, ...}:
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = import inputs.systems;
       perSystem = {
+        config,
         inputs',
         pkgs,
         self',
         ...
       }: {
         packages.gha-nix-develop = inputs'.gha-nix-develop.packages.default;
+
+        packages.gha-save-from-gc =
+          (import "${inputs.cache-nix-action}/saveFromGC.nix" {
+            inherit pkgs inputs;
+            derivations = [config.devShells.runner];
+          }).saveFromGC;
 
         devShells.runner = let
           gha-scripts = pkgs.writeShellApplication {

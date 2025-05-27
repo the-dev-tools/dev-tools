@@ -4,8 +4,33 @@ description: ''
 runs:
   using: composite
   steps:
-    - uses: DeterminateSystems/nix-installer-action@v17
-    - uses: DeterminateSystems/magic-nix-cache-action@v9
+    - uses: nixbuild/nix-quick-install-action@v30
+      with:
+        nix_conf: |
+          keep-env-derivations = true
+          keep-outputs = true
+
+    # Restore and save Nix store cache
+    - uses: nix-community/cache-nix-action@v6
+      with:
+        # Restore and save a cache using this key
+        primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+        # If there's no cache hit, restore a cache by this prefix
+        restore-prefixes-first-match: nix-${{ runner.os }}-
+        # Do purge caches
+        purge: true
+        # Purge all versions of the cache
+        purge-prefixes: build-${{ runner.os }}-
+        # Created more than 0 seconds ago relative to the start of the `Post Restore` phase
+        purge-created: 0
+        # Except the version with the `primary-key`, if it exists
+        purge-primary-key: never
+        # And collect garbage in the Nix store until it reaches this size in bytes
+        gc-max-store-size: 0
+
+    # Save flake attributes from garbage collection
+    - shell: bash
+      run: nix profile install .#gha-save-from-gc
 
     - shell: bash
       run: nix run .#gha-nix-develop -- .#runner
