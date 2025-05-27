@@ -395,70 +395,76 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 	if exampleID != nil {
 		exID := *exampleID
-		resp, err := c.ers.GetExampleRespByExampleID(ctx, exID)
+		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, exID)
 		if err != nil {
-			return nil, err
-		}
-
-		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		headerMap := make(map[string]string)
-		for _, header := range respHeaders {
-			headerVal, ok := headerMap[header.HeaderKey]
-			if ok {
-				headerMap[header.HeaderKey] = headerVal + ", " + header.Value
+			if err == sexampleresp.ErrNoRespFound {
 			} else {
-				headerMap[header.HeaderKey] = header.Value
+				return nil, err
 			}
 		}
 
-		if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
-			if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
-				data, err := zstdcompress.Decompress(resp.Body)
-				if err != nil {
-					return nil, err
+		if resp != nil {
+			respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			headerMap := make(map[string]string)
+			for _, header := range respHeaders {
+				headerVal, ok := headerMap[header.HeaderKey]
+				if ok {
+					headerMap[header.HeaderKey] = headerVal + ", " + header.Value
+				} else {
+					headerMap[header.HeaderKey] = header.Value
 				}
-				resp.Body = data
 			}
-		}
 
-		// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
-		var body any
-		if json.Valid(resp.Body) {
-			var jsonBody map[string]any
-			// If unmarshaling works, use the decoded JSON.
-			if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
-				body = jsonBody
+			if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
+				if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
+					data, err := zstdcompress.Decompress(resp.Body)
+					if err != nil {
+						return nil, err
+					}
+					resp.Body = data
+				}
+			}
+
+			// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
+			var body any
+			if json.Valid(resp.Body) {
+				var jsonBody map[string]any
+				// If unmarshaling works, use the decoded JSON.
+				if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
+					body = jsonBody
+				} else {
+					body = string(resp.Body)
+				}
 			} else {
 				body = string(resp.Body)
 			}
-		} else {
-			body = string(resp.Body)
+
+			// check if body seems like json
+
+			httpResp := httpclient.ResponseVar{
+				StatusCode: int(resp.Status),
+				Body:       body,
+				Headers:    headerMap,
+				Duration:   resp.Duration,
+			}
+
+			var m map[string]any
+			data, err := json.Marshal(httpResp)
+			if err != nil {
+				return nil, err
+			}
+			err = json.Unmarshal(data, &m)
+			if err != nil {
+				return nil, err
+			}
+
+			creator.AddWithKey("response", m)
 		}
 
-		// check if body seems like json
-
-		httpResp := httpclient.ResponseVar{
-			StatusCode: int(resp.Status),
-			Body:       body,
-			Headers:    headerMap,
-			Duration:   resp.Duration,
-		}
-
-		var m map[string]any
-		data, err := json.Marshal(httpResp)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(data, &m)
-		if err != nil {
-			return nil, err
-		}
-
-		creator.AddWithKey("response", m)
 	}
 
 	if nodeIDPtr != nil {
