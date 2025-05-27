@@ -595,6 +595,7 @@ export const EditPanel = () => {
               <Spinner className={tw`size-12`} />
             </div>
           }
+          key={Ulid.construct(nodeId.value).toCanonical()}
         >
           {view}
         </Suspense>
