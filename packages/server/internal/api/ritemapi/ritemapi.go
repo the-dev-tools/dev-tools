@@ -377,6 +377,9 @@ func (c *ItemApiRPC) EndpointUpdate(ctx context.Context, req *connect.Request[en
 	if apiCall.FolderID != nil {
 		endpoint.FolderID = apiCall.FolderID
 	}
+	if apiCall.Name != "" {
+		endpoint.Name = apiCall.Name
+	}
 
 	err = c.ias.UpdateItemApi(ctx, endpoint)
 	if err != nil {
