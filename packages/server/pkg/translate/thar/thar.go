@@ -372,14 +372,13 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				example.BodyType = mitemapiexample.BodyTypeUrlencoded
 
 			} else {
-
 				bodyBytes := []byte(postData.Text)
-
 				if json.Valid(bodyBytes) {
-					resultDep := (*depFinder).TemplateJSON(bodyBytes)
+					resultDep := depFinder.TemplateJSON(bodyBytes)
 					if resultDep.Err != nil {
 						fmt.Println("Error 4: ", resultDep.Err, postData.Text)
 					} else {
+						fmt.Println("find any: ", resultDep.FindAny)
 						if resultDep.FindAny {
 							connected = true
 							for _, couple := range resultDep.Couples {
@@ -410,7 +409,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 					// For non-JSON bodies, try to replace tokens in the string
 					val := postData.Text
 					var replaced bool
-					var jsonObj interface{}
+					var jsonObj any
 					if err := json.Unmarshal([]byte(val), &jsonObj); err == nil {
 						// Recursively process JSON structure
 						processedObj := processJSONForTokens(jsonObj, *depFinder)
@@ -460,85 +459,9 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				path := fmt.Sprintf("%s.%s.%s", requestName, "response", "body")
 				nodeID := flowNodeID
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
-				var bodyObj interface{}
-				if err := json.Unmarshal(repsonseBodyBytes, &bodyObj); err == nil {
-					// Process the response body to find IDs and other values
-					switch v := bodyObj.(type) {
-					case map[string]interface{}:
-						// Handle single object response
-						for k, val := range v {
-							// Special handling for ID fields
-							if strings.HasSuffix(strings.ToLower(k), "id") {
-								if id, ok := val.(float64); ok {
-									(*depFinder).AddVar(int(id), depfinder.VarCouple{Path: path + "." + k, NodeID: nodeID})
-									// Create an edge from this node to any node that uses this ID
-									for _, node := range result.Nodes {
-										if node.ID != nodeID {
-											// Check if this node's request body uses the ID
-											for _, body := range result.RawBodies {
-												if body.ExampleID == node.ID {
-													bodyStr := string(body.Data)
-													if strings.Contains(bodyStr, fmt.Sprintf("%d", int(id))) {
-														result.Edges = append(result.Edges, edge.Edge{
-															SourceID: nodeID,
-															TargetID: node.ID,
-														})
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-							// Handle other string values
-							if strVal, ok := val.(string); ok {
-								if _, err := (*depFinder).FindVar(strVal); err == depfinder.ErrNotFound {
-									(*depFinder).AddVar(strVal, depfinder.VarCouple{Path: path + "." + k, NodeID: nodeID})
-								}
-							}
-						}
-					case []interface{}:
-						// Handle array response
-						for i, item := range v {
-							if itemMap, ok := item.(map[string]interface{}); ok {
-								for k, val := range itemMap {
-									// Special handling for ID fields
-									if strings.HasSuffix(strings.ToLower(k), "id") {
-										if id, ok := val.(float64); ok {
-											(*depFinder).AddVar(int(id), depfinder.VarCouple{Path: fmt.Sprintf("%s[%d].%s", path, i, k), NodeID: nodeID})
-											// Create an edge from this node to any node that uses this ID
-											for _, node := range result.Nodes {
-												if node.ID != nodeID {
-													// Check if this node's request body uses the ID
-													for _, body := range result.RawBodies {
-														if body.ExampleID == node.ID {
-															bodyStr := string(body.Data)
-															if strings.Contains(bodyStr, fmt.Sprintf("%d", int(id))) {
-																result.Edges = append(result.Edges, edge.Edge{
-																	SourceID: nodeID,
-																	TargetID: node.ID,
-																})
-															}
-														}
-													}
-												}
-											}
-										}
-									}
-									// Handle other string values
-									if strVal, ok := val.(string); ok {
-										if _, err := (*depFinder).FindVar(strVal); err == depfinder.ErrNotFound {
-											(*depFinder).AddVar(strVal, depfinder.VarCouple{Path: fmt.Sprintf("%s[%d].%s", path, i, k), NodeID: nodeID})
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-				err := (*depFinder).AddJsonBytes(repsonseBodyBytes, couple)
+				err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
 				if err != nil {
-					fmt.Println("Error 3: ", err, entry.Response.Content.Text)
+					fmt.Println(err)
 				}
 			}
 		}

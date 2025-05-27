@@ -221,7 +221,7 @@ func TestTemplateJSON(t *testing.T) {
 	}
 
 	if !bytes.Equal(result.NewJson, expectedJSON) {
-		t.Errorf("Templated JSON doesn't match expected result.\nGot: %v\nExpected: %v", result, expectedJSON)
+		t.Errorf("Templated JSON doesn't match expected result.\nGot: %s\nExpected: %s", result.NewJson, expectedJSON)
 	}
 }
 
@@ -237,6 +237,11 @@ func TestTemplateJSONWithSubstringValues(t *testing.T) {
 			"properties": {
 				"id": "app-123-production-env"
 			}
+		},
+		"exact": {
+			"service": "service-name",
+			"key": "secret-key",
+			"env": "production"
 		}
 	}`)
 
@@ -278,6 +283,18 @@ func TestTemplateJSONWithSubstringValues(t *testing.T) {
 	propertiesMap := nestedMap["properties"].(map[string]any)
 	if propertiesMap["id"] != "app-123-production-env" {
 		t.Errorf("Expected 'id' to remain unchanged, got %v", propertiesMap["id"])
+	}
+
+	// Verify that exact matches were replaced
+	exactMap := resultMap["exact"].(map[string]any)
+	if exactMap["service"] != "{{ app.name }}" {
+		t.Errorf("Expected 'exact.service' to be templated, got %v", exactMap["service"])
+	}
+	if exactMap["key"] != "{{ app.credentials.key }}" {
+		t.Errorf("Expected 'exact.key' to be templated, got %v", exactMap["key"])
+	}
+	if exactMap["env"] != "{{ app.environment }}" {
+		t.Errorf("Expected 'exact.env' to be templated, got %v", exactMap["env"])
 	}
 }
 

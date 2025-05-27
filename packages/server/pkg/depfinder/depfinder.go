@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"the-dev-tools/server/pkg/idwrap"
 )
 
@@ -156,34 +155,6 @@ func (d DepFinder) TemplateJSON(jsonBytes []byte) TemplateJSONResult {
 	return TemplateJSONResult{FindAny: findAny, Couples: couples, NewJson: jsonBytes, Err: err}
 }
 
-// findTokenInJSON recursively searches for tokens in JSON structure
-func (d DepFinder) findTokenInJSON(value interface{}) (VarCouple, bool) {
-	switch v := value.(type) {
-	case map[string]interface{}:
-		for _, val := range v {
-			if couple, found := d.findTokenInJSON(val); found {
-				return couple, true
-			}
-		}
-	case []interface{}:
-		for _, val := range v {
-			if couple, found := d.findTokenInJSON(val); found {
-				return couple, true
-			}
-		}
-	case string:
-		// Check if this string contains a token
-		for storedValue, couple := range d.vars {
-			if storedStr, ok := storedValue.(string); ok {
-				if strings.Contains(v, storedStr) {
-					return couple, true
-				}
-			}
-		}
-	}
-	return VarCouple{}, false
-}
-
 // replace value with path if the value in vars
 func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 	var findAny bool
@@ -213,39 +184,17 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 			return fmt.Sprintf("{{ %s }}", couple.Path), true, []VarCouple{couple}
 		}
 
-		// Then try partial match
-		for storedValue, couple := range d.vars {
-			storedStr, ok := storedValue.(string)
-			if !ok {
-				continue
-			}
-
-			// Special handling for Bearer tokens
-			if strings.HasPrefix(v, "Bearer ") && strings.Contains(v, storedStr) {
-				return fmt.Sprintf("Bearer {{ %s }}", couple.Path), true, []VarCouple{couple}
-			}
-
-			// Special handling for query parameters
-			if strings.Contains(v, "?token=") && strings.Contains(v, storedStr) {
-				return strings.Replace(v, storedStr, fmt.Sprintf("{{ %s }}", couple.Path), 1), true, []VarCouple{couple}
-			}
-
-			// Try to parse as JSON if it contains a token
-			if strings.Contains(v, "token") {
-				var jsonData interface{}
-				if err := json.Unmarshal([]byte(v), &jsonData); err == nil {
-					// If it's valid JSON, recursively search for tokens
-					if couple, found := d.findTokenInJSON(jsonData); found {
-						// Replace the token in the JSON string
-						return strings.Replace(v, storedStr, fmt.Sprintf("{{ %s }}", couple.Path), 1), true, []VarCouple{couple}
-					}
-				}
-			}
-		}
 		return v, false, nil
 
 	case int, int64, float64:
 		// Handle numeric values
+		if couple, err := d.FindVar(v); err == nil {
+			return fmt.Sprintf("{{ %s }}", couple.Path), true, []VarCouple{couple}
+		}
+		return v, false, nil
+
+	case bool:
+		// Handle boolean values
 		if couple, err := d.FindVar(v); err == nil {
 			return fmt.Sprintf("{{ %s }}", couple.Path), true, []VarCouple{couple}
 		}
