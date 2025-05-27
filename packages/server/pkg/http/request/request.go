@@ -158,6 +158,15 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		}
 	case mitemapiexample.BodyTypeForm:
 		writer := multipart.NewWriter(bodyBytes)
+
+		// Add Content-Type header with multipart boundary
+		contentTypeHeader := mexampleheader.Header{
+			HeaderKey: "Content-Type",
+			Value:     writer.FormDataContentType(),
+			Enable:    true,
+		}
+		headers = append(headers, contentTypeHeader)
+
 		for _, v := range formBody {
 			actualBodyKey := v.BodyKey
 			if varsystem.CheckIsVar(v.BodyKey) {
@@ -169,58 +178,84 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				}
 			}
 
-			resolvedValue := v.Value
-			isFileUpload := false
-			actualFilePathForUpload := ""
+			// First check if this value contains file references (before variable replacement)
+			filePathsToUpload := []string{}
+			potentialFileRefs := strings.Split(v.Value, ",")
+			allAreFileReferences := true
 
-			if varsystem.CheckIsVar(v.Value) {
-				variableKey := varsystem.GetVarKeyFromRaw(v.Value)
-				if varsystem.IsFileReference(variableKey) { // Direct file reference: {{#file:path.txt}}
-					isFileUpload = true
-					actualFilePathForUpload = varsystem.GetIsFileReferencePath(variableKey)
-				} else { // Regular variable: {{my_var}}
-					if val, ok := varMap.Get(variableKey); ok {
-						if strings.HasPrefix(val.Value, "#file:") { // Variable contains file reference
-							isFileUpload = true
-							actualFilePathForUpload = strings.TrimPrefix(val.Value, "#file:")
-						} else { // Variable contains regular text
-							resolvedValue = val.Value
-						}
+			for _, ref := range potentialFileRefs {
+				trimmedRef := strings.TrimSpace(ref)
+				// Check if this is a variable containing a file reference
+				if varsystem.CheckIsVar(trimmedRef) {
+					key := varsystem.GetVarKeyFromRaw(trimmedRef)
+					if varsystem.IsFileReference(key) {
+						// This is {{#file:path}} format
+						filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(key))
 					} else {
-						return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", variableKey))
+						// This is a regular variable, try to resolve it
+						if val, ok := varMap.Get(key); ok {
+							if varsystem.IsFileReference(val.Value) {
+								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(val.Value))
+							} else {
+								allAreFileReferences = false
+								break
+							}
+						} else {
+							allAreFileReferences = false
+							break
+						}
 					}
+				} else if varsystem.IsFileReference(trimmedRef) {
+					// This is direct #file:path format
+					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
+				} else {
+					allAreFileReferences = false
+					break
 				}
 			}
 
-			if isFileUpload {
-				fileContentBytes, err := os.ReadFile(actualFilePathForUpload)
+			resolvedValue := v.Value
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
+				// Only replace variables if this is not a file reference
+				var err error
+				resolvedValue, err = varMap.ReplaceVars(v.Value)
 				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", actualFilePathForUpload, err))
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+			}
 
-				fileName := filepath.Base(actualFilePathForUpload)
+			if allAreFileReferences && len(filePathsToUpload) > 0 {
+				// This is a file upload (single or multiple)
+				for _, filePath := range filePathsToUpload {
+					fileContentBytes, err := os.ReadFile(filePath)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", filePath, err))
+					}
 
-				h := make(textproto.MIMEHeader)
-				h.Set("Content-Disposition",
-					fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
-						escapeQuotes(actualBodyKey), escapeQuotes(fileName)))
+					fileName := filepath.Base(filePath)
 
-				// Determine MIME type based on file extension
-				mimeType := mime.TypeByExtension(filepath.Ext(fileName))
-				if mimeType == "" {
-					mimeType = "application/octet-stream" // Default if type can't be determined
-				}
-				h.Set("Content-Type", mimeType)
+					h := make(textproto.MIMEHeader)
+					h.Set("Content-Disposition",
+						fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+							escapeQuotes(actualBodyKey), escapeQuotes(fileName)))
 
-				partWriter, err := writer.CreatePart(h)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create form part: %w", err))
-				}
+					mimeType := mime.TypeByExtension(filepath.Ext(fileName))
+					if mimeType == "" {
+						mimeType = "application/octet-stream"
+					}
+					h.Set("Content-Type", mimeType)
 
-				if _, err = partWriter.Write(fileContentBytes); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to write file content: %w", err))
+					partWriter, err := writer.CreatePart(h)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create form part: %w", err))
+					}
+
+					if _, err = partWriter.Write(fileContentBytes); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to write file content: %w", err))
+					}
 				}
 			} else {
+				// This is a regular text field
 				if err := writer.WriteField(actualBodyKey, resolvedValue); err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
