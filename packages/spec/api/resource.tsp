@@ -68,16 +68,17 @@ interface CRUD<
 namespace List {
   interface Interface<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TItem extends Model = Item<TResource>,
-    TResponse extends Model = Response<TResource, TRequest = TRequest, TItem = TItem>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TItem extends Model = Item<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TRequest = TRequest, TItem = TItem, TMove = TMove>
   > {
     @useFriendlyName
     @friendlyName("{name}List", TResource)
-    List is Operation<TResource, TRequest = TRequest, TResponse = TResponse, TItem = TItem>;
+    List is Operation<TResource, TRequest = TRequest, TResponse = TResponse, TItem = TItem, TMove = TMove>;
   }
 
-  @move(List, TResource)
+  @move(List, TMove)
   @endpoint(
     "resource.js:list",
     {
@@ -87,33 +88,35 @@ namespace List {
   )
   op Operation<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TItem extends Model = Item<TResource>,
-    TResponse extends Model = Response<TResource, TRequest = TRequest, TItem = TItem>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TItem extends Model = Item<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TRequest = TRequest, TItem = TItem, TMove = TMove>
   >(...TRequest): TResponse;
 
-  @move(List, TResource)
+  @move(List, TMove)
   @friendlyName("{name}ListItem", TResource)
   @entity(TResource)
   @withVisibility(Query.List)
   @autoFields
-  model Item<TResource extends Model> {
+  model Item<TResource extends Model, TMove extends Model = TResource> {
     ...TResource;
   }
 
-  @move(List, TResource)
+  @move(List, TMove)
   @friendlyName("{name}ListRequest", TResource)
-  model Request<TResource extends Model> {
+  model Request<TResource extends Model, TMove extends Model = TResource> {
     ...ParentKeyOf<TResource>;
   }
 
-  @move(List, TResource)
+  @move(List, TMove)
   @friendlyName("{name}ListResponse", TResource)
   @autoFields
   model Response<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TItem extends Model = List.Item<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TItem extends Model = List.Item<TResource, TMove = TMove>
   > {
     ...TRequest;
     items: TItem[];
@@ -123,15 +126,16 @@ namespace List {
 namespace Get {
   interface Interface<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>
   > {
     @useFriendlyName
     @friendlyName("{name}Get", TResource)
-    Get is Operation<TResource, TRequest = TRequest, TResponse = TResponse>;
+    Get is Operation<TResource, TRequest = TRequest, TResponse = TResponse, TMove = TMove>;
   }
 
-  @move(Get, TResource)
+  @move(Get, TMove)
   @endpoint(
     "resource.js:get",
     {
@@ -140,21 +144,22 @@ namespace Get {
   )
   op Operation<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>
   >(...TRequest): TResponse;
 
-  @move(Get, TResource)
+  @move(Get, TMove)
   @friendlyName("{name}GetRequest", TResource)
-  model Request<TResource extends Model> {
+  model Request<TResource extends Model, TMove extends Model = TResource> {
     ...KeyOf<TResource>;
   }
 
-  @move(Get, TResource)
+  @move(Get, TMove)
   @friendlyName("{name}GetResponse", TResource)
   @entity(TResource)
   @withVisibility(Query.Get)
-  model Response<TResource extends Model> {
+  model Response<TResource extends Model, TMove extends Model = TResource> {
     ...TResource;
   }
 }
@@ -162,10 +167,11 @@ namespace Get {
 namespace Create {
   interface Interface<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>,
-    TListRequest extends Model = List.Request<TResource>,
-    TListItem extends Model = List.Item<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>,
+    TListRequest extends Model = List.Request<TResource, TMove = TMove>,
+    TListItem extends Model = List.Item<TResource, TMove = TMove>
   > {
     @useFriendlyName
     @friendlyName("{name}Create", TResource)
@@ -174,11 +180,12 @@ namespace Create {
       TRequest = TRequest,
       TResponse = TResponse,
       TListRequest = TListRequest,
-      TListItem = TListItem
+      TListItem = TListItem,
+      TMove = TMove
     >;
   }
 
-  @move(Create, TResource)
+  @move(Create, TMove)
   @endpoint(
     "resource.js:create",
     {
@@ -188,23 +195,24 @@ namespace Create {
   )
   op Operation<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>,
-    TListRequest extends Model = List.Request<TResource>,
-    TListItem extends Model = List.Item<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>,
+    TListRequest extends Model = List.Request<TResource, TMove = TMove>,
+    TListItem extends Model = List.Item<TResource, TMove = TMove>
   >(...TRequest): TResponse;
 
-  @move(Create, TResource)
+  @move(Create, TMove)
   @friendlyName("{name}CreateRequest", TResource)
   @withVisibility(Mutation.Create)
-  model Request<TResource extends Model> {
+  model Request<TResource extends Model, TMove extends Model = TResource> {
     ...ParentKeyOf<TResource>;
     ...TResource;
   }
 
-  @move(Create, TResource)
+  @move(Create, TMove)
   @friendlyName("{name}CreateResponse", TResource)
-  model Response<TResource extends Model, TListResponse extends Model = TResource> {
+  model Response<TResource extends Model, TMove extends Model = TResource, TListResponse extends Model = TResource> {
     ...KeyOf<TResource>;
   }
 }
@@ -212,15 +220,16 @@ namespace Create {
 namespace Update {
   interface Interface<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>
   > {
     @useFriendlyName
     @friendlyName("{name}Update", TResource)
-    Update is Operation<TResource, TRequest = TRequest, TResponse = TResponse>;
+    Update is Operation<TResource, TRequest = TRequest, TResponse = TResponse, TMove = TMove>;
   }
 
-  @move(Update, TResource)
+  @move(Update, TMove)
   @endpoint(
     "resource.js:update",
     {
@@ -229,35 +238,37 @@ namespace Update {
   )
   op Operation<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>
   >(...TRequest): TResponse;
 
-  @move(Update, TResource)
+  @move(Update, TMove)
   @friendlyName("{name}UpdateRequest", TResource)
   @withVisibility(Mutation.Update)
-  model Request<TResource extends Model> {
+  model Request<TResource extends Model, TMove extends Model = TResource> {
     ...KeyOf<TResource>;
     ...OptionalProperties<OmitKey<TResource>>;
   }
 
-  @move(Update, TResource)
+  @move(Update, TMove)
   @friendlyName("{name}UpdateResponse", TResource)
-  model Response<TResource extends Model> {}
+  model Response<TResource extends Model, TMove extends Model = TResource> {}
 }
 
 namespace Delete {
   interface Interface<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>
   > {
     @useFriendlyName
     @friendlyName("{name}Delete", TResource)
-    Delete is Operation<TResource, TRequest = TRequest, TResponse = TResponse>;
+    Delete is Operation<TResource, TRequest = TRequest, TResponse = TResponse, TMove = TMove>;
   }
 
-  @move(Delete, TResource)
+  @move(Delete, TMove)
   @endpoint(
     "resource.js:delete$",
     {
@@ -266,17 +277,18 @@ namespace Delete {
   )
   op Operation<
     TResource extends Model,
-    TRequest extends Model = Request<TResource>,
-    TResponse extends Model = Response<TResource>
+    TMove extends Model = TResource,
+    TRequest extends Model = Request<TResource, TMove = TMove>,
+    TResponse extends Model = Response<TResource, TMove = TMove>
   >(...TRequest): TResponse;
 
-  @move(Delete, TResource)
+  @move(Delete, TMove)
   @friendlyName("{name}DeleteRequest", TResource)
-  model Request<TResource extends Model> {
+  model Request<TResource extends Model, TMove extends Model = TResource> {
     ...KeyOf<TResource>;
   }
 
-  @move(Delete, TResource)
+  @move(Delete, TMove)
   @friendlyName("{name}DeleteResponse", TResource)
-  model Response<TResource extends Model> {}
+  model Response<TResource extends Model, TMove extends Model = TResource> {}
 }
