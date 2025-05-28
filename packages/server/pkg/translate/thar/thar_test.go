@@ -3,6 +3,8 @@ package thar_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"the-dev-tools/server/pkg/depfinder"
@@ -805,11 +807,16 @@ func TestNodePositioning(t *testing.T) {
 			nodeMap["Branch1"].PositionY, nodeMap["Branch2"].PositionY, nodeMap["Branch3"].PositionY)
 	}
 
-	// Verify that branches are horizontally spread out
-	if !(nodeMap["Branch1"].PositionX < nodeMap["Branch2"].PositionX &&
-		nodeMap["Branch2"].PositionX < nodeMap["Branch3"].PositionX) {
-		t.Errorf("Branch nodes not properly spaced horizontally: Branch1=%.1f, Branch2=%.1f, Branch3=%.1f",
-			nodeMap["Branch1"].PositionX, nodeMap["Branch2"].PositionX, nodeMap["Branch3"].PositionX)
+	// Verify that branches are horizontally spread out (no specific order required with grid system)
+	branchPositions := []float64{nodeMap["Branch1"].PositionX, nodeMap["Branch2"].PositionX, nodeMap["Branch3"].PositionX}
+	uniquePositions := make(map[float64]bool)
+	for _, pos := range branchPositions {
+		if uniquePositions[pos] {
+			t.Errorf("Branch nodes have overlapping X positions: Branch1=%.1f, Branch2=%.1f, Branch3=%.1f",
+				nodeMap["Branch1"].PositionX, nodeMap["Branch2"].PositionX, nodeMap["Branch3"].PositionX)
+			break
+		}
+		uniquePositions[pos] = true
 	}
 
 	// Verify child nodes form a vertical chain
@@ -1238,4 +1245,127 @@ func findNodeByID(nodes []mnnode.MNode, id idwrap.IDWrap) *mnnode.MNode {
 		}
 	}
 	return nil
+}
+
+func TestNodePositioningNoOverlaps(t *testing.T) {
+	// Create a test flow with multiple branches to test positioning
+	result := thar.HarResvoled{
+		Flow: mflow.Flow{
+			ID:   idwrap.NewNow(),
+			Name: "Test Flow",
+		},
+		Nodes:     []mnnode.MNode{},
+		NoopNodes: []mnnoop.NoopNode{},
+		Edges:     []edge.Edge{},
+	}
+
+	// Create node IDs
+	startID := idwrap.NewNow()
+	node1ID := idwrap.NewNow()
+	node2ID := idwrap.NewNow()
+	node3ID := idwrap.NewNow()
+	node4ID := idwrap.NewNow()
+	node5ID := idwrap.NewNow()
+
+	// Add nodes
+	result.Nodes = append(result.Nodes,
+		mnnode.MNode{ID: startID, Name: "Start"},
+		mnnode.MNode{ID: node1ID, Name: "Node1"},
+		mnnode.MNode{ID: node2ID, Name: "Node2"},
+		mnnode.MNode{ID: node3ID, Name: "Node3"},
+		mnnode.MNode{ID: node4ID, Name: "Node4"},
+		mnnode.MNode{ID: node5ID, Name: "Node5"},
+	)
+
+	// Add start noop node
+	result.NoopNodes = append(result.NoopNodes,
+		mnnoop.NoopNode{
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+			FlowNodeID: startID,
+		},
+	)
+
+	// Add edges to create a complex flow structure
+	result.Edges = append(result.Edges,
+		edge.Edge{SourceID: startID, TargetID: node1ID},
+		edge.Edge{SourceID: startID, TargetID: node2ID},
+		edge.Edge{SourceID: node1ID, TargetID: node3ID},
+		edge.Edge{SourceID: node2ID, TargetID: node4ID},
+		edge.Edge{SourceID: node3ID, TargetID: node5ID},
+	)
+
+	// Run the positioning function
+	err := thar.ReorganizeNodePositions(&result)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a node map for easy lookup
+	nodeMap := make(map[string]*mnnode.MNode)
+	for i := range result.Nodes {
+		nodeMap[result.Nodes[i].Name] = &result.Nodes[i]
+	}
+
+	// Test 1: Start node should be at origin (0,0)
+	if nodeMap["Start"].PositionX != 0 || nodeMap["Start"].PositionY != 0 {
+		t.Errorf("Start node not at origin: (%f, %f)", nodeMap["Start"].PositionX, nodeMap["Start"].PositionY)
+	}
+
+	// Test 2: No two nodes should occupy the same position
+	positions := make(map[string][]string)
+	for name, node := range nodeMap {
+		posKey := fmt.Sprintf("%.0f,%.0f", node.PositionX, node.PositionY)
+		positions[posKey] = append(positions[posKey], name)
+	}
+
+	for posKey, nodes := range positions {
+		if len(nodes) > 1 {
+			t.Errorf("Multiple nodes at position %s: %v", posKey, nodes)
+		}
+	}
+
+	// Test 3: Child nodes should be positioned below their parents (higher Y values)
+	if nodeMap["Node1"].PositionY <= nodeMap["Start"].PositionY {
+		t.Errorf("Node1 should be below Start: Start.Y=%f, Node1.Y=%f",
+			nodeMap["Start"].PositionY, nodeMap["Node1"].PositionY)
+	}
+	if nodeMap["Node2"].PositionY <= nodeMap["Start"].PositionY {
+		t.Errorf("Node2 should be below Start: Start.Y=%f, Node2.Y=%f",
+			nodeMap["Start"].PositionY, nodeMap["Node2"].PositionY)
+	}
+	if nodeMap["Node3"].PositionY <= nodeMap["Node1"].PositionY {
+		t.Errorf("Node3 should be below Node1: Node1.Y=%f, Node3.Y=%f",
+			nodeMap["Node1"].PositionY, nodeMap["Node3"].PositionY)
+	}
+	if nodeMap["Node4"].PositionY <= nodeMap["Node2"].PositionY {
+		t.Errorf("Node4 should be below Node2: Node2.Y=%f, Node4.Y=%f",
+			nodeMap["Node2"].PositionY, nodeMap["Node4"].PositionY)
+	}
+	if nodeMap["Node5"].PositionY <= nodeMap["Node3"].PositionY {
+		t.Errorf("Node5 should be below Node3: Node3.Y=%f, Node5.Y=%f",
+			nodeMap["Node3"].PositionY, nodeMap["Node5"].PositionY)
+	}
+
+	// Test 4: Nodes should be spaced far enough apart (minimum 300px grid size)
+	const minSpacing = 300.0
+	for name1, node1 := range nodeMap {
+		for name2, node2 := range nodeMap {
+			if name1 >= name2 { // avoid duplicate checks
+				continue
+			}
+
+			distance := math.Sqrt(math.Pow(node1.PositionX-node2.PositionX, 2) +
+				math.Pow(node1.PositionY-node2.PositionY, 2))
+			if distance < minSpacing {
+				t.Errorf("Nodes %s and %s too close: distance=%.1f, minimum=%.1f",
+					name1, name2, distance, minSpacing)
+			}
+		}
+	}
+
+	// Test 5: Print positions for debugging
+	t.Logf("Node positions:")
+	for name, node := range nodeMap {
+		t.Logf("  %s: (%.0f, %.0f)", name, node.PositionX, node.PositionY)
+	}
 }

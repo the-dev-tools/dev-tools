@@ -603,10 +603,13 @@ func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequer
 	return result
 }
 
+// ReorganizeNodePositions positions flow nodes using a grid system to prevent overlaps.
+// Each node is assigned to a unique grid cell, guaranteeing no overlaps.
 func ReorganizeNodePositions(result *HarResvoled) error {
 	const (
-		horizontalSpacing = 400 // Space between sibling nodes
-		verticalSpacing   = 200 // Space between parent and child nodes
+		gridCellSize = 400 // Size of each grid cell
+		startX       = 0   // Starting X position
+		startY       = 0   // Starting Y position
 	)
 
 	// Map for quick node lookup
@@ -629,71 +632,111 @@ func ReorganizeNodePositions(result *HarResvoled) error {
 
 	// Build an adjacency list from edges
 	outgoingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
+	incomingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
 	for _, e := range result.Edges {
 		outgoingEdges[e.SourceID] = append(outgoingEdges[e.SourceID], e.TargetID)
+		incomingEdges[e.TargetID] = append(incomingEdges[e.TargetID], e.SourceID)
 	}
 
-	// Set start node position
-	startNode.PositionX = 0
-	startNode.PositionY = 0
+	// Grid tracking system
+	occupiedGrid := make(map[string]bool)
 
-	// Create a visited map to avoid cycles
-	visited := make(map[idwrap.IDWrap]bool)
+	// Position start node at origin
+	startNode.PositionX = startX
+	startNode.PositionY = startY
+	occupiedGrid["0,0"] = true
 
-	// Perform a depth-first traversal to position nodes
-	PositionNodes(startNode.ID, outgoingEdges, nodeMap, visited, 0, 0, horizontalSpacing, verticalSpacing)
+	// Use topological ordering to position nodes
+	positioned := make(map[idwrap.IDWrap]bool)
+	positionQueue := []idwrap.IDWrap{startNode.ID}
+	positioned[startNode.ID] = true
+
+	for len(positionQueue) > 0 {
+		nodeID := positionQueue[0]
+		positionQueue = positionQueue[1:]
+
+		// Add all children of this node to the queue
+		for _, childID := range outgoingEdges[nodeID] {
+			if positioned[childID] {
+				continue // Already positioned
+			}
+
+			childNode := nodeMap[childID]
+			if childNode == nil {
+				continue
+			}
+
+			// Find a grid position for this child
+			parentNode := nodeMap[nodeID]
+			childX, childY := findNextAvailableGridPosition(parentNode.PositionX, parentNode.PositionY, gridCellSize, occupiedGrid)
+
+			childNode.PositionX = childX
+			childNode.PositionY = childY
+
+			// Mark position as occupied
+			gridX := int(childX / gridCellSize)
+			gridY := int(childY / gridCellSize)
+			gridKey := fmt.Sprintf("%d,%d", gridX, gridY)
+			occupiedGrid[gridKey] = true
+
+			positioned[childID] = true
+			positionQueue = append(positionQueue, childID)
+		}
+	}
+
 	return nil
 }
 
-func PositionNodes(
-	nodeID idwrap.IDWrap,
-	outgoingEdges map[idwrap.IDWrap][]idwrap.IDWrap,
-	nodeMap map[idwrap.IDWrap]*mnnode.MNode,
-	visited map[idwrap.IDWrap]bool,
-	x float64,
-	y float64,
-	horizontalSpacing float64,
-	verticalSpacing float64,
-) {
-	// Get the node
-	node := nodeMap[nodeID]
+// findNextAvailableGridPosition finds the next available grid position near the parent
+func findNextAvailableGridPosition(parentX, parentY float64, gridCellSize int, occupiedGrid map[string]bool) (float64, float64) {
+	// Start searching from positions near the parent
+	baseGridX := int(parentX / float64(gridCellSize))
+	baseGridY := int(parentY / float64(gridCellSize))
 
-	// If this node has already been positioned and we're revisiting it,
-	// we don't need to reposition its children
-	if visited[nodeID] {
-		return
+	// First, try positions directly below the parent (preferred for tree structure)
+	for yOffset := 1; yOffset <= 10; yOffset++ {
+		for xOffset := 0; xOffset <= yOffset; xOffset++ {
+			// Try positions: directly below, then slightly to the sides
+			positions := []struct{ x, y int }{
+				{baseGridX, baseGridY + yOffset},           // directly below
+				{baseGridX + xOffset, baseGridY + yOffset}, // below and to the right
+				{baseGridX - xOffset, baseGridY + yOffset}, // below and to the left
+			}
+
+			for _, pos := range positions {
+				if xOffset == 0 && pos.x != baseGridX {
+					continue // skip duplicate direct below position
+				}
+
+				gridKey := fmt.Sprintf("%d,%d", pos.x, pos.y)
+				if !occupiedGrid[gridKey] {
+					return float64(pos.x * gridCellSize), float64(pos.y * gridCellSize)
+				}
+			}
+		}
 	}
 
-	// Mark as visited
-	visited[nodeID] = true
+	// If no position found below, search in expanding rings around the parent position
+	for radius := 1; radius <= 20; radius++ {
+		for x := baseGridX - radius; x <= baseGridX+radius; x++ {
+			for y := baseGridY - radius; y <= baseGridY+radius; y++ {
+				// Only check the perimeter of the current radius
+				if x != baseGridX-radius && x != baseGridX+radius && y != baseGridY-radius && y != baseGridY+radius {
+					continue
+				}
 
-	// Set node position
-	node.PositionX = x
-	node.PositionY = y
-
-	// Get children
-	children := outgoingEdges[nodeID]
-	if len(children) == 0 {
-		return // No children to position
+				gridKey := fmt.Sprintf("%d,%d", x, y)
+				if !occupiedGrid[gridKey] {
+					return float64(x * gridCellSize), float64(y * gridCellSize)
+				}
+			}
+		}
 	}
 
-	// For single child, position directly below the parent
-	if len(children) == 1 {
-		childX := x
-		childY := y + verticalSpacing
-		PositionNodes(children[0], outgoingEdges, nodeMap, visited, childX, childY, horizontalSpacing, verticalSpacing)
-		return
-	}
-
-	// For multiple children, distribute them horizontally
-	childCount := len(children)
-	startX := x - ((float64(childCount-1) * horizontalSpacing) / 2)
-
-	for i, childID := range children {
-		childX := startX + float64(i)*horizontalSpacing
-		childY := y + verticalSpacing
-		PositionNodes(childID, outgoingEdges, nodeMap, visited, childX, childY, horizontalSpacing, verticalSpacing)
-	}
+	// Fallback: use a position based on the number of occupied positions
+	fallbackX := float64(len(occupiedGrid) * gridCellSize)
+	fallbackY := parentY + float64(gridCellSize)
+	return fallbackX, fallbackY
 }
 
 func processJSONForTokens(obj interface{}, depFinder depfinder.DepFinder) interface{} {
