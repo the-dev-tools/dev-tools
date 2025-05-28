@@ -207,12 +207,21 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 
 		requestName := fmt.Sprintf("request_%d", i)
 
+		// Check for UUIDs in the URL path and replace them with templated variables
+		originalURL := entry.Request.URL
+		templatedURL, urlHasTemplates, urlCouples := (*depFinder).ReplaceURLPathParams(originalURL)
+
+		// Update the entry URL if templates were found
+		if urlHasTemplates {
+			entry.Request.URL = templatedURL
+		}
+
 		// Create Endpoint/api for each entry
 		apiID := idwrap.NewNow()
 		api := &mitemapi.ItemApi{
 			ID:           apiID,
-			Name:         entry.Request.URL,
-			Url:          entry.Request.URL,
+			Name:         originalURL,  // Use original URL for display name
+			Url:          templatedURL, // Use templated URL for the actual endpoint
 			Method:       entry.Request.Method,
 			CollectionID: collectionID,
 		}
@@ -256,6 +265,18 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		result.RequestNodes = append(result.RequestNodes, request)
 
 		var connected bool
+
+		// Add edges for URL path parameter dependencies
+		for _, couple := range urlCouples {
+			result.Edges = append(result.Edges, edge.Edge{
+				ID:            idwrap.NewNow(),
+				FlowID:        flowID,
+				SourceID:      couple.NodeID,
+				TargetID:      flowNodeID,
+				SourceHandler: edge.HandleUnspecified,
+			})
+			connected = true
+		}
 
 		for i, header := range entry.Request.Headers {
 			// Special handling for Authorization headers with Bearer tokens

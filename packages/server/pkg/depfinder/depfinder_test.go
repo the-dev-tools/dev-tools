@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 	"the-dev-tools/server/pkg/depfinder"
+	"the-dev-tools/server/pkg/idwrap"
 )
 
 func TestNewDepFinder(t *testing.T) {
@@ -341,5 +342,102 @@ func TestDepFinderPartialTokenAndRecursiveJSON(t *testing.T) {
 	templated, _, _ = df.ReplaceWithPaths(unrelated)
 	if templated != unrelated {
 		t.Errorf("Expected unrelated value to remain unchanged, got: %v", templated)
+	}
+}
+
+func TestIsUUID(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"6d316d59-4cb4-451e-b5b1-673ecbdd5609", true},
+		{"ef2574d1-1781-4ca9-bfcd-c571e124be02", true},
+		{"c2b85766-9fb6-4a3b-a032-9628552cbdf2", true},
+		{"not-a-uuid", false},
+		{"", false},
+		{"6d316d59-4cb4-451e-b5b1-673ecbdd560", false},   // too short
+		{"6d316d59-4cb4-451e-b5b1-673ecbdd5609a", false}, // too long
+		{"6d316d59X4cb4-451e-b5b1-673ecbdd5609", false},  // wrong separator
+		{"6d316d59-4cb4-451e-b5b1-673ecbdd560g", false},  // invalid hex
+	}
+
+	for _, test := range tests {
+		result := depfinder.IsUUID(test.input)
+		if result != test.expected {
+			t.Errorf("IsUUID(%s) = %v, expected %v", test.input, result, test.expected)
+		}
+	}
+}
+
+func TestReplaceURLPathParams(t *testing.T) {
+	depFinder := depfinder.NewDepFinder()
+
+	// Add some UUIDs to the depfinder
+	nodeID1 := idwrap.NewNow()
+	nodeID2 := idwrap.NewNow()
+
+	depFinder.AddVar("6d316d59-4cb4-451e-b5b1-673ecbdd5609", depfinder.VarCouple{
+		Path:   "request_1.response.body.id",
+		NodeID: nodeID1,
+	})
+
+	depFinder.AddVar("ef2574d1-1781-4ca9-bfcd-c571e124be02", depfinder.VarCouple{
+		Path:   "request_2.response.body.id",
+		NodeID: nodeID2,
+	})
+
+	tests := []struct {
+		name            string
+		url             string
+		expectedURL     string
+		expectedFound   bool
+		expectedCouples int
+	}{
+		{
+			name:            "URL with UUID in path",
+			url:             "https://example.com/api/products/6d316d59-4cb4-451e-b5b1-673ecbdd5609",
+			expectedURL:     "https://example.com/api/products/{{ request_1.response.body.id }}",
+			expectedFound:   true,
+			expectedCouples: 1,
+		},
+		{
+			name:            "URL with multiple UUIDs",
+			url:             "https://example.com/api/products/6d316d59-4cb4-451e-b5b1-673ecbdd5609/tags/ef2574d1-1781-4ca9-bfcd-c571e124be02",
+			expectedURL:     "https://example.com/api/products/{{ request_1.response.body.id }}/tags/{{ request_2.response.body.id }}",
+			expectedFound:   true,
+			expectedCouples: 2,
+		},
+		{
+			name:            "URL with unknown UUID",
+			url:             "https://example.com/api/products/unknown-uuid-not-in-depfinder",
+			expectedURL:     "https://example.com/api/products/unknown-uuid-not-in-depfinder",
+			expectedFound:   false,
+			expectedCouples: 0,
+		},
+		{
+			name:            "URL without UUIDs",
+			url:             "https://example.com/api/products",
+			expectedURL:     "https://example.com/api/products",
+			expectedFound:   false,
+			expectedCouples: 0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			resultURL, found, couples := depFinder.ReplaceURLPathParams(test.url)
+
+			if resultURL != test.expectedURL {
+				t.Errorf("Expected URL: %s, got: %s", test.expectedURL, resultURL)
+			}
+
+			if found != test.expectedFound {
+				t.Errorf("Expected found: %v, got: %v", test.expectedFound, found)
+			}
+
+			if len(couples) != test.expectedCouples {
+				t.Errorf("Expected %d couples, got: %d", test.expectedCouples, len(couples))
+			}
+		})
 	}
 }

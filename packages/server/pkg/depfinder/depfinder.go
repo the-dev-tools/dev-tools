@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"the-dev-tools/server/pkg/idwrap"
 )
 
@@ -143,6 +145,8 @@ type TemplateJSONResult struct {
 
 func (d DepFinder) TemplateJSON(jsonBytes []byte) TemplateJSONResult {
 	data := make(map[string]any)
+	// unmarshal the json bytes to a map
+
 	if err := json.Unmarshal(jsonBytes, &data); err != nil {
 		return TemplateJSONResult{Err: err}
 	}
@@ -163,8 +167,15 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 
 	switch v := value.(type) {
 	case map[string]any:
+		// sort the map to make it deterministic
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
 		result := make(map[string]any)
-		for key, val := range v {
+		for _, key := range keys {
+			val := v[key]
 			result[key], findAny, couplesSub = d.ReplaceWithPaths(val)
 			couples = append(couples, couplesSub...)
 		}
@@ -203,4 +214,50 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 	default:
 		return v, false, nil
 	}
+}
+
+// IsUUID checks if a string matches UUID format (8-4-4-4-12 hex characters)
+func IsUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, char := range s {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if char != '-' {
+				return false
+			}
+		} else {
+			if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// ReplaceURLPathParams detects UUIDs in URL paths and replaces them with templated variables
+func (d DepFinder) ReplaceURLPathParams(url string) (string, bool, []VarCouple) {
+	var couples []VarCouple
+	var foundAny bool
+
+	// Split URL by '/' to get path segments
+	parts := strings.Split(url, "/")
+
+	for i, part := range parts {
+		// Check if this part looks like a UUID
+		if IsUUID(part) {
+			// Try to find this UUID in our vars
+			if couple, err := d.FindVar(part); err == nil {
+				parts[i] = fmt.Sprintf("{{ %s }}", couple.Path)
+				couples = append(couples, couple)
+				foundAny = true
+			}
+		}
+	}
+
+	if foundAny {
+		return strings.Join(parts, "/"), foundAny, couples
+	}
+
+	return url, false, nil
 }
