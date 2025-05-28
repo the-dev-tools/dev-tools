@@ -1346,16 +1346,17 @@ func TestNodePositioningNoOverlaps(t *testing.T) {
 			nodeMap["Node3"].PositionY, nodeMap["Node5"].PositionY)
 	}
 
-	// Test 4: Nodes should be spaced far enough apart (minimum 300px grid size)
-	const minSpacing = 300.0
+	// Test 4: Nodes should be spaced far enough apart (minimum 400px grid size)
+	const minSpacing = 400.0
 	for name1, node1 := range nodeMap {
 		for name2, node2 := range nodeMap {
 			if name1 >= name2 { // avoid duplicate checks
 				continue
 			}
 
-			distance := math.Sqrt(math.Pow(node1.PositionX-node2.PositionX, 2) +
-				math.Pow(node1.PositionY-node2.PositionY, 2))
+			dx := node1.PositionX - node2.PositionX
+			dy := node1.PositionY - node2.PositionY
+			distance := math.Sqrt(dx*dx + dy*dy)
 			if distance < minSpacing {
 				t.Errorf("Nodes %s and %s too close: distance=%.1f, minimum=%.1f",
 					name1, name2, distance, minSpacing)
