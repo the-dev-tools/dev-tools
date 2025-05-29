@@ -24,8 +24,6 @@ namespace API.CollectionItem.Request;
 @parentResource(Example.Example)
 model Query {
   @key queryId: Resource.Id;
-  @visibility(Resource.Mutation.None) origin?: Query;
-  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -38,8 +36,6 @@ model Query {
 @parentResource(Example.Example)
 model Header {
   @key headerId: Resource.Id;
-  @visibility(Resource.Mutation.None) origin?: Header;
-  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -52,8 +48,6 @@ model Header {
 @parentResource(Example.Example)
 model Assert {
   @key assertId: Resource.Id;
-  @visibility(Resource.Mutation.None) origin?: Assert;
-  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   condition: Condition.Condition;
 }
 
@@ -65,13 +59,16 @@ interface RequestService
     Resource.Create.Interface<Query>,
     Resource.Update.Interface<Query>,
     Resource.Delete.Interface<Query>,
+    Delta.Interface<Query>,
     // Header
     Resource.List.Interface<Header>,
     Resource.Create.Interface<Header>,
     Resource.Update.Interface<Header>,
     Resource.Delete.Interface<Header>,
+    Delta.Interface<Header>,
     // Assert
     Resource.List.Interface<Assert>,
     Resource.Create.Interface<Assert>,
     Resource.Update.Interface<Assert>,
-    Resource.Delete.Interface<Assert> {}
+    Resource.Delete.Interface<Assert>,
+    Delta.Interface<Assert> {}

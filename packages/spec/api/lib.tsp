@@ -34,7 +34,7 @@ extern dec move(target: Model | Operation, from: Namespace | Model, to: Namespac
  * Replace name with friendly name. Useful for when friendly names are
  * unsupported, f.e. operations in Protobuf emitter
  */
-extern dec useFriendlyName(target: Operation);
+extern dec useFriendlyName(target: Operation | Model);
 
 extern dec entity(target: Model, base?: Model);
 
