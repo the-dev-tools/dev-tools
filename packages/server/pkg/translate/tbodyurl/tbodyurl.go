@@ -6,13 +6,13 @@ import (
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 )
 
-func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedItem {
+func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncoded {
 	var deltaParentIDBytes []byte
 	if urlEncoded.DeltaParentID != nil {
 		deltaParentIDBytes = urlEncoded.DeltaParentID.Bytes()
 	}
 
-	return &bodyv1.BodyUrlEncodedItem{
+	return &bodyv1.BodyUrlEncoded{
 		BodyId:       urlEncoded.ID.Bytes(),
 		ParentBodyId: deltaParentIDBytes,
 		Key:          urlEncoded.BodyKey,
@@ -22,13 +22,13 @@ func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlE
 	}
 }
 
-func SerializeURLModelToRPCItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedItemListItem {
+func SerializeURLModelToRPCItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedListItem {
 	var deltaParentIDBytes []byte
 	if urlEncoded.DeltaParentID != nil {
 		deltaParentIDBytes = urlEncoded.DeltaParentID.Bytes()
 	}
 
-	return &bodyv1.BodyUrlEncodedItemListItem{
+	return &bodyv1.BodyUrlEncodedListItem{
 		BodyId:       urlEncoded.ID.Bytes(),
 		ParentBodyId: deltaParentIDBytes,
 		Key:          urlEncoded.BodyKey,
@@ -38,7 +38,7 @@ func SerializeURLModelToRPCItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.Body
 	}
 }
 
-func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
+func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncoded, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
 	var deltaParentIDPtr *idwrap.IDWrap
 	if len(urlEncoded.GetParentBodyId()) > 0 {
 		deltaParentID, err := idwrap.NewFromBytes(urlEncoded.GetParentBodyId())
@@ -60,7 +60,7 @@ func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idw
 	return b, nil
 }
 
-func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncodedItem, exampleID idwrap.IDWrap, deltaParentIDPtr *idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
+func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncoded, exampleID idwrap.IDWrap, deltaParentIDPtr *idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
 	return &mbodyurl.BodyURLEncoded{
 		ExampleID:     exampleID,
 		BodyKey:       urlEncoded.Key,

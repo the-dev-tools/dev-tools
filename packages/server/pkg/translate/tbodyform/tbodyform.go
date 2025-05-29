@@ -6,13 +6,13 @@ import (
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 )
 
-func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
+func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyForm {
 	var deltaParentIDBytes []byte
 	if form.DeltaParentID == nil {
 		deltaParentIDBytes = form.DeltaParentID.Bytes()
 	}
 
-	return &bodyv1.BodyFormItem{
+	return &bodyv1.BodyForm{
 		BodyId:       form.ID.Bytes(),
 		ParentBodyId: deltaParentIDBytes,
 		Key:          form.BodyKey,
@@ -22,13 +22,13 @@ func SerializeFormModelToRPC(form mbodyform.BodyForm) *bodyv1.BodyFormItem {
 	}
 }
 
-func SerializeFormModelToRPCItem(form mbodyform.BodyForm) *bodyv1.BodyFormItemListItem {
+func SerializeFormModelToRPCItem(form mbodyform.BodyForm) *bodyv1.BodyFormListItem {
 	var deltaParentIDBytes []byte
 	if form.DeltaParentID != nil {
 		deltaParentIDBytes = form.DeltaParentID.Bytes()
 	}
 
-	return &bodyv1.BodyFormItemListItem{
+	return &bodyv1.BodyFormListItem{
 		BodyId:       form.ID.Bytes(),
 		ParentBodyId: deltaParentIDBytes,
 		Key:          form.BodyKey,
@@ -38,7 +38,7 @@ func SerializeFormModelToRPCItem(form mbodyform.BodyForm) *bodyv1.BodyFormItemLi
 	}
 }
 
-func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem, ExampleID idwrap.IDWrap) (*mbodyform.BodyForm, error) {
+func SerializeFormRPCtoModel(form *bodyv1.BodyForm, ExampleID idwrap.IDWrap) (*mbodyform.BodyForm, error) {
 	var deltaParentIDPtr *idwrap.IDWrap
 	if len(form.GetParentBodyId()) > 0 {
 		deltaParentID, err := idwrap.NewFromBytes(form.GetParentBodyId())
@@ -60,7 +60,7 @@ func SerializeFormRPCtoModel(form *bodyv1.BodyFormItem, ExampleID idwrap.IDWrap)
 	return b, nil
 }
 
-func SeralizeFormRPCToModelWithoutID(form *bodyv1.BodyFormItem, exampleID idwrap.IDWrap, deltaParentIDPtr *idwrap.IDWrap) (*mbodyform.BodyForm, error) {
+func SeralizeFormRPCToModelWithoutID(form *bodyv1.BodyForm, exampleID idwrap.IDWrap, deltaParentIDPtr *idwrap.IDWrap) (*mbodyform.BodyForm, error) {
 	return &mbodyform.BodyForm{
 		ExampleID:     exampleID,
 		DeltaParentID: deltaParentIDPtr,

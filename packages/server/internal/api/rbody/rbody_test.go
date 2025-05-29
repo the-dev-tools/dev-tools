@@ -192,14 +192,14 @@ func TestGetBodyForm(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := connect.NewRequest(&bodyv1.BodyFormItemListRequest{
+	req := connect.NewRequest(&bodyv1.BodyFormListRequest{
 		ExampleId: itemExample.ID.Bytes(),
 	})
 
 	rpcBody := rbody.New(db, cs, iaes, us,
 		bfs, bues, brs)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
-	resp, err := rpcBody.BodyFormItemList(authedCtx, req)
+	resp, err := rpcBody.BodyFormList(authedCtx, req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,14 +301,14 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := connect.NewRequest(&bodyv1.BodyUrlEncodedItemListRequest{
+	req := connect.NewRequest(&bodyv1.BodyUrlEncodedListRequest{
 		ExampleId: itemExample.ID.Bytes(),
 	})
 
 	rpcBody := rbody.New(db, cs, iaes, us,
 		bfs, bues, brs)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
-	resp, err := rpcBody.BodyUrlEncodedItemList(authedCtx, req)
+	resp, err := rpcBody.BodyUrlEncodedList(authedCtx, req)
 	if err != nil {
 		t.Fatal(err)
 	}

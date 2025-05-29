@@ -28,7 +28,7 @@ enum BodyKind {
 @normalize
 @entity
 @parentResource(Example.Example)
-model BodyFormItem {
+model BodyForm {
   @key bodyId: Resource.Id;
   key: string;
   enabled: boolean;
@@ -40,7 +40,7 @@ model BodyFormItem {
 @normalize
 @entity
 @parentResource(Example.Example)
-model BodyUrlEncodedItem {
+model BodyUrlEncoded {
   @key bodyId: Resource.Id;
   key: string;
   enabled: boolean;
@@ -68,17 +68,17 @@ model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
 interface BodyService
   extends BlankInterface,
     // Form Array
-    Resource.List.Interface<BodyFormItem>,
-    Resource.Create.Interface<BodyFormItem>,
-    Resource.Update.Interface<BodyFormItem>,
-    Resource.Delete.Interface<BodyFormItem>,
-    Delta.Interface<BodyFormItem>,
+    Resource.List.Interface<BodyForm>,
+    Resource.Create.Interface<BodyForm>,
+    Resource.Update.Interface<BodyForm>,
+    Resource.Delete.Interface<BodyForm>,
+    Delta.Interface<BodyForm>,
     // URL Encoded Array
-    Resource.List.Interface<BodyUrlEncodedItem>,
-    Resource.Create.Interface<BodyUrlEncodedItem>,
-    Resource.Update.Interface<BodyUrlEncodedItem>,
-    Resource.Delete.Interface<BodyUrlEncodedItem>,
-    Delta.Interface<BodyUrlEncodedItem> {
+    Resource.List.Interface<BodyUrlEncoded>,
+    Resource.Create.Interface<BodyUrlEncoded>,
+    Resource.Update.Interface<BodyUrlEncoded>,
+    Resource.Delete.Interface<BodyUrlEncoded>,
+    Delta.Interface<BodyUrlEncoded> {
   // Raw
   BodyRawGet(...BodyRawGetRequest): BodyRawGetResponse;
   BodyRawUpdate(...BodyRawUpdateRequest): BodyRawUpdateResponse;
