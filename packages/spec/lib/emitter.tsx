@@ -47,6 +47,13 @@ function moveMessages({ program }: EmitContext) {
   // Get declared messages
   const messages = new Set(messageSet(program));
 
+  // Get entity messages
+  pipe(
+    entityMap(program).keys(),
+    Array.fromIterable,
+    Array.forEach((_) => messages.add(_)),
+  );
+
   // Get package messages and services
   packages.forEach((_) => {
     pipe(
@@ -101,6 +108,8 @@ function moveMessages({ program }: EmitContext) {
     if (!moveTo || _.namespace === moveTo) return;
 
     const name = getFriendlyName(program, _) ?? _.name;
+    if (moveTo.models.has(name)) return;
+
     _.namespace = moveTo;
     moveTo.models.set(name, _);
   });

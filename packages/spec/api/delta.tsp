@@ -47,17 +47,36 @@ model ResetRequest<TResource extends Model> {
   ...KeyOf<TResource>;
 }
 
+@move(Delta, TResource)
+@friendlyName("{name}DeltaResetResponse", TResource)
+model ResetResponse<TResource extends Model> {}
+
 interface Interface<
   TResource extends Model,
   TDelta extends Model = Item<TResource>,
   TListRequest extends Model = ListRequest<TResource>
->
-  extends Resource.List.Interface<TDelta, TMove = TResource, TRequest = TListRequest>,
-    Resource.Create.Interface<TDelta, TMove = TResource, TListRequest = TListRequest>,
-    Resource.Update.Interface<TDelta, TMove = TResource>,
-    Resource.Delete.Interface<TDelta, TMove = TResource> {
+> extends Resource.Delete.Interface<TDelta, TMove = TResource> {
+  @move(Delta, TResource)
+  @useFriendlyName
+  @friendlyName("{name}List", TDelta)
+  @endpoint("delta.js:deltaList")
+  List is Resource.List.Operation<TDelta, TMove = TResource, TRequest = TListRequest>;
+
+  @move(Delta, TResource)
+  @useFriendlyName
+  @friendlyName("{name}Create", TDelta)
+  @endpoint("delta.js:deltaCreate")
+  Create is Resource.Create.Operation<TDelta, TMove = TResource, TListRequest = TListRequest>;
+
+  @move(Delta, TResource)
+  @useFriendlyName
+  @friendlyName("{name}Update", TDelta)
+  @endpoint("delta.js:deltaUpdate")
+  Update is Resource.Update.Operation<TDelta, TMove = TResource>;
+
   @move(Delta, TResource)
   @useFriendlyName
   @friendlyName("{name}Reset", TDelta)
-  Reset(...ResetRequest<TResource>): WellKnown.Empty;
+  @endpoint("delta.js:deltaReset")
+  Reset(...ResetRequest<TResource>): ResetResponse<TResource>;
 }
