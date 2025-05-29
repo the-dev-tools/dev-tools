@@ -59,7 +59,7 @@ func CreateService(srv BodyRPC, options []connect.HandlerOption) (*api.Service, 
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *BodyRPC) BodyFormItemList(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemListRequest]) (*connect.Response[bodyv1.BodyFormItemListResponse], error) {
+func (c *BodyRPC) BodyFormList(ctx context.Context, req *connect.Request[bodyv1.BodyFormListRequest]) (*connect.Response[bodyv1.BodyFormListResponse], error) {
 	ExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -73,18 +73,18 @@ func (c *BodyRPC) BodyFormItemList(ctx context.Context, req *connect.Request[bod
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	rpcBodyForms := tgeneric.MassConvert(bodyForms, tbodyform.SerializeFormModelToRPCItem)
-	return connect.NewResponse(&bodyv1.BodyFormItemListResponse{
+	return connect.NewResponse(&bodyv1.BodyFormListResponse{
 		ExampleId: req.Msg.ExampleId,
 		Items:     rpcBodyForms,
 	}), nil
 }
 
-func (c BodyRPC) BodyFormItemCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemCreateRequest]) (*connect.Response[bodyv1.BodyFormItemCreateResponse], error) {
+func (c BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormCreateRequest]) (*connect.Response[bodyv1.BodyFormCreateResponse], error) {
 	ExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcBody := &bodyv1.BodyFormItem{
+	rpcBody := &bodyv1.BodyForm{
 		ParentBodyId: req.Msg.GetParentBodyId(),
 		Key:          req.Msg.GetKey(),
 		Enabled:      req.Msg.GetEnabled(),
@@ -119,11 +119,11 @@ func (c BodyRPC) BodyFormItemCreate(ctx context.Context, req *connect.Request[bo
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.BodyFormItemCreateResponse{BodyId: bodyForm.ID.Bytes()}), nil
+	return connect.NewResponse(&bodyv1.BodyFormCreateResponse{BodyId: bodyForm.ID.Bytes()}), nil
 }
 
-func (c BodyRPC) BodyFormItemUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemUpdateRequest]) (*connect.Response[bodyv1.BodyFormItemUpdateResponse], error) {
-	rpcBody := &bodyv1.BodyFormItem{
+func (c BodyRPC) BodyFormUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormUpdateRequest]) (*connect.Response[bodyv1.BodyFormUpdateResponse], error) {
+	rpcBody := &bodyv1.BodyForm{
 		BodyId:      req.Msg.GetBodyId(),
 		Key:         req.Msg.GetKey(),
 		Enabled:     req.Msg.GetEnabled(),
@@ -151,10 +151,10 @@ func (c BodyRPC) BodyFormItemUpdate(ctx context.Context, req *connect.Request[bo
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.BodyFormItemUpdateResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyFormUpdateResponse{}), nil
 }
 
-func (c BodyRPC) BodyFormItemDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormItemDeleteRequest]) (*connect.Response[bodyv1.BodyFormItemDeleteResponse], error) {
+func (c BodyRPC) BodyFormDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeleteRequest]) (*connect.Response[bodyv1.BodyFormDeleteResponse], error) {
 	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -169,10 +169,10 @@ func (c BodyRPC) BodyFormItemDelete(ctx context.Context, req *connect.Request[bo
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.BodyFormItemDeleteResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyFormDeleteResponse{}), nil
 }
 
-func (c *BodyRPC) BodyUrlEncodedItemList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemListResponse], error) {
+func (c *BodyRPC) BodyUrlEncodedList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedListResponse], error) {
 	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -186,15 +186,15 @@ func (c *BodyRPC) BodyUrlEncodedItemList(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	rpcBodyURLs := tgeneric.MassConvert(bodyURLs, tbodyurl.SerializeURLModelToRPCItem)
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemListResponse{Items: rpcBodyURLs, ExampleId: req.Msg.ExampleId}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedListResponse{Items: rpcBodyURLs, ExampleId: req.Msg.ExampleId}), nil
 }
 
-func (c BodyRPC) BodyUrlEncodedItemCreate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemCreateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemCreateResponse], error) {
+func (c BodyRPC) BodyUrlEncodedCreate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedCreateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedCreateResponse], error) {
 	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	bodyData := &bodyv1.BodyUrlEncodedItem{
+	bodyData := &bodyv1.BodyUrlEncoded{
 		Key:         req.Msg.GetKey(),
 		Enabled:     req.Msg.GetEnabled(),
 		Value:       req.Msg.GetValue(),
@@ -224,11 +224,11 @@ func (c BodyRPC) BodyUrlEncodedItemCreate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemCreateResponse{BodyId: bodyUrl.ID.Bytes()}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedCreateResponse{BodyId: bodyUrl.ID.Bytes()}), nil
 }
 
-func (c BodyRPC) BodyUrlEncodedItemUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemUpdateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemUpdateResponse], error) {
-	bodyData := &bodyv1.BodyUrlEncodedItem{
+func (c BodyRPC) BodyUrlEncodedUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedUpdateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedUpdateResponse], error) {
+	bodyData := &bodyv1.BodyUrlEncoded{
 		BodyId:      req.Msg.GetBodyId(),
 		Key:         req.Msg.GetKey(),
 		Enabled:     req.Msg.GetEnabled(),
@@ -258,10 +258,10 @@ func (c BodyRPC) BodyUrlEncodedItemUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemUpdateResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedUpdateResponse{}), nil
 }
 
-func (c BodyRPC) BodyUrlEncodedItemDelete(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedItemDeleteRequest]) (*connect.Response[bodyv1.BodyUrlEncodedItemDeleteResponse], error) {
+func (c BodyRPC) BodyUrlEncodedDelete(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeleteRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeleteResponse], error) {
 	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -276,7 +276,7 @@ func (c BodyRPC) BodyUrlEncodedItemDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedItemDeleteResponse{}), nil
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeleteResponse{}), nil
 }
 
 func (c BodyRPC) BodyRawGet(ctx context.Context, req *connect.Request[bodyv1.BodyRawGetRequest]) (*connect.Response[bodyv1.BodyRawGetResponse], error) {
