@@ -6,6 +6,11 @@ import { $lib } from './lib.js';
 
 export const keyMap = (program: Program) => program.stateMap(Symbol.for('TypeSpec.key')) as Map<Type, string>;
 
+// Rest
+
+export const parentResourceMap = (program: Program) =>
+  program.stateMap(Symbol.for('@typespec/rest.parentResourceTypes')) as Map<Model, Model>;
+
 // Protobuf
 
 export const messageSet = (program: Program) =>

@@ -10,6 +10,7 @@ extern dec copyKey(target: Model);
 model KeyOf<Resource> {}
 
 extern dec copyParentKey(target: Model);
+extern dec parentResourceOf(target: Model, base: Model);
 
 @copyParentKey
 model ParentKeyOf<Resource> {}
