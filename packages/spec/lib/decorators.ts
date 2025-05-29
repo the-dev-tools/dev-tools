@@ -170,7 +170,7 @@ export function $move(
   moveMap(program).set(target, toNamespace);
 }
 
-export function $useFriendlyName({ program }: DecoratorContext, target: Operation) {
+export function $useFriendlyName({ program }: DecoratorContext, target: Model | Operation) {
   target.name = getFriendlyName(program, target) ?? target.name;
 }
 

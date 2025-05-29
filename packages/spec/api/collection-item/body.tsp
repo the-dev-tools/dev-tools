@@ -30,8 +30,6 @@ enum BodyKind {
 @parentResource(Example.Example)
 model BodyFormItem {
   @key bodyId: Resource.Id;
-  @visibility(Resource.Mutation.None) origin?: BodyFormItem;
-  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -44,8 +42,6 @@ model BodyFormItem {
 @parentResource(Example.Example)
 model BodyUrlEncodedItem {
   @key bodyId: Resource.Id;
-  @visibility(Resource.Mutation.None) origin?: BodyUrlEncodedItem;
-  @visibility(Resource.Mutation.Update) source?: Delta.SourceKind;
   key: string;
   enabled: boolean;
   value: string;
@@ -76,11 +72,13 @@ interface BodyService
     Resource.Create.Interface<BodyFormItem>,
     Resource.Update.Interface<BodyFormItem>,
     Resource.Delete.Interface<BodyFormItem>,
+    Delta.Interface<BodyFormItem>,
     // URL Encoded Array
     Resource.List.Interface<BodyUrlEncodedItem>,
     Resource.Create.Interface<BodyUrlEncodedItem>,
     Resource.Update.Interface<BodyUrlEncodedItem>,
-    Resource.Delete.Interface<BodyUrlEncodedItem> {
+    Resource.Delete.Interface<BodyUrlEncodedItem>,
+    Delta.Interface<BodyUrlEncodedItem> {
   // Raw
   BodyRawGet(...BodyRawGetRequest): BodyRawGetResponse;
   BodyRawUpdate(...BodyRawUpdateRequest): BodyRawUpdateResponse;
