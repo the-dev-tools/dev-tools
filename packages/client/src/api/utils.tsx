@@ -1,4 +1,4 @@
-import { EnumShape, enumToJson, JsonValue } from '@bufbuild/protobuf';
+import { EnumShape, enumToJson, JsonValue, Message } from '@bufbuild/protobuf';
 import { GenEnum } from '@bufbuild/protobuf/codegenv2';
 import { pipe, String } from 'effect';
 
@@ -16,3 +16,5 @@ export const enumToString = <RuntimeShape extends number, JsonType extends JsonV
     },
     String.toLowerCase,
   );
+
+export type GenericMessage<T extends Message> = Message & Omit<T, keyof Message>;

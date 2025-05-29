@@ -5,22 +5,34 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
 import { useContext, useState } from 'react';
 
-import { BodyKind } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
+import {
+  BodyFormItemDeltaListItem,
+  BodyFormItemListItem,
+  BodyKind,
+  BodyUrlEncodedItemDeltaListItem,
+  BodyUrlEncodedItemListItem,
+} from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import { bodyRawGet, bodyRawUpdate } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
 import {
   BodyFormItemCreateEndpoint,
   BodyFormItemDeleteEndpoint,
+  BodyFormItemDeltaCreateEndpoint,
+  BodyFormItemDeltaDeleteEndpoint,
+  BodyFormItemDeltaListEndpoint,
+  BodyFormItemDeltaResetEndpoint,
+  BodyFormItemDeltaUpdateEndpoint,
   BodyFormItemListEndpoint,
   BodyFormItemUpdateEndpoint,
   BodyUrlEncodedItemCreateEndpoint,
   BodyUrlEncodedItemDeleteEndpoint,
+  BodyUrlEncodedItemDeltaCreateEndpoint,
+  BodyUrlEncodedItemDeltaDeleteEndpoint,
+  BodyUrlEncodedItemDeltaListEndpoint,
+  BodyUrlEncodedItemDeltaResetEndpoint,
+  BodyUrlEncodedItemDeltaUpdateEndpoint,
   BodyUrlEncodedItemListEndpoint,
   BodyUrlEncodedItemUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/body/v1/body.endpoints.ts';
-import {
-  BodyFormItemListItemEntity,
-  BodyUrlEncodedItemListItemEntity,
-} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.entities.ts';
 import {
   ExampleGetEndpoint,
   ExampleUpdateEndpoint,
@@ -32,6 +44,7 @@ import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectMutation, useConnectSuspenseQuery } from '~api/connect-query';
+import { GenericMessage } from '~api/utils';
 import {
   baseCodeMirrorExtensions,
   CodeMirrorMarkupLanguage,
@@ -41,15 +54,12 @@ import {
 import { useReactRender } from '~react-render';
 
 import {
-  ColumnActionDelete,
-  columnActions,
-  ColumnActionUndoDelta,
+  columnActionsCommon,
+  columnActionsDeltaCommon,
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
-  deltaFormTable,
   displayTable,
-  makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
 } from './form-table';
@@ -104,10 +114,10 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
 };
 
 const formDataColumns = [
-  columnCheckboxField<BodyFormItemListItemEntity>('enabled', { meta: { divider: false } }),
-  columnReferenceField<BodyFormItemListItemEntity>('key'),
-  columnReferenceField<BodyFormItemListItemEntity>('value'),
-  columnTextField<BodyFormItemListItemEntity>('description', { meta: { divider: false } }),
+  columnCheckboxField<GenericMessage<BodyFormItemListItem>>('enabled', { meta: { divider: false } }),
+  columnReferenceField<GenericMessage<BodyFormItemListItem>>('key'),
+  columnReferenceField<GenericMessage<BodyFormItemListItem>>('value'),
+  columnTextField<GenericMessage<BodyFormItemListItem>>('description', { meta: { divider: false } }),
 ];
 
 interface FormDisplayTableProps {
@@ -135,17 +145,15 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const { items } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId });
+  const items: GenericMessage<BodyFormItemListItem>[] = useSuspense(BodyFormItemListEndpoint, transport, {
+    exampleId,
+  }).items;
 
   const table = useReactTable({
     columns: [
       ...formDataColumns,
-      columnActions<BodyFormItemListItemEntity>({
-        cell: ({ row }) => (
-          <ColumnActionDelete
-            onAction={() => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })}
-          />
-        ),
+      columnActionsCommon<GenericMessage<BodyFormItemListItem>>({
+        onDelete: (_) => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: _.bodyId }),
       }),
     ],
     data: items,
@@ -171,54 +179,42 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
   const transport = useTransport();
   const controller = useController();
 
-  // TODO: fetch in parallel
-  const { items: itemsBase } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId });
-  const { items: itemsDelta } = useSuspense(BodyFormItemListEndpoint, transport, { exampleId: deltaExampleId });
+  const items: GenericMessage<BodyFormItemDeltaListItem>[] = useSuspense(BodyFormItemDeltaListEndpoint, transport, {
+    exampleId: deltaExampleId,
+    originId: exampleId,
+  }).items;
 
-  const items = makeDeltaItems({
-    getId: (_) => _.bodyId.toString(),
-    getParentId: (_) => _.parentBodyId?.toString(),
-    itemsBase,
-    itemsDelta,
-  });
-
-  const formTable = deltaFormTable<BodyFormItemListItemEntity>({
-    getParentId: (_) => _.parentBodyId?.toString(),
-    onCreate: ({ $typeName: _, bodyId, ...item }) =>
-      controller.fetch(BodyFormItemCreateEndpoint, transport, {
-        ...item,
-        exampleId: deltaExampleId,
-        parentBodyId: bodyId,
-      }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormItemUpdateEndpoint, transport, item),
+  const formTable = useFormTable({
+    createLabel: 'New form data item',
+    items,
+    onCreate: () => controller.fetch(BodyFormItemDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormItemDeltaUpdateEndpoint, transport, item),
+    primaryColumn: 'key',
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...formDataColumns,
-        columnActions<BodyFormItemListItemEntity>({
-          cell: ({ row }) => (
-            <ColumnActionUndoDelta
-              hasDelta={row.original.parentBodyId !== undefined}
-              onAction={() => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })}
-            />
-          ),
+        columnActionsDeltaCommon<GenericMessage<BodyFormItemDeltaListItem>>({
+          onDelete: (_) => controller.fetch(BodyFormItemDeltaDeleteEndpoint, transport, { bodyId: _.bodyId }),
+          onReset: (_) => controller.fetch(BodyFormItemDeltaResetEndpoint, transport, { bodyId: _.bodyId }),
+          source: (_) => _.source,
         }),
       ]}
       data={items}
-      getRowId={(_) => (_.parentBodyId ?? _.bodyId).toString()}
+      getRowId={(_) => _.bodyId.toString()}
     >
-      {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}
+      {(table) => <DataTable {...formTable} table={table} />}
     </ReactTableNoMemo>
   );
 };
 
 const urlEncodedDataColumns = [
-  columnCheckboxField<BodyUrlEncodedItemListItemEntity>('enabled', { meta: { divider: false } }),
-  columnReferenceField<BodyUrlEncodedItemListItemEntity>('key'),
-  columnReferenceField<BodyUrlEncodedItemListItemEntity>('value'),
-  columnTextField<BodyUrlEncodedItemListItemEntity>('description', { meta: { divider: false } }),
+  columnCheckboxField<GenericMessage<BodyUrlEncodedItemListItem>>('enabled', { meta: { divider: false } }),
+  columnReferenceField<GenericMessage<BodyUrlEncodedItemListItem>>('key'),
+  columnReferenceField<GenericMessage<BodyUrlEncodedItemListItem>>('value'),
+  columnTextField<GenericMessage<BodyUrlEncodedItemListItem>>('description', { meta: { divider: false } }),
 ];
 
 interface UrlEncodedDisplayTableProps {
@@ -246,19 +242,15 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const { items } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId });
+  const items: GenericMessage<BodyUrlEncodedItemListItem>[] = useSuspense(BodyUrlEncodedItemListEndpoint, transport, {
+    exampleId,
+  }).items;
 
   const table = useReactTable({
     columns: [
       ...urlEncodedDataColumns,
-      columnActions<BodyUrlEncodedItemListItemEntity>({
-        cell: ({ row }) => (
-          <ColumnActionDelete
-            onAction={() =>
-              controller.fetch(BodyUrlEncodedItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })
-            }
-          />
-        ),
+      columnActionsCommon<GenericMessage<BodyUrlEncodedItemListItem>>({
+        onDelete: (_) => controller.fetch(BodyUrlEncodedItemDeleteEndpoint, transport, { bodyId: _.bodyId }),
       }),
     ],
     data: items,
@@ -284,43 +276,35 @@ const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDelta
   const transport = useTransport();
   const controller = useController();
 
-  // TODO: fetch in parallel
-  const { items: itemsBase } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId });
-  const { items: itemsDelta } = useSuspense(BodyUrlEncodedItemListEndpoint, transport, { exampleId: deltaExampleId });
+  const items: GenericMessage<BodyUrlEncodedItemDeltaListItem>[] = useSuspense(
+    BodyUrlEncodedItemDeltaListEndpoint,
+    transport,
+    {
+      exampleId: deltaExampleId,
+      originId: exampleId,
+    },
+  ).items;
 
-  const items = makeDeltaItems({
-    getId: (_) => _.bodyId.toString(),
-    getParentId: (_) => _.parentBodyId?.toString(),
-    itemsBase,
-    itemsDelta,
-  });
-
-  const formTable = deltaFormTable<BodyUrlEncodedItemListItemEntity>({
-    getParentId: (_) => _.parentBodyId?.toString(),
-    onCreate: ({ $typeName: _, bodyId, ...item }) =>
-      controller.fetch(BodyUrlEncodedItemCreateEndpoint, transport, {
-        ...item,
-        exampleId: deltaExampleId,
-        parentBodyId: bodyId,
-      }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedItemUpdateEndpoint, transport, item),
+  const formTable = useFormTable({
+    createLabel: 'New URL encoded item',
+    items,
+    onCreate: () => controller.fetch(BodyUrlEncodedItemDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedItemDeltaUpdateEndpoint, transport, item),
+    primaryColumn: 'key',
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...urlEncodedDataColumns,
-        columnActions<BodyUrlEncodedItemListItemEntity>({
-          cell: ({ row }) => (
-            <ColumnActionUndoDelta
-              hasDelta={row.original.parentBodyId !== undefined}
-              onAction={() => controller.fetch(BodyFormItemDeleteEndpoint, transport, { bodyId: row.original.bodyId })}
-            />
-          ),
+        columnActionsDeltaCommon<GenericMessage<BodyUrlEncodedItemDeltaListItem>>({
+          onDelete: (_) => controller.fetch(BodyUrlEncodedItemDeltaDeleteEndpoint, transport, { bodyId: _.bodyId }),
+          onReset: (_) => controller.fetch(BodyUrlEncodedItemDeltaResetEndpoint, transport, { bodyId: _.bodyId }),
+          source: (_) => _.source,
         }),
       ]}
       data={items}
-      getRowId={(_) => (_.parentBodyId ?? _.bodyId).toString()}
+      getRowId={(_) => _.bodyId.toString()}
     >
       {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}
     </ReactTableNoMemo>

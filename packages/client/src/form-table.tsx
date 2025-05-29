@@ -16,6 +16,7 @@ import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTableProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
@@ -256,33 +257,58 @@ export const columnActions = <T,>({ cell, ...props }: Partial<DisplayColumnDef<T
 });
 
 interface ColumnActionDeleteProps {
-  onAction: () => void;
+  onDelete: () => void;
 }
 
-export const ColumnActionDelete = ({ onAction }: ColumnActionDeleteProps) => (
+export const ColumnActionDelete = ({ onDelete }: ColumnActionDeleteProps) => (
   <TooltipTrigger delay={750}>
-    <Button className={tw`text-red-700`} onPress={onAction} variant='ghost'>
+    <Button className={tw`text-red-700`} onPress={onDelete} variant='ghost'>
       <LuTrash2 />
     </Button>
     <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
   </TooltipTrigger>
 );
 
-interface ColumnActionUndoDeltaProps {
-  hasDelta: boolean;
-  onAction: () => void;
+interface ColumnActionDeltaResetProps {
+  onReset: () => void;
+  source: SourceKind | undefined;
 }
 
-export const ColumnActionUndoDelta = ({ hasDelta, onAction }: ColumnActionUndoDeltaProps) => (
+export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaResetProps) => (
   <TooltipTrigger delay={750}>
     <Button
       className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
-      isDisabled={!hasDelta}
-      onPress={onAction}
+      isDisabled={source === SourceKind.MIXED}
+      onPress={onReset}
       variant='ghost'
     >
       <RedoIcon />
     </Button>
-    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Undo changes</Tooltip>
+    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Reset changes</Tooltip>
   </TooltipTrigger>
 );
+
+interface ColumnActionsCommonProps<T> {
+  onDelete: (item: T) => void;
+}
+
+export const columnActionsCommon = <T,>({ onDelete }: ColumnActionsCommonProps<T>) =>
+  columnActions<T>({
+    cell: ({ row }) => <ColumnActionDelete onDelete={() => void onDelete(row.original)} />,
+  });
+
+interface ColumnActionsDeltaCommonProps<T> {
+  onDelete: (item: T) => void;
+  onReset: (item: T) => void;
+  source: (item: T) => SourceKind | undefined;
+}
+
+export const columnActionsDeltaCommon = <T,>({ onDelete, onReset, source }: ColumnActionsDeltaCommonProps<T>) =>
+  columnActions<T>({
+    cell: ({ row }) => (
+      <>
+        <ColumnActionDeltaReset onReset={() => void onReset(row.original)} source={source(row.original)} />
+        <ColumnActionDelete onDelete={() => void onDelete(row.original)} />
+      </>
+    ),
+  });

@@ -1,25 +1,28 @@
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
 
+import { QueryDeltaListItem, QueryListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
   QueryCreateEndpoint,
   QueryDeleteEndpoint,
+  QueryDeltaCreateEndpoint,
+  QueryDeltaDeleteEndpoint,
+  QueryDeltaListEndpoint,
+  QueryDeltaResetEndpoint,
+  QueryDeltaUpdateEndpoint,
   QueryListEndpoint,
   QueryUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
-import { QueryListItemEntity } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.entities.ts';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
+import { GenericMessage } from '~api/utils';
 
 import {
-  ColumnActionDelete,
-  columnActions,
-  ColumnActionUndoDelta,
+  columnActionsCommon,
+  columnActionsDeltaCommon,
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
-  deltaFormTable,
   displayTable,
-  makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
 } from './form-table';
@@ -37,10 +40,10 @@ export const QueryTable = ({ deltaExampleId, exampleId, isReadOnly }: QueryTable
 };
 
 const dataColumns = [
-  columnCheckboxField<QueryListItemEntity>('enabled', { meta: { divider: false } }),
-  columnReferenceField<QueryListItemEntity>('key'),
-  columnReferenceField<QueryListItemEntity>('value'),
-  columnTextField<QueryListItemEntity>('description', { meta: { divider: false } }),
+  columnCheckboxField<GenericMessage<QueryListItem>>('enabled', { meta: { divider: false } }),
+  columnReferenceField<GenericMessage<QueryListItem>>('key'),
+  columnReferenceField<GenericMessage<QueryListItem>>('value'),
+  columnTextField<GenericMessage<QueryListItem>>('description', { meta: { divider: false } }),
 ];
 
 interface DisplayTableProps {
@@ -68,17 +71,13 @@ const FormTable = ({ exampleId }: FormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const { items } = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const items: GenericMessage<QueryListItem>[] = useSuspense(QueryListEndpoint, transport, { exampleId }).items;
 
   const table = useReactTable({
     columns: [
       ...dataColumns,
-      columnActions<QueryListItemEntity>({
-        cell: ({ row }) => (
-          <ColumnActionDelete
-            onAction={() => controller.fetch(QueryDeleteEndpoint, transport, { queryId: row.original.queryId })}
-          />
-        ),
+      columnActionsCommon<GenericMessage<QueryListItem>>({
+        onDelete: (_) => controller.fetch(QueryDeleteEndpoint, transport, { queryId: _.queryId }),
       }),
     ],
     data: items,
@@ -104,39 +103,31 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  // TODO: fetch in parallel
-  const { items: itemsBase } = useSuspense(QueryListEndpoint, transport, { exampleId });
-  const { items: itemsDelta } = useSuspense(QueryListEndpoint, transport, { exampleId: deltaExampleId });
+  const items: GenericMessage<QueryDeltaListItem>[] = useSuspense(QueryDeltaListEndpoint, transport, {
+    exampleId: deltaExampleId,
+    originId: exampleId,
+  }).items;
 
-  const items = makeDeltaItems({
-    getId: (_) => _.queryId.toString(),
-    getParentId: (_) => _.parentQueryId?.toString(),
-    itemsBase,
-    itemsDelta,
-  });
-
-  const formTable = deltaFormTable<QueryListItemEntity>({
-    getParentId: (_) => _.parentQueryId?.toString(),
-    onCreate: ({ $typeName: _, queryId, ...item }) =>
-      controller.fetch(QueryCreateEndpoint, transport, { ...item, exampleId: deltaExampleId, parentQueryId: queryId }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(QueryUpdateEndpoint, transport, item),
+  const formTable = useFormTable({
+    createLabel: 'New param',
+    items,
+    onCreate: () => controller.fetch(QueryDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(QueryDeltaUpdateEndpoint, transport, item),
+    primaryColumn: 'key',
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...dataColumns,
-        columnActions<QueryListItemEntity>({
-          cell: ({ row }) => (
-            <ColumnActionUndoDelta
-              hasDelta={row.original.parentQueryId !== undefined}
-              onAction={() => controller.fetch(QueryDeleteEndpoint, transport, { queryId: row.original.queryId })}
-            />
-          ),
+        columnActionsDeltaCommon<GenericMessage<QueryDeltaListItem>>({
+          onDelete: (_) => controller.fetch(QueryDeltaDeleteEndpoint, transport, { queryId: _.queryId }),
+          onReset: (_) => controller.fetch(QueryDeltaResetEndpoint, transport, { queryId: _.queryId }),
+          source: (_) => _.source,
         }),
       ]}
       data={items}
-      getRowId={(_) => (_.parentQueryId ?? _.queryId).toString()}
+      getRowId={(_) => _.queryId.toString()}
     >
       {(table) => <DataTable {...formTable} table={table} />}
     </ReactTableNoMemo>

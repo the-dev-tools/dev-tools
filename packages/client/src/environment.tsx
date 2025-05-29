@@ -48,8 +48,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useMutate } from '~data-client';
 
 import {
-  ColumnActionDelete,
-  columnActions,
+  columnActionsCommon,
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
@@ -301,14 +300,8 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
       columnReferenceField<VariableListItemEntity>('name'),
       columnReferenceField<VariableListItemEntity>('value'),
       columnTextField<VariableListItemEntity>('description', { meta: { divider: false } }),
-      columnActions<VariableListItemEntity>({
-        cell: ({ row }) => (
-          <ColumnActionDelete
-            onAction={() =>
-              controller.fetch(VariableDeleteEndpoint, transport, { variableId: row.original.variableId })
-            }
-          />
-        ),
+      columnActionsCommon<VariableListItemEntity>({
+        onDelete: (_) => controller.fetch(VariableDeleteEndpoint, transport, { variableId: _.variableId }),
       }),
     ],
     data: items,

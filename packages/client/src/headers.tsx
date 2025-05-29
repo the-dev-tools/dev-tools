@@ -1,25 +1,26 @@
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
 
+import { HeaderDeltaListItem, HeaderListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
   HeaderCreateEndpoint,
-  HeaderDeleteEndpoint,
+  HeaderDeltaCreateEndpoint,
+  HeaderDeltaDeleteEndpoint,
+  HeaderDeltaListEndpoint,
+  HeaderDeltaResetEndpoint,
   HeaderListEndpoint,
   HeaderUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
-import { HeaderListItemEntity } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.entities.ts';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
+import { GenericMessage } from '~api/utils';
 
 import {
-  ColumnActionDelete,
-  columnActions,
-  ColumnActionUndoDelta,
+  columnActionsCommon,
+  columnActionsDeltaCommon,
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
-  deltaFormTable,
   displayTable,
-  makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
 } from './form-table';
@@ -37,10 +38,10 @@ export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTab
 };
 
 const dataColumns = [
-  columnCheckboxField<HeaderListItemEntity>('enabled', { meta: { divider: false } }),
-  columnReferenceField<HeaderListItemEntity>('key'),
-  columnReferenceField<HeaderListItemEntity>('value'),
-  columnTextField<HeaderListItemEntity>('description', { meta: { divider: false } }),
+  columnCheckboxField<GenericMessage<HeaderListItem>>('enabled', { meta: { divider: false } }),
+  columnReferenceField<GenericMessage<HeaderListItem>>('key'),
+  columnReferenceField<GenericMessage<HeaderListItem>>('value'),
+  columnTextField<GenericMessage<HeaderListItem>>('description', { meta: { divider: false } }),
 ];
 
 interface DisplayTableProps {
@@ -68,17 +69,13 @@ const FormTable = ({ exampleId }: FormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const { items } = useSuspense(HeaderListEndpoint, transport, { exampleId });
+  const items: GenericMessage<HeaderListItem>[] = useSuspense(HeaderListEndpoint, transport, { exampleId }).items;
 
   const table = useReactTable({
     columns: [
       ...dataColumns,
-      columnActions<HeaderListItemEntity>({
-        cell: ({ row }) => (
-          <ColumnActionDelete
-            onAction={() => controller.fetch(HeaderDeleteEndpoint, transport, { headerId: row.original.headerId })}
-          />
-        ),
+      columnActionsCommon<GenericMessage<HeaderListItem>>({
+        onDelete: (_) => controller.fetch(HeaderDeltaDeleteEndpoint, transport, { headerId: _.headerId }),
       }),
     ],
     data: items,
@@ -104,43 +101,31 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  // TODO: fetch in parallel
-  const { items: itemsBase } = useSuspense(HeaderListEndpoint, transport, { exampleId });
-  const { items: itemsDelta } = useSuspense(HeaderListEndpoint, transport, { exampleId: deltaExampleId });
+  const items: GenericMessage<HeaderDeltaListItem>[] = useSuspense(HeaderDeltaListEndpoint, transport, {
+    exampleId: deltaExampleId,
+    originId: exampleId,
+  }).items;
 
-  const items = makeDeltaItems({
-    getId: (_) => _.headerId.toString(),
-    getParentId: (_) => _.parentHeaderId?.toString(),
-    itemsBase,
-    itemsDelta,
-  });
-
-  const formTable = deltaFormTable<HeaderListItemEntity>({
-    getParentId: (_) => _.parentHeaderId?.toString(),
-    onCreate: ({ $typeName: _, headerId, ...item }) =>
-      controller.fetch(HeaderCreateEndpoint, transport, {
-        ...item,
-        exampleId: deltaExampleId,
-        parentHeaderId: headerId,
-      }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderUpdateEndpoint, transport, item),
+  const formTable = useFormTable({
+    createLabel: 'New header',
+    items,
+    onCreate: () => controller.fetch(HeaderDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderDeltaDeleteEndpoint, transport, item),
+    primaryColumn: 'key',
   });
 
   return (
     <ReactTableNoMemo
       columns={[
         ...dataColumns,
-        columnActions<HeaderListItemEntity>({
-          cell: ({ row }) => (
-            <ColumnActionUndoDelta
-              hasDelta={row.original.parentHeaderId !== undefined}
-              onAction={() => controller.fetch(HeaderDeleteEndpoint, transport, { headerId: row.original.headerId })}
-            />
-          ),
+        columnActionsDeltaCommon<GenericMessage<HeaderDeltaListItem>>({
+          onDelete: (_) => controller.fetch(HeaderDeltaDeleteEndpoint, transport, { headerId: _.headerId }),
+          onReset: (_) => controller.fetch(HeaderDeltaResetEndpoint, transport, { headerId: _.headerId }),
+          source: (_) => _.source,
         }),
       ]}
       data={items}
-      getRowId={(_) => (_.parentHeaderId ?? _.headerId).toString()}
+      getRowId={(_) => _.headerId.toString()}
     >
       {(table) => <DataTable {...formTable} table={table} />}
     </ReactTableNoMemo>

@@ -55,8 +55,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { setQueryChild, useMutate } from '~data-client';
 import {
-  ColumnActionDelete,
-  columnActions,
+  columnActionsCommon,
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
@@ -507,14 +506,8 @@ const SettingsPanel = () => {
       columnReferenceField<FlowVariableListItemEntity>('name'),
       columnReferenceField<FlowVariableListItemEntity>('value'),
       columnTextField<FlowVariableListItemEntity>('description', { meta: { divider: false } }),
-      columnActions<FlowVariableListItemEntity>({
-        cell: ({ row }) => (
-          <ColumnActionDelete
-            onAction={() =>
-              controller.fetch(FlowVariableDeleteEndpoint, transport, { variableId: row.original.variableId })
-            }
-          />
-        ),
+      columnActionsCommon<FlowVariableListItemEntity>({
+        onDelete: (_) => controller.fetch(FlowVariableDeleteEndpoint, transport, { variableId: _.variableId }),
       }),
     ],
     data: items,
