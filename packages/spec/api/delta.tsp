@@ -26,6 +26,7 @@ enum SourceKind {
 @move(Delta, TResource)
 @useFriendlyName
 @friendlyName("{name}Delta", TResource)
+@parentResourceOf(TResource)
 model Item<TResource extends Model> {
   ...TResource;
   @visibility(Resource.Mutation.None) origin?: TResource;
@@ -37,7 +38,7 @@ model Item<TResource extends Model> {
 @friendlyName("{name}DeltaListRequest", TResource)
 model ListRequest<TResource extends Model> {
   ...ParentKeyOf<TResource>;
-  originId: Resource.Id;
+  @normalKey originId: Resource.Id;
 }
 
 @move(Delta, TResource)
