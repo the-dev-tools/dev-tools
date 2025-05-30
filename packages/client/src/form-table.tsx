@@ -1,5 +1,7 @@
-import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table } from '@tanstack/table-core';
-import { HashMap, Option, pipe, String } from 'effect';
+import { Message } from '@bufbuild/protobuf';
+import { useReactTable } from '@tanstack/react-table';
+import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table, TableOptions } from '@tanstack/table-core';
+import { String, Struct } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import {
@@ -19,10 +21,11 @@ import { useDebouncedCallback } from 'use-debounce';
 import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
-import { DataTableProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
+import { DataTableProps } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { GenericMessage } from '~api/utils';
 import { ReferenceFieldRHF } from '~reference';
 
 interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
@@ -127,56 +130,20 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
   } satisfies Partial<DataTableProps<TFieldValues>>;
 };
 
-interface MakeDeltaItemsProps<TFieldValues extends FieldValues> {
-  getId: (item: TFieldValues) => string;
-  getParentId: (item: TFieldValues) => string | undefined;
-  itemsBase: TFieldValues[];
-  itemsDelta: TFieldValues[];
-}
-
-export const makeDeltaItems = <TFieldValues extends FieldValues>({
-  getId,
-  getParentId,
-  itemsBase,
-  itemsDelta,
-}: MakeDeltaItemsProps<TFieldValues>) => {
-  const deltaItemMap = pipe(
-    itemsDelta.map((_) => [getParentId(_), _] as const),
-    HashMap.fromIterable,
-  );
-
-  return itemsBase.map((_) =>
-    pipe(
-      HashMap.get(deltaItemMap, getId(_)),
-      Option.getOrElse(() => _),
-    ),
-  );
-};
-
-interface DeltaFormTableProps<TFieldValues extends FieldValues> {
-  getParentId: (item: TFieldValues) => string | undefined;
-  onCreate: (value: TFieldValues) => Promise<unknown>;
-  onUpdate: (value: TFieldValues) => Promise<unknown>;
-}
-
-export const deltaFormTable = <TFieldValues extends FieldValues>({
-  getParentId,
-  onCreate,
-  onUpdate,
-}: DeltaFormTableProps<TFieldValues>) =>
-  ({
-    rowRender: (row, _) => (
-      <FormTableRow
-        onUpdate={async (data) => {
-          if (getParentId(data) !== undefined) await onUpdate(data);
-          else await onCreate(data);
-        }}
-        value={row.original}
-      >
-        {_}
-      </FormTableRow>
-    ),
-  }) satisfies Partial<DataTableProps<TFieldValues>>;
+export const makeDeltaItems = <
+  T extends Message & {
+    origin?: GenericMessage<T>;
+    source?: SourceKind;
+  },
+>(
+  items: T[],
+  key: keyof T,
+) =>
+  items.map((_): GenericMessage<T> => {
+    if (_.source !== SourceKind.ORIGIN || !_.origin) return _;
+    const deltaKey = Struct.pick(_, key) as Partial<T>;
+    return { ..._.origin, ...deltaKey };
+  });
 
 interface DisplayFormTableRowProps<T extends FieldValues> {
   children: ReactNode;
