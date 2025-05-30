@@ -230,6 +230,7 @@ export const ReferenceField = ({ className, extensions = [], ...forwardedProps }
       className={fieldStyles({ className, ...variantProps })}
       extensions={[...baseCodeMirrorExtensions({ client, context, reactRender }), ...extensions]}
       height='100%'
+      indentWithTab={false}
       {...props}
     />
   );

@@ -880,6 +880,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
         className='col-span-full self-stretch'
         extensions={extensions}
         height='100%'
+        indentWithTab={false}
         readOnly
         value={prettierBody}
       />
