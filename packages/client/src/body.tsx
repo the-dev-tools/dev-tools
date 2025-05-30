@@ -61,6 +61,7 @@ import {
   columnReferenceField,
   columnTextField,
   displayTable,
+  makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
 } from './form-table';
@@ -182,10 +183,13 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
   const transport = useTransport();
   const controller = useController();
 
-  const items: GenericMessage<BodyFormDeltaListItem>[] = useSuspense(BodyFormDeltaListEndpoint, transport, {
-    exampleId: deltaExampleId,
-    originId: exampleId,
-  }).items;
+  const items = pipe(
+    useSuspense(BodyFormDeltaListEndpoint, transport, {
+      exampleId: deltaExampleId,
+      originId: exampleId,
+    }).items,
+    (_) => makeDeltaItems(_, 'bodyId'),
+  );
 
   const formTable = useFormTable({
     createLabel: 'New form data item',
@@ -282,10 +286,13 @@ const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDelta
   const transport = useTransport();
   const controller = useController();
 
-  const items: GenericMessage<BodyUrlEncodedDeltaListItem>[] = useSuspense(BodyUrlEncodedDeltaListEndpoint, transport, {
-    exampleId: deltaExampleId,
-    originId: exampleId,
-  }).items;
+  const items = pipe(
+    useSuspense(BodyUrlEncodedDeltaListEndpoint, transport, {
+      exampleId: deltaExampleId,
+      originId: exampleId,
+    }).items,
+    (_) => makeDeltaItems(_, 'bodyId'),
+  );
 
   const formTable = useFormTable({
     createLabel: 'New URL encoded item',

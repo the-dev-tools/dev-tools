@@ -1,6 +1,7 @@
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { pipe } from 'effect';
 
 import { QueryDeltaListItem, QueryListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
@@ -24,6 +25,7 @@ import {
   columnReferenceField,
   columnTextField,
   displayTable,
+  makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
 } from './form-table';
@@ -106,10 +108,13 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const items: GenericMessage<QueryDeltaListItem>[] = useSuspense(QueryDeltaListEndpoint, transport, {
-    exampleId: deltaExampleId,
-    originId: exampleId,
-  }).items;
+  const items = pipe(
+    useSuspense(QueryDeltaListEndpoint, transport, {
+      exampleId: deltaExampleId,
+      originId: exampleId,
+    }).items,
+    (_) => makeDeltaItems(_, 'queryId'),
+  );
 
   const formTable = useFormTable({
     createLabel: 'New param',
