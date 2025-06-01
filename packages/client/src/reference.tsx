@@ -1,7 +1,7 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
-import CodeMirror, { ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
+import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
 import { createContext, RefAttributes, use, useContext } from 'react';
 import { mergeProps } from 'react-aria';
@@ -228,7 +228,11 @@ export const ReferenceField = ({ className, extensions = [], ...forwardedProps }
     <CodeMirror
       basicSetup={false}
       className={fieldStyles({ className, ...variantProps })}
-      extensions={[...baseCodeMirrorExtensions({ client, context, reactRender }), ...extensions]}
+      extensions={[
+        ...baseCodeMirrorExtensions({ client, context, reactRender }),
+        EditorView.theme({ '.cm-scroller': { overflow: 'hidden' } }),
+        ...extensions,
+      ]}
       height='100%'
       indentWithTab={false}
       {...props}
