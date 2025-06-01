@@ -5,7 +5,7 @@ import { makeUrl } from '@effect/platform/UrlParams';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { QueryErrorResetBoundary, useQuery } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi, useMatchRoute, useNavigate } from '@tanstack/react-router';
-import { createColumnHelper, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Either, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
@@ -51,7 +51,7 @@ import {
   ResponseHeaderListEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/response/v1/response.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { Spinner } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -905,7 +905,6 @@ const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
   const table = useReactTable({
     columns,
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   return <DataTable cellClassName={tw`px-5 py-1.5`} table={table} />;

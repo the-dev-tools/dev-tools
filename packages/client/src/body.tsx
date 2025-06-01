@@ -1,7 +1,6 @@
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
 import { useContext, useState } from 'react';
@@ -27,7 +26,7 @@ import {
   ExampleUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
@@ -123,7 +122,6 @@ const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
   const table = useReactTable({
     columns: formDataColumns,
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   return <DataTable {...displayTable} table={table} wrapperClassName={tw`col-span-full`} />;
@@ -151,7 +149,6 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
       }),
     ],
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   const formTable = useFormTable({
@@ -210,7 +207,6 @@ const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTablePro
         }),
       ]}
       data={items}
-      getCoreRowModel={getCoreRowModel()}
       getRowId={(_) => (_.parentBodyId ?? _.bodyId).toString()}
     >
       {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}
@@ -237,7 +233,6 @@ const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
   const table = useReactTable({
     columns: urlEncodedDataColumns,
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   return <DataTable {...displayTable} table={table} wrapperClassName={tw`col-span-full`} />;
@@ -267,7 +262,6 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
       }),
     ],
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   const formTable = useFormTable({
@@ -326,7 +320,6 @@ const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDelta
         }),
       ]}
       data={items}
-      getCoreRowModel={getCoreRowModel()}
       getRowId={(_) => (_.parentBodyId ?? _.bodyId).toString()}
     >
       {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}

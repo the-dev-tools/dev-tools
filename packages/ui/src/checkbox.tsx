@@ -19,7 +19,7 @@ const rootStyles = tv({
   base: tw`group flex items-center gap-2`,
   variants: {
     variant: {
-      'table-cell': tw`p-1`,
+      'table-cell': tw`justify-self-center p-1`,
     },
   },
 });

@@ -1,6 +1,5 @@
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 
 import {
   QueryCreateEndpoint,
@@ -9,7 +8,7 @@ import {
   QueryUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
 import { QueryListItemEntity } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.entities.ts';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 
 import {
   ColumnActionDelete,
@@ -56,7 +55,6 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
   const table = useReactTable({
     columns: dataColumns,
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   return <DataTable {...displayTable} table={table} />;
@@ -84,7 +82,6 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       }),
     ],
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   const formTable = useFormTable({
@@ -139,7 +136,6 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
         }),
       ]}
       data={items}
-      getCoreRowModel={getCoreRowModel()}
       getRowId={(_) => (_.parentQueryId ?? _.queryId).toString()}
     >
       {(table) => <DataTable {...formTable} table={table} />}

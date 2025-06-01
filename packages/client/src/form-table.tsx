@@ -1,5 +1,4 @@
-import { useReactTable } from '@tanstack/react-table';
-import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table, TableOptions } from '@tanstack/table-core';
+import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table } from '@tanstack/table-core';
 import { HashMap, Option, pipe, String } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -19,7 +18,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
-import { DataTableProps } from '@the-dev-tools/ui/data-table';
+import { DataTableProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
@@ -199,11 +198,7 @@ export const columnCheckboxField = <TFieldValues extends FieldValues>(
   accessorKey: name,
   cell: function Cell() {
     const { control } = useFormContext<TFieldValues>();
-    return (
-      <div className={tw`flex justify-center`}>
-        <CheckboxRHF control={control} name={name} variant='table-cell' />
-      </div>
-    );
+    return <CheckboxRHF control={control} name={name} variant='table-cell' />;
   },
   header: '',
   size: 0,

@@ -1,7 +1,6 @@
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
 import { getRouteApi } from '@tanstack/react-router';
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { Ulid } from 'id128';
 import { Suspense } from 'react';
 import {
@@ -38,7 +37,7 @@ import {
   WorkspaceUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, Spinner, VariableIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -313,7 +312,6 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
       }),
     ],
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   const formTable = useFormTable({

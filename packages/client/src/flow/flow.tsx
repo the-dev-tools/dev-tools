@@ -3,7 +3,6 @@ import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useDLE, useSuspense } from '@data-client/react';
 import { createFileRoute, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import {
   Background,
   BackgroundVariant,
@@ -47,7 +46,7 @@ import {
 } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.endpoints.ts';
 import { FlowVariableListItemEntity } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.entities.ts';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -523,7 +522,6 @@ const SettingsPanel = () => {
       }),
     ],
     data: items,
-    getCoreRowModel: getCoreRowModel(),
   });
 
   const formTable = useFormTable({
