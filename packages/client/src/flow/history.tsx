@@ -15,7 +15,6 @@ import { Spinner } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
-import { StatusBar } from '../status-bar';
 import { EditPanel, Flow, TopBar } from './flow';
 import { FlowContext } from './internal';
 
@@ -34,26 +33,25 @@ function RouteComponent() {
   const state = useTabListState({
     children: ({ flowId }) => (
       <Item key={Ulid.construct(flowId).toCanonical()}>
-        <PanelGroup direction='vertical'>
-          <Suspense
-            fallback={
-              <div className={tw`flex h-full items-center justify-center`}>
-                <Spinner className={tw`size-16`} />
-              </div>
-            }
-          >
-            <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
-              <ReactFlowProvider>
+        <Suspense
+          fallback={
+            <div className={tw`flex h-full items-center justify-center`}>
+              <Spinner className={tw`size-16`} />
+            </div>
+          }
+        >
+          <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
+            <ReactFlowProvider>
+              <PanelGroup direction='vertical'>
                 <TopBar />
                 <Panel className='flex h-full flex-col' id='flow' order={1}>
                   <Flow key={Ulid.construct(flowId).toCanonical()} />
                 </Panel>
                 <EditPanel />
-              </ReactFlowProvider>
-            </FlowContext.Provider>
-            <StatusBar />
-          </Suspense>
-        </PanelGroup>
+              </PanelGroup>
+            </ReactFlowProvider>
+          </FlowContext.Provider>
+        </Suspense>
       </Item>
     ),
     items,
@@ -62,8 +60,8 @@ function RouteComponent() {
   const { tabListProps } = useTabList({ items, orientation: 'vertical' }, state, tabListRef);
 
   return (
-    <>
-      <Panel id='main' order={2}>
+    <PanelGroup direction='horizontal'>
+      <Panel>
         <TabPanel state={state} />
       </Panel>
 
@@ -72,10 +70,8 @@ function RouteComponent() {
       <Panel
         className={tw`flex flex-col bg-slate-50 p-4 tracking-tight`}
         defaultSize={20}
-        id='history'
         maxSize={40}
         minSize={10}
-        order={3}
         style={{ overflowY: 'auto' }}
       >
         <div className={tw`mb-4`}>
@@ -112,7 +108,7 @@ function RouteComponent() {
           </div>
         </div>
       </Panel>
-    </>
+    </PanelGroup>
   );
 }
 

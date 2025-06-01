@@ -2,7 +2,6 @@ import { QueryErrorResetBoundary } from '@tanstack/react-query';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { Panel } from 'react-resizable-panels';
 
 import { ErrorComponent } from '../error';
 
@@ -28,9 +27,5 @@ export const Route = makeRoute({
       <Outlet />
     </QueryErrorResetBoundary>
   ),
-  errorComponent: (props) => (
-    <Panel id='main' order={2}>
-      <ErrorComponent {...props} />
-    </Panel>
-  ),
+  errorComponent: (props) => <ErrorComponent {...props} />,
 });

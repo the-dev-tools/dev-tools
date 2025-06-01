@@ -77,7 +77,6 @@ import { ErrorComponent } from './error';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
 import { ReferenceContext } from './reference';
-import { StatusBar } from './status-bar';
 
 export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
   responseIdCan: pipe(Schema.String, Schema.optional),
@@ -105,11 +104,7 @@ export const Route = makeRoute({
       <Page />
     </QueryErrorResetBoundary>
   ),
-  errorComponent: (props) => (
-    <Panel id='main' order={2}>
-      <ErrorComponent {...props} />
-    </Panel>
-  ),
+  errorComponent: (props) => <ErrorComponent {...props} />,
   shouldReload: false,
 });
 
@@ -118,27 +113,24 @@ function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   return (
-    <Panel id='main' order={2}>
-      <Suspense
-        fallback={
-          <div className={tw`flex h-full items-center justify-center`}>
-            <Spinner className={tw`size-16`} />
-          </div>
-        }
-      >
-        <PanelGroup direction='vertical'>
-          <Panel className='flex h-full flex-col' id='request' order={1}>
-            <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+    <Suspense
+      fallback={
+        <div className={tw`flex h-full items-center justify-center`}>
+          <Spinner className={tw`size-16`} />
+        </div>
+      }
+    >
+      <PanelGroup direction='vertical'>
+        <Panel className='flex h-full flex-col' id='request' order={1}>
+          <EndpointForm endpointId={endpointId} exampleId={exampleId} />
 
-            <ReferenceContext value={{ exampleId, workspaceId }}>
-              <EndpointRequestView exampleId={exampleId} />
-            </ReferenceContext>
-          </Panel>
-          <ResponsePanel />
-          <StatusBar />
-        </PanelGroup>
-      </Suspense>
-    </Panel>
+          <ReferenceContext value={{ exampleId, workspaceId }}>
+            <EndpointRequestView exampleId={exampleId} />
+          </ReferenceContext>
+        </Panel>
+        <ResponsePanel />
+      </PanelGroup>
+    </Suspense>
   );
 }
 

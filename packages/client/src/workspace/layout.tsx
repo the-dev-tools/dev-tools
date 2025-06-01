@@ -34,7 +34,7 @@ import { useMutate } from '~data-client';
 import { DashboardLayout } from '../authorized';
 import { CollectionListTree } from '../collection';
 import { EnvironmentsWidget } from '../environment';
-import { useLogsQuery } from '../status-bar';
+import { StatusBar } from '../status-bar';
 
 export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('WorkspaceRouteSearch')({
   showLogs: pipe(Schema.Boolean, Schema.optional),
@@ -59,9 +59,6 @@ function Layout() {
   const { workspaceIdCan } = Route.useParams();
 
   const workspace = useSuspense(WorkspaceGetEndpoint, transport, { workspaceId });
-
-  // Keep the query alive while in workspace
-  useLogsQuery();
 
   return (
     <DashboardLayout
@@ -107,10 +104,8 @@ function Layout() {
         <Panel
           className={tw`flex flex-col bg-slate-50`}
           defaultSize={20}
-          id='sidebar'
           maxSize={40}
           minSize={10}
-          order={1}
           style={{ overflowY: 'auto' }}
         >
           <EnvironmentsWidget />
@@ -150,8 +145,17 @@ function Layout() {
             <FlowList />
           </div>
         </Panel>
+
         <PanelResizeHandle direction='horizontal' />
-        <Outlet />
+
+        <Panel>
+          <PanelGroup direction='vertical'>
+            <Panel>
+              <Outlet />
+            </Panel>
+            <StatusBar />
+          </PanelGroup>
+        </Panel>
       </PanelGroup>
     </DashboardLayout>
   );

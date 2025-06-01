@@ -131,7 +131,7 @@ export const StatusBar = () => {
       {bar}
 
       {showLogs && (
-        <Panel id='status' order={100}>
+        <Panel>
           <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
             <div>
               {logs.map((_) => {

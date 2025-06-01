@@ -64,7 +64,6 @@ import {
 } from '~form-table';
 
 import { ReferenceContext } from '../reference';
-import { StatusBar } from '../status-bar';
 import { ConnectionLine, Edge, edgeTypes, useEdgeStateSynced, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
 import { FlowSearch } from './layout';
@@ -101,30 +100,27 @@ function RouteComponent() {
   const { flowId } = flowRoute.useLoaderData();
 
   return (
-    <Panel id='main' order={2}>
-      <Suspense
-        fallback={
-          <div className={tw`flex h-full items-center justify-center`}>
-            <Spinner className={tw`size-16`} />
-          </div>
-        }
-      >
-        <PanelGroup direction='vertical'>
-          <FlowContext.Provider value={{ flowId }}>
-            <ReactFlowProvider>
-              <TopBar />
-              <Panel className='flex h-full flex-col' id='flow' order={1}>
-                <Flow key={Ulid.construct(flowId).toCanonical()}>
-                  <ActionBar />
-                </Flow>
-              </Panel>
-              <EditPanel />
-            </ReactFlowProvider>
-          </FlowContext.Provider>
-          <StatusBar />
-        </PanelGroup>
-      </Suspense>
-    </Panel>
+    <Suspense
+      fallback={
+        <div className={tw`flex h-full items-center justify-center`}>
+          <Spinner className={tw`size-16`} />
+        </div>
+      }
+    >
+      <FlowContext.Provider value={{ flowId }}>
+        <ReactFlowProvider>
+          <PanelGroup direction='vertical'>
+            <TopBar />
+            <Panel className='flex h-full flex-col' id='flow' order={1}>
+              <Flow key={Ulid.construct(flowId).toCanonical()}>
+                <ActionBar />
+              </Flow>
+            </Panel>
+            <EditPanel />
+          </PanelGroup>
+        </ReactFlowProvider>
+      </FlowContext.Provider>
+    </Suspense>
   );
 }
 
