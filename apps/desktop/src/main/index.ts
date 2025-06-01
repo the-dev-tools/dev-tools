@@ -27,16 +27,18 @@ const createWindow = Effect.gen(function* () {
 
   // and load the index.html of the app.
   if (import.meta.env.DEV && process.env.ELECTRON_RENDERER_URL) {
+    // Install dev extensions
+    const { installExtension, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } = yield* Effect.tryPromise(
+      () => import('electron-devtools-installer'),
+    );
+    yield* Effect.tryPromise(() =>
+      installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS], { loadExtensionOptions: { allowFileAccess: true } }),
+    );
+
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
 
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
-
-    // Install dev extensions
-    const { installExtension, REDUX_DEVTOOLS } = yield* Effect.tryPromise(() => import('electron-devtools-installer'));
-    yield* Effect.tryPromise(() =>
-      installExtension(REDUX_DEVTOOLS, { loadExtensionOptions: { allowFileAccess: true } }),
-    );
   } else {
     void mainWindow.loadFile(path.resolve(import.meta.dirname, '../renderer/index.html'));
   }
