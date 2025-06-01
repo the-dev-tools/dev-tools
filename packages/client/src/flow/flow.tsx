@@ -128,7 +128,7 @@ function RouteComponent() {
   );
 }
 
-const minZoom = 0.5;
+const minZoom = 0.1;
 const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
