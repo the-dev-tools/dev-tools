@@ -189,6 +189,8 @@ CREATE TABLE example_query (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  source INT8 NOT NULL DEFAULT 1,
+  CHECK (source IN (1, 2, 3)),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES example_query (id) ON DELETE CASCADE
 );
@@ -196,7 +198,8 @@ CREATE TABLE example_query (
 CREATE INDEX example_query_idx1 ON example_query (
   example_id,
   delta_parent_id,
-  query_key
+  query_key,
+  source
 );
 
 CREATE TABLE example_body_form (

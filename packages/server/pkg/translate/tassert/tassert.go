@@ -9,15 +9,9 @@ import (
 
 func SerializeAssertModelToRPC(a massert.Assert) (*requestv1.Assert, error) {
 
-	var deltaParentIDBytes []byte
-	if a.DeltaParentID != nil {
-		deltaParentIDBytes = a.DeltaParentID.Bytes()
-	}
-
 	return &requestv1.Assert{
-		AssertId:       a.ID.Bytes(),
-		ParentAssertId: deltaParentIDBytes,
-		Condition:      tcondition.SeralizeConditionModelToRPC(a.Condition),
+		AssertId:  a.ID.Bytes(),
+		Condition: tcondition.SeralizeConditionModelToRPC(a.Condition),
 	}, nil
 }
 
@@ -28,9 +22,8 @@ func SerializeAssertModelToRPCItem(a massert.Assert) (*requestv1.AssertListItem,
 	}
 
 	return &requestv1.AssertListItem{
-		AssertId:       assertRpc.AssertId,
-		ParentAssertId: assertRpc.ParentAssertId,
-		Condition:      assertRpc.Condition,
+		AssertId:  assertRpc.AssertId,
+		Condition: assertRpc.Condition,
 	}, nil
 }
 
@@ -41,13 +34,6 @@ func SerializeAssertRPCToModel(rpcAssert *requestv1.Assert, exampleID idwrap.IDW
 	}
 
 	var deltaParentIDPtr *idwrap.IDWrap
-	if len(rpcAssert.GetParentAssertId()) > 0 {
-		deltaParentID, err := idwrap.NewFromBytes(rpcAssert.GetParentAssertId())
-		if err != nil {
-			return massert.Assert{}, err
-		}
-		deltaParentIDPtr = &deltaParentID
-	}
 
 	modelAssert := SerializeAssertRPCToModelWithoutID(rpcAssert, exampleID, deltaParentIDPtr)
 	modelAssert.ID = id
@@ -61,4 +47,16 @@ func SerializeAssertRPCToModelWithoutID(a *requestv1.Assert, exampleID idwrap.ID
 		DeltaParentID: deltaParentIDPtr,
 		Condition:     tcondition.DeserializeConditionRPCToModel(a.Condition),
 	}
+}
+
+func SerializeAssertModelToRPCDeltaItem(a massert.Assert) (*requestv1.AssertDeltaListItem, error) {
+	assertRpc, err := SerializeAssertModelToRPC(a)
+	if err != nil {
+		return nil, err
+	}
+
+	return &requestv1.AssertDeltaListItem{
+		AssertId:  assertRpc.AssertId,
+		Condition: assertRpc.Condition,
+	}, nil
 }

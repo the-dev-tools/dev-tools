@@ -2166,9 +2166,9 @@ func (q *Queries) CreateMigration(ctx context.Context, arg CreateMigrationParams
 
 const createQuery = `-- name: CreateQuery :exec
 INSERT INTO
-  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value, source)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateQueryParams struct {
@@ -2179,6 +2179,7 @@ type CreateQueryParams struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Source        int8
 }
 
 func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error {
@@ -2190,24 +2191,25 @@ func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error 
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Source,
 	)
 	return err
 }
 
 const createQueryBulk = `-- name: CreateQueryBulk :exec
 INSERT INTO
-  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value, source)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateQueryBulkParams struct {
@@ -2218,6 +2220,7 @@ type CreateQueryBulkParams struct {
 	Enable           bool
 	Description      string
 	Value            string
+	Source           int8
 	ID_2             idwrap.IDWrap
 	ExampleID_2      idwrap.IDWrap
 	DeltaParentID_2  *idwrap.IDWrap
@@ -2225,6 +2228,7 @@ type CreateQueryBulkParams struct {
 	Enable_2         bool
 	Description_2    string
 	Value_2          string
+	Source_2         int8
 	ID_3             idwrap.IDWrap
 	ExampleID_3      idwrap.IDWrap
 	DeltaParentID_3  *idwrap.IDWrap
@@ -2232,6 +2236,7 @@ type CreateQueryBulkParams struct {
 	Enable_3         bool
 	Description_3    string
 	Value_3          string
+	Source_3         int8
 	ID_4             idwrap.IDWrap
 	ExampleID_4      idwrap.IDWrap
 	DeltaParentID_4  *idwrap.IDWrap
@@ -2239,6 +2244,7 @@ type CreateQueryBulkParams struct {
 	Enable_4         bool
 	Description_4    string
 	Value_4          string
+	Source_4         int8
 	ID_5             idwrap.IDWrap
 	ExampleID_5      idwrap.IDWrap
 	DeltaParentID_5  *idwrap.IDWrap
@@ -2246,6 +2252,7 @@ type CreateQueryBulkParams struct {
 	Enable_5         bool
 	Description_5    string
 	Value_5          string
+	Source_5         int8
 	ID_6             idwrap.IDWrap
 	ExampleID_6      idwrap.IDWrap
 	DeltaParentID_6  *idwrap.IDWrap
@@ -2253,6 +2260,7 @@ type CreateQueryBulkParams struct {
 	Enable_6         bool
 	Description_6    string
 	Value_6          string
+	Source_6         int8
 	ID_7             idwrap.IDWrap
 	ExampleID_7      idwrap.IDWrap
 	DeltaParentID_7  *idwrap.IDWrap
@@ -2260,6 +2268,7 @@ type CreateQueryBulkParams struct {
 	Enable_7         bool
 	Description_7    string
 	Value_7          string
+	Source_7         int8
 	ID_8             idwrap.IDWrap
 	ExampleID_8      idwrap.IDWrap
 	DeltaParentID_8  *idwrap.IDWrap
@@ -2267,6 +2276,7 @@ type CreateQueryBulkParams struct {
 	Enable_8         bool
 	Description_8    string
 	Value_8          string
+	Source_8         int8
 	ID_9             idwrap.IDWrap
 	ExampleID_9      idwrap.IDWrap
 	DeltaParentID_9  *idwrap.IDWrap
@@ -2274,6 +2284,7 @@ type CreateQueryBulkParams struct {
 	Enable_9         bool
 	Description_9    string
 	Value_9          string
+	Source_9         int8
 	ID_10            idwrap.IDWrap
 	ExampleID_10     idwrap.IDWrap
 	DeltaParentID_10 *idwrap.IDWrap
@@ -2281,6 +2292,7 @@ type CreateQueryBulkParams struct {
 	Enable_10        bool
 	Description_10   string
 	Value_10         string
+	Source_10        int8
 }
 
 func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams) error {
@@ -2292,6 +2304,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Source,
 		arg.ID_2,
 		arg.ExampleID_2,
 		arg.DeltaParentID_2,
@@ -2299,6 +2312,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
+		arg.Source_2,
 		arg.ID_3,
 		arg.ExampleID_3,
 		arg.DeltaParentID_3,
@@ -2306,6 +2320,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
+		arg.Source_3,
 		arg.ID_4,
 		arg.ExampleID_4,
 		arg.DeltaParentID_4,
@@ -2313,6 +2328,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
+		arg.Source_4,
 		arg.ID_5,
 		arg.ExampleID_5,
 		arg.DeltaParentID_5,
@@ -2320,6 +2336,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
+		arg.Source_5,
 		arg.ID_6,
 		arg.ExampleID_6,
 		arg.DeltaParentID_6,
@@ -2327,6 +2344,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
+		arg.Source_6,
 		arg.ID_7,
 		arg.ExampleID_7,
 		arg.DeltaParentID_7,
@@ -2334,6 +2352,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
+		arg.Source_7,
 		arg.ID_8,
 		arg.ExampleID_8,
 		arg.DeltaParentID_8,
@@ -2341,6 +2360,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
+		arg.Source_8,
 		arg.ID_9,
 		arg.ExampleID_9,
 		arg.DeltaParentID_9,
@@ -2348,6 +2368,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
+		arg.Source_9,
 		arg.ID_10,
 		arg.ExampleID_10,
 		arg.DeltaParentID_10,
@@ -2355,6 +2376,7 @@ func (q *Queries) CreateQueryBulk(ctx context.Context, arg CreateQueryBulkParams
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
+		arg.Source_10,
 	)
 	return err
 }
@@ -4949,7 +4971,8 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_query
 WHERE
@@ -4973,6 +4996,7 @@ func (q *Queries) GetQueriesByExampleID(ctx context.Context, exampleID idwrap.ID
 			&i.Enable,
 			&i.Description,
 			&i.Value,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -5001,7 +5025,8 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_query
 WHERE
@@ -5020,6 +5045,7 @@ func (q *Queries) GetQuery(ctx context.Context, id idwrap.IDWrap) (ExampleQuery,
 		&i.Enable,
 		&i.Description,
 		&i.Value,
+		&i.Source,
 	)
 	return i, err
 }
@@ -5032,7 +5058,8 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_query
 WHERE
@@ -5051,6 +5078,7 @@ func (q *Queries) GetQueryByDeltaParentID(ctx context.Context, deltaParentID *id
 		&i.Enable,
 		&i.Description,
 		&i.Value,
+		&i.Source,
 	)
 	return i, err
 }
@@ -6351,7 +6379,8 @@ SET
   query_key = ?,
   enable = ?,
   description = ?,
-  value = ?
+  value = ?,
+  source = ?
 WHERE
   id = ?
 `
@@ -6361,6 +6390,7 @@ type UpdateQueryParams struct {
 	Enable      bool
 	Description string
 	Value       string
+	Source      int8
 	ID          idwrap.IDWrap
 }
 
@@ -6370,6 +6400,7 @@ func (q *Queries) UpdateQuery(ctx context.Context, arg UpdateQueryParams) error 
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Source,
 		arg.ID,
 	)
 	return err

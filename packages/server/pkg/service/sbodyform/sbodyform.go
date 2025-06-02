@@ -224,3 +224,18 @@ func (bfs BodyFormService) UpdateBodyForm(ctx context.Context, body *mbodyform.B
 func (bfs BodyFormService) DeleteBodyForm(ctx context.Context, id idwrap.IDWrap) error {
 	return bfs.queries.DeleteBodyForm(ctx, id)
 }
+
+func (bfs BodyFormService) ResetBodyFormDelta(ctx context.Context, id idwrap.IDWrap) error {
+	bodyForm, err := bfs.GetBodyForm(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	bodyForm.DeltaParentID = nil
+	bodyForm.BodyKey = ""
+	bodyForm.Enable = false
+	bodyForm.Description = ""
+	bodyForm.Value = ""
+
+	return bfs.UpdateBodyForm(ctx, bodyForm)
+}

@@ -7,47 +7,29 @@ import (
 )
 
 func SerializeURLModelToRPC(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncoded {
-	var deltaParentIDBytes []byte
-	if urlEncoded.DeltaParentID != nil {
-		deltaParentIDBytes = urlEncoded.DeltaParentID.Bytes()
-	}
 
 	return &bodyv1.BodyUrlEncoded{
-		BodyId:       urlEncoded.ID.Bytes(),
-		ParentBodyId: deltaParentIDBytes,
-		Key:          urlEncoded.BodyKey,
-		Enabled:      urlEncoded.Enable,
-		Value:        urlEncoded.Value,
-		Description:  urlEncoded.Description,
+		BodyId:      urlEncoded.ID.Bytes(),
+		Key:         urlEncoded.BodyKey,
+		Enabled:     urlEncoded.Enable,
+		Value:       urlEncoded.Value,
+		Description: urlEncoded.Description,
 	}
 }
 
 func SerializeURLModelToRPCItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedListItem {
-	var deltaParentIDBytes []byte
-	if urlEncoded.DeltaParentID != nil {
-		deltaParentIDBytes = urlEncoded.DeltaParentID.Bytes()
-	}
 
 	return &bodyv1.BodyUrlEncodedListItem{
-		BodyId:       urlEncoded.ID.Bytes(),
-		ParentBodyId: deltaParentIDBytes,
-		Key:          urlEncoded.BodyKey,
-		Enabled:      urlEncoded.Enable,
-		Value:        urlEncoded.Value,
-		Description:  urlEncoded.Description,
+		BodyId:      urlEncoded.ID.Bytes(),
+		Key:         urlEncoded.BodyKey,
+		Enabled:     urlEncoded.Enable,
+		Value:       urlEncoded.Value,
+		Description: urlEncoded.Description,
 	}
 }
 
 func SerializeURLRPCtoModel(urlEncoded *bodyv1.BodyUrlEncoded, exampleID idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
 	var deltaParentIDPtr *idwrap.IDWrap
-	if len(urlEncoded.GetParentBodyId()) > 0 {
-		deltaParentID, err := idwrap.NewFromBytes(urlEncoded.GetParentBodyId())
-		if err != nil {
-			return nil, err
-		}
-		deltaParentIDPtr = &deltaParentID
-	}
-
 	b, err := SeralizeURLRPCToModelWithoutID(urlEncoded, exampleID, deltaParentIDPtr)
 	if err != nil {
 		return nil, err
@@ -69,4 +51,14 @@ func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncoded, exampleID
 		Enable:        urlEncoded.Enabled,
 		Value:         urlEncoded.Value,
 	}, nil
+}
+
+func SerializeURLModelToRPCDeltaItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedDeltaListItem {
+	return &bodyv1.BodyUrlEncodedDeltaListItem{
+		BodyId:      urlEncoded.ID.Bytes(),
+		Key:         urlEncoded.BodyKey,
+		Enabled:     urlEncoded.Enable,
+		Value:       urlEncoded.Value,
+		Description: urlEncoded.Description,
+	}
 }

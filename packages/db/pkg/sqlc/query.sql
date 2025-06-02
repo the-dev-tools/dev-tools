@@ -865,7 +865,8 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_query
 WHERE
@@ -880,7 +881,8 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_query
 WHERE
@@ -894,7 +896,8 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_query
 WHERE
@@ -903,31 +906,24 @@ lIMIT 1;
 
 -- name: CreateQuery :exec
 INSERT INTO
-  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value, source)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateQueryBulk :exec
 INSERT INTO
-  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value, source)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?);
-
--- name: SetQueryEnable :exec
-UPDATE example_query
-SET
-  enable = ?
-WHERE
-  id = ?;
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateQuery :exec
 UPDATE example_query
@@ -935,12 +931,20 @@ SET
   query_key = ?,
   enable = ?,
   description = ?,
-  value = ?
+  value = ?,
+  source = ?
 WHERE
   id = ?;
 
 -- name: DeleteQuery :exec
 DELETE FROM example_query
+WHERE
+  id = ?;
+
+-- name: SetQueryEnable :exec
+UPDATE example_query
+SET
+  enable = ?
 WHERE
   id = ?;
 

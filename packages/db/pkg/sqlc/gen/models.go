@@ -87,6 +87,7 @@ type ExampleQuery struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Source        int8
 }
 
 type ExampleResp struct {

@@ -263,3 +263,18 @@ func (h HeaderService) UpdateHeader(ctx context.Context, header mexampleheader.H
 func (h HeaderService) DeleteHeader(ctx context.Context, headerID idwrap.IDWrap) error {
 	return h.queries.DeleteHeader(ctx, headerID)
 }
+
+func (h HeaderService) ResetHeaderDelta(ctx context.Context, id idwrap.IDWrap) error {
+	header, err := h.GetHeaderByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	header.DeltaParentID = nil
+	header.HeaderKey = ""
+	header.Enable = false
+	header.Description = ""
+	header.Value = ""
+
+	return h.UpdateHeader(ctx, header)
+}

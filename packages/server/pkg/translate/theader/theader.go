@@ -7,34 +7,34 @@ import (
 )
 
 func SerializeHeaderModelToRPC(header mexampleheader.Header) *requestv1.Header {
-	var deltaParentIDBytes []byte
-	if header.DeltaParentID != nil {
-		deltaParentIDBytes = header.DeltaParentID.Bytes()
-	}
 
 	return &requestv1.Header{
-		HeaderId:       header.ID.Bytes(),
-		ParentHeaderId: deltaParentIDBytes,
-		Key:            header.HeaderKey,
-		Enabled:        header.Enable,
-		Value:          header.Value,
-		Description:    header.Description,
+		HeaderId:    header.ID.Bytes(),
+		Key:         header.HeaderKey,
+		Enabled:     header.Enable,
+		Value:       header.Value,
+		Description: header.Description,
+	}
+}
+
+func SerializeHeaderModelToRPCDeltaItem(header mexampleheader.Header) *requestv1.HeaderDeltaListItem {
+	return &requestv1.HeaderDeltaListItem{
+		HeaderId:    header.ID.Bytes(),
+		Key:         header.HeaderKey,
+		Enabled:     header.Enable,
+		Value:       header.Value,
+		Description: header.Description,
 	}
 }
 
 func SerializeHeaderModelToRPCItem(header mexampleheader.Header) *requestv1.HeaderListItem {
-	var deltaParentIDBytes []byte
-	if header.DeltaParentID != nil {
-		deltaParentIDBytes = header.DeltaParentID.Bytes()
-	}
 
 	return &requestv1.HeaderListItem{
-		HeaderId:       header.ID.Bytes(),
-		ParentHeaderId: deltaParentIDBytes,
-		Key:            header.HeaderKey,
-		Enabled:        header.Enable,
-		Value:          header.Value,
-		Description:    header.Description,
+		HeaderId:    header.ID.Bytes(),
+		Key:         header.HeaderKey,
+		Enabled:     header.Enable,
+		Value:       header.Value,
+		Description: header.Description,
 	}
 }
 
@@ -44,13 +44,6 @@ func SerlializeHeaderRPCtoModel(header *requestv1.Header, exampleID idwrap.IDWra
 		return mexampleheader.Header{}, err
 	}
 	var deltaParentID *idwrap.IDWrap
-	if len(header.ParentHeaderId) > 0 {
-		parentID, err := idwrap.NewFromBytes(header.GetParentHeaderId())
-		if err != nil {
-			return mexampleheader.Header{}, err
-		}
-		deltaParentID = &parentID
-	}
 	h := SerlializeHeaderRPCtoModelNoID(header, exampleID, deltaParentID)
 	h.ID = headerId
 	return h, nil

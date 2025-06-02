@@ -112,3 +112,16 @@ func (as AssertService) CreateAssertBulk(ctx context.Context, asserts []massert.
 func (as AssertService) DeleteAssert(ctx context.Context, id idwrap.IDWrap) error {
 	return as.queries.DeleteAssert(ctx, id)
 }
+
+func (as AssertService) ResetAssertDelta(ctx context.Context, id idwrap.IDWrap) error {
+	assert, err := as.GetAssert(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	assert.DeltaParentID = nil
+	assert.Condition.Comparisons.Expression = ""
+	assert.Enable = false
+
+	return as.UpdateAssert(ctx, *assert)
+}

@@ -219,3 +219,18 @@ func (bues BodyURLEncodedService) UpdateBodyURLEncoded(ctx context.Context, body
 func (bues BodyURLEncodedService) DeleteBodyURLEncoded(ctx context.Context, id idwrap.IDWrap) error {
 	return bues.queries.DeleteBodyURLEncoded(ctx, id)
 }
+
+func (bues BodyURLEncodedService) ResetBodyURLEncodedDelta(ctx context.Context, id idwrap.IDWrap) error {
+	bodyURLEncoded, err := bues.GetBodyURLEncoded(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	bodyURLEncoded.DeltaParentID = nil
+	bodyURLEncoded.BodyKey = ""
+	bodyURLEncoded.Enable = false
+	bodyURLEncoded.Description = ""
+	bodyURLEncoded.Value = ""
+
+	return bues.UpdateBodyURLEncoded(ctx, bodyURLEncoded)
+}

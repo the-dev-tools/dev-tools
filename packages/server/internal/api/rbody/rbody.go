@@ -85,21 +85,13 @@ func (c BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv1
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	rpcBody := &bodyv1.BodyForm{
-		ParentBodyId: req.Msg.GetParentBodyId(),
-		Key:          req.Msg.GetKey(),
-		Enabled:      req.Msg.GetEnabled(),
-		Value:        req.Msg.GetValue(),
-		Description:  req.Msg.GetDescription(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
 	}
 
 	var deltaParentIDPtr *idwrap.IDWrap
-	if len(rpcBody.ParentBodyId) > 0 {
-		deltaParentID, err := idwrap.NewFromBytes(rpcBody.ParentBodyId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		deltaParentIDPtr = &deltaParentID
-	}
 
 	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(rpcBody, ExampleID, deltaParentIDPtr)
 	if err != nil {
@@ -201,13 +193,6 @@ func (c BodyRPC) BodyUrlEncodedCreate(ctx context.Context, req *connect.Request[
 		Description: req.Msg.GetDescription(),
 	}
 	var deltaParentIDPtr *idwrap.IDWrap
-	if len(req.Msg.GetParentBodyId()) > 0 {
-		deltaParentID, err := idwrap.NewFromBytes(req.Msg.GetParentBodyId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		deltaParentIDPtr = &deltaParentID
-	}
 
 	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(bodyData, exampleID, deltaParentIDPtr)
 	if err != nil {
@@ -310,7 +295,7 @@ func (c BodyRPC) BodyRawGet(ctx context.Context, req *connect.Request[bodyv1.Bod
 	return connect.NewResponse(&bodyv1.BodyRawGetResponse{Data: bodyRawData}), nil
 }
 
-func (c BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyRawUpdateRequest]) (*connect.Response[bodyv1.BodyRawUpdateResponse], error) {
+func (c *BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyRawUpdateRequest]) (*connect.Response[bodyv1.BodyRawUpdateResponse], error) {
 	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -339,6 +324,247 @@ func (c BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&bodyv1.BodyRawUpdateResponse{}), nil
+}
+
+func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaListRequest]) (*connect.Response[bodyv1.BodyFormDeltaListResponse], error) {
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	bodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rpcBodyForms := tgeneric.MassConvert(bodyForms, tbodyform.SerializeFormModelToRPCDeltaItem)
+	return connect.NewResponse(&bodyv1.BodyFormDeltaListResponse{
+		ExampleId: req.Msg.GetExampleId(),
+		Items:     rpcBodyForms,
+	}), nil
+}
+
+func (c *BodyRPC) BodyFormDeltaCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaCreateRequest]) (*connect.Response[bodyv1.BodyFormDeltaCreateResponse], error) {
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcBody := &bodyv1.BodyForm{
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+
+	var deltaParentIDPtr *idwrap.IDWrap
+
+	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(rpcBody, exampleID, deltaParentIDPtr)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	bodyForm.ID = idwrap.NewNow()
+
+	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	}
+	err = c.bfs.CreateBodyForm(ctx, bodyForm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyFormDeltaCreateResponse{BodyId: bodyForm.ID.Bytes()}), nil
+}
+
+func (c *BodyRPC) BodyFormDeltaUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaUpdateRequest]) (*connect.Response[bodyv1.BodyFormDeltaUpdateResponse], error) {
+	rpcBody := &bodyv1.BodyForm{
+		BodyId:      req.Msg.GetBodyId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	bodyForm, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	bodyFormDB, err := c.bfs.GetBodyForm(ctx, bodyForm.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyForm.ExampleID = bodyFormDB.ExampleID
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, bodyForm.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	err = c.bfs.UpdateBodyForm(ctx, bodyForm)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyFormDeltaUpdateResponse{}), nil
+}
+
+func (c *BodyRPC) BodyFormDeltaDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaDeleteRequest]) (*connect.Response[bodyv1.BodyFormDeltaDeleteResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	err = c.bfs.DeleteBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyFormDeltaDeleteResponse{}), nil
+}
+
+func (c *BodyRPC) BodyFormDeltaReset(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaResetRequest]) (*connect.Response[bodyv1.BodyFormDeltaResetResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	err = c.bfs.ResetBodyFormDelta(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyFormDeltaResetResponse{}), nil
+}
+
+func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaListResponse], error) {
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	bodyURLs, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rpcBodyURLs := tgeneric.MassConvert(bodyURLs, tbodyurl.SerializeURLModelToRPCDeltaItem)
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaListResponse{
+		ExampleId: req.Msg.GetExampleId(),
+		Items:     rpcBodyURLs,
+	}), nil
+}
+
+func (c *BodyRPC) BodyUrlEncodedDeltaCreate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaCreateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaCreateResponse], error) {
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcBody := &bodyv1.BodyUrlEncoded{
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+
+	var deltaParentIDPtr *idwrap.IDWrap
+
+	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(rpcBody, exampleID, deltaParentIDPtr)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	bodyUrl.ID = idwrap.NewNow()
+
+	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
+	}
+	err = c.bues.CreateBodyURLEncoded(ctx, bodyUrl)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaCreateResponse{BodyId: bodyUrl.ID.Bytes()}), nil
+}
+
+func (c *BodyRPC) BodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaUpdateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaUpdateResponse], error) {
+	rpcBody := &bodyv1.BodyUrlEncoded{
+		BodyId:      req.Msg.GetBodyId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	bodyUrl, err := tbodyurl.SerializeURLRPCtoModel(rpcBody, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	bodyUrlDB, err := c.bues.GetBodyURLEncoded(ctx, bodyUrl.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyUrl.ExampleID = bodyUrlDB.ExampleID
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, bodyUrl.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.bues.UpdateBodyURLEncoded(ctx, bodyUrl)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaUpdateResponse{}), nil
+}
+
+func (c *BodyRPC) BodyUrlEncodedDeltaDelete(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaDeleteRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaDeleteResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.bues.DeleteBodyURLEncoded(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaDeleteResponse{}), nil
+}
+
+func (c *BodyRPC) BodyUrlEncodedDeltaReset(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaResetRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaResetResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	err = c.bues.ResetBodyURLEncodedDelta(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaResetResponse{}), nil
 }
 
 func CheckOwnerBodyForm(ctx context.Context, bfs sbodyform.BodyFormService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, bodyFormUlid idwrap.IDWrap) (bool, error) {
