@@ -763,3 +763,70 @@ func processJSONForTokens(obj interface{}, depFinder depfinder.DepFinder) interf
 		return v
 	}
 }
+
+// GenerateCurlCommand creates a cURL command from an API example
+func GenerateCurlCommand(api mitemapi.ItemApi, example mitemapiexample.ItemApiExample, 
+	headers []mexampleheader.Header, 
+	queries []mexamplequery.Query,
+	rawBody *mbodyraw.ExampleBodyRaw,
+	formBodies []mbodyform.BodyForm,
+	urlBodies []mbodyurl.BodyURLEncoded) string {
+	
+	var cmdBuilder strings.Builder
+	
+	// Start with the basic curl command
+	cmdBuilder.WriteString("curl")
+	
+	// Add the method if not GET
+	if api.Method != "GET" {
+		cmdBuilder.WriteString(fmt.Sprintf(" -X %s", api.Method))
+	}
+	
+	// Build the URL with query parameters
+	url := api.Url
+	if len(queries) > 0 {
+		url += "?"
+		for i, query := range queries {
+			if i > 0 {
+				url += "&"
+			}
+			url += fmt.Sprintf("%s=%s", query.QueryKey, query.Value)
+		}
+	}
+	cmdBuilder.WriteString(fmt.Sprintf(" '%s'", url))
+	
+	// Add headers
+	for _, header := range headers {
+		if header.Enable {
+			cmdBuilder.WriteString(fmt.Sprintf(" -H '%s: %s'", header.HeaderKey, header.Value))
+		}
+	}
+	
+	// Add the body based on the type
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		if rawBody != nil && len(rawBody.Data) > 0 {
+			// Escape single quotes in the body
+			bodyData := strings.ReplaceAll(string(rawBody.Data), "'", "'\\''")
+			cmdBuilder.WriteString(fmt.Sprintf(" -d '%s'", bodyData))
+		}
+	case mitemapiexample.BodyTypeForm:
+		for _, form := range formBodies {
+			if form.Enable {
+				// Escape single quotes in the value
+				value := strings.ReplaceAll(form.Value, "'", "'\\''")
+				cmdBuilder.WriteString(fmt.Sprintf(" -F '%s=%s'", form.BodyKey, value))
+			}
+		}
+	case mitemapiexample.BodyTypeUrlencoded:
+		for _, urlBody := range urlBodies {
+			if urlBody.Enable {
+				// Escape single quotes in the value
+				value := strings.ReplaceAll(urlBody.Value, "'", "'\\''")
+				cmdBuilder.WriteString(fmt.Sprintf(" --data-urlencode '%s=%s'", urlBody.BodyKey, value))
+			}
+		}
+	}
+	
+	return cmdBuilder.String()
+}

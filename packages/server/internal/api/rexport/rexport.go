@@ -6,6 +6,13 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -30,6 +37,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/translate/thar"
 	exportv1 "the-dev-tools/spec/dist/buf/go/export/v1"
 	"the-dev-tools/spec/dist/buf/go/export/v1/exportv1connect"
 
@@ -206,6 +214,83 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 	resp := &exportv1.ExportResponse{
 		Name: workspaceData.Workspace.Name,
 		Data: workspaceDataBytes,
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
+// ExportCurl exports an example as a cURL command
+func (c *ExportRPC) ExportCurl(ctx context.Context, req *connect.Request[exportv1.ExportCurlRequest]) (*connect.Response[exportv1.ExportCurlResponse], error) {
+	// Parse IDs from request
+	workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	exampleID, err := idwrap.NewFromBytes(req.Msg.ExampleId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Fetch the example
+	example, err := c.exampleService.FindByID(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+
+	// Fetch the related API
+	api, err := c.endpointService.FindByID(ctx, example.ItemApiID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+
+	// Fetch headers
+	headers, err := c.exampleHeaderService.FindByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Fetch queries
+	queries, err := c.exampleQueryService.FindByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Fetch bodies based on body type
+	var rawBody *mbodyraw.ExampleBodyRaw
+	var formBodies []mbodyform.BodyForm
+	var urlBodies []mbodyurl.BodyURLEncoded
+
+	// Fetch the raw body (needed for most examples)
+	rawBodies, err := c.rawBodyService.FindByExampleID(ctx, exampleID)
+	if err == nil && len(rawBodies) > 0 {
+		rawBody = &rawBodies[0]
+	}
+
+	// If body type is form, fetch form data
+	if example.BodyType == mitemapiexample.BodyTypeForm {
+		formBodies, err = c.formBodyService.FindByExampleID(ctx, exampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// If body type is url-encoded, fetch url data
+	if example.BodyType == mitemapiexample.BodyTypeUrlencoded {
+		urlBodies, err = c.urlBodyService.FindByExampleID(ctx, exampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Generate the cURL command
+	curlCommand := thar.GenerateCurlCommand(api, example, headers, queries, rawBody, formBodies, urlBodies)
+
+	// Build the response
+	resp := &exportv1.ExportCurlResponse{
+		CurlCommand: curlCommand,
+		Endpoint: api.Url,
+		Method: api.Method,
 	}
 
 	return connect.NewResponse(resp), nil

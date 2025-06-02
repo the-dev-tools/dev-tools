@@ -1,34 +1,46 @@
-import "@typespec/protobuf";
 import "@typespec/rest";
-
-import "./lib.tsp";
-
+import "@typespec/http";
 import "./resource.tsp";
 
-using TypeSpec.Protobuf;
+using TypeSpec.Rest;
+using TypeSpec.Http;
 
-@package({
-  name: "export.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/export/v1;exportv1",
-  },
+namespace Export;
+
+@service({
+  title: "Export Service"
 })
-namespace API.Export;
+@route("/export")
+interface ExportService {
+  @route("export")
+  export(...Export.exportRequest): Export.exportResponse;
+
+  @route("export-curl")
+  exportCurl(...Export.exportCurlRequest): Export.exportCurlResponse;
+}
 
 @autoFields
-model ExportRequest {
+model exportRequest {
   workspaceId: Resource.Id;
   flowIds?: Resource.Id[];
   exampleIds?: Resource.Id[];
 }
 
 @autoFields
-model ExportResponse {
+model exportResponse {
   name: string;
   data: bytes;
 }
 
-@Protobuf.service
-interface ExportService {
-  Export(...ExportRequest): ExportResponse;
+@autoFields
+model exportCurlRequest {
+  workspaceId: Resource.Id;
+  exampleId: Resource.Id;
+}
+
+@autoFields
+model exportCurlResponse {
+  curlCommand: string;
+  endpoint: string;
+  method: string;
 }

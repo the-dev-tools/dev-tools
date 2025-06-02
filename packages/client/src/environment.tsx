@@ -56,6 +56,7 @@ import {
   useFormTable,
 } from './form-table';
 import { ImportDialog } from './workspace/import';
+import { ExportDialog } from './workspace/export';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -106,6 +107,7 @@ export const EnvironmentsWidget = () => {
       <div className={tw`flex-1`} />
 
       <ImportDialog />
+      <ExportDialog exampleId="" />
 
       <DialogTrigger>
         <TooltipTrigger delay={750}>

@@ -12,6 +12,7 @@ import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
 import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import { ExportDialog } from './workspace/export';
 import { useForm } from 'react-hook-form';
 import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -394,6 +395,8 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
         <Button className={tw`px-2 py-1 text-slate-800`} type='submit' variant='ghost'>
           <FiSave className={tw`size-4 text-slate-500`} /> Save
         </Button>
+
+        <ExportDialog exampleId={Ulid.construct(exampleId).toCanonical()} />
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-1`} variant='ghost'>
