@@ -6,22 +6,22 @@
     "@the-dev-tools/spec": "workspace:^"
   },
   "devDependencies": {
-    "@nx/eslint": "~21.0.0",
-    "@nx/js": "~21.0.0",
+    "@nx/eslint": "~21.1.2",
+    "@nx/js": "~21.1.2",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@tsconfig/strictest": "~2.0.5",
     "@typespec/compiler": "~1.0.0",
     "@typespec/prettier-plugin-typespec": "~1.0.0",
-    "eslint": "~9.27.0",
+    "eslint": "~9.28.0",
     "jiti": "~2.4.0",
-    "nx": "~21.0.0",
+    "nx": "~21.1.2",
     "prettier": "~3.5.3",
-    "prettier-plugin-tailwindcss": "~0.6.11",
+    "prettier-plugin-tailwindcss": "~0.6.12",
     "react": "~19.1.0",
     "swc-node": "~1.0.0",
     "syncpack": "~13.0.4",
     "typescript": "~5.8.3",
-    "typescript-eslint": "~8.32.0"
+    "typescript-eslint": "~8.33.0"
   },
   "pnpm": {
     "peerDependencyRules": {
@@ -39,6 +39,7 @@
       "@bufbuild/buf",
       "@parcel/watcher",
       "@swc/core",
+      "@tailwindcss/oxide",
       "bufferutil",
       "electron",
       "electron-winstaller",
@@ -50,7 +51,6 @@
       "nx",
       "secp256k1",
       "sharp",
-      "unrs-resolver",
       "utf-8-validate"
     ]
   }

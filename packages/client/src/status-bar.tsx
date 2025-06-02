@@ -1,5 +1,5 @@
 import { createClient } from '@connectrpc/connect';
-import { createConnectQueryKey } from '@connectrpc/connect-query';
+import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-query';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { Array } from 'effect';
@@ -14,7 +14,7 @@ import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 
-import { LogService, LogStreamResponse } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ArrowToLeftIcon, ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
@@ -34,7 +34,7 @@ export const useLogsQuery = () => {
   const { logStream } = useMemo(() => createClient(LogService, transport), [transport]);
 
   const queryKey = useMemo(
-    () =>
+    (): ConnectQueryKey<typeof LogStreamResponseSchema> =>
       createConnectQueryKey({
         cardinality: 'infinite',
         schema: { ...LogService.method.logStream, methodKind: 'unary' },

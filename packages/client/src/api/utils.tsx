@@ -1,5 +1,5 @@
 import { EnumShape, enumToJson, JsonValue } from '@bufbuild/protobuf';
-import { GenEnum } from '@bufbuild/protobuf/codegenv1';
+import { GenEnum } from '@bufbuild/protobuf/codegenv2';
 import { pipe, String } from 'effect';
 
 export const enumToString = <RuntimeShape extends number, JsonType extends JsonValue, Name extends string>(
