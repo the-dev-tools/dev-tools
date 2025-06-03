@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
@@ -396,6 +397,30 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 		}
 		rpcQueries = append(rpcQueries, rpcQuery)
 	}
+
+	// Sort rpcQueries by ID, but if it has DeltaParentID use that ID instead
+	sort.Slice(rpcQueries, func(i, j int) bool {
+		idI, _ := idwrap.NewFromBytes(rpcQueries[i].QueryId)
+		idJ, _ := idwrap.NewFromBytes(rpcQueries[j].QueryId)
+
+		// Determine the ID to use for sorting for item i
+		sortIDI := idI
+		if rpcQueries[i].Origin != nil && len(rpcQueries[i].Origin.QueryId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcQueries[i].Origin.QueryId); err == nil {
+				sortIDI = parentID
+			}
+		}
+
+		// Determine the ID to use for sorting for item j
+		sortIDJ := idJ
+		if rpcQueries[j].Origin != nil && len(rpcQueries[j].Origin.QueryId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcQueries[j].Origin.QueryId); err == nil {
+				sortIDJ = parentID
+			}
+		}
+
+		return sortIDI.Compare(sortIDJ) < 0
+	})
 
 	resp := &requestv1.QueryDeltaListResponse{
 		ExampleId: deltaExampleID.Bytes(),
