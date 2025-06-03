@@ -93,12 +93,20 @@ func (c RequestRPC) QueryList(ctx context.Context, req *connect.Request[requestv
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	queries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exID)
+	allQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	rpcQueries := tgeneric.MassConvert(queries, tquery.SerializeQueryModelToRPCItem)
+	// Filter to only include origin queries (source = 1)
+	var originQueries []mexamplequery.Query
+	for _, query := range allQueries {
+		if query.Source == mexamplequery.QuerySourceOrigin {
+			originQueries = append(originQueries, query)
+		}
+	}
+
+	rpcQueries := tgeneric.MassConvert(originQueries, tquery.SerializeQueryModelToRPCItem)
 	resp := &requestv1.QueryListResponse{
 		ExampleId: exID.Bytes(),
 		Items:     rpcQueries,
@@ -343,26 +351,30 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Combine all queries and build a map by ID
+	// Combine all queries and build maps for lookup
 	allQueries := append(originQueries, deltaQueries...)
 	queryMap := make(map[idwrap.IDWrap]mexamplequery.Query)
 	originMap := make(map[idwrap.IDWrap]*requestv1.Query)
+	replacedOrigins := make(map[idwrap.IDWrap]bool)
 
 	for _, query := range allQueries {
 		queryMap[query.ID] = query
 		originMap[query.ID] = tquery.SerializeQueryModelToRPC(query)
-	}
 
-	// Remove origin queries that have been replaced by mixed queries
-	for _, query := range allQueries {
+		// Mark origin queries that have been replaced by mixed queries
 		if query.Source == mexamplequery.QuerySourceMixed && query.DeltaParentID != nil {
-			delete(queryMap, *query.DeltaParentID)
+			replacedOrigins[*query.DeltaParentID] = true
 		}
 	}
 
-	// Convert remaining queries to response items
+	// Create result slice maintaining order from allQueries
 	var rpcQueries []*requestv1.QueryDeltaListItem
-	for _, query := range queryMap {
+	for _, query := range allQueries {
+		// Skip origin queries that have been replaced by mixed queries
+		if query.Source == mexamplequery.QuerySourceOrigin && replacedOrigins[query.ID] {
+			continue
+		}
+
 		sourceKind := query.Source.ToSourceKind()
 		var origin *requestv1.Query
 
@@ -527,14 +539,20 @@ func (c RequestRPC) QueryDeltaReset(ctx context.Context, req *connect.Request[re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// If it has a parent, restore values from parent
-	if deltaQuery.DeltaParentID != nil {
+	// If this is a mixed query with a parent, delete the mixed query to revert to origin
+	if deltaQuery.Source == mexamplequery.QuerySourceMixed && deltaQuery.DeltaParentID != nil {
+		err = c.eqs.DeleteExampleQuery(ctx, queryID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else if deltaQuery.DeltaParentID != nil {
+		// If it's a delta query with a parent, restore values from parent and set source to origin
 		parentQuery, err := c.eqs.GetExampleQuery(ctx, *deltaQuery.DeltaParentID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Restore delta query fields to match parent
+		// Restore delta query fields to match parent and set source to origin
 		deltaQuery.QueryKey = parentQuery.QueryKey
 		deltaQuery.Enable = parentQuery.Enable
 		deltaQuery.Description = parentQuery.Description
