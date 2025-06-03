@@ -66,6 +66,7 @@ model NodeRequest {
   collectionId: bytes;
   endpointId: bytes;
   exampleId: bytes;
+  deltaEndpointId: bytes;
   deltaExampleId: bytes;
 }
 
