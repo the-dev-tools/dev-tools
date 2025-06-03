@@ -61,7 +61,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectRHF } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, TextFieldRHF, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
 import { enumToString } from '~api/utils';
 import {
@@ -76,7 +76,7 @@ import { BodyView } from './body';
 import { ErrorComponent } from './error';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
-import { ReferenceContext } from './reference';
+import { ReferenceContext, ReferenceFieldRHF } from './reference';
 
 export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
   responseIdCan: pipe(Schema.String, Schema.optional),
@@ -122,9 +122,9 @@ function Page() {
     >
       <PanelGroup direction='vertical'>
         <Panel className='flex h-full flex-col' id='request' order={1}>
-          <EndpointForm endpointId={endpointId} exampleId={exampleId} />
-
           <ReferenceContext value={{ exampleId, workspaceId }}>
+            <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+
             <EndpointRequestView exampleId={exampleId} />
           </ReferenceContext>
         </Panel>
@@ -469,11 +469,10 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
 
           <Separator className={tw`h-7`} orientation='vertical' />
 
-          <TextFieldRHF
+          <ReferenceFieldRHF
             aria-label='URL'
-            className={tw`flex-1`}
+            className={tw`flex-1 border-none font-medium tracking-tight`}
             control={form.control}
-            inputClassName={tw`border-none font-medium tracking-tight`}
             name='url'
             onBlur={onSubmit}
           />
