@@ -1,13 +1,12 @@
 import { create } from '@bufbuild/protobuf';
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
-import { makeUrl } from '@effect/platform/UrlParams';
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { QueryErrorResetBoundary, useQuery } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, Either, Match, MutableHashMap, Option, pipe, Schema, Struct } from 'effect';
+import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
@@ -24,6 +23,7 @@ import {
 import {
   QueryCreateRequest,
   QueryCreateRequestSchema,
+  QueryListItem,
   QueryUpdateRequest,
   QueryUpdateRequestSchema,
 } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
@@ -233,6 +233,23 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
   );
 };
 
+const queryToString = (query: QueryListItem) =>
+  pipe(
+    query,
+    Option.liftPredicate((_) => _.enabled),
+    Option.map((_) => _.key + '=' + _.value),
+  );
+
+const queryFromString = (query: string) =>
+  pipe(
+    query,
+    String.indexOf('='),
+    Option.match({
+      onNone: () => [query, ''] as const,
+      onSome: (pos) => [query.slice(0, pos), query.slice(pos + 1)] as const,
+    }),
+  );
+
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 
 interface UseEndpointUrlProps {
@@ -245,25 +262,15 @@ export const useEndpointUrl = ({ endpointId, exampleId }: UseEndpointUrlProps) =
 
   // TODO: fetch in parallel
   const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const { items: queries } = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const { items } = useSuspense(QueryListEndpoint, transport, { exampleId });
 
-  return useMemo(() => {
-    return pipe(
-      Option.fromNullable(endpoint.url || null),
-      Option.flatMap((url) =>
-        pipe(
-          Array.filterMap(queries, (_) => {
-            if (!_.enabled) return Option.none();
-            else return Option.some([_.key, _.value] as const);
-          }),
-          (_) => makeUrl(url, _, Option.none()),
-          Either.getRight,
-        ),
-      ),
-      Option.map((_) => _.toString()),
-      Option.getOrElse(() => endpoint.url),
-    );
-  }, [endpoint.url, queries]);
+  let url = endpoint.url;
+
+  const queryParams = pipe(items, Array.filterMap(queryToString), Array.join('&'));
+
+  if (queryParams.length > 0) url = url + '?' + queryParams;
+
+  return url;
 };
 
 class EndpointFormData extends Schema.Class<EndpointFormData>('EndpointFormData')({
@@ -305,16 +312,23 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
   });
 
   const onSubmit = form.handleSubmit(async ({ method, url: urlString }) => {
-    const { origin = '', pathname = '', searchParams = new URLSearchParams() } = !urlString ? {} : new URL(urlString);
+    const { queryString, url } = pipe(
+      urlString,
+      String.indexOf('?'),
+      Option.match({
+        onNone: () => ({ queryString: '', url: urlString }),
+        onSome: (pos) => ({ queryString: urlString.slice(pos + 1), url: urlString.slice(0, pos) }),
+      }),
+    );
 
-    await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method, url: origin + pathname });
+    await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method, url });
 
     const queryMap = pipe(
-      searchParams.entries(),
-      Array.fromIterable,
+      queryString.split('&'),
+      Array.map(queryFromString),
       Array.map(([key, value]): [string, QueryCreateRequest | QueryUpdateRequest] => [
         key + value,
-        create(QueryCreateRequestSchema, { exampleId, key, value }),
+        create(QueryCreateRequestSchema, { enabled: true, exampleId, key, value }),
       ]),
       MutableHashMap.fromIterable,
     );
