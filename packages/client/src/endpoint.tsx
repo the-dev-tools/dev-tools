@@ -128,7 +128,9 @@ function Page() {
             <EndpointRequestView exampleId={exampleId} />
           </ReferenceContext>
         </Panel>
-        <ResponsePanel />
+        <Suspense>
+          <ResponsePanel />
+        </Suspense>
       </PanelGroup>
     </Suspense>
   );
@@ -601,7 +603,15 @@ const ResponsePanel = () => {
     <>
       <PanelResizeHandle direction='vertical' />
       <Panel defaultSize={40} id='response' order={2}>
-        <ResponseTabs fullWidth responseId={lastResponseId} />
+        <Suspense
+          fallback={
+            <div className={tw`flex h-full items-center justify-center`}>
+              <Spinner className={tw`size-12`} />
+            </div>
+          }
+        >
+          <ResponseTabs fullWidth responseId={lastResponseId} />
+        </Suspense>
       </Panel>
     </>
   );
