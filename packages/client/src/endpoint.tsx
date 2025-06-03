@@ -145,83 +145,93 @@ interface EndpointRequestViewProps {
   isReadOnly?: boolean;
 }
 
-export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isReadOnly }: EndpointRequestViewProps) => (
-  <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
-    <TabList className={tw`flex gap-3 border-b border-slate-200`}>
-      <Tab
-        className={({ isSelected }) =>
-          twMerge(
-            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
+export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isReadOnly }: EndpointRequestViewProps) => {
+  const transport = useTransport();
+
+  const { assertCount, bodyCount, headerCount, queryCount } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+
+  return (
+    <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
+      <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+        <Tab
+          className={({ isSelected }) =>
+            twMerge(
+              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+          id='params'
+        >
+          Params
+          {queryCount > 0 && <span className={tw`text-xs text-green-600`}> ({queryCount})</span>}
+        </Tab>
+
+        <Tab
+          className={({ isSelected }) =>
+            twMerge(
+              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+          id='headers'
+        >
+          Headers
+          {headerCount > 0 && <span className={tw`text-xs text-green-600`}> ({headerCount})</span>}
+        </Tab>
+
+        <Tab
+          className={({ isSelected }) =>
+            twMerge(
+              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+          id='body'
+        >
+          Body
+          {bodyCount > 0 && <span className={tw`text-xs text-green-600`}> ({bodyCount})</span>}
+        </Tab>
+
+        <Tab
+          className={({ isSelected }) =>
+            twMerge(
+              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              isSelected && tw`border-b-violet-700 text-slate-800`,
+            )
+          }
+          id='assertions'
+        >
+          Assertion
+          {assertCount > 0 && <span className={tw`text-xs text-green-600`}> ({assertCount})</span>}
+        </Tab>
+      </TabList>
+
+      <Suspense
+        fallback={
+          <div className={tw`flex h-full items-center justify-center`}>
+            <Spinner className={tw`size-12`} />
+          </div>
         }
-        id='params'
       >
-        Params
-      </Tab>
+        <TabPanel id='params'>
+          <QueryTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
+        </TabPanel>
 
-      <Tab
-        className={({ isSelected }) =>
-          twMerge(
-            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-        id='headers'
-      >
-        Headers
-      </Tab>
+        <TabPanel id='headers'>
+          <HeaderTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
+        </TabPanel>
 
-      <Tab
-        className={({ isSelected }) =>
-          twMerge(
-            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-        id='body'
-      >
-        Body
-      </Tab>
+        <TabPanel id='body'>
+          <BodyView deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
+        </TabPanel>
 
-      <Tab
-        className={({ isSelected }) =>
-          twMerge(
-            tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
-            isSelected && tw`border-b-violet-700 text-slate-800`,
-          )
-        }
-        id='assertions'
-      >
-        Assertion
-      </Tab>
-    </TabList>
-
-    <Suspense
-      fallback={
-        <div className={tw`flex h-full items-center justify-center`}>
-          <Spinner className={tw`size-12`} />
-        </div>
-      }
-    >
-      <TabPanel id='params'>
-        <QueryTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
-      </TabPanel>
-
-      <TabPanel id='headers'>
-        <HeaderTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
-      </TabPanel>
-
-      <TabPanel id='body'>
-        <BodyView deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
-      </TabPanel>
-
-      <TabPanel id='assertions'>
-        <AssertionView exampleId={exampleId} isReadOnly={isReadOnly} />
-      </TabPanel>
-    </Suspense>
-  </Tabs>
-);
+        <TabPanel id='assertions'>
+          <AssertionView exampleId={exampleId} isReadOnly={isReadOnly} />
+        </TabPanel>
+      </Suspense>
+    </Tabs>
+  );
+};
 
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 
@@ -626,7 +636,9 @@ interface ResponseTabsProps {
 export const ResponseTabs = ({ className, fullWidth = false, responseId }: ResponseTabsProps) => {
   const transport = useTransport();
 
-  const response = useSuspense(ResponseGetEndpoint, transport, { responseId });
+  const { assertCount, body, duration, headerCount, size, status } = useSuspense(ResponseGetEndpoint, transport, {
+    responseId,
+  });
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
@@ -654,6 +666,7 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
             id='headers'
           >
             Headers
+            {headerCount > 0 && <span className={tw`text-xs text-green-600`}> ({headerCount})</span>}
           </Tab>
 
           <Tab
@@ -666,6 +679,7 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
             id='assertions'
           >
             Test Results
+            {assertCount > 0 && <span className={tw`text-xs text-green-600`}> ({assertCount})</span>}
           </Tab>
         </TabList>
 
@@ -674,23 +688,21 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
         <div className={tw`flex items-center gap-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>
           <div className={tw`flex gap-1 p-2`}>
             <span>Status:</span>
-            <span className={tw`text-green-600`}>{response.status}</span>
+            <span className={tw`text-green-600`}>{status}</span>
           </div>
 
           <Separator className={tw`h-4`} orientation='vertical' />
 
           <div className={tw`flex gap-1 p-2`}>
             <span>Time:</span>
-            <span className={tw`text-green-600`}>
-              {pipe(Number(response.duration), Duration.millis, Duration.format)}
-            </span>
+            <span className={tw`text-green-600`}>{pipe(Number(duration), Duration.millis, Duration.format)}</span>
           </div>
 
           <Separator className={tw`h-4`} orientation='vertical' />
 
           <div className={tw`flex gap-1 p-2`}>
             <span>Size:</span>
-            <span>{formatSize(response.size)}</span>
+            <span>{formatSize(size)}</span>
           </div>
 
           {/* <Separator orientation='vertical' className={tw`h-4`} />
@@ -723,7 +735,7 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
           }
         >
           <TabPanel className={twJoin(tw`flex h-full flex-col gap-4`)} id='body'>
-            <ResponseBodyView bodyBytes={response.body} />
+            <ResponseBodyView bodyBytes={body} />
           </TabPanel>
 
           <TabPanel id='headers'>
