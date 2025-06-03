@@ -28,6 +28,8 @@ model Response {
   time: WellKnown.Timestamp;
   duration: int32;
   size: int32;
+  headerCount: int32;
+  assertCount: int32;
 }
 
 @autoFields
