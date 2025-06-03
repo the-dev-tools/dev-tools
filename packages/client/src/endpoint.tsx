@@ -324,7 +324,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
     await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method, url });
 
     const queryMap = pipe(
-      queryString.split('&'),
+      queryString.length > 0 ? queryString.split('&') : [],
       Array.map(queryFromString),
       Array.map(([key, value]): [string, QueryCreateRequest | QueryUpdateRequest] => [
         key + value,
