@@ -189,7 +189,7 @@ const referenceCompletions =
 
     const startToken = token.text.trimStart();
 
-    const options: Completion[] = [];
+    let options: Completion[] = [];
 
     const fileToken = '#file:';
     if (fileToken.startsWith(startToken)) {
@@ -212,7 +212,7 @@ const referenceCompletions =
       });
     }
 
-    pipe(
+    options = pipe(
       (await client.referenceCompletion({ ...referenceContext, start: startToken })).items,
       Array.map((_): Completion => {
         const type = pipe(
