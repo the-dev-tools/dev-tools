@@ -1,6 +1,5 @@
 import { Message } from '@bufbuild/protobuf';
-import { useReactTable } from '@tanstack/react-table';
-import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table, TableOptions } from '@tanstack/table-core';
+import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table } from '@tanstack/table-core';
 import { String, Struct } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -21,7 +20,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
-import { DataTableProps } from '@the-dev-tools/ui/data-table';
+import { DataTableProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
