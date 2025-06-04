@@ -163,7 +163,10 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New form data item',
     items,
-    onCreate: () => controller.fetch(BodyFormCreateEndpoint, transport, { enabled: true, exampleId }),
+    onCreate: async () => {
+      await controller.fetch(BodyFormCreateEndpoint, transport, { enabled: true, exampleId });
+      await controller.invalidateAll({ testKey: (_) => _.startsWith(BodyFormDeltaListEndpoint.name) });
+    },
     onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
@@ -176,22 +179,19 @@ interface FormDeltaDataTableProps {
   exampleId: Uint8Array;
 }
 
-const FormDeltaDataTable = ({ deltaExampleId, exampleId }: FormDeltaDataTableProps) => {
+const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: FormDeltaDataTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
   const items = pipe(
-    useSuspense(BodyFormDeltaListEndpoint, transport, {
-      exampleId: deltaExampleId,
-      originId: exampleId,
-    }).items,
-    (_) => makeDeltaItems(_, 'bodyId'),
+    useSuspense(BodyFormDeltaListEndpoint, transport, { exampleId, originId }).items,
+    (_: BodyFormDeltaListItem[]) => makeDeltaItems(_, 'bodyId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New form data item',
     items,
-    onCreate: () => controller.fetch(BodyFormDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onCreate: () => controller.fetch(BodyFormDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
     onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormDeltaUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
@@ -263,7 +263,10 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New URL encoded item',
     items,
-    onCreate: () => controller.fetch(BodyUrlEncodedCreateEndpoint, transport, { enabled: true, exampleId }),
+    onCreate: async () => {
+      await controller.fetch(BodyUrlEncodedCreateEndpoint, transport, { enabled: true, exampleId });
+      await controller.invalidateAll({ testKey: (_) => _.startsWith(BodyUrlEncodedDeltaListEndpoint.name) });
+    },
     onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
@@ -276,22 +279,23 @@ interface UrlEncodedDeltaFormTableProps {
   exampleId: Uint8Array;
 }
 
-const UrlEncodedDeltaFormTable = ({ deltaExampleId, exampleId }: UrlEncodedDeltaFormTableProps) => {
+const UrlEncodedDeltaFormTable = ({
+  deltaExampleId: exampleId,
+  exampleId: originId,
+}: UrlEncodedDeltaFormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
   const items = pipe(
-    useSuspense(BodyUrlEncodedDeltaListEndpoint, transport, {
-      exampleId: deltaExampleId,
-      originId: exampleId,
-    }).items,
-    (_) => makeDeltaItems(_, 'bodyId'),
+    useSuspense(BodyUrlEncodedDeltaListEndpoint, transport, { exampleId, originId }).items,
+    (_: BodyUrlEncodedDeltaListItem[]) => makeDeltaItems(_, 'bodyId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New URL encoded item',
     items,
-    onCreate: () => controller.fetch(BodyUrlEncodedDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onCreate: () =>
+      controller.fetch(BodyUrlEncodedDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
     onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedDeltaUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });

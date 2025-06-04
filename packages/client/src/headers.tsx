@@ -87,7 +87,10 @@ const FormTable = ({ exampleId }: FormTableProps) => {
   const formTable = useFormTable({
     createLabel: 'New header',
     items,
-    onCreate: () => controller.fetch(HeaderCreateEndpoint, transport, { enabled: true, exampleId }),
+    onCreate: async () => {
+      await controller.fetch(HeaderCreateEndpoint, transport, { enabled: true, exampleId });
+      await controller.invalidateAll({ testKey: (_) => _.startsWith(HeaderDeltaListEndpoint.name) });
+    },
     onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
@@ -100,22 +103,19 @@ interface DeltaFormTableProps {
   exampleId: Uint8Array;
 }
 
-const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
+const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: DeltaFormTableProps) => {
   const transport = useTransport();
   const controller = useController();
 
   const items = pipe(
-    useSuspense(HeaderDeltaListEndpoint, transport, {
-      exampleId: deltaExampleId,
-      originId: exampleId,
-    }).items,
-    (_) => makeDeltaItems(_, 'headerId'),
+    useSuspense(HeaderDeltaListEndpoint, transport, { exampleId, originId }).items,
+    (_: HeaderDeltaListItem[]) => makeDeltaItems(_, 'headerId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New header',
     items,
-    onCreate: () => controller.fetch(HeaderDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
+    onCreate: () => controller.fetch(HeaderDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
     onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderDeltaUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });

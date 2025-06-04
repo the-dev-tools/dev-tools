@@ -1,21 +1,39 @@
 import { DescMessage, MessageInitShape } from '@bufbuild/protobuf';
 import { Transport } from '@connectrpc/connect';
-import { Endpoint } from '@data-client/endpoint';
+import { Endpoint, Schema } from '@data-client/endpoint';
 
-import { EndpointProps } from './resource';
+import { SourceKind } from '../dist/buf/typescript/delta/v1/delta_pb';
+import { UpdateProps } from './resource';
 import { createMethodKey, fetchMethod } from './utils';
 
-const placeholder = <I extends DescMessage, O extends DescMessage>({ method, name }: EndpointProps<I, O>) => {
-  const fetchFunction = (transport: Transport, input: MessageInitShape<I>) => fetchMethod(transport, method, input);
+export const deltaUpdate = <I extends DescMessage, O extends DescMessage, S extends Schema>({
+  method,
+  name,
+  schema,
+}: UpdateProps<I, O, S>) => {
+  const fetchFunction = async (transport: Transport, input: MessageInitShape<I> & { source?: SourceKind }) => {
+    await fetchMethod(transport, method, input);
+    return { ...input, source: input.source === SourceKind.ORIGIN ? SourceKind.MIXED : input.source };
+  };
 
   const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
     [name, createMethodKey(transport, method, input)].join(' ');
 
-  return new Endpoint(fetchFunction, { key, name });
+  return new Endpoint(fetchFunction, { key, name, schema, sideEffect: true });
 };
 
-// TODO: implement delta endpoints
-export const deltaList = placeholder;
-export const deltaCreate = placeholder;
-export const deltaUpdate = placeholder;
-export const deltaReset = placeholder;
+export const deltaReset = <I extends DescMessage, O extends DescMessage, S extends Schema>({
+  method,
+  name,
+  schema,
+}: UpdateProps<I, O, S>) => {
+  const fetchFunction = async (transport: Transport, input: MessageInitShape<I>) => {
+    await fetchMethod(transport, method, input);
+    return { ...input, source: SourceKind.ORIGIN };
+  };
+
+  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    [name, createMethodKey(transport, method, input)].join(' ');
+
+  return new Endpoint(fetchFunction, { key, name, schema, sideEffect: true });
+};

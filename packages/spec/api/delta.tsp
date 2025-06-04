@@ -37,7 +37,15 @@ model Item<TResource extends Model> {
 @move(Delta, TResource)
 @friendlyName("{name}DeltaListRequest", TResource)
 model ListRequest<TResource extends Model> {
-  ...ParentKeyOf<TResource>;
+  ...Resource.List.Request<TResource>;
+  @normalKey originId: Resource.Id;
+}
+
+@autoFields
+@move(Delta, TResource)
+@friendlyName("{name}DeltaCreateRequest", TResource)
+model CreateRequest<TResource extends Model> {
+  ...Resource.Create.Request<TResource>;
   @normalKey originId: Resource.Id;
 }
 
@@ -54,29 +62,31 @@ model ResetResponse<TResource extends Model> {}
 interface Interface<
   TResource extends Model,
   TDelta extends Model = Item<TResource>,
-  TListRequest extends Model = ListRequest<TResource>
-> extends Resource.Delete.Interface<TDelta, TMove = TResource> {
-  @move(Delta, TResource)
-  @useFriendlyName
-  @friendlyName("{name}List", TDelta)
-  @endpoint("delta.js:deltaList")
-  List is Resource.List.Operation<TDelta, TMove = TResource, TRequest = TListRequest>;
-
-  @move(Delta, TResource)
-  @useFriendlyName
-  @friendlyName("{name}Create", TDelta)
-  @endpoint("delta.js:deltaCreate")
-  Create is Resource.Create.Operation<TDelta, TMove = TResource, TListRequest = TListRequest>;
-
+  TListRequest extends Model = ListRequest<TResource>,
+  TCreateRequest extends Model = CreateRequest<TResource>
+>
+  extends Resource.List.Interface<TDelta, TMove = TResource, TRequest = TListRequest>,
+    Resource.Create.Interface<TDelta, TMove = TResource, TRequest = TCreateRequest, TListRequest = TListRequest>,
+    Resource.Delete.Interface<TDelta, TMove = TResource> {
   @move(Delta, TResource)
   @useFriendlyName
   @friendlyName("{name}Update", TDelta)
-  @endpoint("delta.js:deltaUpdate")
+  @endpoint(
+    "delta.js:deltaUpdate",
+    {
+      schema: Schema<TDelta>,
+    }
+  )
   Update is Resource.Update.Operation<TDelta, TMove = TResource>;
 
   @move(Delta, TResource)
   @useFriendlyName
   @friendlyName("{name}Reset", TDelta)
-  @endpoint("delta.js:deltaReset")
+  @endpoint(
+    "delta.js:deltaReset",
+    {
+      schema: Schema<TDelta>,
+    }
+  )
   Reset(...ResetRequest<TResource>): ResetResponse<TResource>;
 }

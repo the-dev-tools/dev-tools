@@ -94,7 +94,8 @@ export const create = <I extends DescMessage, O extends DescMessage, S extends S
   return new Endpoint(fetchFunction, { key, name, schema: list.push, sideEffect: true });
 };
 
-interface UpdateProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
+export interface UpdateProps<I extends DescMessage, O extends DescMessage, S extends Schema>
+  extends EndpointProps<I, O> {
   schema: S;
 }
 
