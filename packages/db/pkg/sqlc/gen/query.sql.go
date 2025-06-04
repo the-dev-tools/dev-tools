@@ -1201,9 +1201,9 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, source)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderParams struct {
@@ -1214,6 +1214,7 @@ type CreateHeaderParams struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Source        int8
 }
 
 func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) error {
@@ -1225,29 +1226,30 @@ func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) erro
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Source,
 	)
 	return err
 }
 
 const createHeaderBulk = `-- name: CreateHeaderBulk :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, source)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderBulkParams struct {
@@ -1258,6 +1260,7 @@ type CreateHeaderBulkParams struct {
 	Enable           bool
 	Description      string
 	Value            string
+	Source           int8
 	ID_2             idwrap.IDWrap
 	ExampleID_2      idwrap.IDWrap
 	DeltaParentID_2  *idwrap.IDWrap
@@ -1265,6 +1268,7 @@ type CreateHeaderBulkParams struct {
 	Enable_2         bool
 	Description_2    string
 	Value_2          string
+	Source_2         int8
 	ID_3             idwrap.IDWrap
 	ExampleID_3      idwrap.IDWrap
 	DeltaParentID_3  *idwrap.IDWrap
@@ -1272,6 +1276,7 @@ type CreateHeaderBulkParams struct {
 	Enable_3         bool
 	Description_3    string
 	Value_3          string
+	Source_3         int8
 	ID_4             idwrap.IDWrap
 	ExampleID_4      idwrap.IDWrap
 	DeltaParentID_4  *idwrap.IDWrap
@@ -1279,6 +1284,7 @@ type CreateHeaderBulkParams struct {
 	Enable_4         bool
 	Description_4    string
 	Value_4          string
+	Source_4         int8
 	ID_5             idwrap.IDWrap
 	ExampleID_5      idwrap.IDWrap
 	DeltaParentID_5  *idwrap.IDWrap
@@ -1286,6 +1292,7 @@ type CreateHeaderBulkParams struct {
 	Enable_5         bool
 	Description_5    string
 	Value_5          string
+	Source_5         int8
 	ID_6             idwrap.IDWrap
 	ExampleID_6      idwrap.IDWrap
 	DeltaParentID_6  *idwrap.IDWrap
@@ -1293,6 +1300,7 @@ type CreateHeaderBulkParams struct {
 	Enable_6         bool
 	Description_6    string
 	Value_6          string
+	Source_6         int8
 	ID_7             idwrap.IDWrap
 	ExampleID_7      idwrap.IDWrap
 	DeltaParentID_7  *idwrap.IDWrap
@@ -1300,6 +1308,7 @@ type CreateHeaderBulkParams struct {
 	Enable_7         bool
 	Description_7    string
 	Value_7          string
+	Source_7         int8
 	ID_8             idwrap.IDWrap
 	ExampleID_8      idwrap.IDWrap
 	DeltaParentID_8  *idwrap.IDWrap
@@ -1307,6 +1316,7 @@ type CreateHeaderBulkParams struct {
 	Enable_8         bool
 	Description_8    string
 	Value_8          string
+	Source_8         int8
 	ID_9             idwrap.IDWrap
 	ExampleID_9      idwrap.IDWrap
 	DeltaParentID_9  *idwrap.IDWrap
@@ -1314,6 +1324,7 @@ type CreateHeaderBulkParams struct {
 	Enable_9         bool
 	Description_9    string
 	Value_9          string
+	Source_9         int8
 	ID_10            idwrap.IDWrap
 	ExampleID_10     idwrap.IDWrap
 	DeltaParentID_10 *idwrap.IDWrap
@@ -1321,6 +1332,7 @@ type CreateHeaderBulkParams struct {
 	Enable_10        bool
 	Description_10   string
 	Value_10         string
+	Source_10        int8
 	ID_11            idwrap.IDWrap
 	ExampleID_11     idwrap.IDWrap
 	DeltaParentID_11 *idwrap.IDWrap
@@ -1328,6 +1340,7 @@ type CreateHeaderBulkParams struct {
 	Enable_11        bool
 	Description_11   string
 	Value_11         string
+	Source_11        int8
 	ID_12            idwrap.IDWrap
 	ExampleID_12     idwrap.IDWrap
 	DeltaParentID_12 *idwrap.IDWrap
@@ -1335,6 +1348,7 @@ type CreateHeaderBulkParams struct {
 	Enable_12        bool
 	Description_12   string
 	Value_12         string
+	Source_12        int8
 	ID_13            idwrap.IDWrap
 	ExampleID_13     idwrap.IDWrap
 	DeltaParentID_13 *idwrap.IDWrap
@@ -1342,6 +1356,7 @@ type CreateHeaderBulkParams struct {
 	Enable_13        bool
 	Description_13   string
 	Value_13         string
+	Source_13        int8
 	ID_14            idwrap.IDWrap
 	ExampleID_14     idwrap.IDWrap
 	DeltaParentID_14 *idwrap.IDWrap
@@ -1349,6 +1364,7 @@ type CreateHeaderBulkParams struct {
 	Enable_14        bool
 	Description_14   string
 	Value_14         string
+	Source_14        int8
 	ID_15            idwrap.IDWrap
 	ExampleID_15     idwrap.IDWrap
 	DeltaParentID_15 *idwrap.IDWrap
@@ -1356,6 +1372,7 @@ type CreateHeaderBulkParams struct {
 	Enable_15        bool
 	Description_15   string
 	Value_15         string
+	Source_15        int8
 }
 
 func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkParams) error {
@@ -1367,6 +1384,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Source,
 		arg.ID_2,
 		arg.ExampleID_2,
 		arg.DeltaParentID_2,
@@ -1374,6 +1392,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
+		arg.Source_2,
 		arg.ID_3,
 		arg.ExampleID_3,
 		arg.DeltaParentID_3,
@@ -1381,6 +1400,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
+		arg.Source_3,
 		arg.ID_4,
 		arg.ExampleID_4,
 		arg.DeltaParentID_4,
@@ -1388,6 +1408,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
+		arg.Source_4,
 		arg.ID_5,
 		arg.ExampleID_5,
 		arg.DeltaParentID_5,
@@ -1395,6 +1416,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
+		arg.Source_5,
 		arg.ID_6,
 		arg.ExampleID_6,
 		arg.DeltaParentID_6,
@@ -1402,6 +1424,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
+		arg.Source_6,
 		arg.ID_7,
 		arg.ExampleID_7,
 		arg.DeltaParentID_7,
@@ -1409,6 +1432,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
+		arg.Source_7,
 		arg.ID_8,
 		arg.ExampleID_8,
 		arg.DeltaParentID_8,
@@ -1416,6 +1440,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
+		arg.Source_8,
 		arg.ID_9,
 		arg.ExampleID_9,
 		arg.DeltaParentID_9,
@@ -1423,6 +1448,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
+		arg.Source_9,
 		arg.ID_10,
 		arg.ExampleID_10,
 		arg.DeltaParentID_10,
@@ -1430,6 +1456,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
+		arg.Source_10,
 		arg.ID_11,
 		arg.ExampleID_11,
 		arg.DeltaParentID_11,
@@ -1437,6 +1464,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_11,
 		arg.Description_11,
 		arg.Value_11,
+		arg.Source_11,
 		arg.ID_12,
 		arg.ExampleID_12,
 		arg.DeltaParentID_12,
@@ -1444,6 +1472,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_12,
 		arg.Description_12,
 		arg.Value_12,
+		arg.Source_12,
 		arg.ID_13,
 		arg.ExampleID_13,
 		arg.DeltaParentID_13,
@@ -1451,6 +1480,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_13,
 		arg.Description_13,
 		arg.Value_13,
+		arg.Source_13,
 		arg.ID_14,
 		arg.ExampleID_14,
 		arg.DeltaParentID_14,
@@ -1458,6 +1488,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_14,
 		arg.Description_14,
 		arg.Value_14,
+		arg.Source_14,
 		arg.ID_15,
 		arg.ExampleID_15,
 		arg.DeltaParentID_15,
@@ -1465,6 +1496,7 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_15,
 		arg.Description_15,
 		arg.Value_15,
+		arg.Source_15,
 	)
 	return err
 }
@@ -4222,7 +4254,8 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_header
 WHERE
@@ -4241,6 +4274,40 @@ func (q *Queries) GetHeader(ctx context.Context, id idwrap.IDWrap) (ExampleHeade
 		&i.Enable,
 		&i.Description,
 		&i.Value,
+		&i.Source,
+	)
+	return i, err
+}
+
+const getHeaderByDeltaParentID = `-- name: GetHeaderByDeltaParentID :one
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  source
+FROM
+  example_header
+WHERE
+  delta_parent_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHeaderByDeltaParentID(ctx context.Context, deltaParentID *idwrap.IDWrap) (ExampleHeader, error) {
+	row := q.queryRow(ctx, q.getHeaderByDeltaParentIDStmt, getHeaderByDeltaParentID, deltaParentID)
+	var i ExampleHeader
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.DeltaParentID,
+		&i.HeaderKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+		&i.Source,
 	)
 	return i, err
 }
@@ -4253,7 +4320,8 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  source
 FROM
   example_header
 WHERE
@@ -4277,6 +4345,7 @@ func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID idwrap.ID
 			&i.Enable,
 			&i.Description,
 			&i.Value,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -6219,7 +6288,8 @@ SET
   header_key = ?,
   enable = ?,
   description = ?,
-  value = ?
+  value = ?,
+  source = ?
 WHERE
   id = ?
 `
@@ -6229,6 +6299,7 @@ type UpdateHeaderParams struct {
 	Enable      bool
 	Description string
 	Value       string
+	Source      int8
 	ID          idwrap.IDWrap
 }
 
@@ -6238,6 +6309,7 @@ func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) erro
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Source,
 		arg.ID,
 	)
 	return err

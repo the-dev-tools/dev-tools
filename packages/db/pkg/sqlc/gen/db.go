@@ -372,6 +372,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
 	}
+	if q.getHeaderByDeltaParentIDStmt, err = db.PrepareContext(ctx, getHeaderByDeltaParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHeaderByDeltaParentID: %w", err)
+	}
 	if q.getHeadersByExampleIDStmt, err = db.PrepareContext(ctx, getHeadersByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeadersByExampleID: %w", err)
 	}
@@ -1179,6 +1182,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHeaderStmt: %w", cerr)
 		}
 	}
+	if q.getHeaderByDeltaParentIDStmt != nil {
+		if cerr := q.getHeaderByDeltaParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHeaderByDeltaParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getHeadersByExampleIDStmt != nil {
 		if cerr := q.getHeadersByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHeadersByExampleIDStmt: %w", cerr)
@@ -1704,6 +1712,7 @@ type Queries struct {
 	getFlowsByVersionParentIDStmt                         *sql.Stmt
 	getFlowsByWorkspaceIDStmt                             *sql.Stmt
 	getHeaderStmt                                         *sql.Stmt
+	getHeaderByDeltaParentIDStmt                          *sql.Stmt
 	getHeadersByExampleIDStmt                             *sql.Stmt
 	getItemApiStmt                                        *sql.Stmt
 	getItemApiByCollectionIDAndNextIDAndParentIDStmt      *sql.Stmt
@@ -1900,6 +1909,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowsByVersionParentIDStmt:                    q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                        q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                                    q.getHeaderStmt,
+		getHeaderByDeltaParentIDStmt:                     q.getHeaderByDeltaParentIDStmt,
 		getHeadersByExampleIDStmt:                        q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                                   q.getItemApiStmt,
 		getItemApiByCollectionIDAndNextIDAndParentIDStmt: q.getItemApiByCollectionIDAndNextIDAndParentIDStmt,

@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sassert"
@@ -609,11 +610,20 @@ func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[request
 		return nil, rpcErr
 	}
 
-	headers, err := c.ehs.GetHeaderByExampleID(ctx, exID)
+	allHeaders, err := c.ehs.GetHeaderByExampleID(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcHeaders := tgeneric.MassConvert(headers, theader.SerializeHeaderModelToRPCItem)
+
+	// Filter to only include origin headers (source = 1)
+	var originHeaders []mexampleheader.Header
+	for _, header := range allHeaders {
+		if header.Source == mexampleheader.HeaderSourceOrigin {
+			originHeaders = append(originHeaders, header)
+		}
+	}
+
+	rpcHeaders := tgeneric.MassConvert(originHeaders, theader.SerializeHeaderModelToRPCItem)
 	resp := &requestv1.HeaderListResponse{
 		ExampleId: exID.Bytes(),
 		Items:     rpcHeaders,
@@ -641,6 +651,10 @@ func (c RequestRPC) HeaderCreate(ctx context.Context, req *connect.Request[reque
 	var deltaParentIDPtr *idwrap.IDWrap
 	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID, deltaParentIDPtr)
 	header.ID = headerID
+
+	// Set source as origin for regular header creation
+	header.Source = mexampleheader.HeaderSourceOrigin
+
 	err = c.ehs.CreateHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -665,10 +679,44 @@ func (c RequestRPC) HeaderUpdate(ctx context.Context, req *connect.Request[reque
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
+	// Update the origin header
+	header.Source = mexampleheader.HeaderSourceOrigin
 	err = c.ehs.UpdateHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Propagate changes to delta items with "origin" source that reference this header
+	originHeader, err := c.ehs.GetHeaderByID(ctx, header.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Get all headers from this example to find any that reference this origin header
+	allHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originHeader.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Update any delta headers that reference this origin header with source="origin"
+	for _, deltaHeader := range allHeaders {
+		if deltaHeader.DeltaParentID != nil &&
+			deltaHeader.DeltaParentID.Compare(header.ID) == 0 &&
+			deltaHeader.Source == mexampleheader.HeaderSourceOrigin {
+			// Update the delta header to match the origin
+			deltaHeader.HeaderKey = header.HeaderKey
+			deltaHeader.Enable = header.Enable
+			deltaHeader.Description = header.Description
+			deltaHeader.Value = header.Value
+
+			err = c.ehs.UpdateHeader(ctx, deltaHeader)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
 	return connect.NewResponse(&requestv1.HeaderUpdateResponse{}), nil
 }
 
@@ -681,6 +729,35 @@ func (c RequestRPC) HeaderDelete(ctx context.Context, req *connect.Request[reque
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
+	// Get the header to check if it's an origin header and get its example ID
+	originHeader, err := c.ehs.GetHeaderByID(ctx, headerID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// If this is an origin header, delete all delta items with "origin" or "mixed" source that reference it
+	if originHeader.Source == mexampleheader.HeaderSourceOrigin {
+		// Get all headers from this example to find any that reference this origin header
+		allHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originHeader.ExampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Delete any delta headers that reference this origin header with source="origin" or "mixed"
+		for _, deltaHeader := range allHeaders {
+			if deltaHeader.DeltaParentID != nil &&
+				deltaHeader.DeltaParentID.Compare(headerID) == 0 &&
+				(deltaHeader.Source == mexampleheader.HeaderSourceOrigin || deltaHeader.Source == mexampleheader.HeaderSourceMixed) {
+				err = c.ehs.DeleteHeader(ctx, deltaHeader.ID)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+	}
+
+	// Delete the origin header itself
 	err = c.ehs.DeleteHeader(ctx, headerID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -688,22 +765,160 @@ func (c RequestRPC) HeaderDelete(ctx context.Context, req *connect.Request[reque
 	return connect.NewResponse(&requestv1.HeaderDeleteResponse{}), nil
 }
 
+// HeaderDeltaExampleCopy copies all headers from an origin example to a delta example
+// This implements the "Delta example create" functionality
+func (c RequestRPC) HeaderDeltaExampleCopy(ctx context.Context, originExampleID, deltaExampleID idwrap.IDWrap) error {
+	// Check permissions for both examples
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
+	if rpcErr != nil {
+		return rpcErr
+	}
+	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
+	if rpcErr != nil {
+		return rpcErr
+	}
+
+	// Get all headers from the origin example
+	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
+	if err != nil {
+		return err
+	}
+
+	// Create corresponding headers in the delta example
+	var deltaHeaders []mexampleheader.Header
+	for _, originHeader := range originHeaders {
+		// Only copy origin headers (not mixed or delta headers)
+		if originHeader.Source == mexampleheader.HeaderSourceOrigin {
+			deltaHeader := mexampleheader.Header{
+				ID:            idwrap.NewNow(),
+				ExampleID:     deltaExampleID,
+				DeltaParentID: &originHeader.ID, // Reference the origin header
+				HeaderKey:     originHeader.HeaderKey,
+				Enable:        originHeader.Enable,
+				Description:   originHeader.Description,
+				Value:         originHeader.Value,
+				Source:        mexampleheader.HeaderSourceOrigin, // Mark as "origin" in delta context
+			}
+			deltaHeaders = append(deltaHeaders, deltaHeader)
+		}
+	}
+
+	// Bulk create all delta headers
+	if len(deltaHeaders) > 0 {
+		err = c.ehs.CreateBulkHeader(ctx, deltaHeaders)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaListRequest]) (*connect.Response[requestv1.HeaderDeltaListResponse], error) {
-	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	// Parse both example IDs
+	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+
+	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for both examples
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	headers, err := c.ehs.GetHeaderByExampleID(ctx, exampleID)
+	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Get headers from both origin and delta examples
+	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcHeaders := tgeneric.MassConvert(headers, theader.SerializeHeaderModelToRPCDeltaItem)
+
+	deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Combine all headers and build maps for lookup
+	allHeaders := append(originHeaders, deltaHeaders...)
+	headerMap := make(map[idwrap.IDWrap]mexampleheader.Header)
+	originMap := make(map[idwrap.IDWrap]*requestv1.Header)
+	replacedOrigins := make(map[idwrap.IDWrap]bool)
+
+	for _, header := range allHeaders {
+		headerMap[header.ID] = header
+		originMap[header.ID] = theader.SerializeHeaderModelToRPC(header)
+
+		// Mark origin headers that have been replaced by mixed headers
+		if header.Source == mexampleheader.HeaderSourceMixed && header.DeltaParentID != nil {
+			replacedOrigins[*header.DeltaParentID] = true
+		}
+	}
+
+	// Create result slice maintaining order from allHeaders
+	var rpcHeaders []*requestv1.HeaderDeltaListItem
+	for _, header := range allHeaders {
+		// Skip origin headers that have been replaced by mixed headers
+		if header.Source == mexampleheader.HeaderSourceOrigin && replacedOrigins[header.ID] {
+			continue
+		}
+
+		sourceKind := header.Source.ToSourceKind()
+		var origin *requestv1.Header
+
+		// Find the origin header for this delta if it has a parent
+		if header.DeltaParentID != nil {
+			if originRPC, exists := originMap[*header.DeltaParentID]; exists {
+				origin = originRPC
+			}
+		}
+
+		rpcHeader := &requestv1.HeaderDeltaListItem{
+			HeaderId:    header.ID.Bytes(),
+			Key:         header.HeaderKey,
+			Enabled:     header.Enable,
+			Value:       header.Value,
+			Description: header.Description,
+			Origin:      origin,
+			Source:      &sourceKind,
+		}
+		rpcHeaders = append(rpcHeaders, rpcHeader)
+	}
+
+	// Sort rpcHeaders by ID, but if it has DeltaParentID use that ID instead
+	sort.Slice(rpcHeaders, func(i, j int) bool {
+		idI, _ := idwrap.NewFromBytes(rpcHeaders[i].HeaderId)
+		idJ, _ := idwrap.NewFromBytes(rpcHeaders[j].HeaderId)
+
+		// Determine the ID to use for sorting for item i
+		sortIDI := idI
+		if rpcHeaders[i].Origin != nil && len(rpcHeaders[i].Origin.HeaderId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcHeaders[i].Origin.HeaderId); err == nil {
+				sortIDI = parentID
+			}
+		}
+
+		// Determine the ID to use for sorting for item j
+		sortIDJ := idJ
+		if rpcHeaders[j].Origin != nil && len(rpcHeaders[j].Origin.HeaderId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcHeaders[j].Origin.HeaderId); err == nil {
+				sortIDJ = parentID
+			}
+		}
+
+		return sortIDI.Compare(sortIDJ) < 0
+	})
+
 	resp := &requestv1.HeaderDeltaListResponse{
-		ExampleId: req.Msg.GetExampleId(),
+		ExampleId: deltaExampleID.Bytes(),
 		Items:     rpcHeaders,
 	}
 	return connect.NewResponse(resp), nil
@@ -718,16 +933,44 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
 	rpcHeader := requestv1.Header{
 		Key:         req.Msg.GetKey(),
 		Enabled:     req.Msg.GetEnabled(),
 		Value:       req.Msg.GetValue(),
 		Description: req.Msg.GetDescription(),
 	}
+	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID, nil)
+
 	headerID := idwrap.NewNow()
-	var deltaParentIDPtr *idwrap.IDWrap
-	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID, deltaParentIDPtr)
 	header.ID = headerID
+
+	// Always set source as delta since this is HeaderDeltaCreate
+	header.Source = mexampleheader.HeaderSourceDelta
+
+	// Check if header_id is provided in request
+	if len(req.Msg.GetHeaderId()) > 0 {
+		// Header ID is provided, verify it exists and use as delta parent
+		parentHeaderID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Verify the parent header exists and belongs to the same example
+		parentHeader, err := c.ehs.GetHeaderByID(ctx, parentHeaderID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+
+		// Verify parent header belongs to the same example
+		if parentHeader.ExampleID.Compare(exID) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("parent header does not belong to the specified example"))
+		}
+
+		header.DeltaParentID = &parentHeaderID
+	}
+	// If no header_id provided, DeltaParentID remains nil (standalone delta)
+
 	err = c.ehs.CreateHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -736,25 +979,64 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 }
 
 func (c RequestRPC) HeaderDeltaUpdate(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaUpdateRequest]) (*connect.Response[requestv1.HeaderDeltaUpdateResponse], error) {
-	rpcHeader := requestv1.Header{
-		HeaderId:    req.Msg.GetHeaderId(),
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
-	}
-	header, err := theader.SerlializeHeaderRPCtoModel(&rpcHeader, idwrap.IDWrap{})
+	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, header.ID))
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err = c.ehs.UpdateHeader(ctx, header)
+
+	// Get the existing header to check its source
+	existingHeader, err := c.ehs.GetHeaderByID(ctx, headerID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// If this is an origin header, we need to create a mixed header instead of updating
+	if existingHeader.Source == mexampleheader.HeaderSourceOrigin {
+		// Create a new mixed header with updated fields
+		mixedHeader := mexampleheader.Header{
+			ID:            idwrap.NewNow(),
+			ExampleID:     existingHeader.ExampleID,
+			DeltaParentID: &existingHeader.ID, // Point to the original header
+			HeaderKey:     req.Msg.GetKey(),
+			Enable:        req.Msg.GetEnabled(),
+			Description:   req.Msg.GetDescription(),
+			Value:         req.Msg.GetValue(),
+			Source:        mexampleheader.HeaderSourceMixed, // Set as mixed
+		}
+
+		err = c.ehs.CreateHeader(ctx, mixedHeader)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		// If it's already a delta or mixed header, just update it normally
+		rpcHeader := requestv1.Header{
+			HeaderId:    req.Msg.GetHeaderId(),
+			Key:         req.Msg.GetKey(),
+			Enabled:     req.Msg.GetEnabled(),
+			Value:       req.Msg.GetValue(),
+			Description: req.Msg.GetDescription(),
+		}
+		header, err := theader.SerlializeHeaderRPCtoModel(&rpcHeader, idwrap.IDWrap{})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Preserve the existing source type
+		header.Source = existingHeader.Source
+		header.DeltaParentID = existingHeader.DeltaParentID
+
+		err = c.ehs.UpdateHeader(ctx, header)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	return connect.NewResponse(&requestv1.HeaderDeltaUpdateResponse{}), nil
 }
 
@@ -783,10 +1065,44 @@ func (c RequestRPC) HeaderDeltaReset(ctx context.Context, req *connect.Request[r
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err = c.ehs.ResetHeaderDelta(ctx, headerID)
+
+	// Get the delta header
+	deltaHeader, err := c.ehs.GetHeaderByID(ctx, headerID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// If this is a mixed header with a parent, delete the mixed header to revert to origin
+	if deltaHeader.Source == mexampleheader.HeaderSourceMixed && deltaHeader.DeltaParentID != nil {
+		err = c.ehs.DeleteHeader(ctx, headerID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else if deltaHeader.DeltaParentID != nil {
+		// If it's a delta header with a parent, restore values from parent and set source to origin
+		parentHeader, err := c.ehs.GetHeaderByID(ctx, *deltaHeader.DeltaParentID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Restore delta header fields to match parent and set source to origin
+		deltaHeader.HeaderKey = parentHeader.HeaderKey
+		deltaHeader.Enable = parentHeader.Enable
+		deltaHeader.Description = parentHeader.Description
+		deltaHeader.Value = parentHeader.Value
+
+		err = c.ehs.UpdateHeader(ctx, deltaHeader)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		// If no parent, use the original reset behavior (clear fields)
+		err = c.ehs.ResetHeaderDelta(ctx, headerID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	return connect.NewResponse(&requestv1.HeaderDeltaResetResponse{}), nil
 }
 

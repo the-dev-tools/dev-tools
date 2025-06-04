@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
-	"sort"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mexampleheader"
@@ -27,12 +26,12 @@ func (h HeaderService) TX(tx *sql.Tx) HeaderService {
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*HeaderService, error) {
-	queries, err := gen.Prepare(ctx, tx)
-	if err != nil {
-		return nil, err
+	queries := gen.New(tx)
+	headerService := HeaderService{
+		queries: queries,
 	}
-	service := HeaderService{queries: queries}
-	return &service, nil
+
+	return &headerService, nil
 }
 
 func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
@@ -44,6 +43,7 @@ func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Source:        mexampleheader.HeaderSource(header.Source),
 	}
 }
 
@@ -56,30 +56,43 @@ func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Source:        int8(header.Source),
 	}
 }
 
 func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]mexampleheader.Header, error) {
-	header, err := h.queries.GetHeadersByExampleID(ctx, exampleID)
+	dbHeaders, err := h.queries.GetHeadersByExampleID(ctx, exampleID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return []mexampleheader.Header{}, ErrNoHeaderFound
-		}
 		return nil, err
 	}
-	// TODO: change to link list
-	sort.Slice(header, func(i, j int) bool {
-		return header[i].ID.Compare(header[j].ID) < 0
-	})
-	return tgeneric.MassConvert(header, SerializeHeaderModelToDB), nil
+
+	var headers []mexampleheader.Header
+	for _, dbHeader := range dbHeaders {
+		header := SerializeHeaderModelToDB(dbHeader)
+		headers = append(headers, header)
+	}
+
+	return headers, nil
+}
+
+func (h HeaderService) GetHeaderByDeltaParentID(ctx context.Context, deltaParentID idwrap.IDWrap) ([]mexampleheader.Header, error) {
+	dbHeader, err := h.queries.GetHeaderByDeltaParentID(ctx, &deltaParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	header := SerializeHeaderModelToDB(dbHeader)
+	return []mexampleheader.Header{header}, nil
 }
 
 func (h HeaderService) GetHeaderByID(ctx context.Context, headerID idwrap.IDWrap) (mexampleheader.Header, error) {
-	header, err := h.queries.GetHeader(ctx, headerID)
+	dbHeader, err := h.queries.GetHeader(ctx, headerID)
 	if err != nil {
 		return mexampleheader.Header{}, err
 	}
-	return SerializeHeaderModelToDB(header), nil
+
+	header := SerializeHeaderModelToDB(dbHeader)
+	return header, nil
 }
 
 func (h HeaderService) CreateHeader(ctx context.Context, header mexampleheader.Header) error {
@@ -91,6 +104,7 @@ func (h HeaderService) CreateHeader(ctx context.Context, header mexampleheader.H
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Source:        int8(header.Source),
 	})
 }
 
@@ -103,6 +117,7 @@ func (h HeaderService) CreateHeaderModel(ctx context.Context, header gen.Example
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Source:        header.Source,
 	})
 }
 
@@ -143,6 +158,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable:      item1.Enable,
 			Description: item1.Description,
 			Value:       item1.Value,
+			Source:      item1.Source,
 			// 2
 			ID_2:          item2.ID,
 			ExampleID_2:   item2.ExampleID,
@@ -150,6 +166,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_2:      item2.Enable,
 			Description_2: item2.Description,
 			Value_2:       item2.Value,
+			Source_2:      item2.Source,
 			// 3
 			ID_3:          item3.ID,
 			ExampleID_3:   item3.ExampleID,
@@ -157,6 +174,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_3:      item3.Enable,
 			Description_3: item3.Description,
 			Value_3:       item3.Value,
+			Source_3:      item3.Source,
 			// 4
 			ID_4:          item4.ID,
 			ExampleID_4:   item4.ExampleID,
@@ -164,6 +182,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_4:      item4.Enable,
 			Description_4: item4.Description,
 			Value_4:       item4.Value,
+			Source_4:      item4.Source,
 			// 5
 			ID_5:          item5.ID,
 			ExampleID_5:   item5.ExampleID,
@@ -171,6 +190,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_5:      item5.Enable,
 			Description_5: item5.Description,
 			Value_5:       item5.Value,
+			Source_5:      item5.Source,
 			// 6
 			ID_6:          item6.ID,
 			ExampleID_6:   item6.ExampleID,
@@ -178,6 +198,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_6:      item6.Enable,
 			Description_6: item6.Description,
 			Value_6:       item6.Value,
+			Source_6:      item6.Source,
 			// 7
 			ID_7:          item7.ID,
 			ExampleID_7:   item7.ExampleID,
@@ -185,6 +206,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_7:      item7.Enable,
 			Description_7: item7.Description,
 			Value_7:       item7.Value,
+			Source_7:      item7.Source,
 			// 8
 			ID_8:          item8.ID,
 			ExampleID_8:   item8.ExampleID,
@@ -192,6 +214,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_8:      item8.Enable,
 			Description_8: item8.Description,
 			Value_8:       item8.Value,
+			Source_8:      item8.Source,
 			// 9
 			ID_9:          item9.ID,
 			ExampleID_9:   item9.ExampleID,
@@ -199,6 +222,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_9:      item9.Enable,
 			Description_9: item9.Description,
 			Value_9:       item9.Value,
+			Source_9:      item9.Source,
 			// 10
 			ID_10:          item10.ID,
 			ExampleID_10:   item10.ExampleID,
@@ -206,6 +230,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_10:      item10.Enable,
 			Description_10: item10.Description,
 			Value_10:       item10.Value,
+			Source_10:      item10.Source,
 			// 11
 			ID_11:          item11.ID,
 			ExampleID_11:   item11.ExampleID,
@@ -213,6 +238,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_11:      item11.Enable,
 			Description_11: item11.Description,
 			Value_11:       item11.Value,
+			Source_11:      item11.Source,
 			// 12
 			ID_12:          item12.ID,
 			ExampleID_12:   item12.ExampleID,
@@ -220,6 +246,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_12:      item12.Enable,
 			Description_12: item12.Description,
 			Value_12:       item12.Value,
+			Source_12:      item12.Source,
 			// 13
 			ID_13:          item13.ID,
 			ExampleID_13:   item13.ExampleID,
@@ -227,6 +254,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_13:      item13.Enable,
 			Description_13: item13.Description,
 			Value_13:       item13.Value,
+			Source_13:      item13.Source,
 			// 14
 			ID_14:          item14.ID,
 			ExampleID_14:   item14.ExampleID,
@@ -234,6 +262,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_14:      item14.Enable,
 			Description_14: item14.Description,
 			Value_14:       item14.Value,
+			Source_14:      item14.Source,
 			// 15
 			ID_15:          item15.ID,
 			ExampleID_15:   item15.ExampleID,
@@ -241,6 +270,7 @@ func (h HeaderService) CreateBulkHeader(ctx context.Context, headers []mexampleh
 			Enable_15:      item15.Enable,
 			Description_15: item15.Description,
 			Value_15:       item15.Value,
+			Source_15:      item15.Source,
 		}
 		if err := h.queries.CreateHeaderBulk(ctx, params); err != nil {
 			return err
@@ -257,6 +287,7 @@ func (h HeaderService) UpdateHeader(ctx context.Context, header mexampleheader.H
 		Enable:      header.Enable,
 		Description: header.Description,
 		Value:       header.Value,
+		Source:      int8(header.Source),
 	})
 }
 
@@ -275,6 +306,7 @@ func (h HeaderService) ResetHeaderDelta(ctx context.Context, id idwrap.IDWrap) e
 	header.Enable = false
 	header.Description = ""
 	header.Value = ""
+	header.Source = mexampleheader.HeaderSourceOrigin
 
 	return h.UpdateHeader(ctx, header)
 }

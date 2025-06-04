@@ -580,6 +580,7 @@ func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.
 				HeaderKey: header.Name,
 				Value:     header.Value,
 				Enable:    true,
+				Source:    mexampleheader.HeaderSourceOrigin,
 			}
 			result = append(result, h)
 		}

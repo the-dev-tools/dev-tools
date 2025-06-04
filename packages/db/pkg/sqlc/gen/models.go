@@ -77,6 +77,7 @@ type ExampleHeader struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Source        int8
 }
 
 type ExampleQuery struct {
