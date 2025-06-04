@@ -26,6 +26,7 @@ func SeralizeModeltoGen(body mbodyform.BodyForm) gen.ExampleBodyForm {
 		Description:   body.Description,
 		Enable:        body.Enable,
 		Value:         body.Value,
+		Source:        int8(body.Source),
 	}
 }
 
@@ -38,6 +39,7 @@ func DeserializeGenToModel(body gen.ExampleBodyForm) mbodyform.BodyForm {
 		Description:   body.Description,
 		Enable:        body.Enable,
 		Value:         body.Value,
+		Source:        mbodyform.BodyFormSource(body.Source),
 	}
 }
 
@@ -96,75 +98,95 @@ func (bfs BodyFormService) CreateBulkBodyForm(ctx context.Context, bodyForms []m
 
 		params := gen.CreateBodyFormBulkParams{
 			// 1
-			ID:          item1.ID,
-			ExampleID:   item1.ExampleID,
-			BodyKey:     item1.BodyKey,
-			Enable:      item1.Enable,
-			Description: item1.Description,
-			Value:       item1.Value,
+			ID:            item1.ID,
+			ExampleID:     item1.ExampleID,
+			DeltaParentID: item1.DeltaParentID,
+			BodyKey:       item1.BodyKey,
+			Enable:        item1.Enable,
+			Description:   item1.Description,
+			Value:         item1.Value,
+			Source:        item1.Source,
 			// 2
-			ID_2:          item2.ID,
-			ExampleID_2:   item2.ExampleID,
-			BodyKey_2:     item2.BodyKey,
-			Enable_2:      item2.Enable,
-			Description_2: item2.Description,
-			Value_2:       item2.Value,
+			ID_2:            item2.ID,
+			ExampleID_2:     item2.ExampleID,
+			DeltaParentID_2: item2.DeltaParentID,
+			BodyKey_2:       item2.BodyKey,
+			Enable_2:        item2.Enable,
+			Description_2:   item2.Description,
+			Value_2:         item2.Value,
+			Source_2:        item2.Source,
 			// 3
-			ID_3:          item3.ID,
-			ExampleID_3:   item3.ExampleID,
-			BodyKey_3:     item3.BodyKey,
-			Enable_3:      item3.Enable,
-			Description_3: item3.Description,
-			Value_3:       item3.Value,
+			ID_3:            item3.ID,
+			ExampleID_3:     item3.ExampleID,
+			DeltaParentID_3: item3.DeltaParentID,
+			BodyKey_3:       item3.BodyKey,
+			Enable_3:        item3.Enable,
+			Description_3:   item3.Description,
+			Value_3:         item3.Value,
+			Source_3:        item3.Source,
 			// 4
-			ID_4:          item4.ID,
-			ExampleID_4:   item4.ExampleID,
-			BodyKey_4:     item4.BodyKey,
-			Enable_4:      item4.Enable,
-			Description_4: item4.Description,
-			Value_4:       item4.Value,
+			ID_4:            item4.ID,
+			ExampleID_4:     item4.ExampleID,
+			DeltaParentID_4: item4.DeltaParentID,
+			BodyKey_4:       item4.BodyKey,
+			Enable_4:        item4.Enable,
+			Description_4:   item4.Description,
+			Value_4:         item4.Value,
+			Source_4:        item4.Source,
 			// 5
-			ID_5:          item5.ID,
-			ExampleID_5:   item5.ExampleID,
-			BodyKey_5:     item5.BodyKey,
-			Enable_5:      item5.Enable,
-			Description_5: item5.Description,
-			Value_5:       item5.Value,
+			ID_5:            item5.ID,
+			ExampleID_5:     item5.ExampleID,
+			DeltaParentID_5: item5.DeltaParentID,
+			BodyKey_5:       item5.BodyKey,
+			Enable_5:        item5.Enable,
+			Description_5:   item5.Description,
+			Value_5:         item5.Value,
+			Source_5:        item5.Source,
 			// 6
-			ID_6:          item6.ID,
-			ExampleID_6:   item6.ExampleID,
-			BodyKey_6:     item6.BodyKey,
-			Enable_6:      item6.Enable,
-			Description_6: item6.Description,
-			Value_6:       item6.Value,
+			ID_6:            item6.ID,
+			ExampleID_6:     item6.ExampleID,
+			DeltaParentID_6: item6.DeltaParentID,
+			BodyKey_6:       item6.BodyKey,
+			Enable_6:        item6.Enable,
+			Description_6:   item6.Description,
+			Value_6:         item6.Value,
+			Source_6:        item6.Source,
 			// 7
-			ID_7:          item7.ID,
-			ExampleID_7:   item7.ExampleID,
-			BodyKey_7:     item7.BodyKey,
-			Enable_7:      item7.Enable,
-			Description_7: item7.Description,
-			Value_7:       item7.Value,
+			ID_7:            item7.ID,
+			ExampleID_7:     item7.ExampleID,
+			DeltaParentID_7: item7.DeltaParentID,
+			BodyKey_7:       item7.BodyKey,
+			Enable_7:        item7.Enable,
+			Description_7:   item7.Description,
+			Value_7:         item7.Value,
+			Source_7:        item7.Source,
 			// 8
-			ID_8:          item8.ID,
-			ExampleID_8:   item8.ExampleID,
-			BodyKey_8:     item8.BodyKey,
-			Enable_8:      item8.Enable,
-			Description_8: item8.Description,
-			Value_8:       item8.Value,
+			ID_8:            item8.ID,
+			ExampleID_8:     item8.ExampleID,
+			DeltaParentID_8: item8.DeltaParentID,
+			BodyKey_8:       item8.BodyKey,
+			Enable_8:        item8.Enable,
+			Description_8:   item8.Description,
+			Value_8:         item8.Value,
+			Source_8:        item8.Source,
 			// 9
-			ID_9:          item9.ID,
-			ExampleID_9:   item9.ExampleID,
-			BodyKey_9:     item9.BodyKey,
-			Enable_9:      item9.Enable,
-			Description_9: item9.Description,
-			Value_9:       item9.Value,
+			ID_9:            item9.ID,
+			ExampleID_9:     item9.ExampleID,
+			DeltaParentID_9: item9.DeltaParentID,
+			BodyKey_9:       item9.BodyKey,
+			Enable_9:        item9.Enable,
+			Description_9:   item9.Description,
+			Value_9:         item9.Value,
+			Source_9:        item9.Source,
 			// 10
-			ID_10:          item10.ID,
-			ExampleID_10:   item10.ExampleID,
-			BodyKey_10:     item10.BodyKey,
-			Enable_10:      item10.Enable,
-			Description_10: item10.Description,
-			Value_10:       item10.Value,
+			ID_10:            item10.ID,
+			ExampleID_10:     item10.ExampleID,
+			DeltaParentID_10: item10.DeltaParentID,
+			BodyKey_10:       item10.BodyKey,
+			Enable_10:        item10.Enable,
+			Description_10:   item10.Description,
+			Value_10:         item10.Value,
+			Source_10:        item10.Source,
 		}
 		if err := bfs.queries.CreateBodyFormBulk(ctx, params); err != nil {
 			return err
@@ -195,6 +217,7 @@ func (bfs BodyFormService) CreateBodyForm(ctx context.Context, body *mbodyform.B
 		Description:   bf.Description,
 		Enable:        bf.Enable,
 		Value:         bf.Value,
+		Source:        bf.Source,
 	})
 }
 
@@ -207,6 +230,7 @@ func (bfs BodyFormService) CreateBodyFormRaw(ctx context.Context, bf gen.Example
 		Description:   bf.Description,
 		Enable:        bf.Enable,
 		Value:         bf.Value,
+		Source:        bf.Source,
 	})
 }
 
@@ -218,6 +242,7 @@ func (bfs BodyFormService) UpdateBodyForm(ctx context.Context, body *mbodyform.B
 		Description: bf.Description,
 		Enable:      bf.Enable,
 		Value:       bf.Value,
+		Source:      bf.Source,
 	})
 }
 
@@ -236,6 +261,18 @@ func (bfs BodyFormService) ResetBodyFormDelta(ctx context.Context, id idwrap.IDW
 	bodyForm.Enable = false
 	bodyForm.Description = ""
 	bodyForm.Value = ""
+	bodyForm.Source = mbodyform.BodyFormSourceOrigin
 
 	return bfs.UpdateBodyForm(ctx, bodyForm)
+}
+
+func (bfs BodyFormService) GetBodyFormsByDeltaParentID(ctx context.Context, deltaParentID idwrap.IDWrap) ([]mbodyform.BodyForm, error) {
+	bodyForms, err := bfs.queries.GetBodyFormsByDeltaParentID(ctx, &deltaParentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mbodyform.BodyForm{}, nil
+		}
+		return nil, err
+	}
+	return tgeneric.MassConvert(bodyForms, DeserializeGenToModel), nil
 }

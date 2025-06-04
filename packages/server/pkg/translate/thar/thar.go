@@ -126,6 +126,7 @@ func ConvertParamToFormBodies(params []Param, exampleId idwrap.IDWrap) []mbodyfo
 			Value:     param.Value,
 			Enable:    true,
 			ExampleID: exampleId,
+			Source:    mbodyform.BodyFormSourceOrigin,
 		}
 	}
 	return result
@@ -598,6 +599,7 @@ func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequer
 			QueryKey:  query.Name,
 			Value:     query.Value,
 			Enable:    true,
+			Source:    mexamplequery.QuerySourceOrigin,
 		}
 		result = append(result, q)
 	}

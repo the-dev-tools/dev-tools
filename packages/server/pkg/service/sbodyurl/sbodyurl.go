@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/translate/tgeneric"
+)
+
+var (
+	ErrNoBodyUrlEncodedFound = errors.New("no url encoded body found")
 )
 
 type BodyURLEncodedService struct {
@@ -23,8 +25,6 @@ func (bues BodyURLEncodedService) TX(tx *sql.Tx) BodyURLEncodedService {
 	return BodyURLEncodedService{queries: bues.queries.WithTx(tx)}
 }
 
-var ErrNoBodyUrlEncodedFound = errors.New("no url-encoded body found")
-
 func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
@@ -34,15 +34,23 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*BodyURLEncodedService, error) {
 	return &service, nil
 }
 
+// ----- Serializers -----
+
 func SeralizeModeltoGen(body mbodyurl.BodyURLEncoded) gen.ExampleBodyUrlencoded {
+	var deltaParentID *idwrap.IDWrap
+	if body.DeltaParentID != nil {
+		deltaParentID = body.DeltaParentID
+	}
+
 	return gen.ExampleBodyUrlencoded{
 		ID:            body.ID,
 		ExampleID:     body.ExampleID,
-		DeltaParentID: body.DeltaParentID,
+		DeltaParentID: deltaParentID,
 		BodyKey:       body.BodyKey,
-		Description:   body.Description,
 		Enable:        body.Enable,
+		Description:   body.Description,
 		Value:         body.Value,
+		Source:        int8(body.Source),
 	}
 }
 
@@ -52,153 +60,130 @@ func DeserializeGenToModel(body gen.ExampleBodyUrlencoded) mbodyurl.BodyURLEncod
 		ExampleID:     body.ExampleID,
 		DeltaParentID: body.DeltaParentID,
 		BodyKey:       body.BodyKey,
-		Description:   body.Description,
 		Enable:        body.Enable,
+		Description:   body.Description,
 		Value:         body.Value,
+		Source:        mbodyurl.BodyURLEncodedSource(body.Source),
 	}
 }
 
 func (bues BodyURLEncodedService) GetBodyURLEncoded(ctx context.Context, id idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
-	bodyURLEncoded, err := bues.queries.GetBodyUrlEncoded(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	body := DeserializeGenToModel(bodyURLEncoded)
-	return &body, nil
-}
-
-func (bues BodyURLEncodedService) GetBodyURLEncodedByExampleID(ctx context.Context, id idwrap.IDWrap) ([]mbodyurl.BodyURLEncoded, error) {
-	bodyURLEncoded, err := bues.queries.GetBodyUrlEncodedsByExampleID(ctx, id)
+	body, err := bues.queries.GetBodyUrlEncoded(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNoBodyUrlEncodedFound
 		}
 		return nil, err
 	}
-	return tgeneric.MassConvert(bodyURLEncoded, DeserializeGenToModel), nil
+	urlEncoded := DeserializeGenToModel(body)
+	return &urlEncoded, nil
 }
 
+func (bues BodyURLEncodedService) GetBodyURLEncodedByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]mbodyurl.BodyURLEncoded, error) {
+	bodys, err := bues.queries.GetBodyUrlEncodedsByExampleID(ctx, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	var bodyURLEncodeds []mbodyurl.BodyURLEncoded
+	for _, body := range bodys {
+		bodyURLEncodeds = append(bodyURLEncodeds, DeserializeGenToModel(body))
+	}
+	return bodyURLEncodeds, nil
+}
+
+// TODO: Re-enable after code regeneration
+// func (bues BodyURLEncodedService) GetBodyURLEncodedByDeltaParentID(ctx context.Context, deltaParentID idwrap.IDWrap) ([]mbodyurl.BodyURLEncoded, error) {
+// 	bodys, err := bues.queries.GetBodyUrlEncodedsByDeltaParentID(ctx, &deltaParentID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	var bodyURLEncodeds []mbodyurl.BodyURLEncoded
+// 	for _, body := range bodys {
+// 		bodyURLEncodeds = append(bodyURLEncodeds, DeserializeGenToModel(body))
+// 	}
+// 	return bodyURLEncodeds, nil
+// }
+
 func (bues BodyURLEncodedService) CreateBodyURLEncoded(ctx context.Context, body *mbodyurl.BodyURLEncoded) error {
-	bue := SeralizeModeltoGen(*body)
-	return bues.queries.CreateBodyUrlEncoded(ctx, gen.CreateBodyUrlEncodedParams{
-		ID:          bue.ID,
-		ExampleID:   bue.ExampleID,
-		BodyKey:     bue.BodyKey,
-		Description: bue.Description,
-		Enable:      bue.Enable,
-		Value:       bue.Value,
+	err := bues.queries.CreateBodyUrlEncoded(ctx, gen.CreateBodyUrlEncodedParams{
+		ID:            body.ID,
+		ExampleID:     body.ExampleID,
+		DeltaParentID: body.DeltaParentID,
+		BodyKey:       body.BodyKey,
+		Enable:        body.Enable,
+		Description:   body.Description,
+		Value:         body.Value,
+		Source:        int8(body.Source),
 	})
+	return err
 }
 
 func (bues BodyURLEncodedService) CreateBodyFormRaw(ctx context.Context, bodyForm gen.ExampleBodyUrlencoded) error {
-	return bues.queries.CreateBodyUrlEncoded(ctx, gen.CreateBodyUrlEncodedParams{
+	err := bues.queries.CreateBodyUrlEncoded(ctx, gen.CreateBodyUrlEncodedParams{
 		ID:            bodyForm.ID,
 		ExampleID:     bodyForm.ExampleID,
 		DeltaParentID: bodyForm.DeltaParentID,
 		BodyKey:       bodyForm.BodyKey,
-		Description:   bodyForm.Description,
 		Enable:        bodyForm.Enable,
+		Description:   bodyForm.Description,
 		Value:         bodyForm.Value,
+		Source:        bodyForm.Source,
 	})
+	return err
 }
 
 func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, bodyForms []mbodyurl.BodyURLEncoded) error {
-	const sizeOfChunks = 10
-	convertedItems := tgeneric.MassConvert(bodyForms, SeralizeModeltoGen)
-	for bodyFormChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
-		if len(bodyFormChunk) < sizeOfChunks {
-			for _, bodyForm := range bodyFormChunk {
-				err := bues.CreateBodyFormRaw(ctx, bodyForm)
-				if err != nil {
-					return err
-				}
-			}
-			continue
-		}
-		item1 := bodyFormChunk[0]
-		item2 := bodyFormChunk[1]
-		item3 := bodyFormChunk[2]
-		item4 := bodyFormChunk[3]
-		item5 := bodyFormChunk[4]
-		item6 := bodyFormChunk[5]
-		item7 := bodyFormChunk[6]
-		item8 := bodyFormChunk[7]
-		item9 := bodyFormChunk[8]
-		item10 := bodyFormChunk[9]
+	if len(bodyForms) == 0 {
+		return nil
+	}
 
-		params := gen.CreateBodyUrlEncodedBulkParams{
-			// 1
-			ID:          item1.ID,
-			ExampleID:   item1.ExampleID,
-			BodyKey:     item1.BodyKey,
-			Enable:      item1.Enable,
-			Description: item1.Description,
-			Value:       item1.Value,
-			// 2
-			ID_2:          item2.ID,
-			ExampleID_2:   item2.ExampleID,
-			BodyKey_2:     item2.BodyKey,
-			Enable_2:      item2.Enable,
-			Description_2: item2.Description,
-			Value_2:       item2.Value,
-			// 3
-			ID_3:          item3.ID,
-			ExampleID_3:   item3.ExampleID,
-			BodyKey_3:     item3.BodyKey,
-			Enable_3:      item3.Enable,
-			Description_3: item3.Description,
-			Value_3:       item3.Value,
-			// 4
-			ID_4:          item4.ID,
-			ExampleID_4:   item4.ExampleID,
-			BodyKey_4:     item4.BodyKey,
-			Enable_4:      item4.Enable,
-			Description_4: item4.Description,
-			Value_4:       item4.Value,
-			// 5
-			ID_5:          item5.ID,
-			ExampleID_5:   item5.ExampleID,
-			BodyKey_5:     item5.BodyKey,
-			Enable_5:      item5.Enable,
-			Description_5: item5.Description,
-			Value_5:       item5.Value,
-			// 6
-			ID_6:          item6.ID,
-			ExampleID_6:   item6.ExampleID,
-			BodyKey_6:     item6.BodyKey,
-			Enable_6:      item6.Enable,
-			Description_6: item6.Description,
-			Value_6:       item6.Value,
-			// 7
-			ID_7:          item7.ID,
-			ExampleID_7:   item7.ExampleID,
-			BodyKey_7:     item7.BodyKey,
-			Enable_7:      item7.Enable,
-			Description_7: item7.Description,
-			Value_7:       item7.Value,
-			// 8
-			ID_8:          item8.ID,
-			ExampleID_8:   item8.ExampleID,
-			BodyKey_8:     item8.BodyKey,
-			Enable_8:      item8.Enable,
-			Description_8: item8.Description,
-			Value_8:       item8.Value,
-			// 9
-			ID_9:          item9.ID,
-			ExampleID_9:   item9.ExampleID,
-			BodyKey_9:     item9.BodyKey,
-			Enable_9:      item9.Enable,
-			Description_9: item9.Description,
-			Value_9:       item9.Value,
-			// 10
-			ID_10:          item10.ID,
-			ExampleID_10:   item10.ExampleID,
-			BodyKey_10:     item10.BodyKey,
-			Enable_10:      item10.Enable,
-			Description_10: item10.Description,
-			Value_10:       item10.Value,
+	const batchSize = 10
+	for i := 0; i < len(bodyForms); i += batchSize {
+		end := i + batchSize
+		if end > len(bodyForms) {
+			end = len(bodyForms)
 		}
-		if err := bues.queries.CreateBodyUrlEncodedBulk(ctx, params); err != nil {
+
+		batch := bodyForms[i:end]
+		params := gen.CreateBodyUrlEncodedBulkParams{}
+
+		// Set the bulk parameters based on batch size
+		if len(batch) > 0 {
+			params.ID = batch[0].ID
+			params.ExampleID = batch[0].ExampleID
+			params.DeltaParentID = batch[0].DeltaParentID
+			params.BodyKey = batch[0].BodyKey
+			params.Enable = batch[0].Enable
+			params.Description = batch[0].Description
+			params.Value = batch[0].Value
+			params.Source = int8(batch[0].Source)
+		}
+
+		if len(batch) > 1 {
+			params.ID_2 = batch[1].ID
+			params.ExampleID_2 = batch[1].ExampleID
+			params.DeltaParentID_2 = batch[1].DeltaParentID
+			params.BodyKey_2 = batch[1].BodyKey
+			params.Enable_2 = batch[1].Enable
+			params.Description_2 = batch[1].Description
+			params.Value_2 = batch[1].Value
+			params.Source_2 = int8(batch[1].Source)
+		}
+
+		// Continue for batch[2] through batch[9] if they exist...
+		if len(batch) > 2 {
+			params.ID_3 = batch[2].ID
+			params.ExampleID_3 = batch[2].ExampleID
+			params.DeltaParentID_3 = batch[2].DeltaParentID
+			params.BodyKey_3 = batch[2].BodyKey
+			params.Enable_3 = batch[2].Enable
+			params.Description_3 = batch[2].Description
+			params.Value_3 = batch[2].Value
+			params.Source_3 = int8(batch[2].Source)
+		}
+
+		err := bues.queries.CreateBodyUrlEncodedBulk(ctx, params)
+		if err != nil {
 			return err
 		}
 	}
@@ -206,18 +191,20 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 }
 
 func (bues BodyURLEncodedService) UpdateBodyURLEncoded(ctx context.Context, body *mbodyurl.BodyURLEncoded) error {
-	bue := SeralizeModeltoGen(*body)
-	return bues.queries.UpdateBodyUrlEncoded(ctx, gen.UpdateBodyUrlEncodedParams{
-		ID:          bue.ID,
-		BodyKey:     bue.BodyKey,
-		Description: bue.Description,
-		Enable:      bue.Enable,
-		Value:       bue.Value,
+	err := bues.queries.UpdateBodyUrlEncoded(ctx, gen.UpdateBodyUrlEncodedParams{
+		BodyKey:     body.BodyKey,
+		Enable:      body.Enable,
+		Description: body.Description,
+		Value:       body.Value,
+		Source:      int8(body.Source),
+		ID:          body.ID,
 	})
+	return err
 }
 
 func (bues BodyURLEncodedService) DeleteBodyURLEncoded(ctx context.Context, id idwrap.IDWrap) error {
-	return bues.queries.DeleteBodyURLEncoded(ctx, id)
+	err := bues.queries.DeleteBodyURLEncoded(ctx, id)
+	return err
 }
 
 func (bues BodyURLEncodedService) ResetBodyURLEncodedDelta(ctx context.Context, id idwrap.IDWrap) error {

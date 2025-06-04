@@ -49,6 +49,7 @@ type ExampleBodyForm struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Source        int8
 }
 
 type ExampleBodyRaw struct {
@@ -67,6 +68,7 @@ type ExampleBodyUrlencoded struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Source        int8
 }
 
 type ExampleHeader struct {

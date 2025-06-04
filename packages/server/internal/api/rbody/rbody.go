@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
@@ -79,7 +82,7 @@ func (c *BodyRPC) BodyFormList(ctx context.Context, req *connect.Request[bodyv1.
 	}), nil
 }
 
-func (c BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormCreateRequest]) (*connect.Response[bodyv1.BodyFormCreateResponse], error) {
+func (c *BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormCreateRequest]) (*connect.Response[bodyv1.BodyFormCreateResponse], error) {
 	ExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -98,6 +101,7 @@ func (c BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv1
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	bodyForm.ID = idwrap.NewNow()
+	bodyForm.Source = mbodyform.BodyFormSourceOrigin
 
 	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID)
 	if err != nil {
@@ -114,7 +118,23 @@ func (c BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv1
 	return connect.NewResponse(&bodyv1.BodyFormCreateResponse{BodyId: bodyForm.ID.Bytes()}), nil
 }
 
-func (c BodyRPC) BodyFormUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormUpdateRequest]) (*connect.Response[bodyv1.BodyFormUpdateResponse], error) {
+func (c *BodyRPC) BodyFormUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormUpdateRequest]) (*connect.Response[bodyv1.BodyFormUpdateResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	bodyFormPtr, err := c.bfs.GetBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyForm := *bodyFormPtr
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
 	rpcBody := &bodyv1.BodyForm{
 		BodyId:      req.Msg.GetBodyId(),
 		Key:         req.Msg.GetKey(),
@@ -122,43 +142,53 @@ func (c BodyRPC) BodyFormUpdate(ctx context.Context, req *connect.Request[bodyv1
 		Value:       req.Msg.GetValue(),
 		Description: req.Msg.GetDescription(),
 	}
-	BodyForm, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
+	updated, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	updated.ExampleID = bodyForm.ExampleID
+	updated.Source = bodyForm.Source
 
-	bodyFormDB, err := c.bfs.GetBodyForm(ctx, BodyForm.ID)
-	if err != nil {
+	if err := c.bfs.UpdateBodyForm(ctx, updated); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	BodyForm.ExampleID = bodyFormDB.ExampleID
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, BodyForm.ID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	err = c.bfs.UpdateBodyForm(ctx, BodyForm)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Propagate changes to delta bodyforms if this is an origin bodyform
+	if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+		if err := c.propagateBodyFormChangesToDeltas(ctx, *updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	return connect.NewResponse(&bodyv1.BodyFormUpdateResponse{}), nil
 }
 
-func (c BodyRPC) BodyFormDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeleteRequest]) (*connect.Response[bodyv1.BodyFormDeleteResponse], error) {
+func (c *BodyRPC) BodyFormDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeleteRequest]) (*connect.Response[bodyv1.BodyFormDeleteResponse], error) {
 	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID))
+
+	bodyFormPtr, err := c.bfs.GetBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyForm := *bodyFormPtr
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	err = c.bfs.DeleteBodyForm(ctx, ID)
-	if err != nil {
+	if err := c.bfs.DeleteBodyForm(ctx, ID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// If deleting an origin bodyform, also delete associated delta bodyforms
+	if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+		if err := c.deleteDeltaBodyFormsForOrigin(ctx, bodyForm); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	return connect.NewResponse(&bodyv1.BodyFormDeleteResponse{}), nil
@@ -246,20 +276,34 @@ func (c BodyRPC) BodyUrlEncodedUpdate(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(&bodyv1.BodyUrlEncodedUpdateResponse{}), nil
 }
 
-func (c BodyRPC) BodyUrlEncodedDelete(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeleteRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeleteResponse], error) {
+func (c *BodyRPC) BodyUrlEncodedDelete(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeleteRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeleteResponse], error) {
 	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, ID))
+
+	bodyURLEncodedPtr, err := c.bues.GetBodyURLEncoded(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyURLEncoded := *bodyURLEncodedPtr
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyURLEncoded.ExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	err = c.bues.DeleteBodyURLEncoded(ctx, ID)
-	if err != nil {
+	if err := c.bues.DeleteBodyURLEncoded(ctx, ID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// TODO: Add delta deletion functionality after code regeneration
+	// If deleting an origin body URL encoded, also delete associated delta body URL encodeds
+	// if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin {
+	//	if err := c.deleteDeltaBodyURLEncodedForOrigin(ctx, bodyURLEncoded); err != nil {
+	//		return nil, connect.NewError(connect.CodeInternal, err)
+	//	}
+	// }
 
 	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeleteResponse{}), nil
 }
@@ -327,23 +371,113 @@ func (c *BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1
 }
 
 func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaListRequest]) (*connect.Response[bodyv1.BodyFormDeltaListResponse], error) {
-	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	// Parse both example IDs
+	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+
+	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for both examples
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	bodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, exampleID)
+	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Get body forms from both origin and delta examples
+	originBodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, originExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcBodyForms := tgeneric.MassConvert(bodyForms, tbodyform.SerializeFormModelToRPCDeltaItem)
-	return connect.NewResponse(&bodyv1.BodyFormDeltaListResponse{
-		ExampleId: req.Msg.GetExampleId(),
+
+	deltaBodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Combine all body forms and build maps for lookup
+	allBodyForms := append(originBodyForms, deltaBodyForms...)
+	bodyFormMap := make(map[idwrap.IDWrap]mbodyform.BodyForm)
+	originMap := make(map[idwrap.IDWrap]*bodyv1.BodyForm)
+	replacedOrigins := make(map[idwrap.IDWrap]bool)
+
+	for _, bodyForm := range allBodyForms {
+		bodyFormMap[bodyForm.ID] = bodyForm
+		originMap[bodyForm.ID] = tbodyform.SerializeFormModelToRPC(bodyForm)
+
+		// Mark origin body forms that have been replaced by mixed body forms
+		if bodyForm.Source == mbodyform.BodyFormSourceMixed && bodyForm.DeltaParentID != nil {
+			replacedOrigins[*bodyForm.DeltaParentID] = true
+		}
+	}
+
+	// Create result slice maintaining order from allBodyForms
+	var rpcBodyForms []*bodyv1.BodyFormDeltaListItem
+	for _, bodyForm := range allBodyForms {
+		// Skip origin body forms that have been replaced by mixed body forms
+		if bodyForm.Source == mbodyform.BodyFormSourceOrigin && replacedOrigins[bodyForm.ID] {
+			continue
+		}
+
+		sourceKind := bodyForm.Source.ToSourceKind()
+		var origin *bodyv1.BodyForm
+
+		// Find the origin body form for this delta if it has a parent
+		if bodyForm.DeltaParentID != nil {
+			if originRPC, exists := originMap[*bodyForm.DeltaParentID]; exists {
+				origin = originRPC
+			}
+		}
+
+		rpcBodyForm := &bodyv1.BodyFormDeltaListItem{
+			BodyId:      bodyForm.ID.Bytes(),
+			Key:         bodyForm.BodyKey,
+			Enabled:     bodyForm.Enable,
+			Value:       bodyForm.Value,
+			Description: bodyForm.Description,
+			Origin:      origin,
+			Source:      &sourceKind,
+		}
+		rpcBodyForms = append(rpcBodyForms, rpcBodyForm)
+	}
+
+	// Sort rpcBodyForms by ID, but if it has DeltaParentID use that ID instead
+	sort.Slice(rpcBodyForms, func(i, j int) bool {
+		idI, _ := idwrap.NewFromBytes(rpcBodyForms[i].BodyId)
+		idJ, _ := idwrap.NewFromBytes(rpcBodyForms[j].BodyId)
+
+		// Determine the ID to use for sorting for item i
+		sortIDI := idI
+		if rpcBodyForms[i].Origin != nil && len(rpcBodyForms[i].Origin.BodyId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcBodyForms[i].Origin.BodyId); err == nil {
+				sortIDI = parentID
+			}
+		}
+
+		// Determine the ID to use for sorting for item j
+		sortIDJ := idJ
+		if rpcBodyForms[j].Origin != nil && len(rpcBodyForms[j].Origin.BodyId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcBodyForms[j].Origin.BodyId); err == nil {
+				sortIDJ = parentID
+			}
+		}
+
+		return sortIDI.Compare(sortIDJ) < 0
+	})
+
+	resp := &bodyv1.BodyFormDeltaListResponse{
+		ExampleId: deltaExampleID.Bytes(),
 		Items:     rpcBodyForms,
-	}), nil
+	}
+	return connect.NewResponse(resp), nil
 }
 
 func (c *BodyRPC) BodyFormDeltaCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaCreateRequest]) (*connect.Response[bodyv1.BodyFormDeltaCreateResponse], error) {
@@ -365,6 +499,7 @@ func (c *BodyRPC) BodyFormDeltaCreate(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	bodyForm.ID = idwrap.NewNow()
+	bodyForm.Source = mbodyform.BodyFormSourceDelta
 
 	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID)
 	if err != nil {
@@ -382,6 +517,22 @@ func (c *BodyRPC) BodyFormDeltaCreate(ctx context.Context, req *connect.Request[
 }
 
 func (c *BodyRPC) BodyFormDeltaUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaUpdateRequest]) (*connect.Response[bodyv1.BodyFormDeltaUpdateResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	bodyFormPtr, err := c.bfs.GetBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyForm := *bodyFormPtr
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
 	rpcBody := &bodyv1.BodyForm{
 		BodyId:      req.Msg.GetBodyId(),
 		Key:         req.Msg.GetKey(),
@@ -389,25 +540,28 @@ func (c *BodyRPC) BodyFormDeltaUpdate(ctx context.Context, req *connect.Request[
 		Value:       req.Msg.GetValue(),
 		Description: req.Msg.GetDescription(),
 	}
-	bodyForm, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
+	updated, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	updated.ExampleID = bodyForm.ExampleID
 
-	bodyFormDB, err := c.bfs.GetBodyForm(ctx, bodyForm.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	bodyForm.ExampleID = bodyFormDB.ExampleID
+	// If it's an origin bodyform, create a mixed bodyform instead
+	if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+		updated.Source = mbodyform.BodyFormSourceMixed
+		updated.DeltaParentID = &bodyForm.ID
+		updated.ID = idwrap.NewNow()
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, bodyForm.ID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
+		if err := c.bfs.CreateBodyForm(ctx, updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		updated.Source = bodyForm.Source
+		updated.DeltaParentID = bodyForm.DeltaParentID
 
-	err = c.bfs.UpdateBodyForm(ctx, bodyForm)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		if err := c.bfs.UpdateBodyForm(ctx, updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	return connect.NewResponse(&bodyv1.BodyFormDeltaUpdateResponse{}), nil
@@ -436,13 +590,37 @@ func (c *BodyRPC) BodyFormDeltaReset(ctx context.Context, req *connect.Request[b
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID))
+
+	bodyFormPtr, err := c.bfs.GetBodyForm(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyForm := *bodyFormPtr
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	err = c.bfs.ResetBodyFormDelta(ctx, ID)
-	if err != nil {
+	if bodyForm.DeltaParentID != nil {
+		// Get parent bodyform and restore values
+		parentBodyFormPtr, err := c.bfs.GetBodyForm(ctx, *bodyForm.DeltaParentID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		parentBodyForm := *parentBodyFormPtr
+
+		bodyForm.BodyKey = parentBodyForm.BodyKey
+		bodyForm.Value = parentBodyForm.Value
+		bodyForm.Enable = parentBodyForm.Enable
+	} else {
+		// Clear the values
+		bodyForm.BodyKey = ""
+		bodyForm.Value = ""
+		bodyForm.Enable = false
+	}
+
+	if err := c.bfs.UpdateBodyForm(ctx, &bodyForm); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -450,23 +628,113 @@ func (c *BodyRPC) BodyFormDeltaReset(ctx context.Context, req *connect.Request[b
 }
 
 func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaListResponse], error) {
-	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	// Parse both example IDs
+	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+
+	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for both examples
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	bodyURLs, err := c.bues.GetBodyURLEncodedByExampleID(ctx, exampleID)
+	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Get body URL encodeds from both origin and delta examples
+	originBodyURLEncodeds, err := c.bues.GetBodyURLEncodedByExampleID(ctx, originExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	rpcBodyURLs := tgeneric.MassConvert(bodyURLs, tbodyurl.SerializeURLModelToRPCDeltaItem)
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaListResponse{
-		ExampleId: req.Msg.GetExampleId(),
-		Items:     rpcBodyURLs,
-	}), nil
+
+	deltaBodyURLEncodeds, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Combine all body URL encodeds and build maps for lookup
+	allBodyURLEncodeds := append(originBodyURLEncodeds, deltaBodyURLEncodeds...)
+	bodyURLEncodedMap := make(map[idwrap.IDWrap]mbodyurl.BodyURLEncoded)
+	originMap := make(map[idwrap.IDWrap]*bodyv1.BodyUrlEncoded)
+	replacedOrigins := make(map[idwrap.IDWrap]bool)
+
+	for _, bodyURLEncoded := range allBodyURLEncodeds {
+		bodyURLEncodedMap[bodyURLEncoded.ID] = bodyURLEncoded
+		originMap[bodyURLEncoded.ID] = tbodyurl.SerializeURLModelToRPC(bodyURLEncoded)
+
+		// Mark origin body URL encodeds that have been replaced by mixed body URL encodeds
+		if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceMixed && bodyURLEncoded.DeltaParentID != nil {
+			replacedOrigins[*bodyURLEncoded.DeltaParentID] = true
+		}
+	}
+
+	// Create result slice maintaining order from allBodyURLEncodeds
+	var rpcBodyURLEncodeds []*bodyv1.BodyUrlEncodedDeltaListItem
+	for _, bodyURLEncoded := range allBodyURLEncodeds {
+		// Skip origin body URL encodeds that have been replaced by mixed body URL encodeds
+		if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin && replacedOrigins[bodyURLEncoded.ID] {
+			continue
+		}
+
+		sourceKind := bodyURLEncoded.Source.ToSourceKind()
+		var origin *bodyv1.BodyUrlEncoded
+
+		// Find the origin body URL encoded for this delta if it has a parent
+		if bodyURLEncoded.DeltaParentID != nil {
+			if originRPC, exists := originMap[*bodyURLEncoded.DeltaParentID]; exists {
+				origin = originRPC
+			}
+		}
+
+		rpcBodyURLEncoded := &bodyv1.BodyUrlEncodedDeltaListItem{
+			BodyId:      bodyURLEncoded.ID.Bytes(),
+			Key:         bodyURLEncoded.BodyKey,
+			Enabled:     bodyURLEncoded.Enable,
+			Value:       bodyURLEncoded.Value,
+			Description: bodyURLEncoded.Description,
+			Origin:      origin,
+			Source:      &sourceKind,
+		}
+		rpcBodyURLEncodeds = append(rpcBodyURLEncodeds, rpcBodyURLEncoded)
+	}
+
+	// Sort rpcBodyURLEncodeds by ID, but if it has DeltaParentID use that ID instead
+	sort.Slice(rpcBodyURLEncodeds, func(i, j int) bool {
+		idI, _ := idwrap.NewFromBytes(rpcBodyURLEncodeds[i].BodyId)
+		idJ, _ := idwrap.NewFromBytes(rpcBodyURLEncodeds[j].BodyId)
+
+		// Determine the ID to use for sorting for item i
+		sortIDI := idI
+		if rpcBodyURLEncodeds[i].Origin != nil && len(rpcBodyURLEncodeds[i].Origin.BodyId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcBodyURLEncodeds[i].Origin.BodyId); err == nil {
+				sortIDI = parentID
+			}
+		}
+
+		// Determine the ID to use for sorting for item j
+		sortIDJ := idJ
+		if rpcBodyURLEncodeds[j].Origin != nil && len(rpcBodyURLEncodeds[j].Origin.BodyId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcBodyURLEncodeds[j].Origin.BodyId); err == nil {
+				sortIDJ = parentID
+			}
+		}
+
+		return sortIDI.Compare(sortIDJ) < 0
+	})
+
+	resp := &bodyv1.BodyUrlEncodedDeltaListResponse{
+		ExampleId: deltaExampleID.Bytes(),
+		Items:     rpcBodyURLEncodeds,
+	}
+	return connect.NewResponse(resp), nil
 }
 
 func (c *BodyRPC) BodyUrlEncodedDeltaCreate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaCreateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaCreateResponse], error) {
@@ -483,7 +751,7 @@ func (c *BodyRPC) BodyUrlEncodedDeltaCreate(ctx context.Context, req *connect.Re
 
 	var deltaParentIDPtr *idwrap.IDWrap
 
-	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutID(rpcBody, exampleID, deltaParentIDPtr)
+	bodyUrl, err := tbodyurl.SeralizeURLRPCToModelWithoutIDForDelta(rpcBody, exampleID, deltaParentIDPtr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -505,6 +773,22 @@ func (c *BodyRPC) BodyUrlEncodedDeltaCreate(ctx context.Context, req *connect.Re
 }
 
 func (c *BodyRPC) BodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaUpdateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaUpdateResponse], error) {
+	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	bodyURLEncodedPtr, err := c.bues.GetBodyURLEncoded(ctx, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	bodyURLEncoded := *bodyURLEncodedPtr
+
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyURLEncoded.ExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
 	rpcBody := &bodyv1.BodyUrlEncoded{
 		BodyId:      req.Msg.GetBodyId(),
 		Key:         req.Msg.GetKey(),
@@ -512,22 +796,28 @@ func (c *BodyRPC) BodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Re
 		Value:       req.Msg.GetValue(),
 		Description: req.Msg.GetDescription(),
 	}
-	bodyUrl, err := tbodyurl.SerializeURLRPCtoModel(rpcBody, idwrap.IDWrap{})
+	updated, err := tbodyurl.SerializeURLRPCtoModel(rpcBody, idwrap.IDWrap{})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	bodyUrlDB, err := c.bues.GetBodyURLEncoded(ctx, bodyUrl.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	bodyUrl.ExampleID = bodyUrlDB.ExampleID
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, bodyUrl.ID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	err = c.bues.UpdateBodyURLEncoded(ctx, bodyUrl)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	updated.ExampleID = bodyURLEncoded.ExampleID
+
+	// If it's an origin body URL encoded, create a mixed body URL encoded instead
+	if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin {
+		updated.Source = mbodyurl.BodyURLEncodedSourceMixed
+		updated.DeltaParentID = &bodyURLEncoded.ID
+		updated.ID = idwrap.NewNow()
+
+		if err := c.bues.CreateBodyURLEncoded(ctx, updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		updated.Source = bodyURLEncoded.Source
+		updated.DeltaParentID = bodyURLEncoded.DeltaParentID
+
+		if err := c.bues.UpdateBodyURLEncoded(ctx, updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaUpdateResponse{}), nil
@@ -581,4 +871,43 @@ func CheckOwnerBodyUrlEncoded(ctx context.Context, bues sbodyurl.BodyURLEncodedS
 		return false, err
 	}
 	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, bodyUrl.ExampleID)
+}
+
+// Helper functions
+func (s *BodyRPC) propagateBodyFormChangesToDeltas(ctx context.Context, originBodyForm mbodyform.BodyForm) error {
+	// Find all delta bodyforms that reference this origin bodyform
+	deltaBodyForms, err := s.bfs.GetBodyFormsByDeltaParentID(ctx, originBodyForm.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, deltaBodyForm := range deltaBodyForms {
+		// Only update if it's still a delta (not mixed)
+		if deltaBodyForm.Source == mbodyform.BodyFormSourceDelta {
+			deltaBodyForm.BodyKey = originBodyForm.BodyKey
+			deltaBodyForm.Value = originBodyForm.Value
+			deltaBodyForm.Enable = originBodyForm.Enable
+
+			if err := s.bfs.UpdateBodyForm(ctx, &deltaBodyForm); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *BodyRPC) deleteDeltaBodyFormsForOrigin(ctx context.Context, originBodyForm mbodyform.BodyForm) error {
+	deltaBodyForms, err := s.bfs.GetBodyFormsByDeltaParentID(ctx, originBodyForm.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, deltaBodyForm := range deltaBodyForms {
+		if err := s.bfs.DeleteBodyForm(ctx, deltaBodyForm.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

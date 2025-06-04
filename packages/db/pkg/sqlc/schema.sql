@@ -213,6 +213,8 @@ CREATE TABLE example_body_form (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  source INT8 NOT NULL DEFAULT 1,
+  CHECK (source IN (1, 2, 3)),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES example_body_form (id) ON DELETE CASCADE
 );
@@ -220,7 +222,8 @@ CREATE TABLE example_body_form (
 CREATE INDEX example_body_form_idx1 ON example_body_form (
   example_id,
   delta_parent_id,
-  body_key
+  body_key,
+  source
 );
 
 CREATE TABLE example_body_urlencoded (
@@ -231,13 +234,17 @@ CREATE TABLE example_body_urlencoded (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  source INT8 NOT NULL DEFAULT 1,
+  CHECK (source IN (1, 2, 3)),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES example_body_urlencoded (id) ON DELETE CASCADE
 );
 
 CREATE INDEX example_body_urlencoded_idx1 ON example_body_urlencoded (
   example_id,
-  body_key
+  delta_parent_id,
+  body_key,
+  source
 );
 
 CREATE TABLE example_body_raw (

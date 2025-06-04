@@ -50,15 +50,30 @@ func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncoded, exampleID
 		Description:   urlEncoded.Description,
 		Enable:        urlEncoded.Enabled,
 		Value:         urlEncoded.Value,
+		Source:        mbodyurl.BodyURLEncodedSourceOrigin, // Default to origin
+	}, nil
+}
+
+func SeralizeURLRPCToModelWithoutIDForDelta(urlEncoded *bodyv1.BodyUrlEncoded, exampleID idwrap.IDWrap, deltaParentIDPtr *idwrap.IDWrap) (*mbodyurl.BodyURLEncoded, error) {
+	return &mbodyurl.BodyURLEncoded{
+		ExampleID:     exampleID,
+		BodyKey:       urlEncoded.Key,
+		DeltaParentID: deltaParentIDPtr,
+		Description:   urlEncoded.Description,
+		Enable:        urlEncoded.Enabled,
+		Value:         urlEncoded.Value,
+		Source:        mbodyurl.BodyURLEncodedSourceDelta, // Set to delta for delta creation
 	}, nil
 }
 
 func SerializeURLModelToRPCDeltaItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedDeltaListItem {
+	sourceKind := urlEncoded.Source.ToSourceKind()
 	return &bodyv1.BodyUrlEncodedDeltaListItem{
 		BodyId:      urlEncoded.ID.Bytes(),
 		Key:         urlEncoded.BodyKey,
 		Enabled:     urlEncoded.Enable,
 		Value:       urlEncoded.Value,
 		Description: urlEncoded.Description,
+		Source:      &sourceKind,
 	}
 }

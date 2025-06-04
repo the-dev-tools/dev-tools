@@ -267,6 +267,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getBodyFormStmt, err = db.PrepareContext(ctx, getBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyForm: %w", err)
 	}
+	if q.getBodyFormsByDeltaParentIDStmt, err = db.PrepareContext(ctx, getBodyFormsByDeltaParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyFormsByDeltaParentID: %w", err)
+	}
 	if q.getBodyFormsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyFormsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyFormsByExampleID: %w", err)
 	}
@@ -1007,6 +1010,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getBodyFormStmt: %w", cerr)
 		}
 	}
+	if q.getBodyFormsByDeltaParentIDStmt != nil {
+		if cerr := q.getBodyFormsByDeltaParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyFormsByDeltaParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getBodyFormsByExampleIDStmt != nil {
 		if cerr := q.getBodyFormsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBodyFormsByExampleIDStmt: %w", cerr)
@@ -1677,6 +1685,7 @@ type Queries struct {
 	getAssertResultsByResponseIDStmt                      *sql.Stmt
 	getAssertsByExampleIDStmt                             *sql.Stmt
 	getBodyFormStmt                                       *sql.Stmt
+	getBodyFormsByDeltaParentIDStmt                       *sql.Stmt
 	getBodyFormsByExampleIDStmt                           *sql.Stmt
 	getBodyRawStmt                                        *sql.Stmt
 	getBodyRawsByExampleIDStmt                            *sql.Stmt
@@ -1874,6 +1883,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAssertResultsByResponseIDStmt:                 q.getAssertResultsByResponseIDStmt,
 		getAssertsByExampleIDStmt:                        q.getAssertsByExampleIDStmt,
 		getBodyFormStmt:                                  q.getBodyFormStmt,
+		getBodyFormsByDeltaParentIDStmt:                  q.getBodyFormsByDeltaParentIDStmt,
 		getBodyFormsByExampleIDStmt:                      q.getBodyFormsByExampleIDStmt,
 		getBodyRawStmt:                                   q.getBodyRawStmt,
 		getBodyRawsByExampleIDStmt:                       q.getBodyRawsByExampleIDStmt,
