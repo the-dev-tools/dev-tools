@@ -141,7 +141,7 @@ export const makeDeltaItems = <
 ) =>
   items.map((_): GenericMessage<T> => {
     if (_.source !== SourceKind.ORIGIN || !_.origin) return _;
-    const deltaKey = Struct.pick(_, key) as Partial<T>;
+    const deltaKey = Struct.pick(_, key, 'source') as Partial<T>;
     return { ..._.origin, ...deltaKey };
   });
 
