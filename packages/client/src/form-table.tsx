@@ -245,7 +245,7 @@ export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaRes
   <TooltipTrigger delay={750}>
     <Button
       className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
-      isDisabled={source === SourceKind.MIXED}
+      isDisabled={source !== SourceKind.MIXED}
       onPress={onReset}
       variant='ghost'
     >

@@ -9,6 +9,7 @@ import {
   HeaderDeltaDeleteEndpoint,
   HeaderDeltaListEndpoint,
   HeaderDeltaResetEndpoint,
+  HeaderDeltaUpdateEndpoint,
   HeaderListEndpoint,
   HeaderUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
@@ -115,7 +116,7 @@ const DeltaFormTable = ({ deltaExampleId, exampleId }: DeltaFormTableProps) => {
     createLabel: 'New header',
     items,
     onCreate: () => controller.fetch(HeaderDeltaCreateEndpoint, transport, { enabled: true, exampleId }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderDeltaDeleteEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderDeltaUpdateEndpoint, transport, item),
     primaryColumn: 'key',
   });
 
