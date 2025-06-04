@@ -379,20 +379,36 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 
 		sourceKind := query.Source.ToSourceKind()
 		var origin *requestv1.Query
+		var key, value, description string
+		var enabled bool
 
-		// Find the origin query for this delta if it has a parent
-		if query.DeltaParentID != nil {
-			if originRPC, exists := originMap[*query.DeltaParentID]; exists {
-				origin = originRPC
+		if query.Source == mexamplequery.QuerySourceOrigin {
+			// For origin items, put the data in origin field and leave main fields empty
+			origin = tquery.SerializeQueryModelToRPC(query)
+			key = ""
+			value = ""
+			description = ""
+			enabled = false
+		} else {
+			// For delta/mixed items, use the current values and find the origin if it has a parent
+			key = query.QueryKey
+			value = query.Value
+			description = query.Description
+			enabled = query.Enable
+
+			if query.DeltaParentID != nil {
+				if originRPC, exists := originMap[*query.DeltaParentID]; exists {
+					origin = originRPC
+				}
 			}
 		}
 
 		rpcQuery := &requestv1.QueryDeltaListItem{
 			QueryId:     query.ID.Bytes(),
-			Key:         query.QueryKey,
-			Enabled:     query.Enable,
-			Value:       query.Value,
-			Description: query.Description,
+			Key:         key,
+			Enabled:     enabled,
+			Value:       value,
+			Description: description,
 			Origin:      origin,
 			Source:      &sourceKind,
 		}
@@ -873,20 +889,36 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 
 		sourceKind := header.Source.ToSourceKind()
 		var origin *requestv1.Header
+		var key, value, description string
+		var enabled bool
 
-		// Find the origin header for this delta if it has a parent
-		if header.DeltaParentID != nil {
-			if originRPC, exists := originMap[*header.DeltaParentID]; exists {
-				origin = originRPC
+		if header.Source == mexampleheader.HeaderSourceOrigin {
+			// For origin items, put the data in origin field and leave main fields empty
+			origin = theader.SerializeHeaderModelToRPC(header)
+			key = ""
+			value = ""
+			description = ""
+			enabled = false
+		} else {
+			// For delta/mixed items, use the current values and find the origin if it has a parent
+			key = header.HeaderKey
+			value = header.Value
+			description = header.Description
+			enabled = header.Enable
+
+			if header.DeltaParentID != nil {
+				if originRPC, exists := originMap[*header.DeltaParentID]; exists {
+					origin = originRPC
+				}
 			}
 		}
 
 		rpcHeader := &requestv1.HeaderDeltaListItem{
 			HeaderId:    header.ID.Bytes(),
-			Key:         header.HeaderKey,
-			Enabled:     header.Enable,
-			Value:       header.Value,
-			Description: header.Description,
+			Key:         key,
+			Enabled:     enabled,
+			Value:       value,
+			Description: description,
 			Origin:      origin,
 			Source:      &sourceKind,
 		}

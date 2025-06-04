@@ -429,20 +429,36 @@ func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bo
 
 		sourceKind := bodyForm.Source.ToSourceKind()
 		var origin *bodyv1.BodyForm
+		var key, value, description string
+		var enabled bool
 
-		// Find the origin body form for this delta if it has a parent
-		if bodyForm.DeltaParentID != nil {
-			if originRPC, exists := originMap[*bodyForm.DeltaParentID]; exists {
-				origin = originRPC
+		if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+			// For origin items, put the data in origin field and leave main fields empty
+			origin = tbodyform.SerializeFormModelToRPC(bodyForm)
+			key = ""
+			value = ""
+			description = ""
+			enabled = false
+		} else {
+			// For delta/mixed items, use the current values and find the origin if it has a parent
+			key = bodyForm.BodyKey
+			value = bodyForm.Value
+			description = bodyForm.Description
+			enabled = bodyForm.Enable
+
+			if bodyForm.DeltaParentID != nil {
+				if originRPC, exists := originMap[*bodyForm.DeltaParentID]; exists {
+					origin = originRPC
+				}
 			}
 		}
 
 		rpcBodyForm := &bodyv1.BodyFormDeltaListItem{
 			BodyId:      bodyForm.ID.Bytes(),
-			Key:         bodyForm.BodyKey,
-			Enabled:     bodyForm.Enable,
-			Value:       bodyForm.Value,
-			Description: bodyForm.Description,
+			Key:         key,
+			Enabled:     enabled,
+			Value:       value,
+			Description: description,
 			Origin:      origin,
 			Source:      &sourceKind,
 		}
@@ -686,20 +702,36 @@ func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Requ
 
 		sourceKind := bodyURLEncoded.Source.ToSourceKind()
 		var origin *bodyv1.BodyUrlEncoded
+		var key, value, description string
+		var enabled bool
 
-		// Find the origin body URL encoded for this delta if it has a parent
-		if bodyURLEncoded.DeltaParentID != nil {
-			if originRPC, exists := originMap[*bodyURLEncoded.DeltaParentID]; exists {
-				origin = originRPC
+		if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin {
+			// For origin items, put the data in origin field and leave main fields empty
+			origin = tbodyurl.SerializeURLModelToRPC(bodyURLEncoded)
+			key = ""
+			value = ""
+			description = ""
+			enabled = false
+		} else {
+			// For delta/mixed items, use the current values and find the origin if it has a parent
+			key = bodyURLEncoded.BodyKey
+			value = bodyURLEncoded.Value
+			description = bodyURLEncoded.Description
+			enabled = bodyURLEncoded.Enable
+
+			if bodyURLEncoded.DeltaParentID != nil {
+				if originRPC, exists := originMap[*bodyURLEncoded.DeltaParentID]; exists {
+					origin = originRPC
+				}
 			}
 		}
 
 		rpcBodyURLEncoded := &bodyv1.BodyUrlEncodedDeltaListItem{
 			BodyId:      bodyURLEncoded.ID.Bytes(),
-			Key:         bodyURLEncoded.BodyKey,
-			Enabled:     bodyURLEncoded.Enable,
-			Value:       bodyURLEncoded.Value,
-			Description: bodyURLEncoded.Description,
+			Key:         key,
+			Enabled:     enabled,
+			Value:       value,
+			Description: description,
 			Origin:      origin,
 			Source:      &sourceKind,
 		}
