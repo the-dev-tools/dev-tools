@@ -113,9 +113,17 @@ func addPaths(currentPath string, value any, pathMap map[string]ReferenceComplet
 }
 
 func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
-	// Return empty array for empty queries
+	// Return all paths for empty queries
 	if query == "" {
-		return []fuzzyfinder.Rank{}
+		ranks := make([]fuzzyfinder.Rank, 0, len(c.PathMap))
+		for path := range c.PathMap {
+			ranks = append(ranks, fuzzyfinder.Rank{Target: path})
+		}
+		// Sort alphabetically
+		sort.Slice(ranks, func(i, j int) bool {
+			return ranks[i].Target < ranks[j].Target
+		})
+		return ranks
 	}
 
 	// Check for exact matches first
