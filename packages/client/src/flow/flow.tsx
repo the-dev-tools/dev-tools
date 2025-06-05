@@ -469,10 +469,10 @@ const ActionBar = () => {
             }
 
             if (node) {
-              const { nodeId, state } = node;
+              const { info, nodeId, state } = node;
               const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
-              flow.updateNodeData(nodeIdCan, (_) => ({ ..._, state }));
+              flow.updateNodeData(nodeIdCan, (_) => ({ ..._, info: info!, state }));
 
               pipe(
                 HashMap.get(sourceEdges, nodeIdCan),

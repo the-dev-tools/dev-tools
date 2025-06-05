@@ -11,7 +11,7 @@ import {
 import { Array, HashMap, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, use, useCallback, useRef } from 'react';
-import { MenuTrigger } from 'react-aria-components';
+import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
@@ -46,7 +46,7 @@ import { useMutate } from '~data-client';
 import { FlowContext } from './internal';
 import { FlowSearch } from './layout';
 
-export interface NodeData extends Pick<NodeListItem, 'noOp' | 'state'> {}
+export interface NodeData extends Pick<NodeListItem, 'info' | 'noOp' | 'state'> {}
 export interface Node extends NodeCore<NodeData> {}
 export interface NodeProps extends NodePropsCore<Node> {}
 
@@ -56,7 +56,7 @@ export interface NodePanelProps {
 
 export const Node = {
   fromDTO: ({ kind, nodeId, position, ...data }: Message & Omit<NodeListItem, keyof Message>): Node => ({
-    data: Struct.pick(data, 'noOp', 'state'),
+    data: Struct.pick(data, 'info', 'noOp', 'state'),
     id: Ulid.construct(nodeId).toCanonical(),
     origin: [0.5, 0],
     position: Struct.pick(position!, 'x', 'y'),
@@ -111,7 +111,7 @@ interface NodeBodyProps extends NodeProps {
   Icon: IconType;
 }
 
-export const NodeBody = ({ children, data: { state }, Icon, id }: NodeBodyProps) => {
+export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBodyProps) => {
   const transport = useTransport();
 
   const nodeId = Ulid.fromCanonical(id).bytes;
@@ -132,6 +132,27 @@ export const NodeBody = ({ children, data: { state }, Icon, id }: NodeBodyProps)
     onSuccess: (_) => nodeUpdate(transport, { name: _, nodeId }),
     value: name,
   });
+
+  let stateIndicator = pipe(
+    Match.value(state),
+    Match.when(NodeState.RUNNING, () => (
+      <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
+    )),
+    Match.when(NodeState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
+    Match.when(NodeState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
+    Match.when(NodeState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
+    Match.orElse(() => null),
+  );
+
+  if (stateIndicator && info)
+    stateIndicator = (
+      <TooltipTrigger delay={750}>
+        <Button className={tw`p-0`} variant='ghost'>
+          {info}
+        </Button>
+        <Tooltip className={tw`max-w-lg rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{}</Tooltip>
+      </TooltipTrigger>
+    );
 
   return (
     <>
@@ -164,16 +185,7 @@ export const NodeBody = ({ children, data: { state }, Icon, id }: NodeBodyProps)
             getZoom(),
           )}
 
-        {pipe(
-          Match.value(state),
-          Match.when(NodeState.RUNNING, () => (
-            <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
-          )),
-          Match.when(NodeState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
-          Match.when(NodeState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
-          Match.when(NodeState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
-          Match.orElse(() => null),
-        )}
+        {stateIndicator}
 
         {!isReadOnly && (
           <MenuTrigger {...menuTriggerProps}>
