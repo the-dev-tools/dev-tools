@@ -44,6 +44,7 @@ model Node {
   @visibility(Resource.Query.List) position: Position;
   @visibility(Resource.Query.List) noOp?: NodeNoOpKind;
   @visibility(Resource.Query.List, Resource.Mutation.None) state: NodeState;
+  @visibility(Resource.Query.List, Resource.Mutation.None) info?: string;
   @visibility(Resource.Query.Get) name: string;
   @visibility(Resource.Query.Get) request?: NodeRequest;
   @visibility(Resource.Query.Get) condition?: NodeCondition;

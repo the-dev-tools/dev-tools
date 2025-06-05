@@ -47,8 +47,7 @@ model FlowRunRequest {
 @autoFields
 model FlowRunNodeResponse {
   ...KeyOf<FlowItem.Node.Node>;
-  state: FlowItem.Node.NodeState;
-  error?: string;
+  ...PickProperties<FlowItem.Node.Node, "state" | "info">;
 }
 
 @autoFields
