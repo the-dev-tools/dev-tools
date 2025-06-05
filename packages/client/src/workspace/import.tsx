@@ -114,13 +114,13 @@ export const ImportDialog = () => {
       <div className={twMerge(tableStyles.wrapper, tw`mt-4 flex-1`)}>
         <Table
           aria-label='Filters'
-          className={tableStyles.table}
+          className={twMerge(tableStyles.table, tw`grid-cols-[auto_1fr]`)}
           onSelectionChange={setSelectedFilters}
           selectedKeys={selectedFilters}
           selectionMode='multiple'
         >
-          <TableHeader className={twMerge(tableStyles.header, tableStyles.row, tw`sticky top-0 z-10`)}>
-            <Column className={twMerge(tableStyles.headerCell, tw`!w-0 min-w-0 px-2`)}>
+          <TableHeader className={twMerge(tableStyles.header, tw`sticky top-0 z-10 *:contents`)}>
+            <Column className={twMerge(tableStyles.headerCell, tw`!border-r-0 px-2`)}>
               <Checkbox slot='selection' variant='table-cell' />
             </Column>
             <Column className={tableStyles.headerCell} isRowHeader>
@@ -131,12 +131,12 @@ export const ImportDialog = () => {
           <TableBody className={tableStyles.body} items={filters.map((value, index) => ({ index, value }))}>
             {(_) => (
               <Row className={twMerge(tableStyles.row, tw`cursor-pointer`)} id={_.index}>
-                <Cell className={tableStyles.cell}>
+                <Cell className={twMerge(tableStyles.cell, tw`!border-r-0`)}>
                   <div className={tw`flex justify-center`}>
                     <Checkbox slot='selection' variant='table-cell' />
                   </div>
                 </Cell>
-                <Cell className={twMerge(tableStyles.cell, tw`!border-l-0 px-5 py-1.5`)}>{_.value}</Cell>
+                <Cell className={twMerge(tableStyles.cell, tw`px-5 py-1.5`)}>{_.value}</Cell>
               </Row>
             )}
           </TableBody>
