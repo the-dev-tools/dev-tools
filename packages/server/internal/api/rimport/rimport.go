@@ -486,6 +486,18 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Create folders first (they need to exist before APIs reference them)
+	if len(resolved.Folders) > 0 {
+		txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = txItemFolderService.CreateItemFolderBulk(ctx, resolved.Folders)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	err = txItemApiService.CreateItemApiBulk(ctx, resolved.Apis)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/translate/thar"
@@ -1368,5 +1369,550 @@ func TestNodePositioningNoOverlaps(t *testing.T) {
 	t.Logf("Node positions:")
 	for name, node := range nodeMap {
 		t.Logf("  %s: (%.0f, %.0f)", name, node.PositionX, node.PositionY)
+	}
+}
+
+func TestHarFolderHierarchy(t *testing.T) {
+	// Create test HAR with URLs that should create folder hierarchies
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.example.com/v1/users/123",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "https://api.example.com/v1/users/create",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(2 * time.Second),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.example.com/v1/posts/456",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(3 * time.Second),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://other.example.com/api/health",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Verify folder structure
+	if len(resolved.Folders) == 0 {
+		t.Fatal("Expected folders to be created, but got none")
+	}
+
+	// Create a map of folder names to folders for easy lookup
+	foldersByName := make(map[string]mitemfolder.ItemFolder)
+	for _, folder := range resolved.Folders {
+		foldersByName[folder.Name] = folder
+	}
+
+	// Verify domain folders exist
+	if _, exists := foldersByName["api.example.com"]; !exists {
+		t.Error("Expected domain folder 'api.example.com' to be created")
+	}
+	if _, exists := foldersByName["other.example.com"]; !exists {
+		t.Error("Expected domain folder 'other.example.com' to be created")
+	}
+
+	// Verify path folders exist
+	if _, exists := foldersByName["v1"]; !exists {
+		t.Error("Expected path folder 'v1' to be created")
+	}
+	if _, exists := foldersByName["users"]; !exists {
+		t.Error("Expected path folder 'users' to be created")
+	}
+	if _, exists := foldersByName["posts"]; !exists {
+		t.Error("Expected path folder 'posts' to be created")
+	}
+	if _, exists := foldersByName["api"]; !exists {
+		t.Error("Expected path folder 'api' to be created")
+	}
+
+	// Verify folder hierarchy is correct
+	apiExampleComFolder := foldersByName["api.example.com"]
+	v1Folder := foldersByName["v1"]
+	usersFolder := foldersByName["users"]
+	postsFolder := foldersByName["posts"]
+	otherExampleComFolder := foldersByName["other.example.com"]
+	apiFolder := foldersByName["api"]
+
+	// Check parent relationships
+	if apiExampleComFolder.ParentID != nil {
+		t.Error("Domain folder 'api.example.com' should have no parent")
+	}
+	if v1Folder.ParentID == nil || *v1Folder.ParentID != apiExampleComFolder.ID {
+		t.Error("Folder 'v1' should have 'api.example.com' as parent")
+	}
+	if usersFolder.ParentID == nil || *usersFolder.ParentID != v1Folder.ID {
+		t.Error("Folder 'users' should have 'v1' as parent")
+	}
+	if postsFolder.ParentID == nil || *postsFolder.ParentID != v1Folder.ID {
+		t.Error("Folder 'posts' should have 'v1' as parent")
+	}
+	if otherExampleComFolder.ParentID != nil {
+		t.Error("Domain folder 'other.example.com' should have no parent")
+	}
+	if apiFolder.ParentID == nil || *apiFolder.ParentID != otherExampleComFolder.ID {
+		t.Error("Folder 'api' should have 'other.example.com' as parent")
+	}
+
+	// Verify APIs are placed in correct folders
+	expectedAPIFolders := map[string]string{
+		"123":    "users", // Should be in users folder
+		"create": "users", // Should be in users folder
+		"456":    "posts", // Should be in posts folder
+		"health": "api",   // Should be in api folder
+	}
+
+	for _, api := range resolved.Apis {
+		expectedFolderName, exists := expectedAPIFolders[api.Name]
+		if !exists {
+			t.Errorf("Unexpected API name: %s", api.Name)
+			continue
+		}
+
+		if api.FolderID == nil {
+			t.Errorf("API '%s' should be placed in a folder", api.Name)
+			continue
+		}
+
+		expectedFolder := foldersByName[expectedFolderName]
+		if *api.FolderID != expectedFolder.ID {
+			t.Errorf("API '%s' should be in folder '%s', but is in a different folder", api.Name, expectedFolderName)
+		}
+	}
+
+	// Verify all folders belong to the same collection
+	for _, folder := range resolved.Folders {
+		if folder.CollectionID != collectionID {
+			t.Errorf("Folder '%s' should belong to collection %s, but belongs to %s", folder.Name, collectionID, folder.CollectionID)
+		}
+	}
+}
+
+func TestHarFolderHierarchySimpleURL(t *testing.T) {
+	// Test with simpler URLs
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/api",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/users",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Should only create domain folder
+	if len(resolved.Folders) != 1 {
+		t.Errorf("Expected 1 folder (domain only), got %d", len(resolved.Folders))
+	}
+
+	domainFolder := resolved.Folders[0]
+	if domainFolder.Name != "example.com" {
+		t.Errorf("Expected domain folder name 'example.com', got '%s'", domainFolder.Name)
+	}
+
+	// Both APIs should be in the domain folder
+	for _, api := range resolved.Apis {
+		if api.FolderID == nil || *api.FolderID != domainFolder.ID {
+			t.Errorf("API '%s' should be in domain folder", api.Name)
+		}
+	}
+
+	// Verify API names
+	expectedAPINames := map[string]bool{"api": true, "users": true}
+	for _, api := range resolved.Apis {
+		if !expectedAPINames[api.Name] {
+			t.Errorf("Unexpected API name: %s", api.Name)
+		}
+	}
+}
+
+func TestHarFolderHierarchyRootURL(t *testing.T) {
+	// Test with root URLs (no path)
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Should only create domain folder
+	if len(resolved.Folders) != 1 {
+		t.Errorf("Expected 1 folder (domain only), got %d", len(resolved.Folders))
+	}
+
+	domainFolder := resolved.Folders[0]
+	if domainFolder.Name != "example.com" {
+		t.Errorf("Expected domain folder name 'example.com', got '%s'", domainFolder.Name)
+	}
+
+	// Both APIs should be in the domain folder and named after the domain
+	for _, api := range resolved.Apis {
+		if api.FolderID == nil || *api.FolderID != domainFolder.ID {
+			t.Errorf("API '%s' should be in domain folder", api.Name)
+		}
+		if api.Name != "example.com" {
+			t.Errorf("Expected API name 'example.com', got '%s'", api.Name)
+		}
+	}
+}
+
+func TestHarFolderHierarchyDuplicatePaths(t *testing.T) {
+	// Test that duplicate paths don't create duplicate folders
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://api.example.com/v1/users/123",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://api.example.com/v1/users/456",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(2 * time.Second),
+			Request: thar.Request{
+				Method:      "DELETE",
+				URL:         "http://api.example.com/v1/users/789",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Should create exactly 3 folders: domain, v1, users
+	if len(resolved.Folders) != 3 {
+		t.Errorf("Expected 3 folders, got %d", len(resolved.Folders))
+	}
+
+	// Create a map to count folders by name
+	folderCounts := make(map[string]int)
+	for _, folder := range resolved.Folders {
+		folderCounts[folder.Name]++
+	}
+
+	// Verify no duplicate folders
+	expectedFolders := []string{"api.example.com", "v1", "users"}
+	for _, expectedFolder := range expectedFolders {
+		if count, exists := folderCounts[expectedFolder]; !exists {
+			t.Errorf("Expected folder '%s' not found", expectedFolder)
+		} else if count != 1 {
+			t.Errorf("Expected exactly 1 folder named '%s', got %d", expectedFolder, count)
+		}
+	}
+
+	// All APIs should be in the users folder
+	usersFolder := mitemfolder.ItemFolder{}
+	for _, folder := range resolved.Folders {
+		if folder.Name == "users" {
+			usersFolder = folder
+			break
+		}
+	}
+
+	for _, api := range resolved.Apis {
+		if api.FolderID == nil || *api.FolderID != usersFolder.ID {
+			t.Errorf("API '%s' should be in users folder", api.Name)
+		}
+	}
+}
+
+func TestHarFolderHierarchyEcommerce(t *testing.T) {
+	// Test with e-commerce-like URLs similar to the user's image
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "https://ecommerce-admin-panel.fly.dev/api/auth/login",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: thar.Request{
+				Method:      "DELETE",
+				URL:         "https://ecommerce-admin-panel.fly.dev/api/products/14",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(2 * time.Second),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://ecommerce-admin-panel.fly.dev/api/categories",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(3 * time.Second),
+			Request: thar.Request{
+				Method:      "DELETE",
+				URL:         "https://ecommerce-admin-panel.fly.dev/api/categories/16",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(4 * time.Second),
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://ecommerce-admin-panel.fly.dev/api/tags",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(5 * time.Second),
+			Request: thar.Request{
+				Method:      "DELETE",
+				URL:         "https://ecommerce-admin-panel.fly.dev/api/tags/12",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Verify folder structure
+	if len(resolved.Folders) == 0 {
+		t.Fatal("Expected folders to be created, but got none")
+	}
+
+	// Create a map of folder names to folders for easy lookup
+	foldersByName := make(map[string]mitemfolder.ItemFolder)
+	for _, folder := range resolved.Folders {
+		foldersByName[folder.Name] = folder
+	}
+
+	// Verify expected folders exist
+	expectedFolders := []string{
+		"ecommerce-admin-panel.fly.dev", // domain
+		"api",                           // main API path
+		"auth",                          // auth subfolder
+		"products",                      // products subfolder
+		"categories",                    // categories subfolder
+		"tags",                          // tags subfolder
+	}
+
+	for _, expectedFolder := range expectedFolders {
+		if _, exists := foldersByName[expectedFolder]; !exists {
+			t.Errorf("Expected folder '%s' to be created", expectedFolder)
+		}
+	}
+
+	// Verify folder hierarchy
+	domainFolder := foldersByName["ecommerce-admin-panel.fly.dev"]
+	apiFolder := foldersByName["api"]
+	authFolder := foldersByName["auth"]
+	productsFolder := foldersByName["products"]
+	categoriesFolder := foldersByName["categories"]
+	tagsFolder := foldersByName["tags"]
+
+	// Check parent relationships
+	if domainFolder.ParentID != nil {
+		t.Error("Domain folder should have no parent")
+	}
+	if apiFolder.ParentID == nil || *apiFolder.ParentID != domainFolder.ID {
+		t.Error("'api' folder should have domain as parent")
+	}
+	if authFolder.ParentID == nil || *authFolder.ParentID != apiFolder.ID {
+		t.Error("'auth' folder should have 'api' as parent")
+	}
+	if productsFolder.ParentID == nil || *productsFolder.ParentID != apiFolder.ID {
+		t.Error("'products' folder should have 'api' as parent")
+	}
+	if categoriesFolder.ParentID == nil || *categoriesFolder.ParentID != apiFolder.ID {
+		t.Error("'categories' folder should have 'api' as parent")
+	}
+	if tagsFolder.ParentID == nil || *tagsFolder.ParentID != apiFolder.ID {
+		t.Error("'tags' folder should have 'api' as parent")
+	}
+
+	// Verify APIs are placed in correct folders
+	expectedAPIFolders := map[string]string{
+		"login":      "auth",       // POST /api/auth/login
+		"14":         "products",   // DELETE /api/products/14
+		"categories": "categories", // GET /api/categories (should be in categories folder)
+		"16":         "categories", // DELETE /api/categories/16
+		"tags":       "tags",       // GET /api/tags (should be in tags folder)
+		"12":         "tags",       // DELETE /api/tags/12
+	}
+
+	for _, api := range resolved.Apis {
+		expectedFolderName, exists := expectedAPIFolders[api.Name]
+		if !exists {
+			t.Errorf("Unexpected API name: %s", api.Name)
+			continue
+		}
+
+		if api.FolderID == nil {
+			t.Errorf("API '%s' should be placed in a folder", api.Name)
+			continue
+		}
+
+		expectedFolder := foldersByName[expectedFolderName]
+		if *api.FolderID != expectedFolder.ID {
+			t.Errorf("API '%s' should be in folder '%s', but is in a different folder", api.Name, expectedFolderName)
+		}
 	}
 }

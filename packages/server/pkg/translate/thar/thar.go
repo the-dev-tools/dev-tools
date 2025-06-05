@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"the-dev-tools/server/pkg/compress"
@@ -18,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
@@ -33,6 +35,7 @@ type HarResvoled struct {
 	RawBodies        []mbodyraw.ExampleBodyRaw
 	FormBodies       []mbodyform.BodyForm
 	UrlEncodedBodies []mbodyurl.BodyURLEncoded
+	Folders          []mitemfolder.ItemFolder
 
 	// Flow Items
 	Flow         mflow.Flow
@@ -141,9 +144,204 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 			Value:     param.Value,
 			Enable:    true,
 			ExampleID: exampleId,
+			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
 		}
 	}
 	return result
+}
+
+// createFolderHierarchy creates a folder hierarchy based on URL structure
+// Returns the leaf folder ID and all folders to be created
+func createFolderHierarchy(requestURL string, collectionID idwrap.IDWrap, existingFolders map[string]idwrap.IDWrap) (idwrap.IDWrap, []mitemfolder.ItemFolder, error) {
+	parsedURL, err := url.Parse(requestURL)
+	if err != nil {
+		return idwrap.IDWrap{}, nil, err
+	}
+
+	// Extract domain and path segments
+	domain := parsedURL.Host
+	if domain == "" {
+		domain = "unknown"
+	}
+
+	pathSegments := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
+	if len(pathSegments) == 1 && pathSegments[0] == "" {
+		pathSegments = []string{} // Empty path
+	}
+
+	// Create folder hierarchy: domain -> path segments (excluding the last one which becomes the API name)
+	var folders []mitemfolder.ItemFolder
+	var lastFolderID idwrap.IDWrap
+
+	// Create domain folder
+	domainKey := domain
+	if folderID, exists := existingFolders[domainKey]; exists {
+		lastFolderID = folderID
+	} else {
+		lastFolderID = idwrap.NewNow()
+		domainFolder := mitemfolder.ItemFolder{
+			ID:           lastFolderID,
+			Name:         domain,
+			CollectionID: collectionID,
+			ParentID:     nil,
+		}
+		folders = append(folders, domainFolder)
+		existingFolders[domainKey] = lastFolderID
+	}
+
+	// Create path segment folders based on URL structure
+	// For URLs like /api/categories/16, we want:
+	// - api folder (created)
+	// - categories folder (parent: api)
+	// - API name: 16 (placed in categories folder)
+	// For URLs like /api/categories, we want:
+	// - api folder (created)
+	// - categories folder (parent: api)
+	// - API name: categories (placed in categories folder)
+
+	if len(pathSegments) > 1 {
+		// Create folders for all path segments except the last one
+		for i := 0; i < len(pathSegments)-1; i++ {
+			segment := pathSegments[i]
+			if segment == "" {
+				continue
+			}
+
+			// Create key for this folder path - use full path to ensure uniqueness
+			folderPath := domain + "/" + strings.Join(pathSegments[:i+1], "/")
+			if folderID, exists := existingFolders[folderPath]; exists {
+				lastFolderID = folderID
+			} else {
+				parentFolderID := lastFolderID // Current parent
+				newFolderID := idwrap.NewNow()
+
+				folder := mitemfolder.ItemFolder{
+					ID:           newFolderID,
+					Name:         segment,
+					CollectionID: collectionID,
+					ParentID:     &parentFolderID,
+				}
+				folders = append(folders, folder)
+				existingFolders[folderPath] = newFolderID
+				lastFolderID = newFolderID
+			}
+		}
+
+		// For the last path segment, decide if it should be a folder or API name
+		lastSegment := pathSegments[len(pathSegments)-1]
+		if !isLikelyID(lastSegment) && !isAPIEndpoint(lastSegment) {
+			// If it's not an ID or API endpoint, create a folder for it too
+			folderPath := domain + "/" + strings.Join(pathSegments, "/")
+			if folderID, exists := existingFolders[folderPath]; exists {
+				lastFolderID = folderID
+			} else {
+				parentFolderID := lastFolderID // Current parent
+				newFolderID := idwrap.NewNow()
+
+				folder := mitemfolder.ItemFolder{
+					ID:           newFolderID,
+					Name:         lastSegment,
+					CollectionID: collectionID,
+					ParentID:     &parentFolderID,
+				}
+				folders = append(folders, folder)
+				existingFolders[folderPath] = newFolderID
+				lastFolderID = newFolderID
+			}
+		}
+	}
+
+	return lastFolderID, folders, nil
+}
+
+// isLikelyID checks if a string looks like an ID (numeric or UUID-like)
+func isLikelyID(segment string) bool {
+	if segment == "" {
+		return false
+	}
+
+	// Check if it's all numeric
+	allNumeric := true
+	for _, r := range segment {
+		if r < '0' || r > '9' {
+			allNumeric = false
+			break
+		}
+	}
+	if allNumeric && len(segment) > 0 {
+		return true
+	}
+
+	// Check if it looks like a UUID (contains hyphens and alphanumeric)
+	if strings.Contains(segment, "-") && len(segment) >= 8 {
+		return true
+	}
+
+	// Check if it's a very long alphanumeric string (likely an ID)
+	if len(segment) > 15 {
+		alphaNumeric := true
+		for _, r := range segment {
+			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')) {
+				alphaNumeric = false
+				break
+			}
+		}
+		if alphaNumeric {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isAPIEndpoint checks if a segment is likely an API endpoint (action) rather than a resource
+func isAPIEndpoint(segment string) bool {
+	// Common API action words that shouldn't be folders
+	apiActions := []string{
+		"login", "logout", "register", "signin", "signout", "signup",
+		"create", "update", "delete", "list", "get", "post", "put", "patch",
+		"search", "filter", "sort", "export", "import", "download", "upload",
+		"activate", "deactivate", "enable", "disable", "approve", "reject",
+		"send", "receive", "process", "validate", "verify", "confirm",
+		"reset", "refresh", "sync", "backup", "restore", "health", "status",
+	}
+
+	segmentLower := strings.ToLower(segment)
+	for _, action := range apiActions {
+		if segmentLower == action {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getAPINameFromURL extracts the API name from the URL
+func getAPINameFromURL(requestURL string) string {
+	parsedURL, err := url.Parse(requestURL)
+	if err != nil {
+		return requestURL // Fallback to full URL
+	}
+
+	pathSegments := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
+	if len(pathSegments) > 0 && pathSegments[len(pathSegments)-1] != "" {
+		lastSegment := pathSegments[len(pathSegments)-1]
+
+		// If the last segment is an ID and we have a meaningful second-to-last segment,
+		// use the ID as the name
+		if len(pathSegments) > 1 && isLikelyID(lastSegment) {
+			return lastSegment
+		}
+
+		// For collection endpoints like /api/categories, use the last segment
+		return lastSegment
+	}
+
+	// If no path segments or empty last segment, use domain or full URL
+	if parsedURL.Host != "" {
+		return parsedURL.Host
+	}
+	return requestURL
 }
 
 // ConvertHARWithDepFinder allows injecting a custom depFinder (for testing)
@@ -199,6 +397,9 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 	slotIndex := 0
 	const slotSize = 400
 
+	// Map to track existing folders by their path to avoid duplicates
+	existingFolders := make(map[string]idwrap.IDWrap)
+
 	// Process each entry in the HAR file
 	for i, entry := range har.Log.Entries {
 		// Only process XHR requests.
@@ -217,14 +418,27 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			entry.Request.URL = templatedURL
 		}
 
+		// Create folder hierarchy for this URL
+		leafFolderID, newFolders, err := createFolderHierarchy(originalURL, collectionID, existingFolders)
+		if err != nil {
+			return result, fmt.Errorf("failed to create folder hierarchy for URL %s: %w", originalURL, err)
+		}
+
+		// Add new folders to result
+		result.Folders = append(result.Folders, newFolders...)
+
+		// Extract API name from URL
+		apiName := getAPINameFromURL(originalURL)
+
 		// Create Endpoint/api for each entry
 		apiID := idwrap.NewNow()
 		api := &mitemapi.ItemApi{
 			ID:           apiID,
-			Name:         originalURL,  // Use original URL for display name
+			Name:         apiName,      // Use extracted API name
 			Url:          templatedURL, // Use templated URL for the actual endpoint
 			Method:       entry.Request.Method,
 			CollectionID: collectionID,
+			FolderID:     &leafFolderID, // Place API in the appropriate folder
 		}
 		result.Apis = append(result.Apis, *api)
 
@@ -233,7 +447,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		example := mitemapiexample.ItemApiExample{
 			ID:           exampleID,
 			CollectionID: collectionID,
-			Name:         entry.Request.URL,
+			Name:         apiName,
 			BodyType:     mitemapiexample.BodyTypeRaw,
 			ItemApiID:    apiID,
 		}
@@ -243,7 +457,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		exampleDefault := mitemapiexample.ItemApiExample{
 			ID:           defaultExampleID,
 			CollectionID: collectionID,
-			Name:         entry.Request.URL,
+			Name:         apiName,
 			BodyType:     mitemapiexample.BodyTypeRaw,
 			IsDefault:    true,
 			ItemApiID:    apiID,
@@ -251,7 +465,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		deltaExampleID := idwrap.NewNow()
 		deltaExample := mitemapiexample.ItemApiExample{
 			ID:           deltaExampleID,
-			Name:         fmt.Sprintf("%s (Delta)", entry.Request.URL),
+			Name:         fmt.Sprintf("%s (Delta)", apiName),
 			CollectionID: collectionID,
 			ItemApiID:    apiID,
 		}

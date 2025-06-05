@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
@@ -146,9 +147,11 @@ func ConvertCurl(curlStr string, collectionID idwrap.IDWrap) (CurlResolved, erro
 	// SQL depends on having raw body entries
 	if len(result.RawBodies) == 0 && (len(result.FormBodies) > 0 || len(result.UrlEncodedBodies) > 0) {
 		emptyRawBody := mbodyraw.ExampleBodyRaw{
-			ID:        idwrap.NewNow(),
-			ExampleID: exampleID,
-			Data:      []byte{}, // Empty data
+			ID:            idwrap.NewNow(),
+			ExampleID:     exampleID,
+			Data:          []byte{}, // Empty data
+			CompressType:  compress.CompressTypeNone,
+			VisualizeMode: mbodyraw.VisualizeModeText,
 		}
 		result.RawBodies = append(result.RawBodies, emptyRawBody)
 	}
@@ -261,6 +264,7 @@ func extractHeaders(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.He
 			HeaderKey: strings.TrimSpace(key),
 			Value:     strings.TrimSpace(value),
 			Enable:    true,
+			Source:    mexampleheader.HeaderSourceOrigin,
 		}
 		headers = append(headers, header)
 	}
@@ -286,9 +290,11 @@ func extractRawBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFlag *bool
 		}
 
 		body := mbodyraw.ExampleBodyRaw{
-			ID:        idwrap.NewNow(),
-			ExampleID: exampleID,
-			Data:      []byte(content),
+			ID:            idwrap.NewNow(),
+			ExampleID:     exampleID,
+			Data:          []byte(content),
+			CompressType:  compress.CompressTypeNone,
+			VisualizeMode: mbodyraw.VisualizeModeText,
 		}
 		bodies = append(bodies, body)
 	}
@@ -318,6 +324,8 @@ func extractURLEncodedBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFla
 			ExampleID: exampleID,
 			BodyKey:   key,
 			Value:     value,
+			Enable:    true,
+			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
 		}
 		bodies = append(bodies, body)
 	}
@@ -347,6 +355,8 @@ func extractFormBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFlag *boo
 			ExampleID: exampleID,
 			BodyKey:   key,
 			Value:     value,
+			Enable:    true,
+			Source:    mbodyform.BodyFormSourceOrigin,
 		}
 		forms = append(forms, form)
 	}
@@ -372,6 +382,8 @@ func parseURLAndQueries(urlStr string, exampleID idwrap.IDWrap) (string, []mexam
 				ExampleID: exampleID,
 				QueryKey:  match[1],
 				Value:     match[2],
+				Enable:    true,
+				Source:    mexamplequery.QuerySourceOrigin,
 			}
 			queries = append(queries, query)
 		}
@@ -411,6 +423,7 @@ func extractCookies(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.He
 			HeaderKey: "Cookie",
 			Value:     strings.TrimSpace(cookieContent),
 			Enable:    true,
+			Source:    mexampleheader.HeaderSourceOrigin,
 		}
 		cookieHeaders = append(cookieHeaders, cookieHeader)
 	}
