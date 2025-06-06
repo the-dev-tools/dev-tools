@@ -14,10 +14,17 @@ using TypeSpec.Protobuf;
 })
 namespace API.Log;
 
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED: 0,
+  LOG_LEVEL_WARNING: 1,
+  LOG_LEVEL_ERROR: 2,
+}
+
 @autoFields
 model LogStreamResponse {
   @key logId: Resource.Id;
   value: string;
+  level: LogLevel;
   references: Reference.ReferenceTreeItem[];
 }
 

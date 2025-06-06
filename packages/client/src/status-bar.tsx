@@ -13,8 +13,9 @@ import {
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
+import { tv } from 'tailwind-variants';
 
-import { LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
@@ -58,6 +59,17 @@ export const useLogsQuery = () => {
 
   return { ...query, queryKey };
 };
+
+const logTextStyles = tv({
+  base: tw`font-mono text-sm`,
+  variants: {
+    level: {
+      [LogLevel.ERROR]: tw`text-red-600`,
+      [LogLevel.UNSPECIFIED]: tw`text-slate-800`,
+      [LogLevel.WARNING]: tw`text-yellow-600`,
+    } satisfies Record<LogLevel, string>,
+  },
+});
 
 export const StatusBar = () => {
   const { showLogs } = workspaceRoute.useSearch();
@@ -144,7 +156,7 @@ export const StatusBar = () => {
                               />
                             </Button>
 
-                            <div className={tw`font-mono text-sm text-slate-800`}>
+                            <div className={logTextStyles({ level: _.level })}>
                               {ulid.time.toLocaleTimeString()}: {_.value}
                             </div>
                           </TreeItemWrapper>
