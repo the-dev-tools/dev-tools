@@ -357,8 +357,26 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	for _, q := range input.BaseQueries {
 		queryMap[q.ID] = q
 	}
+
+	// Create a map for matching base queries by key name (for legacy delta queries)
+	baseQueryByKey := make(map[string]mexamplequery.Query)
+	for _, q := range input.BaseQueries {
+		baseQueryByKey[q.QueryKey] = q
+	}
+
 	for _, q := range input.DeltaQueries {
-		queryMap[*q.DeltaParentID] = q
+		// Handle legacy delta queries that don't have DeltaParentID set
+		if q.DeltaParentID != nil {
+			queryMap[*q.DeltaParentID] = q
+		} else {
+			// For legacy delta queries without parent ID, try to find matching base query by key name
+			if baseQuery, exists := baseQueryByKey[q.QueryKey]; exists {
+				queryMap[baseQuery.ID] = q
+			} else {
+				// If no matching base query found, add as new query
+				queryMap[q.ID] = q
+			}
+		}
 	}
 
 	output.MergeQueries = make([]mexamplequery.Query, 0, len(queryMap))
@@ -372,8 +390,25 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		headerMap[h.ID] = h
 	}
 
+	// Create a map for matching base headers by key name (for legacy delta headers)
+	baseHeaderByKey := make(map[string]mexampleheader.Header)
+	for _, h := range input.BaseHeaders {
+		baseHeaderByKey[h.HeaderKey] = h
+	}
+
 	for _, h := range input.DeltaHeaders {
-		headerMap[*h.DeltaParentID] = h
+		// Handle legacy delta headers that don't have DeltaParentID set
+		if h.DeltaParentID != nil {
+			headerMap[*h.DeltaParentID] = h
+		} else {
+			// For legacy delta headers without parent ID, try to find matching base header by key name
+			if baseHeader, exists := baseHeaderByKey[h.HeaderKey]; exists {
+				headerMap[baseHeader.ID] = h
+			} else {
+				// If no matching base header found, add as new header
+				headerMap[h.ID] = h
+			}
+		}
 	}
 
 	output.MergeHeaders = make([]mexampleheader.Header, 0, len(headerMap))

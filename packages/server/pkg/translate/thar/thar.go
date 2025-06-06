@@ -135,6 +135,61 @@ func ConvertParamToFormBodies(params []Param, exampleId idwrap.IDWrap) []mbodyfo
 	return result
 }
 
+func ConvertParamToFormBodiesWithTemplating(params []Param, exampleId idwrap.IDWrap, depFinder *depfinder.DepFinder) []mbodyform.BodyForm {
+	result := make([]mbodyform.BodyForm, len(params))
+	for i, param := range params {
+		val := param.Value
+		// Try to replace tokens in form values
+		if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
+			val = newVal.(string)
+		}
+		result[i] = mbodyform.BodyForm{
+			ID:        idwrap.NewNow(),
+			BodyKey:   param.Name,
+			Value:     val,
+			Enable:    true,
+			ExampleID: exampleId,
+			Source:    mbodyform.BodyFormSourceOrigin,
+		}
+	}
+	return result
+}
+
+func ConvertParamToFormBodiesWithDeltaParent(params []Param, deltaExampleID idwrap.IDWrap, baseBodies []mbodyform.BodyForm, depFinder *depfinder.DepFinder) []mbodyform.BodyForm {
+	var result []mbodyform.BodyForm
+
+	// Create a map of base bodies by their key for quick lookup
+	baseBodyMap := make(map[string]mbodyform.BodyForm)
+	for _, baseBody := range baseBodies {
+		baseBodyMap[baseBody.BodyKey] = baseBody
+	}
+
+	for _, param := range params {
+		val := param.Value
+		// Try to replace tokens in form values
+		if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
+			val = newVal.(string)
+		}
+
+		// Find the corresponding base body
+		var deltaParentID *idwrap.IDWrap
+		if baseBody, exists := baseBodyMap[param.Name]; exists {
+			deltaParentID = &baseBody.ID
+		}
+
+		result = append(result, mbodyform.BodyForm{
+			ID:            idwrap.NewNow(),
+			BodyKey:       param.Name,
+			Value:         val,
+			Enable:        true,
+			ExampleID:     deltaExampleID,
+			Source:        mbodyform.BodyFormSourceOrigin,
+			DeltaParentID: deltaParentID,
+		})
+	}
+	return result
+}
+
 func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
 	result := make([]mbodyurl.BodyURLEncoded, len(params))
 	for i, param := range params {
@@ -146,6 +201,61 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 			ExampleID: exampleId,
 			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
 		}
+	}
+	return result
+}
+
+func ConvertParamToUrlBodiesWithTemplating(params []Param, exampleId idwrap.IDWrap, depFinder *depfinder.DepFinder) []mbodyurl.BodyURLEncoded {
+	result := make([]mbodyurl.BodyURLEncoded, len(params))
+	for i, param := range params {
+		val := param.Value
+		// Try to replace tokens in URL-encoded values
+		if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
+			val = newVal.(string)
+		}
+		result[i] = mbodyurl.BodyURLEncoded{
+			ID:        idwrap.NewNow(),
+			BodyKey:   param.Name,
+			Value:     val,
+			Enable:    true,
+			ExampleID: exampleId,
+			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
+		}
+	}
+	return result
+}
+
+func ConvertParamToUrlBodiesWithDeltaParent(params []Param, deltaExampleID idwrap.IDWrap, baseBodies []mbodyurl.BodyURLEncoded, depFinder *depfinder.DepFinder) []mbodyurl.BodyURLEncoded {
+	var result []mbodyurl.BodyURLEncoded
+
+	// Create a map of base bodies by their key for quick lookup
+	baseBodyMap := make(map[string]mbodyurl.BodyURLEncoded)
+	for _, baseBody := range baseBodies {
+		baseBodyMap[baseBody.BodyKey] = baseBody
+	}
+
+	for _, param := range params {
+		val := param.Value
+		// Try to replace tokens in URL-encoded values
+		if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
+			val = newVal.(string)
+		}
+
+		// Find the corresponding base body
+		var deltaParentID *idwrap.IDWrap
+		if baseBody, exists := baseBodyMap[param.Name]; exists {
+			deltaParentID = &baseBody.ID
+		}
+
+		result = append(result, mbodyurl.BodyURLEncoded{
+			ID:            idwrap.NewNow(),
+			BodyKey:       param.Name,
+			Value:         val,
+			Enable:        true,
+			ExampleID:     deltaExampleID,
+			Source:        mbodyurl.BodyURLEncodedSourceOrigin,
+			DeltaParentID: deltaParentID,
+		})
 	}
 	return result
 }
@@ -304,6 +414,8 @@ func isAPIEndpoint(segment string) bool {
 		"activate", "deactivate", "enable", "disable", "approve", "reject",
 		"send", "receive", "process", "validate", "verify", "confirm",
 		"reset", "refresh", "sync", "backup", "restore", "health", "status",
+		"profile", "settings", "preferences", "account", "dashboard",
+		"overview", "summary", "details", "info", "metadata",
 	}
 
 	segmentLower := strings.ToLower(segment)
@@ -493,13 +605,20 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			connected = true
 		}
 
-		for i, header := range entry.Request.Headers {
+		// Process headers for dependency tracking but don't modify original values yet
+		originalHeaders := make([]Header, len(entry.Request.Headers))
+		copy(originalHeaders, entry.Request.Headers)
+
+		deltaHeaders := make([]Header, len(entry.Request.Headers))
+		copy(deltaHeaders, entry.Request.Headers)
+
+		for i, header := range deltaHeaders {
 			// Special handling for Authorization headers with Bearer tokens
 			if strings.EqualFold(header.Name, "Authorization") && strings.HasPrefix(header.Value, "Bearer ") {
 				token := strings.TrimPrefix(header.Value, "Bearer ")
 				couple, err := (*depFinder).FindVar(token)
 				if err == nil {
-					entry.Request.Headers[i].Value = fmt.Sprintf("Bearer {{ %s }}", couple.Path)
+					deltaHeaders[i].Value = fmt.Sprintf("Bearer {{ %s }}", couple.Path)
 					result.Edges = append(result.Edges, edge.Edge{
 						ID:            idwrap.NewNow(),
 						FlowID:        flowID,
@@ -520,7 +639,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				}
 				return result, err
 			}
-			entry.Request.Headers[i].Value = couple.Path
+			deltaHeaders[i].Value = couple.Path
 
 			result.Edges = append(result.Edges, edge.Edge{
 				ID:            idwrap.NewNow(),
@@ -549,14 +668,21 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		}
 		result.Nodes = append(result.Nodes, node)
 
-		headers := extractHeaders(entry.Request.Headers, exampleID)
-		headersDefault := extractHeaders(entry.Request.Headers, defaultExampleID)
+		// Use original headers for both default and normal examples
+		headers := extractHeaders(originalHeaders, exampleID)
+		headersDefault := extractHeaders(originalHeaders, defaultExampleID)
 		result.Headers = append(result.Headers, headers...)
 		result.Headers = append(result.Headers, headersDefault...)
 
-		queries := make([]Query, len(entry.Request.QueryString))
+		// Process queries - original for default, templated for delta
+		originalQueries := make([]Query, len(entry.Request.QueryString))
+		deltaQueries := make([]Query, len(entry.Request.QueryString))
+
 		for i, query := range entry.Request.QueryString {
-			// Replace tokens in query values
+			// Keep original values for default
+			originalQueries[i] = Query{Name: query.Name, Value: query.Value}
+
+			// Replace tokens in query values for delta
 			val := query.Value
 			var replaced bool
 			// If the value is valid JSON, parse and template it
@@ -574,10 +700,11 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 					val = newVal.(string)
 				}
 			}
-			queries[i] = Query{Name: query.Name, Value: val}
+			deltaQueries[i] = Query{Name: query.Name, Value: val}
 		}
-		queriesApi := extractQueryParams(queries, exampleID)
-		queriesDefaultApi := extractQueryParams(queries, defaultExampleID)
+
+		queriesApi := extractQueryParams(originalQueries, exampleID)
+		queriesDefaultApi := extractQueryParams(originalQueries, defaultExampleID)
 		result.Queries = append(result.Queries, queriesApi...)
 		result.Queries = append(result.Queries, queriesDefaultApi...)
 
@@ -590,17 +717,23 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			VisualizeMode: mbodyraw.VisualizeModeText,
 		}
 
+		// Declare variables for form bodies and URL-encoded bodies at higher scope
+		var formBodies []mbodyform.BodyForm
+		var urlEncodedBodies []mbodyurl.BodyURLEncoded
+
 		if entry.Request.PostData != nil {
 			postData := entry.Request.PostData
 			if strings.Contains(postData.MimeType, FormBodyCheck) {
-				formBodies := ConvertParamToFormBodies(postData.Params, exampleID)
+				// Use original values for both normal and default examples
+				formBodies = ConvertParamToFormBodies(postData.Params, exampleID)
 				result.FormBodies = append(result.FormBodies, formBodies...)
 				formBodiesDefault := ConvertParamToFormBodies(postData.Params, defaultExampleID)
 				result.FormBodies = append(result.FormBodies, formBodiesDefault...)
 
 				example.BodyType = mitemapiexample.BodyTypeForm
 			} else if strings.Contains(postData.MimeType, UrlEncodedBodyCheck) {
-				urlEncodedBodies := ConvertParamToUrlBodies(postData.Params, exampleID)
+				// Use original values for both normal and default examples
+				urlEncodedBodies = ConvertParamToUrlBodies(postData.Params, exampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodies...)
 				urlEncodedBodiesDefault := ConvertParamToUrlBodies(postData.Params, defaultExampleID)
 				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodiesDefault...)
@@ -608,7 +741,11 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				example.BodyType = mitemapiexample.BodyTypeUrlencoded
 
 			} else {
+				// For JSON and other raw bodies, use original data without templating
+				// JSON bodies should never be templated according to requirements
 				bodyBytes := []byte(postData.Text)
+
+				// Still check for dependencies to create edges, but don't modify the body
 				if json.Valid(bodyBytes) {
 					resultDep := depFinder.TemplateJSON(bodyBytes)
 					if resultDep.Err != nil {
@@ -626,67 +763,34 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 									SourceHandler: edge.HandleUnspecified,
 								})
 							}
-							bodyBytes = resultDep.NewJson
+							// Don't use templated JSON - keep original
+							// bodyBytes = resultDep.NewJson
 						}
 					}
-					rawBody.Data = bodyBytes
-					example.BodyType = mitemapiexample.BodyTypeRaw
-					if len(rawBody.Data) > 1024 {
-						compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
-						if err != nil {
-							return result, err
-						}
-						if len(compressedData) < len(rawBody.Data) {
-							rawBody.Data = compressedData
-							rawBody.CompressType = compress.CompressTypeZstd
-						}
+				}
+
+				rawBody.Data = bodyBytes
+				example.BodyType = mitemapiexample.BodyTypeRaw
+				if len(rawBody.Data) > 1024 {
+					compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
+					if err != nil {
+						return result, err
 					}
-				} else {
-					// For non-JSON bodies, try to replace tokens in the string
-					val := postData.Text
-					var replaced bool
-					var jsonObj any
-					if err := json.Unmarshal([]byte(val), &jsonObj); err == nil {
-						// Recursively process JSON structure
-						processedObj := processJSONForTokens(jsonObj, *depFinder)
-						if marshaled, err := json.Marshal(processedObj); err == nil {
-							val = string(marshaled)
-							replaced = true
-						}
-					}
-					if !replaced {
-						if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
-							val = newVal.(string)
-						}
-					}
-					rawBody.Data = []byte(val)
-					example.BodyType = mitemapiexample.BodyTypeRaw
-					if len(rawBody.Data) > 1024 {
-						compressedData, err := compress.Compress(rawBody.Data, compress.CompressTypeZstd)
-						if err != nil {
-							return result, err
-						}
-						if len(compressedData) < len(rawBody.Data) {
-							rawBody.Data = compressedData
-							rawBody.CompressType = compress.CompressTypeZstd
-						}
+					if len(compressedData) < len(rawBody.Data) {
+						rawBody.Data = compressedData
+						rawBody.CompressType = compress.CompressTypeZstd
 					}
 				}
 			}
 		}
 
+		// Don't immediately connect to start node - we'll handle this after all nodes are processed
+		// to ensure proper dependency ordering
 		if !connected {
 			posX = float64(slotIndex * slotSize)
 			posY = 100
 			nodePosMap[flowID] = mpos{x: posX, y: posY}
 			slotIndex++
-			result.Edges = append(result.Edges, edge.Edge{
-				ID:            idwrap.NewNow(),
-				FlowID:        flowID,
-				SourceID:      startNodeID,
-				TargetID:      flowNodeID,
-				SourceHandler: edge.HandleUnspecified,
-			})
 		}
 
 		if len(entry.Response.Content.Text) != 0 {
@@ -712,6 +816,26 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		deltaBody.ID = idwrap.NewNow()
 		deltaBody.ExampleID = deltaExampleID
 		result.RawBodies = append(result.RawBodies, deltaBody)
+
+		// Create delta headers, queries, form bodies, and URL-encoded bodies
+		// ONLY Delta examples use templated values for dependencies
+		headersDelta := extractHeadersWithDeltaParent(deltaHeaders, deltaExampleID, headers)
+		result.Headers = append(result.Headers, headersDelta...)
+
+		queriesDelta := extractQueryParamsWithDeltaParent(deltaQueries, deltaExampleID, queriesApi)
+		result.Queries = append(result.Queries, queriesDelta...)
+
+		// Add delta form bodies and URL-encoded bodies if they exist (with templating and proper DeltaParentID)
+		if entry.Request.PostData != nil {
+			postData := entry.Request.PostData
+			if strings.Contains(postData.MimeType, FormBodyCheck) {
+				formBodiesDelta := ConvertParamToFormBodiesWithDeltaParent(postData.Params, deltaExampleID, formBodies, depFinder)
+				result.FormBodies = append(result.FormBodies, formBodiesDelta...)
+			} else if strings.Contains(postData.MimeType, UrlEncodedBodyCheck) {
+				urlEncodedBodiesDelta := ConvertParamToUrlBodiesWithDeltaParent(postData.Params, deltaExampleID, urlEncodedBodies, depFinder)
+				result.UrlEncodedBodies = append(result.UrlEncodedBodies, urlEncodedBodiesDelta...)
+			}
+		}
 
 		result.Examples = append(result.Examples, example)
 		exampleDefault.BodyType = example.BodyType
@@ -741,12 +865,61 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		}
 	}
 
-	err := ReorganizeNodePositions(&result)
+	// After all entries are processed, connect nodes without dependencies to the start node
+	// and ensure proper dependency ordering
+	err := ensureProperDependencyOrdering(&result, startNodeID, flowID)
+	if err != nil {
+		return result, err
+	}
+
+	err = ReorganizeNodePositions(&result)
 	if err != nil {
 		return result, err
 	}
 
 	return result, nil
+}
+
+// ensureProperDependencyOrdering ensures that:
+// 1. Nodes without incoming dependencies are connected to the start node
+// 2. Dependency chains are properly ordered
+func ensureProperDependencyOrdering(result *HarResvoled, startNodeID idwrap.IDWrap, flowID idwrap.IDWrap) error {
+	// Build a map of which nodes have incoming dependencies
+	hasIncomingDependencies := make(map[idwrap.IDWrap]bool)
+
+	for _, edge := range result.Edges {
+		// Skip edges from the start node (these will be added by this function)
+		if edge.SourceID != startNodeID {
+			hasIncomingDependencies[edge.TargetID] = true
+		}
+	}
+
+	// Find all request nodes that don't have incoming dependencies
+	// and connect them to the start node
+	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	for i := range result.Nodes {
+		nodeMap[result.Nodes[i].ID] = &result.Nodes[i]
+	}
+
+	for _, node := range result.Nodes {
+		// Skip the start node itself
+		if node.ID == startNodeID {
+			continue
+		}
+
+		// If this request node has no incoming dependencies, connect it to start
+		if !hasIncomingDependencies[node.ID] {
+			result.Edges = append(result.Edges, edge.Edge{
+				ID:            idwrap.NewNow(),
+				FlowID:        flowID,
+				SourceID:      startNodeID,
+				TargetID:      node.ID,
+				SourceHandler: edge.HandleUnspecified,
+			})
+		}
+	}
+
+	return nil
 }
 
 // ConvertHAR uses a new depFinder (for production)
@@ -804,6 +977,44 @@ func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.
 	return result
 }
 
+func extractHeadersWithDeltaParent(headers []Header, deltaExampleID idwrap.IDWrap, baseHeaders []mexampleheader.Header) []mexampleheader.Header {
+	var result []mexampleheader.Header
+
+	// Create a map of base headers by their key for quick lookup
+	baseHeaderMap := make(map[string]mexampleheader.Header)
+	for _, baseHeader := range baseHeaders {
+		baseHeaderMap[baseHeader.HeaderKey] = baseHeader
+	}
+
+	for _, header := range headers {
+		if len(header.Name) > 0 {
+			// don't support pseudo-header atm
+			if header.Name[0] == ':' {
+				continue
+			}
+
+			// Find the corresponding base header
+			var deltaParentID *idwrap.IDWrap
+			if baseHeader, exists := baseHeaderMap[header.Name]; exists {
+				deltaParentID = &baseHeader.ID
+			}
+
+			h := mexampleheader.Header{
+				ID:            idwrap.NewNow(),
+				ExampleID:     deltaExampleID,
+				HeaderKey:     header.Name,
+				Value:         header.Value,
+				Enable:        true,
+				Source:        mexampleheader.HeaderSourceOrigin,
+				DeltaParentID: deltaParentID,
+			}
+			result = append(result, h)
+		}
+	}
+
+	return result
+}
+
 func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequery.Query {
 	var result []mexamplequery.Query
 	for _, query := range queries {
@@ -814,6 +1025,36 @@ func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequer
 			Value:     query.Value,
 			Enable:    true,
 			Source:    mexamplequery.QuerySourceOrigin,
+		}
+		result = append(result, q)
+	}
+	return result
+}
+
+func extractQueryParamsWithDeltaParent(queries []Query, deltaExampleID idwrap.IDWrap, baseQueries []mexamplequery.Query) []mexamplequery.Query {
+	var result []mexamplequery.Query
+
+	// Create a map of base queries by their key for quick lookup
+	baseQueryMap := make(map[string]mexamplequery.Query)
+	for _, baseQuery := range baseQueries {
+		baseQueryMap[baseQuery.QueryKey] = baseQuery
+	}
+
+	for _, query := range queries {
+		// Find the corresponding base query
+		var deltaParentID *idwrap.IDWrap
+		if baseQuery, exists := baseQueryMap[query.Name]; exists {
+			deltaParentID = &baseQuery.ID
+		}
+
+		q := mexamplequery.Query{
+			ID:            idwrap.NewNow(),
+			ExampleID:     deltaExampleID,
+			QueryKey:      query.Name,
+			Value:         query.Value,
+			Enable:        true,
+			Source:        mexamplequery.QuerySourceOrigin,
+			DeltaParentID: deltaParentID,
 		}
 		result = append(result, q)
 	}

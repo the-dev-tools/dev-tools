@@ -10,9 +10,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -278,4 +281,271 @@ func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 			t.Errorf("expected file %s not found in multipart body", fileName)
 		}
 	}
+}
+
+func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
+	// This test verifies that MergeExamples can handle legacy delta examples
+	// that have nil DeltaParentID without crashing
+
+	baseExampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	baseExample := mitemapiexample.ItemApiExample{
+		ID:   baseExampleID,
+		Name: "Base Example",
+	}
+
+	deltaExample := mitemapiexample.ItemApiExample{
+		ID:   deltaExampleID,
+		Name: "Delta Example",
+	}
+
+	// Create base queries and headers
+	baseQueryID := idwrap.NewNow()
+	baseHeaderID := idwrap.NewNow()
+
+	baseQueries := []mexamplequery.Query{
+		{
+			ID:        baseQueryID,
+			ExampleID: baseExampleID,
+			QueryKey:  "page",
+			Value:     "1",
+		},
+	}
+
+	baseHeaders := []mexampleheader.Header{
+		{
+			ID:        baseHeaderID,
+			ExampleID: baseExampleID,
+			HeaderKey: "Authorization",
+			Value:     "Bearer token123",
+		},
+	}
+
+	// Create delta queries and headers with nil DeltaParentID (legacy format)
+	deltaQueries := []mexamplequery.Query{
+		{
+			ID:            idwrap.NewNow(),
+			ExampleID:     deltaExampleID,
+			QueryKey:      "page",
+			Value:         "2", // Changed value
+			DeltaParentID: nil, // This would cause a panic in the old code
+		},
+	}
+
+	deltaHeaders := []mexampleheader.Header{
+		{
+			ID:            idwrap.NewNow(),
+			ExampleID:     deltaExampleID,
+			HeaderKey:     "Authorization",
+			Value:         "Bearer {{ token }}",
+			DeltaParentID: nil, // This would cause a panic in the old code
+		},
+	}
+
+	// Create empty bodies for testing
+	baseRawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: baseExampleID,
+		Data:      []byte(`{"test": "base"}`),
+	}
+
+	deltaRawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: deltaExampleID,
+		Data:      []byte(`{"test": "delta"}`),
+	}
+
+	input := MergeExamplesInput{
+		Base:  baseExample,
+		Delta: deltaExample,
+
+		BaseQueries:  baseQueries,
+		DeltaQueries: deltaQueries,
+
+		BaseHeaders:  baseHeaders,
+		DeltaHeaders: deltaHeaders,
+
+		BaseRawBody:  baseRawBody,
+		DeltaRawBody: deltaRawBody,
+
+		BaseFormBody:        []mbodyform.BodyForm{},
+		DeltaFormBody:       []mbodyform.BodyForm{},
+		BaseUrlEncodedBody:  []mbodyurl.BodyURLEncoded{},
+		DeltaUrlEncodedBody: []mbodyurl.BodyURLEncoded{},
+	}
+
+	// This should not panic even with nil DeltaParentID
+	output := MergeExamples(input)
+
+	// Verify the merge worked
+	if output.Merged.ID != baseExample.ID {
+		t.Errorf("Expected merged ID to be %v, got %v", baseExample.ID, output.Merged.ID)
+	}
+
+	if len(output.MergeQueries) == 0 {
+		t.Error("Expected at least one merged query")
+	}
+
+	if len(output.MergeHeaders) == 0 {
+		t.Error("Expected at least one merged header")
+	}
+
+	// Verify that delta values override base values (key-based matching for legacy)
+	foundDeltaQuery := false
+	for _, query := range output.MergeQueries {
+		if query.QueryKey == "page" && query.Value == "2" {
+			foundDeltaQuery = true
+			break
+		}
+	}
+	if !foundDeltaQuery {
+		t.Error("Expected delta query value to override base query value")
+	}
+
+	foundDeltaHeader := false
+	for _, header := range output.MergeHeaders {
+		if header.HeaderKey == "Authorization" && header.Value == "Bearer {{ token }}" {
+			foundDeltaHeader = true
+			break
+		}
+	}
+	if !foundDeltaHeader {
+		t.Error("Expected delta header value to override base header value")
+	}
+
+	// Verify that we have exactly 1 query and 1 header (delta should override base)
+	if len(output.MergeQueries) != 1 {
+		t.Errorf("Expected exactly 1 merged query, got %d", len(output.MergeQueries))
+	}
+
+	if len(output.MergeHeaders) != 1 {
+		t.Errorf("Expected exactly 1 merged header, got %d", len(output.MergeHeaders))
+	}
+
+	t.Logf("✅ MergeExamples handled nil DeltaParentID successfully")
+	t.Logf("📊 Merged %d queries and %d headers", len(output.MergeQueries), len(output.MergeHeaders))
+}
+
+func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
+	// This test verifies that MergeExamples works correctly with proper DeltaParentID
+	// (the new format created by HAR conversion)
+
+	baseExampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	baseExample := mitemapiexample.ItemApiExample{
+		ID:   baseExampleID,
+		Name: "Base Example",
+	}
+
+	deltaExample := mitemapiexample.ItemApiExample{
+		ID:   deltaExampleID,
+		Name: "Delta Example",
+	}
+
+	// Create base queries and headers
+	baseQueryID := idwrap.NewNow()
+	baseHeaderID := idwrap.NewNow()
+
+	baseQueries := []mexamplequery.Query{
+		{
+			ID:        baseQueryID,
+			ExampleID: baseExampleID,
+			QueryKey:  "page",
+			Value:     "1",
+		},
+	}
+
+	baseHeaders := []mexampleheader.Header{
+		{
+			ID:        baseHeaderID,
+			ExampleID: baseExampleID,
+			HeaderKey: "Authorization",
+			Value:     "Bearer token123",
+		},
+	}
+
+	// Create delta queries and headers with proper DeltaParentID (new format)
+	deltaQueries := []mexamplequery.Query{
+		{
+			ID:            idwrap.NewNow(),
+			ExampleID:     deltaExampleID,
+			QueryKey:      "page",
+			Value:         "{{ request-1.response.page }}", // Templated value
+			DeltaParentID: &baseQueryID,                    // Proper reference to base query
+		},
+	}
+
+	deltaHeaders := []mexampleheader.Header{
+		{
+			ID:            idwrap.NewNow(),
+			ExampleID:     deltaExampleID,
+			HeaderKey:     "Authorization",
+			Value:         "Bearer {{ request-1.response.body.token }}",
+			DeltaParentID: &baseHeaderID, // Proper reference to base header
+		},
+	}
+
+	// Create empty bodies for testing
+	baseRawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: baseExampleID,
+		Data:      []byte(`{"test": "base"}`),
+	}
+
+	deltaRawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: deltaExampleID,
+		Data:      []byte(`{"test": "delta"}`),
+	}
+
+	input := MergeExamplesInput{
+		Base:  baseExample,
+		Delta: deltaExample,
+
+		BaseQueries:  baseQueries,
+		DeltaQueries: deltaQueries,
+
+		BaseHeaders:  baseHeaders,
+		DeltaHeaders: deltaHeaders,
+
+		BaseRawBody:  baseRawBody,
+		DeltaRawBody: deltaRawBody,
+
+		BaseFormBody:        []mbodyform.BodyForm{},
+		DeltaFormBody:       []mbodyform.BodyForm{},
+		BaseUrlEncodedBody:  []mbodyurl.BodyURLEncoded{},
+		DeltaUrlEncodedBody: []mbodyurl.BodyURLEncoded{},
+	}
+
+	// This should work correctly with proper parent references
+	output := MergeExamples(input)
+
+	// Verify the merge worked
+	if output.Merged.ID != baseExample.ID {
+		t.Errorf("Expected merged ID to be %v, got %v", baseExample.ID, output.Merged.ID)
+	}
+
+	if len(output.MergeQueries) != 1 {
+		t.Errorf("Expected exactly 1 merged query, got %d", len(output.MergeQueries))
+	}
+
+	if len(output.MergeHeaders) != 1 {
+		t.Errorf("Expected exactly 1 merged header, got %d", len(output.MergeHeaders))
+	}
+
+	// Verify that delta values replaced base values correctly
+	mergedQuery := output.MergeQueries[0]
+	if mergedQuery.QueryKey != "page" || mergedQuery.Value != "{{ request-1.response.page }}" {
+		t.Errorf("Expected delta query to replace base query, got QueryKey: %s, Value: %s", mergedQuery.QueryKey, mergedQuery.Value)
+	}
+
+	mergedHeader := output.MergeHeaders[0]
+	if mergedHeader.HeaderKey != "Authorization" || mergedHeader.Value != "Bearer {{ request-1.response.body.token }}" {
+		t.Errorf("Expected delta header to replace base header, got HeaderKey: %s, Value: %s", mergedHeader.HeaderKey, mergedHeader.Value)
+	}
+
+	t.Logf("✅ MergeExamples handled proper DeltaParentID successfully")
+	t.Logf("📊 Merged %d queries and %d headers with proper parent relationships", len(output.MergeQueries), len(output.MergeHeaders))
 }

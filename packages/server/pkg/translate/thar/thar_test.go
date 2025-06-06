@@ -10,15 +10,21 @@ import (
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/translate/thar"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHarResvoledSimple(t *testing.T) {
@@ -144,8 +150,8 @@ func TestHarResvoledBodyForm(t *testing.T) {
 		}
 	}
 
-	if len(resolved.FormBodies) != 4 {
-		t.Errorf("Expected 4 Form Bodies, got %d", len(resolved.FormBodies))
+	if len(resolved.FormBodies) != 6 {
+		t.Errorf("Expected 6 Form Bodies, got %d", len(resolved.FormBodies))
 	}
 }
 
@@ -200,8 +206,8 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 		}
 	}
 
-	if len(resolved.UrlEncodedBodies) != 4 {
-		t.Errorf("Expected 4 UrlEncoded Bodies, got %d", len(resolved.UrlEncodedBodies))
+	if len(resolved.UrlEncodedBodies) != 6 {
+		t.Errorf("Expected 6 UrlEncoded Bodies, got %d", len(resolved.UrlEncodedBodies))
 	}
 }
 
@@ -341,14 +347,14 @@ func TestHarDiverseEntries(t *testing.T) {
 	}
 
 	// Verify that GET (entry1) did not produce form or URL encoded bodies.
-	// Adjust counts based on your conversion logic; here we assume each POST produces 2 bodies
-	// specific to their MIME type.
-	if len(resolved.FormBodies) != 2 {
-		t.Errorf("Expected 2 Form Bodies, got %d", len(resolved.FormBodies))
+	// Adjust counts based on your conversion logic; here we assume each POST produces 3 bodies
+	// specific to their MIME type (regular, default, delta).
+	if len(resolved.FormBodies) != 3 {
+		t.Errorf("Expected 3 Form Bodies, got %d", len(resolved.FormBodies))
 	}
 
-	if len(resolved.UrlEncodedBodies) != 2 {
-		t.Errorf("Expected 2 UrlEncoded Bodies, got %d", len(resolved.FormBodies))
+	if len(resolved.UrlEncodedBodies) != 3 {
+		t.Errorf("Expected 3 UrlEncoded Bodies, got %d", len(resolved.UrlEncodedBodies))
 	}
 }
 
@@ -1106,11 +1112,13 @@ func TestHarTokenReplacementFromRealHar(t *testing.T) {
 	}
 }
 
-func TestHarIntegerIDTracking(t *testing.T) {
-	// Create a test HAR with entries containing integer IDs
+func TestHarNoJSONBodyTemplating(t *testing.T) {
+	// Create a test HAR with entries containing JSON bodies that should NOT be templated
+	// since template variables now only work for deltas in query, header, form-body, and urlencoded-body
 	entries := []thar.Entry{
 		{
 			StartedDateTime: time.Now(),
+			ResourceType:    "xhr",
 			Request: thar.Request{
 				Method:      "POST",
 				URL:         "http://example.com/categories",
@@ -1133,6 +1141,7 @@ func TestHarIntegerIDTracking(t *testing.T) {
 		},
 		{
 			StartedDateTime: time.Now().Add(time.Second),
+			ResourceType:    "xhr",
 			Request: thar.Request{
 				Method:      "POST",
 				URL:         "http://example.com/products",
@@ -1169,7 +1178,7 @@ func TestHarIntegerIDTracking(t *testing.T) {
 		t.Fatalf("Error converting HAR: %v", err)
 	}
 
-	// Verify that integer IDs are tracked and replaced
+	// Verify that JSON bodies are NOT templated (new behavior)
 	for _, example := range resolved.Examples {
 		var rawBody *mbodyraw.ExampleBodyRaw
 		for _, body := range resolved.RawBodies {
@@ -1189,52 +1198,218 @@ func TestHarIntegerIDTracking(t *testing.T) {
 
 		// Check if this is the products request
 		if strings.Contains(bodyStr, "category_id") {
-			// Verify that the category_id is replaced with a template variable
-			if !strings.Contains(bodyStr, "{{") || !strings.Contains(bodyStr, "}}") {
-				t.Errorf("Category ID not replaced with template variable in request body: %s", bodyStr)
+			// Verify that the category_id is NOT replaced with a template variable (new behavior)
+			if strings.Contains(bodyStr, "{{") && strings.Contains(bodyStr, "}}") {
+				t.Errorf("Category ID should NOT be replaced with template variable in JSON request body (new behavior): %s", bodyStr)
 			}
-			if !strings.Contains(bodyStr, "category_id") {
-				t.Errorf("Category ID field name not preserved in request body: %s", bodyStr)
+			// Verify the original value is preserved
+			if !strings.Contains(bodyStr, "\"category_id\": 2") {
+				t.Errorf("Original category_id value not preserved in request body: %s", bodyStr)
 			}
 		}
+	}
 
-		// Check response bodies for ID tracking
-		for _, header := range resolved.Headers {
-			if header.ExampleID == example.ID && header.HeaderKey == "Content-Type" {
-				// Verify that the response body contains the tracked ID
-				var responseBody map[string]interface{}
-				if err := json.Unmarshal(rawBody.Data, &responseBody); err == nil {
-					if id, ok := responseBody["id"].(float64); ok {
-						// The ID should be tracked and replaced in subsequent requests
-						if id != 0 && !strings.Contains(bodyStr, "{{") {
-							t.Errorf("ID %v not tracked in response body", id)
-						}
-					}
+	// Template variables and edges are now only created for query/header/form/urlencoded bodies,
+	// not for JSON request bodies. This is the expected behavior.
+}
+
+func TestHarTemplatingInDeltasOnly(t *testing.T) {
+	// Create a test HAR with entries that should have template variables in delta examples
+	// for queries, headers, form bodies, and URL-encoded bodies
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "http://example.com/auth",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer abc123token"},
+					{Name: "Content-Type", Value: "application/x-www-form-urlencoded"},
+				},
+				QueryString: []thar.Query{
+					{Name: "api_key", Value: "secret123"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/x-www-form-urlencoded",
+					Params:   []thar.Param{{Name: "username", Value: "testuser123"}},
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"token": "abc123token", "user_id": "testuser123"}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "http://example.com/profile",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer abc123token"},
+					{Name: "User-ID", Value: "testuser123"},
+				},
+				QueryString: []thar.Query{
+					{Name: "user", Value: "testuser123"},
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"id": "testuser123", "name": "Test User"}`,
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	id := idwrap.NewNow()
+	workSpaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, id, workSpaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Verify we have the expected number of examples (3 per entry: regular, default, delta)
+	if len(resolved.Examples) != 6 {
+		t.Errorf("Expected 6 examples, got %d", len(resolved.Examples))
+	}
+
+	// Track delta examples
+	var deltaExamples []mitemapiexample.ItemApiExample
+	for _, example := range resolved.Examples {
+		if strings.Contains(example.Name, "Delta") {
+			deltaExamples = append(deltaExamples, example)
+		}
+	}
+
+	if len(deltaExamples) != 2 {
+		t.Errorf("Expected 2 delta examples, got %d", len(deltaExamples))
+	}
+
+	// Verify headers: ONLY delta examples should have templated values, normal and default should have original
+	hasTemplatedHeader := false
+	hasOriginalHeader := false
+	var normalExamples []mitemapiexample.ItemApiExample
+	var defaultExamples []mitemapiexample.ItemApiExample
+
+	for _, example := range resolved.Examples {
+		if example.IsDefault {
+			defaultExamples = append(defaultExamples, example)
+		} else if !strings.Contains(example.Name, "Delta") {
+			normalExamples = append(normalExamples, example)
+		}
+	}
+
+	for _, header := range resolved.Headers {
+		// Check for templated Authorization header in delta examples ONLY
+		for _, deltaExample := range deltaExamples {
+			if header.ExampleID == deltaExample.ID && header.HeaderKey == "Authorization" {
+				if strings.Contains(header.Value, "{{") && strings.Contains(header.Value, "}}") {
+					hasTemplatedHeader = true
 				}
 			}
 		}
-	}
-
-	// Verify that edges are created for ID dependencies
-	if len(resolved.Edges) == 0 {
-		t.Error("No edges created for ID dependencies")
-	}
-
-	// Verify that the flow structure reflects the ID dependencies
-	var hasCategoryToProductEdge bool
-	for _, edge := range resolved.Edges {
-		// Check if there's an edge from category to product
-		sourceNode := findNodeByID(resolved.Nodes, edge.SourceID)
-		targetNode := findNodeByID(resolved.Nodes, edge.TargetID)
-		if sourceNode != nil && targetNode != nil {
-			if sourceNode.Name == "request_0" && targetNode.Name == "request_1" {
-				hasCategoryToProductEdge = true
-				break
+		// Check for original Authorization header in normal and default examples
+		for _, normalExample := range normalExamples {
+			if header.ExampleID == normalExample.ID && header.HeaderKey == "Authorization" && !strings.Contains(header.Value, "{{") {
+				hasOriginalHeader = true
+			}
+		}
+		for _, defaultExample := range defaultExamples {
+			if header.ExampleID == defaultExample.ID && header.HeaderKey == "Authorization" && !strings.Contains(header.Value, "{{") {
+				hasOriginalHeader = true
 			}
 		}
 	}
-	if !hasCategoryToProductEdge {
-		t.Error("No edge found from request_0 to request_1")
+
+	if !hasTemplatedHeader {
+		t.Error("Expected to find templated Authorization header in delta examples")
+	}
+	if !hasOriginalHeader {
+		t.Error("Expected to find original Authorization header in normal and default examples")
+	}
+
+	// Verify queries: ONLY delta examples should have templated values, normal and default should have original
+	hasTemplatedQuery := false
+	hasOriginalQuery := false
+	for _, query := range resolved.Queries {
+		// Check for templated query in delta examples ONLY
+		for _, deltaExample := range deltaExamples {
+			if query.ExampleID == deltaExample.ID && query.QueryKey == "user" {
+				if strings.Contains(query.Value, "{{") && strings.Contains(query.Value, "}}") {
+					hasTemplatedQuery = true
+				}
+			}
+		}
+		// Check for original query in normal and default examples
+		for _, normalExample := range normalExamples {
+			if query.ExampleID == normalExample.ID && query.QueryKey == "user" && !strings.Contains(query.Value, "{{") {
+				hasOriginalQuery = true
+			}
+		}
+		for _, defaultExample := range defaultExamples {
+			if query.ExampleID == defaultExample.ID && query.QueryKey == "user" && !strings.Contains(query.Value, "{{") {
+				hasOriginalQuery = true
+			}
+		}
+	}
+
+	if !hasTemplatedQuery {
+		t.Error("Expected to find templated query in delta examples")
+	}
+	if !hasOriginalQuery {
+		t.Error("Expected to find original query in normal and default examples")
+	}
+
+	// Verify URL-encoded bodies: ONLY delta examples should have templated values, normal and default should have original
+	hasTemplatedUrlBody := false
+	hasOriginalUrlBody := false
+	for _, urlBody := range resolved.UrlEncodedBodies {
+		// Check for templated URL-encoded body in delta examples ONLY
+		for _, deltaExample := range deltaExamples {
+			if urlBody.ExampleID == deltaExample.ID && urlBody.BodyKey == "username" {
+				if strings.Contains(urlBody.Value, "{{") && strings.Contains(urlBody.Value, "}}") {
+					hasTemplatedUrlBody = true
+				}
+			}
+		}
+		// Check for original URL-encoded body in normal and default examples
+		for _, normalExample := range normalExamples {
+			if urlBody.ExampleID == normalExample.ID && urlBody.BodyKey == "username" && !strings.Contains(urlBody.Value, "{{") {
+				hasOriginalUrlBody = true
+			}
+		}
+		for _, defaultExample := range defaultExamples {
+			if urlBody.ExampleID == defaultExample.ID && urlBody.BodyKey == "username" && !strings.Contains(urlBody.Value, "{{") {
+				hasOriginalUrlBody = true
+			}
+		}
+	}
+
+	if !hasTemplatedUrlBody {
+		t.Error("Expected to find templated URL-encoded body in delta examples")
+	}
+	if !hasOriginalUrlBody {
+		t.Error("Expected to find original URL-encoded body in normal and default examples")
+	}
+
+	// Verify edges are created for dependencies
+	if len(resolved.Edges) == 0 {
+		t.Error("Expected edges to be created for template variable dependencies")
 	}
 }
 
@@ -1915,4 +2090,1054 @@ func TestHarFolderHierarchyEcommerce(t *testing.T) {
 			t.Errorf("API '%s' should be in folder '%s', but is in a different folder", api.Name, expectedFolderName)
 		}
 	}
+}
+
+func TestHarComprehensiveIntegration(t *testing.T) {
+	// This test verifies the complete workflow of HAR conversion including:
+	// 1. Folder hierarchy creation based on URL structure
+	// 2. Delta templating for dependencies (only in delta examples)
+	// 3. Proper example types (default, normal, delta)
+	// 4. JSON bodies not being templated
+	// 5. Flow and edge creation for dependencies
+
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "https://api.ecommerce.com/v1/auth/login",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/x-www-form-urlencoded"},
+					{Name: "User-Agent", Value: "TestClient/1.0"},
+				},
+				QueryString: []thar.Query{
+					{Name: "client_id", Value: "web_app"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/x-www-form-urlencoded",
+					Params: []thar.Param{
+						{Name: "username", Value: "admin"},
+						{Name: "password", Value: "secret123"},
+					},
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"token": "abc123token", "user_id": "user_456", "expires": 3600}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.ecommerce.com/v1/users/profile",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer abc123token"},
+					{Name: "User-ID", Value: "user_456"},
+				},
+				QueryString: []thar.Query{
+					{Name: "include", Value: "permissions"},
+					{Name: "user_id", Value: "user_456"},
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"id": "user_456", "name": "Admin User", "permissions": ["read", "write"]}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(2 * time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "https://api.ecommerce.com/v1/products/create",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer abc123token"},
+					{Name: "Content-Type", Value: "application/json"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/json",
+					Text:     `{"name": "New Product", "user_id": "user_456", "category_id": 5}`,
+				},
+			},
+			Response: thar.Response{
+				Status: 201,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"id": "product_789", "name": "New Product", "created_by": "user_456"}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(3 * time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "PUT",
+				URL:         "https://different.api.com/settings/update",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer abc123token"},
+					{Name: "Content-Type", Value: "application/x-www-form-urlencoded"},
+				},
+				QueryString: []thar.Query{
+					{Name: "token", Value: "abc123token"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/x-www-form-urlencoded",
+					Params: []thar.Param{
+						{Name: "setting_name", Value: "theme"},
+						{Name: "setting_value", Value: "dark"},
+						{Name: "user_token", Value: "abc123token"},
+					},
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"success": true, "updated_by": "abc123token"}`,
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// === Test 1: Verify folder hierarchy ===
+	t.Run("FolderHierarchy", func(t *testing.T) {
+		if len(resolved.Folders) == 0 {
+			t.Fatal("Expected folders to be created")
+		}
+
+		foldersByName := make(map[string]mitemfolder.ItemFolder)
+		for _, folder := range resolved.Folders {
+			foldersByName[folder.Name] = folder
+		}
+
+		// Verify expected folders exist
+		expectedFolders := []string{
+			"api.ecommerce.com", "different.api.com", // domains
+			"v1", "auth", "users", "products", "settings", // paths
+		}
+
+		for _, expectedFolder := range expectedFolders {
+			if _, exists := foldersByName[expectedFolder]; !exists {
+				t.Errorf("Expected folder '%s' to be created", expectedFolder)
+			}
+		}
+
+		// Verify folder hierarchy
+		domainFolder := foldersByName["api.ecommerce.com"]
+		v1Folder := foldersByName["v1"]
+		authFolder := foldersByName["auth"]
+
+		if domainFolder.ParentID != nil {
+			t.Error("Domain folder should have no parent")
+		}
+		if v1Folder.ParentID == nil || *v1Folder.ParentID != domainFolder.ID {
+			t.Error("'v1' folder should have domain as parent")
+		}
+		if authFolder.ParentID == nil || *authFolder.ParentID != v1Folder.ID {
+			t.Error("'auth' folder should have 'v1' as parent")
+		}
+	})
+
+	// === Test 2: Verify API placement in folders ===
+	t.Run("APIFolderPlacement", func(t *testing.T) {
+		foldersByName := make(map[string]mitemfolder.ItemFolder)
+		foldersById := make(map[idwrap.IDWrap]mitemfolder.ItemFolder)
+		for _, folder := range resolved.Folders {
+			foldersByName[folder.Name] = folder
+			foldersById[folder.ID] = folder
+		}
+
+		// Verify folder structure exists as expected
+
+		expectedAPIFolders := map[string]string{
+			"login":   "auth",     // POST /v1/auth/login
+			"profile": "users",    // GET /v1/users/profile
+			"create":  "products", // POST /v1/products/create
+			"update":  "settings", // PUT /settings/update
+		}
+
+		for _, api := range resolved.Apis {
+			expectedFolderName, exists := expectedAPIFolders[api.Name]
+			if !exists {
+				t.Errorf("Unexpected API name: %s", api.Name)
+				continue
+			}
+
+			if api.FolderID == nil {
+				t.Errorf("API '%s' should be placed in a folder", api.Name)
+				continue
+			}
+
+			expectedFolder := foldersByName[expectedFolderName]
+			if *api.FolderID != expectedFolder.ID {
+				actualFolderName := "UNKNOWN"
+				if actualFolder, exists := foldersById[*api.FolderID]; exists {
+					actualFolderName = actualFolder.Name
+				}
+				t.Errorf("API '%s' should be in folder '%s' but is in folder '%s'",
+					api.Name, expectedFolderName, actualFolderName)
+			}
+		}
+	})
+
+	// === Test 3: Verify three types of examples (default, normal, delta) ===
+	t.Run("ExampleTypes", func(t *testing.T) {
+		if len(resolved.Examples) != 12 { // 4 APIs × 3 examples each
+			t.Errorf("Expected 12 examples (4 APIs × 3 types), got %d", len(resolved.Examples))
+		}
+
+		examplesByType := make(map[string]int)
+		for _, example := range resolved.Examples {
+			if example.IsDefault {
+				examplesByType["default"]++
+			} else if strings.Contains(example.Name, "Delta") {
+				examplesByType["delta"]++
+			} else {
+				examplesByType["normal"]++
+			}
+		}
+
+		if examplesByType["default"] != 4 {
+			t.Errorf("Expected 4 default examples, got %d", examplesByType["default"])
+		}
+		if examplesByType["normal"] != 4 {
+			t.Errorf("Expected 4 normal examples, got %d", examplesByType["normal"])
+		}
+		if examplesByType["delta"] != 4 {
+			t.Errorf("Expected 4 delta examples, got %d", examplesByType["delta"])
+		}
+	})
+
+	// === Test 4: Verify template variables only in delta examples ===
+	t.Run("DeltaTemplatingOnly", func(t *testing.T) {
+		// Get example types
+		var deltaExamples, normalExamples, defaultExamples []mitemapiexample.ItemApiExample
+		for _, example := range resolved.Examples {
+			if example.IsDefault {
+				defaultExamples = append(defaultExamples, example)
+			} else if strings.Contains(example.Name, "Delta") {
+				deltaExamples = append(deltaExamples, example)
+			} else {
+				normalExamples = append(normalExamples, example)
+			}
+		}
+
+		// Check headers: only delta should have templates
+		hasTemplatedHeaderInDelta := false
+		hasTemplatedHeaderInNormal := false
+		hasTemplatedHeaderInDefault := false
+
+		for _, header := range resolved.Headers {
+			isTemplated := strings.Contains(header.Value, "{{") && strings.Contains(header.Value, "}}")
+
+			// Check if this header belongs to delta examples
+			for _, deltaExample := range deltaExamples {
+				if header.ExampleID == deltaExample.ID && isTemplated {
+					hasTemplatedHeaderInDelta = true
+				}
+			}
+
+			// Check if this header belongs to normal examples
+			for _, normalExample := range normalExamples {
+				if header.ExampleID == normalExample.ID && isTemplated {
+					hasTemplatedHeaderInNormal = true
+				}
+			}
+
+			// Check if this header belongs to default examples
+			for _, defaultExample := range defaultExamples {
+				if header.ExampleID == defaultExample.ID && isTemplated {
+					hasTemplatedHeaderInDefault = true
+				}
+			}
+		}
+
+		if !hasTemplatedHeaderInDelta {
+			t.Error("Expected templated headers in delta examples")
+		}
+		if hasTemplatedHeaderInNormal {
+			t.Error("Should NOT have templated headers in normal examples")
+		}
+		if hasTemplatedHeaderInDefault {
+			t.Error("Should NOT have templated headers in default examples")
+		}
+
+		// Check queries: only delta should have templates
+		hasTemplatedQueryInDelta := false
+		hasTemplatedQueryInNormal := false
+
+		for _, query := range resolved.Queries {
+			isTemplated := strings.Contains(query.Value, "{{") && strings.Contains(query.Value, "}}")
+
+			for _, deltaExample := range deltaExamples {
+				if query.ExampleID == deltaExample.ID && isTemplated {
+					hasTemplatedQueryInDelta = true
+				}
+			}
+
+			for _, normalExample := range normalExamples {
+				if query.ExampleID == normalExample.ID && isTemplated {
+					hasTemplatedQueryInNormal = true
+				}
+			}
+		}
+
+		if !hasTemplatedQueryInDelta {
+			t.Error("Expected templated queries in delta examples")
+		}
+		if hasTemplatedQueryInNormal {
+			t.Error("Should NOT have templated queries in normal examples")
+		}
+
+		// Check URL-encoded bodies: only delta should have templates
+		hasTemplatedUrlBodyInDelta := false
+		hasTemplatedUrlBodyInNormal := false
+
+		for _, urlBody := range resolved.UrlEncodedBodies {
+			isTemplated := strings.Contains(urlBody.Value, "{{") && strings.Contains(urlBody.Value, "}}")
+
+			for _, deltaExample := range deltaExamples {
+				if urlBody.ExampleID == deltaExample.ID && isTemplated {
+					hasTemplatedUrlBodyInDelta = true
+				}
+			}
+
+			for _, normalExample := range normalExamples {
+				if urlBody.ExampleID == normalExample.ID && isTemplated {
+					hasTemplatedUrlBodyInNormal = true
+				}
+			}
+		}
+
+		if !hasTemplatedUrlBodyInDelta {
+			t.Error("Expected templated URL-encoded bodies in delta examples")
+		}
+		if hasTemplatedUrlBodyInNormal {
+			t.Error("Should NOT have templated URL-encoded bodies in normal examples")
+		}
+	})
+
+	// === Test 5: Verify JSON bodies are NOT templated ===
+	t.Run("JSONNotTemplated", func(t *testing.T) {
+		for _, body := range resolved.RawBodies {
+			bodyStr := string(body.Data)
+			if strings.Contains(bodyStr, "user_id") || strings.Contains(bodyStr, "category_id") {
+				// This is a JSON body that might have had dependencies
+				if strings.Contains(bodyStr, "{{") && strings.Contains(bodyStr, "}}") {
+					t.Errorf("JSON body should NOT contain template variables: %s", bodyStr)
+				}
+			}
+		}
+	})
+
+	// === Test 6: Verify flow structure and edges ===
+	t.Run("FlowStructure", func(t *testing.T) {
+		if resolved.Flow == (mflow.Flow{}) {
+			t.Error("Flow should be populated")
+		}
+
+		if len(resolved.Nodes) == 0 {
+			t.Error("Should have flow nodes")
+		}
+
+		if len(resolved.RequestNodes) != 4 {
+			t.Errorf("Expected 4 request nodes, got %d", len(resolved.RequestNodes))
+		}
+
+		// Should have edges for dependencies
+		if len(resolved.Edges) == 0 {
+			t.Error("Expected edges for dependencies")
+		}
+
+		// Verify start node exists
+		hasStartNode := false
+		for _, noopNode := range resolved.NoopNodes {
+			if noopNode.Type == mnnoop.NODE_NO_OP_KIND_START {
+				hasStartNode = true
+				break
+			}
+		}
+		if !hasStartNode {
+			t.Error("Should have a start node")
+		}
+	})
+
+	// === Test 7: Verify collection and workspace IDs ===
+	t.Run("IDConsistency", func(t *testing.T) {
+		// Check APIs
+		for _, api := range resolved.Apis {
+			if api.CollectionID != collectionID {
+				t.Errorf("API collection ID mismatch: expected %s, got %s", collectionID, api.CollectionID)
+			}
+		}
+
+		// Check examples
+		for _, example := range resolved.Examples {
+			if example.CollectionID != collectionID {
+				t.Errorf("Example collection ID mismatch: expected %s, got %s", collectionID, example.CollectionID)
+			}
+		}
+
+		// Check folders
+		for _, folder := range resolved.Folders {
+			if folder.CollectionID != collectionID {
+				t.Errorf("Folder collection ID mismatch: expected %s, got %s", collectionID, folder.CollectionID)
+			}
+		}
+
+		// Check flow
+		if resolved.Flow.WorkspaceID != workspaceID {
+			t.Errorf("Flow workspace ID mismatch: expected %s, got %s", workspaceID, resolved.Flow.WorkspaceID)
+		}
+	})
+
+	// === Test 8: Verify proper counts ===
+	t.Run("ProperCounts", func(t *testing.T) {
+		// 4 APIs
+		if len(resolved.Apis) != 4 {
+			t.Errorf("Expected 4 APIs, got %d", len(resolved.Apis))
+		}
+
+		// 12 examples (4 APIs × 3 types)
+		if len(resolved.Examples) != 12 {
+			t.Errorf("Expected 12 examples, got %d", len(resolved.Examples))
+		}
+
+		// Headers: should have headers for all examples
+		if len(resolved.Headers) == 0 {
+			t.Error("Should have headers")
+		}
+
+		// Queries: should have queries for relevant examples
+		if len(resolved.Queries) == 0 {
+			t.Error("Should have queries")
+		}
+
+		// URL-encoded bodies: should have bodies for relevant examples
+		if len(resolved.UrlEncodedBodies) == 0 {
+			t.Error("Should have URL-encoded bodies")
+		}
+
+		// Raw bodies: should have bodies for all examples
+		if len(resolved.RawBodies) == 0 {
+			t.Error("Should have raw bodies")
+		}
+	})
+
+	t.Logf("✅ All integration tests passed!")
+	t.Logf("📁 Created %d folders", len(resolved.Folders))
+	t.Logf("🔗 Created %d APIs", len(resolved.Apis))
+	t.Logf("📝 Created %d examples", len(resolved.Examples))
+	t.Logf("🔄 Created %d edges", len(resolved.Edges))
+}
+
+func TestHarDependencyOrdering(t *testing.T) {
+	// This test verifies that dependency ordering works correctly:
+	// 1. Independent requests connect to start node
+	// 2. Dependent requests connect to their dependencies
+	// 3. Proper edge creation for dependencies
+
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "POST",
+				URL:         "https://api.example.com/auth/login",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+				PostData: &thar.PostData{
+					MimeType: "application/json",
+					Text:     `{"username": "admin", "password": "secret"}`,
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"token": "auth_token_123", "user_id": "user_456"}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.example.com/user/profile",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer auth_token_123"}, // Depends on login
+					{Name: "User-ID", Value: "user_456"},                    // Depends on login
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"id": "user_456", "name": "Admin", "role": "admin"}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(2 * time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.example.com/admin/settings",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer auth_token_123"}, // Depends on login
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"theme": "dark", "notifications": true}`,
+				},
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(3 * time.Second),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.different.com/public/status",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     `{"status": "ok", "version": "1.0"}`,
+				},
+			},
+		},
+	}
+
+	testHar := thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	// Convert HAR
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	resolved, err := thar.ConvertHAR(&testHar, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Error converting HAR: %v", err)
+	}
+
+	// Build node and edge maps for analysis
+	nodeMap := make(map[idwrap.IDWrap]mnnode.MNode)
+	for _, node := range resolved.Nodes {
+		nodeMap[node.ID] = node
+	}
+
+	// Find start node
+	var startNode *mnnode.MNode
+	for _, noop := range resolved.NoopNodes {
+		if noop.Type == mnnoop.NODE_NO_OP_KIND_START {
+			if node, exists := nodeMap[noop.FlowNodeID]; exists {
+				startNode = &node
+				break
+			}
+		}
+	}
+
+	if startNode == nil {
+		t.Fatal("Start node not found")
+	}
+
+	// Analyze edges
+	edgesFromStart := make([]edge.Edge, 0)
+	edgesBetweenRequests := make([]edge.Edge, 0)
+	incomingEdges := make(map[idwrap.IDWrap][]edge.Edge)
+
+	for _, e := range resolved.Edges {
+		if e.SourceID == startNode.ID {
+			edgesFromStart = append(edgesFromStart, e)
+		} else {
+			edgesBetweenRequests = append(edgesBetweenRequests, e)
+		}
+		incomingEdges[e.TargetID] = append(incomingEdges[e.TargetID], e)
+	}
+
+	// Test 1: Verify that independent nodes (login and status) connect to start
+	t.Run("IndependentNodesConnectToStart", func(t *testing.T) {
+		// Should have exactly 2 edges from start node (login and status endpoints)
+		// login: no dependencies, should connect to start
+		// status: no dependencies, should connect to start
+		// profile: depends on login, should NOT connect to start
+		// settings: depends on login, should NOT connect to start
+
+		expectedIndependentCount := 2
+		if len(edgesFromStart) != expectedIndependentCount {
+			t.Errorf("Expected %d edges from start node, got %d", expectedIndependentCount, len(edgesFromStart))
+		}
+
+		// Find the login and status nodes to verify they connect to start
+		loginNodeFound := false
+		statusNodeFound := false
+
+		for _, e := range edgesFromStart {
+			targetNode := nodeMap[e.TargetID]
+			// Check if this is the login node (would contain "login" in name)
+			if strings.Contains(targetNode.Name, "login") || strings.Contains(targetNode.Name, "request_0") {
+				loginNodeFound = true
+			}
+			// Check if this is the status node (would contain "status" or be from different domain)
+			if strings.Contains(targetNode.Name, "status") || strings.Contains(targetNode.Name, "request_3") {
+				statusNodeFound = true
+			}
+		}
+
+		if !loginNodeFound {
+			t.Error("Login node should be connected to start node")
+		}
+		if !statusNodeFound {
+			t.Error("Status node should be connected to start node")
+		}
+	})
+
+	// Test 2: Verify that dependent nodes have dependency edges
+	t.Run("DependentNodesHaveDependencyEdges", func(t *testing.T) {
+		// Should have edges between requests for dependencies
+		// profile depends on login
+		// settings depends on login
+
+		if len(edgesBetweenRequests) == 0 {
+			t.Error("Expected dependency edges between requests, but found none")
+		}
+
+		// Verify that some nodes have incoming dependency edges (not from start)
+		dependentNodesCount := 0
+		for nodeID, edges := range incomingEdges {
+			// Skip start node
+			if nodeID == startNode.ID {
+				continue
+			}
+
+			hasDependencyEdge := false
+			for _, e := range edges {
+				if e.SourceID != startNode.ID {
+					hasDependencyEdge = true
+					break
+				}
+			}
+
+			if hasDependencyEdge {
+				dependentNodesCount++
+			}
+		}
+
+		if dependentNodesCount == 0 {
+			t.Error("Expected some nodes to have dependency edges (not from start), but found none")
+		}
+
+		t.Logf("Found %d nodes with dependency edges", dependentNodesCount)
+	})
+
+	// Test 3: Verify total edge count is reasonable
+	t.Run("ReasonableEdgeCount", func(t *testing.T) {
+		// Should have:
+		// - 2 edges from start node (login, status)
+		// - Several dependency edges (profile->login, settings->login)
+		// Total should be reasonable for 4 requests
+
+		expectedMinEdges := 4 // At minimum: 2 from start + 2 dependencies
+		if len(resolved.Edges) < expectedMinEdges {
+			t.Errorf("Expected at least %d edges, got %d", expectedMinEdges, len(resolved.Edges))
+		}
+
+		t.Logf("Total edges: %d (from start: %d, dependencies: %d)",
+			len(resolved.Edges), len(edgesFromStart), len(edgesBetweenRequests))
+	})
+
+	// Test 4: Verify no circular dependencies
+	t.Run("NoCircularDependencies", func(t *testing.T) {
+		// Build adjacency list and check for cycles
+		adj := make(map[idwrap.IDWrap][]idwrap.IDWrap)
+		for _, e := range resolved.Edges {
+			adj[e.SourceID] = append(adj[e.SourceID], e.TargetID)
+		}
+
+		visited := make(map[idwrap.IDWrap]bool)
+		inStack := make(map[idwrap.IDWrap]bool)
+
+		var hasCycle func(idwrap.IDWrap) bool
+		hasCycle = func(nodeID idwrap.IDWrap) bool {
+			visited[nodeID] = true
+			inStack[nodeID] = true
+
+			for _, neighbor := range adj[nodeID] {
+				if !visited[neighbor] {
+					if hasCycle(neighbor) {
+						return true
+					}
+				} else if inStack[neighbor] {
+					return true
+				}
+			}
+
+			inStack[nodeID] = false
+			return false
+		}
+
+		for nodeID := range nodeMap {
+			if !visited[nodeID] {
+				if hasCycle(nodeID) {
+					t.Error("Circular dependency detected in flow")
+					break
+				}
+			}
+		}
+	})
+
+	t.Logf("✅ Dependency ordering test passed!")
+	t.Logf("📊 Analyzed %d nodes and %d edges", len(resolved.Nodes), len(resolved.Edges))
+}
+
+func TestHarDeltaParentIDsSet(t *testing.T) {
+	// This test verifies that delta examples have proper DeltaParentID fields set
+	// to prevent nil pointer dereferences in MergeExamples function
+
+	entries := []thar.Entry{
+		{
+			StartedDateTime: time.Now(),
+			ResourceType:    "xhr",
+			Request: thar.Request{
+				Method:      "GET",
+				URL:         "https://api.example.com/users",
+				HTTPVersion: "HTTP/1.1",
+				Headers: []thar.Header{
+					{Name: "Authorization", Value: "Bearer test-token"},
+					{Name: "Content-Type", Value: "application/json"},
+				},
+				QueryString: []thar.Query{
+					{Name: "page", Value: "1"},
+					{Name: "limit", Value: "10"},
+				},
+			},
+			Response: thar.Response{
+				Status:      200,
+				StatusText:  "OK",
+				HTTPVersion: "HTTP/1.1",
+				Headers:     []thar.Header{{Name: "Content-Type", Value: "application/json"}},
+				Content:     thar.Content{Text: `{"users": [{"id": 1, "name": "test"}]}`},
+			},
+		},
+	}
+
+	har := &thar.HAR{
+		Log: thar.Log{
+			Entries: entries,
+		},
+	}
+
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(har, collectionID, workspaceID)
+	if err != nil {
+		t.Fatalf("Failed to convert HAR: %v", err)
+	}
+
+	// Verify that we have 3 examples: default, normal, and delta
+	if len(resolved.Examples) != 3 {
+		t.Fatalf("Expected 3 examples, got %d", len(resolved.Examples))
+	}
+
+	// Find delta example (should have "Delta" in name)
+	var deltaExample *mitemapiexample.ItemApiExample
+	for i, example := range resolved.Examples {
+		if strings.Contains(example.Name, "Delta") {
+			deltaExample = &resolved.Examples[i]
+			break
+		}
+	}
+
+	if deltaExample == nil {
+		t.Fatal("No delta example found")
+	}
+
+	// Find headers for delta example
+	var deltaHeaders []mexampleheader.Header
+	var baseHeaders []mexampleheader.Header
+
+	for _, header := range resolved.Headers {
+		if header.ExampleID.Compare(deltaExample.ID) == 0 {
+			deltaHeaders = append(deltaHeaders, header)
+		} else if !strings.Contains(resolved.Examples[0].Name, "Delta") && header.ExampleID.Compare(resolved.Examples[0].ID) == 0 {
+			baseHeaders = append(baseHeaders, header)
+		}
+	}
+
+	// Verify delta headers have DeltaParentID set
+	t.Run("DeltaHeadersHaveParentID", func(t *testing.T) {
+		for _, deltaHeader := range deltaHeaders {
+			if deltaHeader.DeltaParentID == nil {
+				t.Errorf("Delta header %s has nil DeltaParentID", deltaHeader.HeaderKey)
+			} else {
+				// Verify the parent exists in base headers
+				found := false
+				for _, baseHeader := range baseHeaders {
+					if baseHeader.ID.Compare(*deltaHeader.DeltaParentID) == 0 {
+						found = true
+						if baseHeader.HeaderKey != deltaHeader.HeaderKey {
+							t.Errorf("Delta header %s points to base header with different key %s", deltaHeader.HeaderKey, baseHeader.HeaderKey)
+						}
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Delta header %s has DeltaParentID pointing to non-existent base header", deltaHeader.HeaderKey)
+				}
+			}
+		}
+	})
+
+	// Find queries for delta example
+	var deltaQueries []mexamplequery.Query
+	var baseQueries []mexamplequery.Query
+
+	for _, query := range resolved.Queries {
+		if query.ExampleID.Compare(deltaExample.ID) == 0 {
+			deltaQueries = append(deltaQueries, query)
+		} else if !strings.Contains(resolved.Examples[0].Name, "Delta") && query.ExampleID.Compare(resolved.Examples[0].ID) == 0 {
+			baseQueries = append(baseQueries, query)
+		}
+	}
+
+	// Verify delta queries have DeltaParentID set
+	t.Run("DeltaQueriesHaveParentID", func(t *testing.T) {
+		for _, deltaQuery := range deltaQueries {
+			if deltaQuery.DeltaParentID == nil {
+				t.Errorf("Delta query %s has nil DeltaParentID", deltaQuery.QueryKey)
+			} else {
+				// Verify the parent exists in base queries
+				found := false
+				for _, baseQuery := range baseQueries {
+					if baseQuery.ID.Compare(*deltaQuery.DeltaParentID) == 0 {
+						found = true
+						if baseQuery.QueryKey != deltaQuery.QueryKey {
+							t.Errorf("Delta query %s points to base query with different key %s", deltaQuery.QueryKey, baseQuery.QueryKey)
+						}
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Delta query %s has DeltaParentID pointing to non-existent base query", deltaQuery.QueryKey)
+				}
+			}
+		}
+	})
+
+	t.Logf("✅ Delta ParentID test passed!")
+	t.Logf("📊 Verified %d delta headers and %d delta queries have proper parent IDs", len(deltaHeaders), len(deltaQueries))
+}
+
+func TestHarDeltaFormBodyParentIDsSet(t *testing.T) {
+	// Create HAR with form data
+	harData := `{
+		"log": {
+			"entries": [
+				{
+					"startedDateTime": "2023-01-01T10:00:00.000Z",
+					"_resourceType": "xhr",
+					"request": {
+						"method": "POST",
+						"url": "https://api.example.com/users",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{"name": "Content-Type", "value": "multipart/form-data"}
+						],
+						"postData": {
+							"mimeType": "multipart/form-data",
+							"params": [
+								{"name": "username", "value": "john"},
+								{"name": "email", "value": "john@example.com"}
+							]
+						},
+						"queryString": []
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"content": {"size": 0, "mimeType": "application/json", "text": ""}
+					}
+				}
+			]
+		}
+	}`
+
+	har, err := thar.ConvertRaw([]byte(harData))
+	require.NoError(t, err)
+
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+
+	result, err := thar.ConvertHAR(har, collectionID, workspaceID)
+	require.NoError(t, err)
+
+	t.Run("DeltaFormBodiesHaveParentID", func(t *testing.T) {
+		// Find the normal example form bodies
+		var normalFormBodies []mbodyform.BodyForm
+		var deltaFormBodies []mbodyform.BodyForm
+
+		for _, formBody := range result.FormBodies {
+			// Check if this is a delta example (has DeltaParentID set)
+			if formBody.DeltaParentID != nil {
+				deltaFormBodies = append(deltaFormBodies, formBody)
+			} else {
+				// Find the corresponding example to check if it's default or normal
+				for _, example := range result.Examples {
+					if example.ID == formBody.ExampleID && !example.IsDefault && !strings.Contains(example.Name, "Delta") {
+						normalFormBodies = append(normalFormBodies, formBody)
+						break
+					}
+				}
+			}
+		}
+
+		require.Len(t, normalFormBodies, 2, "Should have 2 normal form bodies")
+		require.Len(t, deltaFormBodies, 2, "Should have 2 delta form bodies")
+
+		// Create a map of normal form bodies by key
+		normalByKey := make(map[string]mbodyform.BodyForm)
+		for _, normal := range normalFormBodies {
+			normalByKey[normal.BodyKey] = normal
+		}
+
+		// Verify each delta form body has correct parent ID
+		for _, delta := range deltaFormBodies {
+			require.NotNil(t, delta.DeltaParentID, "Delta form body should have DeltaParentID set")
+
+			normal, exists := normalByKey[delta.BodyKey]
+			require.True(t, exists, "Should find normal form body with same key: %s", delta.BodyKey)
+			require.Equal(t, normal.ID, *delta.DeltaParentID, "Delta form body should reference correct parent ID")
+		}
+	})
+}
+
+func TestHarDeltaURLEncodedBodyParentIDsSet(t *testing.T) {
+	// Create HAR with URL-encoded data
+	harData := `{
+		"log": {
+			"entries": [
+				{
+					"startedDateTime": "2023-01-01T10:00:00.000Z",
+					"_resourceType": "xhr",
+					"request": {
+						"method": "POST",
+						"url": "https://api.example.com/auth",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{"name": "Content-Type", "value": "application/x-www-form-urlencoded"}
+						],
+						"postData": {
+							"mimeType": "application/x-www-form-urlencoded",
+							"params": [
+								{"name": "grant_type", "value": "password"},
+								{"name": "username", "value": "user"},
+								{"name": "password", "value": "pass"}
+							]
+						},
+						"queryString": []
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"content": {"size": 0, "mimeType": "application/json", "text": ""}
+					}
+				}
+			]
+		}
+	}`
+
+	har, err := thar.ConvertRaw([]byte(harData))
+	require.NoError(t, err)
+
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+
+	result, err := thar.ConvertHAR(har, collectionID, workspaceID)
+	require.NoError(t, err)
+
+	t.Run("DeltaURLEncodedBodiesHaveParentID", func(t *testing.T) {
+		// Find the normal example URL-encoded bodies
+		var normalURLBodies []mbodyurl.BodyURLEncoded
+		var deltaURLBodies []mbodyurl.BodyURLEncoded
+
+		for _, urlBody := range result.UrlEncodedBodies {
+			// Check if this is a delta example (has DeltaParentID set)
+			if urlBody.DeltaParentID != nil {
+				deltaURLBodies = append(deltaURLBodies, urlBody)
+			} else {
+				// Find the corresponding example to check if it's default or normal
+				for _, example := range result.Examples {
+					if example.ID == urlBody.ExampleID && !example.IsDefault && !strings.Contains(example.Name, "Delta") {
+						normalURLBodies = append(normalURLBodies, urlBody)
+						break
+					}
+				}
+			}
+		}
+
+		require.Len(t, normalURLBodies, 3, "Should have 3 normal URL-encoded bodies")
+		require.Len(t, deltaURLBodies, 3, "Should have 3 delta URL-encoded bodies")
+
+		// Create a map of normal URL-encoded bodies by key
+		normalByKey := make(map[string]mbodyurl.BodyURLEncoded)
+		for _, normal := range normalURLBodies {
+			normalByKey[normal.BodyKey] = normal
+		}
+
+		// Verify each delta URL-encoded body has correct parent ID
+		for _, delta := range deltaURLBodies {
+			require.NotNil(t, delta.DeltaParentID, "Delta URL-encoded body should have DeltaParentID set")
+
+			normal, exists := normalByKey[delta.BodyKey]
+			require.True(t, exists, "Should find normal URL-encoded body with same key: %s", delta.BodyKey)
+			require.Equal(t, normal.ID, *delta.DeltaParentID, "Delta URL-encoded body should reference correct parent ID")
+		}
+	})
 }
