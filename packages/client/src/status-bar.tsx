@@ -16,7 +16,7 @@ import { twJoin, twMerge } from 'tailwind-merge';
 
 import { LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
-import { ArrowToLeftIcon, ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
+import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
@@ -69,13 +69,6 @@ export const StatusBar = () => {
 
   const bar = (
     <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
-      {/* TODO: implement sidebar collapse */}
-      <Button className={tw`p-0.5`} variant='ghost'>
-        <ArrowToLeftIcon className={tw`size-4 text-slate-500`} />
-      </Button>
-
-      {separator}
-
       <ButtonAsLink
         className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
         href={{
