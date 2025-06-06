@@ -49,20 +49,11 @@ model BodyUrlEncoded {
 }
 
 @autoFields
-@parentResource(Example.Example)
+@entity
 model BodyRaw {
+  ...KeyOf<Example.Example>;
   data: bytes;
 }
-
-// Raw
-model BodyRawGetRequest is Resource.Get.Request<BodyRaw> {
-  ...ParentKeyOf<BodyRaw>;
-}
-model BodyRawGetResponse is Resource.Get.Response<BodyRaw>;
-model BodyRawUpdateRequest is Resource.Update.Request<BodyRaw> {
-  ...ParentKeyOf<BodyRaw>;
-}
-model BodyRawUpdateResponse is Resource.Update.Response<BodyRaw>;
 
 @Protobuf.service
 interface BodyService
@@ -78,8 +69,7 @@ interface BodyService
     Resource.Create.Interface<BodyUrlEncoded>,
     Resource.Update.Interface<BodyUrlEncoded>,
     Resource.Delete.Interface<BodyUrlEncoded>,
-    Delta.Interface<BodyUrlEncoded> {
-  // Raw
-  BodyRawGet(...BodyRawGetRequest): BodyRawGetResponse;
-  BodyRawUpdate(...BodyRawUpdateRequest): BodyRawUpdateResponse;
-}
+    Delta.Interface<BodyUrlEncoded>,
+    // Raw
+    Resource.Get.Interface<BodyRaw>,
+    Resource.Update.Interface<BodyRaw> {}

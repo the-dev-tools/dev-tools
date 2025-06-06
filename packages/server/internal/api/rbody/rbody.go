@@ -336,7 +336,7 @@ func (c BodyRPC) BodyRawGet(ctx context.Context, req *connect.Request[bodyv1.Bod
 	case compress.CompressTypeGzip:
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gzip not supported"))
 	}
-	return connect.NewResponse(&bodyv1.BodyRawGetResponse{Data: bodyRawData}), nil
+	return connect.NewResponse(&bodyv1.BodyRawGetResponse{ExampleId: req.Msg.GetExampleId(), Data: bodyRawData}), nil
 }
 
 func (c *BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyRawUpdateRequest]) (*connect.Response[bodyv1.BodyRawUpdateResponse], error) {

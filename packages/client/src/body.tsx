@@ -12,7 +12,6 @@ import {
   BodyUrlEncodedDeltaListItem,
   BodyUrlEncodedListItem,
 } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
-import { bodyRawGet, bodyRawUpdate } from '@the-dev-tools/spec/collection/item/body/v1/body-BodyService_connectquery';
 import {
   BodyFormCreateEndpoint,
   BodyFormDeleteEndpoint,
@@ -23,6 +22,8 @@ import {
   BodyFormDeltaUpdateEndpoint,
   BodyFormListEndpoint,
   BodyFormUpdateEndpoint,
+  BodyRawGetEndpoint,
+  BodyRawUpdateEndpoint,
   BodyUrlEncodedCreateEndpoint,
   BodyUrlEncodedDeleteEndpoint,
   BodyUrlEncodedDeltaCreateEndpoint,
@@ -43,7 +44,6 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectMutation, useConnectSuspenseQuery } from '~api/connect-query';
 import { GenericMessage } from '~api/utils';
 import {
   baseCodeMirrorExtensions,
@@ -84,7 +84,6 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
         aria-label='Body type'
         className='h-7 justify-center'
         isReadOnly={isReadOnly ?? false}
-        // TODO: check if the endpoint schema is correct
         onChange={(key) => controller.fetch(ExampleUpdateEndpoint, transport, { bodyKind: parseInt(key), exampleId })}
         orientation='horizontal'
         value={bodyKind.toString()}
@@ -107,7 +106,9 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
           if (deltaExampleId) return <UrlEncodedDeltaFormTable deltaExampleId={deltaExampleId} exampleId={exampleId} />;
           return <UrlEncodedFormTable exampleId={exampleId} />;
         }),
-        Match.when(BodyKind.RAW, () => <RawForm exampleId={exampleId} isReadOnly={isReadOnly} />),
+        Match.when(BodyKind.RAW, () => (
+          <RawForm deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
+        )),
         Match.orElse(() => null),
       )}
     </div>
@@ -319,18 +320,24 @@ const UrlEncodedDeltaFormTable = ({
 };
 
 interface RawFormProps {
+  deltaExampleId?: Uint8Array | undefined;
   exampleId: Uint8Array;
   isReadOnly?: boolean | undefined;
 }
 
-const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
-  // TODO: switch to Data Client Endpoints
-  const {
-    data: { data },
-  } = useConnectSuspenseQuery(bodyRawGet, { exampleId });
-  const body = new TextDecoder().decode(data);
+const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
+  const controller = useController();
+  const transport = useTransport();
 
-  const updateMutation = useConnectMutation(bodyRawUpdate);
+  // TODO: switch to Data Client Endpoints
+  const bodyRaw = useSuspense(BodyRawGetEndpoint, transport, { exampleId });
+  const deltaBodyRaw = useSuspense(
+    BodyRawGetEndpoint,
+    ...(deltaExampleId ? [transport, { exampleId: deltaExampleId }] : [null]),
+  );
+
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  const body = new TextDecoder().decode(deltaBodyRaw?.data || bodyRaw.data);
 
   const [value, setValue] = useState(body);
   const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
@@ -340,7 +347,6 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
 
   // Get reference context and setup for variable autocompletion
   const context = useContext(ReferenceContext);
-  const transport = useTransport();
   const client = createClient(ReferenceService, transport);
   const reactRender = useReactRender();
 
@@ -368,7 +374,12 @@ const RawForm = ({ exampleId, isReadOnly }: RawFormProps) => {
         className='col-span-full self-stretch'
         extensions={combinedExtensions}
         height='100%'
-        onBlur={() => void updateMutation.mutate({ data: new TextEncoder().encode(value), exampleId })}
+        onBlur={() =>
+          void controller.fetch(BodyRawUpdateEndpoint, transport, {
+            data: new TextEncoder().encode(value),
+            exampleId: deltaExampleId ?? exampleId,
+          })
+        }
         onChange={setValue}
         readOnly={isReadOnly ?? false}
         value={value}
