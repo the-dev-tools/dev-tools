@@ -979,7 +979,7 @@ func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeRe
 		return err
 	}
 
-	err = txExampleResp.UpdateExampleResp(ctx, requestNodeResp.Resp.ExampleResp)
+	err = txExampleResp.CreateExampleResp(ctx, requestNodeResp.Resp.ExampleResp)
 	if err != nil {
 		return err
 	}

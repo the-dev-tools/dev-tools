@@ -114,6 +114,8 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Err:        nil,
 	}
 
+	nr.ExampleResp.ID = idwrap.NewNow()
+
 	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
@@ -195,6 +197,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		Err:        nil,
 	}
 
+	nr.ExampleResp.ID = idwrap.NewNow()
+
 	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
@@ -254,6 +258,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		resultChan <- result
 		return
 	}
+
+	nr.ExampleResp.ID = idwrap.NewNow()
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		Example: nr.Example,
