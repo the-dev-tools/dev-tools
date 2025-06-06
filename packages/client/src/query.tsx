@@ -75,16 +75,6 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const items: GenericMessage<QueryListItem>[] = useSuspense(QueryListEndpoint, transport, { exampleId }).items;
 
-  const table = useReactTable({
-    columns: [
-      ...dataColumns,
-      columnActionsCommon<GenericMessage<QueryListItem>>({
-        onDelete: (_) => controller.fetch(QueryDeleteEndpoint, transport, { queryId: _.queryId }),
-      }),
-    ],
-    data: items,
-  });
-
   const formTable = useFormTable({
     createLabel: 'New param',
     items,
@@ -96,7 +86,19 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     primaryColumn: 'key',
   });
 
-  return <DataTable {...formTable} table={table} />;
+  return (
+    <ReactTableNoMemo
+      columns={[
+        ...dataColumns,
+        columnActionsCommon<GenericMessage<QueryListItem>>({
+          onDelete: (_) => controller.fetch(QueryDeleteEndpoint, transport, { queryId: _.queryId }),
+        }),
+      ]}
+      data={items}
+    >
+      {(table) => <DataTable {...formTable} table={table} />}
+    </ReactTableNoMemo>
+  );
 };
 
 interface DeltaFormTableProps {

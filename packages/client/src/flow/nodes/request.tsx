@@ -7,7 +7,10 @@ import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
 import { NodeRequest } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { EndpointGetEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
+import {
+  EndpointCreateEndpoint,
+  EndpointGetEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleGetEndpoint,
@@ -20,7 +23,7 @@ import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { CollectionListTree } from '../../collection';
-import { EndpointRequestView, ResponseTabs, useEndpointUrl } from '../../endpoint';
+import { EndpointRequestView, ResponseTabs, useEndpointUrlForm } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
 import { FlowContext, flowRoute, Handle, workspaceRoute } from '../internal';
 import { FlowSearch } from '../layout';
@@ -57,12 +60,22 @@ const RequestNodeBody = (props: NodeProps) => {
           <CollectionListTree
             onAction={async ({ collectionId, endpointId, exampleId }) => {
               if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
+              const {
+                endpoint: { endpointId: deltaEndpointId },
+              } = await controller.fetch(EndpointCreateEndpoint, transport, { collectionId });
               const { exampleId: deltaExampleId } = await controller.fetch(ExampleCreateEndpoint, transport, {
-                endpointId,
+                endpointId: deltaEndpointId,
               });
               await controller.fetch(NodeUpdateEndpoint, transport, {
                 nodeId,
-                request: { ...request, collectionId, deltaExampleId, endpointId, exampleId },
+                request: {
+                  ...request,
+                  collectionId,
+                  deltaEndpointId,
+                  deltaExampleId,
+                  endpointId,
+                  exampleId,
+                },
               });
             }}
           />
@@ -76,13 +89,22 @@ interface RequestNodeSelectedProps {
   request: NodeRequest;
 }
 
-const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } }: RequestNodeSelectedProps) => {
+const RequestNodeSelected = ({
+  request: { collectionId, deltaEndpointId, deltaExampleId, endpointId, exampleId },
+}: RequestNodeSelectedProps) => {
   const { transport } = flowRoute.useRouteContext();
 
   // TODO: fetch in parallel
   const { name: collectionName } = useSuspense(CollectionGetEndpoint, transport, { collectionId });
-  const { method } = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const { name } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+
+  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
+  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+
+  const deltaEndpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId: deltaEndpointId });
+  const deltaExample = useSuspense(ExampleGetEndpoint, transport, { exampleId: deltaExampleId });
+
+  const method = deltaEndpoint.method || endpoint.method;
+  const name = deltaExample.name || deltaEndpoint.name || example.name;
 
   return (
     <div className={tw`space-y-1.5 p-2`}>
@@ -109,7 +131,7 @@ const RequestNodeSelected = ({ request: { collectionId, endpointId, exampleId } 
 };
 
 export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
-  const { collectionId, deltaExampleId, endpointId, exampleId } = request!;
+  const { collectionId, deltaEndpointId, deltaExampleId, endpointId, exampleId } = request!;
   const { isReadOnly = false } = use(FlowContext);
 
   const { transport } = flowRoute.useRouteContext();
@@ -118,12 +140,16 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
   // TODO: fetch in parallel
   const collection = useSuspense(CollectionGetEndpoint, transport, { collectionId });
-  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
   const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
 
-  const url = useEndpointUrl({ endpointId, exampleId });
-
   const { lastResponseId } = example;
+
+  const [renderEndpointUrlForm] = useEndpointUrlForm({
+    deltaEndpointId,
+    deltaExampleId,
+    endpointId,
+    exampleId,
+  });
 
   return (
     <>
@@ -164,11 +190,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         </TooltipTrigger>
       </div>
 
-      <div className='shadow-xs m-5 mb-4 flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
-        <MethodBadge method={endpoint.method} size='lg' />
-        <div className={tw`h-7 w-px bg-slate-200`} />
-        <div className={tw`truncate font-medium leading-5 tracking-tight text-slate-800`}>{url}</div>
-      </div>
+      <div className={tw`m-5 mb-4`}>{renderEndpointUrlForm}</div>
 
       <div className={tw`mx-5 overflow-auto rounded-lg border border-slate-200`}>
         <div

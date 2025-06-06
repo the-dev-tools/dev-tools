@@ -1,7 +1,5 @@
-import { create } from '@bufbuild/protobuf';
 import { useTransport } from '@connectrpc/connect-query';
 import { useController, useSuspense } from '@data-client/react';
-import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { QueryErrorResetBoundary, useQuery } from '@tanstack/react-query';
 import { createFileRoute, getRouteApi, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
@@ -20,14 +18,9 @@ import {
   ExampleBreadcrumbKindSchema,
   ExampleVersionsItem,
 } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import {
-  QueryCreateRequest,
-  QueryCreateRequestSchema,
-  QueryListItem,
-  QueryUpdateRequest,
-  QueryUpdateRequestSchema,
-} from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import { QueryDeltaListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import { ResponseHeaderListItem } from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
+import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import {
   EndpointGetEndpoint,
   EndpointUpdateEndpoint,
@@ -42,6 +35,9 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import {
   QueryCreateEndpoint,
+  QueryDeltaCreateEndpoint,
+  QueryDeltaListEndpoint,
+  QueryDeltaUpdateEndpoint,
   QueryListEndpoint,
   QueryUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
@@ -58,12 +54,12 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { Select, SelectRHF } from '@the-dev-tools/ui/select';
+import { Select } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
-import { enumToString } from '~api/utils';
+import { enumToString, GenericMessage } from '~api/utils';
 import {
   CodeMirrorMarkupLanguage,
   CodeMirrorMarkupLanguages,
@@ -123,7 +119,7 @@ function Page() {
       <PanelGroup direction='vertical'>
         <Panel className='flex h-full flex-col' id='request' order={1}>
           <ReferenceContext value={{ exampleId, workspaceId }}>
-            <EndpointForm endpointId={endpointId} exampleId={exampleId} />
+            <EndpointHeader endpointId={endpointId} exampleId={exampleId} />
 
             <EndpointRequestView exampleId={exampleId} />
           </ReferenceContext>
@@ -233,12 +229,15 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
   );
 };
 
-const queryToString = (query: QueryListItem) =>
-  pipe(
+const queryToString = (query: GenericMessage<QueryDeltaListItem>): Option.Option<string> => {
+  if (query.source === SourceKind.ORIGIN && query.origin) return queryToString(query.origin);
+
+  return pipe(
     query,
     Option.liftPredicate((_) => _.enabled),
     Option.map((_) => _.key + '=' + _.value),
   );
+};
 
 const queryFromString = (query: string) =>
   pipe(
@@ -253,65 +252,77 @@ const queryFromString = (query: string) =>
 const methods = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTION', 'TRACE', 'PATCH'] as const;
 
 interface UseEndpointUrlProps {
+  deltaEndpointId?: Uint8Array | undefined;
+  deltaExampleId?: Uint8Array | undefined;
   endpointId: Uint8Array;
   exampleId: Uint8Array;
 }
 
-export const useEndpointUrl = ({ endpointId, exampleId }: UseEndpointUrlProps) => {
+export const useEndpointUrl = ({ deltaEndpointId, deltaExampleId, endpointId, exampleId }: UseEndpointUrlProps) => {
   const transport = useTransport();
 
   // TODO: fetch in parallel
   const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const { items } = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const queryList = useSuspense(QueryListEndpoint, transport, { exampleId });
 
-  let url = endpoint.url;
+  const deltaEndpoint = useSuspense(
+    EndpointGetEndpoint,
+    ...(deltaEndpointId ? [transport, { endpointId: deltaEndpointId }] : [null]),
+  );
 
-  const queryParams = pipe(items, Array.filterMap(queryToString), Array.join('&'));
+  const deltaQueryList = useSuspense(
+    QueryDeltaListEndpoint,
+    ...(deltaExampleId ? [transport, { exampleId: deltaExampleId, originId: exampleId }] : [null]),
+  );
+
+  let url = deltaEndpoint?.url ?? endpoint.url;
+  const queries = deltaQueryList.items ?? queryList.items;
+
+  const queryParams = pipe(queries, Array.filterMap(queryToString), Array.join('&'));
 
   if (queryParams.length > 0) url = url + '?' + queryParams;
 
   return url;
 };
 
-class EndpointFormData extends Schema.Class<EndpointFormData>('EndpointFormData')({
-  method: Schema.String,
-  url: Schema.String,
-}) {}
-
-interface EndpointFormProps {
+interface UseEndpointUrlFormProps {
+  deltaEndpointId?: Uint8Array;
+  deltaExampleId?: Uint8Array;
   endpointId: Uint8Array;
   exampleId: Uint8Array;
 }
 
-export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
+export const useEndpointUrlForm = ({
+  deltaEndpointId,
+  deltaExampleId,
+  endpointId,
+  exampleId,
+}: UseEndpointUrlFormProps) => {
   const transport = useTransport();
   const controller = useController();
 
-  const matchRoute = useMatchRoute();
-  const navigate = useNavigate();
-
   // TODO: fetch in parallel
   const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
-  const { items: queries } = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const queryList = useSuspense(QueryListEndpoint, transport, { exampleId });
 
-  const [exampleUpdate, exampleUpdateLoading] = useMutate(ExampleUpdateEndpoint);
+  const deltaEndpoint = useSuspense(
+    EndpointGetEndpoint,
+    ...(deltaEndpointId ? [transport, { endpointId: deltaEndpointId }] : [null]),
+  );
 
-  const url = useEndpointUrl({ endpointId, exampleId });
+  const deltaQueryList = useSuspense(
+    QueryDeltaListEndpoint,
+    ...(deltaExampleId ? [transport, { exampleId: deltaExampleId, originId: exampleId }] : [null]),
+  );
 
-  const values = useMemo(() => {
-    return new EndpointFormData({
-      method: Array.contains(methods, endpoint.method) ? endpoint.method : 'N/A',
-      url,
-    });
-  }, [endpoint.method, url]);
+  const method = deltaEndpoint?.method ?? endpoint.method;
+  const queries: GenericMessage<QueryDeltaListItem>[] = deltaQueryList.items ?? queryList.items;
 
-  const form = useForm({
-    resolver: effectTsResolver(EndpointFormData),
-    values,
-  });
+  const url = useEndpointUrl({ deltaEndpointId, deltaExampleId, endpointId, exampleId });
 
-  const onSubmit = form.handleSubmit(async ({ method, url: urlString }) => {
+  const form = useForm({ values: { url } });
+
+  const submit = form.handleSubmit(async ({ url: urlString }) => {
     const { queryString, url } = pipe(
       urlString,
       String.indexOf('?'),
@@ -321,47 +332,132 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
       }),
     );
 
-    await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method, url });
+    if (deltaEndpointId) {
+      await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId: deltaEndpointId, url });
+    } else {
+      await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, url });
+    }
 
-    const queryMap = pipe(
+    type Change = { key: string; value: string } & (
+      | { enabled: boolean; isNew: false; queryId: Uint8Array; source: SourceKind | undefined }
+      | { isNew: true }
+    );
+
+    const changeMapMap = pipe(
       queryString.length > 0 ? queryString.split('&') : [],
       Array.map(queryFromString),
-      Array.map(([key, value]): [string, QueryCreateRequest | QueryUpdateRequest] => [
-        key + value,
-        create(QueryCreateRequestSchema, { enabled: true, exampleId, key, value }),
-      ]),
+      Array.map(([key, value]): [string, Change] => [key + value, { isNew: true, key, value }]),
       MutableHashMap.fromIterable,
     );
 
-    queries.forEach(({ enabled, key, queryId, value }) => {
+    queries.forEach(({ origin, queryId, source, ...data }) => {
+      let { enabled, key, value } = data;
+      if (source === SourceKind.ORIGIN && origin) ({ enabled, key, value } = origin);
+
       MutableHashMap.modifyAt(
-        queryMap,
+        changeMapMap,
         key + value,
         Option.match({
           onNone: () => {
             if (!enabled) return Option.none();
-            return Option.some(create(QueryUpdateRequestSchema, { enabled: false, queryId }));
+            return Option.some<Change>({ enabled: false, isNew: false, key, queryId, source, value });
           },
           onSome: () => {
             if (enabled) return Option.none();
-            return Option.some(create(QueryUpdateRequestSchema, { enabled: true, queryId }));
+            return Option.some<Change>({ enabled: true, isNew: false, key, queryId, source, value });
           },
         }),
       );
     });
 
     await pipe(
-      Array.fromIterable(queryMap),
-      Array.map(async ([_, query]) => {
-        if (query.$typeName === 'collection.item.request.v1.QueryUpdateRequest') {
-          await controller.fetch(QueryUpdateEndpoint, transport, query);
+      Array.fromIterable(changeMapMap),
+      Array.map(async ([_, change]) => {
+        if (change.isNew) {
+          const { key, value } = change;
+          if (deltaExampleId) {
+            await controller.fetch(QueryDeltaCreateEndpoint, transport, {
+              enabled: true,
+              exampleId: deltaExampleId,
+              key,
+              originId: exampleId,
+              value,
+            });
+          } else {
+            await controller.fetch(QueryCreateEndpoint, transport, { enabled: true, exampleId, key, value });
+          }
         } else {
-          await controller.fetch(QueryCreateEndpoint, transport, query);
+          const { enabled, key, queryId, source, value } = change;
+          if (deltaExampleId) {
+            await controller.fetch(QueryDeltaUpdateEndpoint, transport, {
+              enabled,
+              key,
+              queryId,
+              source: source!,
+              value,
+            });
+          } else {
+            await controller.fetch(QueryUpdateEndpoint, transport, { enabled, queryId });
+          }
         }
       }),
       (_) => Promise.allSettled(_),
     );
   });
+
+  const render = (
+    <div className='shadow-xs flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
+      <Select
+        aria-label='Method'
+        onSelectionChange={async (method) => {
+          if (typeof method !== 'string') return;
+
+          if (deltaEndpointId) {
+            await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId: deltaEndpointId, method });
+          } else {
+            await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method });
+          }
+        }}
+        selectedKey={method}
+        triggerClassName={tw`border-none p-0`}
+      >
+        {methods.map((_) => (
+          <ListBoxItem id={_} key={_} textValue={_}>
+            <MethodBadge method={_} size='lg' />
+          </ListBoxItem>
+        ))}
+      </Select>
+
+      <Separator className={tw`h-7`} orientation='vertical' />
+
+      <ReferenceFieldRHF
+        aria-label='URL'
+        className={tw`flex-1 border-none font-medium tracking-tight`}
+        control={form.control}
+        name='url'
+        onBlur={submit}
+      />
+    </div>
+  );
+
+  return [render, submit] as const;
+};
+
+interface EndpointHeaderProps {
+  endpointId: Uint8Array;
+  exampleId: Uint8Array;
+}
+
+export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) => {
+  const transport = useTransport();
+  const controller = useController();
+
+  const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
+
+  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+
+  const [exampleUpdate, exampleUpdateLoading] = useMutate(ExampleUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -370,8 +466,10 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
     value: example.name,
   });
 
+  const [renderEndpointUrlForm, submitEndpointUrlForm] = useEndpointUrlForm({ endpointId, exampleId });
+
   return (
-    <form onSubmit={onSubmit}>
+    <>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
         <div
           className={tw`text-md flex min-w-0 flex-1 select-none gap-1 font-medium leading-5 tracking-tight text-slate-400`}
@@ -458,30 +556,12 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
       </div>
 
       <div className={tw`flex gap-3 p-6 pb-0`}>
-        <div className='shadow-xs flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
-          <SelectRHF aria-label='Method' control={form.control} name='method' triggerClassName={tw`border-none p-0`}>
-            {methods.map((_) => (
-              <ListBoxItem id={_} key={_} textValue={_}>
-                <MethodBadge method={_} size='lg' />
-              </ListBoxItem>
-            ))}
-          </SelectRHF>
-
-          <Separator className={tw`h-7`} orientation='vertical' />
-
-          <ReferenceFieldRHF
-            aria-label='URL'
-            className={tw`flex-1 border-none font-medium tracking-tight`}
-            control={form.control}
-            name='url'
-            onBlur={onSubmit}
-          />
-        </div>
+        {renderEndpointUrlForm}
 
         <Button
           className={tw`px-6`}
           onPress={async () => {
-            await onSubmit();
+            await submitEndpointUrlForm();
             await controller.fetch(ExampleRunEndpoint, transport, { exampleId });
           }}
           variant='primary'
@@ -489,7 +569,7 @@ export const EndpointForm = ({ endpointId, exampleId }: EndpointFormProps) => {
           Send
         </Button>
       </div>
-    </form>
+    </>
   );
 };
 
