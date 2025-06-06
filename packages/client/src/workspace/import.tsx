@@ -42,7 +42,7 @@ export const ImportDialog = () => {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>();
   const [filters, setFilters] = useState<string[]>();
-  const [selectedFilters, setSelectedFilters] = useState<Selection>(new Set());
+  const [selectedFilters, setSelectedFilters] = useState<Selection>('all');
 
   const isFilterSelected = selectedFilters === 'all' || selectedFilters.size > 0;
 
@@ -52,7 +52,7 @@ export const ImportDialog = () => {
     setText('');
     setFiles(undefined);
     setFilters(undefined);
-    setSelectedFilters(new Set());
+    setSelectedFilters('all');
   };
 
   const importUniversal = !filters && (
