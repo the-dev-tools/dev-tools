@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import { pipe } from 'effect';
 
 import { HeaderDeltaListItem, HeaderListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
@@ -15,6 +14,7 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GenericMessage } from '~api/utils';
+import { useQuery } from '~data-client';
 
 import {
   columnActionsCommon,
@@ -52,9 +52,7 @@ interface DisplayTableProps {
 }
 
 const DisplayTable = ({ exampleId }: DisplayTableProps) => {
-  const transport = useTransport();
-
-  const { items } = useSuspense(HeaderListEndpoint, transport, { exampleId });
+  const { items } = useQuery(HeaderListEndpoint, { exampleId });
 
   const table = useReactTable({
     columns: dataColumns,
@@ -69,16 +67,15 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items: GenericMessage<HeaderListItem>[] = useSuspense(HeaderListEndpoint, transport, { exampleId }).items;
+  const items: GenericMessage<HeaderListItem>[] = useQuery(HeaderListEndpoint, { exampleId }).items;
 
   const table = useReactTable({
     columns: [
       ...dataColumns,
       columnActionsCommon<GenericMessage<HeaderListItem>>({
-        onDelete: (_) => controller.fetch(HeaderDeltaDeleteEndpoint, transport, { headerId: _.headerId }),
+        onDelete: (_) => dataClient.fetch(HeaderDeltaDeleteEndpoint, { headerId: _.headerId }),
       }),
     ],
     data: items,
@@ -88,10 +85,10 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     createLabel: 'New header',
     items,
     onCreate: async () => {
-      await controller.fetch(HeaderCreateEndpoint, transport, { enabled: true, exampleId });
-      await controller.invalidateAll({ testKey: (_) => _.startsWith(HeaderDeltaListEndpoint.name) });
+      await dataClient.fetch(HeaderCreateEndpoint, { enabled: true, exampleId });
+      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(HeaderDeltaListEndpoint.name) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderUpdateEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -104,19 +101,17 @@ interface DeltaFormTableProps {
 }
 
 const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: DeltaFormTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items = pipe(
-    useSuspense(HeaderDeltaListEndpoint, transport, { exampleId, originId }).items,
-    (_: HeaderDeltaListItem[]) => makeDeltaItems(_, 'headerId'),
+  const items = pipe(useQuery(HeaderDeltaListEndpoint, { exampleId, originId }).items, (_: HeaderDeltaListItem[]) =>
+    makeDeltaItems(_, 'headerId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New header',
     items,
-    onCreate: () => controller.fetch(HeaderDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(HeaderDeltaUpdateEndpoint, transport, item),
+    onCreate: () => dataClient.fetch(HeaderDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -125,8 +120,8 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       columns={[
         ...dataColumns,
         columnActionsDeltaCommon<GenericMessage<HeaderDeltaListItem>>({
-          onDelete: (_) => controller.fetch(HeaderDeltaDeleteEndpoint, transport, { headerId: _.headerId }),
-          onReset: (_) => controller.fetch(HeaderDeltaResetEndpoint, transport, { headerId: _.headerId }),
+          onDelete: (_) => dataClient.fetch(HeaderDeltaDeleteEndpoint, { headerId: _.headerId }),
+          onReset: (_) => dataClient.fetch(HeaderDeltaResetEndpoint, { headerId: _.headerId }),
           source: (_) => _.source,
         }),
       ]}

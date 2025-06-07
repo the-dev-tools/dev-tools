@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
@@ -42,8 +41,7 @@ const JavaScriptNodeBody = (props: NodeProps) => (
 );
 
 export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { code } = js!;
   const { isReadOnly = false } = use(FlowContext);
@@ -75,7 +73,7 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
         className={tw`flex-1 overflow-auto`}
         extensions={extensions}
         height='100%'
-        onBlur={() => controller.fetch(NodeUpdateEndpoint, transport, { js: { code: value }, nodeId })}
+        onBlur={() => dataClient.fetch(NodeUpdateEndpoint, { js: { code: value }, nodeId })}
         onChange={setValue}
         readOnly={isReadOnly}
         value={value}

@@ -1,7 +1,5 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouteContext } from '@tanstack/react-router';
 import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { MenuTrigger } from 'react-aria-components';
@@ -21,17 +19,16 @@ import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useMutate } from '~data-client';
+import { useMutate, useQuery } from '~data-client';
 
 const makeRoute = createFileRoute('/_authorized/_dashboard/');
 
 export const Route = makeRoute({ component: Page });
 
 function Page() {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { items: workspaces } = useSuspense(WorkspaceListEndpoint, transport, {});
+  const { items: workspaces } = useQuery(WorkspaceListEndpoint, {});
 
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
@@ -47,7 +44,7 @@ function Page() {
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
           {/* <Button>View All Workspaces</Button> */}
           <Button
-            onPress={() => void controller.fetch(WorkspaceCreateEndpoint, transport, { name: 'New Workspace' })}
+            onPress={() => void dataClient.fetch(WorkspaceCreateEndpoint, { name: 'New Workspace' })}
             variant='primary'
           >
             Add Workspace
@@ -75,15 +72,14 @@ interface RowProps {
 }
 
 const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspaceUlid }: RowProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const [workspaceUpdate, workspaceUpdateLoading] = useMutate(WorkspaceUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => workspaceUpdate(transport, { name: _, workspaceId }),
+    onSuccess: (_) => workspaceUpdate({ name: _, workspaceId }),
     value: workspace.name,
   });
 
@@ -159,10 +155,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
 
         <Menu {...menuProps}>
           <MenuItem onAction={() => void edit()}>Rename</MenuItem>
-          <MenuItem
-            onAction={() => void controller.fetch(WorkspaceDeleteEndpoint, transport, { workspaceId })}
-            variant='danger'
-          >
+          <MenuItem onAction={() => void dataClient.fetch(WorkspaceDeleteEndpoint, { workspaceId })} variant='danger'>
             Delete
           </MenuItem>
         </Menu>

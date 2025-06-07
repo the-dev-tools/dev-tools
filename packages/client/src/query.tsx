@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import { pipe } from 'effect';
 
 import { QueryDeltaListItem, QueryListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
@@ -16,6 +15,7 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GenericMessage } from '~api/utils';
+import { useQuery } from '~data-client';
 
 import {
   columnActionsCommon,
@@ -53,9 +53,7 @@ interface DisplayTableProps {
 }
 
 const DisplayTable = ({ exampleId }: DisplayTableProps) => {
-  const transport = useTransport();
-
-  const { items } = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const { items } = useQuery(QueryListEndpoint, { exampleId });
 
   const table = useReactTable({
     columns: dataColumns,
@@ -70,19 +68,18 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items: GenericMessage<QueryListItem>[] = useSuspense(QueryListEndpoint, transport, { exampleId }).items;
+  const items: GenericMessage<QueryListItem>[] = useQuery(QueryListEndpoint, { exampleId }).items;
 
   const formTable = useFormTable({
     createLabel: 'New param',
     items,
     onCreate: async () => {
-      await controller.fetch(QueryCreateEndpoint, transport, { enabled: true, exampleId });
-      await controller.invalidateAll({ testKey: (_) => _.startsWith(QueryDeltaListEndpoint.name) });
+      await dataClient.fetch(QueryCreateEndpoint, { enabled: true, exampleId });
+      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(QueryDeltaListEndpoint.name) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(QueryUpdateEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(QueryUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -91,7 +88,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       columns={[
         ...dataColumns,
         columnActionsCommon<GenericMessage<QueryListItem>>({
-          onDelete: (_) => controller.fetch(QueryDeleteEndpoint, transport, { queryId: _.queryId }),
+          onDelete: (_) => dataClient.fetch(QueryDeleteEndpoint, { queryId: _.queryId }),
         }),
       ]}
       data={items}
@@ -107,19 +104,17 @@ interface DeltaFormTableProps {
 }
 
 const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: DeltaFormTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items = pipe(
-    useSuspense(QueryDeltaListEndpoint, transport, { exampleId, originId }).items,
-    (_: QueryDeltaListItem[]) => makeDeltaItems(_, 'queryId'),
+  const items = pipe(useQuery(QueryDeltaListEndpoint, { exampleId, originId }).items, (_: QueryDeltaListItem[]) =>
+    makeDeltaItems(_, 'queryId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New param',
     items,
-    onCreate: () => controller.fetch(QueryDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(QueryDeltaUpdateEndpoint, transport, item),
+    onCreate: () => dataClient.fetch(QueryDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(QueryDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -128,8 +123,8 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       columns={[
         ...dataColumns,
         columnActionsDeltaCommon<GenericMessage<QueryDeltaListItem>>({
-          onDelete: (_) => controller.fetch(QueryDeltaDeleteEndpoint, transport, { queryId: _.queryId }),
-          onReset: (_) => controller.fetch(QueryDeltaResetEndpoint, transport, { queryId: _.queryId }),
+          onDelete: (_) => dataClient.fetch(QueryDeltaDeleteEndpoint, { queryId: _.queryId }),
+          onReset: (_) => dataClient.fetch(QueryDeltaResetEndpoint, { queryId: _.queryId }),
           source: (_) => _.source,
         }),
       ]}

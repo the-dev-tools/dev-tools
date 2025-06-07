@@ -1,5 +1,3 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useSuspense } from '@data-client/react';
 import { createFileRoute } from '@tanstack/react-router';
 import { ReactFlowProvider } from '@xyflow/react';
 import { Ulid } from 'id128';
@@ -14,6 +12,7 @@ import { FlowVersionsEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endp
 import { Spinner } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useQuery } from '~data-client';
 
 import { EditPanel, Flow, TopBar } from './flow';
 import { FlowContext } from './internal';
@@ -23,12 +22,10 @@ const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$
 export const Route = makeRoute({ component: RouteComponent });
 
 function RouteComponent() {
-  const transport = useTransport();
-
   const { flowIdCan } = Route.useParams();
   const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
-  const { items } = useSuspense(FlowVersionsEndpoint, transport, { flowId });
+  const { items } = useQuery(FlowVersionsEndpoint, { flowId });
 
   const state = useTabListState({
     children: ({ flowId }) => (

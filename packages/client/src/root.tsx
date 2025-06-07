@@ -7,11 +7,13 @@ import { Runtime } from 'effect';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ToastRegion } from '@the-dev-tools/ui/toast';
 import { AuthTransport, MagicClient } from '~/api/auth';
+import { DataClient } from '~data-client';
 import { DevToolsProvider, ReactQueryDevTools, ReactScanDevTools, TanStackRouterDevTools } from '~dev-tools';
 
 import { ErrorComponent } from './error';
 
 export interface RouterContext {
+  dataClient: DataClient;
   queryClient: QueryClient;
   runtime: Runtime.Runtime<AuthTransport | KeyValueStore | MagicClient>;
   transport: Transport;

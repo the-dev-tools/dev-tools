@@ -1,6 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController } from '@data-client/react';
-import { createFileRoute, getRouteApi } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 
@@ -20,10 +18,8 @@ class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
 
 function Page() {
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { runtime } = workspaceRoute.useRouteContext();
 
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient, runtime } = useRouteContext({ from: '__root__' });
 
   return (
     <div className='p-4'>
@@ -40,7 +36,7 @@ function Page() {
               Schema.decode(InviteForm),
             );
 
-            void controller.fetch(WorkspaceMemberCreateEndpoint, transport, { email, workspaceId });
+            void dataClient.fetch(WorkspaceMemberCreateEndpoint, { email, workspaceId });
           }).pipe(Runtime.runPromise(runtime))
         }
       >

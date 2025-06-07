@@ -1,6 +1,5 @@
 import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import {
   ConnectionLineComponentProps,
   Edge as EdgeCore,
@@ -28,6 +27,7 @@ import {
   EdgeUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useQuery } from '~data-client';
 
 import { FlowContext } from './internal';
 
@@ -73,17 +73,16 @@ export const Edge = {
 };
 
 export const useMakeEdge = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId } = use(FlowContext);
 
   return useCallback(
     async (data: Omit<MessageInitShape<typeof EdgeListItemSchema>, keyof Message>) => {
-      const { edgeId } = await controller.fetch(EdgeCreateEndpoint, transport, { flowId, ...data });
+      const { edgeId } = await dataClient.fetch(EdgeCreateEndpoint, { flowId, ...data });
       return create(EdgeListItemSchema, { edgeId, ...data });
     },
-    [controller, flowId, transport],
+    [dataClient, flowId],
   );
 };
 
@@ -148,12 +147,11 @@ export const ConnectionLine = ({
 };
 
 export const useEdgeStateSynced = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId, isReadOnly = false } = use(FlowContext);
 
-  const { items: edgesServer } = useSuspense(EdgeListEndpoint, transport, { flowId });
+  const { items: edgesServer } = useQuery(EdgeListEndpoint, { flowId });
 
   const [edgesClient, setEdgesClient, onEdgesChange] = useEdgesState(edgesServer.map(Edge.fromDTO));
 
@@ -194,7 +192,7 @@ export const useEdgeStateSynced = () => {
       Array.filterMap(([_id, edge]) =>
         pipe(
           Option.liftPredicate(edge, (_) => !_.edgeId.length),
-          Option.map((edge) => controller.fetch(EdgeCreateEndpoint, transport, edge)),
+          Option.map((edge) => dataClient.fetch(EdgeCreateEndpoint, edge)),
         ),
       ),
       (_) => Promise.allSettled(_),
@@ -202,13 +200,13 @@ export const useEdgeStateSynced = () => {
 
     await pipe(
       changes['delete'] ?? [],
-      Array.map(([_id, edge]) => controller.fetch(EdgeDeleteEndpoint, transport, edge)),
+      Array.map(([_id, edge]) => dataClient.fetch(EdgeDeleteEndpoint, edge)),
       (_) => Promise.allSettled(_),
     );
 
     await pipe(
       changes['update'] ?? [],
-      Array.map(([_id, edge]) => controller.fetch(EdgeUpdateEndpoint, transport, edge)),
+      Array.map(([_id, edge]) => dataClient.fetch(EdgeUpdateEndpoint, edge)),
       (_) => Promise.allSettled(_),
     );
   }, 500);

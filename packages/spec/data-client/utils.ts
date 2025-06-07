@@ -1,5 +1,5 @@
 import { create, DescMessage, DescMethodUnary, MessageInitShape, MessageShape, toJson } from '@bufbuild/protobuf';
-import { Transport } from '@connectrpc/connect';
+import { ContextValues, Transport } from '@connectrpc/connect';
 import { EntityMixin } from '@data-client/endpoint';
 import { Option, pipe, Predicate, Record, Struct } from 'effect';
 
@@ -47,11 +47,11 @@ export const createMethodKey = <I extends DescMessage, O extends DescMessage>(
   return JSON.stringify([transportKey, inputKey]);
 };
 
-export const createMethodKeyRecord = <I extends DescMessage, O extends DescMessage>(
+export const createMethodKeyRecord = <M extends DescMethodUnary>(
   transport: Transport,
-  method: DescMethodUnary<I, O>,
-  input: MessageInitShape<I>,
-  inputPrimaryKeys?: (keyof MessageShape<I>)[],
+  method: M,
+  input: MessageInitShape<M['input']>,
+  inputPrimaryKeys?: (keyof MessageShape<M['input']>)[],
 ) =>
   pipe(
     createMessageKey(method.input, input),
@@ -66,11 +66,26 @@ export const createMethodKeyRecord = <I extends DescMessage, O extends DescMessa
     Record.map((_) => `${_}`),
   );
 
-export const fetchMethod = async <I extends DescMessage, O extends DescMessage>(
-  transport: Transport,
-  method: DescMethodUnary<I, O>,
-  input: MessageInitShape<I>,
-) => {
-  const response = await transport.unary(method, undefined, undefined, undefined, input);
-  return response.message;
-};
+export interface EndpointProps<M extends DescMethodUnary, N = Record<string, unknown>> {
+  contextValues?: ContextValues;
+  header?: HeadersInit;
+  input: MessageInitShape<M['input']> & N;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  transport: Transport;
+}
+
+export const makeEndpointFn =
+  <M extends DescMethodUnary>(method: M) =>
+  async ({ contextValues, header, input, signal, timeoutMs, transport }: EndpointProps<M>) => {
+    const response = await transport.unary(method, signal, timeoutMs, header, input, contextValues);
+    return response.message as MessageShape<M['output']>;
+  };
+
+export const makeKey =
+  <M extends DescMethodUnary>(method: M, name: string) =>
+  ({ input, transport }: EndpointProps<M>) => {
+    const transportKey = createTransportKey(transport);
+    const inputKey = createMessageKey(method.input, input);
+    return JSON.stringify([name, transportKey, inputKey]);
+  };

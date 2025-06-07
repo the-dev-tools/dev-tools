@@ -9,7 +9,8 @@
   ],
   "exports": {
     "./*": "./dist/buf/typescript/*.ts",
-    "./meta/*": "./dist/meta/*"
+    "./meta/*": "./dist/meta/*",
+    "./data-client/*": "./data-client/*.ts"
   },
   "dependencies": {
     "@connectrpc/connect": "2.0.2",

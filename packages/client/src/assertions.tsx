@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import { Struct } from 'effect';
 import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -14,6 +13,7 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useQuery } from '~data-client';
 
 import { ConditionField } from './condition';
 
@@ -23,19 +23,16 @@ interface AssertionViewProps {
 }
 
 export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { items } = useSuspense(AssertListEndpoint, transport, { exampleId });
+  const { items } = useQuery(AssertListEndpoint, { exampleId });
 
   const form = useForm({ values: { items } });
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
   const assertUpdateCallback = useDebouncedCallback(
     form.handleSubmit(async ({ items }) => {
-      const updates = items.map((_) =>
-        controller.fetch(AssertUpdateEndpoint, transport, { ...Struct.omit(_, '$typeName') }),
-      );
+      const updates = items.map((_) => dataClient.fetch(AssertUpdateEndpoint, { ...Struct.omit(_, '$typeName') }));
       await Promise.allSettled(updates);
     }),
     500,
@@ -61,7 +58,7 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
           />
           <Button
             className={tw`h-8 text-red-700`}
-            onPress={() => void controller.fetch(AssertDeleteEndpoint, transport, { assertId: item.assertId })}
+            onPress={() => void dataClient.fetch(AssertDeleteEndpoint, { assertId: item.assertId })}
             variant='secondary'
           >
             <LuTrash2 />
@@ -70,9 +67,7 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
       ))}
 
       {!isReadOnly && (
-        <Button onPress={() => void controller.fetch(AssertCreateEndpoint, transport, { exampleId })}>
-          New Assertion
-        </Button>
+        <Button onPress={() => void dataClient.fetch(AssertCreateEndpoint, { exampleId })}>New Assertion</Button>
       )}
     </div>
   );

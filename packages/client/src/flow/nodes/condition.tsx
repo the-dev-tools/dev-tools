@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
@@ -11,6 +10,7 @@ import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/fl
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useQuery } from '~data-client';
 
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
@@ -43,11 +43,9 @@ export const ConditionNode = (props: NodeProps) => (
 );
 
 const ConditionNodeBody = (props: NodeProps) => {
-  const transport = useTransport();
-
   const nodeId = Ulid.fromCanonical(props.id).bytes;
 
-  const { condition } = useSuspense(NodeGetEndpoint, transport, { nodeId });
+  const { condition } = useQuery(NodeGetEndpoint, { nodeId });
 
   return (
     <NodeBody {...props} Icon={IfIcon}>
@@ -74,15 +72,14 @@ const ConditionNodeBody = (props: NodeProps) => {
 };
 
 export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { control, handleSubmit, watch } = useForm({ values: condition! });
   const { isReadOnly = false } = use(FlowContext);
 
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (condition) => {
-      await controller.fetch(NodeUpdateEndpoint, transport, { condition, nodeId });
+      await dataClient.fetch(NodeUpdateEndpoint, { condition, nodeId });
     })();
   }, 200);
 

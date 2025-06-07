@@ -1,39 +1,33 @@
-import { DescMessage, DescMethodUnary, MessageInitShape, MessageShape } from '@bufbuild/protobuf';
-import { Transport } from '@connectrpc/connect';
+import { DescMethodUnary, MessageShape } from '@bufbuild/protobuf';
 import { Endpoint, EntityMap, schema, Schema } from '@data-client/endpoint';
 import { Equivalence, Record } from 'effect';
 
-import { createMethodKey, createMethodKeyRecord, fetchMethod } from './utils';
+import { createMethodKeyRecord, EndpointProps, makeEndpointFn, makeKey } from './utils';
 
-export interface EndpointProps<I extends DescMessage, O extends DescMessage> {
-  method: DescMethodUnary<I, O>;
+export interface MakeEndpointProps<M extends DescMethodUnary> {
+  method: M;
   name: string;
 }
 
-interface ListProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
-  inputPrimaryKeys: (keyof MessageShape<I>)[];
+interface ListProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
+  inputPrimaryKeys: (keyof MessageShape<M['input']>)[];
   itemSchema: S;
 }
 
-export const list = <I extends DescMessage, O extends DescMessage, S extends Schema>({
+export const list = <M extends DescMethodUnary, S extends Schema>({
   inputPrimaryKeys,
   itemSchema,
   method,
   name,
-}: ListProps<I, O, S>) => {
-  const fetchFunction = (transport: Transport, input: MessageInitShape<I>) => fetchMethod(transport, method, input);
-
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    [name, createMethodKey(transport, method, input)].join(' ');
-
-  const argsKey = (...args: [null] | Parameters<typeof fetchFunction>) => {
-    if (args[0] === null) return {};
-    const [transport, input] = args;
+}: ListProps<M, S>) => {
+  const argsKey = (props: EndpointProps<M> | null) => {
+    if (props === null) return {};
+    const { input, transport } = props;
     return createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
   };
 
   const createCollectionFilter =
-    (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    ({ input, transport }: EndpointProps<M>) =>
     (collectionKey: Record<string, string>) => {
       const argsKey = createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
       const compare = Record.getEquivalence(Equivalence.string);
@@ -42,47 +36,42 @@ export const list = <I extends DescMessage, O extends DescMessage, S extends Sch
 
   const items = new schema.Collection([itemSchema], { argsKey, createCollectionFilter });
 
-  return new Endpoint(fetchFunction, { key, name, schema: { items } });
+  return new Endpoint(makeEndpointFn(method), {
+    key: makeKey(method, name),
+    name,
+    schema: { items },
+  });
 };
 
-interface GetProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
+interface GetProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
   schema: S;
 }
 
-export const get = <I extends DescMessage, O extends DescMessage, S extends Schema>({
-  method,
-  name,
-  schema,
-}: GetProps<I, O, S>) => {
-  const fetchFunction = (transport: Transport, input: MessageInitShape<I>) => fetchMethod(transport, method, input);
+export const get = <M extends DescMethodUnary, S extends Schema>({ method, name, schema }: GetProps<M, S>) =>
+  new Endpoint(makeEndpointFn(method), {
+    key: makeKey(method, name),
+    name,
+    schema,
+  });
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    [name, createMethodKey(transport, method, input)].join(' ');
-
-  return new Endpoint(fetchFunction, { key, name, schema });
-};
-
-interface CreateProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
-  listInputPrimaryKeys: (keyof MessageShape<I>)[];
+interface CreateProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
+  listInputPrimaryKeys: (keyof MessageShape<M['input']>)[];
   listItemSchema: S;
 }
 
-export const create = <I extends DescMessage, O extends DescMessage, S extends Schema>({
+export const create = <M extends DescMethodUnary, S extends Schema>({
   listInputPrimaryKeys,
   listItemSchema,
   method,
   name,
-}: CreateProps<I, O, S>) => {
-  const fetchFunction = async (transport: Transport, input: MessageInitShape<I>) => {
-    const output = await fetchMethod(transport, method, input);
-    return { ...input, ...output };
+}: CreateProps<M, S>) => {
+  const endpointFn = async (props: EndpointProps<M>) => {
+    const output = await makeEndpointFn(method)(props);
+    return { ...props.input, ...output };
   };
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    [name, createMethodKey(transport, method, input)].join(' ');
-
   const createCollectionFilter =
-    (...[transport, input]: Parameters<typeof fetchFunction>) =>
+    ({ input, transport }: EndpointProps<M>) =>
     (collectionKey: Record<string, string>) => {
       const argsKey = createMethodKeyRecord(transport, method, input, listInputPrimaryKeys);
       const compare = Record.getEquivalence(Equivalence.string);
@@ -91,52 +80,50 @@ export const create = <I extends DescMessage, O extends DescMessage, S extends S
 
   const list = new schema.Collection([listItemSchema], { createCollectionFilter });
 
-  return new Endpoint(fetchFunction, { key, name, schema: list.push, sideEffect: true });
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: list.push,
+    sideEffect: true,
+  });
 };
 
-export interface UpdateProps<I extends DescMessage, O extends DescMessage, S extends Schema>
-  extends EndpointProps<I, O> {
+export interface UpdateProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
   schema: S;
 }
 
-export const update = <I extends DescMessage, O extends DescMessage, S extends Schema>({
-  method,
-  name,
-  schema,
-}: UpdateProps<I, O, S>) => {
-  const fetchFunction = async (transport: Transport, input: MessageInitShape<I>) => {
-    await fetchMethod(transport, method, input);
-    return input;
+export const update = <M extends DescMethodUnary, S extends Schema>({ method, name, schema }: UpdateProps<M, S>) => {
+  const endpointFn = async (props: EndpointProps<M>) => {
+    await makeEndpointFn(method)(props);
+    return props.input;
   };
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    [name, createMethodKey(transport, method, input)].join(' ');
-
-  return new Endpoint(fetchFunction, { key, name, schema, sideEffect: true });
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema,
+    sideEffect: true,
+  });
 };
 
-interface DeleteProps<I extends DescMessage, O extends DescMessage, S extends Schema> extends EndpointProps<I, O> {
+interface DeleteProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
   schema: S;
 }
 
-export const delete$ = <
-  I extends DescMessage,
-  O extends DescMessage,
-  S extends EntityMap[string] & { process: unknown },
->({
+export const delete$ = <M extends DescMethodUnary, S extends EntityMap[string] & { process: unknown }>({
   method,
   name,
   schema: entitySchema,
-}: DeleteProps<I, O, S>) => {
-  const fetchFunction = async (transport: Transport, input: MessageInitShape<I>) => {
-    await fetchMethod(transport, method, input);
-    return input;
+}: DeleteProps<M, S>) => {
+  const endpointFn = async (props: EndpointProps<M>) => {
+    await makeEndpointFn(method)(props);
+    return props.input;
   };
 
-  const key = (...[transport, input]: Parameters<typeof fetchFunction>) =>
-    [name, createMethodKey(transport, method, input)].join(' ');
-
-  const invalidate = new schema.Invalidate(entitySchema);
-
-  return new Endpoint(fetchFunction, { key, name, schema: invalidate, sideEffect: true });
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: new schema.Invalidate(entitySchema),
+    sideEffect: true,
+  });
 };

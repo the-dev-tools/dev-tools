@@ -1,7 +1,7 @@
 import { scan } from 'react-scan';
 //* React Scan must be instantiated first
 import { TransportProvider } from '@connectrpc/connect-query';
-import { DataProvider, getDefaultManagers } from '@data-client/react';
+import { DataProvider, getDefaultManagers, useController } from '@data-client/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createBrowserHistory,
@@ -19,6 +19,7 @@ import { createRoot } from 'react-dom/client';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { LocalMode } from '~/api/local';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
+import { makeDataClient } from '~data-client';
 
 import { RouterContext } from './root';
 import './styles.css';
@@ -64,6 +65,16 @@ export const ApiErrorHandlerLive = Layer.succeed(
   (error) => void toastQueue.add({ title: error.message }),
 );
 
+interface RootProps extends Omit<RouterContext, 'dataClient'> {
+  router: Effect.Effect.Success<typeof makeRouter>;
+}
+
+const Root = ({ router, transport, ...context }: RootProps) => {
+  const controller = useController();
+  const dataClient = makeDataClient({ controller, transport });
+  return <RouterProvider context={{ ...context, dataClient, transport }} router={router} />;
+};
+
 export const app = Effect.gen(function* () {
   const runtime = yield* Effect.runtime<RouterContext['runtime'] extends Runtime.Runtime<infer R> ? R : never>();
 
@@ -76,7 +87,7 @@ export const app = Effect.gen(function* () {
   const router = yield* makeRouter;
 
   pipe(
-    <RouterProvider context={{ queryClient, runtime, transport }} router={router} />,
+    <Root {...{ queryClient, router, runtime, transport }} />,
     (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
     (_) => (
       <AriaRouterProvider

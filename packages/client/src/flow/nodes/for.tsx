@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -64,15 +63,14 @@ const ForNodeBody = (props: NodeProps) => {
 };
 
 export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { control, handleSubmit, watch } = useForm({ values: data! });
   const { isReadOnly = false } = use(FlowContext);
 
   const update = useDebouncedCallback(async () => {
     await handleSubmit(async (data) => {
-      await controller.fetch(NodeUpdateEndpoint, transport, { for: data, nodeId });
+      await dataClient.fetch(NodeUpdateEndpoint, { for: data, nodeId });
     })();
   }, 200);
 

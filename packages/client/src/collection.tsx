@@ -1,7 +1,7 @@
 import { MessageInitShape } from '@bufbuild/protobuf';
 import { useTransport } from '@connectrpc/connect-query';
-import { useController, useDLE, useSuspense } from '@data-client/react';
-import { getRouteApi, ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { useDLE } from '@data-client/react';
+import { getRouteApi, ToOptions, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useRef, useState } from 'react';
@@ -53,7 +53,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
-import { useMutate } from '~data-client';
+import { useMutate, useQuery } from '~data-client';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -77,11 +77,9 @@ interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'conta
 }
 
 export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
-  const transport = useTransport();
-
   const { workspaceId } = workspaceRoute.useLoaderData();
 
-  const { items: collections } = useSuspense(CollectionListEndpoint, transport, { workspaceId });
+  const { items: collections } = useQuery(CollectionListEndpoint, { workspaceId });
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -118,7 +116,7 @@ interface CollectionTreeProps {
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
@@ -128,7 +126,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const {
     data: { items },
     loading,
-  } = useDLE(CollectionItemListEndpoint, ...(enabled ? [transport, { collectionId }] : [null]));
+  } = useDLE(CollectionItemListEndpoint, ...(enabled ? [{ input: { collectionId }, transport }] : [null]));
   const [collectionUpdate, collectionUpdateLoading] = useMutate(CollectionUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -136,7 +134,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => collectionUpdate(transport, { collectionId, name: _ }),
+    onSuccess: (_) => collectionUpdate({ collectionId, name: _ }),
     value: collection.name,
   });
 
@@ -175,24 +173,15 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem
-              onAction={() =>
-                controller.fetch(EndpointCreateEndpoint, transport, { collectionId, name: 'New API call' })
-              }
-            >
+            <MenuItem onAction={() => dataClient.fetch(EndpointCreateEndpoint, { collectionId, name: 'New API call' })}>
               Add Request
             </MenuItem>
 
-            <MenuItem
-              onAction={() => controller.fetch(FolderCreateEndpoint, transport, { collectionId, name: 'New folder' })}
-            >
+            <MenuItem onAction={() => dataClient.fetch(FolderCreateEndpoint, { collectionId, name: 'New folder' })}>
               Add Folder
             </MenuItem>
 
-            <MenuItem
-              onAction={() => controller.fetch(CollectionDeleteEndpoint, transport, { collectionId })}
-              variant='danger'
-            >
+            <MenuItem onAction={() => dataClient.fetch(CollectionDeleteEndpoint, { collectionId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>
@@ -236,7 +225,7 @@ interface FolderTreeProps {
 
 const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolderId }: FolderTreeProps) => {
   const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
@@ -247,7 +236,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
     loading,
   } = useDLE(
     CollectionItemListEndpoint,
-    ...(enabled ? [transport, { collectionId, parentFolderId: folderId }] : [null]),
+    ...(enabled ? [{ transport, input: { collectionId, parentFolderId: folderId } }] : [null]),
   );
 
   const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
@@ -258,7 +247,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) =>
-      folderUpdate(transport, {
+      folderUpdate({
         folderId,
         name: _,
         parentFolderId: parentFolderId!,
@@ -311,7 +300,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
                 <MenuItem
                   onAction={() =>
-                    controller.fetch(EndpointCreateEndpoint, transport, {
+                    dataClient.fetch(EndpointCreateEndpoint, {
                       collectionId,
                       name: 'New API call',
                       parentFolderId: folderId,
@@ -323,7 +312,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
                 <MenuItem
                   onAction={() =>
-                    controller.fetch(FolderCreateEndpoint, transport, {
+                    dataClient.fetch(FolderCreateEndpoint, {
                       collectionId,
                       name: 'New folder',
                       parentFolderId: folderId,
@@ -333,10 +322,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                   Add Folder
                 </MenuItem>
 
-                <MenuItem
-                  onAction={() => controller.fetch(FolderDeleteEndpoint, transport, { folderId })}
-                  variant='danger'
-                >
+                <MenuItem onAction={() => dataClient.fetch(FolderDeleteEndpoint, { folderId })} variant='danger'>
                   Delete
                 </MenuItem>
               </Menu>
@@ -358,7 +344,7 @@ interface EndpointTreeProps {
 
 const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, parentFolderId }: EndpointTreeProps) => {
   const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { endpointId, method, name } = endpoint;
   const { exampleId, lastResponseId } = example;
@@ -379,7 +365,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   const {
     data: { items },
     loading,
-  } = useDLE(ExampleListEndpoint, ...(enabled ? [transport, { endpointId }] : [null]));
+  } = useDLE(ExampleListEndpoint, ...(enabled ? [{ transport, input: { endpointId } }] : [null]));
 
   const [endpointUpdate, endpointUpdateLoading] = useMutate(EndpointUpdateEndpoint);
 
@@ -391,7 +377,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => endpointUpdate(transport, { endpointId, name: _ }),
+    onSuccess: (_) => endpointUpdate({ endpointId, name: _ }),
     value: endpoint.name,
   });
 
@@ -445,7 +431,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
             <MenuItem
               onAction={() =>
-                controller.fetch(ExampleCreateEndpoint, transport, {
+                dataClient.fetch(ExampleCreateEndpoint, {
                   endpointId,
                   name: 'New Example',
                 })
@@ -458,7 +444,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
               onAction={() => {
                 const input: MessageInitShape<typeof EndpointCreateRequestSchema> = { collectionId, endpointId };
                 if (parentFolderId) input.parentFolderId = parentFolderId;
-                return controller.fetch(EndpointDuplicateEndpoint, transport, input);
+                return dataClient.fetch(EndpointDuplicateEndpoint, input);
               }}
             >
               Duplicate
@@ -475,7 +461,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
             <MenuItem
               onAction={async () => {
-                await controller.fetch(EndpointDeleteEndpoint, transport, { endpointId });
+                await dataClient.fetch(EndpointDeleteEndpoint, { endpointId });
                 if (
                   !matchRoute({
                     params: { endpointIdCan },
@@ -504,8 +490,7 @@ interface ExampleItemProps {
 }
 
 const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: ExampleItemProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { exampleId, lastResponseId, name } = example;
 
@@ -530,7 +515,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   const escape = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => exampleUpdate(transport, { exampleId, name: _ }),
+    onSuccess: (_) => exampleUpdate({ exampleId, name: _ }),
     value: name,
   });
 
@@ -574,9 +559,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => controller.fetch(ExampleDuplicateEndpoint, transport, { exampleId })}>
-              Duplicate
-            </MenuItem>
+            <MenuItem onAction={() => dataClient.fetch(ExampleDuplicateEndpoint, { exampleId })}>Duplicate</MenuItem>
 
             <MenuItem
               onAction={async () => {
@@ -589,7 +572,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
             <MenuItem
               onAction={async () => {
-                await controller.fetch(ExampleDeleteEndpoint, transport, { exampleId });
+                await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
                 if (
                   !matchRoute({
                     params: { exampleIdCan },

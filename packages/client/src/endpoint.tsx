@@ -1,7 +1,5 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
-import { QueryErrorResetBoundary, useQuery } from '@tanstack/react-query';
-import { createFileRoute, getRouteApi, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { QueryErrorResetBoundary, useQuery as useReactQuery } from '@tanstack/react-query';
+import { createFileRoute, getRouteApi, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String, Struct } from 'effect';
@@ -65,7 +63,7 @@ import {
   CodeMirrorMarkupLanguages,
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
-import { useMutate } from '~data-client';
+import { useMutate, useQuery } from '~data-client';
 
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
@@ -142,9 +140,7 @@ interface EndpointRequestViewProps {
 }
 
 export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isReadOnly }: EndpointRequestViewProps) => {
-  const transport = useTransport();
-
-  const { assertCount, bodyCount, headerCount, queryCount } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const { assertCount, bodyCount, headerCount, queryCount } = useQuery(ExampleGetEndpoint, { exampleId });
 
   return (
     <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
@@ -259,20 +255,15 @@ interface UseEndpointUrlProps {
 }
 
 export const useEndpointUrl = ({ deltaEndpointId, deltaExampleId, endpointId, exampleId }: UseEndpointUrlProps) => {
-  const transport = useTransport();
-
   // TODO: fetch in parallel
-  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const queryList = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
+  const queryList = useQuery(QueryListEndpoint, { exampleId });
 
-  const deltaEndpoint = useSuspense(
-    EndpointGetEndpoint,
-    ...(deltaEndpointId ? [transport, { endpointId: deltaEndpointId }] : [null]),
-  );
+  const deltaEndpoint = useQuery(EndpointGetEndpoint, deltaEndpointId ? { endpointId: deltaEndpointId } : null);
 
-  const deltaQueryList = useSuspense(
+  const deltaQueryList = useQuery(
     QueryDeltaListEndpoint,
-    ...(deltaExampleId ? [transport, { exampleId: deltaExampleId, originId: exampleId }] : [null]),
+    deltaExampleId ? { exampleId: deltaExampleId, originId: exampleId } : null,
   );
 
   let url = deltaEndpoint?.url ?? endpoint.url;
@@ -298,21 +289,17 @@ export const useEndpointUrlForm = ({
   endpointId,
   exampleId,
 }: UseEndpointUrlFormProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   // TODO: fetch in parallel
-  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const queryList = useSuspense(QueryListEndpoint, transport, { exampleId });
+  const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
+  const queryList = useQuery(QueryListEndpoint, { exampleId });
 
-  const deltaEndpoint = useSuspense(
-    EndpointGetEndpoint,
-    ...(deltaEndpointId ? [transport, { endpointId: deltaEndpointId }] : [null]),
-  );
+  const deltaEndpoint = useQuery(EndpointGetEndpoint, deltaEndpointId ? { endpointId: deltaEndpointId } : null);
 
-  const deltaQueryList = useSuspense(
+  const deltaQueryList = useQuery(
     QueryDeltaListEndpoint,
-    ...(deltaExampleId ? [transport, { exampleId: deltaExampleId, originId: exampleId }] : [null]),
+    deltaExampleId ? { exampleId: deltaExampleId, originId: exampleId } : null,
   );
 
   const method = deltaEndpoint?.method ?? endpoint.method;
@@ -333,9 +320,9 @@ export const useEndpointUrlForm = ({
     );
 
     if (deltaEndpointId) {
-      await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId: deltaEndpointId, url });
+      await dataClient.fetch(EndpointUpdateEndpoint, { endpointId: deltaEndpointId, url });
     } else {
-      await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, url });
+      await dataClient.fetch(EndpointUpdateEndpoint, { endpointId, url });
     }
 
     type Change = { key: string; value: string } & (
@@ -376,7 +363,7 @@ export const useEndpointUrlForm = ({
         if (change.isNew) {
           const { key, value } = change;
           if (deltaExampleId) {
-            await controller.fetch(QueryDeltaCreateEndpoint, transport, {
+            await dataClient.fetch(QueryDeltaCreateEndpoint, {
               enabled: true,
               exampleId: deltaExampleId,
               key,
@@ -384,12 +371,12 @@ export const useEndpointUrlForm = ({
               value,
             });
           } else {
-            await controller.fetch(QueryCreateEndpoint, transport, { enabled: true, exampleId, key, value });
+            await dataClient.fetch(QueryCreateEndpoint, { enabled: true, exampleId, key, value });
           }
         } else {
           const { enabled, key, queryId, source, value } = change;
           if (deltaExampleId) {
-            await controller.fetch(QueryDeltaUpdateEndpoint, transport, {
+            await dataClient.fetch(QueryDeltaUpdateEndpoint, {
               enabled,
               key,
               queryId,
@@ -397,7 +384,7 @@ export const useEndpointUrlForm = ({
               value,
             });
           } else {
-            await controller.fetch(QueryUpdateEndpoint, transport, { enabled, queryId });
+            await dataClient.fetch(QueryUpdateEndpoint, { enabled, queryId });
           }
         }
       }),
@@ -413,9 +400,9 @@ export const useEndpointUrlForm = ({
           if (typeof method !== 'string') return;
 
           if (deltaEndpointId) {
-            await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId: deltaEndpointId, method });
+            await dataClient.fetch(EndpointUpdateEndpoint, { endpointId: deltaEndpointId, method });
           } else {
-            await controller.fetch(EndpointUpdateEndpoint, transport, { endpointId, method });
+            await dataClient.fetch(EndpointUpdateEndpoint, { endpointId, method });
           }
         }}
         selectedKey={method}
@@ -449,20 +436,19 @@ interface EndpointHeaderProps {
 }
 
 export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
 
-  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const example = useQuery(ExampleGetEndpoint, { exampleId });
 
   const [exampleUpdate, exampleUpdateLoading] = useMutate(ExampleUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => exampleUpdate(transport, { exampleId, name: _ }),
+    onSuccess: (_) => exampleUpdate({ exampleId, name: _ }),
     value: example.name,
   });
 
@@ -525,9 +511,7 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
           </Button>
 
           <Menu {...menuProps}>
-            <MenuItem
-              onAction={() => controller.fetch(ExampleCreateEndpoint, transport, { endpointId, name: 'New Example' })}
-            >
+            <MenuItem onAction={() => dataClient.fetch(ExampleCreateEndpoint, { endpointId, name: 'New Example' })}>
               Add example
             </MenuItem>
 
@@ -537,7 +521,7 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
 
             <MenuItem
               onAction={async () => {
-                await controller.fetch(ExampleDeleteEndpoint, transport, { exampleId });
+                await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
                 if (
                   !matchRoute({
                     params: { endpointIdCan: Ulid.construct(endpointId).toCanonical() },
@@ -562,7 +546,7 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
           className={tw`px-6`}
           onPress={async () => {
             await submitEndpointUrlForm();
-            await controller.fetch(ExampleRunEndpoint, transport, { exampleId });
+            await dataClient.fetch(ExampleRunEndpoint, { exampleId });
           }}
           variant='primary'
         >
@@ -579,9 +563,7 @@ interface HistoryModalProps {
 }
 
 const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
-  const transport = useTransport();
-
-  const { items: versions } = useSuspense(ExampleVersionsEndpoint, transport, { exampleId });
+  const { items: versions } = useQuery(ExampleVersionsEndpoint, { exampleId });
 
   return (
     <Modal isDismissable modalSize='lg'>
@@ -664,9 +646,7 @@ interface ExampleVersionsViewProps {
 }
 
 const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }: ExampleVersionsViewProps) => {
-  const transport = useTransport();
-
-  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
+  const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
 
   const url = useEndpointUrl({ endpointId, exampleId });
 
@@ -695,10 +675,9 @@ const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }
 };
 
 const ResponsePanel = () => {
-  const transport = useTransport();
   const { exampleId } = Route.useLoaderData();
 
-  const { lastResponseId } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const { lastResponseId } = useQuery(ExampleGetEndpoint, { exampleId });
 
   if (!lastResponseId) return null;
 
@@ -727,9 +706,7 @@ interface ResponseTabsProps {
 }
 
 export const ResponseTabs = ({ className, fullWidth = false, responseId }: ResponseTabsProps) => {
-  const transport = useTransport();
-
-  const { assertCount, body, duration, headerCount, size, status } = useSuspense(ResponseGetEndpoint, transport, {
+  const { assertCount, body, duration, headerCount, size, status } = useQuery(ResponseGetEndpoint, {
     responseId,
   });
 
@@ -931,7 +908,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
 
   const [language, setLanguage] = useState(initialLanguage);
 
-  const { data: prettierBody } = useQuery({
+  const { data: prettierBody } = useReactQuery({
     initialData: 'Formatting...',
     queryFn: async () => {
       if (language === 'text') return body;
@@ -1000,9 +977,7 @@ interface ResponseHeaderTableProps {
 }
 
 const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
-  const transport = useTransport();
-
-  const { items } = useSuspense(ResponseHeaderListEndpoint, transport, { responseId });
+  const { items } = useQuery(ResponseHeaderListEndpoint, { responseId });
 
   const columns = useMemo(() => {
     const { accessor } = createColumnHelper<ResponseHeaderListItem>();
@@ -1022,9 +997,7 @@ interface ResponseAssertTableProps {
 }
 
 const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
-  const transport = useTransport();
-
-  const { items } = useSuspense(ResponseAssertListEndpoint, transport, { responseId });
+  const { items } = useQuery(ResponseAssertListEndpoint, { responseId });
 
   return (
     <div className={tw`grid grid-cols-[auto_1fr] items-center gap-2 text-sm`}>

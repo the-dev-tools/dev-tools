@@ -1,6 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
-import { createFileRoute, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
@@ -29,7 +27,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
-import { useMutate } from '~data-client';
+import { useMutate, useQuery } from '~data-client';
 
 import { DashboardLayout } from '../authorized';
 import { CollectionListTree } from '../collection';
@@ -52,13 +50,12 @@ export const Route = makeRoute({
 });
 
 function Layout() {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
 
-  const workspace = useSuspense(WorkspaceGetEndpoint, transport, { workspaceId });
+  const workspace = useQuery(WorkspaceGetEndpoint, { workspaceId });
 
   return (
     <DashboardLayout
@@ -127,9 +124,7 @@ function Layout() {
               <TooltipTrigger delay={750}>
                 <Button
                   className={tw`bg-slate-200 p-0.5`}
-                  onPress={() =>
-                    controller.fetch(CollectionCreateEndpoint, transport, { name: 'New collection', workspaceId })
-                  }
+                  onPress={() => dataClient.fetch(CollectionCreateEndpoint, { name: 'New collection', workspaceId })}
                   variant='ghost'
                 >
                   <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
@@ -162,12 +157,11 @@ function Layout() {
 }
 
 const FlowList = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = Route.useLoaderData();
 
-  const { items: flows } = useSuspense(FlowListEndpoint, transport, { workspaceId });
+  const { items: flows } = useQuery(FlowListEndpoint, { workspaceId });
 
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -180,7 +174,7 @@ const FlowList = () => {
         <TooltipTrigger delay={750}>
           <Button
             className={tw`bg-slate-200 p-0.5`}
-            onPress={() => controller.fetch(FlowCreateEndpoint, transport, { name: 'New flow', workspaceId })}
+            onPress={() => dataClient.fetch(FlowCreateEndpoint, { name: 'New flow', workspaceId })}
             variant='ghost'
           >
             <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
@@ -208,8 +202,7 @@ interface FlowItemProps {
 }
 
 const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { workspaceIdCan } = Route.useParams();
   const { workspaceId } = Route.useLoaderData();
@@ -227,7 +220,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
   const escape = useEscapePortal(listRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => flowUpdate(transport, { flowId, name: _ }),
+    onSuccess: (_) => flowUpdate({ flowId, name: _ }),
     value: name,
   });
 
@@ -274,7 +267,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
 
             <MenuItem
               onAction={async () => {
-                await controller.fetch(FlowDeleteEndpoint, transport, { flowId });
+                await dataClient.fetch(FlowDeleteEndpoint, { flowId });
                 if (!matchRoute({ params: { flowIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' })) return;
                 await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
               }}

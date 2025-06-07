@@ -1,6 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController } from '@data-client/react';
-import { getRouteApi } from '@tanstack/react-router';
+import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Array, Option, pipe } from 'effect';
 import { useState } from 'react';
 import {
@@ -33,8 +31,7 @@ import { TextField } from '@the-dev-tools/ui/text-field';
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const ImportDialog = () => {
-  const controller = useController();
-  const transport = useTransport();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
@@ -88,7 +85,7 @@ export const ImportDialog = () => {
     <Button
       isDisabled={!files?.length && !text}
       onPress={async () => {
-        const result = await controller.fetch(ImportEndpoint, transport, {
+        const result = await dataClient.fetch(ImportEndpoint, {
           data: (await data) ?? new Uint8Array(),
           name: file?.name ?? '',
           textData: text,
@@ -158,7 +155,7 @@ export const ImportDialog = () => {
                 Array.filterMap((_) => Option.fromNullable(filters[_ as number])),
               );
 
-        await controller.fetch(ImportEndpoint, transport, {
+        await dataClient.fetch(ImportEndpoint, {
           data: (await data) ?? new Uint8Array(),
           filter: finalFilters,
           kind: ImportKind.FILTER,

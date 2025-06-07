@@ -1,6 +1,5 @@
 import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import {
   getConnectedEdges,
   Node as NodeCore,
@@ -41,7 +40,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useMutate } from '~data-client';
+import { useMutate, useQuery } from '~data-client';
 
 import { FlowContext } from './internal';
 import { FlowSearch } from './layout';
@@ -112,11 +111,9 @@ interface NodeBodyProps extends NodeProps {
 }
 
 export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBodyProps) => {
-  const transport = useTransport();
-
   const nodeId = Ulid.fromCanonical(id).bytes;
 
-  const { name } = useSuspense(NodeGetEndpoint, transport, { nodeId });
+  const { name } = useQuery(NodeGetEndpoint, { nodeId });
 
   const { deleteElements, getEdges, getNode, getZoom } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
@@ -129,7 +126,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
   const escape = useEscapePortal(ref);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => nodeUpdate(transport, { name: _, nodeId }),
+    onSuccess: (_) => nodeUpdate({ name: _, nodeId }),
     value: name,
   });
 
@@ -227,27 +224,25 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 };
 
 export const useMakeNode = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId } = use(FlowContext);
 
   return useCallback(
     async (data: Omit<MessageInitShape<typeof NodeSchema>, keyof Message>) => {
-      const { nodeId } = await controller.fetch(NodeCreateEndpoint, transport, { flowId, ...data });
+      const { nodeId } = await dataClient.fetch(NodeCreateEndpoint, { flowId, ...data });
       return create(NodeListItemSchema, { nodeId, ...data });
     },
-    [controller, flowId, transport],
+    [dataClient, flowId],
   );
 };
 
 export const useNodeStateSynced = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId, isReadOnly = false } = use(FlowContext);
 
-  const { items: nodesServer } = useSuspense(NodeListEndpoint, transport, { flowId });
+  const { items: nodesServer } = useQuery(NodeListEndpoint, { flowId });
 
   const [nodesClient, setNodesClient, onNodesChange] = useNodesState(nodesServer.map(Node.fromDTO));
 
@@ -288,7 +283,7 @@ export const useNodeStateSynced = () => {
       Array.filterMap(([_id, node]) =>
         pipe(
           Option.liftPredicate(node, (_) => !_.nodeId.length),
-          Option.map((node) => controller.fetch(NodeCreateEndpoint, transport, node)),
+          Option.map((node) => dataClient.fetch(NodeCreateEndpoint, node)),
         ),
       ),
       (_) => Promise.allSettled(_),
@@ -296,13 +291,13 @@ export const useNodeStateSynced = () => {
 
     await pipe(
       nodes['delete'] ?? [],
-      Array.map(([_id, node]) => controller.fetch(NodeDeleteEndpoint, transport, node)),
+      Array.map(([_id, node]) => dataClient.fetch(NodeDeleteEndpoint, node)),
       (_) => Promise.allSettled(_),
     );
 
     await pipe(
       nodes['update'] ?? [],
-      Array.map(([_id, node]) => controller.fetch(NodeUpdateEndpoint, transport, node)),
+      Array.map(([_id, node]) => dataClient.fetch(NodeUpdateEndpoint, node)),
       (_) => Promise.allSettled(_),
     );
   }, 500);

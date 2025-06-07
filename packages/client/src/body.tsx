@@ -1,6 +1,6 @@
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
 import { useContext, useState } from 'react';
@@ -51,6 +51,7 @@ import {
   CodeMirrorMarkupLanguages,
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
+import { useQuery } from '~data-client';
 import { useReactRender } from '~react-render';
 
 import {
@@ -73,10 +74,9 @@ interface BodyViewProps {
 }
 
 export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { bodyKind } = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const { bodyKind } = useQuery(ExampleGetEndpoint, { exampleId });
 
   return (
     <div className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
@@ -84,7 +84,7 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
         aria-label='Body type'
         className='h-7 justify-center'
         isReadOnly={isReadOnly ?? false}
-        onChange={(key) => controller.fetch(ExampleUpdateEndpoint, transport, { bodyKind: parseInt(key), exampleId })}
+        onChange={(key) => dataClient.fetch(ExampleUpdateEndpoint, { bodyKind: parseInt(key), exampleId })}
         orientation='horizontal'
         value={bodyKind.toString()}
       >
@@ -127,9 +127,7 @@ interface FormDisplayTableProps {
 }
 
 const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
-  const transport = useTransport();
-
-  const { items } = useSuspense(BodyFormListEndpoint, transport, { exampleId });
+  const { items } = useQuery(BodyFormListEndpoint, { exampleId });
 
   const table = useReactTable({
     columns: formDataColumns,
@@ -144,10 +142,9 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items: GenericMessage<BodyFormListItem>[] = useSuspense(BodyFormListEndpoint, transport, {
+  const items: GenericMessage<BodyFormListItem>[] = useQuery(BodyFormListEndpoint, {
     exampleId,
   }).items;
 
@@ -155,7 +152,7 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     columns: [
       ...formDataColumns,
       columnActionsCommon<GenericMessage<BodyFormListItem>>({
-        onDelete: (_) => controller.fetch(BodyFormDeleteEndpoint, transport, { bodyId: _.bodyId }),
+        onDelete: (_) => dataClient.fetch(BodyFormDeleteEndpoint, { bodyId: _.bodyId }),
       }),
     ],
     data: items,
@@ -165,10 +162,10 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     createLabel: 'New form data item',
     items,
     onCreate: async () => {
-      await controller.fetch(BodyFormCreateEndpoint, transport, { enabled: true, exampleId });
-      await controller.invalidateAll({ testKey: (_) => _.startsWith(BodyFormDeltaListEndpoint.name) });
+      await dataClient.fetch(BodyFormCreateEndpoint, { enabled: true, exampleId });
+      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(BodyFormDeltaListEndpoint.name) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormUpdateEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -181,19 +178,17 @@ interface FormDeltaDataTableProps {
 }
 
 const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: FormDeltaDataTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items = pipe(
-    useSuspense(BodyFormDeltaListEndpoint, transport, { exampleId, originId }).items,
-    (_: BodyFormDeltaListItem[]) => makeDeltaItems(_, 'bodyId'),
+  const items = pipe(useQuery(BodyFormDeltaListEndpoint, { exampleId, originId }).items, (_: BodyFormDeltaListItem[]) =>
+    makeDeltaItems(_, 'bodyId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New form data item',
     items,
-    onCreate: () => controller.fetch(BodyFormDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyFormDeltaUpdateEndpoint, transport, item),
+    onCreate: () => dataClient.fetch(BodyFormDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -202,8 +197,8 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
       columns={[
         ...formDataColumns,
         columnActionsDeltaCommon<GenericMessage<BodyFormDeltaListItem>>({
-          onDelete: (_) => controller.fetch(BodyFormDeltaDeleteEndpoint, transport, { bodyId: _.bodyId }),
-          onReset: (_) => controller.fetch(BodyFormDeltaResetEndpoint, transport, { bodyId: _.bodyId }),
+          onDelete: (_) => dataClient.fetch(BodyFormDeltaDeleteEndpoint, { bodyId: _.bodyId }),
+          onReset: (_) => dataClient.fetch(BodyFormDeltaResetEndpoint, { bodyId: _.bodyId }),
           source: (_) => _.source,
         }),
       ]}
@@ -227,9 +222,7 @@ interface UrlEncodedDisplayTableProps {
 }
 
 const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
-  const transport = useTransport();
-
-  const { items } = useSuspense(BodyUrlEncodedListEndpoint, transport, { exampleId });
+  const { items } = useQuery(BodyUrlEncodedListEndpoint, { exampleId });
 
   const table = useReactTable({
     columns: urlEncodedDataColumns,
@@ -244,10 +237,9 @@ interface UrlEncodedFormTableProps {
 }
 
 const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const items: GenericMessage<BodyUrlEncodedListItem>[] = useSuspense(BodyUrlEncodedListEndpoint, transport, {
+  const items: GenericMessage<BodyUrlEncodedListItem>[] = useQuery(BodyUrlEncodedListEndpoint, {
     exampleId,
   }).items;
 
@@ -255,7 +247,7 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     columns: [
       ...urlEncodedDataColumns,
       columnActionsCommon<GenericMessage<BodyUrlEncodedListItem>>({
-        onDelete: (_) => controller.fetch(BodyUrlEncodedDeleteEndpoint, transport, { bodyId: _.bodyId }),
+        onDelete: (_) => dataClient.fetch(BodyUrlEncodedDeleteEndpoint, { bodyId: _.bodyId }),
       }),
     ],
     data: items,
@@ -265,10 +257,10 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     createLabel: 'New URL encoded item',
     items,
     onCreate: async () => {
-      await controller.fetch(BodyUrlEncodedCreateEndpoint, transport, { enabled: true, exampleId });
-      await controller.invalidateAll({ testKey: (_) => _.startsWith(BodyUrlEncodedDeltaListEndpoint.name) });
+      await dataClient.fetch(BodyUrlEncodedCreateEndpoint, { enabled: true, exampleId });
+      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(BodyUrlEncodedDeltaListEndpoint.name) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedUpdateEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -284,20 +276,18 @@ const UrlEncodedDeltaFormTable = ({
   deltaExampleId: exampleId,
   exampleId: originId,
 }: UrlEncodedDeltaFormTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const items = pipe(
-    useSuspense(BodyUrlEncodedDeltaListEndpoint, transport, { exampleId, originId }).items,
+    useQuery(BodyUrlEncodedDeltaListEndpoint, { exampleId, originId }).items,
     (_: BodyUrlEncodedDeltaListItem[]) => makeDeltaItems(_, 'bodyId'),
   );
 
   const formTable = useFormTable({
     createLabel: 'New URL encoded item',
     items,
-    onCreate: () =>
-      controller.fetch(BodyUrlEncodedDeltaCreateEndpoint, transport, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(BodyUrlEncodedDeltaUpdateEndpoint, transport, item),
+    onCreate: () => dataClient.fetch(BodyUrlEncodedDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -306,8 +296,8 @@ const UrlEncodedDeltaFormTable = ({
       columns={[
         ...urlEncodedDataColumns,
         columnActionsDeltaCommon<GenericMessage<BodyUrlEncodedDeltaListItem>>({
-          onDelete: (_) => controller.fetch(BodyUrlEncodedDeltaDeleteEndpoint, transport, { bodyId: _.bodyId }),
-          onReset: (_) => controller.fetch(BodyUrlEncodedDeltaResetEndpoint, transport, { bodyId: _.bodyId }),
+          onDelete: (_) => dataClient.fetch(BodyUrlEncodedDeltaDeleteEndpoint, { bodyId: _.bodyId }),
+          onReset: (_) => dataClient.fetch(BodyUrlEncodedDeltaResetEndpoint, { bodyId: _.bodyId }),
           source: (_) => _.source,
         }),
       ]}
@@ -326,15 +316,11 @@ interface RawFormProps {
 }
 
 const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
   const transport = useTransport();
 
-  // TODO: switch to Data Client Endpoints
-  const bodyRaw = useSuspense(BodyRawGetEndpoint, transport, { exampleId });
-  const deltaBodyRaw = useSuspense(
-    BodyRawGetEndpoint,
-    ...(deltaExampleId ? [transport, { exampleId: deltaExampleId }] : [null]),
-  );
+  const bodyRaw = useQuery(BodyRawGetEndpoint, { exampleId });
+  const deltaBodyRaw = useQuery(BodyRawGetEndpoint, deltaExampleId ? { exampleId: deltaExampleId } : null);
 
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   const body = new TextDecoder().decode(deltaBodyRaw?.data || bodyRaw.data);
@@ -375,7 +361,7 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
         extensions={combinedExtensions}
         height='100%'
         onBlur={() =>
-          void controller.fetch(BodyRawUpdateEndpoint, transport, {
+          void dataClient.fetch(BodyRawUpdateEndpoint, {
             data: new TextEncoder().encode(value),
             exampleId: deltaExampleId ?? exampleId,
           })

@@ -1,5 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
+import { useRouteContext } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use } from 'react';
@@ -21,11 +20,12 @@ import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useQuery } from '~data-client';
 
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponseTabs, useEndpointUrlForm } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
-import { FlowContext, flowRoute, Handle, workspaceRoute } from '../internal';
+import { FlowContext, Handle, workspaceRoute } from '../internal';
 import { FlowSearch } from '../layout';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
@@ -44,12 +44,11 @@ export const RequestNode = (props: NodeProps) => (
 );
 
 const RequestNodeBody = (props: NodeProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const nodeId = Ulid.fromCanonical(props.id).bytes;
 
-  const { request } = useSuspense(NodeGetEndpoint, transport, { nodeId });
+  const { request } = useQuery(NodeGetEndpoint, { nodeId });
 
   return (
     <NodeBody {...props} Icon={SendRequestIcon}>
@@ -62,11 +61,11 @@ const RequestNodeBody = (props: NodeProps) => {
               if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
               const {
                 endpoint: { endpointId: deltaEndpointId },
-              } = await controller.fetch(EndpointCreateEndpoint, transport, { collectionId });
-              const { exampleId: deltaExampleId } = await controller.fetch(ExampleCreateEndpoint, transport, {
+              } = await dataClient.fetch(EndpointCreateEndpoint, { collectionId });
+              const { exampleId: deltaExampleId } = await dataClient.fetch(ExampleCreateEndpoint, {
                 endpointId: deltaEndpointId,
               });
-              await controller.fetch(NodeUpdateEndpoint, transport, {
+              await dataClient.fetch(NodeUpdateEndpoint, {
                 nodeId,
                 request: {
                   ...request,
@@ -92,16 +91,14 @@ interface RequestNodeSelectedProps {
 const RequestNodeSelected = ({
   request: { collectionId, deltaEndpointId, deltaExampleId, endpointId, exampleId },
 }: RequestNodeSelectedProps) => {
-  const { transport } = flowRoute.useRouteContext();
-
   // TODO: fetch in parallel
-  const { name: collectionName } = useSuspense(CollectionGetEndpoint, transport, { collectionId });
+  const { name: collectionName } = useQuery(CollectionGetEndpoint, { collectionId });
 
-  const endpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId });
-  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
+  const example = useQuery(ExampleGetEndpoint, { exampleId });
 
-  const deltaEndpoint = useSuspense(EndpointGetEndpoint, transport, { endpointId: deltaEndpointId });
-  const deltaExample = useSuspense(ExampleGetEndpoint, transport, { exampleId: deltaExampleId });
+  const deltaEndpoint = useQuery(EndpointGetEndpoint, { endpointId: deltaEndpointId });
+  const deltaExample = useQuery(ExampleGetEndpoint, { exampleId: deltaExampleId });
 
   const method = deltaEndpoint.method || endpoint.method;
   const name = deltaExample.name || deltaEndpoint.name || example.name;
@@ -134,13 +131,11 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { collectionId, deltaEndpointId, deltaExampleId, endpointId, exampleId } = request!;
   const { isReadOnly = false } = use(FlowContext);
 
-  const { transport } = flowRoute.useRouteContext();
-
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   // TODO: fetch in parallel
-  const collection = useSuspense(CollectionGetEndpoint, transport, { collectionId });
-  const example = useSuspense(ExampleGetEndpoint, transport, { exampleId });
+  const collection = useQuery(CollectionGetEndpoint, { collectionId });
+  const example = useQuery(ExampleGetEndpoint, { exampleId });
 
   const { lastResponseId } = example;
 

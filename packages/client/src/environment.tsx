@@ -1,6 +1,4 @@
-import { useTransport } from '@connectrpc/connect-query';
-import { useController, useSuspense } from '@data-client/react';
-import { getRouteApi } from '@tanstack/react-router';
+import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Ulid } from 'id128';
 import { Suspense } from 'react';
 import {
@@ -45,7 +43,7 @@ import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useMutate } from '~data-client';
+import { useMutate, useQuery } from '~data-client';
 
 import {
   columnActionsCommon,
@@ -59,14 +57,13 @@ import { ImportDialog } from './workspace/import';
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const EnvironmentsWidget = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   // TODO: fetch in parallel
-  const { selectedEnvironmentId } = useSuspense(WorkspaceGetEndpoint, transport, { workspaceId });
-  const { items: environments } = useSuspense(EnvironmentListEndpoint, transport, { workspaceId });
+  const { selectedEnvironmentId } = useQuery(WorkspaceGetEndpoint, { workspaceId });
+  const { items: environments } = useQuery(EnvironmentListEndpoint, { workspaceId });
 
   const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
 
@@ -77,7 +74,7 @@ export const EnvironmentsWidget = () => {
         listBoxItems={environments}
         onSelectionChange={async (selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
-          await controller.fetch(WorkspaceUpdateEndpoint, transport, { selectedEnvironmentId, workspaceId });
+          await dataClient.fetch(WorkspaceUpdateEndpoint, { selectedEnvironmentId, workspaceId });
         }}
         selectedKey={selectedEnvironmentIdCan}
         triggerClassName={tw`justify-start p-0`}
@@ -133,7 +130,7 @@ export const EnvironmentsWidget = () => {
                       <Button
                         className={tw`bg-slate-200 p-0.5`}
                         onPress={() =>
-                          controller.fetch(EnvironmentCreateEndpoint, transport, {
+                          dataClient.fetch(EnvironmentCreateEndpoint, {
                             name: 'New Environment',
                             workspaceId,
                           })
@@ -211,15 +208,14 @@ interface EnvironmentPanelProps {
 }
 
 const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }: EnvironmentPanelProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const [environmentUpdate, environmentUpdateLoading] = useMutate(EnvironmentUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => environmentUpdate(transport, { environmentId, name: _ }),
+    onSuccess: (_) => environmentUpdate({ environmentId, name: _ }),
     value: name,
   });
 
@@ -261,7 +257,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
               <MenuItem
-                onAction={() => controller.fetch(EnvironmentDeleteEndpoint, transport, { environmentId })}
+                onAction={() => dataClient.fetch(EnvironmentDeleteEndpoint, { environmentId })}
                 variant='danger'
               >
                 Delete
@@ -289,10 +285,9 @@ interface VariablesTableProps {
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { items } = useSuspense(VariableListEndpoint, transport, { environmentId });
+  const { items } = useQuery(VariableListEndpoint, { environmentId });
 
   const table = useReactTable({
     columns: [
@@ -301,7 +296,7 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
       columnReferenceField<VariableListItemEntity>('value'),
       columnTextField<VariableListItemEntity>('description', { meta: { divider: false } }),
       columnActionsCommon<VariableListItemEntity>({
-        onDelete: (_) => controller.fetch(VariableDeleteEndpoint, transport, { variableId: _.variableId }),
+        onDelete: (_) => dataClient.fetch(VariableDeleteEndpoint, { variableId: _.variableId }),
       }),
     ],
     data: items,
@@ -311,12 +306,12 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     createLabel: 'New variable',
     items,
     onCreate: () =>
-      controller.fetch(VariableCreateEndpoint, transport, {
+      dataClient.fetch(VariableCreateEndpoint, {
         enabled: true,
         environmentId,
         name: `VARIABLE_${items.length}`,
       }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(VariableUpdateEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(VariableUpdateEndpoint, item),
     primaryColumn: 'name',
   });
 

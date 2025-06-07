@@ -1,7 +1,7 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
-import { useController, useDLE, useSuspense } from '@data-client/react';
+import { useDLE } from '@data-client/react';
 import { createFileRoute, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import {
   Background,
@@ -53,7 +53,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { setQueryChild, useMutate } from '~data-client';
+import { setQueryChild, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -265,12 +265,11 @@ export const Flow = ({ children }: PropsWithChildren) => {
 };
 
 export const TopBar = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId } = flowRoute.useLoaderData();
 
-  const { name } = useSuspense(FlowGetEndpoint, transport, { flowId });
+  const { name } = useQuery(FlowGetEndpoint, { flowId });
 
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
@@ -283,7 +282,7 @@ export const TopBar = () => {
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => flowUpdate(transport, { flowId, name: _ }),
+    onSuccess: (_) => flowUpdate({ flowId, name: _ }),
     value: name,
   });
 
@@ -353,7 +352,7 @@ export const TopBar = () => {
 
           <MenuItem
             onAction={async () => {
-              await controller.fetch(FlowDeleteEndpoint, transport, { flowId });
+              await dataClient.fetch(FlowDeleteEndpoint, { flowId });
               if (
                 !matchRoute({
                   params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
@@ -375,7 +374,7 @@ export const TopBar = () => {
 
 const ActionBar = () => {
   const { flowId } = use(FlowContext);
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
   const { transport } = useRouteContext({ from: '__root__' });
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
@@ -441,11 +440,10 @@ const ActionBar = () => {
           for await (const { example, node, version } of flowRun({ flowId })) {
             if (version) {
               void setQueryChild(
-                controller,
+                dataClient.controller,
                 FlowVersionsEndpoint.schema.items,
                 'unshift',
-                transport,
-                { flowId },
+                { input: { flowId }, transport },
                 version,
               );
             }
@@ -453,17 +451,16 @@ const ActionBar = () => {
             if (example) {
               const { exampleId, responseId, versionId } = example;
 
-              void controller.set(ExampleEntity, { exampleId }, {
+              void dataClient.controller.set(ExampleEntity, { exampleId }, {
                 exampleId,
                 lastResponseId: responseId,
               } satisfies Partial<ExampleEntity>);
 
               void setQueryChild(
-                controller,
+                dataClient.controller,
                 ExampleVersionsEndpoint.schema.items,
                 'unshift',
-                transport,
-                { exampleId },
+                { input: { exampleId }, transport },
                 { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
               );
             }
@@ -493,12 +490,11 @@ const ActionBar = () => {
 };
 
 const SettingsPanel = () => {
-  const transport = useTransport();
-  const controller = useController();
+  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId } = flowRoute.useLoaderData();
 
-  const { items } = useSuspense(FlowVariableListEndpoint, transport, { flowId });
+  const { items } = useQuery(FlowVariableListEndpoint, { flowId });
 
   const table = useReactTable({
     columns: [
@@ -507,7 +503,7 @@ const SettingsPanel = () => {
       columnReferenceField<FlowVariableListItemEntity>('value'),
       columnTextField<FlowVariableListItemEntity>('description', { meta: { divider: false } }),
       columnActionsCommon<FlowVariableListItemEntity>({
-        onDelete: (_) => controller.fetch(FlowVariableDeleteEndpoint, transport, { variableId: _.variableId }),
+        onDelete: (_) => dataClient.fetch(FlowVariableDeleteEndpoint, { variableId: _.variableId }),
       }),
     ],
     data: items,
@@ -517,12 +513,12 @@ const SettingsPanel = () => {
     createLabel: 'New variable',
     items,
     onCreate: () =>
-      controller.fetch(FlowVariableCreateEndpoint, transport, {
+      dataClient.fetch(FlowVariableCreateEndpoint, {
         enabled: true,
         flowId,
         name: `FLOW_VARIABLE_${items.length}`,
       }),
-    onUpdate: ({ $typeName: _, ...item }) => controller.fetch(FlowVariableUpdateEndpoint, transport, item),
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(FlowVariableUpdateEndpoint, item),
     primaryColumn: 'name',
   });
 
@@ -555,7 +551,10 @@ export const EditPanel = () => {
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { nodeId } = flowRoute.useLoaderData();
 
-  const { data } = useDLE(NodeGetEndpoint, ...(Option.isSome(nodeId) ? [transport, { nodeId: nodeId.value }] : [null]));
+  const { data } = useDLE(
+    NodeGetEndpoint,
+    ...(Option.isSome(nodeId) ? [{ input: { nodeId: nodeId.value }, transport }] : [null]),
+  );
 
   if (Option.isNone(nodeId) || !data) return null;
 
