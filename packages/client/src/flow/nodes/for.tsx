@@ -75,7 +75,9 @@ export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
   }, 200);
 
   useEffect(() => {
-    const subscription = watch(() => void update());
+    const subscription = watch((_, { type }) => {
+      if (type === 'change') void update();
+    });
     return () => void subscription.unsubscribe();
   }, [update, watch]);
 
