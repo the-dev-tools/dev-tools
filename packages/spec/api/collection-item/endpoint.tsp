@@ -27,6 +27,7 @@ namespace API.CollectionItem.Endpoint;
 model Endpoint {
   @key endpointId: Resource.Id;
   @visibility(Resource.Query.List) parentFolderId?: Resource.Id;
+  @visibility(Resource.Mutation.Create, Resource.Query.List) hidden?: boolean;
   name: string;
   method: string;
   @visibility(Resource.Query.Get) url: string;

@@ -59,12 +59,19 @@ const RequestNodeBody = (props: NodeProps) => {
           <CollectionListTree
             onAction={async ({ collectionId, endpointId, exampleId }) => {
               if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
+
               const {
                 endpoint: { endpointId: deltaEndpointId },
-              } = await dataClient.fetch(EndpointCreateEndpoint, { collectionId });
+              } = await dataClient.fetch(EndpointCreateEndpoint, {
+                collectionId,
+                hidden: true,
+              });
+
               const { exampleId: deltaExampleId } = await dataClient.fetch(ExampleCreateEndpoint, {
                 endpointId: deltaEndpointId,
+                hidden: true,
               });
+
               await dataClient.fetch(NodeUpdateEndpoint, {
                 nodeId,
                 request: {

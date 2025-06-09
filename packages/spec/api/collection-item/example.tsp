@@ -33,6 +33,7 @@ model Example {
   @key exampleId: Resource.Id;
   lastResponseId?: Resource.Id;
   name: string;
+  @visibility(Resource.Mutation.Create, Resource.Query.List) hidden?: boolean;
   @visibility(Resource.Mutation.None, Resource.Query.Get) breadcrumbs: ExampleBreadcrumb[];
   @visibility(Resource.Query.Get) bodyKind: Body.BodyKind;
   @visibility(Resource.Query.Get) queryCount: int32;

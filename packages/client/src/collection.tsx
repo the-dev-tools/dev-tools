@@ -140,10 +140,15 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
     value: collection.name,
   });
 
+  const childItems = (items ?? []).filter((_) => {
+    if (_.kind !== ItemKind.ENDPOINT) return true;
+    return !_.endpoint.hidden && !_.example.hidden;
+  });
+
   return (
     <TreeItem
       childItem={mapCollectionItemTree(collectionId)}
-      childItems={items ?? []}
+      childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
@@ -276,10 +281,15 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
     value: folder.name,
   });
 
+  const childItems = (items ?? []).filter((_) => {
+    if (_.kind !== ItemKind.ENDPOINT) return true;
+    return !_.endpoint.hidden && !_.example.hidden;
+  });
+
   return (
     <TreeItem
       childItem={mapCollectionItemTree(collectionId, folderId)}
-      childItems={items ?? []}
+      childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
@@ -421,13 +431,15 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
     to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
   } satisfies ToOptions;
 
+  const childItems = (items ?? []).filter((_) => !_.hidden);
+
   return (
     <TreeItem
       childItem={(_) => {
         const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
         return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
       }}
-      childItems={items ?? []}
+      childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
       href={toNavigate ? route : undefined!}
