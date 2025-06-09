@@ -293,7 +293,7 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     columns: [
       columnCheckboxField<VariableListItemEntity>('enabled', { meta: { divider: false } }),
       columnReferenceField<VariableListItemEntity>('name'),
-      columnReferenceField<VariableListItemEntity>('value'),
+      columnReferenceField<VariableListItemEntity>('value', { allowFiles: true }),
       columnTextField<VariableListItemEntity>('description', { meta: { divider: false } }),
       columnActionsCommon<VariableListItemEntity>({
         onDelete: (_) => dataClient.fetch(VariableDeleteEndpoint, { variableId: _.variableId }),

@@ -108,6 +108,7 @@ const CompletionInfo = ({ completion, context, path }: CompletionInfoProps) => {
 };
 
 interface ReferenceCompletionsProps {
+  allowFiles?: boolean | undefined;
   client: Client<typeof ReferenceService>;
   context: ReferenceContextProps;
   reactRender: ReactRender;
@@ -115,7 +116,12 @@ interface ReferenceCompletionsProps {
 
 // TODO: fix implementation
 const referenceCompletions =
-  ({ client, context: referenceContext, reactRender }: ReferenceCompletionsProps): CompletionSource =>
+  ({
+    allowFiles = false,
+    client,
+    context: referenceContext,
+    reactRender,
+  }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
     // Check for Reference token type first (works in text body)
     let token = context.tokenBefore(['Reference']);
@@ -192,7 +198,7 @@ const referenceCompletions =
     let options: Completion[] = [];
 
     const fileToken = '#file:';
-    if (fileToken.startsWith(startToken)) {
+    if (allowFiles && fileToken.startsWith(startToken)) {
       options.push({
         apply: async (view, completion, from) => {
           const { filePaths } = await window.electron.dialog('showOpenDialog', {});

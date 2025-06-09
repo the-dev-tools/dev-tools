@@ -118,7 +118,7 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
 const formDataColumns = [
   columnCheckboxField<GenericMessage<BodyFormListItem>>('enabled', { meta: { divider: false } }),
   columnReferenceField<GenericMessage<BodyFormListItem>>('key'),
-  columnReferenceField<GenericMessage<BodyFormListItem>>('value'),
+  columnReferenceField<GenericMessage<BodyFormListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<BodyFormListItem>>('description', { meta: { divider: false } }),
 ];
 
@@ -213,7 +213,7 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
 const urlEncodedDataColumns = [
   columnCheckboxField<GenericMessage<BodyUrlEncodedListItem>>('enabled', { meta: { divider: false } }),
   columnReferenceField<GenericMessage<BodyUrlEncodedListItem>>('key'),
-  columnReferenceField<GenericMessage<BodyUrlEncodedListItem>>('value'),
+  columnReferenceField<GenericMessage<BodyUrlEncodedListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<BodyUrlEncodedListItem>>('description', { meta: { divider: false } }),
 ];
 

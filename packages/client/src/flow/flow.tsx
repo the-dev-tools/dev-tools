@@ -500,7 +500,7 @@ const SettingsPanel = () => {
     columns: [
       columnCheckboxField<FlowVariableListItemEntity>('enabled', { meta: { divider: false } }),
       columnReferenceField<FlowVariableListItemEntity>('name'),
-      columnReferenceField<FlowVariableListItemEntity>('value'),
+      columnReferenceField<FlowVariableListItemEntity>('value', { allowFiles: true }),
       columnTextField<FlowVariableListItemEntity>('description', { meta: { divider: false } }),
       columnActionsCommon<FlowVariableListItemEntity>({
         onDelete: (_) => dataClient.fetch(FlowVariableDeleteEndpoint, { variableId: _.variableId }),

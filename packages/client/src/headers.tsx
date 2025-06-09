@@ -43,7 +43,7 @@ export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTab
 const dataColumns = [
   columnCheckboxField<GenericMessage<HeaderListItem>>('enabled', { meta: { divider: false } }),
   columnReferenceField<GenericMessage<HeaderListItem>>('key'),
-  columnReferenceField<GenericMessage<HeaderListItem>>('value'),
+  columnReferenceField<GenericMessage<HeaderListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<HeaderListItem>>('description', { meta: { divider: false } }),
 ];
 

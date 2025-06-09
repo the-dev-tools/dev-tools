@@ -44,7 +44,7 @@ export const QueryTable = ({ deltaExampleId, exampleId, isReadOnly }: QueryTable
 const dataColumns = [
   columnCheckboxField<GenericMessage<QueryListItem>>('enabled', { meta: { divider: false } }),
   columnReferenceField<GenericMessage<QueryListItem>>('key'),
-  columnReferenceField<GenericMessage<QueryListItem>>('value'),
+  columnReferenceField<GenericMessage<QueryListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<QueryListItem>>('description', { meta: { divider: false } }),
 ];
 

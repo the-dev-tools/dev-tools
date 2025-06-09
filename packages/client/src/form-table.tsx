@@ -174,13 +174,18 @@ export const columnCheckboxField = <TFieldValues extends FieldValues>(
 
 export const columnReferenceField = <TFieldValues extends FieldValues>(
   name: FieldPath<TFieldValues>,
-  { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
+  {
+    allowFiles,
+    title = name,
+    ...props
+  }: Partial<AccessorKeyColumnDef<TFieldValues>> & { allowFiles?: boolean; title?: string } = {},
 ): AccessorKeyColumnDef<TFieldValues> => ({
   accessorKey: name,
   cell: function Cell() {
     const { control } = useFormContext<TFieldValues>();
     return (
       <ReferenceFieldRHF
+        allowFiles={allowFiles}
         className='flex-1'
         control={control}
         name={name}

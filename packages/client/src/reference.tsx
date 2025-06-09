@@ -211,9 +211,11 @@ const fieldStyles = tv({
 interface ReferenceFieldProps
   extends ReactCodeMirrorProps,
     RefAttributes<ReactCodeMirrorRef>,
-    VariantProps<typeof fieldStyles> {}
+    VariantProps<typeof fieldStyles> {
+  allowFiles?: boolean | undefined;
+}
 
-export const ReferenceField = ({ className, extensions = [], ...forwardedProps }: ReferenceFieldProps) => {
+export const ReferenceField = ({ allowFiles, className, extensions = [], ...forwardedProps }: ReferenceFieldProps) => {
   const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
   const variantProps = Struct.pick(forwardedProps, ...fieldStyles.variantKeys);
 
@@ -229,7 +231,7 @@ export const ReferenceField = ({ className, extensions = [], ...forwardedProps }
       basicSetup={false}
       className={fieldStyles({ className, ...variantProps })}
       extensions={[
-        ...baseCodeMirrorExtensions({ client, context, reactRender }),
+        ...baseCodeMirrorExtensions({ allowFiles, client, context, reactRender }),
         EditorView.theme({ '.cm-scroller': { overflow: 'hidden' } }),
         ...extensions,
       ]}

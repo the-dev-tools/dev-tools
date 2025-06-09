@@ -37,6 +37,7 @@ export const ConditionField = <
       {label && <FieldLabel {...props.label}>{label}</FieldLabel>}
 
       <ReferenceFieldRHF
+        allowFiles
         control={resolvedControl}
         name={`${resolvedPath}.comparison.expression`}
         placeholder='Enter value to compare'
