@@ -159,6 +159,8 @@ function Layout() {
 const FlowList = () => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
+  const navigate = useNavigate();
+
   const { workspaceId } = Route.useLoaderData();
 
   const { items: flows } = useQuery(FlowListEndpoint, { workspaceId });
@@ -174,7 +176,18 @@ const FlowList = () => {
         <TooltipTrigger delay={750}>
           <Button
             className={tw`bg-slate-200 p-0.5`}
-            onPress={() => dataClient.fetch(FlowCreateEndpoint, { name: 'New flow', workspaceId })}
+            onPress={async () => {
+              const { flowId } = await dataClient.fetch(FlowCreateEndpoint, { name: 'New flow', workspaceId });
+
+              const flowIdCan = Ulid.construct(flowId).toCanonical();
+
+              await navigate({
+                from: Route.fullPath,
+                to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+
+                params: { flowIdCan },
+              });
+            }}
             variant='ghost'
           >
             <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />

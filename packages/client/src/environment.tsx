@@ -1,10 +1,11 @@
 import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Ulid } from 'id128';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import {
   Collection,
   Dialog,
   DialogTrigger,
+  Key,
   MenuTrigger,
   Tab,
   TabList,
@@ -112,93 +113,115 @@ export const EnvironmentsWidget = () => {
             Manage Variables & Environments
           </Tooltip>
         </TooltipTrigger>
-
-        <Modal>
-          <Dialog className={tw`outline-hidden h-full`}>
-            {({ close }) => (
-              <Tabs className={tw`flex h-full`} orientation='vertical'>
-                <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
-                  <div className={tw`-order-3 mb-4`}>
-                    <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Variable Settings</div>
-                    <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
-                  </div>
-
-                  <div className={tw`-order-1 mb-1 mt-3 flex items-center justify-between py-0.5`}>
-                    <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
-
-                    <TooltipTrigger delay={750}>
-                      <Button
-                        className={tw`bg-slate-200 p-0.5`}
-                        onPress={() =>
-                          dataClient.fetch(EnvironmentCreateEndpoint, {
-                            name: 'New Environment',
-                            workspaceId,
-                          })
-                        }
-                        variant='ghost'
-                      >
-                        <FiPlus className={tw`size-4 text-slate-500`} />
-                      </Button>
-                      <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
-                        Add New Environment
-                      </Tooltip>
-                    </TooltipTrigger>
-                  </div>
-
-                  <TabList className={tw`contents`} items={environments}>
-                    {(item) => {
-                      const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
-                      return (
-                        <Tab
-                          className={({ isSelected }) =>
-                            twJoin(
-                              tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
-                              isSelected && tw`bg-slate-200`,
-                              item.isGlobal && tw`-order-2`,
-                            )
-                          }
-                          id={environmentIdCan}
-                        >
-                          {item.isGlobal ? (
-                            <VariableIcon className={tw`size-4 text-slate-500`} />
-                          ) : (
-                            <div
-                              className={tw`flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3 text-slate-500`}
-                            >
-                              {item.name[0]}
-                            </div>
-                          )}
-                          <span className={tw`text-md font-semibold leading-5`}>
-                            {item.isGlobal ? 'Global Variables' : item.name}
-                          </span>
-                        </Tab>
-                      );
-                    }}
-                  </TabList>
-                </div>
-
-                <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
-                  <Collection items={environments}>
-                    {(_) => {
-                      const id = Ulid.construct(_.environmentId).toCanonical();
-                      return <EnvironmentPanel environment={_} id={id} />;
-                    }}
-                  </Collection>
-
-                  <div className={tw`flex-1`} />
-
-                  <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
-                    <Button onPress={close} variant='primary'>
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              </Tabs>
-            )}
-          </Dialog>
-        </Modal>
+        <EnvironmentModal />
       </DialogTrigger>
     </div>
+  );
+};
+
+const EnvironmentModal = () => {
+  const { dataClient } = useRouteContext({ from: '__root__' });
+
+  const { workspaceId } = workspaceRoute.useLoaderData();
+
+  const { items: environments } = useQuery(EnvironmentListEndpoint, { workspaceId });
+
+  const [selectedKey, setSelectedKey] = useState<Key | null>(null);
+
+  return (
+    <Modal>
+      <Dialog className={tw`outline-hidden h-full`}>
+        {({ close }) => (
+          <Tabs
+            className={tw`flex h-full`}
+            onSelectionChange={setSelectedKey}
+            orientation='vertical'
+            selectedKey={selectedKey}
+          >
+            <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
+              <div className={tw`-order-3 mb-4`}>
+                <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Variable Settings</div>
+                <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
+              </div>
+
+              <div className={tw`-order-1 mb-1 mt-3 flex items-center justify-between py-0.5`}>
+                <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
+
+                <TooltipTrigger delay={750}>
+                  <Button
+                    className={tw`bg-slate-200 p-0.5`}
+                    onPress={async () => {
+                      const { environmentId } = await dataClient.fetch(EnvironmentCreateEndpoint, {
+                        name: 'New Environment',
+                        workspaceId,
+                      });
+
+                      const environmentIdCan = Ulid.construct(environmentId).toCanonical();
+
+                      setSelectedKey(environmentIdCan);
+                    }}
+                    variant='ghost'
+                  >
+                    <FiPlus className={tw`size-4 text-slate-500`} />
+                  </Button>
+                  <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+                    Add New Environment
+                  </Tooltip>
+                </TooltipTrigger>
+              </div>
+
+              <TabList className={tw`contents`} items={environments}>
+                {(item) => {
+                  const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
+                  return (
+                    <Tab
+                      className={({ isSelected }) =>
+                        twJoin(
+                          tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
+                          isSelected && tw`bg-slate-200`,
+                          item.isGlobal && tw`-order-2`,
+                        )
+                      }
+                      id={environmentIdCan}
+                    >
+                      {item.isGlobal ? (
+                        <VariableIcon className={tw`size-4 text-slate-500`} />
+                      ) : (
+                        <div
+                          className={tw`flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3 text-slate-500`}
+                        >
+                          {item.name[0]}
+                        </div>
+                      )}
+                      <span className={tw`text-md font-semibold leading-5`}>
+                        {item.isGlobal ? 'Global Variables' : item.name}
+                      </span>
+                    </Tab>
+                  );
+                }}
+              </TabList>
+            </div>
+
+            <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
+              <Collection items={environments}>
+                {(_) => {
+                  const id = Ulid.construct(_.environmentId).toCanonical();
+                  return <EnvironmentPanel environment={_} id={id} />;
+                }}
+              </Collection>
+
+              <div className={tw`flex-1`} />
+
+              <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
+                <Button onPress={close} variant='primary'>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </Tabs>
+        )}
+      </Dialog>
+    </Modal>
   );
 };
 

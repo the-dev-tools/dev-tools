@@ -118,6 +118,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const transport = useTransport();
   const { dataClient } = useRouteContext({ from: '__root__' });
 
+  const navigate = useNavigate();
+
   const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
   const { collectionId } = collection;
@@ -173,7 +175,24 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => dataClient.fetch(EndpointCreateEndpoint, { collectionId, name: 'New API call' })}>
+            <MenuItem
+              onAction={async () => {
+                const {
+                  endpoint: { endpointId },
+                  example: { exampleId },
+                } = await dataClient.fetch(EndpointCreateEndpoint, { collectionId, name: 'New API call' });
+
+                const endpointIdCan = Ulid.construct(endpointId).toCanonical();
+                const exampleIdCan = Ulid.construct(exampleId).toCanonical();
+
+                await navigate({
+                  from: '/workspace/$workspaceIdCan',
+                  to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+
+                  params: { endpointIdCan, exampleIdCan },
+                });
+              }}
+            >
               Add Request
             </MenuItem>
 
@@ -227,6 +246,8 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
   const transport = useTransport();
   const { dataClient } = useRouteContext({ from: '__root__' });
 
+  const navigate = useNavigate();
+
   const { containerRef, showControls } = useContext(CollectionListTreeContext);
 
   const [enabled, setEnabled] = useState(false);
@@ -236,7 +257,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
     loading,
   } = useDLE(
     CollectionItemListEndpoint,
-    ...(enabled ? [{ transport, input: { collectionId, parentFolderId: folderId } }] : [null]),
+    ...(enabled ? [{ input: { collectionId, parentFolderId: folderId }, transport }] : [null]),
   );
 
   const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
@@ -299,13 +320,26 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                 <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
                 <MenuItem
-                  onAction={() =>
-                    dataClient.fetch(EndpointCreateEndpoint, {
+                  onAction={async () => {
+                    const {
+                      endpoint: { endpointId },
+                      example: { exampleId },
+                    } = await dataClient.fetch(EndpointCreateEndpoint, {
                       collectionId,
                       name: 'New API call',
                       parentFolderId: folderId,
-                    })
-                  }
+                    });
+
+                    const endpointIdCan = Ulid.construct(endpointId).toCanonical();
+                    const exampleIdCan = Ulid.construct(exampleId).toCanonical();
+
+                    await navigate({
+                      from: '/workspace/$workspaceIdCan',
+                      to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+
+                      params: { endpointIdCan, exampleIdCan },
+                    });
+                  }}
                 >
                   Add Request
                 </MenuItem>
@@ -365,7 +399,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   const {
     data: { items },
     loading,
-  } = useDLE(ExampleListEndpoint, ...(enabled ? [{ transport, input: { endpointId } }] : [null]));
+  } = useDLE(ExampleListEndpoint, ...(enabled ? [{ input: { endpointId }, transport }] : [null]));
 
   const [endpointUpdate, endpointUpdateLoading] = useMutate(EndpointUpdateEndpoint);
 
@@ -430,12 +464,21 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem
-              onAction={() =>
-                dataClient.fetch(ExampleCreateEndpoint, {
+              onAction={async () => {
+                const { exampleId } = await dataClient.fetch(ExampleCreateEndpoint, {
                   endpointId,
                   name: 'New Example',
-                })
-              }
+                });
+
+                const exampleIdCan = Ulid.construct(exampleId).toCanonical();
+
+                await navigate({
+                  from: '/workspace/$workspaceIdCan',
+                  to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+
+                  params: { endpointIdCan, exampleIdCan },
+                });
+              }}
             >
               Add Example
             </MenuItem>

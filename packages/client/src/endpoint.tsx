@@ -511,7 +511,24 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
           </Button>
 
           <Menu {...menuProps}>
-            <MenuItem onAction={() => dataClient.fetch(ExampleCreateEndpoint, { endpointId, name: 'New Example' })}>
+            <MenuItem
+              onAction={async () => {
+                const { exampleId } = await dataClient.fetch(ExampleCreateEndpoint, {
+                  endpointId,
+                  name: 'New Example',
+                });
+
+                const endpointIdCan = Ulid.construct(endpointId).toCanonical();
+                const exampleIdCan = Ulid.construct(exampleId).toCanonical();
+
+                await navigate({
+                  from: Route.fullPath,
+                  to: Route.fullPath,
+
+                  params: { endpointIdCan, exampleIdCan },
+                });
+              }}
+            >
               Add example
             </MenuItem>
 
