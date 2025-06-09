@@ -39,7 +39,6 @@
       "@bufbuild/buf",
       "@parcel/watcher",
       "@swc/core",
-      "@tailwindcss/oxide",
       "bufferutil",
       "electron",
       "electron-winstaller",
@@ -51,6 +50,7 @@
       "nx",
       "secp256k1",
       "sharp",
+      "unrs-resolver",
       "utf-8-validate"
     ]
   }

@@ -21,7 +21,7 @@
     "@alloy-js/core": "~0.17.0",
     "@alloy-js/typescript": "~0.17.0",
     "@bufbuild/buf": "~1.54.0",
-    "@bufbuild/protobuf": "~2.5.1",
+    "@bufbuild/protobuf": "~2.5.2",
     "@bufbuild/protoc-gen-es": "~2.5.1",
     "@connectrpc/protoc-gen-connect-query": "~2.1.0",
     "@the-dev-tools/eslint-config": "workspace:^",
@@ -29,7 +29,7 @@
     "@typespec/emitter-framework": "~0.7.1",
     "@typespec/protobuf": "~0.70.0",
     "@typespec/rest": "~0.70.0",
-    "effect": "~3.16.3",
+    "effect": "~3.16.5",
     "prettier": "~3.5.3",
     "rimraf": "~6.0.1",
     "typescript": "~5.8.3"

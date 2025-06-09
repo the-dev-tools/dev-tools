@@ -1,5 +1,4 @@
 diff --git a/src/plugins/plugin.d.ts b/src/plugins/plugin.d.ts
-index 7161819fe23972fa07772766f3cfd8a1917760f6..f038f393a72d52d9515496de9897c1e6aa2ea593 100644
 --- a/src/plugins/plugin.d.ts
 +++ b/src/plugins/plugin.d.ts
 @@ -2,6 +2,7 @@ import { CreateNodes, CreateNodesV2 } from '@nx/devkit';
@@ -11,10 +10,9 @@ index 7161819fe23972fa07772766f3cfd8a1917760f6..f038f393a72d52d9515496de9897c1e6
  export declare const createNodesV2: CreateNodesV2<EslintPluginOptions>;
  export declare const createNodes: CreateNodes<EslintPluginOptions>;
 diff --git a/src/plugins/plugin.js b/src/plugins/plugin.js
-index 0711ad7b4fd24e7c7294f60e48798128d294189c..f8213f4925e9cb50e4768b7b2bb801b1dee6f5cf 100644
 --- a/src/plugins/plugin.js
 +++ b/src/plugins/plugin.js
-@@ -68,6 +68,7 @@ const internalCreateNodes = async (configFilePath, options, context, projectsCac
+@@ -79,6 +79,7 @@ const internalCreateNodes = async (configFilePath, options, context, projectsCac
          }
          const eslint = new ESLint({
              cwd: (0, posix_1.join)(context.workspaceRoot, childProjectRoot),
@@ -22,15 +20,15 @@ index 0711ad7b4fd24e7c7294f60e48798128d294189c..f8213f4925e9cb50e4768b7b2bb801b1
          });
          let hasNonIgnoredLintableFiles = false;
          for (const file of lintableFiles) {
-@@ -117,6 +118,7 @@ const internalCreateNodesV2 = async (configFilePath, options, context, eslintCon
-         }
-         const eslint = new ESLint({
-             cwd: (0, posix_1.join)(context.workspaceRoot, projectRoot),
-+            flags: options.flags,
-         });
-         let hasNonIgnoredLintableFiles = false;
-         for (const file of lintableFilesPerProjectRoot.get(projectRoot) ?? []) {
-@@ -244,9 +246,6 @@ function getProjectUsingESLintConfig(configFilePath, projectRoot, eslintVersion,
+@@ -122,6 +123,7 @@ const internalCreateNodesV2 = async (ESLint, configFilePath, options, context, p
+         if (configDir !== projectRoot || projectRoot === '.') {
+             const eslint = new ESLint({
+                 cwd: (0, posix_1.join)(context.workspaceRoot, projectRoot),
++                flags: options.flags,
+             });
+             for (const file of lintableFilesPerProjectRoot.get(projectRoot) ?? []) {
+                 if (!(await eslint.isPathIgnored((0, posix_1.join)(context.workspaceRoot, file)))) {
+@@ -263,9 +265,6 @@ function getProjectUsingESLintConfig(configFilePath, projectRoot, eslintVersion,
              standaloneSrcPath = 'lib';
          }
      }
@@ -40,7 +38,7 @@ index 0711ad7b4fd24e7c7294f60e48798128d294189c..f8213f4925e9cb50e4768b7b2bb801b1
      const eslintConfigs = [configFilePath];
      if (rootEslintConfig && !eslintConfigs.includes(rootEslintConfig)) {
          eslintConfigs.unshift(rootEslintConfig);
-@@ -258,8 +257,9 @@ function getProjectUsingESLintConfig(configFilePath, projectRoot, eslintVersion,
+@@ -277,8 +276,9 @@ function getProjectUsingESLintConfig(configFilePath, projectRoot, eslintVersion,
  function buildEslintTargets(eslintConfigs, eslintVersion, projectRoot, workspaceRoot, options, standaloneSrcPath) {
      const isRootProject = projectRoot === '.';
      const targets = {};
@@ -51,7 +49,7 @@ index 0711ad7b4fd24e7c7294f60e48798128d294189c..f8213f4925e9cb50e4768b7b2bb801b1
          cache: true,
          options: {
              cwd: projectRoot,
-@@ -304,6 +304,7 @@ function buildEslintTargets(eslintConfigs, eslintVersion, projectRoot, workspace
+@@ -323,6 +323,7 @@ function buildEslintTargets(eslintConfigs, eslintVersion, projectRoot, workspace
  function normalizeOptions(options) {
      const normalizedOptions = {
          targetName: options?.targetName ?? 'lint',
@@ -60,7 +58,6 @@ index 0711ad7b4fd24e7c7294f60e48798128d294189c..f8213f4925e9cb50e4768b7b2bb801b1
      // Normalize user input for extensions (strip leading . characters)
      if (Array.isArray(options?.extensions)) {
 diff --git a/src/utils/flat-config.js b/src/utils/flat-config.js
-index e9916fbe4ce037208df1da6abc0067d106bb60ab..e95bb2d8e3c83b4c035711b4e644c65f23a356af 100644
 --- a/src/utils/flat-config.js
 +++ b/src/utils/flat-config.js
 @@ -8,6 +8,9 @@ exports.eslintFlatConfigFilenames = [

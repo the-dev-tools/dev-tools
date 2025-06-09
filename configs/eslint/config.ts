@@ -104,7 +104,7 @@ const rules: Linter.Config = {
 
     'perfectionist/sort-imports': [
       'warn',
-      { newlinesBetween: 'ignore', internalPattern: ['^@the-dev-tools/.*', '^~.*'] },
+      { internalPattern: ['^@the-dev-tools/.*', '^~.*'], newlinesBetween: 'ignore' },
     ],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
     'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject],
