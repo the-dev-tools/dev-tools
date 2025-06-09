@@ -67,7 +67,15 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
       ))}
 
       {!isReadOnly && (
-        <Button onPress={() => void dataClient.fetch(AssertCreateEndpoint, { exampleId })}>New Assertion</Button>
+        <Button
+          isDisabled={
+            fieldArray.fields.length > 0 &&
+            !fieldArray.fields[fieldArray.fields.length - 1]?.condition?.comparison?.expression
+          }
+          onPress={() => void dataClient.fetch(AssertCreateEndpoint, { exampleId })}
+        >
+          New Assertion
+        </Button>
       )}
     </div>
   );
