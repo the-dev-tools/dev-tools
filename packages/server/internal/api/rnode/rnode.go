@@ -134,6 +134,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 		if err != nil {
 			return nil, err
 		}
+
 		convertedItem := &nodev1.NodeListItem{
 			NodeId:   node.ID.Bytes(),
 			State:    rpcNode.State,
@@ -141,7 +142,9 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			Kind:     rpcNode.Kind,
 			NoOp:     rpcNode.NoOp,
 		}
-		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
+
+		// For request nodes, include endpoint information in the info field
+		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST && rpcNode.Request != nil {
 			if rpcNode.Request.ExampleId != nil {
 				example, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
 				if err != nil {
@@ -152,6 +155,15 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 					return nil, connect.NewError(connect.CodeInternal, errors.New("example not found"))
 				}
 				rpcNode.Request.CollectionId = ex.CollectionID.Bytes()
+			}
+			// Include endpointId in the info field for access in the list response
+			if rpcNode.Request.EndpointId != nil {
+				endpoint, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInvalidArgument, err)
+				}
+				endpointIdStr := endpoint.String()
+				convertedItem.Info = &endpointIdStr
 			}
 		}
 		NodeList[i] = convertedItem
@@ -203,6 +215,10 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			resp.Request.CollectionId = ex.CollectionID.Bytes()
+		}
+		// Ensure EndpointId is properly set in the response
+		if rpcNode.Request.EndpointId != nil {
+			resp.Request.EndpointId = rpcNode.Request.EndpointId
 		}
 	}
 
@@ -376,11 +392,11 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			}
 
 			if len(RpcNodeUpdate.Request.ExampleId) != 0 {
-				exmplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.ExampleId)
+				examplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.ExampleId)
 				if err != nil {
 					return nil, err
 				}
-				requestNode.ExampleID = &exmplePtr
+				requestNode.ExampleID = &examplePtr
 				anyUpdate = true
 			}
 
@@ -721,9 +737,6 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		}
 
 		rpcCond := tcondition.SeralizeConditionModelToRPC(nodeForEach.Condition)
-		if err != nil {
-			return nil, err
-		}
 
 		nodeList := &nodev1.Node{
 			NodeId:   currentNode.ID.Bytes(),
@@ -759,9 +772,6 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		}
 
 		rpcCondition := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
-		if err != nil {
-			return nil, err
-		}
 
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeCondition.FlowNodeID.Bytes(),
