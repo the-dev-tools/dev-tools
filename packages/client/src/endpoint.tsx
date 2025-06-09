@@ -266,7 +266,8 @@ export const useEndpointUrl = ({ deltaEndpointId, deltaExampleId, endpointId, ex
     deltaExampleId ? { exampleId: deltaExampleId, originId: exampleId } : null,
   );
 
-  let url = deltaEndpoint?.url ?? endpoint.url;
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  let url = deltaEndpoint?.url || endpoint.url;
   const queries = deltaQueryList.items ?? queryList.items;
 
   const queryParams = pipe(queries, Array.filterMap(queryToString), Array.join('&'));

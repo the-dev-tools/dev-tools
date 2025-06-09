@@ -101,7 +101,7 @@ const RequestNodeSelected = ({
   const deltaExample = useQuery(ExampleGetEndpoint, { exampleId: deltaExampleId });
 
   const method = deltaEndpoint.method || endpoint.method;
-  const name = deltaExample.name || deltaEndpoint.name || example.name;
+  const name = deltaExample.name || deltaEndpoint.name || example.name || endpoint.name;
 
   return (
     <div className={tw`space-y-1.5 p-2`}>
