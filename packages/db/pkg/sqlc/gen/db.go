@@ -282,6 +282,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyUrlEncoded: %w", err)
 	}
+	if q.getBodyUrlEncodedsByDeltaParentIDStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByDeltaParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByDeltaParentID: %w", err)
+	}
 	if q.getBodyUrlEncodedsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByExampleID: %w", err)
 	}
@@ -1035,6 +1038,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getBodyUrlEncodedStmt: %w", cerr)
 		}
 	}
+	if q.getBodyUrlEncodedsByDeltaParentIDStmt != nil {
+		if cerr := q.getBodyUrlEncodedsByDeltaParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBodyUrlEncodedsByDeltaParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getBodyUrlEncodedsByExampleIDStmt != nil {
 		if cerr := q.getBodyUrlEncodedsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBodyUrlEncodedsByExampleIDStmt: %w", cerr)
@@ -1690,6 +1698,7 @@ type Queries struct {
 	getBodyRawStmt                                        *sql.Stmt
 	getBodyRawsByExampleIDStmt                            *sql.Stmt
 	getBodyUrlEncodedStmt                                 *sql.Stmt
+	getBodyUrlEncodedsByDeltaParentIDStmt                 *sql.Stmt
 	getBodyUrlEncodedsByExampleIDStmt                     *sql.Stmt
 	getCollectionStmt                                     *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt                  *sql.Stmt
@@ -1888,6 +1897,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getBodyRawStmt:                                   q.getBodyRawStmt,
 		getBodyRawsByExampleIDStmt:                       q.getBodyRawsByExampleIDStmt,
 		getBodyUrlEncodedStmt:                            q.getBodyUrlEncodedStmt,
+		getBodyUrlEncodedsByDeltaParentIDStmt:            q.getBodyUrlEncodedsByDeltaParentIDStmt,
 		getBodyUrlEncodedsByExampleIDStmt:                q.getBodyUrlEncodedsByExampleIDStmt,
 		getCollectionStmt:                                q.getCollectionStmt,
 		getCollectionByPlatformIDandTypeStmt:             q.getCollectionByPlatformIDandTypeStmt,

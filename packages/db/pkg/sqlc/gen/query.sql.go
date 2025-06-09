@@ -1030,16 +1030,17 @@ func (q *Queries) CreateFlowNodeNoop(ctx context.Context, arg CreateFlowNodeNoop
 
 const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id)
+  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id, delta_endpoint_id)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeRequestParams struct {
-	FlowNodeID     idwrap.IDWrap
-	EndpointID     *idwrap.IDWrap
-	ExampleID      *idwrap.IDWrap
-	DeltaExampleID *idwrap.IDWrap
+	FlowNodeID      idwrap.IDWrap
+	EndpointID      *idwrap.IDWrap
+	ExampleID       *idwrap.IDWrap
+	DeltaExampleID  *idwrap.IDWrap
+	DeltaEndpointID *idwrap.IDWrap
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
@@ -1048,6 +1049,7 @@ func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeR
 		arg.EndpointID,
 		arg.ExampleID,
 		arg.DeltaExampleID,
+		arg.DeltaEndpointID,
 	)
 	return err
 }
@@ -3422,6 +3424,54 @@ func (q *Queries) GetBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (Exam
 	return i, err
 }
 
+const getBodyUrlEncodedsByDeltaParentID = `-- name: GetBodyUrlEncodedsByDeltaParentID :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  body_key,
+  enable,
+  description,
+  value,
+  source
+FROM
+  example_body_urlencoded
+WHERE
+  delta_parent_id = ?
+`
+
+func (q *Queries) GetBodyUrlEncodedsByDeltaParentID(ctx context.Context, deltaParentID *idwrap.IDWrap) ([]ExampleBodyUrlencoded, error) {
+	rows, err := q.query(ctx, q.getBodyUrlEncodedsByDeltaParentIDStmt, getBodyUrlEncodedsByDeltaParentID, deltaParentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExampleBodyUrlencoded{}
+	for rows.Next() {
+		var i ExampleBodyUrlencoded
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.DeltaParentID,
+			&i.BodyKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
+			&i.Source,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getBodyUrlEncodedsByExampleID = `-- name: GetBodyUrlEncodedsByExampleID :many
 SELECT
   id,
@@ -4031,7 +4081,8 @@ SELECT
   flow_node_id,
   endpoint_id,
   example_id,
-  delta_example_id
+  delta_example_id,
+  delta_endpoint_id
 FROM
   flow_node_request
 WHERE
@@ -4047,6 +4098,7 @@ func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWr
 		&i.EndpointID,
 		&i.ExampleID,
 		&i.DeltaExampleID,
+		&i.DeltaEndpointID,
 	)
 	return i, err
 }
@@ -6309,16 +6361,18 @@ UPDATE flow_node_request
 SET
   endpoint_id = ?,
   example_id = ?,
-  delta_example_id = ?
+  delta_example_id = ?,
+  delta_endpoint_id = ?
 WHERE
   flow_node_id = ?
 `
 
 type UpdateFlowNodeRequestParams struct {
-	EndpointID     *idwrap.IDWrap
-	ExampleID      *idwrap.IDWrap
-	DeltaExampleID *idwrap.IDWrap
-	FlowNodeID     idwrap.IDWrap
+	EndpointID      *idwrap.IDWrap
+	ExampleID       *idwrap.IDWrap
+	DeltaExampleID  *idwrap.IDWrap
+	DeltaEndpointID *idwrap.IDWrap
+	FlowNodeID      idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {
@@ -6326,6 +6380,7 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 		arg.EndpointID,
 		arg.ExampleID,
 		arg.DeltaExampleID,
+		arg.DeltaEndpointID,
 		arg.FlowNodeID,
 	)
 	return err

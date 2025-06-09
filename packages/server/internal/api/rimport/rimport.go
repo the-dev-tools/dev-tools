@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
@@ -185,8 +186,10 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	lastHar.Log.Entries = filteredEntries
 
 	// Try to import as HAR
+	fmt.Printf("DEBUG: Attempting HAR import with %d filtered entries\n", len(lastHar.Log.Entries))
 	flow, err := c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
 	if err == nil {
+		fmt.Printf("DEBUG: HAR import successful, flow created: %s\n", flow.Name)
 		// Set collection in response
 		resp.Collection = &collectionv1.CollectionListItem{
 			CollectionId: collectionID.Bytes(),
@@ -204,14 +207,20 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return connect.NewResponse(resp), nil
 	}
 
+	fmt.Printf("DEBUG: HAR import failed with error: %v\n", err)
+	fmt.Printf("DEBUG: Falling back to Postman Collection import\n")
+
 	// Try to import as Postman Collection
 	postman, err := tpostman.ParsePostmanCollection(data)
 	if err != nil {
+		fmt.Printf("DEBUG: Postman collection parsing also failed: %v\n", err)
 		return nil, err
 	}
 
+	fmt.Printf("DEBUG: Postman collection parsed successfully, attempting import\n")
 	err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
 	if err == nil {
+		fmt.Printf("DEBUG: Postman collection import successful (no flow created)\n")
 		// Set collection in response (Postman imports only create collections, not flows)
 		resp.Collection = &collectionv1.CollectionListItem{
 			CollectionId: collectionID.Bytes(),
@@ -219,6 +228,8 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		}
 		return connect.NewResponse(resp), nil
 	}
+
+	fmt.Printf("DEBUG: Both HAR and Postman imports failed\n")
 
 	return nil, errors.New("invalid file")
 }
@@ -451,12 +462,18 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 }
 
 func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) (*mflow.Flow, error) {
+	fmt.Printf("DEBUG: ImportHar starting with %d entries\n", len(harData.Log.Entries))
 	resolved, err := thar.ConvertHAR(harData, CollectionID, workspaceID)
 	if err != nil {
+		fmt.Printf("DEBUG: thar.ConvertHAR failed: %v\n", err)
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	fmt.Printf("DEBUG: HAR conversion successful - APIs: %d, Nodes: %d, RequestNodes: %d\n",
+		len(resolved.Apis), len(resolved.Nodes), len(resolved.RequestNodes))
+
 	if len(resolved.Apis) == 0 {
+		fmt.Printf("DEBUG: No APIs found in HAR conversion\n")
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no apis found to create in har"))
 	}
 
@@ -580,14 +597,18 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	// Flow Request Nodes
+	fmt.Printf("DEBUG: Creating flow request nodes - count: %d\n", len(resolved.RequestNodes))
 	txFlowRequestService, err := snoderequest.NewTX(ctx, tx)
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to create txFlowRequestService: %v\n", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	err = txFlowRequestService.CreateNodeRequestBulk(ctx, resolved.RequestNodes)
 	if err != nil {
+		fmt.Printf("DEBUG: CreateNodeRequestBulk failed: %v\n", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	fmt.Printf("DEBUG: Flow request nodes created successfully\n")
 
 	// Flow Noop Nodes
 	txFlowNoopService, err := snodenoop.NewTX(ctx, tx)
@@ -609,13 +630,17 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	fmt.Printf("DEBUG: Committing transaction\n")
 	err = tx.Commit()
 	if err != nil {
+		fmt.Printf("DEBUG: Transaction commit failed: %v\n", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	fmt.Printf("DEBUG: Transaction committed successfully\n")
 
 	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to get workspace: %v\n", err)
 		return nil, err
 	}
 	ws.CollectionCount++
@@ -623,9 +648,11 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
+		fmt.Printf("DEBUG: Failed to update workspace: %v\n", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	fmt.Printf("DEBUG: HAR import completed successfully, returning flow: %s\n", resolved.Flow.Name)
 	// Return a pointer to the Flow
 	flow := resolved.Flow
 	return &flow, nil

@@ -32,19 +32,21 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeRequestService, error) {
 
 func ConvertToDBNodeRequest(nr mnrequest.MNRequest) gen.FlowNodeRequest {
 	return gen.FlowNodeRequest{
-		FlowNodeID:     nr.FlowNodeID,
-		EndpointID:     nr.EndpointID,
-		ExampleID:      nr.ExampleID,
-		DeltaExampleID: nr.DeltaExampleID,
+		FlowNodeID:      nr.FlowNodeID,
+		EndpointID:      nr.EndpointID,
+		ExampleID:       nr.ExampleID,
+		DeltaExampleID:  nr.DeltaExampleID,
+		DeltaEndpointID: nr.DeltaEndpointID,
 	}
 }
 
 func ConvertToModelNodeRequest(nr gen.FlowNodeRequest) *mnrequest.MNRequest {
 	return &mnrequest.MNRequest{
-		FlowNodeID:     nr.FlowNodeID,
-		EndpointID:     nr.EndpointID,
-		ExampleID:      nr.ExampleID,
-		DeltaExampleID: nr.DeltaExampleID,
+		FlowNodeID:      nr.FlowNodeID,
+		EndpointID:      nr.EndpointID,
+		ExampleID:       nr.ExampleID,
+		DeltaExampleID:  nr.DeltaExampleID,
+		DeltaEndpointID: nr.DeltaEndpointID,
 	}
 }
 
@@ -59,20 +61,22 @@ func (nrs NodeRequestService) GetNodeRequest(ctx context.Context, id idwrap.IDWr
 func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
 	nodeRequest := ConvertToDBNodeRequest(nr)
 	return nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
-		FlowNodeID:     nodeRequest.FlowNodeID,
-		EndpointID:     nodeRequest.EndpointID,
-		ExampleID:      nodeRequest.ExampleID,
-		DeltaExampleID: nodeRequest.DeltaExampleID,
+		FlowNodeID:      nodeRequest.FlowNodeID,
+		EndpointID:      nodeRequest.EndpointID,
+		ExampleID:       nodeRequest.ExampleID,
+		DeltaExampleID:  nodeRequest.DeltaExampleID,
+		DeltaEndpointID: nodeRequest.DeltaEndpointID,
 	})
 }
 
 func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nr []mnrequest.MNRequest) error {
 	for _, nodeRequest := range nr {
 		err := nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
-			FlowNodeID:     nodeRequest.FlowNodeID,
-			EndpointID:     nodeRequest.EndpointID,
-			ExampleID:      nodeRequest.ExampleID,
-			DeltaExampleID: nodeRequest.DeltaExampleID,
+			FlowNodeID:      nodeRequest.FlowNodeID,
+			EndpointID:      nodeRequest.EndpointID,
+			ExampleID:       nodeRequest.ExampleID,
+			DeltaExampleID:  nodeRequest.DeltaExampleID,
+			DeltaEndpointID: nodeRequest.DeltaEndpointID, // TODO: Uncomment after regenerating sqlc files
 		})
 		if err != nil {
 			return err
@@ -84,10 +88,11 @@ func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nr []mn
 func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
 	nodeRequest := ConvertToDBNodeRequest(nr)
 	return nrs.queries.UpdateFlowNodeRequest(ctx, gen.UpdateFlowNodeRequestParams{
-		FlowNodeID:     nodeRequest.FlowNodeID,
-		EndpointID:     nodeRequest.EndpointID,
-		ExampleID:      nodeRequest.ExampleID,
-		DeltaExampleID: nodeRequest.DeltaExampleID,
+		FlowNodeID:      nodeRequest.FlowNodeID,
+		EndpointID:      nodeRequest.EndpointID,
+		ExampleID:       nodeRequest.ExampleID,
+		DeltaExampleID:  nodeRequest.DeltaExampleID,
+		DeltaEndpointID: nodeRequest.DeltaEndpointID, // TODO: Uncomment after regenerating sqlc files
 	})
 }
 

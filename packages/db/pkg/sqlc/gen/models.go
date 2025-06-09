@@ -167,10 +167,11 @@ type FlowNodeNoop struct {
 }
 
 type FlowNodeRequest struct {
-	FlowNodeID     idwrap.IDWrap
-	EndpointID     *idwrap.IDWrap
-	ExampleID      *idwrap.IDWrap
-	DeltaExampleID *idwrap.IDWrap
+	FlowNodeID      idwrap.IDWrap
+	EndpointID      *idwrap.IDWrap
+	ExampleID       *idwrap.IDWrap
+	DeltaExampleID  *idwrap.IDWrap
+	DeltaEndpointID *idwrap.IDWrap
 }
 
 type FlowTag struct {

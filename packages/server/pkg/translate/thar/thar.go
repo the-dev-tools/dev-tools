@@ -584,10 +584,11 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		// Only add a flow node once per unique API.
 		flowNodeID := idwrap.NewNow()
 		request := mnrequest.MNRequest{
-			FlowNodeID:     flowNodeID,
-			EndpointID:     &api.ID,
-			ExampleID:      &exampleID,
-			DeltaExampleID: &deltaExampleID,
+			FlowNodeID:      flowNodeID,
+			EndpointID:      &api.ID,
+			ExampleID:       &exampleID,
+			DeltaExampleID:  &deltaExampleID,
+			DeltaEndpointID: &api.ID,
 		}
 		result.RequestNodes = append(result.RequestNodes, request)
 

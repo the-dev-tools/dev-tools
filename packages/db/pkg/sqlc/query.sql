@@ -1871,7 +1871,8 @@ SELECT
   flow_node_id,
   endpoint_id,
   example_id,
-  delta_example_id
+  delta_example_id,
+  delta_endpoint_id
 FROM
   flow_node_request
 WHERE
@@ -1880,16 +1881,17 @@ LIMIT 1;
 
 -- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id)
+  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id, delta_endpoint_id)
 VALUES
-  (?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
 SET
   endpoint_id = ?,
   example_id = ?,
-  delta_example_id = ?
+  delta_example_id = ?,
+  delta_endpoint_id = ?
 WHERE
   flow_node_id = ?;
 
