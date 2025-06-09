@@ -39,7 +39,6 @@ const settings: Linter.Config = {
     //   callees: ['tv', 'twMerge', 'twJoin'],
     //   tags: ['tw'],
     // },
-    perfectionist: { partitionByComment: '^s*\\*.*' },
     react: { version: 'detect' },
   },
 };
@@ -56,6 +55,11 @@ const perfectionist = {
     if (!Array.isArray(rule)) return 'warn';
     return pipe(rule, Array.drop(1), Array.prepend('warn'));
   }),
+  settings: {
+    perfectionist: {
+      partitionByNewLine: true,
+    },
+  },
 };
 
 // Implement TanStack Router rule via Perfectionist
@@ -98,7 +102,10 @@ const rules: Linter.Config = {
 
     'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
 
-    'perfectionist/sort-imports': ['warn', { internalPattern: ['^@the-dev-tools/.*', '^~.*'] }],
+    'perfectionist/sort-imports': [
+      'warn',
+      { newlinesBetween: 'ignore', internalPattern: ['^@the-dev-tools/.*', '^~.*'] },
+    ],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
     'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject],
 

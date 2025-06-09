@@ -1,5 +1,5 @@
 import { scan } from 'react-scan';
-//* React Scan must be instantiated first
+
 import { TransportProvider } from '@connectrpc/connect-query';
 import { DataProvider, getDefaultManagers, useController } from '@data-client/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,8 +22,9 @@ import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 import { makeDataClient } from '~data-client';
 
 import { RouterContext } from './root';
-import './styles.css';
 import { routeTree } from './router-tree';
+
+import './styles.css';
 
 scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 

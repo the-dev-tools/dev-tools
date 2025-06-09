@@ -13,11 +13,11 @@ export default {
     'prettier-plugin-tailwindcss',
   ],
 
-  //* Quotes
+  // Quotes
   jsxSingleQuote: true,
   singleQuote: true,
 
-  //* Tailwind
+  // Tailwind
   tailwindFunctions: ['tw'],
   tailwindStylesheet: './packages/ui/src/styles.css',
 };
