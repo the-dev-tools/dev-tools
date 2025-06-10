@@ -42,6 +42,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useMutate, useQuery } from '~data-client';
 
+import { GenericMessage } from '~api/utils';
 import { FlowContext } from './internal';
 import { FlowSearch } from './layout';
 
@@ -54,7 +55,7 @@ export interface NodePanelProps {
 }
 
 export const Node = {
-  fromDTO: ({ kind, nodeId, position, ...data }: Message & Omit<NodeListItem, keyof Message>): Node => ({
+  fromDTO: ({ kind, nodeId, position, ...data }: GenericMessage<NodeListItem>): Node => ({
     data: Struct.pick(data, 'info', 'noOp', 'state'),
     id: Ulid.construct(nodeId).toCanonical(),
     origin: [0.5, 0],
@@ -62,8 +63,7 @@ export const Node = {
     type: enumToJson(NodeKindSchema, kind),
   }),
 
-  toDTO: (_: Node): Omit<NodeListItem, 'state' | keyof Message> => ({
-    ...Struct.omit(_.data, 'state'),
+  toDTO: (_: Node): Pick<NodeListItem, 'kind' | 'nodeId' | 'position'> => ({
     kind: isEnumJson(NodeKindSchema, _.type) ? enumFromJson(NodeKindSchema, _.type) : NodeKind.UNSPECIFIED,
     nodeId: Ulid.fromCanonical(_.id).bytes,
     position: create(PositionSchema, _.position),
@@ -250,7 +250,7 @@ export const useNodeStateSynced = () => {
     const nodeServerMap = pipe(
       nodesServer.map((_) => {
         const id = Ulid.construct(_.nodeId).toCanonical();
-        const value = create(NodeListItemSchema, Struct.omit(_, '$typeName'));
+        const value = pipe(Struct.pick(_, 'kind', 'nodeId', 'position'), (_) => create(NodeListItemSchema, _));
         return [id, value] as const;
       }),
       HashMap.fromIterable,
