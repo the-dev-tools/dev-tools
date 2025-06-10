@@ -49,6 +49,7 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 			b := &logv1.LogStreamResponse{
 				LogId:      logMessage.LogID.Bytes(),
 				Value:      logMessage.Value,
+				Level:      logv1.LogLevel(logMessage.Level),
 				References: rpcRefs,
 			}
 			err = stream.Send(b)

@@ -9,9 +9,19 @@ import (
 	"the-dev-tools/server/pkg/reference"
 )
 
+// LogLevel represents the severity level of a log message
+type LogLevel int32
+
+const (
+	LogLevelUnspecified LogLevel = 0
+	LogLevelWarning     LogLevel = 1
+	LogLevelError       LogLevel = 2
+)
+
 type LogMessage struct {
 	LogID idwrap.IDWrap
 	Value string
+	Level LogLevel
 	Refs  []reference.ReferenceTreeItem
 }
 
@@ -52,15 +62,16 @@ func (l *LogChanMap) DeleteLogChannel(userID idwrap.IDWrap) {
 	delete(l.chanMap, userID)
 }
 
-func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string, refs []reference.ReferenceTreeItem) {
+func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string, level LogLevel, refs []reference.ReferenceTreeItem) {
 	ch <- LogMessage{
 		LogID: logID,
 		Value: value,
+		Level: level,
 		Refs:  refs,
 	}
 }
 
-func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, value string, refs []reference.ReferenceTreeItem) error {
+func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, value string, level LogLevel, refs []reference.ReferenceTreeItem) error {
 	logChannels.mt.Lock()
 	defer logChannels.mt.Unlock()
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -71,6 +82,6 @@ func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, log
 	if !ok {
 		return fmt.Errorf("userID's log channel not found")
 	}
-	SendLogMessage(ch, logID, value, refs)
+	SendLogMessage(ch, logID, value, level, refs)
 	return nil
 }

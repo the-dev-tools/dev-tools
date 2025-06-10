@@ -746,7 +746,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, name)
 					refs := []reference.ReferenceTreeItem{ref}
 
-					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr), refs)
+					// Set log level to error if there's an error, otherwise warning
+					var logLevel logconsole.LogLevel
+					if flowNodeStatus.Error != nil {
+						logLevel = logconsole.LogLevelError
+					} else {
+						logLevel = logconsole.LogLevelUnspecified
+					}
+
+					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr), logLevel, refs)
 					if localErr != nil {
 						done <- localErr
 						return
