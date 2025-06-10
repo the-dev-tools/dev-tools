@@ -1413,16 +1413,6 @@ func TestHarTemplatingInDeltasOnly(t *testing.T) {
 	}
 }
 
-// Helper function to find a node by ID
-func findNodeByID(nodes []mnnode.MNode, id idwrap.IDWrap) *mnnode.MNode {
-	for i := range nodes {
-		if nodes[i].ID == id {
-			return &nodes[i]
-		}
-	}
-	return nil
-}
-
 func TestNodePositioningNoOverlaps(t *testing.T) {
 	// Create a test flow with multiple branches to test positioning
 	result := thar.HarResvoled{

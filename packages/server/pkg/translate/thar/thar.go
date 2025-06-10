@@ -391,7 +391,7 @@ func isLikelyID(segment string) bool {
 	if len(segment) > 15 {
 		alphaNumeric := true
 		for _, r := range segment {
-			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')) {
+			if (r < '0' || r > '9') && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
 				alphaNumeric = false
 				break
 			}
