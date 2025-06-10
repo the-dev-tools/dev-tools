@@ -45,6 +45,7 @@ type FlowNodeStatus struct {
 	State       mnnode.NodeState
 	OutputData  any
 	RunDuration time.Duration
+	Error       error
 }
 
 func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {
@@ -52,5 +53,6 @@ func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []b
 		NodeID:     nodeID,
 		State:      status,
 		OutputData: output,
+		Error:      nil,
 	}
 }

@@ -147,6 +147,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.NodeID = flowNodeId
 			status.Name = req.NodeMap[flowNodeId].GetName()
 			status.State = mnnode.NODE_STATE_RUNNING
+			status.Error = nil
 			statusLogFunc(status)
 			currentNode, ok := req.NodeMap[flowNodeId]
 			if !ok {
@@ -177,12 +178,14 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.RunDuration = time.Since(nodeState.StartTime)
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
+				status.Error = FlowNodeCancelCtx.Err()
 				statusLogFunc(status)
 				continue
 			}
 
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
+				status.Error = result.err
 				statusLogFunc(status)
 				lastNodeError = result.err
 				FlowNodeCancelCtxCancel()
@@ -190,6 +193,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			}
 
 			status.State = mnnode.NODE_STATE_SUCCESS
+			status.Error = nil
 			outputData, err := node.ReadVarRaw(req, status.Name)
 			if err == nil {
 				status.OutputData = outputData
@@ -253,6 +257,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.NodeID = id
 			status.Name = req.NodeMap[id].GetName()
 			status.State = mnnode.NODE_STATE_RUNNING
+			status.Error = nil
 			statusLogFunc(status)
 			timeStart[id] = time.Now()
 
@@ -294,17 +299,20 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.RunDuration = time.Since(timeStart[status.NodeID])
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
+				status.Error = FlowNodeCancelCtx.Err()
 				statusLogFunc(status)
 				continue
 			}
 			if result.err != nil {
 				status.State = mnnode.NODE_STATE_FAILURE
+				status.Error = result.err
 				statusLogFunc(status)
 				lastNodeError = result.err
 				FlowNodeCancelCtxCancelFn()
 				continue
 			}
 			status.State = mnnode.NODE_STATE_SUCCESS
+			status.Error = nil
 			outputData, err := node.ReadVarRaw(req, status.Name)
 			if err == nil {
 				status.OutputData = outputData

@@ -754,55 +754,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}()
 			}
 
-			// var changes []*changev1.Change
-
 			select {
-			// TODO: move invalidation to a separate function so we can test it
 			case requestNodeResp := <-requestNodeRespChan:
 
 				err = c.HandleExampleChanges(ctx, requestNodeResp)
 				if err != nil {
 					log.Println("cannot update example on flow run", err)
 				}
-
-				/*
-					HistoryChangesService := "collection.item.example.v1.ExampleService"
-					HistroyChangesMethod := "ExampleGet"
-					exampleGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-
-					exampleGetRequest, err := anypb.New(&examplev1.ExampleGetRequest{
-						ExampleId: requestNodeResp.Example.ID.Bytes(),
-					})
-					if err != nil {
-						log.Fatal("anypb examplev1.ExampleGetRequest cannot be created")
-						return
-					}
-
-					changes = append(changes, &changev1.Change{
-						Kind:    &exampleGetChangeKind,
-						Data:    exampleGetRequest,
-						Service: &HistoryChangesService,
-						Method:  &HistroyChangesMethod,
-					})
-
-					HistroyChangesSubService := "collection.item.response.v1.ResponseService"
-					HistroyChangesSubMethod := "ResponseGet"
-					responseGetChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-					RespRequest, err := anypb.New(&responsev1.ResponseGetRequest{
-						ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
-					})
-					if err != nil {
-						log.Fatal("anypb responsev1.ResponseGetRequest cannot be created")
-						return
-					}
-
-					changes = append(changes, &changev1.Change{
-						Kind:    &responseGetChangeKind,
-						Data:    RespRequest,
-						Service: &HistroyChangesSubService,
-						Method:  &HistroyChangesSubMethod,
-					})
-				*/
 
 				example := &flowv1.FlowRunExampleResponse{
 					ExampleId:  requestNodeResp.Example.ID.Bytes(),
@@ -825,6 +783,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			nodeResp := &flowv1.FlowRunNodeResponse{
 				NodeId: flowNodeStatus.NodeID.Bytes(),
 				State:  nodev1.NodeState(flowNodeStatus.State),
+			}
+
+			// Add error information if the node failed
+			if flowNodeStatus.Error != nil {
+				errorMsg := flowNodeStatus.Error.Error()
+				nodeResp.Info = &errorMsg
 			}
 
 			resp := &flowv1.FlowRunResponse{
