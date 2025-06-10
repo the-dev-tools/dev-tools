@@ -10,7 +10,7 @@
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
-  "tailwindCSS.classAttributes": [],
+  "tailwindCSS.classAttributes": [" "],
   "tailwindCSS.classFunctions": ["tw"],
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.tsdk": "node_modules/typescript/lib"
