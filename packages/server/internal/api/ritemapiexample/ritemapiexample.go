@@ -714,7 +714,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	responseOutput, err := response.ResponseCreate(ctx, *requestResp, exampleResp, currentRespHeaders, assertions)
+	responseOutput, err := response.ResponseCreate(ctx, *requestResp, exampleResp, currentRespHeaders, assertions, *varMap)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -817,36 +817,6 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, err
 	}
-
-	/*
-
-		var changes []*changev1.Change
-		if isExampleRespExists {
-			exampleResp.Body = responseOutput.BodyRaw
-			changes, err = HandleResponseUpdate(exampleResp, assertions, assertResults, requestResp.HttpResp.Headers)
-		} else {
-			changes, err = HandleResponseCreate(example.ID, exampleResp.ID)
-		}
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		exampleVersionRequest, err := anypb.New(&examplev1.ExampleVersionsRequest{
-			ExampleId: exampleVersionID.Bytes(),
-		})
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-			HistoryChangesService := "collection.item.example.v1.ExampleService"
-			HistroyChangesMethod := "ExampleVersions"
-			exampleVersionChangeKind := changev1.ChangeKind_CHANGE_KIND_INVALIDATE
-			changes = append(changes, &changev1.Change{
-				Kind:    &exampleVersionChangeKind,
-				Data:    exampleVersionRequest,
-				Service: &HistoryChangesService,
-				Method:  &HistroyChangesMethod,
-			})
-	*/
 
 	rpcResponseGet, err := texampleresp.SeralizeModelToRPCGetResponse(exampleResp)
 	if err != nil {

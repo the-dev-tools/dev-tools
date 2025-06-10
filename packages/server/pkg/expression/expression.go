@@ -2,9 +2,11 @@ package expression
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"iter"
 	"reflect"
+	"strings"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/expr-lang/expr"
@@ -20,13 +22,37 @@ func NewEnv(varMap map[string]any) Env {
 	}
 }
 
+// GetVarMap returns the internal varMap for debugging purposes
+func (e Env) GetVarMap() map[string]any {
+	return e.varMap
+}
+
 func NormalizeExpression(ctx context.Context, expressionString string, varsystem varsystem.VarMap) (string, error) {
+	// trim spaces
+	expressionString = strings.TrimSpace(expressionString)
 	normalizedString, err := varsystem.ReplaceVars(expressionString)
 	if err != nil {
 		return expressionString, err
 	}
 	return normalizedString, nil
 
+}
+
+// convertStructToMapWithJSONTags recursively converts a struct to a map using JSON tags
+func convertStructToMapWithJSONTags(v any) (any, error) {
+	// Use JSON marshaling and unmarshaling to handle nested structs with JSON tags
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	var result any
+	err = json.Unmarshal(jsonData, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func NewEnvFromStruct(s any) (Env, error) {
@@ -40,8 +66,28 @@ func NewEnvFromStruct(s any) (Env, error) {
 	typ := reflect.TypeOf(s)
 	for i := range val.NumField() {
 		fieldValue := val.Field(i)
-		fieldName := typ.Field(i).Name
-		varMap[fieldName] = fieldValue.Interface()
+		field := typ.Field(i)
+
+		// Use JSON tag if available, otherwise use field name
+		fieldName := field.Name
+		if jsonTag := field.Tag.Get("json"); jsonTag != "" {
+			// Handle JSON tag options like "fieldname,omitempty"
+			jsonFieldName := jsonTag
+			if commaIndex := strings.Index(jsonTag, ","); commaIndex != -1 {
+				jsonFieldName = jsonTag[:commaIndex]
+			}
+			if jsonFieldName != "" && jsonFieldName != "-" {
+				fieldName = jsonFieldName
+			}
+		}
+
+		// Convert the field value to use JSON tag names recursively
+		convertedValue, err := convertStructToMapWithJSONTags(fieldValue.Interface())
+		if err != nil {
+			return Env{}, err
+		}
+
+		varMap[fieldName] = convertedValue
 	}
 
 	return NewEnv(varMap), nil

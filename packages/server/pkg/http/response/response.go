@@ -2,6 +2,8 @@ package response
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
@@ -10,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 	"the-dev-tools/server/pkg/zstdcompress"
 
@@ -33,7 +34,7 @@ type AssertCouple struct {
 	AssertRes massertres.AssertResult
 }
 
-func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert) (*ResponseCreateOutput, error) {
+func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert, varMap varsystem.VarMap) (*ResponseCreateOutput, error) {
 	ResponseCreateOutput := ResponseCreateOutput{}
 	respHttp := r.HttpResp
 	lapse := r.LapTime
@@ -102,28 +103,40 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 
 	var resultArr []AssertCouple
 	// TODO: move to proper package
-	tempStruct := struct {
-		Response httpclient.ResponseVar `json:"response"`
-	}{
-		Response: httpclient.ConvertResponseToVar(respHttp),
+	responseVar := httpclient.ConvertResponseToVar(respHttp)
+
+	// Create environment manually to ensure proper structure
+	envMap := map[string]any{
+		"response": map[string]any{
+			"status":   responseVar.StatusCode,
+			"body":     responseVar.Body,
+			"headers":  responseVar.Headers,
+			"duration": responseVar.Duration,
+		},
 	}
-	exprEnv, err := expression.NewEnvFromStruct(tempStruct)
-	if err != nil {
-		return nil, err
-	}
+	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(envMap))
+	exprEnv := expression.NewEnv(envMap)
 
 	for _, assertion := range assertions {
 		if assertion.Enable {
-			normalizedExprString, err := expression.NormalizeExpression(ctx, assertion.Condition.Comparisons.Expression, varsystem.NewVarMap([]mvar.Var{}))
-			if err != nil {
-				return nil, err
+			// Use NormalizeExpression if {{ }} wrapper is found
+			expr := assertion.Condition.Comparisons.Expression
+			var err error
+			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
+				fmt.Println("expr", expr)
+				fmt.Println("varMap", varMap)
+				expr, err = expression.NormalizeExpression(ctx, expr, mergedVarMap)
+				if err != nil {
+					return nil, err
+				}
 			}
-			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExprString)
+
+			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, expr)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			res := massertres.AssertResult{
-				ID:         assertion.ID,
+				ID:         idwrap.NewNow(),
 				ResponseID: exampleResp.ID,
 				AssertID:   assertion.ID,
 				Result:     ok,

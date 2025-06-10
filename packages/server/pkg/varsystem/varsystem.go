@@ -2,6 +2,7 @@ package varsystem
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"strings"
@@ -38,6 +39,17 @@ func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
 		HelperNewAny(&vars, v, k)
 	}
 	return NewVarMap(vars)
+}
+
+// MergeVarMap merges two var maps
+// it creates a new var map and does not modify the original var maps
+func MergeVarMap(varMap1, varMap2 VarMap) VarMap {
+
+	varMap := make(VarMap)
+	maps.Copy(varMap, varMap1)
+	maps.Copy(varMap, varMap2)
+
+	return varMap
 }
 
 // should convert
@@ -176,6 +188,7 @@ func GetIsFileReferencePath(filePath string) string {
 // Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
 // returns google.com/api/v1/path
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
+
 	var result string
 	for {
 		startIndex := strings.Index(raw, mvar.Prefix)

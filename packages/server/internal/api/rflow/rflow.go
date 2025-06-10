@@ -990,6 +990,21 @@ func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeRe
 		}
 	}
 
+	// Handle assert results - create/update them in the database
+	if len(assertResults) > 0 {
+		txAssertRes, err := sassertres.NewTX(ctx, tx2)
+		if err != nil {
+			return err
+		}
+
+		for _, assertResult := range assertResults {
+			err = txAssertRes.CreateAssertResult(ctx, assertResult)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	res, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
 		requestNodeResp.Queries, requestNodeResp.Headers, assert,
 		&requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
