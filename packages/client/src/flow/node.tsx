@@ -145,9 +145,9 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
     stateIndicator = (
       <TooltipTrigger delay={750}>
         <Button className={tw`p-0`} variant='ghost'>
-          {info}
+          {stateIndicator}
         </Button>
-        <Tooltip className={tw`max-w-lg rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{}</Tooltip>
+        <Tooltip className={tw`max-w-lg rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{info}</Tooltip>
       </TooltipTrigger>
     );
 
