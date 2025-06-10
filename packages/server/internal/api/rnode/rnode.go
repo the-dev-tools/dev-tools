@@ -156,15 +156,6 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 				}
 				rpcNode.Request.CollectionId = ex.CollectionID.Bytes()
 			}
-			// Include endpointId in the info field for access in the list response
-			if rpcNode.Request.EndpointId != nil {
-				endpoint, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInvalidArgument, err)
-				}
-				endpointIdStr := endpoint.String()
-				convertedItem.Info = &endpointIdStr
-			}
 		}
 		NodeList[i] = convertedItem
 	}
