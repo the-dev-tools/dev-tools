@@ -554,6 +554,19 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		}
 		result.Apis = append(result.Apis, *api)
 
+		// Create Delta Endpoint/api for delta functionality
+		deltaApiID := idwrap.NewNow()
+		deltaApi := &mitemapi.ItemApi{
+			ID:            deltaApiID,
+			Name:          fmt.Sprintf("%s (Delta)", apiName),
+			Url:           templatedURL, // Use templated URL for the delta endpoint
+			Method:        entry.Request.Method,
+			CollectionID:  collectionID,
+			FolderID:      &leafFolderID, // Place API in the appropriate folder
+			DeltaParentID: &apiID,        // Reference the parent API
+		}
+		result.Apis = append(result.Apis, *deltaApi)
+
 		// Create an example for this entry.
 		exampleID := idwrap.NewNow()
 		example := mitemapiexample.ItemApiExample{
@@ -588,7 +601,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			EndpointID:      &api.ID,
 			ExampleID:       &exampleID,
 			DeltaExampleID:  &deltaExampleID,
-			DeltaEndpointID: &api.ID,
+			DeltaEndpointID: &deltaApiID,
 		}
 		result.RequestNodes = append(result.RequestNodes, request)
 

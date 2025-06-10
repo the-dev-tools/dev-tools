@@ -10,6 +10,7 @@ type ItemApi struct {
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 	VersionParentID *idwrap.IDWrap
+	DeltaParentID   *idwrap.IDWrap
 	Name            string
 	Url             string
 	Method          string

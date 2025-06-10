@@ -197,6 +197,7 @@ type ItemApi struct {
 	Url             string
 	Method          string
 	VersionParentID *idwrap.IDWrap
+	DeltaParentID   *idwrap.IDWrap
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }

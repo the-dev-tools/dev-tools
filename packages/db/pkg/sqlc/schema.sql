@@ -91,18 +91,23 @@ CREATE TABLE item_api (
   -- versioning
   version_parent_id BLOB DEFAULT NULL,
 
+  -- delta endpoint parent (null for regular endpoints, references parent for delta endpoints)
+  delta_parent_id BLOB DEFAULT NULL,
+
   -- ordering
   prev BLOB,
   next BLOB,
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
-  FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
+  FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
 );
 
 CREATE INDEX item_api_idx1 ON item_api (
   collection_id,
   folder_id,
-  version_parent_id
+  version_parent_id,
+  delta_parent_id
 );
 
 /*

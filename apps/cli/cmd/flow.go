@@ -687,6 +687,15 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 				return connect.NewError(connect.CodeInternal, err)
 			}
 
+			if requestNode.DeltaEndpointID != nil {
+				deltaEndpoint, err := c.ias.GetItemApi(ctx, *requestNode.DeltaEndpointID)
+				if err != nil {
+					return connect.NewError(connect.CodeInternal, err)
+				}
+				endpoint.Url = deltaEndpoint.Url
+				endpoint.Method = deltaEndpoint.Method
+			}
+
 			deltaHeaders, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
