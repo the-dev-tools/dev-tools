@@ -734,6 +734,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		// Declare variables for form bodies and URL-encoded bodies at higher scope
 		var formBodies []mbodyform.BodyForm
 		var urlEncodedBodies []mbodyurl.BodyURLEncoded
+		var templatedBodyBytes []byte // Store templated JSON for delta examples
 
 		if entry.Request.PostData != nil {
 			postData := entry.Request.PostData
@@ -777,8 +778,8 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 									SourceHandler: edge.HandleUnspecified,
 								})
 							}
-							// Don't use templated JSON - keep original
-							// bodyBytes = resultDep.NewJson
+							// Store templated JSON for delta examples
+							templatedBodyBytes = resultDep.NewJson
 						}
 					}
 				}
@@ -829,6 +830,20 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		deltaBody := rawBodyDefault
 		deltaBody.ID = idwrap.NewNow()
 		deltaBody.ExampleID = deltaExampleID
+		
+		// Use templated body for delta if it was created
+		if templatedBodyBytes != nil {
+			deltaBody.Data = templatedBodyBytes
+			// Handle compression for templated delta body
+			if len(deltaBody.Data) > 1024 {
+				compressedData, err := compress.Compress(deltaBody.Data, compress.CompressTypeZstd)
+				if err == nil && len(compressedData) < len(deltaBody.Data) {
+					deltaBody.Data = compressedData
+					deltaBody.CompressType = compress.CompressTypeZstd
+				}
+			}
+		}
+		
 		result.RawBodies = append(result.RawBodies, deltaBody)
 
 		// Create delta headers, queries, form bodies, and URL-encoded bodies
