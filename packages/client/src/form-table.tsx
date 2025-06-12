@@ -188,6 +188,7 @@ export const columnReferenceField = <TFieldValues extends FieldValues>(
         allowFiles={allowFiles}
         className='flex-1'
         control={control}
+        kind='StringExpression'
         name={name}
         placeholder={`Enter ${title}`}
         variant='table-cell'

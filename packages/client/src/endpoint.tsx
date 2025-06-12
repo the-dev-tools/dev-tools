@@ -422,6 +422,7 @@ export const useEndpointUrlForm = ({
         aria-label='URL'
         className={tw`flex-1 border-none font-medium tracking-tight`}
         control={form.control}
+        kind='StringExpression'
         name='url'
         onBlur={submit}
       />

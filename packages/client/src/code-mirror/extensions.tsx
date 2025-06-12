@@ -124,7 +124,7 @@ const referenceCompletions =
   }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
     // Check for Reference token type first (works in text body)
-    let token = context.tokenBefore(['Reference']);
+    let token = context.tokenBefore(['Word']);
 
     // If no Reference token found, check if we have JSON string content with variables
     if (!token) {
@@ -276,16 +276,21 @@ const referenceCompletions =
     };
   };
 
-interface LanguageProps extends ReferenceCompletionsProps {}
+interface LanguageProps extends ReferenceCompletionsProps {
+  kind?: 'FullExpression' | 'StringExpression' | undefined;
+}
 
-const language = (props: LanguageProps) => {
+const language = ({ kind = 'FullExpression', ...props }: LanguageProps) => {
   const lrl = LRLanguage.define({
     parser: parser.configure({
+      top: kind,
+
       props: [
         styleTags({
-          CloseMarker: tags.escape,
-          OpenMarker: tags.escape,
-          Reference: tags.string,
+          InterpolationEnd: tags.escape,
+          InterpolationStart: tags.escape,
+          String: tags.string,
+          StringExpression: tags.string,
         }),
       ],
     }),
@@ -329,7 +334,7 @@ const expressionBracketSpacing = EditorView.updateListener.of((update) => {
 
 const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap]);
 
-interface BaseCodeMirrorExtensionProps extends ReferenceCompletionsProps {}
+export interface BaseCodeMirrorExtensionProps extends LanguageProps {}
 
 // Additional handler to trigger completions in JSON strings
 const jsonStringCompletionHandler = EditorView.updateListener.of((update) => {

@@ -1,27 +1,33 @@
-@top Program { entity* }
+@top FullExpression { expression* }
 
-entity { text | referenceStatement }
-
-@tokens {
-  text { _ }
-
-  OpenMarker[closedBy=CloseMarker] { "{{" }
-}
+@top StringExpression { stringContentNested* }
 
 @local tokens {
-  CloseMarker[openedBy=OpenMarker] { "}}" }
-
-  closeMarkerMissing { ![}] | "}" ![}] | "}" @eof }
-
-  referenceUnfinished { closeMarkerMissing* @eof }
-
-  @else Reference
+  InterpolationStart[closedBy=InterpolationEnd] { '{{' }
+  stringEnd { '"' }
+  @else stringContent
 }
 
-@skip {} {
-  referenceFinished { Reference? CloseMarker }
+expression { spaces | Word | String }
 
-  referenceStatement { OpenMarker (referenceFinished | referenceUnfinished) }
+interpolation { InterpolationStart expression* InterpolationEnd }
+
+@skip {} {
+  InterpolationEnd[openedBy=InterpolationStart] { '}}' }
+
+  stringContentNested { stringContent | interpolation }
+
+  String { stringStart stringContentNested* stringEnd }
+}
+
+@tokens {
+  spaces { $[ ]+ }
+
+  Word { ![ {}"]+ }
+
+  stringStart { '"' }
+
+  @precedence { stringStart, '}}', Word }
 }
 
 @detectDelim

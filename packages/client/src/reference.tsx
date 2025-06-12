@@ -31,7 +31,7 @@ import { controllerPropKeys, ControllerPropKeys } from '@the-dev-tools/ui/react-
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
-import { baseCodeMirrorExtensions } from '~code-mirror/extensions';
+import { BaseCodeMirrorExtensionProps, baseCodeMirrorExtensions } from '~code-mirror/extensions';
 import { useReactRender } from '~react-render';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
@@ -209,13 +209,19 @@ const fieldStyles = tv({
 });
 
 interface ReferenceFieldProps
-  extends ReactCodeMirrorProps,
+  extends Partial<BaseCodeMirrorExtensionProps>,
+    ReactCodeMirrorProps,
     RefAttributes<ReactCodeMirrorRef>,
-    VariantProps<typeof fieldStyles> {
-  allowFiles?: boolean | undefined;
-}
+    VariantProps<typeof fieldStyles> {}
 
-export const ReferenceField = ({ allowFiles, className, extensions = [], ...forwardedProps }: ReferenceFieldProps) => {
+export const ReferenceField = ({
+  allowFiles,
+  kind,
+
+  className,
+  extensions = [],
+  ...forwardedProps
+}: ReferenceFieldProps) => {
   const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
   const variantProps = Struct.pick(forwardedProps, ...fieldStyles.variantKeys);
 
@@ -231,7 +237,7 @@ export const ReferenceField = ({ allowFiles, className, extensions = [], ...forw
       basicSetup={false}
       className={fieldStyles({ className, ...variantProps })}
       extensions={[
-        ...baseCodeMirrorExtensions({ allowFiles, client, context, reactRender }),
+        ...baseCodeMirrorExtensions({ allowFiles, client, context, kind, reactRender }),
         EditorView.theme({ '.cm-scroller': { overflow: 'hidden' } }),
         ...extensions,
       ]}
