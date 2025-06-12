@@ -1,4 +1,4 @@
-import { getRouteApi, useRouteContext } from '@tanstack/react-router';
+import { getRouteApi, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { Array, Option, pipe } from 'effect';
 import { useState } from 'react';
 import {
@@ -17,6 +17,7 @@ import {
 import { FiInfo, FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 
+import { Ulid } from 'id128';
 import { ImportKind } from '@the-dev-tools/spec/import/v1/import_pb';
 import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
@@ -34,6 +35,8 @@ export const ImportDialog = () => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = workspaceRoute.useLoaderData();
+
+  const navigate = useNavigate();
 
   const [isOpen, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -155,13 +158,22 @@ export const ImportDialog = () => {
                 Array.filterMap((_) => Option.fromNullable(filters[_ as number])),
               );
 
-        await dataClient.fetch(ImportEndpoint, {
+        const { flow } = await dataClient.fetch(ImportEndpoint, {
           data: (await data) ?? new Uint8Array(),
           filter: finalFilters,
           kind: ImportKind.FILTER,
           name: file?.name ?? '',
           textData: text,
           workspaceId,
+        });
+
+        const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
+
+        await navigate({
+          from: '/workspace/$workspaceIdCan',
+          to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+
+          params: { flowIdCan },
         });
 
         onOpenChange(false);
