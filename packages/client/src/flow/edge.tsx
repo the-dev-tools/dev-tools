@@ -3,16 +3,19 @@ import { useRouteContext } from '@tanstack/react-router';
 import {
   ConnectionLineComponentProps,
   Edge as EdgeCore,
+  EdgeLabelRenderer,
   EdgeProps as EdgePropsCore,
+  getEdgeCenter,
   getSmoothStepPath,
   useEdgesState,
+  useReactFlow,
 } from '@xyflow/react';
 import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { use, useCallback } from 'react';
+import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
 import { useDebouncedCallback } from 'use-debounce';
-
 import {
   EdgeListItem,
   EdgeListItemSchema,
@@ -26,9 +29,9 @@ import {
   EdgeListEndpoint,
   EdgeUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
+import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
-
 import { FlowContext } from './internal';
 
 export interface EdgeData extends Record<string, unknown> {
@@ -86,18 +89,37 @@ export const useMakeEdge = () => {
   );
 };
 
-const DefaultEdge = ({ data, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: EdgeProps) => (
-  <ConnectionLine
-    connected
-    fromPosition={sourcePosition}
-    fromX={sourceX}
-    fromY={sourceY}
-    state={data?.state}
-    toPosition={targetPosition}
-    toX={targetX}
-    toY={targetY}
-  />
-);
+const DefaultEdge = ({ data, id, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: EdgeProps) => {
+  const { deleteElements } = useReactFlow();
+
+  const [labelX, labelY] = getEdgeCenter({ sourceX, sourceY, targetX, targetY });
+
+  return (
+    <>
+      <ConnectionLine
+        connected
+        fromPosition={sourcePosition}
+        fromX={sourceX}
+        fromY={sourceY}
+        state={data?.state}
+        toPosition={targetPosition}
+        toX={targetX}
+        toY={targetY}
+      />
+
+      <EdgeLabelRenderer>
+        <div
+          className={tw`nodrag nopan pointer-events-auto absolute`}
+          style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)` }}
+        >
+          <Button className={tw`rounded-full p-1`} onPress={() => void deleteElements({ edges: [{ id }] })}>
+            <FiX className={tw`size-3 text-red-700`} />
+          </Button>
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  );
+};
 
 export const edgeTypes = {
   default: DefaultEdge,
