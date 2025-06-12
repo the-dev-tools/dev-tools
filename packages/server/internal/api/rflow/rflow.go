@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"sync"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -531,10 +532,34 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, errors.New("no start node"))
 	}
 
+	// Get flow variables first to check for timeout override
+	flowVarsMap := make(map[string]any, len(flowVars))
+	for _, flowVar := range flowVars {
+		if flowVar.Enabled {
+			flowVarsMap[flowVar.Name] = flowVar.Value
+		}
+	}
+
+	// Create temporary request to safely read timeout variable
+	tempReq := &node.FlowNodeRequest{
+		VarMap:        flowVarsMap,
+		ReadWriteLock: &sync.RWMutex{},
+	}
+
+	// Set default timeout to 60 seconds, check for timeout variable override
+	nodeTimeout := time.Second * 60
+	if timeoutVar, err := node.ReadVarRaw(tempReq, "timeout"); err == nil {
+		if timeoutSeconds, ok := timeoutVar.(float64); ok && timeoutSeconds > 0 {
+			nodeTimeout = time.Duration(timeoutSeconds) * time.Second
+		} else if timeoutSecondsInt, ok := timeoutVar.(int); ok && timeoutSecondsInt > 0 {
+			nodeTimeout = time.Duration(timeoutSecondsInt) * time.Second
+		}
+	}
+	
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
-		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, time.Second)
+		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout)
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
@@ -701,7 +726,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	for _, forEachNode := range forEachNodes {
 		name := nodeNameMap[forEachNode.FlowNodeID]
-		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterExpression, time.Second,
+		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterExpression, nodeTimeout,
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
@@ -724,8 +749,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, name, string(jsNode.Code), *clientPtr)
 	}
 
-	// TODO: get timeout from flow config
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, time.Second*10)
+	// Use the same timeout for the flow runner
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
 
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
 	flowStatusChan := make(chan runner.FlowStatus, 10)
@@ -851,14 +876,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 		}
 	}()
-
-	// TODO: move into translate packages
-	flowVarsMap := make(map[string]any, len(flowVars))
-	for _, flowVar := range flowVars {
-		if flowVar.Enabled {
-			flowVarsMap[flowVar.Name] = flowVar.Value
-		}
-	}
 
 	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
 
