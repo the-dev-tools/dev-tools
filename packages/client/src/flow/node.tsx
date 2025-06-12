@@ -55,12 +55,13 @@ export interface NodePanelProps {
 }
 
 export const Node = {
-  fromDTO: ({ kind, nodeId, position, ...data }: GenericMessage<NodeListItem>): Node => ({
+  fromDTO: ({ kind, nodeId, position, ...data }: GenericMessage<NodeListItem>, extra?: Partial<Node>): Node => ({
     data: Struct.pick(data, 'info', 'noOp', 'state'),
     id: Ulid.construct(nodeId).toCanonical(),
     origin: [0.5, 0],
     position: Struct.pick(position!, 'x', 'y'),
     type: enumToJson(NodeKindSchema, kind),
+    ...extra,
   }),
 
   toDTO: (_: Node): Pick<NodeListItem, 'kind' | 'nodeId' | 'position'> => ({
@@ -244,7 +245,7 @@ export const useNodeStateSynced = () => {
 
   const { items: nodesServer } = useQuery(NodeListEndpoint, { flowId });
 
-  const [nodesClient, setNodesClient, onNodesChange] = useNodesState(nodesServer.map(Node.fromDTO));
+  const [nodesClient, setNodesClient, onNodesChange] = useNodesState(nodesServer.map((_) => Node.fromDTO(_)));
 
   const sync = useDebouncedCallback(async () => {
     const nodeServerMap = pipe(

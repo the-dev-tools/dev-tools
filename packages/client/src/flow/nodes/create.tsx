@@ -55,7 +55,10 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
     async (nodes: NodeListItem[], edges: EdgeListItem[]) => {
       await deleteElements({ edges: Option.toArray(edge), nodes: [{ id }] });
 
-      pipe(nodes.map(Node.fromDTO), addNodes);
+      pipe(
+        nodes.map((_) => Node.fromDTO(_, { selected: true })),
+        addNodes,
+      );
       pipe(edges.map(Edge.fromDTO), addEdges);
     },
     [addEdges, addNodes, deleteElements, edge, id],

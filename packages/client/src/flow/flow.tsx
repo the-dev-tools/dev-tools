@@ -163,7 +163,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         targetId: node.nodeId,
       });
 
-      pipe(Node.fromDTO(node), addNodes);
+      pipe(Node.fromDTO(node, { selected: true }), addNodes);
       pipe(Edge.fromDTO(edge), addEdges);
     },
     [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition],
