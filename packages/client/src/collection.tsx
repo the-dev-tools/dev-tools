@@ -185,7 +185,11 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
                 const {
                   endpoint: { endpointId },
                   example: { exampleId },
-                } = await dataClient.fetch(EndpointCreateEndpoint, { collectionId, name: 'New API call' });
+                } = await dataClient.fetch(EndpointCreateEndpoint, {
+                  collectionId,
+                  method: 'GET',
+                  name: 'New API call',
+                });
 
                 const endpointIdCan = Ulid.construct(endpointId).toCanonical();
                 const exampleIdCan = Ulid.construct(exampleId).toCanonical();
@@ -336,6 +340,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                       example: { exampleId },
                     } = await dataClient.fetch(EndpointCreateEndpoint, {
                       collectionId,
+                      method: 'GET',
                       name: 'New API call',
                       parentFolderId: folderId,
                     });
