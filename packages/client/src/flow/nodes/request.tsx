@@ -1,7 +1,7 @@
 import { useRouteContext } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { Ulid } from 'id128';
-import { use } from 'react';
+import { Suspense, use } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
@@ -17,7 +17,7 @@ import {
 import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
 import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
-import { SendRequestIcon } from '@the-dev-tools/ui/icons';
+import { SendRequestIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
@@ -219,7 +219,15 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
             Response
           </div>
 
-          <ResponseTabs className={tw`p-5 pt-3`} responseId={lastResponseId} />
+          <Suspense
+            fallback={
+              <div className={tw`flex h-full items-center justify-center p-4`}>
+                <Spinner className={tw`size-8`} />
+              </div>
+            }
+          >
+            <ResponseTabs className={tw`p-5 pt-3`} responseId={lastResponseId} />
+          </Suspense>
         </div>
       )}
     </>
