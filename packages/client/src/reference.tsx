@@ -3,7 +3,7 @@ import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
-import { createContext, RefAttributes, use, useContext } from 'react';
+import { createContext, use, useContext, useRef } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Collection as AriaCollection,
@@ -14,6 +14,7 @@ import { FieldPath, FieldValues, useController, UseControllerProps } from 'react
 import { twJoin } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
 
+import { startCompletion } from '@codemirror/autocomplete';
 import {
   ReferenceContext as ReferenceContextMessage,
   ReferenceKey,
@@ -211,7 +212,6 @@ const fieldStyles = tv({
 interface ReferenceFieldProps
   extends Partial<BaseCodeMirrorExtensionProps>,
     ReactCodeMirrorProps,
-    RefAttributes<ReactCodeMirrorRef>,
     VariantProps<typeof fieldStyles> {}
 
 export const ReferenceField = ({
@@ -220,6 +220,7 @@ export const ReferenceField = ({
 
   className,
   extensions = [],
+  onFocus: onFocusParent,
   ...forwardedProps
 }: ReferenceFieldProps) => {
   const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
@@ -227,6 +228,17 @@ export const ReferenceField = ({
 
   const transport = useTransport();
   const client = createClient(ReferenceService, transport);
+
+  const ref = useRef<ReactCodeMirrorRef>(null);
+
+  const onFocus: typeof onFocusParent = (event) => {
+    onFocusParent?.(event);
+
+    setTimeout(() => {
+      if (!ref.current?.view) return;
+      startCompletion(ref.current.view);
+    }, 0);
+  };
 
   const context = use(ReferenceContext);
 
@@ -243,6 +255,8 @@ export const ReferenceField = ({
       ]}
       height='100%'
       indentWithTab={false}
+      onFocus={onFocus}
+      ref={ref}
       {...props}
     />
   );
@@ -272,5 +286,5 @@ export const ReferenceFieldRHF = <
     value: field.value,
   };
 
-  return <ReferenceField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <ReferenceField {...mergeProps(fieldProps, forwardedProps)} />;
 };
