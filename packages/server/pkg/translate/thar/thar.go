@@ -105,9 +105,10 @@ type Content struct {
 }
 
 const (
-	RawBodyCheck        = "application/json"
-	FormBodyCheck       = "multipart/form-data"
-	UrlEncodedBodyCheck = "application/x-www-form-urlencoded"
+	RawBodyCheck                = "application/json"
+	FormBodyCheck               = "multipart/form-data"
+	UrlEncodedBodyCheck         = "application/x-www-form-urlencoded"
+	TimestampSequencingThreshold = 50 * time.Millisecond // Connect requests within 50ms for better sequencing
 )
 
 func ConvertRaw(data []byte) (*HAR, error) {
@@ -512,6 +513,10 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 	// Map to track existing folders by their path to avoid duplicates
 	existingFolders := make(map[string]idwrap.IDWrap)
 
+	// Track previous node for timestamp-based sequencing
+	var previousNodeID *idwrap.IDWrap
+	var previousTimestamp *time.Time
+
 	// Process each entry in the HAR file
 	for i, entry := range har.Log.Entries {
 		// Only process XHR requests.
@@ -606,6 +611,30 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		result.RequestNodes = append(result.RequestNodes, request)
 
 		var connected bool
+
+		// Check for timestamp-based sequencing to preserve some HAR ordering
+		// This creates edges between consecutive requests that are close in time,
+		// maintaining parallelism for requests further apart while ensuring
+		// sequential execution for rapid consecutive requests
+		currentTimestamp := entry.StartedDateTime
+		if previousNodeID != nil && previousTimestamp != nil {
+			timeDiff := currentTimestamp.Sub(*previousTimestamp)
+			if timeDiff >= 0 && timeDiff <= TimestampSequencingThreshold {
+				// Connect to previous node if within threshold
+				result.Edges = append(result.Edges, edge.Edge{
+					ID:            idwrap.NewNow(),
+					FlowID:        flowID,
+					SourceID:      *previousNodeID,
+					TargetID:      flowNodeID,
+					SourceHandler: edge.HandleUnspecified,
+				})
+				connected = true
+			}
+		}
+
+		// Update previous node tracking
+		previousNodeID = &flowNodeID
+		previousTimestamp = &currentTimestamp
 
 		// Add edges for URL path parameter dependencies
 		for _, couple := range urlCouples {
@@ -1090,11 +1119,12 @@ func extractQueryParamsWithDeltaParent(queries []Query, deltaExampleID idwrap.ID
 	return result
 }
 
-// ReorganizeNodePositions positions flow nodes using a grid system to prevent overlaps.
-// Each node is assigned to a unique grid cell, guaranteeing no overlaps.
+// ReorganizeNodePositions positions flow nodes using a level-based layout.
+// Parallel nodes are positioned at the same Y level, sequential nodes at deeper levels.
 func ReorganizeNodePositions(result *HarResvoled) error {
 	const (
-		gridCellSize = 400 // Size of each grid cell
+		nodeSpacingX = 400 // Horizontal spacing between parallel nodes
+		nodeSpacingY = 300 // Vertical spacing between levels
 		startX       = 0   // Starting X position
 		startY       = 0   // Starting Y position
 	)
@@ -1117,7 +1147,7 @@ func ReorganizeNodePositions(result *HarResvoled) error {
 		return errors.New("start node not found")
 	}
 
-	// Build an adjacency list from edges
+	// Build adjacency lists from edges
 	outgoingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
 	incomingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
 	for _, e := range result.Edges {
@@ -1125,106 +1155,80 @@ func ReorganizeNodePositions(result *HarResvoled) error {
 		incomingEdges[e.TargetID] = append(incomingEdges[e.TargetID], e.SourceID)
 	}
 
-	// Grid tracking system
-	occupiedGrid := make(map[string]bool)
+	// Calculate dependency levels using BFS
+	nodeLevels := make(map[idwrap.IDWrap]int)
+	levelNodes := make(map[int][]idwrap.IDWrap) // level -> nodes at that level
 
-	// Position start node at origin
-	startNode.PositionX = startX
-	startNode.PositionY = startY
-	occupiedGrid["0,0"] = true
+	// BFS to assign levels
+	queue := []idwrap.IDWrap{startNode.ID}
+	nodeLevels[startNode.ID] = 0
+	levelNodes[0] = []idwrap.IDWrap{startNode.ID}
 
-	// Use topological ordering to position nodes
-	positioned := make(map[idwrap.IDWrap]bool)
-	positionQueue := []idwrap.IDWrap{startNode.ID}
-	positioned[startNode.ID] = true
+	for len(queue) > 0 {
+		currentNodeID := queue[0]
+		queue = queue[1:]
 
-	for len(positionQueue) > 0 {
-		nodeID := positionQueue[0]
-		positionQueue = positionQueue[1:]
-
-		// Add all children of this node to the queue
-		for _, childID := range outgoingEdges[nodeID] {
-			if positioned[childID] {
-				continue // Already positioned
+		// Process all children
+		for _, childID := range outgoingEdges[currentNodeID] {
+			// Calculate the maximum level of all parents + 1
+			maxParentLevel := -1
+			for _, parentID := range incomingEdges[childID] {
+				if parentLevel, exists := nodeLevels[parentID]; exists {
+					if parentLevel > maxParentLevel {
+						maxParentLevel = parentLevel
+					}
+				}
 			}
 
-			childNode := nodeMap[childID]
-			if childNode == nil {
-				continue
+			childLevel := maxParentLevel + 1
+			
+			// Only update if this is a new node or we found a deeper level
+			if existingLevel, exists := nodeLevels[childID]; !exists || childLevel > existingLevel {
+				// Remove from old level if it existed
+				if exists {
+					oldLevelNodes := levelNodes[existingLevel]
+					for i, nodeID := range oldLevelNodes {
+						if nodeID == childID {
+							levelNodes[existingLevel] = append(oldLevelNodes[:i], oldLevelNodes[i+1:]...)
+							break
+						}
+					}
+				}
+
+				// Add to new level
+				nodeLevels[childID] = childLevel
+				levelNodes[childLevel] = append(levelNodes[childLevel], childID)
+				queue = append(queue, childID)
 			}
+		}
+	}
 
-			// Find a grid position for this child
-			parentNode := nodeMap[nodeID]
-			childX, childY := findNextAvailableGridPosition(parentNode.PositionX, parentNode.PositionY, gridCellSize, occupiedGrid)
+	// Position nodes level by level
+	for level := 0; level <= len(levelNodes)-1; level++ {
+		nodes := levelNodes[level]
+		if len(nodes) == 0 {
+			continue
+		}
 
-			childNode.PositionX = childX
-			childNode.PositionY = childY
+		// Calculate Y position for this level
+		yPos := float64(startY + level*nodeSpacingY)
 
-			// Mark position as occupied
-			gridX := int(childX / gridCellSize)
-			gridY := int(childY / gridCellSize)
-			gridKey := fmt.Sprintf("%d,%d", gridX, gridY)
-			occupiedGrid[gridKey] = true
+		// Calculate starting X position to center the nodes at this level
+		totalWidth := float64((len(nodes) - 1) * nodeSpacingX)
+		startXForLevel := float64(startX) - totalWidth/2
 
-			positioned[childID] = true
-			positionQueue = append(positionQueue, childID)
+		// Position each node in this level
+		for i, nodeID := range nodes {
+			if node := nodeMap[nodeID]; node != nil {
+				node.PositionX = startXForLevel + float64(i*nodeSpacingX)
+				node.PositionY = yPos
+			}
 		}
 	}
 
 	return nil
 }
 
-// findNextAvailableGridPosition finds the next available grid position near the parent
-func findNextAvailableGridPosition(parentX, parentY float64, gridCellSize int, occupiedGrid map[string]bool) (float64, float64) {
-	// Start searching from positions near the parent
-	baseGridX := int(parentX / float64(gridCellSize))
-	baseGridY := int(parentY / float64(gridCellSize))
-
-	// First, try positions directly below the parent (preferred for tree structure)
-	for yOffset := 1; yOffset <= 10; yOffset++ {
-		for xOffset := 0; xOffset <= yOffset; xOffset++ {
-			// Try positions: directly below, then slightly to the sides
-			positions := []struct{ x, y int }{
-				{baseGridX, baseGridY + yOffset},           // directly below
-				{baseGridX + xOffset, baseGridY + yOffset}, // below and to the right
-				{baseGridX - xOffset, baseGridY + yOffset}, // below and to the left
-			}
-
-			for _, pos := range positions {
-				if xOffset == 0 && pos.x != baseGridX {
-					continue // skip duplicate direct below position
-				}
-
-				gridKey := fmt.Sprintf("%d,%d", pos.x, pos.y)
-				if !occupiedGrid[gridKey] {
-					return float64(pos.x * gridCellSize), float64(pos.y * gridCellSize)
-				}
-			}
-		}
-	}
-
-	// If no position found below, search in expanding rings around the parent position
-	for radius := 1; radius <= 20; radius++ {
-		for x := baseGridX - radius; x <= baseGridX+radius; x++ {
-			for y := baseGridY - radius; y <= baseGridY+radius; y++ {
-				// Only check the perimeter of the current radius
-				if x != baseGridX-radius && x != baseGridX+radius && y != baseGridY-radius && y != baseGridY+radius {
-					continue
-				}
-
-				gridKey := fmt.Sprintf("%d,%d", x, y)
-				if !occupiedGrid[gridKey] {
-					return float64(x * gridCellSize), float64(y * gridCellSize)
-				}
-			}
-		}
-	}
-
-	// Fallback: use a position based on the number of occupied positions
-	fallbackX := float64(len(occupiedGrid) * gridCellSize)
-	fallbackY := parentY + float64(gridCellSize)
-	return fallbackX, fallbackY
-}
 
 func processJSONForTokens(obj interface{}, depFinder depfinder.DepFinder) interface{} {
 	switch v := obj.(type) {
