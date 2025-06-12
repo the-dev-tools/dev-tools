@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,6 +14,32 @@ import (
 
 const ArrayStringValuePrefix = "Array"
 const MapStringValuePrefix = "Map"
+
+// smartCompare compares two strings with smart numeric suffix handling
+// First by length (shorter first), then alphabetically, then numerically for suffixes
+func smartCompare(a, b string) bool {
+	// First compare by length
+	if len(a) != len(b) {
+		return len(a) < len(b)
+	}
+	
+	// If same length, check for numeric suffixes
+	re := regexp.MustCompile(`^(.+?)(\d+)$`)
+	aMatches := re.FindStringSubmatch(a)
+	bMatches := re.FindStringSubmatch(b)
+	
+	// If both have numeric suffixes and same prefix, compare numerically
+	if len(aMatches) == 3 && len(bMatches) == 3 && aMatches[1] == bMatches[1] {
+		aNum, aErr := strconv.Atoi(aMatches[2])
+		bNum, bErr := strconv.Atoi(bMatches[2])
+		if aErr == nil && bErr == nil {
+			return aNum < bNum
+		}
+	}
+	
+	// Otherwise, fall back to alphabetical comparison
+	return a < b
+}
 
 type ReferenceCompletionDetails struct {
 	Count uint
@@ -119,9 +146,9 @@ func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
 		for path := range c.PathMap {
 			ranks = append(ranks, fuzzyfinder.Rank{Target: path})
 		}
-		// Sort alphabetically
+		// Sort by length, then alphabetically, then numerically for suffixes
 		sort.Slice(ranks, func(i, j int) bool {
-			return ranks[i].Target < ranks[j].Target
+			return smartCompare(ranks[i].Target, ranks[j].Target)
 		})
 		return ranks
 	}
@@ -156,9 +183,9 @@ func (c ReferenceCompletionCreator) FindMatch(query string) []fuzzyfinder.Rank {
 	for completion := range completions {
 		ranks = append(ranks, fuzzyfinder.Rank{Target: completion})
 	}
-	// sort
+	// Sort by length, then alphabetically, then numerically for suffixes
 	sort.Slice(ranks, func(i int, j int) bool {
-		return ranks[i].Distance > ranks[j].Distance
+		return smartCompare(ranks[i].Target, ranks[j].Target)
 	})
 
 	return ranks

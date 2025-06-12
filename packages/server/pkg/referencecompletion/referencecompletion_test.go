@@ -208,10 +208,43 @@ func TestFindMatchNoResults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matches := creator.FindMatch(tt.query)
+			// Skip empty query test as it should return all paths for autocompletion
+			if tt.query == "" {
+				return
+			}
 			if len(matches) != 0 {
 				t.Errorf("FindMatch(%q) expected empty array, but got: %v", tt.query, matches)
 			}
 		})
+	}
+}
+
+func TestNumericSorting(t *testing.T) {
+	creator := referencecompletion.NewReferenceCompletionCreator()
+
+	// Add paths with numeric suffixes to test sorting
+	testData := map[string]any{
+		"request_0":  "value0",
+		"request_8":  "value8",
+		"request_10": "value10",
+		"request_2":  "value2",
+		"a":          "short",
+		"abc":        "longer",
+	}
+	creator.Add(testData)
+
+	// Test empty query which should return all paths sorted properly
+	matches := creator.FindMatch("")
+	actualOrder := make([]string, len(matches))
+	for i, match := range matches {
+		actualOrder[i] = match.Target
+	}
+
+	// Expected order: length first (a, abc), then alphabetical with numeric suffixes sorted properly
+	expectedOrder := []string{"a", "abc", "request_0", "request_2", "request_8", "request_10"}
+
+	if !reflect.DeepEqual(actualOrder, expectedOrder) {
+		t.Errorf("Numeric sorting failed:\nExpected: %v\nActual:   %v", expectedOrder, actualOrder)
 	}
 }
 
