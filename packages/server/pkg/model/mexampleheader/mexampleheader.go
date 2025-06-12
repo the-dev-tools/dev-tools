@@ -47,7 +47,6 @@ type Header struct {
 	Description   string
 	Value         string
 	Enable        bool
-	Source        HeaderSource
 	ID            idwrap.IDWrap
 	DeltaParentID *idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
@@ -55,4 +54,34 @@ type Header struct {
 
 func (h Header) IsEnabled() bool {
 	return h.Enable
+}
+
+// DetermineDeltaType determines the delta type based on the header's relationships
+// This function will replace the need for storing Source explicitly
+func (h *Header) DetermineDeltaType(exampleHasVersionParent bool) HeaderSource {
+	// If no DeltaParentID, this is not a delta header
+	if h.DeltaParentID == nil {
+		return HeaderSourceOrigin
+	}
+	
+	// If example has VersionParentID, this is a delta example
+	if exampleHasVersionParent {
+		// Header has DeltaParentID and example is delta -> DELTA header
+		return HeaderSourceDelta
+	}
+	
+	// If example has no VersionParentID, it's an original example
+	// Header has DeltaParentID but example is original -> MIXED header
+	return HeaderSourceMixed
+}
+
+// IsModified checks if the header has been modified from its parent
+// This would need to be implemented based on your modification tracking logic
+func (h *Header) IsModified() bool {
+	// TODO: Implement modification detection logic
+	// This could involve:
+	// 1. Comparing with parent header values
+	// 2. Checking a modification timestamp
+	// 3. Using a separate modification tracking table
+	return false
 }

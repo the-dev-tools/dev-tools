@@ -130,7 +130,6 @@ func ConvertParamToFormBodies(params []Param, exampleId idwrap.IDWrap) []mbodyfo
 			Value:     param.Value,
 			Enable:    true,
 			ExampleID: exampleId,
-			Source:    mbodyform.BodyFormSourceOrigin,
 		}
 	}
 	return result
@@ -150,7 +149,6 @@ func ConvertParamToFormBodiesWithTemplating(params []Param, exampleId idwrap.IDW
 			Value:     val,
 			Enable:    true,
 			ExampleID: exampleId,
-			Source:    mbodyform.BodyFormSourceOrigin,
 		}
 	}
 	return result
@@ -184,8 +182,7 @@ func ConvertParamToFormBodiesWithDeltaParent(params []Param, deltaExampleID idwr
 			Value:         val,
 			Enable:        true,
 			ExampleID:     deltaExampleID,
-			Source:        mbodyform.BodyFormSourceOrigin,
-			DeltaParentID: deltaParentID,
+				DeltaParentID: deltaParentID,
 		})
 	}
 	return result
@@ -200,7 +197,6 @@ func ConvertParamToUrlBodies(params []Param, exampleId idwrap.IDWrap) []mbodyurl
 			Value:     param.Value,
 			Enable:    true,
 			ExampleID: exampleId,
-			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
 		}
 	}
 	return result
@@ -220,7 +216,6 @@ func ConvertParamToUrlBodiesWithTemplating(params []Param, exampleId idwrap.IDWr
 			Value:     val,
 			Enable:    true,
 			ExampleID: exampleId,
-			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
 		}
 	}
 	return result
@@ -254,8 +249,7 @@ func ConvertParamToUrlBodiesWithDeltaParent(params []Param, deltaExampleID idwra
 			Value:         val,
 			Enable:        true,
 			ExampleID:     deltaExampleID,
-			Source:        mbodyurl.BodyURLEncodedSourceOrigin,
-			DeltaParentID: deltaParentID,
+				DeltaParentID: deltaParentID,
 		})
 	}
 	return result
@@ -594,11 +588,16 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		}
 		deltaExampleID := idwrap.NewNow()
 		deltaExample := mitemapiexample.ItemApiExample{
-			ID:           deltaExampleID,
-			Name:         fmt.Sprintf("%s (Delta)", apiName),
-			CollectionID: collectionID,
-			ItemApiID:    apiID,
+			ID:              deltaExampleID,
+			Name:            fmt.Sprintf("%s (Delta)", apiName),
+			CollectionID:    collectionID,
+			ItemApiID:       apiID,
+			VersionParentID: &defaultExampleID,
 		}
+		
+		// Debug logging for example creation
+		fmt.Printf("DEBUG: Creating delta example - ID: %s, Name: %s, VersionParentID: %s\n", 
+			deltaExampleID.String(), deltaExample.Name, defaultExampleID.String())
 		// Only add a flow node once per unique API.
 		flowNodeID := idwrap.NewNow()
 		request := mnrequest.MNRequest{
@@ -654,6 +653,9 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 
 		deltaHeaders := make([]Header, len(entry.Request.Headers))
 		copy(deltaHeaders, entry.Request.Headers)
+		
+		// Track which headers have dependencies so we only create delta versions for those
+		headersWithDependencies := make(map[int]bool)
 
 		for i, header := range deltaHeaders {
 			// Special handling for Authorization headers with Bearer tokens
@@ -662,6 +664,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				couple, err := (*depFinder).FindVar(token)
 				if err == nil {
 					deltaHeaders[i].Value = fmt.Sprintf("Bearer {{ %s }}", couple.Path)
+					headersWithDependencies[i] = true
 					result.Edges = append(result.Edges, edge.Edge{
 						ID:            idwrap.NewNow(),
 						FlowID:        flowID,
@@ -683,6 +686,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				return result, err
 			}
 			deltaHeaders[i].Value = couple.Path
+			headersWithDependencies[i] = true
 
 			result.Edges = append(result.Edges, edge.Edge{
 				ID:            idwrap.NewNow(),
@@ -720,6 +724,9 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		// Process queries - original for default, templated for delta
 		originalQueries := make([]Query, len(entry.Request.QueryString))
 		deltaQueries := make([]Query, len(entry.Request.QueryString))
+		
+		// Track which queries have dependencies so we only create delta versions for those
+		queriesWithDependencies := make(map[int]bool)
 
 		for i, query := range entry.Request.QueryString {
 			// Keep original values for default
@@ -736,11 +743,16 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				if marshaled, err := json.Marshal(processedObj); err == nil {
 					val = string(marshaled)
 					replaced = true
+					// Check if the processed JSON actually changed
+					if val != query.Value {
+						queriesWithDependencies[i] = true
+					}
 				}
 			}
 			if !replaced {
 				if newVal, found, _ := (*depFinder).ReplaceWithPaths(val); found {
 					val = newVal.(string)
+					queriesWithDependencies[i] = true
 				}
 			}
 			deltaQueries[i] = Query{Name: query.Name, Value: val}
@@ -877,10 +889,29 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 
 		// Create delta headers, queries, form bodies, and URL-encoded bodies
 		// ONLY Delta examples use templated values for dependencies
-		headersDelta := extractHeadersWithDeltaParent(deltaHeaders, deltaExampleID, headers)
+		// Filter deltaHeaders to only include those with dependencies
+		var deltaHeadersWithDeps []Header
+		for i, header := range deltaHeaders {
+			if headersWithDependencies[i] {
+				deltaHeadersWithDeps = append(deltaHeadersWithDeps, header)
+			}
+		}
+		
+		fmt.Printf("DEBUG: About to create delta headers - deltaHeaders with deps count: %d, base headers count: %d\n", 
+			len(deltaHeadersWithDeps), len(headers))
+		headersDelta := extractHeadersWithDeltaParent(deltaHeadersWithDeps, deltaExampleID, headers)
+		fmt.Printf("DEBUG: Created delta headers count: %d\n", len(headersDelta))
 		result.Headers = append(result.Headers, headersDelta...)
 
-		queriesDelta := extractQueryParamsWithDeltaParent(deltaQueries, deltaExampleID, queriesApi)
+		// Filter deltaQueries to only include those with dependencies
+		var deltaQueriesWithDeps []Query
+		for i, query := range deltaQueries {
+			if queriesWithDependencies[i] {
+				deltaQueriesWithDeps = append(deltaQueriesWithDeps, query)
+			}
+		}
+		
+		queriesDelta := extractQueryParamsWithDeltaParent(deltaQueriesWithDeps, deltaExampleID, queriesApi)
 		result.Queries = append(result.Queries, queriesDelta...)
 
 		// Add delta form bodies and URL-encoded bodies if they exist (with templating and proper DeltaParentID)
@@ -1026,7 +1057,6 @@ func extractHeaders(headers []Header, exampleID idwrap.IDWrap) []mexampleheader.
 				HeaderKey: header.Name,
 				Value:     header.Value,
 				Enable:    true,
-				Source:    mexampleheader.HeaderSourceOrigin,
 			}
 			result = append(result, h)
 		}
@@ -1051,7 +1081,7 @@ func extractHeadersWithDeltaParent(headers []Header, deltaExampleID idwrap.IDWra
 				continue
 			}
 
-			// Find the corresponding base header
+			// Find the corresponding base header with matching key
 			var deltaParentID *idwrap.IDWrap
 			if baseHeader, exists := baseHeaderMap[header.Name]; exists {
 				deltaParentID = &baseHeader.ID
@@ -1063,9 +1093,12 @@ func extractHeadersWithDeltaParent(headers []Header, deltaExampleID idwrap.IDWra
 				HeaderKey:     header.Name,
 				Value:         header.Value,
 				Enable:        true,
-				Source:        mexampleheader.HeaderSourceOrigin,
 				DeltaParentID: deltaParentID,
 			}
+			
+			// Debug logging for header creation
+			fmt.Printf("DEBUG: Creating delta header - Key: %s, Value: %s, DeltaParentID: %v\n", 
+				header.Name, header.Value, deltaParentID != nil)
 			result = append(result, h)
 		}
 	}
@@ -1082,7 +1115,6 @@ func extractQueryParams(queries []Query, exampleID idwrap.IDWrap) []mexamplequer
 			QueryKey:  query.Name,
 			Value:     query.Value,
 			Enable:    true,
-			Source:    mexamplequery.QuerySourceOrigin,
 		}
 		result = append(result, q)
 	}
@@ -1111,8 +1143,7 @@ func extractQueryParamsWithDeltaParent(queries []Query, deltaExampleID idwrap.ID
 			QueryKey:      query.Name,
 			Value:         query.Value,
 			Enable:        true,
-			Source:        mexamplequery.QuerySourceOrigin,
-			DeltaParentID: deltaParentID,
+				DeltaParentID: deltaParentID,
 		}
 		result = append(result, q)
 	}

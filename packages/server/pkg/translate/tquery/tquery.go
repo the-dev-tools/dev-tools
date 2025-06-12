@@ -49,7 +49,6 @@ func SerlializeQueryRPCtoModelNoID(query *requestv1.Query, exID idwrap.IDWrap) (
 		Description:   query.GetDescription(),
 		DeltaParentID: parentDeltaIDPtr,
 		Value:         query.GetValue(),
-		Source:        mexamplequery.QuerySourceOrigin, // Default to origin
 	}, nil
 }
 
@@ -63,7 +62,6 @@ func SerlializeQueryRPCtoModelNoIDForDelta(query *requestv1.Query, exID idwrap.I
 		Description:   query.GetDescription(),
 		DeltaParentID: parentDeltaIDPtr,
 		Value:         query.GetValue(),
-		Source:        mexamplequery.QuerySourceDelta, // Set to delta for delta creation
 	}, nil
 }
 

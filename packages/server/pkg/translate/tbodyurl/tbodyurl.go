@@ -50,7 +50,6 @@ func SeralizeURLRPCToModelWithoutID(urlEncoded *bodyv1.BodyUrlEncoded, exampleID
 		Description:   urlEncoded.Description,
 		Enable:        urlEncoded.Enabled,
 		Value:         urlEncoded.Value,
-		Source:        mbodyurl.BodyURLEncodedSourceOrigin, // Default to origin
 	}, nil
 }
 

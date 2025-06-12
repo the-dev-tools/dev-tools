@@ -47,7 +47,6 @@ type Query struct {
 	Description   string
 	Value         string
 	Enable        bool
-	Source        QuerySource
 	DeltaParentID *idwrap.IDWrap
 	ID            idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
@@ -55,4 +54,23 @@ type Query struct {
 
 func (q Query) IsEnabled() bool {
 	return q.Enable
+}
+
+// DetermineDeltaType determines the delta type based on the query's relationships
+// This function replaces the need for storing Source explicitly
+func (q *Query) DetermineDeltaType(exampleHasVersionParent bool) QuerySource {
+	// If no DeltaParentID, this is not a delta query
+	if q.DeltaParentID == nil {
+		return QuerySourceOrigin
+	}
+	
+	// If example has VersionParentID, this is a delta example
+	if exampleHasVersionParent {
+		// Query has DeltaParentID and example is delta -> DELTA query
+		return QuerySourceDelta
+	}
+	
+	// If example has no VersionParentID, it's an original example
+	// Query has DeltaParentID but example is original -> MIXED query
+	return QuerySourceMixed
 }

@@ -23,7 +23,6 @@ func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
 		Enable:        query.Enable,
 		Description:   query.Description,
 		Value:         query.Value,
-		Source:        int8(query.Source),
 	}
 }
 
@@ -36,7 +35,6 @@ func SerializeQueryDBToModel(query gen.ExampleQuery) mexamplequery.Query {
 		Enable:        query.Enable,
 		Description:   query.Description,
 		Value:         query.Value,
-		Source:        mexamplequery.QuerySource(query.Source),
 	}
 }
 
@@ -100,7 +98,6 @@ func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexam
 		Description:   query.Description,
 		Value:         query.Value,
 		DeltaParentID: query.DeltaParentID,
-		Source:        int8(query.Source),
 	})
 }
 
@@ -113,7 +110,6 @@ func (h ExampleQueryService) CreateExampleQueryDB(ctx context.Context, query gen
 		Description:   query.Description,
 		Value:         query.Value,
 		DeltaParentID: query.DeltaParentID,
-		Source:        query.Source,
 	})
 }
 
@@ -150,7 +146,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable:        item1.Enable,
 			Description:   item1.Description,
 			Value:         item1.Value,
-			Source:        item1.Source,
 			// 2
 			ID_2:            item2.ID,
 			ExampleID_2:     item2.ExampleID,
@@ -159,7 +154,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_2:        item2.Enable,
 			Description_2:   item2.Description,
 			Value_2:         item2.Value,
-			Source_2:        item2.Source,
 			// 3
 			ID_3:            item3.ID,
 			ExampleID_3:     item3.ExampleID,
@@ -168,7 +162,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_3:        item3.Enable,
 			Description_3:   item3.Description,
 			Value_3:         item3.Value,
-			Source_3:        item3.Source,
 			// 4
 			ID_4:            item4.ID,
 			ExampleID_4:     item4.ExampleID,
@@ -177,7 +170,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_4:        item4.Enable,
 			Description_4:   item4.Description,
 			Value_4:         item4.Value,
-			Source_4:        item4.Source,
 			// 5
 			ID_5:            item5.ID,
 			ExampleID_5:     item5.ExampleID,
@@ -186,7 +178,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_5:        item5.Enable,
 			Description_5:   item5.Description,
 			Value_5:         item5.Value,
-			Source_5:        item5.Source,
 			// 6
 			ID_6:            item6.ID,
 			ExampleID_6:     item6.ExampleID,
@@ -195,7 +186,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_6:        item6.Enable,
 			Description_6:   item6.Description,
 			Value_6:         item6.Value,
-			Source_6:        item6.Source,
 			// 7
 			ID_7:            item7.ID,
 			ExampleID_7:     item7.ExampleID,
@@ -204,7 +194,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_7:        item7.Enable,
 			Description_7:   item7.Description,
 			Value_7:         item7.Value,
-			Source_7:        item7.Source,
 			// 8
 			ID_8:            item8.ID,
 			ExampleID_8:     item8.ExampleID,
@@ -213,7 +202,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_8:        item8.Enable,
 			Description_8:   item8.Description,
 			Value_8:         item8.Value,
-			Source_8:        item8.Source,
 			// 9
 			ID_9:            item9.ID,
 			ExampleID_9:     item9.ExampleID,
@@ -222,7 +210,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_9:        item9.Enable,
 			Description_9:   item9.Description,
 			Value_9:         item9.Value,
-			Source_9:        item9.Source,
 			// 10
 			ID_10:            item10.ID,
 			ExampleID_10:     item10.ExampleID,
@@ -231,7 +218,6 @@ func (h ExampleQueryService) CreateBulkQuery(ctx context.Context, queries []mexa
 			Enable_10:        item10.Enable,
 			Description_10:   item10.Description,
 			Value_10:         item10.Value,
-			Source_10:        item10.Source,
 		}
 		if err := h.queries.CreateQueryBulk(ctx, params); err != nil {
 			return err
@@ -248,7 +234,6 @@ func (h ExampleQueryService) UpdateExampleQuery(ctx context.Context, query mexam
 		Enable:      query.Enable,
 		Description: query.Description,
 		Value:       query.Value,
-		Source:      int8(query.Source),
 	})
 }
 

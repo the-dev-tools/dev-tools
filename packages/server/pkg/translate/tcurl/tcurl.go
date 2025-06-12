@@ -264,7 +264,6 @@ func extractHeaders(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.He
 			HeaderKey: strings.TrimSpace(key),
 			Value:     strings.TrimSpace(value),
 			Enable:    true,
-			Source:    mexampleheader.HeaderSourceOrigin,
 		}
 		headers = append(headers, header)
 	}
@@ -325,7 +324,6 @@ func extractURLEncodedBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFla
 			BodyKey:   key,
 			Value:     value,
 			Enable:    true,
-			Source:    mbodyurl.BodyURLEncodedSourceOrigin,
 		}
 		bodies = append(bodies, body)
 	}
@@ -356,7 +354,6 @@ func extractFormBodies(curlStr string, exampleID idwrap.IDWrap, hasDataFlag *boo
 			BodyKey:   key,
 			Value:     value,
 			Enable:    true,
-			Source:    mbodyform.BodyFormSourceOrigin,
 		}
 		forms = append(forms, form)
 	}
@@ -383,7 +380,6 @@ func parseURLAndQueries(urlStr string, exampleID idwrap.IDWrap) (string, []mexam
 				QueryKey:  match[1],
 				Value:     match[2],
 				Enable:    true,
-				Source:    mexamplequery.QuerySourceOrigin,
 			}
 			queries = append(queries, query)
 		}
@@ -423,7 +419,6 @@ func extractCookies(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.He
 			HeaderKey: "Cookie",
 			Value:     strings.TrimSpace(cookieContent),
 			Enable:    true,
-			Source:    mexampleheader.HeaderSourceOrigin,
 		}
 		cookieHeaders = append(cookieHeaders, cookieHeader)
 	}
