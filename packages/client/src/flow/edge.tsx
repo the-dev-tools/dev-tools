@@ -75,7 +75,7 @@ export const useMakeEdge = () => {
   return useCallback(
     async (data: Omit<MessageInitShape<typeof EdgeListItemSchema>, keyof Message>) => {
       const { edgeId } = await dataClient.fetch(EdgeCreateEndpoint, { flowId, ...data });
-      return create(EdgeListItemSchema, { edgeId, ...data });
+      return create(EdgeListItemSchema, { ...data, edgeId });
     },
     [dataClient, flowId],
   );

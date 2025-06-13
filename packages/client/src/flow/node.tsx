@@ -221,7 +221,7 @@ export const useMakeNode = () => {
   return useCallback(
     async (data: Omit<MessageInitShape<typeof NodeSchema>, keyof Message>) => {
       const { nodeId } = await dataClient.fetch(NodeCreateEndpoint, { flowId, ...data });
-      return create(NodeListItemSchema, { nodeId, ...data });
+      return create(NodeListItemSchema, { ...data, nodeId });
     },
     [dataClient, flowId],
   );
