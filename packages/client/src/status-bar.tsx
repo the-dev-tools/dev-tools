@@ -85,7 +85,7 @@ export const StatusBar = () => {
         className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
         href={{
           search: (_: Partial<WorkspaceRouteSearch>) =>
-            ({ ..._, showLogs: true }) satisfies Partial<WorkspaceRouteSearch>,
+            ({ ..._, showLogs: showLogs ? undefined : true }) satisfies Partial<WorkspaceRouteSearch>,
           to: '.',
         }}
         variant='ghost'
