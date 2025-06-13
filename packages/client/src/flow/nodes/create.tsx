@@ -1,7 +1,7 @@
 import { Position, useReactFlow } from '@xyflow/react';
 import { Option, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, useCallback, useMemo } from 'react';
+import { ComponentProps, useCallback, useEffect, useMemo } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
@@ -38,7 +38,7 @@ const CreateNodeItem = ({ description, Icon, title, ...props }: CreateNodeItemPr
 );
 
 export const CreateNode = ({ id, selected }: NodeProps) => {
-  const { addEdges, addNodes, deleteElements, getEdges, getNode, getNodes } = useReactFlow();
+  const { addEdges, addNodes, deleteElements, getEdges, getNode, getNodes, setNodes } = useReactFlow();
 
   const edge = useMemo(
     () =>
@@ -49,11 +49,17 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
     [getEdges, id],
   );
 
+  useEffect(() => {
+    if (!selected) void deleteElements({ nodes: [{ id }] });
+  }, [deleteElements, id, selected]);
+
   const sourceId = useMemo(() => Option.map(edge, (_) => Ulid.fromCanonical(_.source).bytes), [edge]);
 
   const add = useCallback(
     async (nodes: NodeListItem[], edges: EdgeListItem[]) => {
-      await deleteElements({ edges: Option.toArray(edge), nodes: [{ id }] });
+      await deleteElements({ nodes: [{ id }] });
+
+      setNodes((_) => _.map((_) => ({ ..._, selected: false })));
 
       pipe(
         nodes.map((_) => Node.fromDTO(_, { selected: true })),
@@ -61,7 +67,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
       );
       pipe(edges.map(Edge.fromDTO), addEdges);
     },
-    [addEdges, addNodes, deleteElements, edge, id],
+    [addEdges, addNodes, deleteElements, id, setNodes],
   );
 
   const makeNode = useMakeNode();
@@ -75,7 +81,7 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
     <>
       <ListBox
         aria-label='Create node type'
-        className={twJoin(tw`w-80 divide-y divide-slate-200 pt-0 transition-colors`, selected && tw`bg-slate-100`)}
+        className={twJoin(tw`w-80 divide-y divide-slate-200 pt-0 transition-colors`)}
         onAction={() => void {}}
       >
         <ListBoxSection>

@@ -128,7 +128,7 @@ const minZoom = 0.1;
 const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
-  const { addEdges, addNodes, getEdges, getNode, screenToFlowPosition } = useReactFlow<Node, Edge>();
+  const { addEdges, addNodes, getEdges, getNode, screenToFlowPosition, setNodes } = useReactFlow<Node, Edge>();
   const { isReadOnly = false } = use(FlowContext);
 
   const navigate = useNavigate();
@@ -163,10 +163,12 @@ export const Flow = ({ children }: PropsWithChildren) => {
         targetId: node.nodeId,
       });
 
+      setNodes((_) => _.map((_) => ({ ..._, selected: false })));
+
       pipe(Node.fromDTO(node, { selected: true }), addNodes);
       pipe(Edge.fromDTO(edge), addEdges);
     },
-    [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition],
+    [addEdges, addNodes, makeEdge, makeNode, screenToFlowPosition, setNodes],
   );
 
   const onBeforeDelete = useCallback<OnBeforeDelete<Node, Edge>>(

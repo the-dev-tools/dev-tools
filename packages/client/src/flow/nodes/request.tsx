@@ -1,7 +1,7 @@
 import { useRouteContext } from '@tanstack/react-router';
-import { Position } from '@xyflow/react';
+import { Position, useReactFlow } from '@xyflow/react';
 import { Ulid } from 'id128';
-import { Suspense, use } from 'react';
+import { Suspense, use, useEffect } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 
@@ -30,31 +30,33 @@ import { FlowSearch } from '../layout';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => (
-  <NodeContainer
-    {...props}
-    handles={
-      <>
-        <Handle position={Position.Top} type='target' />
-        <Handle position={Position.Bottom} type='source' />
-      </>
-    }
-  >
+  <NodeContainer {...props} handles={<Handle position={Position.Top} type='target' />}>
     <RequestNodeBody {...props} />
   </NodeContainer>
 );
 
 const RequestNodeBody = (props: NodeProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { id, selected } = props;
 
-  const nodeId = Ulid.fromCanonical(props.id).bytes;
+  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { deleteElements } = useReactFlow();
+
+  const nodeId = Ulid.fromCanonical(id).bytes;
 
   const { request } = useQuery(NodeGetEndpoint, { nodeId });
+
+  useEffect(() => {
+    if (!selected && !request?.exampleId.length) void deleteElements({ nodes: [{ id }] });
+  }, [deleteElements, id, request?.exampleId.length, selected]);
 
   return (
     <NodeBody {...props} Icon={SendRequestIcon}>
       <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
         {request?.exampleId.length !== 0 ? (
-          <RequestNodeSelected request={request!} />
+          <>
+            <RequestNodeSelected request={request!} />
+            <Handle position={Position.Bottom} type='source' />
+          </>
         ) : (
           <CollectionListTree
             onAction={async ({ collectionId, endpointId, exampleId }) => {
