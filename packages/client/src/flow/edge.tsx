@@ -1,4 +1,4 @@
-import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
+import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { useRouteContext } from '@tanstack/react-router';
 import {
   ConnectionLineComponentProps,
@@ -7,15 +7,13 @@ import {
   EdgeProps as EdgePropsCore,
   getEdgeCenter,
   getSmoothStepPath,
-  useEdgesState,
   useReactFlow,
 } from '@xyflow/react';
-import { Array, HashMap, Option, pipe, Struct } from 'effect';
+import { Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { use, useCallback } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
-import { useDebouncedCallback } from 'use-debounce';
 import {
   EdgeListItem,
   EdgeListItemSchema,
@@ -23,15 +21,9 @@ import {
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import {
-  EdgeCreateEndpoint,
-  EdgeDeleteEndpoint,
-  EdgeListEndpoint,
-  EdgeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
+import { EdgeCreateEndpoint } from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useQuery } from '~data-client';
 import { FlowContext } from './internal';
 
 export interface EdgeData extends Record<string, unknown> {
@@ -166,78 +158,4 @@ export const ConnectionLine = ({
   });
 
   return <path className={connectionLineStyles({ state })} d={edgePath} strokeDasharray={connected ? undefined : 4} />;
-};
-
-export const useEdgeStateSynced = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
-
-  const { flowId, isReadOnly = false } = use(FlowContext);
-
-  const { items: edgesServer } = useQuery(EdgeListEndpoint, { flowId });
-
-  const [edgesClient, setEdgesClient, onEdgesChange] = useEdgesState(edgesServer.map(Edge.fromDTO));
-
-  const sync = useDebouncedCallback(async () => {
-    const edgeServerMap = pipe(
-      edgesServer.map((_) => {
-        const id = Ulid.construct(_.edgeId).toCanonical();
-        const value = create(EdgeListItemSchema, Struct.omit(_, '$typeName'));
-        return [id, value] as const;
-      }),
-      HashMap.fromIterable,
-    );
-
-    const edgeClientMap = pipe(
-      edgesClient.map((_) => {
-        const value = create(EdgeListItemSchema, Edge.toDTO(_));
-        return [_.id, value] as const;
-      }),
-      HashMap.fromIterable,
-    );
-
-    const changes: Record<string, [string, ReturnType<typeof Edge.toDTO>][]> = pipe(
-      HashMap.union(edgeServerMap, edgeClientMap),
-      HashMap.entries,
-      Array.groupBy(([id]) => {
-        const edgeServer = HashMap.get(edgeServerMap, id);
-        const edgeClient = HashMap.get(edgeClientMap, id);
-
-        if (Option.isNone(edgeServer)) return 'create';
-        if (Option.isNone(edgeClient)) return 'delete';
-
-        return equals(EdgeListItemSchema, edgeServer.value, edgeClient.value) ? 'ignore' : 'update';
-      }),
-    );
-
-    await pipe(
-      changes['create'] ?? [],
-      Array.filterMap(([_id, edge]) =>
-        pipe(
-          Option.liftPredicate(edge, (_) => !_.edgeId.length),
-          Option.map((edge) => dataClient.fetch(EdgeCreateEndpoint, edge)),
-        ),
-      ),
-      (_) => Promise.allSettled(_),
-    );
-
-    await pipe(
-      changes['delete'] ?? [],
-      Array.map(([_id, edge]) => dataClient.fetch(EdgeDeleteEndpoint, edge)),
-      (_) => Promise.allSettled(_),
-    );
-
-    await pipe(
-      changes['update'] ?? [],
-      Array.map(([_id, edge]) => dataClient.fetch(EdgeUpdateEndpoint, edge)),
-      (_) => Promise.allSettled(_),
-    );
-  }, 500);
-
-  const onEdgesChangeSync: typeof onEdgesChange = (changes) => {
-    onEdgesChange(changes);
-    if (isReadOnly) return;
-    void sync();
-  };
-
-  return [edgesClient, setEdgesClient, onEdgesChangeSync] as const;
 };

@@ -63,16 +63,17 @@ import {
 } from '~form-table';
 
 import { ReferenceContext } from '../reference';
-import { ConnectionLine, Edge, edgeTypes, useEdgeStateSynced, useMakeEdge } from './edge';
+import { ConnectionLine, Edge, edgeTypes, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
 import { FlowSearch } from './layout';
-import { Node, useMakeNode, useNodeStateSynced } from './node';
+import { Node, useMakeNode } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
 import { ForEachNode, ForEachPanel } from './nodes/for-each';
 import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
+import { useFlowStateSynced } from './sync';
 
 const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/');
 
@@ -132,8 +133,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const navigate = useNavigate();
 
-  const [edges, _setEdges, onEdgesChange] = useEdgeStateSynced();
-  const [nodes, _setNodes, onNodesChange] = useNodeStateSynced();
+  const { edges, nodes, onEdgesChange, onNodesChange } = useFlowStateSynced();
 
   const makeNode = useMakeNode();
   const makeEdge = useMakeEdge();

@@ -1,13 +1,7 @@
-import { create, enumFromJson, enumToJson, equals, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
+import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { useRouteContext } from '@tanstack/react-router';
-import {
-  getConnectedEdges,
-  Node as NodeCore,
-  NodeProps as NodePropsCore,
-  useNodesState,
-  useReactFlow,
-} from '@xyflow/react';
-import { Array, HashMap, Match, Option, pipe, Struct } from 'effect';
+import { getConnectedEdges, Node as NodeCore, NodeProps as NodePropsCore, useReactFlow } from '@xyflow/react';
+import { Array, Match, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, use, useCallback, useRef } from 'react';
 import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -15,8 +9,6 @@ import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { tv } from 'tailwind-variants';
-import { useDebouncedCallback } from 'use-debounce';
-
 import {
   NodeGetResponse,
   NodeKind,
@@ -29,9 +21,7 @@ import {
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   NodeCreateEndpoint,
-  NodeDeleteEndpoint,
   NodeGetEndpoint,
-  NodeListEndpoint,
   NodeUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
@@ -40,9 +30,8 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useMutate, useQuery } from '~data-client';
-
 import { GenericMessage } from '~api/utils';
+import { useMutate, useQuery } from '~data-client';
 import { FlowContext } from './internal';
 import { FlowSearch } from './layout';
 
@@ -236,78 +225,4 @@ export const useMakeNode = () => {
     },
     [dataClient, flowId],
   );
-};
-
-export const useNodeStateSynced = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
-
-  const { flowId, isReadOnly = false } = use(FlowContext);
-
-  const { items: nodesServer } = useQuery(NodeListEndpoint, { flowId });
-
-  const [nodesClient, setNodesClient, onNodesChange] = useNodesState(nodesServer.map((_) => Node.fromDTO(_)));
-
-  const sync = useDebouncedCallback(async () => {
-    const nodeServerMap = pipe(
-      nodesServer.map((_) => {
-        const id = Ulid.construct(_.nodeId).toCanonical();
-        const value = pipe(Struct.pick(_, 'kind', 'nodeId', 'position'), (_) => create(NodeListItemSchema, _));
-        return [id, value] as const;
-      }),
-      HashMap.fromIterable,
-    );
-
-    const nodeClientMap = pipe(
-      nodesClient.map((_) => {
-        const value = create(NodeListItemSchema, Node.toDTO(_));
-        return [_.id, value] as const;
-      }),
-      HashMap.fromIterable,
-    );
-
-    const nodes: Record<string, [string, ReturnType<typeof Node.toDTO>][]> = pipe(
-      HashMap.union(nodeServerMap, nodeClientMap),
-      HashMap.entries,
-      Array.groupBy(([id]) => {
-        const nodeServer = HashMap.get(nodeServerMap, id);
-        const nodeClient = HashMap.get(nodeClientMap, id);
-
-        if (Option.isNone(nodeServer)) return 'create';
-        if (Option.isNone(nodeClient)) return 'delete';
-
-        return equals(NodeListItemSchema, nodeServer.value, nodeClient.value) ? 'ignore' : 'update';
-      }),
-    );
-
-    await pipe(
-      nodes['create'] ?? [],
-      Array.filterMap(([_id, node]) =>
-        pipe(
-          Option.liftPredicate(node, (_) => !_.nodeId.length),
-          Option.map((node) => dataClient.fetch(NodeCreateEndpoint, node)),
-        ),
-      ),
-      (_) => Promise.allSettled(_),
-    );
-
-    await pipe(
-      nodes['delete'] ?? [],
-      Array.map(([_id, node]) => dataClient.fetch(NodeDeleteEndpoint, node)),
-      (_) => Promise.allSettled(_),
-    );
-
-    await pipe(
-      nodes['update'] ?? [],
-      Array.map(([_id, node]) => dataClient.fetch(NodeUpdateEndpoint, node)),
-      (_) => Promise.allSettled(_),
-    );
-  }, 500);
-
-  const onNodesChangeSync: typeof onNodesChange = (changes) => {
-    onNodesChange(changes);
-    if (isReadOnly) return;
-    void sync();
-  };
-
-  return [nodesClient, setNodesClient, onNodesChangeSync] as const;
 };
