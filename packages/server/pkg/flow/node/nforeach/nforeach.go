@@ -32,6 +32,7 @@ func New(id idwrap.IDWrap, name string, iterPath string, timeout time.Duration,
 ) *NodeForEach {
 	return &NodeForEach{
 		FlowNodeID:    id,
+		Name:          name,
 		IterPath:      iterPath,
 		Timeout:       timeout,
 		Condition:     Condition,
@@ -55,10 +56,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	a := map[string]interface{}{
-		NodeVarKey: req.VarMap,
-	}
-
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
 	if err != nil {
@@ -67,7 +64,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		}
 	}
 
-	exprEnv := expression.NewEnv(a)
+	exprEnv := expression.NewEnv(req.VarMap)
 	result, err := expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
 	if err != nil {
 		return node.FlowNodeResult{
@@ -110,7 +107,23 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	switch seq := result.(type) {
 	case iter.Seq[any]:
 		fmt.Println("Got a sequence (from a slice/array):")
-		for _ = range seq {
+		itemIndex := 0
+		for item := range seq {
+			// Write the item and key (index) to the node variables
+			err := node.WriteNodeVar(req, nr.Name, "item", item)
+			if err != nil {
+				return node.FlowNodeResult{
+					Err: err,
+				}
+			}
+			err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
+			if err != nil {
+				return node.FlowNodeResult{
+					Err: err,
+				}
+			}
+			itemIndex++
+
 			result := processNode()
 			if result.Err != nil {
 				return result
@@ -118,7 +131,21 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		}
 	case iter.Seq2[string, any]:
 		fmt.Println("Got a key-value sequence (from a map):")
-		for _, _ = range seq {
+		for key, value := range seq {
+			// Write the key and item (value) to the node variables
+			err := node.WriteNodeVar(req, nr.Name, "key", key)
+			if err != nil {
+				return node.FlowNodeResult{
+					Err: err,
+				}
+			}
+			err = node.WriteNodeVar(req, nr.Name, "item", value)
+			if err != nil {
+				return node.FlowNodeResult{
+					Err: err,
+				}
+			}
+
 			result := processNode()
 			if result.Err != nil {
 				return result
@@ -138,10 +165,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
 	// Create the expression environment
-	exprEnvMap := map[string]interface{}{
-		NodeVarKey: req.VarMap,
-	}
-	exprEnv := expression.NewEnv(exprEnvMap)
+	exprEnv := expression.NewEnv(req.VarMap)
 
 	// Normalize the iteration path expression
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
@@ -197,7 +221,25 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	case iter.Seq[any]:
 		// Handle slice/array sequence
 		go func() {
-			for range seq {
+			itemIndex := 0
+			for item := range seq {
+				// Write the item and key (index) to the node variables
+				err := node.WriteNodeVar(req, nr.Name, "item", item)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{
+						Err: err,
+					}
+					return
+				}
+				err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{
+						Err: err,
+					}
+					return
+				}
+				itemIndex++
+
 				loopResult := processNode()
 				if loopResult.Err != nil {
 					resultChan <- loopResult
@@ -210,7 +252,23 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	case iter.Seq2[string, any]:
 		// Handle map sequence
 		go func() {
-			for _, _ = range seq { // Iterate over map values (keys are ignored in range)
+			for key, value := range seq {
+				// Write the key and item (value) to the node variables
+				err := node.WriteNodeVar(req, nr.Name, "key", key)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{
+						Err: err,
+					}
+					return
+				}
+				err = node.WriteNodeVar(req, nr.Name, "item", value)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{
+						Err: err,
+					}
+					return
+				}
+
 				loopResult := processNode()
 				if loopResult.Err != nil {
 					resultChan <- loopResult

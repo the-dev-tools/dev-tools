@@ -65,6 +65,14 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	assertSys := assertv2.NewAssertSystem(root)
 
 	for i := int64(0); i < nr.IterCount; i++ {
+		// Write the iteration index to the node variables
+		err := node.WriteNodeVar(req, nr.Name, "index", i)
+		if err != nil {
+			return node.FlowNodeResult{
+				Err: err,
+			}
+		}
+
 		for _, nextNodeID := range loopID {
 
 			var val interface{}
@@ -132,6 +140,15 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	assertSys := assertv2.NewAssertSystem(root)
 
 	for i := int64(0); i < nr.IterCount; i++ {
+		// Write the iteration index to the node variables
+		err := node.WriteNodeVar(req, nr.Name, "index", i)
+		if err != nil {
+			resultChan <- node.FlowNodeResult{
+				Err: err,
+			}
+			return
+		}
+
 		for _, nextNodeID := range loopID {
 
 			var val interface{}
