@@ -1170,48 +1170,25 @@ func (c RequestRPC) HeaderDeltaUpdate(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// If this is an origin header, we need to create a mixed header instead of updating
-	deltaType, err := c.determineHeaderDeltaType(ctx, existingHeader)
+	// Always update the existing header instead of creating a new one
+	rpcHeader := requestv1.Header{
+		HeaderId:    req.Msg.GetHeaderId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	header, err := theader.SerlializeHeaderRPCtoModel(&rpcHeader, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Preserve the existing delta parent relationship
+	header.DeltaParentID = existingHeader.DeltaParentID
+
+	err = c.ehs.UpdateHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if deltaType == mexampleheader.HeaderSourceOrigin {
-		// Create a new mixed header with updated fields
-		mixedHeader := mexampleheader.Header{
-			ID:            idwrap.NewNow(),
-			ExampleID:     existingHeader.ExampleID,
-			DeltaParentID: &existingHeader.ID, // Point to the original header
-			HeaderKey:     req.Msg.GetKey(),
-			Enable:        req.Msg.GetEnabled(),
-			Description:   req.Msg.GetDescription(),
-			Value:         req.Msg.GetValue(),
-		}
-
-		err = c.ehs.CreateHeader(ctx, mixedHeader)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		// If it's already a delta or mixed header, just update it normally
-		rpcHeader := requestv1.Header{
-			HeaderId:    req.Msg.GetHeaderId(),
-			Key:         req.Msg.GetKey(),
-			Enabled:     req.Msg.GetEnabled(),
-			Value:       req.Msg.GetValue(),
-			Description: req.Msg.GetDescription(),
-		}
-		header, err := theader.SerlializeHeaderRPCtoModel(&rpcHeader, idwrap.IDWrap{})
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		// Preserve the existing delta parent relationship
-		header.DeltaParentID = existingHeader.DeltaParentID
-
-		err = c.ehs.UpdateHeader(ctx, header)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 	}
 
 	return connect.NewResponse(&requestv1.HeaderDeltaUpdateResponse{}), nil
