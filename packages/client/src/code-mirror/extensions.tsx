@@ -16,7 +16,7 @@ import {
   LRLanguage,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { EditorSelection, Extension, Text } from '@codemirror/state';
+import { EditorSelection, Extension, Prec, Text } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { Client } from '@connectrpc/connect';
 import { styleTags, tags } from '@lezer/highlight';
@@ -332,9 +332,13 @@ const expressionBracketSpacing = EditorView.updateListener.of((update) => {
   });
 });
 
+export const disableEnterKeymap = pipe(keymap.of([{ key: 'Enter', run: () => true }]), Prec.high);
+
 const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap]);
 
-export interface BaseCodeMirrorExtensionProps extends LanguageProps {}
+export interface BaseCodeMirrorExtensionProps extends LanguageProps {
+  disableEnter?: boolean;
+}
 
 // Additional handler to trigger completions in JSON strings
 const jsonStringCompletionHandler = EditorView.updateListener.of((update) => {
@@ -372,18 +376,24 @@ const jsonStringCompletionHandler = EditorView.updateListener.of((update) => {
   }
 });
 
-export const baseCodeMirrorExtensions = (props: BaseCodeMirrorExtensionProps): Extension[] => [
-  keymaps,
-  history(),
-  closeBrackets(),
-  autocompletion({
-    activateOnCompletion: () => true,
-    override: [referenceCompletions(props)],
-    selectOnOpen: false,
-  }),
-  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-  expressionBracketSpacing,
-  jsonStringCompletionHandler,
-  bracketMatching(),
-  language(props),
-];
+export const baseCodeMirrorExtensions = ({ disableEnter, ...props }: BaseCodeMirrorExtensionProps): Extension[] => {
+  const extensions = [
+    keymaps,
+    history(),
+    closeBrackets(),
+    autocompletion({
+      activateOnCompletion: () => true,
+      override: [referenceCompletions(props)],
+      selectOnOpen: false,
+    }),
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    expressionBracketSpacing,
+    jsonStringCompletionHandler,
+    bracketMatching(),
+    language(props),
+  ];
+
+  if (disableEnter) extensions.push(disableEnterKeymap);
+
+  return extensions;
+};

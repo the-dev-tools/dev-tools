@@ -249,7 +249,7 @@ export const ReferenceField = ({
       basicSetup={false}
       className={fieldStyles({ className, ...variantProps })}
       extensions={[
-        ...baseCodeMirrorExtensions({ allowFiles, client, context, kind, reactRender }),
+        ...baseCodeMirrorExtensions({ allowFiles, client, context, disableEnter: true, kind, reactRender }),
         EditorView.theme({ '.cm-scroller': { overflow: 'hidden' } }),
         ...extensions,
       ]}
