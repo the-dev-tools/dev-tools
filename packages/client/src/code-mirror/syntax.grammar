@@ -10,12 +10,12 @@
 
 expression { spaces | Word | String }
 
-interpolation { InterpolationStart expression* InterpolationEnd }
+Interpolation { InterpolationStart expression* InterpolationEnd }
 
 @skip {} {
   InterpolationEnd[openedBy=InterpolationStart] { '}}' }
 
-  stringContentNested { stringContent | interpolation }
+  stringContentNested { stringContent | Interpolation }
 
   String { stringStart stringContentNested* stringEnd }
 }

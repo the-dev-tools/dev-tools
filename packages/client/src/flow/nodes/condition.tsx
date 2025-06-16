@@ -78,7 +78,6 @@ export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) 
   const { isReadOnly = false } = use(FlowContext);
 
   const update = useDebouncedCallback(async () => {
-    console.log('a');
     await handleSubmit(async (condition) => {
       await dataClient.fetch(NodeUpdateEndpoint, { condition, nodeId });
     })();

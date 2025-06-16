@@ -124,10 +124,15 @@ const referenceCompletions =
   }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
     // Check for Reference token type first (works in text body)
-    let token = context.tokenBefore(['Word']);
+    let token = context.tokenBefore(['Word'])?.text.trimStart();
+
+    const isExpression =
+      context.tokenBefore(['String', 'StringExpression']) === null || context.tokenBefore(['Interpolation']) !== null;
+
+    if (token === undefined && isExpression) token = '';
 
     // If no Reference token found, check if we have JSON string content with variables
-    if (!token) {
+    if (token === undefined) {
       // Look for JSON string tokens that might contain variable references
       const line = context.state.doc.lineAt(context.pos);
       const lineText = line.text;
@@ -139,21 +144,13 @@ const referenceCompletions =
 
       if (openBraceIndex >= 0) {
         // Extract potential variable reference text
-        const referenceText = beforeCursor.substring(openBraceIndex + 2).trim();
-
-        // Create a synthetic token for this JSON string reference
-        token = {
-          from: line.from + openBraceIndex + 2,
-          text: referenceText,
-          to: context.pos,
-          type: 'Reference' as never,
-        };
+        token = beforeCursor.substring(openBraceIndex + 2).trim();
       }
     }
 
     // Special handling for JSON string context
     // Look for tokens of different types that might be inside a JSON string
-    if (!token) {
+    if (token === undefined) {
       // Get the token at the current position
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       const tree = (context.state as any).syntaxTree;
@@ -177,28 +174,17 @@ const referenceCompletions =
 
         if (varStartIndex >= 0) {
           // Extract the variable reference text
-          const varText = textBeforeCursor.substring(varStartIndex + 2);
-
-          // Create a synthetic token
-          token = {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/restrict-plus-operands, @typescript-eslint/no-unsafe-member-access
-            from: tokenAtCursor.from + varStartIndex + 2,
-            text: varText,
-            to: context.pos,
-            type: 'Reference' as never,
-          };
+          token = textBeforeCursor.substring(varStartIndex + 2);
         }
       }
     }
 
-    if (!token) return null;
-
-    const startToken = token.text.trimStart();
+    if (token === undefined) return null;
 
     let options: Completion[] = [];
 
     const fileToken = '#file:';
-    if (allowFiles && fileToken.startsWith(startToken)) {
+    if (allowFiles && fileToken.startsWith(token)) {
       options.push({
         apply: async (view, completion, from) => {
           const { filePaths } = await window.electron.dialog('showOpenDialog', {});
@@ -214,12 +200,12 @@ const referenceCompletions =
           });
         },
         displayLabel: fileToken,
-        label: fileToken.replace(startToken, ''),
+        label: fileToken.replace(token, ''),
       });
     }
 
     options = pipe(
-      (await client.referenceCompletion({ ...referenceContext, start: startToken })).items,
+      (await client.referenceCompletion({ ...referenceContext, start: token })).items,
       Array.map((_): Completion => {
         const type = pipe(
           Match.value(_.kind),
@@ -238,7 +224,7 @@ const referenceCompletions =
         );
 
         const label = _.endToken.substring(_.endIndex);
-        const path = startToken + label;
+        const path = token + label;
 
         const info = () => {
           if (![ReferenceKind.VALUE, ReferenceKind.VARIABLE].includes(_.kind)) return null;
@@ -266,7 +252,7 @@ const referenceCompletions =
     return {
       commitCharacters: ['.'],
       filter: false,
-      from: token.to,
+      from: context.pos,
       getMatch: (_) => {
         if (!_.displayLabel) return [];
         const endIndex = _.displayLabel.length - _.label.length;
