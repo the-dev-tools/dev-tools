@@ -40,16 +40,34 @@ func FromSourceKind(kind deltav1.SourceKind) BodyURLEncodedSource {
 }
 
 type BodyURLEncoded struct {
-	BodyKey       string               `json:"body_key"`
-	Description   string               `json:"description"`
-	Value         string               `json:"value"`
-	Enable        bool                 `json:"enable"`
-	DeltaParentID *idwrap.IDWrap       `json:"delta_parent_id"`
-	ID            idwrap.IDWrap        `json:"id"`
-	ExampleID     idwrap.IDWrap        `json:"example_id"`
-	Source        BodyURLEncodedSource `json:"source"`
+	BodyKey       string         `json:"body_key"`
+	Description   string         `json:"description"`
+	Value         string         `json:"value"`
+	Enable        bool           `json:"enable"`
+	DeltaParentID *idwrap.IDWrap `json:"delta_parent_id"`
+	ID            idwrap.IDWrap  `json:"id"`
+	ExampleID     idwrap.IDWrap  `json:"example_id"`
 }
 
 func (bue BodyURLEncoded) IsEnabled() bool {
 	return bue.Enable
+}
+
+// DetermineDeltaType determines the delta type based on the body URL encoded's relationships
+// This function replaces the need for storing Source explicitly
+func (bue *BodyURLEncoded) DetermineDeltaType(exampleHasVersionParent bool) BodyURLEncodedSource {
+	// If no DeltaParentID, this is not a delta body URL encoded
+	if bue.DeltaParentID == nil {
+		return BodyURLEncodedSourceOrigin
+	}
+	
+	// If example has VersionParentID, this is a delta example
+	if exampleHasVersionParent {
+		// BodyURLEncoded has DeltaParentID and example is delta -> DELTA body URL encoded
+		return BodyURLEncodedSourceDelta
+	}
+	
+	// If example has no VersionParentID, it's an original example
+	// BodyURLEncoded has DeltaParentID but example is original -> MIXED body URL encoded
+	return BodyURLEncodedSourceMixed
 }

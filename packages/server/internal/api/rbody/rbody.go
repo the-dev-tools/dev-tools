@@ -62,6 +62,15 @@ func CreateService(srv BodyRPC, options []connect.HandlerOption) (*api.Service, 
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
+// isExampleDelta checks if an example has a VersionParentID (making it a delta example)
+func (c *BodyRPC) isExampleDelta(ctx context.Context, exampleID idwrap.IDWrap) (bool, error) {
+	example, err := c.iaes.GetApiExample(ctx, exampleID)
+	if err != nil {
+		return false, err
+	}
+	return example.VersionParentID != nil, nil
+}
+
 func (c *BodyRPC) BodyFormList(ctx context.Context, req *connect.Request[bodyv1.BodyFormListRequest]) (*connect.Response[bodyv1.BodyFormListResponse], error) {
 	ExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
@@ -101,7 +110,6 @@ func (c *BodyRPC) BodyFormCreate(ctx context.Context, req *connect.Request[bodyv
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	bodyForm.ID = idwrap.NewNow()
-	bodyForm.Source = mbodyform.BodyFormSourceOrigin
 
 	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID)
 	if err != nil {
@@ -147,14 +155,19 @@ func (c *BodyRPC) BodyFormUpdate(ctx context.Context, req *connect.Request[bodyv
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	updated.ExampleID = bodyForm.ExampleID
-	updated.Source = bodyForm.Source
 
 	if err := c.bfs.UpdateBodyForm(ctx, updated); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Check if example has version parent
+	exampleIsDelta, err := c.isExampleDelta(ctx, bodyForm.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Propagate changes to delta bodyforms if this is an origin bodyform
-	if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+	if bodyForm.DetermineDeltaType(exampleIsDelta) == mbodyform.BodyFormSourceOrigin {
 		if err := c.propagateBodyFormChangesToDeltas(ctx, *updated); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -184,8 +197,14 @@ func (c *BodyRPC) BodyFormDelete(ctx context.Context, req *connect.Request[bodyv
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Check if example has version parent
+	exampleIsDelta, err := c.isExampleDelta(ctx, bodyForm.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// If deleting an origin bodyform, also delete associated delta bodyforms
-	if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+	if bodyForm.DetermineDeltaType(exampleIsDelta) == mbodyform.BodyFormSourceOrigin {
 		if err := c.deleteDeltaBodyFormsForOrigin(ctx, bodyForm); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -403,6 +422,12 @@ func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bo
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Check if delta example has version parent
+	deltaExampleIsDelta, err := c.isExampleDelta(ctx, deltaExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Combine all body forms and build maps for lookup
 	allBodyForms := append(originBodyForms, deltaBodyForms...)
 	bodyFormMap := make(map[idwrap.IDWrap]mbodyform.BodyForm)
@@ -413,8 +438,12 @@ func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bo
 		bodyFormMap[bodyForm.ID] = bodyForm
 		originMap[bodyForm.ID] = tbodyform.SerializeFormModelToRPC(bodyForm)
 
+		// Determine the delta type for this body form
+		exampleIsDelta := bodyForm.ExampleID.Compare(deltaExampleID) == 0 && deltaExampleIsDelta
+		deltaType := bodyForm.DetermineDeltaType(exampleIsDelta)
+
 		// Mark origin body forms that have been replaced by mixed body forms
-		if bodyForm.Source == mbodyform.BodyFormSourceMixed && bodyForm.DeltaParentID != nil {
+		if deltaType == mbodyform.BodyFormSourceMixed && bodyForm.DeltaParentID != nil {
 			replacedOrigins[*bodyForm.DeltaParentID] = true
 		}
 	}
@@ -422,17 +451,21 @@ func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bo
 	// Create result slice maintaining order from allBodyForms
 	var rpcBodyForms []*bodyv1.BodyFormDeltaListItem
 	for _, bodyForm := range allBodyForms {
+		// Determine the delta type for this body form
+		exampleIsDelta := bodyForm.ExampleID.Compare(deltaExampleID) == 0 && deltaExampleIsDelta
+		deltaType := bodyForm.DetermineDeltaType(exampleIsDelta)
+
 		// Skip origin body forms that have been replaced by mixed body forms
-		if bodyForm.Source == mbodyform.BodyFormSourceOrigin && replacedOrigins[bodyForm.ID] {
+		if deltaType == mbodyform.BodyFormSourceOrigin && replacedOrigins[bodyForm.ID] {
 			continue
 		}
 
-		sourceKind := bodyForm.Source.ToSourceKind()
+		sourceKind := deltaType.ToSourceKind()
 		var origin *bodyv1.BodyForm
 		var key, value, description string
 		var enabled bool
 
-		if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
+		if deltaType == mbodyform.BodyFormSourceOrigin {
 			// For origin items, put the data in origin field and leave main fields empty
 			origin = tbodyform.SerializeFormModelToRPC(bodyForm)
 			key = ""
@@ -515,7 +548,6 @@ func (c *BodyRPC) BodyFormDeltaCreate(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	bodyForm.ID = idwrap.NewNow()
-	bodyForm.Source = mbodyform.BodyFormSourceDelta
 
 	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID)
 	if err != nil {
@@ -562,9 +594,17 @@ func (c *BodyRPC) BodyFormDeltaUpdate(ctx context.Context, req *connect.Request[
 	}
 	updated.ExampleID = bodyForm.ExampleID
 
+	// Check if example has version parent
+	exampleIsDelta, err := c.isExampleDelta(ctx, bodyForm.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Determine the delta type for this body form
+	deltaType := bodyForm.DetermineDeltaType(exampleIsDelta)
+
 	// If it's an origin bodyform, create a mixed bodyform instead
-	if bodyForm.Source == mbodyform.BodyFormSourceOrigin {
-		updated.Source = mbodyform.BodyFormSourceMixed
+	if deltaType == mbodyform.BodyFormSourceOrigin {
 		updated.DeltaParentID = &bodyForm.ID
 		updated.ID = idwrap.NewNow()
 
@@ -572,7 +612,6 @@ func (c *BodyRPC) BodyFormDeltaUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	} else {
-		updated.Source = bodyForm.Source
 		updated.DeltaParentID = bodyForm.DeltaParentID
 
 		if err := c.bfs.UpdateBodyForm(ctx, updated); err != nil {
@@ -665,6 +704,12 @@ func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Requ
 		return nil, rpcErr
 	}
 
+	// Check if delta example has version parent
+	deltaExampleIsDelta, err := c.isExampleDelta(ctx, deltaExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Get body URL encodeds from both origin and delta examples
 	originBodyURLEncodeds, err := c.bues.GetBodyURLEncodedByExampleID(ctx, originExampleID)
 	if err != nil {
@@ -686,8 +731,12 @@ func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Requ
 		bodyURLEncodedMap[bodyURLEncoded.ID] = bodyURLEncoded
 		originMap[bodyURLEncoded.ID] = tbodyurl.SerializeURLModelToRPC(bodyURLEncoded)
 
+		// Determine the delta type for this body URL encoded
+		exampleIsDelta := bodyURLEncoded.ExampleID.Compare(deltaExampleID) == 0 && deltaExampleIsDelta
+		deltaType := bodyURLEncoded.DetermineDeltaType(exampleIsDelta)
+
 		// Mark origin body URL encodeds that have been replaced by mixed body URL encodeds
-		if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceMixed && bodyURLEncoded.DeltaParentID != nil {
+		if deltaType == mbodyurl.BodyURLEncodedSourceMixed && bodyURLEncoded.DeltaParentID != nil {
 			replacedOrigins[*bodyURLEncoded.DeltaParentID] = true
 		}
 	}
@@ -695,17 +744,21 @@ func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Requ
 	// Create result slice maintaining order from allBodyURLEncodeds
 	var rpcBodyURLEncodeds []*bodyv1.BodyUrlEncodedDeltaListItem
 	for _, bodyURLEncoded := range allBodyURLEncodeds {
+		// Determine the delta type for this body URL encoded
+		exampleIsDelta := bodyURLEncoded.ExampleID.Compare(deltaExampleID) == 0 && deltaExampleIsDelta
+		deltaType := bodyURLEncoded.DetermineDeltaType(exampleIsDelta)
+
 		// Skip origin body URL encodeds that have been replaced by mixed body URL encodeds
-		if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin && replacedOrigins[bodyURLEncoded.ID] {
+		if deltaType == mbodyurl.BodyURLEncodedSourceOrigin && replacedOrigins[bodyURLEncoded.ID] {
 			continue
 		}
 
-		sourceKind := bodyURLEncoded.Source.ToSourceKind()
+		sourceKind := deltaType.ToSourceKind()
 		var origin *bodyv1.BodyUrlEncoded
 		var key, value, description string
 		var enabled bool
 
-		if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin {
+		if deltaType == mbodyurl.BodyURLEncodedSourceOrigin {
 			// For origin items, put the data in origin field and leave main fields empty
 			origin = tbodyurl.SerializeURLModelToRPC(bodyURLEncoded)
 			key = ""
@@ -834,9 +887,17 @@ func (c *BodyRPC) BodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Re
 	}
 	updated.ExampleID = bodyURLEncoded.ExampleID
 
+	// Check if example has version parent
+	exampleIsDelta, err := c.isExampleDelta(ctx, bodyURLEncoded.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Determine the delta type for this body URL encoded
+	deltaType := bodyURLEncoded.DetermineDeltaType(exampleIsDelta)
+
 	// If it's an origin body URL encoded, create a mixed body URL encoded instead
-	if bodyURLEncoded.Source == mbodyurl.BodyURLEncodedSourceOrigin {
-		updated.Source = mbodyurl.BodyURLEncodedSourceMixed
+	if deltaType == mbodyurl.BodyURLEncodedSourceOrigin {
 		updated.DeltaParentID = &bodyURLEncoded.ID
 		updated.ID = idwrap.NewNow()
 
@@ -844,7 +905,6 @@ func (c *BodyRPC) BodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Re
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	} else {
-		updated.Source = bodyURLEncoded.Source
 		updated.DeltaParentID = bodyURLEncoded.DeltaParentID
 
 		if err := c.bues.UpdateBodyURLEncoded(ctx, updated); err != nil {
@@ -914,8 +974,17 @@ func (s *BodyRPC) propagateBodyFormChangesToDeltas(ctx context.Context, originBo
 	}
 
 	for _, deltaBodyForm := range deltaBodyForms {
+		// Check if example has version parent
+		exampleIsDelta, err := s.isExampleDelta(ctx, deltaBodyForm.ExampleID)
+		if err != nil {
+			return err
+		}
+
+		// Determine the delta type for this body form
+		deltaType := deltaBodyForm.DetermineDeltaType(exampleIsDelta)
+
 		// Only update if it's still a delta (not mixed)
-		if deltaBodyForm.Source == mbodyform.BodyFormSourceDelta {
+		if deltaType == mbodyform.BodyFormSourceDelta {
 			deltaBodyForm.BodyKey = originBodyForm.BodyKey
 			deltaBodyForm.Value = originBodyForm.Value
 			deltaBodyForm.Enable = originBodyForm.Enable

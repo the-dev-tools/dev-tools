@@ -50,9 +50,27 @@ type BodyForm struct {
 	DeltaParentID *idwrap.IDWrap `json:"delta_parent_id"`
 	ID            idwrap.IDWrap  `json:"id"`
 	ExampleID     idwrap.IDWrap  `json:"example_id"`
-	Source        BodyFormSource `json:"source"`
 }
 
 func (bf BodyForm) IsEnabled() bool {
 	return bf.Enable
+}
+
+// DetermineDeltaType determines the delta type based on the body form's relationships
+// This function replaces the need for storing Source explicitly
+func (bf *BodyForm) DetermineDeltaType(exampleHasVersionParent bool) BodyFormSource {
+	// If no DeltaParentID, this is not a delta body form
+	if bf.DeltaParentID == nil {
+		return BodyFormSourceOrigin
+	}
+	
+	// If example has VersionParentID, this is a delta example
+	if exampleHasVersionParent {
+		// BodyForm has DeltaParentID and example is delta -> DELTA body form
+		return BodyFormSourceDelta
+	}
+	
+	// If example has no VersionParentID, it's an original example
+	// BodyForm has DeltaParentID but example is original -> MIXED body form
+	return BodyFormSourceMixed
 }

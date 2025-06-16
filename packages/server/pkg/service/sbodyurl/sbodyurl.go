@@ -50,7 +50,6 @@ func SeralizeModeltoGen(body mbodyurl.BodyURLEncoded) gen.ExampleBodyUrlencoded 
 		Enable:        body.Enable,
 		Description:   body.Description,
 		Value:         body.Value,
-		Source:        int8(body.Source),
 	}
 }
 
@@ -63,7 +62,6 @@ func DeserializeGenToModel(body gen.ExampleBodyUrlencoded) mbodyurl.BodyURLEncod
 		Enable:        body.Enable,
 		Description:   body.Description,
 		Value:         body.Value,
-		Source:        mbodyurl.BodyURLEncodedSource(body.Source),
 	}
 }
 
@@ -113,7 +111,6 @@ func (bues BodyURLEncodedService) CreateBodyURLEncoded(ctx context.Context, body
 		Enable:        body.Enable,
 		Description:   body.Description,
 		Value:         body.Value,
-		Source:        int8(body.Source),
 	})
 	return err
 }
@@ -127,7 +124,6 @@ func (bues BodyURLEncodedService) CreateBodyFormRaw(ctx context.Context, bodyFor
 		Enable:        bodyForm.Enable,
 		Description:   bodyForm.Description,
 		Value:         bodyForm.Value,
-		Source:        bodyForm.Source,
 	})
 	return err
 }
@@ -156,7 +152,6 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 			params.Enable = batch[0].Enable
 			params.Description = batch[0].Description
 			params.Value = batch[0].Value
-			params.Source = int8(batch[0].Source)
 		}
 
 		if len(batch) > 1 {
@@ -167,7 +162,6 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 			params.Enable_2 = batch[1].Enable
 			params.Description_2 = batch[1].Description
 			params.Value_2 = batch[1].Value
-			params.Source_2 = int8(batch[1].Source)
 		}
 
 		// Continue for batch[2] through batch[9] if they exist...
@@ -179,7 +173,6 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 			params.Enable_3 = batch[2].Enable
 			params.Description_3 = batch[2].Description
 			params.Value_3 = batch[2].Value
-			params.Source_3 = int8(batch[2].Source)
 		}
 
 		err := bues.queries.CreateBodyUrlEncodedBulk(ctx, params)
@@ -196,7 +189,6 @@ func (bues BodyURLEncodedService) UpdateBodyURLEncoded(ctx context.Context, body
 		Enable:      body.Enable,
 		Description: body.Description,
 		Value:       body.Value,
-		Source:      int8(body.Source),
 		ID:          body.ID,
 	})
 	return err

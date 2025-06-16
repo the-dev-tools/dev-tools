@@ -61,18 +61,17 @@ func SeralizeURLRPCToModelWithoutIDForDelta(urlEncoded *bodyv1.BodyUrlEncoded, e
 		Description:   urlEncoded.Description,
 		Enable:        urlEncoded.Enabled,
 		Value:         urlEncoded.Value,
-		Source:        mbodyurl.BodyURLEncodedSourceDelta, // Set to delta for delta creation
 	}, nil
 }
 
 func SerializeURLModelToRPCDeltaItem(urlEncoded mbodyurl.BodyURLEncoded) *bodyv1.BodyUrlEncodedDeltaListItem {
-	sourceKind := urlEncoded.Source.ToSourceKind()
+	// Note: sourceKind should be determined dynamically in the caller using DetermineDeltaType
 	return &bodyv1.BodyUrlEncodedDeltaListItem{
 		BodyId:      urlEncoded.ID.Bytes(),
 		Key:         urlEncoded.BodyKey,
 		Enabled:     urlEncoded.Enable,
 		Value:       urlEncoded.Value,
 		Description: urlEncoded.Description,
-		Source:      &sourceKind,
+		// Source field should be set by the caller
 	}
 }

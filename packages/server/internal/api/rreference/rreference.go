@@ -253,6 +253,27 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	}
 
 	for _, node := range beforeNodes {
+		// Check if the before node is a foreach or for loop
+		// These nodes store their variables under the node name in the variable map
+		if node.NodeKind == mnnode.NODE_KIND_FOR_EACH {
+			// For foreach loops, they write 'item' and 'key' variables
+			// Create a map structure similar to how WriteNodeVar stores them
+			nodeVarsMap := map[string]interface{}{
+				"item": "current item value",
+				"key":  "current key or index",
+			}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+		} else if node.NodeKind == mnnode.NODE_KIND_FOR {
+			// For for loops, they write 'index' variable
+			// Create a map structure similar to how WriteNodeVar stores them
+			nodeVarsMap := map[string]interface{}{
+				"index": 0,
+			}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+		}
+
 		stateData := node.StateData
 		if json.Valid(stateData) {
 			var anyStateData any
@@ -508,6 +529,25 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 
 		for _, node := range beforeNodes {
+			// Check if the before node is a foreach or for loop
+			// These nodes store their variables under the node name in the variable map
+			if node.NodeKind == mnnode.NODE_KIND_FOR_EACH {
+				// For foreach loops, they write 'item' and 'key' variables
+				// Create a map structure similar to how WriteNodeVar stores them
+				nodeVarsMap := map[string]interface{}{
+					"item": "current item value",
+					"key":  "current key or index",
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+			} else if node.NodeKind == mnnode.NODE_KIND_FOR {
+				// For for loops, they write 'index' variable
+				// Create a map structure similar to how WriteNodeVar stores them
+				nodeVarsMap := map[string]interface{}{
+					"index": 0,
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+			}
+
 			stateData := node.StateData
 			if json.Valid(stateData) {
 				var anyStateData any
@@ -704,6 +744,25 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		}
 
 		for _, node := range beforeNodes {
+			// Check if the before node is a foreach or for loop
+			// These nodes store their variables under the node name in the variable map
+			if node.NodeKind == mnnode.NODE_KIND_FOR_EACH {
+				// For foreach loops, they write 'item' and 'key' variables
+				// Create a map structure similar to how WriteNodeVar stores them
+				nodeVarsMap := map[string]interface{}{
+					"item": "current item value",
+					"key":  "current key or index",
+				}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+			} else if node.NodeKind == mnnode.NODE_KIND_FOR {
+				// For for loops, they write 'index' variable
+				// Create a map structure similar to how WriteNodeVar stores them
+				nodeVarsMap := map[string]interface{}{
+					"index": 0,
+				}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+			}
+
 			stateData := node.StateData
 			if json.Valid(stateData) {
 				var anyStateData any

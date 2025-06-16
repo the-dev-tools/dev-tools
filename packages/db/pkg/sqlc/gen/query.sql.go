@@ -159,9 +159,9 @@ func (q *Queries) CreateAssertResult(ctx context.Context, arg CreateAssertResult
 const createBodyForm = `-- name: CreateBodyForm :exec
 
 INSERT INTO
-  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyFormParams struct {
@@ -172,7 +172,6 @@ type CreateBodyFormParams struct {
 	Enable        bool
 	Description   string
 	Value         string
-	Source        int8
 }
 
 // BodyForm
@@ -185,25 +184,24 @@ func (q *Queries) CreateBodyForm(ctx context.Context, arg CreateBodyFormParams) 
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.Source,
 	)
 	return err
 }
 
 const createBodyFormBulk = `-- name: CreateBodyFormBulk :exec
 INSERT INTO
-  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyFormBulkParams struct {
@@ -214,7 +212,6 @@ type CreateBodyFormBulkParams struct {
 	Enable           bool
 	Description      string
 	Value            string
-	Source           int8
 	ID_2             idwrap.IDWrap
 	ExampleID_2      idwrap.IDWrap
 	DeltaParentID_2  *idwrap.IDWrap
@@ -222,7 +219,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_2         bool
 	Description_2    string
 	Value_2          string
-	Source_2         int8
 	ID_3             idwrap.IDWrap
 	ExampleID_3      idwrap.IDWrap
 	DeltaParentID_3  *idwrap.IDWrap
@@ -230,7 +226,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_3         bool
 	Description_3    string
 	Value_3          string
-	Source_3         int8
 	ID_4             idwrap.IDWrap
 	ExampleID_4      idwrap.IDWrap
 	DeltaParentID_4  *idwrap.IDWrap
@@ -238,7 +233,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_4         bool
 	Description_4    string
 	Value_4          string
-	Source_4         int8
 	ID_5             idwrap.IDWrap
 	ExampleID_5      idwrap.IDWrap
 	DeltaParentID_5  *idwrap.IDWrap
@@ -246,7 +240,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_5         bool
 	Description_5    string
 	Value_5          string
-	Source_5         int8
 	ID_6             idwrap.IDWrap
 	ExampleID_6      idwrap.IDWrap
 	DeltaParentID_6  *idwrap.IDWrap
@@ -254,7 +247,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_6         bool
 	Description_6    string
 	Value_6          string
-	Source_6         int8
 	ID_7             idwrap.IDWrap
 	ExampleID_7      idwrap.IDWrap
 	DeltaParentID_7  *idwrap.IDWrap
@@ -262,7 +254,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_7         bool
 	Description_7    string
 	Value_7          string
-	Source_7         int8
 	ID_8             idwrap.IDWrap
 	ExampleID_8      idwrap.IDWrap
 	DeltaParentID_8  *idwrap.IDWrap
@@ -270,7 +261,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_8         bool
 	Description_8    string
 	Value_8          string
-	Source_8         int8
 	ID_9             idwrap.IDWrap
 	ExampleID_9      idwrap.IDWrap
 	DeltaParentID_9  *idwrap.IDWrap
@@ -278,7 +268,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_9         bool
 	Description_9    string
 	Value_9          string
-	Source_9         int8
 	ID_10            idwrap.IDWrap
 	ExampleID_10     idwrap.IDWrap
 	DeltaParentID_10 *idwrap.IDWrap
@@ -286,7 +275,6 @@ type CreateBodyFormBulkParams struct {
 	Enable_10        bool
 	Description_10   string
 	Value_10         string
-	Source_10        int8
 }
 
 func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulkParams) error {
@@ -298,7 +286,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.Source,
 		arg.ID_2,
 		arg.ExampleID_2,
 		arg.DeltaParentID_2,
@@ -306,7 +293,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
-		arg.Source_2,
 		arg.ID_3,
 		arg.ExampleID_3,
 		arg.DeltaParentID_3,
@@ -314,7 +300,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
-		arg.Source_3,
 		arg.ID_4,
 		arg.ExampleID_4,
 		arg.DeltaParentID_4,
@@ -322,7 +307,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
-		arg.Source_4,
 		arg.ID_5,
 		arg.ExampleID_5,
 		arg.DeltaParentID_5,
@@ -330,7 +314,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
-		arg.Source_5,
 		arg.ID_6,
 		arg.ExampleID_6,
 		arg.DeltaParentID_6,
@@ -338,7 +321,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
-		arg.Source_6,
 		arg.ID_7,
 		arg.ExampleID_7,
 		arg.DeltaParentID_7,
@@ -346,7 +328,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
-		arg.Source_7,
 		arg.ID_8,
 		arg.ExampleID_8,
 		arg.DeltaParentID_8,
@@ -354,7 +335,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
-		arg.Source_8,
 		arg.ID_9,
 		arg.ExampleID_9,
 		arg.DeltaParentID_9,
@@ -362,7 +342,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
-		arg.Source_9,
 		arg.ID_10,
 		arg.ExampleID_10,
 		arg.DeltaParentID_10,
@@ -370,7 +349,6 @@ func (q *Queries) CreateBodyFormBulk(ctx context.Context, arg CreateBodyFormBulk
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
-		arg.Source_10,
 	)
 	return err
 }
@@ -473,9 +451,9 @@ func (q *Queries) CreateBodyRawBulk(ctx context.Context, arg CreateBodyRawBulkPa
 
 const createBodyUrlEncoded = `-- name: CreateBodyUrlEncoded :exec
 INSERT INTO
-  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyUrlEncodedParams struct {
@@ -486,7 +464,6 @@ type CreateBodyUrlEncodedParams struct {
 	Enable        bool
 	Description   string
 	Value         string
-	Source        int8
 }
 
 func (q *Queries) CreateBodyUrlEncoded(ctx context.Context, arg CreateBodyUrlEncodedParams) error {
@@ -498,25 +475,24 @@ func (q *Queries) CreateBodyUrlEncoded(ctx context.Context, arg CreateBodyUrlEnc
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.Source,
 	)
 	return err
 }
 
 const createBodyUrlEncodedBulk = `-- name: CreateBodyUrlEncodedBulk :exec
 INSERT INTO
-  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateBodyUrlEncodedBulkParams struct {
@@ -527,7 +503,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable           bool
 	Description      string
 	Value            string
-	Source           int8
 	ID_2             idwrap.IDWrap
 	ExampleID_2      idwrap.IDWrap
 	DeltaParentID_2  *idwrap.IDWrap
@@ -535,7 +510,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_2         bool
 	Description_2    string
 	Value_2          string
-	Source_2         int8
 	ID_3             idwrap.IDWrap
 	ExampleID_3      idwrap.IDWrap
 	DeltaParentID_3  *idwrap.IDWrap
@@ -543,7 +517,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_3         bool
 	Description_3    string
 	Value_3          string
-	Source_3         int8
 	ID_4             idwrap.IDWrap
 	ExampleID_4      idwrap.IDWrap
 	DeltaParentID_4  *idwrap.IDWrap
@@ -551,7 +524,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_4         bool
 	Description_4    string
 	Value_4          string
-	Source_4         int8
 	ID_5             idwrap.IDWrap
 	ExampleID_5      idwrap.IDWrap
 	DeltaParentID_5  *idwrap.IDWrap
@@ -559,7 +531,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_5         bool
 	Description_5    string
 	Value_5          string
-	Source_5         int8
 	ID_6             idwrap.IDWrap
 	ExampleID_6      idwrap.IDWrap
 	DeltaParentID_6  *idwrap.IDWrap
@@ -567,7 +538,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_6         bool
 	Description_6    string
 	Value_6          string
-	Source_6         int8
 	ID_7             idwrap.IDWrap
 	ExampleID_7      idwrap.IDWrap
 	DeltaParentID_7  *idwrap.IDWrap
@@ -575,7 +545,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_7         bool
 	Description_7    string
 	Value_7          string
-	Source_7         int8
 	ID_8             idwrap.IDWrap
 	ExampleID_8      idwrap.IDWrap
 	DeltaParentID_8  *idwrap.IDWrap
@@ -583,7 +552,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_8         bool
 	Description_8    string
 	Value_8          string
-	Source_8         int8
 	ID_9             idwrap.IDWrap
 	ExampleID_9      idwrap.IDWrap
 	DeltaParentID_9  *idwrap.IDWrap
@@ -591,7 +559,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_9         bool
 	Description_9    string
 	Value_9          string
-	Source_9         int8
 	ID_10            idwrap.IDWrap
 	ExampleID_10     idwrap.IDWrap
 	DeltaParentID_10 *idwrap.IDWrap
@@ -599,7 +566,6 @@ type CreateBodyUrlEncodedBulkParams struct {
 	Enable_10        bool
 	Description_10   string
 	Value_10         string
-	Source_10        int8
 }
 
 func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUrlEncodedBulkParams) error {
@@ -611,7 +577,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.Source,
 		arg.ID_2,
 		arg.ExampleID_2,
 		arg.DeltaParentID_2,
@@ -619,7 +584,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
-		arg.Source_2,
 		arg.ID_3,
 		arg.ExampleID_3,
 		arg.DeltaParentID_3,
@@ -627,7 +591,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
-		arg.Source_3,
 		arg.ID_4,
 		arg.ExampleID_4,
 		arg.DeltaParentID_4,
@@ -635,7 +598,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
-		arg.Source_4,
 		arg.ID_5,
 		arg.ExampleID_5,
 		arg.DeltaParentID_5,
@@ -643,7 +605,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
-		arg.Source_5,
 		arg.ID_6,
 		arg.ExampleID_6,
 		arg.DeltaParentID_6,
@@ -651,7 +612,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
-		arg.Source_6,
 		arg.ID_7,
 		arg.ExampleID_7,
 		arg.DeltaParentID_7,
@@ -659,7 +619,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
-		arg.Source_7,
 		arg.ID_8,
 		arg.ExampleID_8,
 		arg.DeltaParentID_8,
@@ -667,7 +626,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
-		arg.Source_8,
 		arg.ID_9,
 		arg.ExampleID_9,
 		arg.DeltaParentID_9,
@@ -675,7 +633,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
-		arg.Source_9,
 		arg.ID_10,
 		arg.ExampleID_10,
 		arg.DeltaParentID_10,
@@ -683,7 +640,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
-		arg.Source_10,
 	)
 	return err
 }
@@ -3178,8 +3134,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
     example_body_form
 WHERE
@@ -3198,7 +3153,6 @@ func (q *Queries) GetBodyForm(ctx context.Context, id idwrap.IDWrap) (ExampleBod
 		&i.Enable,
 		&i.Description,
 		&i.Value,
-		&i.Source,
 	)
 	return i, err
 }
@@ -3211,8 +3165,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
     example_body_form
 WHERE
@@ -3236,7 +3189,6 @@ func (q *Queries) GetBodyFormsByDeltaParentID(ctx context.Context, deltaParentID
 			&i.Enable,
 			&i.Description,
 			&i.Value,
-			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -3259,8 +3211,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
     example_body_form
 WHERE
@@ -3284,7 +3235,6 @@ func (q *Queries) GetBodyFormsByExampleID(ctx context.Context, exampleID idwrap.
 			&i.Enable,
 			&i.Description,
 			&i.Value,
-			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -3366,8 +3316,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
   example_body_urlencoded
 WHERE
@@ -3387,7 +3336,6 @@ func (q *Queries) GetBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (Exam
 		&i.Enable,
 		&i.Description,
 		&i.Value,
-		&i.Source,
 	)
 	return i, err
 }
@@ -3400,8 +3348,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
   example_body_urlencoded
 WHERE
@@ -3425,7 +3372,6 @@ func (q *Queries) GetBodyUrlEncodedsByDeltaParentID(ctx context.Context, deltaPa
 			&i.Enable,
 			&i.Description,
 			&i.Value,
-			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -3448,8 +3394,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
   example_body_urlencoded
 WHERE
@@ -3473,7 +3418,6 @@ func (q *Queries) GetBodyUrlEncodedsByExampleID(ctx context.Context, exampleID i
 			&i.Enable,
 			&i.Description,
 			&i.Value,
-			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -5976,8 +5920,7 @@ SET
   body_key = ?,
   enable = ?,
   description = ?,
-  value = ?,
-  source = ?
+  value = ?
 WHERE
   id = ?
 `
@@ -5987,7 +5930,6 @@ type UpdateBodyFormParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	Source      int8
 	ID          idwrap.IDWrap
 }
 
@@ -5997,7 +5939,6 @@ func (q *Queries) UpdateBodyForm(ctx context.Context, arg UpdateBodyFormParams) 
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.Source,
 		arg.ID,
 	)
 	return err
@@ -6029,8 +5970,7 @@ UPDATE example_body_urlencoded
       body_key = ?,
       enable = ?,
       description = ?,
-      value = ?,
-      source = ?
+      value = ?
     WHERE
       id = ?
 `
@@ -6040,7 +5980,6 @@ type UpdateBodyUrlEncodedParams struct {
 	Enable      bool
 	Description string
 	Value       string
-	Source      int8
 	ID          idwrap.IDWrap
 }
 
@@ -6050,7 +5989,6 @@ func (q *Queries) UpdateBodyUrlEncoded(ctx context.Context, arg UpdateBodyUrlEnc
 		arg.Enable,
 		arg.Description,
 		arg.Value,
-		arg.Source,
 		arg.ID,
 	)
 	return err

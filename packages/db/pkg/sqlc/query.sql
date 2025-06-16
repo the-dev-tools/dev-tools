@@ -977,8 +977,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
     example_body_form
 WHERE
@@ -993,8 +992,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
     example_body_form
 WHERE
@@ -1008,8 +1006,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
     example_body_form
 WHERE
@@ -1021,24 +1018,24 @@ WHERE
 
 -- name: CreateBodyForm :exec
 INSERT INTO
-  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateBodyFormBulk :exec
 INSERT INTO
-  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_form (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateBodyForm :exec
 UPDATE example_body_form
@@ -1046,8 +1043,7 @@ SET
   body_key = ?,
   enable = ?,
   description = ?,
-  value = ?,
-  source = ?
+  value = ?
 WHERE
   id = ?;
 
@@ -1075,8 +1071,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
   example_body_urlencoded
 WHERE
@@ -1091,8 +1086,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
   example_body_urlencoded
 WHERE
@@ -1106,8 +1100,7 @@ SELECT
   body_key,
   enable,
   description,
-  value,
-  source
+  value
 FROM
   example_body_urlencoded
 WHERE
@@ -1115,24 +1108,24 @@ WHERE
 
 -- name: CreateBodyUrlEncoded :exec
 INSERT INTO
-  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateBodyUrlEncodedBulk :exec
 INSERT INTO
-  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value, source)
+  example_body_urlencoded (id, example_id, delta_parent_id, body_key, enable, description, value)
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateBodyUrlEncoded :exec
 UPDATE example_body_urlencoded
@@ -1140,8 +1133,7 @@ UPDATE example_body_urlencoded
       body_key = ?,
       enable = ?,
       description = ?,
-      value = ?,
-      source = ?
+      value = ?
     WHERE
       id = ?;
 
