@@ -972,7 +972,14 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 // ensureProperDependencyOrdering ensures that:
 // 1. Nodes without incoming dependencies are connected to the start node
 // 2. Dependency chains are properly ordered
+// 3. Redundant transitive edges are removed
 func ensureProperDependencyOrdering(result *HarResvoled, startNodeID idwrap.IDWrap, flowID idwrap.IDWrap) error {
+	// First, perform transitive reduction to remove redundant edges
+	err := performTransitiveReduction(result)
+	if err != nil {
+		return err
+	}
+
 	// Build a map of which nodes have incoming dependencies
 	hasIncomingDependencies := make(map[idwrap.IDWrap]bool)
 
@@ -1008,6 +1015,56 @@ func ensureProperDependencyOrdering(result *HarResvoled, startNodeID idwrap.IDWr
 		}
 	}
 
+	return nil
+}
+
+// performTransitiveReduction removes redundant edges from the dependency graph.
+// If there's a path from A to C through B (A→B→C), then a direct edge A→C is redundant.
+func performTransitiveReduction(result *HarResvoled) error {
+	// Build adjacency list for the graph
+	adjacencyList := make(map[idwrap.IDWrap]map[idwrap.IDWrap]bool)
+	for _, edge := range result.Edges {
+		if adjacencyList[edge.SourceID] == nil {
+			adjacencyList[edge.SourceID] = make(map[idwrap.IDWrap]bool)
+		}
+		adjacencyList[edge.SourceID][edge.TargetID] = true
+	}
+
+	// For each node, compute all nodes reachable through paths of length > 1
+	for source := range adjacencyList {
+		// Find all nodes reachable from source through intermediate nodes
+		reachableThroughPaths := make(map[idwrap.IDWrap]bool)
+		
+		// Check all direct neighbors
+		for intermediate := range adjacencyList[source] {
+			// From each direct neighbor, find what nodes are reachable
+			if intermediateNeighbors, exists := adjacencyList[intermediate]; exists {
+				for target := range intermediateNeighbors {
+					// Mark that we can reach 'target' from 'source' through 'intermediate'
+					reachableThroughPaths[target] = true
+				}
+			}
+		}
+
+		// Remove direct edges that are redundant (reachable through other paths)
+		for target := range reachableThroughPaths {
+			if adjacencyList[source][target] {
+				// This edge is redundant, mark it for removal
+				delete(adjacencyList[source], target)
+			}
+		}
+	}
+
+	// Rebuild the edges list without redundant edges
+	var newEdges []edge.Edge
+	for _, e := range result.Edges {
+		if adjacencyList[e.SourceID] != nil && adjacencyList[e.SourceID][e.TargetID] {
+			newEdges = append(newEdges, e)
+		}
+	}
+
+	// Update the result with the reduced set of edges
+	result.Edges = newEdges
 	return nil
 }
 
